@@ -25,9 +25,10 @@
 
 ## 3. Canvas (React Flow)
 
-- Modules as nodes, laid out left→right by column: research | data (libraries, live APIs) |
+- Modules as nodes, laid out left→right by column: research | data (libraries, live APIs, math) |
   trend | trading | policy. Edges = `module_links`, animated when data is flowing (projection of
-  job activity), colored by link kind.
+  job activity), colored by link kind. Policy nodes (rightmost) bind policy envelopes to the
+  trading modules linked into them; the Math node is pinned in the data column, non-deletable.
 - **Node anatomy (simplified view):** icon + name + type chip, status line (text-first:
   `active · 3 jobs`, `blocked: session_legality`, `watch · 2 leads`), key metric (per type:
   concepts count / feed freshness / active trends / module PnL + allocation), activity sprite

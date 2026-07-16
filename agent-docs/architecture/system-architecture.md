@@ -66,6 +66,7 @@ canvas):
 | Data module: Live API | Deterministic | market data feeds (Alpaca data, Kalshi books); queryable by pipeline |
 | Trend module | Model-bearing (Mistral) + deterministic scoring | trends + leads + directives; can trigger simulations |
 | Trading module (crypto / prediction / HFT / day / long-term) | Mixed; dispatch deterministic | full v1 pipeline embedded per module, expertise presets per type |
+| Policy node | Deterministic config | rightmost canvas column; binds policy envelopes (goals, risk bounds, session allowances) to linked trading modules |
 | Utility: Module generator | Model-bearing | creates configured module instances from user spec |
 | Utility: Simulator | Deterministic engine + paper adapter | parallel paper runs; results feed trends/training |
 | Utility: Analyzer | Mixed | any-input→any-output converter; verification loopback |

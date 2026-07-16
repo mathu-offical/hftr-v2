@@ -17,10 +17,13 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 - **companies** — clerk_user_id, name, philosophy_prompt, goals jsonb, reinvestment_policy jsonb,
   scoping_policies jsonb, mode `paper|live`, seed_credits_cents (paper), broker_connection_id
   nullable, auto_fund_policy jsonb (approval thresholds), archived_at.
-- **modules** — company_id, type `research|library|live_api|trend|trading|generator|simulator|
-  analyzer|fund_router`, subtype (trading: `crypto|prediction|hft|day|long_term|custom`),
-  name, config jsonb (schema per type), status `active|paused|error|draft`,
+- **modules** — company_id, type `research|library|live_api|trend|trading|policy|generator|
+  simulator|analyzer|fund_router|math`, subtype (trading: `crypto|prediction|hft|day|
+  long_term|custom`), name, config jsonb (schema per type), status `active|paused|error|draft`,
   allocation_cents, canvas_position jsonb {x,y}, philosophy_override text.
+  Notes: `math` is auto-created per company and non-deletable (D-008); `policy` nodes occupy the
+  rightmost canvas column and bind policy envelopes to the trading modules linked into them
+  (spec: "trading modules → trading policies").
 - **module_links** — company_id, from_module_id, to_module_id, link_kind
   `data_feed|directive|verification|fund_route`, config jsonb. (These are the canvas edges.)
 - **fund_transfers** — company_id, from (module|company_pool|reserve), to, amount_cents,

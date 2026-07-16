@@ -1,0 +1,41 @@
+---
+description: ValueRef, calculator, clock/calendar — LLMs never handle raw numbers or times
+globs: packages/engine/**,packages/llm/**,packages/contracts/**
+alwaysApply: false
+---
+
+# Number & temporal handling
+
+Canonical: `agent-docs/architecture/number-handling.md`
+
+## Core rule
+
+LLMs **never** read, write, transform, or emit raw financial numbers or authoritative
+dates/times/durations.
+
+## Value flow
+
+```
+live data source / clock / market calendar
+  → typed fixed-point ValueRef (k/v store)
+  → deterministic calculator (unit algebra, sanity gauntlet)
+  → lever resolution / band positions
+  → execution
+```
+
+## Implementation checklist
+
+- [ ] Model output fields for values typed as **ValueRef handles**, not numbers
+- [ ] Calculator is sole producer of derived values; adapters/ledger/clock sole producers of sources
+- [ ] Leak linter rejects digit and datetime patterns in model output text
+- [ ] All "now" reads via injectable **clock module**
+- [ ] Session math via **market calendar service**
+- [ ] Timestamps in prompts: read-only orientation block only — never schedule from model text
+- [ ] Fund router percentages: calc ops over ledger ValueRefs, not model-emitted amounts
+
+## Math module (UI)
+
+Auto-created per company, non-deletable — k/v browser, lineage graph, calc audit log.
+
+When touching LLM prompts/schemas: run leak-lint tests. When touching calc: property-based
+tests on unit algebra and fixed-point ops.

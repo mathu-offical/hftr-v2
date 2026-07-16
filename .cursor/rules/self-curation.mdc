@@ -1,0 +1,38 @@
+---
+description: Mandatory agent-docs self-curation on every behavior-changing change
+alwaysApply: true
+---
+
+# Self-curation is mandatory
+
+`agent-docs/` is the living brain of hftr v2. Every session that changes behavior, schema,
+decisions, or standards **must update owning docs in the same change**.
+
+## Session start
+
+1. Read `agent-docs/README.md`
+2. Read owning doc(s) for the area you touch (see `agent-sources.mdc`)
+3. Check active milestone in `plans/master-build-plan.md`
+
+## Same-change updates
+
+| Change type | Update |
+|-------------|--------|
+| Feature behavior | `product/product-spec.md` or architecture doc |
+| Schema/API | `architecture/data-model.md` + contracts |
+| UI surface | `ui-ux/ui-spec.md` |
+| Tech swap | `research/tech-decisions.md` (new TD-nn) |
+| User decision | `dev-intent/decisions-log.md` (D-nnn) |
+| Unresolved question | decisions-log "Open" (OQ-n) |
+| Milestone progress | `plans/master-build-plan.md` + sprint spec |
+| v1 port | `research/v1-carryover.md` |
+
+## Open questions
+
+- Stable IDs: `OQ-1`, `OQ-2`, …
+- **Resolve in place** — never delete unanswered questions
+
+## Drift handling
+
+If docs contradict code: code wins for runtime; log drift and fix docs (or file OQ-n if intent unclear).
+Invoke skill `.cursor/skills/agent-docs-curate/` or `/curate-docs` for full passes.

@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build
+.next/
+dist/
+build/
+.turbo/
+out/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+*.log
+.cursor/runtime/
+
+# Test / coverage
+coverage/
+playwright-report/
+test-results/
+
+# Vercel
+.vercel

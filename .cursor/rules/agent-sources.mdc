@@ -1,0 +1,47 @@
+---
+description: Master index of hftr-v2 agent sources — rules, docs, v1 reference paths
+alwaysApply: true
+---
+
+# Agent source index
+
+Read sources in this priority order when resolving intent vs implementation:
+
+1. **Code** — ground truth for what runs today
+2. **v2 init spec** — `DevSpecs/hftr-v2.init.spec.md` (read-only)
+3. **v1 project** — `/Users/matt-mobile/MATT/web_dev/hftr/` (read-only)
+4. **agent-docs/** — living truth; must stay synced with code
+5. **User chat** — implementation decisions → log in `dev-intent/decisions-log.md`
+
+## agent-docs map (start here)
+
+| Area | Path |
+|------|------|
+| Plans & gates | `agent-docs/plans/master-build-plan.md`, `m0-sprint-spec.md`, `m1-sprint-spec.md` |
+| Product | `agent-docs/product/product-spec.md` |
+| UI/UX | `agent-docs/ui-ux/ui-spec.md` |
+| Architecture | `agent-docs/architecture/system-architecture.md` |
+| LLM pipeline | `agent-docs/architecture/llm-pipeline.md` |
+| Numbers/time | `agent-docs/architecture/number-handling.md` |
+| Data model | `agent-docs/architecture/data-model.md` |
+| Jobs/queue | `agent-docs/architecture/job-orchestration.md` |
+| Brokers | `agent-docs/architecture/broker-integration.md` |
+| v1 carryover | `agent-docs/research/v1-carryover.md` |
+| Tech decisions | `agent-docs/research/tech-decisions.md` (TD-nn) |
+| Decisions | `agent-docs/dev-intent/decisions-log.md` (D-nnn, OQ-n) |
+
+## v1 lookup (read-only)
+
+| Need | v1 path |
+|------|---------|
+| Contracts/types | `hftr/packages/contracts/src/` |
+| Pipeline nodes | `hftr/apps/hftr-web/src/lib/pipeline/` |
+| Band constants | `hftr/apps/hftr-web/src/lib/pipeline/nodes/bands.ts` |
+| Wiki concepts | `hftr/agent-docs/wiki/` |
+| Compliance baseline | `hftr/agent-docs/research/compliance-and-policy-operating-baseline.md` |
+| DevSpecs | `hftr/DevSpecs/` |
+
+## Cursor workspace
+
+Skills/workflows: `.cursor/README.md`. Invoke `session-start` at task start;
+`verify-change` before claiming done; `agent-docs-curate` when docs drift.

@@ -1,0 +1,37 @@
+---
+description: TypeScript strict standards, Zod contracts, and code quality for hftr-v2
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# TypeScript & code quality
+
+## Language standards
+
+- TypeScript **strict** everywhere
+- Imports at top of file — no inline imports unless documented circular-dep exception
+- Exhaustive switches: `never` in default case for union/enum switches
+- Prefer existing abstractions; match surrounding naming and file structure
+
+## Contracts (`packages/contracts`)
+
+- Every cross-boundary artifact has a **Zod schema** + exported TS type
+- LLM calls: strict JSON schemas; **re-validate server-side** after every provider response
+- LLM outputs: choice-generation over freeform — lever IDs, enum choices, ValueRef handles
+
+## Package purity
+
+- `packages/engine`: zero Next.js/React imports — must run in worker/CLI/test without web app
+- `packages/adapters`: broker polymorphism via adapter policy, not engine forks
+- `apps/web`: thin orchestration — business logic in packages
+
+## Error handling
+
+- Fail-closed on schema violations, scope violations, and live-gate failures
+- No silent catch-and-ignore on trading or verification paths
+- Structured failure codes matching v1 verification shape where applicable
+
+## File size
+
+- Decompose files approaching ~300+ lines when adding features
+- One clear responsibility per module/file

@@ -1,0 +1,36 @@
+---
+description: Zero-trust verification — no claim is done without runtime proof
+alwaysApply: true
+---
+
+# Zero-trust verification
+
+No written code or doc claim is trusted without verification against the running system.
+
+## Before finishing any task
+
+1. **Tests** — run relevant unit/contract tests for changed packages
+2. **Browser** — IronBee DevTools (`ironbee-dt-browser`) for UI-observable changes
+3. **Console** — check `o11y_get-console-messages` for errors after browser verification
+4. **Docs** — mark unverified claims explicitly; update agent-docs if behavior changed
+
+Skip browser verification only when the change has **zero observable runtime effect**
+(CI config, docs-only with no behavior claim, non-app tooling).
+
+## Browser workflow (IronBee only)
+
+Navigate → interact (not just screenshot) → ARIA snapshot or screenshot → console check.
+Prefer `execute` tool for multi-step flows (3+ interactions).
+
+## Testing expectations
+
+- Every pipeline stage: contract tests against declared Zod schemas
+- Key flows in `ui-ux/ui-spec.md` §7: Playwright-covered as they ship
+- External research claims: verify before encoding; cite in `agent-docs/research/`
+
+## Research before implementation
+
+When adopting a library, API, or pattern: check current official docs (Context7 MCP or
+provider docs). Log decisions in `tech-decisions.md` with verification status.
+
+Invoke `.cursor/skills/verify-change/` or `/verify` for structured passes.

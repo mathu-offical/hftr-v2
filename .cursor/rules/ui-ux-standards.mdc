@@ -1,0 +1,39 @@
+---
+description: UI/UX design system — canvas, panels, tokens, React Flow performance
+globs: "**/*.{tsx,css}"
+alwaysApply: false
+---
+
+# UI/UX standards
+
+Canonical spec: `agent-docs/ui-ux/ui-spec.md`
+
+## Visual identity
+
+- **Theme:** financial-terminal dark (`#0a0e14`-family), high-contrast data text
+- **Tokens:** `tokens.css` / Tailwind — spacing, radii (4–8px), tabular-nums for numbers
+- **Icons:** Lucide monochrome outline — **no emojis** in product UI
+- **Status:** text-first (`blocked: session_legality`); color reinforces, never sole signal
+- **Playfulness:** animated worker sprites **inside canvas nodes only** — panels stay clean
+
+## Canvas (React Flow)
+
+- Layout L→R: research | data | trend | trading | policy
+- **Mandatory perf:** memoized nodes/edges, `nodeTypes` at module scope, Zustand + `useShallow`
+- Never subscribe components to whole nodes/edges arrays
+- Node anatomy: icon + name + type chip + text status line + key metric + activity layer
+
+## Panels
+
+- Full-screen slide-overs: left (research/data), bottom (control), right (execution)
+- Deep-link routes: `/c/:companyId/research`, `/control`, `/execution`
+- Keyboard: `[`, `]`, `` ` `` toggles; Esc closes
+
+## Shell
+
+- Top bar: logo → company switcher → breadcrumbs → paper/live badge → credits → settings → Clerk
+
+## Accessibility & perf
+
+- ARIA labels on interactive elements; 60fps canvas pan/zoom target
+- Panel animation ≤300ms; skeletons for data refresh (no layout shift)

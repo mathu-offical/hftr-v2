@@ -1,0 +1,38 @@
+---
+description: DevSpecs and hftr v1 are canonical read-only references — never edit them
+alwaysApply: true
+---
+
+# Canonical sources are read-only
+
+**Never edit:**
+
+- `DevSpecs/` in this repo (`hftr-v2.init.spec.md`)
+- `/Users/matt-mobile/MATT/web_dev/hftr/DevSpecs/`
+- `/Users/matt-mobile/MATT/web_dev/hftr/agent-docs/`
+- Any file under the v1 implementation used as reference
+
+## Build alignment rule
+
+All v2 work must align with **combined intent** from:
+
+1. v2 init spec (`DevSpecs/hftr-v2.init.spec.md`)
+2. v1 project (specs, agent-docs, contracts, wiki, pipeline research)
+
+When they conflict, record resolution in `agent-docs/dev-intent/decisions-log.md` (stable D-nnn ID).
+Do not silently pick one source.
+
+## What to carry from v1
+
+- **Contracts and catalogs** — types, bands, guardrails, verification schemas
+- **Invariants and compliance framing**
+- **Research and wiki concepts**
+
+Do **not** copy v1 components, stale DB types, or stub LLM/broker layers blindly.
+Mapping lives in `agent-docs/research/v1-carryover.md`.
+
+## Instead of editing canonical files
+
+- Record implementation truth in `agent-docs/`
+- Port contracts into `packages/contracts/` with v2 naming
+- Log open questions as OQ-n in decisions-log (resolve, never delete)

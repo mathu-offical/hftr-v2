@@ -1,0 +1,45 @@
+---
+description: Non-negotiable trading, LLM pipeline, and compliance safety invariants
+alwaysApply: true
+---
+
+# Safety invariants (non-negotiable)
+
+Carried from v1; enforced in code review, contracts, and tests.
+
+## Model boundary
+
+```
+Claude (strategic) ← Mistral (orchestration) → Groq (compile)
+════════════════ MODEL-FREE BELOW COMPILE ════════════════
+deterministic gates → dispatch → broker → verification
+```
+
+- **Groq compile is the LAST model-bearing stage.** Never add LLM calls below it.
+- Dispatch and verification are **model-free and provider-free**.
+
+## Guardrails & verification
+
+- Guardrail packages and verification schemas: **immutable at runtime**
+- Only **weights** and **bounded-range positions** inside envelopes are mutable
+- Fail-closed on out-of-scope/out-of-range/unknown levers (`enforceScopeStrict`)
+
+## Paper / live parity
+
+- One engine; mode changes adapters, limits, compliance paths only
+- **Live is fail-closed** until explicit gates pass (`plans/master-build-plan.md`)
+- Never enable live-trading without documented gate criteria
+
+## Numbers and time (D-008, D-009)
+
+- LLMs never read/write/transform raw financial numbers or authoritative dates/times/durations
+- Flow: live source / clock / calendar → ValueRef → calculator → levers → execution
+- Leak lint all model outputs (digits + datetime patterns); sanity checks at every morph
+- Timestamps OK as **read-only orientation context** only
+
+## Compliance copy
+
+- No guaranteed-returns language in code, docs, or UI
+- Entitlement truthfulness; session legality; text-first status (color reinforces only)
+
+Full detail: `AGENTS.md`, `architecture/number-handling.md`, `architecture/llm-pipeline.md`.

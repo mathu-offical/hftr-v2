@@ -1,0 +1,40 @@
+---
+description: Monorepo boundaries, package roles, and cross-layer authority for hftr-v2
+globs: packages/**,apps/**
+alwaysApply: false
+---
+
+# Architecture & monorepo boundaries
+
+```
+apps/web/          Next.js 15 UI + API routes + server actions
+packages/contracts Zod schemas — every cross-boundary artifact
+packages/db        Drizzle schema, migrations, ownership scoping
+packages/engine    Pure pipeline — NO Next.js/React imports
+packages/adapters  Broker adapters (paper, Alpaca, Kalshi, Polymarket, …)
+packages/llm       Provider clients + schema-locked call wrappers + budgets
+```
+
+## Authority model
+
+- UI reads projections; writes only via validated, Clerk-scoped APIs
+- Model tiers emit schema-validated artifacts; **never submit orders**
+- Deterministic core is the **only** layer calling broker trading endpoints
+- Cross-tier artifacts travel in `HandoffEnvelope`
+
+## Implementation rules
+
+- Stack choices: `agent-docs/research/tech-decisions.md` (TD-nn) — log before substituting
+- DB: ownership-scoping helpers on every query; append-only tables never updated/deleted
+  (`action_traces`, `verification_records`, `credit_ledger`, `assistant_edits`)
+- Queue: Postgres SKIP LOCKED pattern (`architecture/job-orchestration.md`)
+- Env: `DATABASE_URL` standard; `.env.example` synced with `packages/contracts`
+- Rate limiting: **admission-based call budgets**, never context truncation
+
+## Domain quick map
+
+- **Company** = user's canvas unit (philosophy, policies, seed, paper|live)
+- **Modules** = research, data (library/live API), trend, trading presets, utilities
+- **Module links** = real data-flow contracts on canvas edges
+
+Full detail: `architecture/system-architecture.md`, `architecture/data-model.md`.

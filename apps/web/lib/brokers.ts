@@ -1,6 +1,9 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import type { AdapterCapabilities, BrokerConnectionSummary } from '@hftr/contracts';
-import { AdapterCapabilities as AdapterCapabilitiesSchema } from '@hftr/contracts';
+import {
+  AdapterCapabilities as AdapterCapabilitiesSchema,
+  normalizeAdapterServiceCapabilities,
+} from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { brokerConnections, companies } from '@hftr/db/schema';
 import { NotFoundError } from '@hftr/db';
@@ -41,18 +44,24 @@ export async function summarizeBrokerConnections(
     .leftJoin(companies, eq(companies.brokerConnectionId, brokerConnections.id))
     .where(eq(brokerConnections.clerkUserId, clerkUserId));
 
-  return rows.map((row) => ({
-    id: row.id,
-    venue: row.venue,
-    mode: row.mode,
-    status: row.status,
-    keyHint: row.keyHint,
-    capabilities: row.capabilities ? AdapterCapabilitiesSchema.parse(row.capabilities) : null,
-    lastVerifiedAt: row.lastVerifiedAt?.toISOString() ?? null,
-    boundCompanyId: row.boundCompanyId,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  }));
+  return rows.map((row) => {
+    const capabilities = row.capabilities
+      ? AdapterCapabilitiesSchema.parse(row.capabilities)
+      : null;
+    return {
+      id: row.id,
+      venue: row.venue,
+      mode: row.mode,
+      status: row.status,
+      keyHint: row.keyHint,
+      capabilities,
+      serviceCapabilities: normalizeAdapterServiceCapabilities(capabilities),
+      lastVerifiedAt: row.lastVerifiedAt?.toISOString() ?? null,
+      boundCompanyId: row.boundCompanyId,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  });
 }
 
 export async function assertConnectionUnbound(

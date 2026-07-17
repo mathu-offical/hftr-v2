@@ -1,6 +1,6 @@
 # Canvas spacing, reflow, and dedicated Math tools (2026-07-17)
 
-**Status:** approved design; implementation pending  
+**Status:** Reflow + spacing + gestures implemented (2026-07-17); dedicated Math ownership still pending  
 **Decision:** D-033 (`dev-intent/decisions-log.md`)  
 **Related:** D-028 (`canvas-engine-group-design.md`); D-026 (`canvas-node-dashboard-design.md`)
 

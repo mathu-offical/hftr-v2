@@ -16,6 +16,29 @@ retention audit, and rollback. Billing (Stripe) is **deferred** — see D-032.
 - Broker credentials: AES-GCM in `broker_connections`; never log plaintext.
 - Rotate keys in settings → re-verify connection → re-run live-gate review if live-bound.
 
+## Alpaca paper smoke
+
+**Automated (opt-in):** `pnpm smoke:alpaca-paper` or `node scripts/smoke-alpaca-paper.mjs`
+with `ALPACA_PAPER_SMOKE=1` and env credentials (`ALPACA_PAPER_KEY` / `ALPACA_PAPER_SECRET`,
+alias `ALPACA_PAPER_KEY_ID`). Runs `verifyConnection`, `fetchBars`, and `getBalances` against
+Alpaca paper only. Optional `ALPACA_PAPER_SUBMIT=1` submits one tiny SPY paper market order and
+cancels when accepted — never enable in CI without explicit operator intent. Skips cleanly when
+unset (exit 0). Secrets are never logged.
+
+**Manual UI path (encrypted round-trip):** full submit/reconcile through app-saved credentials
+requires operator keys in settings — the smoke script cannot decrypt `broker_connections`.
+
+1. Open any company canvas → **User settings** (header) → **Brokers** tab.
+2. Enter Alpaca paper key ID + secret → **Save** → **Verify** (hits `createAlpacaPaperAdapter`
+   via `POST /api/settings/brokers/:id/verify`).
+3. Open company **top drawer** (ribbon) → **Settings** tab → **Bind connection** → choose verified
+   Alpaca paper row.
+4. Run a paper loop: bottom panel **Trends** → promote a candidate → confirm dispatch uses the
+   bound adapter (`GET /api/companies/:id/broker` shows `feedEntitlementLabel`:
+   `alpaca_iex_paper`).
+
+Record pass/fail in ops notes; automated smoke does not replace the encrypted UI spine check.
+
 ## Live arming (fail-closed)
 
 Live dispatch requires **all** of:

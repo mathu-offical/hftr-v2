@@ -14,14 +14,16 @@ sprint specs are written when the prior gate passes, incorporating learnings).
 |------|--------|---------|-----------|
 | **G0** Foundation | **Passed** | Monorepo, Clerk, Drizzle migrations, Vercel skeleton, CI typecheck/lint/vitest | — |
 | **G1** Canvas + queue spine | **Passed (local)** | Company wizard, canvas CRUD, queue drain, panels, deterministic assistant, Playwright M1 flows | Remote CI e2e first green run |
-| **G2** Research stack | **Partial** | Libraries/topics migration, galaxy MVP, Obsidian zip export, schedule materializer, `research-library.spec.ts` | Real-provider research smoke, autonomous topic soak, default model-profile promotion |
-| **G3** Paper trading loop | **Partial** | Deterministic promote→compile→dispatch, pre-dispatch gauntlet, fund approvals, lineage API | Engine tests **83/294** v1 parity target; full NRA finalizer; Playwright flows 3+7 green in CI |
-| **G4** Brokers + billing | **Partial (non-billing)** | Assistant proposals, `simulation_runs` API/UI, Alpaca connect UX | **Billing deferred (D-032)**; Stripe; Alpaca paper full-loop e2e; assistant model write path |
-| **G5** Multi-venue + live | **Partial** | Live-gate APIs + `ModeSwitch` arming UI; Kalshi demo stub | **Live Alpaca unverified**; crypto/HFT/long-term presets; dedicated worker decision (OQ-2) |
-| **G6** Polish + ops | **Partial** | Dead-letter GET/retry API + bottom tab; `maintenance.retention` audit log; `ops/runbook.md` | Perf/a11y pass; trace purge/archive job; Polymarket adapter |
+| **G2** Research stack | **Partial** | Libraries/topics, galaxy MVP (2D >200), Obsidian zip, cadence `ensureResearchCadenceSchedule` on research activate, LLM `costEstimate` admission, D-037 promotion evaluator | Real-provider research soak with app-saved keys; ledger evidence under load |
+| **G3** Paper trading loop | **Partial** | ValueRef instruction finalizer + leak audit; Alpaca bars→regime; v1-parity **327** engine tests; `paper-loop`/`lineage` Playwright flows 3+7 | Remote CI e2e first green; credentialed Alpaca paper fill (not paper_sim) |
+| **G4** Brokers + billing | **Partial (non-billing)** | Full §7 assistant write tools + Mistral schema; deterministic sims + Analyzer stub; Alpaca/Kalshi settings UX | **Billing deferred (D-032)**; Stripe; operator-key Alpaca paper round-trip |
+| **G5** Multi-venue + live | **Partial** | Live-gate arming UI; real Kalshi demo HTTP client + settings/verify; crypto/prediction templates; Palette via `/api/engine-templates` | **Live Alpaca unverified**; live Kalshi blocked; OQ-2 dedicated-worker evidence |
+| **G6** Polish + ops | **Partial** | Dead-letter bulk-retry; archive-first retention `0017`; auto-disarm; drain `lastDrain`; security-audit checklist; CI `workflow_dispatch` smoke skeleton | Full a11y/perf pass; Polymarket (OQ-5); remote credentialed smoke green |
 
-**Not done (explicit):** real-provider Alpaca/Kalshi smoke with operator keys; ≥294 engine
-contract tests; Stripe/Clerk billing; live dispatch verification on a funded paper account.
+**Not done (explicit):** full encrypted Alpaca UI round-trip in CI (operator must save keys in
+settings — opt-in `scripts/smoke-alpaca-paper.mjs` covers adapter/API only); Kalshi credentialed
+demo smoke; Stripe/Clerk billing; live dispatch verification on a funded account; autonomous
+multi-window research soak with real provider keys.
 
 ## M0 — Foundation (repo, auth, data, deploy skeleton)
 

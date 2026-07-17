@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      credentialed_smoke:
+        description: Run opt-in Alpaca/Kalshi smoke (requires repository secrets)
+        type: boolean
+        default: false
 
 jobs:
   verify:
@@ -34,6 +40,32 @@ jobs:
 
       # Credentialed Alpaca/LLM smoke is opt-in (never commit secrets).
       # Set repository secrets + workflow_dispatch when operators want venue smoke.
+  #
+  # credentialed-smoke:
+  #   if: >-
+  #     (github.event_name == 'workflow_dispatch' && github.event.inputs.credentialed_smoke == 'true')
+  #     || (secrets.ALPACA_PAPER_KEY_ID != '' && secrets.ALPACA_PAPER_SECRET != '')
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: pnpm/action-setup@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 22
+  #         cache: pnpm
+  #     - run: pnpm install --frozen-lockfile
+  #     - name: Alpaca paper adapter smoke
+  #       run: pnpm --filter @hftr/adapters test -- src/alpaca
+  #       env:
+  #         ALPACA_PAPER_KEY_ID: ${{ secrets.ALPACA_PAPER_KEY_ID }}
+  #         ALPACA_PAPER_SECRET: ${{ secrets.ALPACA_PAPER_SECRET }}
+  #     - name: Kalshi demo adapter smoke (optional)
+  #       if: secrets.KALSHI_DEMO_API_KEY_ID != ''
+  #       run: pnpm --filter @hftr/adapters test -- src/kalshi
+  #       env:
+  #         KALSHI_DEMO_API_KEY_ID: ${{ secrets.KALSHI_DEMO_API_KEY_ID }}
+  #         KALSHI_DEMO_PRIVATE_KEY_PEM: ${{ secrets.KALSHI_DEMO_PRIVATE_KEY_PEM }}
+
   e2e:
     runs-on: ubuntu-latest
     services:

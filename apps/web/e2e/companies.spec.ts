@@ -82,8 +82,30 @@ test.describe('Companies directory', () => {
     const sourceResponse = await request.get(`/api/companies/${companyId}`);
     expect(sourceResponse.ok()).toBeTruthy();
     const source = (await sourceResponse.json()) as {
-      modules: Array<{ id: string; type: string; config: Record<string, unknown> }>;
+      modules: Array<{
+        id: string;
+        type: string;
+        config: Record<string, unknown>;
+        toolOwnerModuleId: string | null;
+      }>;
     };
+    const requiredOwners = source.modules.filter((module) =>
+      ['research', 'trend', 'trading', 'analyzer', 'simulator', 'generator'].includes(module.type),
+    );
+    const ownedMath = source.modules.filter(
+      (module) => module.type === 'math' && module.toolOwnerModuleId,
+    );
+    expect(ownedMath).toHaveLength(requiredOwners.length);
+    for (const owner of requiredOwners) {
+      expect(ownedMath.some((math) => math.toolOwnerModuleId === owner.id)).toBe(true);
+    }
+    await expect(
+      page.getByRole('group', { name: 'Dedicated Math tool for Market Regime Research' }),
+    ).toBeVisible();
+    await page.reload();
+    await expect(
+      page.getByRole('group', { name: 'Dedicated Math tool for Market Regime Research' }),
+    ).toBeVisible();
     const researchModule = source.modules.find((module) => module.type === 'research');
     expect(researchModule).toBeDefined();
     const libraryResponse = await request.post(`/api/companies/${companyId}/libraries`, {
@@ -158,11 +180,13 @@ test.describe('Companies directory', () => {
         liveGateEvidenceId: string | null;
       };
       modules: Array<{
+        id: string;
         type: string;
         status: string;
         allocationCents: string;
         capitalAllocationRef: string | null;
         targetExitRef: string | null;
+        toolOwnerModuleId: string | null;
         config: Record<string, unknown>;
       }>;
     };
@@ -183,6 +207,11 @@ test.describe('Companies directory', () => {
       expect(module.allocationCents).toBe('0');
       expect(module.capitalAllocationRef).toBeNull();
       expect(module.targetExitRef).toBeNull();
+    }
+    const duplicateIds = new Set(duplicate.modules.map((module) => module.id));
+    for (const math of duplicate.modules.filter((module) => module.toolOwnerModuleId)) {
+      expect(math.type).toBe('math');
+      expect(duplicateIds.has(math.toolOwnerModuleId!)).toBe(true);
     }
     expect(
       duplicate.modules.find((module) => module.type === 'research')?.config.targetLibraryIds,

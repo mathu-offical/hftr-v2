@@ -110,6 +110,7 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
                 targetExitRef: m.targetExitRef,
               }),
               engineInstanceId: m.engineInstanceId,
+              toolOwnerModuleId: m.toolOwnerModuleId,
               topicSectorsOverridden: m.topicSectorsOverridden,
             }))}
             initialEngines={engineRows.map((e) => ({

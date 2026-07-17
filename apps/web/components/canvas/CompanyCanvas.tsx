@@ -39,6 +39,7 @@ import { api, RequestError } from '@/lib/client';
 import type { ModuleNameUpdate } from '@/lib/module-generated-name';
 import { EngineGroupNode, type EngineGroupFlowNode } from './EngineGroupNode';
 import { InspectorPanel } from './InspectorPanel';
+import { MathToolNode, type MathToolFlowNode } from './MathToolNode';
 import { ModuleNode, type ModuleFlowNode } from './ModuleNode';
 import { Palette } from './Palette';
 import {
@@ -49,9 +50,9 @@ import {
   type CanvasModule,
 } from './types';
 
-const nodeTypes = { module: ModuleNode, engineGroup: EngineGroupNode };
+const nodeTypes = { module: ModuleNode, mathTool: MathToolNode, engineGroup: EngineGroupNode };
 
-export type CanvasFlowNode = ModuleFlowNode | EngineGroupFlowNode;
+export type CanvasFlowNode = ModuleFlowNode | MathToolFlowNode | EngineGroupFlowNode;
 
 function isModuleNode(node: CanvasFlowNode): node is ModuleFlowNode {
   return node.type === 'module';
@@ -59,6 +60,14 @@ function isModuleNode(node: CanvasFlowNode): node is ModuleFlowNode {
 
 function isEngineGroupNode(node: CanvasFlowNode): node is EngineGroupFlowNode {
   return node.type === 'engineGroup';
+}
+
+function isMathToolNode(node: CanvasFlowNode): node is MathToolFlowNode {
+  return node.type === 'mathTool';
+}
+
+function isGraphModuleNode(node: CanvasFlowNode): node is ModuleFlowNode | MathToolFlowNode {
+  return isModuleNode(node) || isMathToolNode(node);
 }
 
 function engineBounds(node: EngineGroupFlowNode): {
@@ -76,7 +85,7 @@ function engineBounds(node: EngineGroupFlowNode): {
 }
 
 function absoluteModulePosition(
-  node: ModuleFlowNode,
+  node: ModuleFlowNode | MathToolFlowNode,
   nodes: readonly CanvasFlowNode[],
 ): { x: number; y: number } {
   if (!node.parentId) return node.position;
@@ -117,6 +126,94 @@ function isInteractiveNodeTarget(target: EventTarget | null): boolean {
   return (
     target instanceof Element && target.closest('input, select, textarea, button, label') !== null
   );
+}
+
+function alignDedicatedMathNodes(nodes: CanvasFlowNode[]): CanvasFlowNode[] {
+  const owners = new Map(nodes.filter(isModuleNode).map((node) => [node.id, node] as const));
+  let changed = false;
+  const next = nodes.map((node) => {
+    if (!isMathToolNode(node)) return node;
+    const owner = owners.get(node.data.ownerModuleId);
+    if (!owner) return node;
+    const ownerWidth = Math.max(owner.measured?.width ?? 280, 280);
+    const ownerHeight = Math.max(owner.measured?.height ?? 220, 220);
+    const target = {
+      x: owner.position.x + (ownerWidth - 220) / 2,
+      y: owner.position.y + ownerHeight + 24,
+    };
+    const parentId = owner.parentId;
+    if (
+      node.position.x === target.x &&
+      node.position.y === target.y &&
+      node.parentId === parentId &&
+      node.data.ownerEngineInstanceId === owner.data.engineInstanceId
+    ) {
+      return node;
+    }
+    changed = true;
+    const base = {
+      ...node,
+      position: target,
+      data: {
+        ...node.data,
+        ownerName: owner.data.name,
+        ownerEngineInstanceId: owner.data.engineInstanceId,
+      },
+    };
+    if (parentId) return { ...base, parentId };
+    const { parentId: _parentId, ...withoutParent } = base;
+    return withoutParent;
+  });
+  return changed ? next : nodes;
+}
+
+type ProvisionedMathClient = {
+  id: string;
+  ownerModuleId: string;
+  position: { x: number; y: number };
+  links: CanvasLink[];
+};
+
+function appendProvisionedMath(
+  nodes: CanvasFlowNode[],
+  edges: Edge[],
+  tools: readonly ProvisionedMathClient[],
+  companyId: string,
+): { nodes: CanvasFlowNode[]; edges: Edge[] } {
+  if (tools.length === 0) return { nodes, edges };
+  const additions: MathToolFlowNode[] = [];
+  for (const tool of tools) {
+    const owner = nodes.find(
+      (node): node is ModuleFlowNode => isModuleNode(node) && node.id === tool.ownerModuleId,
+    );
+    if (!owner) continue;
+    const ownerHeight = Math.max(owner.measured?.height ?? 220, 220);
+    const ownerWidth = Math.max(owner.measured?.width ?? 280, 280);
+    additions.push({
+      id: tool.id,
+      type: 'mathTool',
+      position: {
+        x: owner.position.x + (ownerWidth - 220) / 2,
+        y: owner.position.y + ownerHeight + 24,
+      },
+      ...(owner.parentId ? { parentId: owner.parentId } : {}),
+      expandParent: false,
+      data: {
+        name: `Math · ${owner.data.name}`,
+        companyId,
+        moduleType: 'math',
+        engineInstanceId: null,
+        toolOwnerModuleId: owner.id,
+        ownerEngineInstanceId: owner.data.engineInstanceId,
+        ownerModuleId: owner.id,
+        ownerName: owner.data.name,
+      },
+    });
+  }
+  return {
+    nodes: alignDedicatedMathNodes([...nodes, ...additions]),
+    edges: [...edges, ...tools.flatMap((tool) => tool.links.map(toEdge))],
+  };
 }
 
 function applyRenamedModules(
@@ -199,6 +296,7 @@ function toModuleNode(
       targetExitRef: m.targetExitRef,
       missingSetupFields: m.missingSetupFields,
       engineInstanceId: m.engineInstanceId,
+      toolOwnerModuleId: m.toolOwnerModuleId,
       topicSectorsOverridden: m.topicSectorsOverridden,
       attachedMathTools,
     },
@@ -206,12 +304,21 @@ function toModuleNode(
 }
 
 function gatherLayoutModules(nodes: readonly CanvasFlowNode[]): LayoutModule[] {
-  return nodes.filter(isModuleNode).map((node) => ({
-    id: node.id,
-    type: node.data.moduleType,
-    engineInstanceId: node.data.engineInstanceId,
-    position: absoluteModulePosition(node, nodes),
-  }));
+  return nodes.filter(isGraphModuleNode).map((node) => {
+    const width = node.measured?.width;
+    const height = node.measured?.height;
+    return {
+      id: node.id,
+      type: node.data.moduleType,
+      engineInstanceId: node.data.engineInstanceId,
+      toolOwnerModuleId: isMathToolNode(node)
+        ? node.data.toolOwnerModuleId
+        : (node.data.toolOwnerModuleId ?? null),
+      position: absoluteModulePosition(node, nodes),
+      ...(width !== undefined ? { width } : {}),
+      ...(height !== undefined ? { height } : {}),
+    };
+  });
 }
 
 function gatherLayoutLinks(edges: readonly Edge[]): LayoutLink[] {
@@ -280,6 +387,36 @@ function buildInitialGraph(
   }
 
   for (const m of modules) {
+    if (m.type === 'math' && m.toolOwnerModuleId) {
+      const owner = modules.find((candidate) => candidate.id === m.toolOwnerModuleId);
+      if (owner) {
+        const ownerEngine = owner.engineInstanceId
+          ? engines.find((engine) => engine.id === owner.engineInstanceId)
+          : null;
+        const bounds = ownerEngine ? resolveEngineBounds(ownerEngine, modules) : null;
+        nodes.push({
+          id: m.id,
+          type: 'mathTool',
+          position: bounds
+            ? { x: m.position.x - bounds.x, y: m.position.y - bounds.y }
+            : m.position,
+          ...(ownerEngine ? { parentId: ownerEngine.id } : {}),
+          expandParent: false,
+          data: {
+            name: m.name,
+            companyId,
+            moduleType: 'math',
+            engineInstanceId: null,
+            toolOwnerModuleId: owner.id,
+            ownerEngineInstanceId: owner.engineInstanceId,
+            ownerModuleId: owner.id,
+            ownerName: owner.name,
+          },
+        });
+        continue;
+      }
+    }
+
     const engineId = m.type === 'math' ? null : m.engineInstanceId;
     const parentEngine = engineId ? engines.find((e) => e.id === engineId) : null;
     let position = m.position;
@@ -342,6 +479,7 @@ function moduleRowToCanvas(row: {
   capitalAllocationRef: string | null;
   targetExitRef: string | null;
   engineInstanceId: string | null;
+  toolOwnerModuleId: string | null;
   topicSectorsOverridden: boolean;
 }): CanvasModule {
   const position = (row.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number };
@@ -362,6 +500,7 @@ function moduleRowToCanvas(row: {
       targetExitRef: row.targetExitRef,
     }),
     engineInstanceId: row.engineInstanceId,
+    toolOwnerModuleId: row.toolOwnerModuleId,
     topicSectorsOverridden: row.topicSectorsOverridden,
   };
 }
@@ -437,6 +576,12 @@ export function CompanyCanvas(props: {
   );
   const [edges, setEdges] = useEdgesState<Edge>(props.initialLinks.map(toEdge));
 
+  // Dedicated Math tools remain centered below their explicit owner during
+  // initial measurement, owner drag, engine moves, and reload hydration.
+  useEffect(() => {
+    setNodes((current) => alignDedicatedMathNodes(current));
+  }, [nodes, setNodes]);
+
   const handleRequestDelete = useCallback((engineId: string) => {
     setDeleteEngineId(engineId);
   }, []);
@@ -492,13 +637,15 @@ export function CompanyCanvas(props: {
               style: { ...node.style, width: bounds.width, height: bounds.height },
             };
           }
-          if (!isModuleNode(node)) return node;
+          if (!isGraphModuleNode(node)) return node;
 
           const abs = modulePosById.get(node.id);
           if (!abs) return node;
 
-          const engineId = node.data.engineInstanceId;
-          if (engineId && node.data.moduleType !== 'math') {
+          const engineId = isMathToolNode(node)
+            ? node.data.ownerEngineInstanceId
+            : node.data.engineInstanceId;
+          if (engineId) {
             const bounds = engineBoundsById.get(engineId);
             if (bounds) {
               return {
@@ -527,15 +674,39 @@ export function CompanyCanvas(props: {
 
   const handleEngineReflow = useCallback(
     async (engineId: string) => {
-      const engineNode = nodes.find(
+      let workingNodes = nodes;
+      let workingEdges = edges;
+      try {
+        const provisioned = await api<{ tools: ProvisionedMathClient[] }>(
+          `/api/companies/${props.companyId}/math-tools`,
+          { method: 'POST', body: { engineId } },
+        );
+        const appended = appendProvisionedMath(
+          workingNodes,
+          workingEdges,
+          provisioned.tools,
+          props.companyId,
+        );
+        workingNodes = appended.nodes;
+        workingEdges = appended.edges;
+        if (provisioned.tools.length > 0) {
+          setNodes(workingNodes);
+          setEdges(workingEdges);
+        }
+      } catch {
+        flash('Could not provision required Math tools.');
+        return;
+      }
+
+      const engineNode = workingNodes.find(
         (n): n is EngineGroupFlowNode => isEngineGroupNode(n) && n.id === engineId,
       );
       if (!engineNode) return;
 
       const layout = reflowEngineAtOrigin(
         { id: engineId, memberModuleIds: engineNode.data.memberModuleIds },
-        gatherLayoutModules(nodes),
-        gatherLayoutLinks(edges),
+        gatherLayoutModules(workingNodes),
+        gatherLayoutLinks(workingEdges),
         { x: engineNode.position.x, y: engineNode.position.y },
         ENGINE_GROUP_PADDING,
       );
@@ -557,15 +728,39 @@ export function CompanyCanvas(props: {
         flash('Could not save engine reflow.');
       }
     },
-    [nodes, edges, props.companyId, applyLayoutResult],
+    [nodes, edges, props.companyId, applyLayoutResult, setEdges, setNodes],
   );
 
   const handleCanvasReflow = useCallback(async () => {
-    const engineNodes = nodes.filter(isEngineGroupNode);
+    let workingNodes = nodes;
+    let workingEdges = edges;
+    try {
+      const provisioned = await api<{ tools: ProvisionedMathClient[] }>(
+        `/api/companies/${props.companyId}/math-tools`,
+        { method: 'POST', body: {} },
+      );
+      const appended = appendProvisionedMath(
+        workingNodes,
+        workingEdges,
+        provisioned.tools,
+        props.companyId,
+      );
+      workingNodes = appended.nodes;
+      workingEdges = appended.edges;
+      if (provisioned.tools.length > 0) {
+        setNodes(workingNodes);
+        setEdges(workingEdges);
+      }
+    } catch {
+      flash('Could not provision required Math tools.');
+      return;
+    }
+
+    const engineNodes = workingNodes.filter(isEngineGroupNode);
     const layout = layoutCanvas(
       engineNodes.map((n) => ({ id: n.id, memberModuleIds: n.data.memberModuleIds })),
-      gatherLayoutModules(nodes),
-      gatherLayoutLinks(edges),
+      gatherLayoutModules(workingNodes),
+      gatherLayoutLinks(workingEdges),
       ENGINE_GROUP_PADDING,
     );
 
@@ -585,7 +780,7 @@ export function CompanyCanvas(props: {
     } catch {
       flash('Could not save canvas reflow.');
     }
-  }, [nodes, edges, props.companyId, applyLayoutResult]);
+  }, [nodes, edges, props.companyId, applyLayoutResult, setEdges, setNodes]);
 
   engineCallbacksRef.current = {
     onRequestDelete: handleRequestDelete,
@@ -727,6 +922,19 @@ export function CompanyCanvas(props: {
         return;
       }
 
+      if (isMathToolNode(node)) {
+        try {
+          const abs = absoluteModulePosition(node, nodes);
+          await api(`/api/companies/${props.companyId}/modules/${node.id}`, {
+            method: 'PATCH',
+            body: { canvasPosition: { x: Math.round(abs.x), y: Math.round(abs.y) } },
+          });
+        } catch {
+          flash('Could not save Math tool position.');
+        }
+        return;
+      }
+
       if (!isModuleNode(node)) return;
       if (node.data.moduleType === 'math') {
         try {
@@ -756,6 +964,24 @@ export function CompanyCanvas(props: {
             ...(targetEngineId !== currentEngineId ? { engineInstanceId: targetEngineId } : {}),
           },
         });
+
+        const ownerHeight = Math.max(node.measured?.height ?? 220, 220);
+        const ownerWidth = Math.max(node.measured?.width ?? 280, 280);
+        const dedicatedTools = nodes.filter(
+          (candidate): candidate is MathToolFlowNode =>
+            isMathToolNode(candidate) && candidate.data.ownerModuleId === node.id,
+        );
+        for (const tool of dedicatedTools) {
+          await api(`/api/companies/${props.companyId}/modules/${tool.id}`, {
+            method: 'PATCH',
+            body: {
+              canvasPosition: {
+                x: Math.round(abs.x + (ownerWidth - 220) / 2),
+                y: Math.round(abs.y + ownerHeight + 24),
+              },
+            },
+          });
+        }
 
         if (targetEngineId !== currentEngineId) {
           setNodes((current) => {
@@ -804,7 +1030,7 @@ export function CompanyCanvas(props: {
     async (connection: Connection) => {
       const from = nodes.find((n) => n.id === connection.source);
       const to = nodes.find((n) => n.id === connection.target);
-      if (!from || !to || !isModuleNode(from) || !isModuleNode(to)) return;
+      if (!from || !to || !isGraphModuleNode(from) || !isGraphModuleNode(to)) return;
 
       const linkKind = edgeKindForHandles(
         connection.sourceHandle,
@@ -852,7 +1078,7 @@ export function CompanyCanvas(props: {
       ).length;
       const position = { x: 80 + column * 260, y: 60 + inColumn * 140 };
       try {
-        const { module } = await api<{
+        const { module, dedicatedMath } = await api<{
           module: {
             id: string;
             name: string;
@@ -862,6 +1088,12 @@ export function CompanyCanvas(props: {
             capitalAllocationRef: string | null;
             targetExitRef: string | null;
           };
+          dedicatedMath: Array<{
+            id: string;
+            ownerModuleId: string;
+            position: { x: number; y: number };
+            links: CanvasLink[];
+          }>;
         }>(`/api/companies/${props.companyId}/modules`, {
           method: 'POST',
           body: { type, name, config, canvasPosition: position },
@@ -886,10 +1118,31 @@ export function CompanyCanvas(props: {
                 targetExitRef: module.targetExitRef,
               }),
               engineInstanceId: null,
+              toolOwnerModuleId: null,
               topicSectorsOverridden: false,
             },
             props.companyId,
           ),
+          ...dedicatedMath.map((tool): MathToolFlowNode => ({
+            id: tool.id,
+            type: 'mathTool',
+            position: tool.position,
+            expandParent: false,
+            data: {
+              name: `Math · ${module.name}`,
+              companyId: props.companyId,
+              moduleType: 'math',
+              engineInstanceId: null,
+              toolOwnerModuleId: module.id,
+              ownerEngineInstanceId: null,
+              ownerModuleId: module.id,
+              ownerName: module.name,
+            },
+          })),
+        ]);
+        setEdges((current) => [
+          ...current,
+          ...dedicatedMath.flatMap((tool) => tool.links.map(toEdge)),
         ]);
         setSelectedId(module.id);
       } catch (err) {
@@ -900,7 +1153,7 @@ export function CompanyCanvas(props: {
         );
       }
     },
-    [nodes, props.companyId, setNodes],
+    [nodes, props.companyId, setEdges, setNodes],
   );
 
   const insertEngine = useCallback(
@@ -940,6 +1193,7 @@ export function CompanyCanvas(props: {
             capitalAllocationRef: string | null;
             targetExitRef: string | null;
             engineInstanceId: string | null;
+            toolOwnerModuleId: string | null;
             topicSectorsOverridden: boolean;
           }>;
           links: CanvasLink[];
@@ -961,55 +1215,26 @@ export function CompanyCanvas(props: {
               .map((m) => (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number }),
           );
 
-        const engineGroupNode: EngineGroupFlowNode = {
-          id: response.engine.id,
-          type: 'engineGroup',
-          position: { x: bounds.x, y: bounds.y },
-          style: { width: bounds.width, height: bounds.height },
-          draggable: true,
-          selectable: true,
-          zIndex: -1,
-          data: {
-            companyId: props.companyId,
-            label: response.engine.label,
-            templateId: response.engine.templateId,
-            masterTopicSectors: response.engine.masterTopicSectors,
-            memberModuleIds: response.engine.memberModuleIds,
-            onRequestDelete: stableEngineCallbacks.onRequestDelete,
-            onRequestReflow: stableEngineCallbacks.onRequestReflow,
-            onMasterTopicSaved: stableEngineCallbacks.onMasterTopicSaved,
-          },
-        };
-
-        const memberCanvas = response.modules
-          .filter((m) => m.engineInstanceId === response.engine.id)
-          .map((row) => moduleRowToCanvas(row));
-
-        const moduleNodes: ModuleFlowNode[] = memberCanvas.map((m) => {
-          const abs = m.position;
-          const relative = {
-            x: abs.x - bounds.x,
-            y: abs.y - bounds.y,
-          };
-          const base = toModuleNode(m, props.companyId);
-          if (m.type === 'math') {
-            return { ...base, position: abs, expandParent: false };
-          }
-          return {
-            ...base,
-            parentId: response.engine.id,
-            position: relative,
-            expandParent: false,
-          };
-        });
-
         const newEdges = response.links.map(toEdge);
+        const insertedNodes = buildInitialGraph(
+          response.modules.map((row) => moduleRowToCanvas(row)),
+          [
+            {
+              id: response.engine.id,
+              templateId: response.engine.templateId,
+              label: response.engine.label,
+              masterTopicSectors: response.engine.masterTopicSectors,
+              canvasBounds: bounds,
+              memberModuleIds: response.engine.memberModuleIds,
+            },
+          ],
+          response.links,
+          props.companyId,
+          stableEngineCallbacks,
+        );
 
         setNodes((current) =>
-          applyMathAttachments(
-            [...current, engineGroupNode, ...moduleNodes],
-            [...edges, ...newEdges],
-          ),
+          applyMathAttachments([...current, ...insertedNodes], [...edges, ...newEdges]),
         );
         setEdges((current) => [...current, ...newEdges]);
         flash(`${engine.label} inserted — activate its modules to start.`);
@@ -1037,10 +1262,32 @@ export function CompanyCanvas(props: {
         });
 
         const deletedIds = new Set(response.deletedModuleIds);
+        const deletedToolIds = new Set(
+          nodes
+            .filter(
+              (node): node is MathToolFlowNode =>
+                isMathToolNode(node) && deletedIds.has(node.data.ownerModuleId),
+            )
+            .map((node) => node.id),
+        );
         setNodes((current) => {
           const remaining = current
-            .filter((n) => n.id !== deleteEngineId && !deletedIds.has(n.id))
+            .filter(
+              (n) =>
+                n.id !== deleteEngineId &&
+                !deletedIds.has(n.id) &&
+                !(response.mode === 'cascade' && deletedToolIds.has(n.id)),
+            )
             .map((n) => {
+              if (isMathToolNode(n) && n.data.ownerEngineInstanceId === deleteEngineId) {
+                const abs = absoluteModulePosition(n, current);
+                const { parentId: _parent, ...rest } = n;
+                return {
+                  ...rest,
+                  position: abs,
+                  data: { ...n.data, ownerEngineInstanceId: null },
+                };
+              }
               if (!isModuleNode(n)) return n;
               if (n.data.engineInstanceId === deleteEngineId) {
                 const abs = absoluteModulePosition(n, current);
@@ -1058,7 +1305,13 @@ export function CompanyCanvas(props: {
         });
         if (response.mode === 'cascade') {
           setEdges((current) =>
-            current.filter((e) => !deletedIds.has(e.source) && !deletedIds.has(e.target)),
+            current.filter(
+              (e) =>
+                !deletedIds.has(e.source) &&
+                !deletedIds.has(e.target) &&
+                !deletedToolIds.has(e.source) &&
+                !deletedToolIds.has(e.target),
+            ),
           );
         }
         if (selectedId && (deletedIds.has(selectedId) || selectedId === deleteEngineId)) {
@@ -1072,7 +1325,7 @@ export function CompanyCanvas(props: {
         setDeleteBusy(false);
       }
     },
-    [deleteEngineId, props.companyId, selectedId, setNodes, setEdges],
+    [deleteEngineId, nodes, props.companyId, selectedId, setNodes, setEdges],
   );
 
   const onEdgesDelete = useCallback(
@@ -1124,18 +1377,29 @@ export function CompanyCanvas(props: {
 
   const removeModule = useCallback(
     (id: string, renamedModules?: readonly ModuleNameUpdate[]) => {
+      const toolIds = new Set(
+        nodes
+          .filter(
+            (node): node is MathToolFlowNode =>
+              isMathToolNode(node) && node.data.ownerModuleId === id,
+          )
+          .map((node) => node.id),
+      );
       setNodes((current) => {
-        const remaining = current.filter((n) => n.id !== id);
+        const remaining = current.filter((n) => n.id !== id && !toolIds.has(n.id));
         return applyRenamedModules(remaining, renamedModules ?? []);
       });
       setEdges((current) => {
-        const next = current.filter((e) => e.source !== id && e.target !== id);
+        const next = current.filter(
+          (e) =>
+            e.source !== id && e.target !== id && !toolIds.has(e.source) && !toolIds.has(e.target),
+        );
         setNodes((nodeState) => applyMathAttachments(nodeState, next));
         return next;
       });
       setSelectedId(null);
     },
-    [setNodes, setEdges],
+    [nodes, setNodes, setEdges],
   );
 
   const selected: CanvasModule | null = useMemo(() => {
@@ -1155,6 +1419,7 @@ export function CompanyCanvas(props: {
       targetExitRef: node.data.targetExitRef,
       missingSetupFields: node.data.missingSetupFields,
       engineInstanceId: node.data.engineInstanceId,
+      toolOwnerModuleId: node.data.toolOwnerModuleId ?? null,
       topicSectorsOverridden: node.data.topicSectorsOverridden,
     };
   }, [nodes, selectedId]);

@@ -19,6 +19,7 @@ export interface CanvasModule {
   targetExitRef: string | null;
   missingSetupFields: ModuleSetupField[];
   engineInstanceId: string | null;
+  toolOwnerModuleId: string | null;
   topicSectorsOverridden: boolean;
 }
 

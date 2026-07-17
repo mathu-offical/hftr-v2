@@ -37,6 +37,7 @@ export type ModuleNodeData = {
   targetExitRef: string | null;
   missingSetupFields: ModuleSetupField[];
   engineInstanceId: string | null;
+  toolOwnerModuleId?: string | null;
   topicSectorsOverridden: boolean;
   attachedMathTools?: { id: string; name: string }[];
 };

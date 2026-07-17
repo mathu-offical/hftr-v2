@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AdapterCapabilities, BalanceSnapshot, ConnectionStatus, Venue } from './broker';
+import { ServiceCapability } from './services';
 
 /** Broker venues that accept user-owned API credentials (not paper_sim). */
 export const CredentialVenue = z.enum(['alpaca', 'kalshi', 'polymarket', 'coinbase']);
@@ -45,6 +46,8 @@ export const BrokerConnectionSummary = z.object({
   status: ConnectionStatus,
   keyHint: z.string(),
   capabilities: AdapterCapabilities.nullable(),
+  /** Normalized service capabilities derived from adapter policy (resolver input). */
+  serviceCapabilities: z.array(ServiceCapability).default([]),
   lastVerifiedAt: z.string().datetime().nullable(),
   /** Company currently exclusively bound to this connection, if any. */
   boundCompanyId: z.string().uuid().nullable(),

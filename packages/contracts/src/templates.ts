@@ -481,6 +481,10 @@ export function listResolvedEngineTemplates(
   return ENGINE_TEMPLATES.map((t) => resolveEngineTemplateAvailability(t, sessionEnvelopeIds));
 }
 
+export function getEngineTemplateById(id: string): EngineTemplate | undefined {
+  return ENGINE_TEMPLATES.find((template) => template.id === id);
+}
+
 export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
   blank: {
     id: 'blank',

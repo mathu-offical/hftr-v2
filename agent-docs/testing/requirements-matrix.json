@@ -182,7 +182,7 @@
     },
     {
       "id": "REQ-CMP-004",
-      "title": "Template setup Required/Set validation chips",
+      "title": "Template setup Required chips + confirmed in-field checks",
       "source": "agent-docs/product/product-spec.md \u00a72 (D-024)",
       "status": "implemented",
       "evidence": [

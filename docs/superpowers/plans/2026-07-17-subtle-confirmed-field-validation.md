@@ -42,6 +42,8 @@ await expect(tradingNode.getByLabel('Confirmed: Topic / sector')).toBeVisible();
 await expect(tradingNode.getByLabel('Confirmed: Capital allocation')).toBeVisible();
 await expect(tradingNode.getByLabel('Confirmed: Target exit')).toBeVisible();
 await expect(topicField).toHaveClass(/border-\[var\(--color-line\)\]/);
+await expect(allocationField).toHaveClass(/border-\[var\(--color-line\)\]/);
+await expect(targetExitField).toHaveClass(/border-\[var\(--color-line\)\]/);
 ```
 
 - [ ] **Step 2: Run the focused E2E test and confirm it fails**

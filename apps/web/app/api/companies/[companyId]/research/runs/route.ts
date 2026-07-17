@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { scoping } from '@hftr/db';
 import { researchRequests, researchRuns } from '@hftr/db/schema';
@@ -10,10 +10,15 @@ const Params = z.object({ companyId: z.string().uuid() });
 type Ctx = { params: Promise<{ companyId: string }> };
 
 /** Recent research run projections with request summary (limit 20). */
-export async function GET(_req: Request, ctx: Ctx) {
+export async function GET(req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
     const { companyId } = Params.parse(await ctx.params);
     await scoping.getOwnedCompany(db, clerkUserId, companyId);
+    const moduleId = z
+      .string()
+      .uuid()
+      .nullable()
+      .parse(new URL(req.url).searchParams.get('moduleId'));
 
     const runs = await db
       .select({
@@ -35,7 +40,11 @@ export async function GET(_req: Request, ctx: Ctx) {
       })
       .from(researchRuns)
       .innerJoin(researchRequests, eq(researchRequests.id, researchRuns.requestId))
-      .where(eq(researchRuns.companyId, companyId))
+      .where(
+        moduleId
+          ? and(eq(researchRuns.companyId, companyId), eq(researchRuns.moduleId, moduleId))
+          : eq(researchRuns.companyId, companyId),
+      )
       .orderBy(desc(researchRuns.createdAt))
       .limit(20);
 

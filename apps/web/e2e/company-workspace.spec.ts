@@ -53,8 +53,8 @@ test.describe('Company workspace (M1 read flows)', () => {
       await expect(node).toBeVisible();
     }
     await expect(canvas.locator('.react-flow__edge-smoothstep')).toHaveCount(10);
-    await expect(canvas.getByText(/Required · topic sector/).first()).toBeVisible();
-    await expect(canvas.getByText(/Required · capital allocation/).first()).toBeVisible();
+    await expect(canvas.getByText(/Required · Topic \/ sector/i).first()).toBeVisible();
+    await expect(canvas.getByText(/Required · Capital allocation/i).first()).toBeVisible();
 
     // Skipped setup is completed directly inside the selected trading node.
     const tradingNode = canvas.locator('.react-flow__node', {

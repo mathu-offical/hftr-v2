@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { PatchResearchTopicInput } from '@hftr/contracts';
+import { leakLint, PatchResearchTopicInput } from '@hftr/contracts';
 import { scoping } from '@hftr/db';
 import { researchTopics } from '@hftr/db/schema';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
@@ -63,6 +63,11 @@ export async function PATCH(req: Request, ctx: Ctx) {
       .where(and(eq(researchTopics.id, topicId), eq(researchTopics.companyId, companyId)))
       .limit(1);
     if (!existing) throw new ApiError(404, 'topic_not_found');
+
+    if (input.synopsisMd !== undefined) {
+      const lint = leakLint({ synopsisMd: input.synopsisMd }, []);
+      if (!lint.ok) throw new ApiError(422, 'synopsis_leak_lint_failed');
+    }
 
     if (input.parentTopicId) {
       const [parent] = await db

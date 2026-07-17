@@ -1,10 +1,16 @@
 'use client';
 
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import type { Components } from 'react-markdown';
 import type { ResearchGraphResponse, ResearchTopicDetail, TopicConcept } from '@hftr/contracts';
-import { api } from '@/lib/client';
+import { api, RequestError } from '@/lib/client';
+import {
+  buildWikilinkContextFromTopic,
+  parseWikilinkHref,
+  preprocessSynopsisWikilinks,
+} from '@/lib/research-wikilinks';
 import { GalaxyView } from '@/components/research/GalaxyView';
 import { useResearchView } from '@/components/research/ResearchViewContext';
 
@@ -71,10 +77,53 @@ function ArticleTab(props: {
   loading: boolean;
   onTopicPatched: (partial: Partial<ResearchTopicDetail>) => void;
 }) {
+  const rv = useResearchView();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const wikilinkCtx = useMemo(
+    () => (props.topic ? buildWikilinkContextFromTopic(props.topic) : null),
+    [props.topic],
+  );
+
+  const renderedSynopsis = useMemo(() => {
+    if (!props.topic?.synopsisMd || !wikilinkCtx) return '';
+    return preprocessSynopsisWikilinks(props.topic.synopsisMd, wikilinkCtx);
+  }, [props.topic?.synopsisMd, wikilinkCtx]);
+
+  const synopsisMarkdownComponents = useMemo<Components>(
+    () => ({
+      a: ({ href, children }) => {
+        const target = href ? parseWikilinkHref(href) : null;
+        if (!target) {
+          return (
+            <a href={href} className="text-[var(--color-accent)] underline">
+              {children}
+            </a>
+          );
+        }
+        return (
+          <button
+            type="button"
+            data-testid={`wikilink-${target.kind}-${target.id}`}
+            onClick={() => {
+              if (target.kind === 'concept') {
+                rv.focusConcept(target.id);
+              } else {
+                void rv.selectTopic(target.id);
+              }
+            }}
+            className="cursor-pointer border-0 bg-transparent p-0 text-[var(--color-accent)] underline"
+          >
+            {children}
+          </button>
+        );
+      },
+    }),
+    [rv],
+  );
 
   useEffect(() => {
     if (props.topic) {
@@ -113,8 +162,12 @@ function ArticleTab(props: {
         updatedAt: data.topic.updatedAt,
       });
       setEditing(false);
-    } catch {
-      setSaveError('Could not save synopsis. Try again.');
+    } catch (err) {
+      if (err instanceof RequestError && err.code === 'synopsis_leak_lint_failed') {
+        setSaveError('Synopsis rejected: raw numbers or dates are not allowed in article text.');
+      } else {
+        setSaveError('Could not save synopsis. Try again.');
+      }
     } finally {
       setSaving(false);
     }
@@ -188,7 +241,9 @@ function ArticleTab(props: {
           />
         ) : topic.synopsisMd ? (
           <div className="prose prose-invert max-w-none text-[12px] text-[var(--color-ink-dim)] prose-p:my-1.5 prose-headings:text-[var(--color-ink)]">
-            <ReactMarkdown>{topic.synopsisMd}</ReactMarkdown>
+            <ReactMarkdown components={synopsisMarkdownComponents}>
+              {renderedSynopsis}
+            </ReactMarkdown>
           </div>
         ) : (
           <p className="text-[11px] text-[var(--color-ink-faint)]">No synopsis yet.</p>
@@ -230,6 +285,17 @@ function ResearchOverlayInner() {
   const [topicForArticle, setTopicForArticle] = useState<ResearchTopicDetail | null>(null);
   const [selectedLibraryIds, setSelectedLibraryIds] = useState<string[]>([]);
   const bumpQueriesDoneRef = useRef(false);
+
+  const effectiveFocusConceptIds = useMemo(() => {
+    if (!rv.focusConceptIds) return null;
+    if (!rv.includeNeighbors || !graph?.links?.length) return rv.focusConceptIds;
+    const expanded = new Set(rv.focusConceptIds);
+    for (const link of graph.links) {
+      if (expanded.has(link.fromConceptId)) expanded.add(link.toConceptId);
+      if (expanded.has(link.toConceptId)) expanded.add(link.fromConceptId);
+    }
+    return [...expanded];
+  }, [rv.focusConceptIds, rv.includeNeighbors, graph?.links]);
 
   const loadGraph = useCallback(
     async (opts?: { bumpQueries?: boolean }) => {
@@ -339,6 +405,18 @@ function ResearchOverlayInner() {
           </button>
         </div>
         <div className="flex items-center gap-2">
+          {rv.selectedTopicId && rv.activeTab === 'galaxy' && (
+            <label className="flex cursor-pointer items-center gap-1.5 text-[10px] text-[var(--color-ink-dim)]">
+              <input
+                type="checkbox"
+                data-testid="galaxy-include-neighbors"
+                checked={rv.includeNeighbors}
+                onChange={(e) => rv.setIncludeNeighbors(e.target.checked)}
+                className="accent-[var(--color-accent)]"
+              />
+              Include neighbors
+            </label>
+          )}
           {rv.selectedTopicId && (
             <button
               type="button"
@@ -414,7 +492,8 @@ function ResearchOverlayInner() {
               links={graph?.links ?? []}
               tags={graph?.tags ?? []}
               libraries={graph?.libraries ?? []}
-              focusConceptIds={rv.focusConceptIds}
+              focusConceptIds={effectiveFocusConceptIds}
+              highlightConceptId={rv.highlightConceptId}
               selectedLibraryIds={selectedLibraryIds.length > 0 ? selectedLibraryIds : null}
               className="h-full min-h-0 border-0 rounded-none"
             />

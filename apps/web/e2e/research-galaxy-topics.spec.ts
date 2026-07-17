@@ -75,6 +75,16 @@ test.describe('Research topics galaxy overlay (D-040)', () => {
     expect(detail.topic.synopsisMd).toContain('Overview');
     expect(detail.topic.queryCount).toBeGreaterThanOrEqual(1);
 
+    const patchRes = await request.patch(
+      `/api/companies/${companyId}/research/topics/${topic.id}`,
+      {
+        data: { synopsisMd: 'allocate 500 dollars immediately' },
+      },
+    );
+    expect(patchRes.status()).toBe(422);
+    const patchBody = (await patchRes.json()) as { error: string };
+    expect(patchBody.error).toBe('synopsis_leak_lint_failed');
+
     await page.reload();
     await page.getByRole('button', { name: /Expand left panel/ }).click();
     await expect(page.getByTestId(`research-topic-${topic.id}`)).toBeVisible({ timeout: 15_000 });
@@ -94,11 +104,13 @@ test.describe('Research topics galaxy overlay (D-040)', () => {
 
     await page.getByTestId('article-edit-synopsis').click();
     await expect(page.getByTestId('article-synopsis-editor')).toBeVisible();
-    await page.getByTestId('article-synopsis-editor').fill(
-      '## Overview\nUpdated synopsis for semiconductors after operator edit.',
-    );
+    await page
+      .getByTestId('article-synopsis-editor')
+      .fill('## Overview\nUpdated synopsis for semiconductors after operator edit.');
     await page.getByTestId('article-save-synopsis').click();
-    await expect(page.getByText('Updated synopsis for semiconductors after operator edit.')).toBeVisible({
+    await expect(
+      page.getByText('Updated synopsis for semiconductors after operator edit.'),
+    ).toBeVisible({
       timeout: 10_000,
     });
 

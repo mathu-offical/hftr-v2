@@ -13,11 +13,18 @@ export interface ResearchViewContextValue {
   selectedTopicId: string | null;
   selectedTopic: ResearchTopicDetail | null;
   focusConceptIds: string[] | null;
+  /** Transient highlight when navigating from article wikilinks. */
+  highlightConceptId: string | null;
+  /** When true and a topic is focused, galaxy focus includes 1-hop graph neighbors. */
+  includeNeighbors: boolean;
   openOverlay: (opts?: { tab?: ResearchOverlayTab }) => void;
   closeOverlay: () => void;
   setActiveTab: (tab: ResearchOverlayTab) => void;
   selectTopic: (topicId: string) => Promise<void>;
   clearTopicFocus: () => void;
+  /** Switch to Galaxy and highlight a concept (e.g. synopsis wikilink). */
+  focusConcept: (conceptId: string) => void;
+  setIncludeNeighbors: (on: boolean) => void;
   /** Merge fields onto the currently selected topic (e.g. after PATCH synopsis). */
   patchSelectedTopic: (partial: Partial<ResearchTopicDetail>) => void;
 }
@@ -30,6 +37,8 @@ export function ResearchViewProvider(props: { companyId: string; children: React
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<ResearchTopicDetail | null>(null);
   const [focusConceptIds, setFocusConceptIds] = useState<string[] | null>(null);
+  const [highlightConceptId, setHighlightConceptId] = useState<string | null>(null);
+  const [includeNeighbors, setIncludeNeighbors] = useState(false);
 
   const loadTopicDetail = useCallback(
     async (topicId: string) => {
@@ -56,6 +65,12 @@ export function ResearchViewProvider(props: { companyId: string; children: React
     setSelectedTopicId(null);
     setSelectedTopic(null);
     setFocusConceptIds(null);
+    setHighlightConceptId(null);
+  }, []);
+
+  const focusConcept = useCallback((conceptId: string) => {
+    setActiveTab('galaxy');
+    setHighlightConceptId(conceptId);
   }, []);
 
   const selectTopic = useCallback(
@@ -63,6 +78,7 @@ export function ResearchViewProvider(props: { companyId: string; children: React
       setSelectedTopicId(topicId);
       setOverlayOpen(true);
       setActiveTab('galaxy');
+      setHighlightConceptId(null);
       try {
         await loadTopicDetail(topicId);
       } catch {
@@ -88,11 +104,15 @@ export function ResearchViewProvider(props: { companyId: string; children: React
       selectedTopicId,
       selectedTopic,
       focusConceptIds,
+      highlightConceptId,
+      includeNeighbors,
       openOverlay,
       closeOverlay,
       setActiveTab,
       selectTopic,
       clearTopicFocus,
+      focusConcept,
+      setIncludeNeighbors,
       patchSelectedTopic,
     }),
     [
@@ -102,10 +122,13 @@ export function ResearchViewProvider(props: { companyId: string; children: React
       selectedTopicId,
       selectedTopic,
       focusConceptIds,
+      highlightConceptId,
+      includeNeighbors,
       openOverlay,
       closeOverlay,
       selectTopic,
       clearTopicFocus,
+      focusConcept,
       patchSelectedTopic,
     ],
   );

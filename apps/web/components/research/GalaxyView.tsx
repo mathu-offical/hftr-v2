@@ -70,14 +70,16 @@ function hashSpread(id: string): { dx: number; dy: number } {
   return { dx: Math.cos(angle) * r, dy: Math.sin(angle) * r };
 }
 
+const NEST_BOUNDARY_RATIO = 0.85;
+
 function computeLibraryCenters(
-  libraries: ResearchGraphLibraryNest[],
+  nests: ResearchGraphLibraryNest[],
   nodes: ResearchGraphNode[],
 ): Map<string, LibraryCenter> {
-  const libMeta = new Map(libraries.map((l) => [l.id, l]));
+  const libMeta = new Map(nests.map((l) => [l.id, l]));
   const libIds =
-    libraries.length > 0
-      ? libraries.map((l) => l.id)
+    nests.length > 0
+      ? nests.map((l) => l.id)
       : [
           ...new Set(
             nodes.map((n) => n.primaryLibraryId).filter((id): id is string => Boolean(id)),
@@ -113,6 +115,8 @@ export interface GalaxyViewProps {
   tags: string[];
   libraries?: ResearchGraphLibraryNest[];
   focusConceptIds?: string[] | null;
+  /** Fly-to and select when set (e.g. article wikilink navigation). */
+  highlightConceptId?: string | null;
   selectedLibraryIds?: string[] | null;
   className?: string;
 }
@@ -137,8 +141,46 @@ function useGraphDimensions() {
   return { ref, ...size };
 }
 
+type SimNode = {
+  x?: number;
+  y?: number;
+  z?: number;
+  vx?: number;
+  vy?: number;
+  vz?: number;
+  primaryLibraryId?: string | null;
+};
+
+function clampNodeToLibraryNest(node: SimNode, centers: Map<string, LibraryCenter>): void {
+  const libId = node.primaryLibraryId;
+  if (!libId) return;
+  const center = centers.get(libId);
+  if (!center) return;
+
+  const nx = node.x ?? 0;
+  const ny = node.y ?? 0;
+  const dx = nx - center.x;
+  const dy = ny - center.y;
+  const dist = Math.hypot(dx, dy);
+  const maxR = center.radius * NEST_BOUNDARY_RATIO;
+  if (dist <= maxR || dist === 0) return;
+
+  const scale = maxR / dist;
+  node.x = center.x + dx * scale;
+  node.y = center.y + dy * scale;
+
+  const vx = node.vx ?? 0;
+  const vy = node.vy ?? 0;
+  const outward = (dx * vx + dy * vy) / dist;
+  if (outward > 0) {
+    const damp = 0.35;
+    node.vx = vx - (dx / dist) * outward * damp;
+    node.vy = vy - (dy / dist) * outward * damp;
+  }
+}
+
 function GalaxyViewInner(props: GalaxyViewProps) {
-  const libraries = props.libraries ?? [];
+  const libraryNests = props.libraries ?? [];
   const focusSet = useMemo(
     () => (props.focusConceptIds ? new Set(props.focusConceptIds) : null),
     [props.focusConceptIds],
@@ -204,8 +246,8 @@ function GalaxyViewInner(props: GalaxyViewProps) {
   }, [force2d]);
 
   const libraryCenters = useMemo(
-    () => computeLibraryCenters(libraries, props.nodes),
-    [libraries, props.nodes],
+    () => computeLibraryCenters(libraryNests, props.nodes),
+    [libraryNests, props.nodes],
   );
 
   const degreeById = useMemo(() => {
@@ -243,13 +285,13 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         const libId = n.primaryLibraryId;
         const center = libId ? libraryCenters.get(libId) : null;
         const spread = hashSpread(n.id);
-        const fx = center ? center.x + spread.dx : spread.dx * 0.4;
-        const fy = center ? center.y + spread.dy : spread.dy * 0.4;
+        const x = center ? center.x + spread.dx : spread.dx * 0.4;
+        const y = center ? center.y + spread.dy : spread.dy * 0.4;
         const focused = !focusSet || focusSet.has(n.id);
         return {
           ...n,
-          fx,
-          fy,
+          x,
+          y,
           val: Math.max(1, degree * 0.6 + refs * 0.35 + 1),
           __focused: focused,
         };
@@ -298,6 +340,23 @@ function GalaxyViewInner(props: GalaxyViewProps) {
   const onEngineStop = useCallback(() => {
     if (hasTopicFocus) fitFocusedNodes();
   }, [hasTopicFocus, fitFocusedNodes]);
+
+  const onEngineTick = useCallback(() => {
+    for (const node of graphData.nodes) {
+      clampNodeToLibraryNest(node as SimNode, libraryCenters);
+    }
+  }, [graphData.nodes, libraryCenters]);
+
+  useEffect(() => {
+    const id = props.highlightConceptId;
+    if (!id) return;
+    const node = props.nodes.find((n) => n.id === id) ?? null;
+    if (node) setSelected(node);
+    const fg = graphHandleRef.current;
+    if (!fg?.zoomToFit) return;
+    const durationMs = reducedMotion ? 0 : 500;
+    fg.zoomToFit(durationMs, 64, (n) => String(n.id) === id);
+  }, [props.highlightConceptId, props.nodes, reducedMotion]);
 
   const onNodeClick = useCallback(
     (node: { id?: string | number }) => {
@@ -522,6 +581,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               linkOpacity={hasTopicFocus ? 0.55 : 0.35}
               linkWidth={linkWidthAccessor}
               onEngineStop={onEngineStop}
+              onEngineTick={onEngineTick}
             />
           ) : (
             <ForceGraph2D
@@ -532,6 +592,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               nodeRelSize={4}
               linkWidth={linkWidthAccessor}
               onEngineStop={onEngineStop}
+              onEngineTick={onEngineTick}
               nodeCanvasObjectMode={() => 'replace'}
               linkCanvasObjectMode={() => 'after'}
               linkCanvasObject={(link, ctx, globalScale) => {

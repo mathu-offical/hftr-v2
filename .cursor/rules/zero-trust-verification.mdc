@@ -34,3 +34,9 @@ When adopting a library, API, or pattern: check current official docs (Context7 
 provider docs). Log decisions in `tech-decisions.md` with verification status.
 
 Invoke `.cursor/skills/verify-change/` or `/verify` for structured passes.
+
+## After verification passes
+
+Commit verified changes before ending the run (`.cursor/rules/git-commits.mdc` end-of-run policy).
+Invoke `commit-message` skill or `commit-session` workflow. A task is not done with uncommitted
+verified work still in the working tree.

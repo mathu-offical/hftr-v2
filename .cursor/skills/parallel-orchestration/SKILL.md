@@ -40,8 +40,9 @@ Launch all independent tasks in **one parent message**.
 1. Await all sub-agents
 2. Re-read claimed file changes
 3. Resolve conflicts
-4. Run parent-level integration tests
-5. Single agent-docs curation pass
+4. Run parent-level integration tests + browser verification
+5. Update agent-docs once (self-curation)
+6. **Commit** verified changes (`commit-message` skill) before reporting done
 
 ## Example: M1 canvas + queue
 

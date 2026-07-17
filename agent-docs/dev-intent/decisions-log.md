@@ -117,6 +117,17 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   browser with a real Clerk account: templated company creation, trend scan, buy 10 AAPL,
   sell 4 (balance and position updated correctly), oversell blocked at the engine level.
 
+- **D-017 (git commits, 2026-07-17):** Workspace git commit standards: Conventional Commits
+  with hftr-v2 scopes (`web`, `canvas`, `engine`, `db`, `contracts`, etc.), subject ≤72 chars
+  imperative, structured body in fixed order (Context, Why, What changed, Connections,
+  Verification, Next steps). One logical intent per commit; bundle code with agent-docs.
+  Pre-commit typecheck/lint/test for runtime changes. Rule: `.cursor/rules/git-commits.mdc`;
+  skill: `.cursor/skills/commit-message/`; command: `/commit-session`.
+
+- **D-018 (end-of-run commits, 2026-07-17):** Workspace policy — implementation runs must
+  **commit verified work before ending**. Fixed close sequence: verify → curate docs → commit →
+  report. Push remains user-request-only. Updated rules, skills, and workflows accordingly.
+
 ## Open questions
 
 - **OQ-7 (resolved 2026-07-16):** Clerk dev-instance keys added to `apps/web/.env.local`;

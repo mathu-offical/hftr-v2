@@ -1,6 +1,6 @@
 ---
 name: verify-change
-description: Zero-trust verification pass for hftr-v2 changes — tests, browser (IronBee DevTools), console errors, and doc accuracy. Use before finishing any task with runtime-observable effects, or via /verify command.
+description: Zero-trust verification pass for hftr-v2 changes — tests, browser (IronBee DevTools), console errors, doc accuracy, then commit verified work. Use before finishing any task with runtime-observable effects, at end of implementation runs, or via /verify command.
 ---
 
 # Verify change (zero-trust)
@@ -62,3 +62,17 @@ Mark any unverified claims with explicit "unverified" until proven.
 ## 6. Report
 
 Summarize for user: what was verified, how, and any remaining gaps/OQ-n.
+
+## 7. Commit (mandatory if changes exist)
+
+If verification passed and `git status` shows uncommitted run changes:
+
+1. Invoke `commit-message` skill (or `commit-session` workflow)
+2. Split by logical intent; bundle code + agent-docs
+3. Commit with structured Conventional Commit body
+4. Include verification results in the **Verification** section
+5. Report commit SHA(s) in the final summary
+
+**Skip commit** only when: no changes, verification failed, or dirty files are secrets/artifacts only.
+
+Do **not** push unless the user explicitly requests it.

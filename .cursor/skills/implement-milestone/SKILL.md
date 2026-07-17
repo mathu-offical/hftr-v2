@@ -40,6 +40,15 @@ Invoke `verify-change` skill before claiming done.
 
 Update sprint spec progress + owning agent-docs. Log blockers as OQ-n.
 
+## 6. Commit (mandatory)
+
+After verification passes, commit all run changes before ending:
+
+- Invoke `commit-message` skill — split by logical intent, structured body, verification recorded
+- Report commit SHA(s) to the user
+- Do not leave verified implementation uncommitted in the working tree
+- Push only if user explicitly asks
+
 ## Milestone gate checklist (before claiming gate passed)
 
 - [ ] Deliverables in master-build-plan.md met for that milestone

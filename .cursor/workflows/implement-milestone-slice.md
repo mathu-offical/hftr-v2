@@ -34,9 +34,16 @@ Example:
 Follow rules: `architecture-monorepo`, `typescript-standards`, `hftr-safety-invariants`,
 `number-handling` (if applicable), `ui-ux-standards` (if UI).
 
-## 6. Verify
+## 6. Verify, commit, report
 
-Follow `verify-and-ship.md` workflow.
+Follow `verify-and-ship.md` workflow:
+
+1. Verify (tests + browser)
+2. Curate agent-docs
+3. **Commit** verified changes (`commit-message` skill)
+4. Report SHA(s), verification summary, what's next
+
+A run is incomplete with uncommitted verified work.
 
 ## 7. Curate
 

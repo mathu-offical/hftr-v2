@@ -84,8 +84,8 @@ These rules apply to any assistant or automation operating in the hftr-v2 worksp
 ## Cursor workspace
 
 - Agent rules, skills, workflows, and slash commands: `.cursor/README.md` (D-010).
-- Start substantial tasks with `session-start` skill; finish with `verify-change` skill.
-- Slash commands: `/continue-build`, `/curate-docs`, `/verify`.
+- Start substantial tasks with `session-start` skill; close with **verify → curate → commit**.
+- Slash commands: `/continue-build`, `/curate-docs`, `/verify`, `/commit-session`.
 
 ## Sub-agent orchestration
 
@@ -96,3 +96,14 @@ These rules apply to any assistant or automation operating in the hftr-v2 worksp
 - Sub-agent prompts must be high-granularity: absolute paths, explicit constraints, verification
   steps, and structured return format. Parent re-verifies all sub-agent output (zero-trust).
 - Rule: `.cursor/rules/parallel-subagents.mdc`; skill: `.cursor/skills/parallel-orchestration/`.
+
+## Git commits
+
+- Use **Conventional Commits** with hftr-v2 scopes and a **structured body** (Context, Why,
+  What changed, Connections, Verification, Next steps). Subject ≤72 chars, imperative mood.
+- One logical intent per commit; bundle code with owning `agent-docs/` in the same change.
+- Pre-commit: `pnpm typecheck`, `pnpm lint`, `pnpm test` for runtime code. Never commit secrets.
+- **End-of-run policy:** after verification passes, **commit** all run changes before ending.
+  A session is incomplete with verified work still uncommitted. Push only when user asks.
+- Rule: `.cursor/rules/git-commits.mdc`; skill: `.cursor/skills/commit-message/`;
+  workflows: `verify-and-ship.md`, `commit-session.md`.

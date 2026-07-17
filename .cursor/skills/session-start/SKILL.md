@@ -31,4 +31,9 @@ listed in `agent-sources.mdc` before designing new types.
 
 ## End of session
 
-Before finishing: invoke `verify-change` skill + update agent-docs (self-curation rule).
+Fixed closing sequence: **verify → curate docs → commit → report**.
+
+- [ ] Invoke `verify-change` skill — tests + browser as applicable
+- [ ] Update agent-docs (self-curation rule)
+- [ ] Invoke `commit-message` skill if verification passed and changes exist
+- [ ] Report verification summary + commit SHA(s) to user (push only if user asks)

@@ -222,7 +222,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     category: 'crypto',
     description: '24/7 crypto momentum engine on Coinbase.',
     available: false,
-    unavailableReason: 'Requires the Coinbase adapter (broker milestone M5).',
+    unavailableReason:
+      'Requires Alpaca crypto 24/7 session envelope (sess-crypto-alpaca-24x7) in session-constraint-catalog — not yet seeded.',
     modules: [],
     links: [],
     inputs: [],
@@ -250,6 +251,32 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     inputs: [],
   },
 ];
+
+/** Session envelope id that unlocks engine_crypto when present in session-constraint-catalog. */
+export const ALPACA_CRYPTO_SESSION_ENVELOPE_ID = 'sess-crypto-alpaca-24x7';
+
+/**
+ * Resolve dynamic engine availability (e.g. crypto when session envelope ships).
+ * Paper crypto preset becomes available only when `sess-crypto-alpaca-24x7` is
+ * seeded; live crypto dispatch still requires live-gate arming (fail-closed).
+ */
+export function resolveEngineTemplateAvailability(
+  template: EngineTemplate,
+  sessionEnvelopeIds: ReadonlySet<string> = new Set(),
+): EngineTemplate {
+  if (template.id !== 'engine_crypto') return template;
+  if (sessionEnvelopeIds.has(ALPACA_CRYPTO_SESSION_ENVELOPE_ID)) {
+    const { unavailableReason: _removed, ...rest } = template;
+    return { ...rest, available: true };
+  }
+  return template;
+}
+
+export function listResolvedEngineTemplates(
+  sessionEnvelopeIds: ReadonlySet<string> = new Set(),
+): EngineTemplate[] {
+  return ENGINE_TEMPLATES.map((t) => resolveEngineTemplateAvailability(t, sessionEnvelopeIds));
+}
 
 export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
   blank: {

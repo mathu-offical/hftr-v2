@@ -14,6 +14,13 @@ export const AlpacaCredentials = z.object({
 });
 export type AlpacaCredentials = z.infer<typeof AlpacaCredentials>;
 
+export const KalshiCredentials = z.object({
+  apiKeyId: z.string().min(8).max(200),
+  privateKeyPem: z.string().min(32).max(8000),
+  demoMode: z.boolean().default(true),
+});
+export type KalshiCredentials = z.infer<typeof KalshiCredentials>;
+
 export const UpsertAlpacaConnectionInput = z.object({
   keyId: z.string().min(8).max(120),
   secret: z.string().min(8).max(200),

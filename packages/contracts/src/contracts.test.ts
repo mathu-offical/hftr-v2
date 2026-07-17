@@ -46,6 +46,9 @@ import {
   PhilosophyProfile,
   RISK_APPETITE_SIZING_BPS,
 } from './philosophy';
+import { ControlSnapshot } from './control-snapshot';
+import { GuardrailEvaluation } from './guardrails';
+import { LimitsSnapshot, LiveGateEvidence } from './limits';
 import {
   computeEngineBoundsFromPositions,
   DeleteEngineMode,
@@ -576,5 +579,116 @@ describe('PhilosophyProfile', () => {
     const levers = philosophyProfileToLeverState(profile);
     expect(levers.risk_per_trade_pct_band?.mode).toBe('band');
     expect(normalizePhilosophyProfile(null).axes.risk_appetite).toBe('typical');
+  });
+});
+
+describe('dynamic safety contracts (D-028)', () => {
+  it('round-trips LimitsSnapshot and LiveGateEvidence', () => {
+    const limits = {
+      schemaVersion: 1 as const,
+      companyId: '00000000-0000-4000-8000-000000000003',
+      moduleId: null,
+      mode: 'paper' as const,
+      evaluatedAt: '2026-07-17T12:00:00.000Z',
+      sessionPhase: 'open' as const,
+      limits: [
+        {
+          domain: 'buying_power' as const,
+          status: 'pass' as const,
+          valueInt: '50000',
+          unit: 'USD_cents',
+          evidence: 'test',
+          hardEnvelopeRef: null,
+          operatorCapInt: null,
+          calcValueInt: '50000',
+        },
+      ],
+      overallPass: true,
+    };
+    expect(LimitsSnapshot.parse(limits)).toEqual(limits);
+
+    const gate = {
+      schemaVersion: 1 as const,
+      companyId: '00000000-0000-4000-8000-000000000003',
+      mode: 'live' as const,
+      catalogVersion: 'testing_baseline_v1_not_live_signoff',
+      evaluatedAt: '2026-07-17T12:00:00.000Z',
+      checklist: [
+        {
+          gateId: 'broker_connection_verified' as const,
+          required: true,
+          pass: false,
+          evidence: 'not verified',
+          requiredAction: 'connect broker',
+        },
+      ],
+      overallPass: false,
+      evidenceAsOfMs: 1_750_000_000_000,
+    };
+    expect(LiveGateEvidence.parse(gate)).toEqual(gate);
+
+    const guardrail = {
+      schemaVersion: 1 as const,
+      packageRef: {
+        packageId: 'grd-001',
+        catalogVersion: 'v1_snapshot_2026_07_16',
+        name: 'event_conflict_blackout',
+        class: 'catalyst_conflict_guardrail',
+      },
+      outcome: 'pass' as const,
+      firedTriggers: [],
+      failureCodes: [],
+      evidence: 'no triggers',
+      evaluatedAt: '2026-07-17T12:00:00.000Z',
+    };
+    expect(GuardrailEvaluation.parse(guardrail)).toEqual(guardrail);
+
+    const control = {
+      schemaVersion: 1 as const,
+      companyId: '00000000-0000-4000-8000-000000000003',
+      moduleId: null,
+      philosophyProfile: DEFAULT_PHILOSOPHY_PROFILE,
+      leverState: philosophyProfileToLeverState(DEFAULT_PHILOSOPHY_PROFILE),
+      envelopeVersions: {
+        policyEnvelopeVersion: 'paper_balanced_general_v1',
+        brokerEnvelopeVersion: 'bpe-001',
+        sessionCatalogVersion: 'v1_snapshot_2026_07_16',
+        guardrailCatalogVersion: 'v1_snapshot_2026_07_16',
+        liveGateBandsVersion: 'testing_baseline_v1_not_live_signoff',
+      },
+      contentHash: 'abc123',
+      capturedAt: '2026-07-17T12:00:00.000Z',
+    };
+    expect(ControlSnapshot.parse(control)).toMatchObject({
+      schemaVersion: 1,
+      contentHash: 'abc123',
+    });
+  });
+});
+
+describe('Libraries and research graph (M2)', () => {
+  it('parses CreateLibraryInput and ResearchGraphResponse', async () => {
+    const { CreateLibraryInput, ResearchGraphResponse, CurationStatus } =
+      await import('./libraries');
+    expect(
+      CreateLibraryInput.parse({ name: 'Semiconductors', topicScope: 'chips' }).masterLibrary,
+    ).toBe(false);
+    expect(CurationStatus.options).toContain('proposed');
+    const graph = ResearchGraphResponse.parse({
+      nodes: [
+        {
+          id: '11111111-1111-1111-1111-111111111111',
+          moduleId: '22222222-2222-2222-2222-222222222222',
+          title: 'Supply',
+          body: 'Qualitative note',
+          tags: ['chips'],
+          sourceClass: 'deterministic_placeholder',
+          status: 'active',
+        },
+      ],
+      links: [],
+      tags: ['chips'],
+    });
+    expect(graph.nodes).toHaveLength(1);
   });
 });

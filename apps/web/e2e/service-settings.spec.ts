@@ -25,8 +25,9 @@ test.describe('Service settings & operating observability', () => {
 
     await page.getByRole('button', { name: 'Open user settings' }).click();
     await expect(page.getByRole('dialog', { name: 'User settings' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'LLM providers' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Brokers' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'LLM providers' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Research' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Brokers' })).toBeVisible();
 
     await expect(page.getByText('Anthropic (Claude)')).toBeVisible();
     await expect(page.getByText('Mistral')).toBeVisible();
@@ -35,7 +36,11 @@ test.describe('Service settings & operating observability', () => {
     await expect(page.getByText('Fireworks')).toBeVisible();
     await expect(page.getByText('OpenRouter')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Brokers' }).click();
+    await page.getByRole('tab', { name: 'Research' }).click();
+    await expect(page.getByText('Research gather keys')).toBeVisible();
+    await expect(page.getByText('Brave Search')).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Brokers' }).click();
     await expect(page.getByText('Alpaca paper')).toBeVisible();
     await expect(page.getByLabel('Alpaca key ID')).toBeVisible();
     await expect(page.getByLabel('Alpaca secret')).toBeVisible();

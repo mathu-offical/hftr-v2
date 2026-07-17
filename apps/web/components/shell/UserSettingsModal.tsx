@@ -5,7 +5,7 @@ import type { BrokerConnectionSummary, LlmProvider } from '@hftr/contracts';
 import { api } from '@/lib/client';
 
 type RetentionAttested = 'none' | 'org_zdr';
-type SettingsTab = 'llm' | 'brokers';
+type SettingsTab = 'llm' | 'research' | 'brokers';
 type ResearchKeyProvider = 'brave' | 'market_news';
 
 const RESEARCH_KEY_PROVIDERS: { id: ResearchKeyProvider; label: string; hint: string }[] = [
@@ -43,7 +43,7 @@ export function UserSettingsLauncher() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Open user settings"
-        className="rounded-md px-2 py-1 text-[11px] uppercase tracking-wider text-[var(--color-ink-faint)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-ink)]"
+        className="rounded-md border border-[var(--color-line)] px-2.5 py-1 text-[11px] uppercase tracking-wider text-[var(--color-ink-dim)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-ink)]"
       >
         Settings
       </button>
@@ -53,8 +53,9 @@ export function UserSettingsLauncher() {
 }
 
 /**
- * User settings modal (ui-ux.spec USER SETTINGS): per-user LLM API keys and broker
- * credentials. Keys are stored encrypted server-side; the client only ever sees a hint.
+ * User settings modal (ui-ux.spec USER SETTINGS): per-user LLM API keys, research
+ * gather keys, and broker credentials. Keys are stored encrypted server-side; the
+ * client only ever sees a hint.
  */
 export function UserSettingsModal(props: { open: boolean; onClose: () => void }) {
   const [tab, setTab] = useState<SettingsTab>('llm');
@@ -271,15 +272,18 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
           </button>
         </div>
 
-        <div className="flex gap-1 border-b border-[var(--color-line)] px-5">
+        <div className="flex gap-1 border-b border-[var(--color-line)] px-5" role="tablist">
           {(
             [
               { id: 'llm' as const, label: 'LLM providers' },
+              { id: 'research' as const, label: 'Research' },
               { id: 'brokers' as const, label: 'Brokers' },
             ] as const
           ).map((t) => (
             <button
               key={t.id}
+              role="tab"
+              aria-selected={tab === t.id}
               onClick={() => setTab(t.id)}
               className={`border-b-2 px-3 py-2 text-[11px] uppercase tracking-wider ${
                 tab === t.id
@@ -366,70 +370,76 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                   </li>
                 );
               })}
-              <li className="border-t border-[var(--color-line)] pt-4">
+            </ul>
+          )}
+
+          {tab === 'research' && (
+            <div className="space-y-4">
+              <div>
                 <p className="text-xs font-medium text-[var(--color-ink)]">Research gather keys</p>
                 <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">
-                  Optional keys for external research sources (Brave, market news).
+                  Optional keys for external research sources (Brave, market news). SEC filings
+                  gather without a user key.
                 </p>
-                <ul className="mt-3 space-y-4">
-                  {RESEARCH_KEY_PROVIDERS.map((p) => {
-                    const saved = researchKeys.find((k) => k.provider === p.id);
-                    return (
-                      <li key={p.id} className="space-y-1.5">
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-xs text-[var(--color-ink)]">{p.label}</span>
-                          <span className="text-[10px] text-[var(--color-ink-faint)]">{p.hint}</span>
-                        </div>
-                        {saved ? (
-                          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--color-ink-dim)]">
-                            <span>
-                              saved ·····{saved.keyHint}
-                              <span className="ml-2 text-[var(--color-ink-faint)]">
-                                {new Date(saved.updatedAt).toLocaleDateString()}
-                              </span>
+              </div>
+              <ul className="space-y-4">
+                {RESEARCH_KEY_PROVIDERS.map((p) => {
+                  const saved = researchKeys.find((k) => k.provider === p.id);
+                  return (
+                    <li key={p.id} className="space-y-1.5">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-xs text-[var(--color-ink)]">{p.label}</span>
+                        <span className="text-[10px] text-[var(--color-ink-faint)]">{p.hint}</span>
+                      </div>
+                      {saved ? (
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--color-ink-dim)]">
+                          <span>
+                            saved ·····{saved.keyHint}
+                            <span className="ml-2 text-[var(--color-ink-faint)]">
+                              {new Date(saved.updatedAt).toLocaleDateString()}
                             </span>
-                            <button
-                              onClick={() => void removeResearchKey(p.id)}
-                              disabled={busy === p.id}
-                              className="text-[var(--color-block)] hover:underline disabled:opacity-50"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        ) : (
-                          <p className="text-[11px] text-[var(--color-ink-faint)]">No key saved</p>
-                        )}
-                        <div className="flex gap-1.5">
-                          <input
-                            type="password"
-                            value={researchDrafts[p.id]}
-                            onChange={(e) =>
-                              setResearchDrafts((d) => ({ ...d, [p.id]: e.target.value }))
-                            }
-                            placeholder={saved ? 'Replace key…' : 'Paste API key'}
-                            aria-label={`${p.label} API key`}
-                            autoComplete="off"
-                            className="min-w-0 flex-1 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
-                          />
+                          </span>
                           <button
-                            onClick={() => void saveResearchKey(p.id)}
+                            onClick={() => void removeResearchKey(p.id)}
                             disabled={busy === p.id}
-                            className="shrink-0 rounded-md border border-[var(--color-accent)] px-2.5 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+                            className="text-[var(--color-block)] hover:underline disabled:opacity-50"
                           >
-                            Save
+                            Delete
                           </button>
                         </div>
-                        {messages[p.id] && (
-                          <p className="text-[10px] text-[var(--color-ink-faint)]">
-                            {messages[p.id]}
-                          </p>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </li>
-            </ul>
+                      ) : (
+                        <p className="text-[11px] text-[var(--color-ink-faint)]">No key saved</p>
+                      )}
+                      <div className="flex gap-1.5">
+                        <input
+                          type="password"
+                          value={researchDrafts[p.id]}
+                          onChange={(e) =>
+                            setResearchDrafts((d) => ({ ...d, [p.id]: e.target.value }))
+                          }
+                          placeholder={saved ? 'Replace key…' : 'Paste API key'}
+                          aria-label={`${p.label} API key`}
+                          autoComplete="off"
+                          className="min-w-0 flex-1 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
+                        />
+                        <button
+                          onClick={() => void saveResearchKey(p.id)}
+                          disabled={busy === p.id}
+                          className="shrink-0 rounded-md border border-[var(--color-accent)] px-2.5 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+                        >
+                          Save
+                        </button>
+                      </div>
+                      {messages[p.id] && (
+                        <p className="text-[10px] text-[var(--color-ink-faint)]">
+                          {messages[p.id]}
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           )}
 
           {tab === 'brokers' && (

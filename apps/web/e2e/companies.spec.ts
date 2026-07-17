@@ -22,6 +22,18 @@ async function createDayTradingCompany(page: Page): Promise<void> {
 }
 
 test.describe('Companies directory', () => {
+  test('exposes User Settings from the directory shell', async ({ page }) => {
+    await page.goto('/companies');
+    await page.getByRole('button', { name: 'Open user settings' }).click();
+    await expect(page.getByRole('dialog', { name: 'User settings' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'LLM providers' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Research' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Brokers' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Research' }).click();
+    await expect(page.getByText('Research gather keys')).toBeVisible();
+    await page.getByRole('button', { name: 'Close settings' }).click();
+  });
+
   test('loads and exposes template choices in the create form', async ({ page }) => {
     await openNewCompanyForm(page);
     await expect(page.getByText('Start from')).toBeVisible();

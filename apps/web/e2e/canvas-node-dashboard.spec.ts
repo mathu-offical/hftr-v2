@@ -94,9 +94,11 @@ test.describe('Canvas node dashboard (D-026)', () => {
     await tradingNode.getByRole('button', { name: 'Save setup' }).click();
     expect((await setupResponse).ok()).toBe(true);
 
-    await expect(tradingNode.getByText('Set · Topic / sector', { exact: true })).toBeVisible();
-    await expect(tradingNode.getByText('Set · Capital allocation', { exact: true })).toBeVisible();
-    await expect(tradingNode.getByText('Set · Target exit', { exact: true })).toBeVisible();
+    await expect(tradingNode.getByText('Set · Topic / sector', { exact: true })).toHaveCount(0);
+    await expect(tradingNode.getByLabel('Confirmed: Topic / sector')).toBeVisible();
+    await expect(tradingNode.getByLabel('Confirmed: Capital allocation')).toBeVisible();
+    await expect(tradingNode.getByLabel('Confirmed: Target exit')).toBeVisible();
+    await expect(topicField).toHaveClass(/border-\[var\(--color-line\)\]/);
 
     await tradingNode.getByText('Trading', { exact: true }).click();
     const inspectorName = page.locator('aside').getByLabel('Name', { exact: true });

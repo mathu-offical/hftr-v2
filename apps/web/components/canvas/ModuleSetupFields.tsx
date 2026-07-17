@@ -47,16 +47,24 @@ export function moduleSetupInputFromDraft(
   return setup;
 }
 
-function FieldStatusChip(props: { field: ModuleSetupField; missing: boolean }) {
+function FieldStatusChip(props: { field: ModuleSetupField }) {
+  return (
+    <span className="shrink-0 rounded-full border border-[var(--color-warn)] px-1.5 py-0.5 text-[9px] text-[var(--color-warn)]">
+      Required · {SETUP_FIELD_LABELS[props.field]}
+    </span>
+  );
+}
+
+function ConfirmedFieldCheck(props: { field: ModuleSetupField; insetForNativeControl?: boolean }) {
   return (
     <span
-      className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] ${
-        props.missing
-          ? 'border-[var(--color-warn)] text-[var(--color-warn)]'
-          : 'border-[var(--color-ok)] text-[var(--color-ok)]'
-      }`}
+      role="status"
+      aria-label={`Confirmed: ${SETUP_FIELD_LABELS[props.field]}`}
+      className={`pointer-events-none absolute top-1/2 -translate-y-1/2 rounded-full border
+        border-[var(--color-ok)]/50 bg-[var(--color-ok)]/10 px-1 text-[9px]
+        text-[var(--color-ok)] ${props.insetForNativeControl ? 'right-8' : 'right-2'}`}
     >
-      {props.missing ? 'Required' : 'Set'} · {SETUP_FIELD_LABELS[props.field]}
+      ✓
     </span>
   );
 }
@@ -67,7 +75,7 @@ function fieldBorderClass(missing: boolean, compact?: boolean): string {
     : 'w-full rounded-md border bg-[var(--color-surface-0)] px-2 py-1.5 text-xs outline-none';
   const state = missing
     ? 'border-[var(--color-warn)] focus:border-[var(--color-warn)]'
-    : 'border-[var(--color-ok)] focus:border-[var(--color-accent)]';
+    : 'border-[var(--color-line)] focus:border-[var(--color-accent)]';
   return `${base} ${state}`;
 }
 
@@ -89,36 +97,44 @@ export function ModuleSetupFields(props: {
     );
   }
 
+  const topicMissing = missing.has('topic_sector');
+  const allocationMissing = missing.has('capital_allocation');
+  const targetExitMissing = missing.has('target_exit');
+
   return (
     <div className={props.compact ? 'space-y-2' : 'space-y-3'}>
       {required.has('topic_sector') && (
         <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-1">
-            <FieldStatusChip field="topic_sector" missing={missing.has('topic_sector')} />
-          </div>
+          {topicMissing && (
+            <div className="flex flex-wrap items-center gap-1">
+              <FieldStatusChip field="topic_sector" />
+            </div>
+          )}
           <label className="block">
             <span className="sr-only">Topic / sector</span>
-            <input
-              value={props.draft.topicSectors}
-              onChange={(event) =>
-                props.onChange({ ...props.draft, topicSectors: event.target.value })
-              }
-              placeholder="Semiconductors, energy, macro"
-              aria-label="Topic / sector"
-              className={fieldBorderClass(missing.has('topic_sector'), props.compact)}
-            />
+            <div className="relative">
+              <input
+                value={props.draft.topicSectors}
+                onChange={(event) =>
+                  props.onChange({ ...props.draft, topicSectors: event.target.value })
+                }
+                placeholder="Semiconductors, energy, macro"
+                aria-label="Topic / sector"
+                className={`${fieldBorderClass(topicMissing, props.compact)}${topicMissing ? '' : ' pr-8'}`}
+              />
+              {!topicMissing && <ConfirmedFieldCheck field="topic_sector" />}
+            </div>
           </label>
         </div>
       )}
 
       {required.has('capital_allocation') && (
         <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-1">
-            <FieldStatusChip
-              field="capital_allocation"
-              missing={missing.has('capital_allocation')}
-            />
-          </div>
+          {allocationMissing && (
+            <div className="flex flex-wrap items-center gap-1">
+              <FieldStatusChip field="capital_allocation" />
+            </div>
+          )}
           <label className="block space-y-1">
             <span className="sr-only">Capital allocation</span>
             <div className="flex gap-1">
@@ -131,21 +147,24 @@ export function ModuleSetupFields(props: {
                   })
                 }
                 aria-label="Capital allocation mode"
-                className={fieldBorderClass(missing.has('capital_allocation'), props.compact)}
+                className={fieldBorderClass(allocationMissing, props.compact)}
               >
                 <option value="amount">USD</option>
                 <option value="percentage">Percent</option>
               </select>
-              <input
-                inputMode="decimal"
-                value={props.draft.allocationValue}
-                onChange={(event) =>
-                  props.onChange({ ...props.draft, allocationValue: event.target.value })
-                }
-                placeholder={props.draft.allocationMode === 'amount' ? '2500.00' : '25'}
-                aria-label="Capital allocation value"
-                className={fieldBorderClass(missing.has('capital_allocation'), props.compact)}
-              />
+              <div className="relative min-w-0 flex-1">
+                <input
+                  inputMode="decimal"
+                  value={props.draft.allocationValue}
+                  onChange={(event) =>
+                    props.onChange({ ...props.draft, allocationValue: event.target.value })
+                  }
+                  placeholder={props.draft.allocationMode === 'amount' ? '2500.00' : '25'}
+                  aria-label="Capital allocation value"
+                  className={`${fieldBorderClass(allocationMissing, props.compact)}${allocationMissing ? '' : ' pr-8'}`}
+                />
+                {!allocationMissing && <ConfirmedFieldCheck field="capital_allocation" />}
+              </div>
             </div>
             <span className="block text-[9px] text-[var(--color-ink-faint)]">
               Trading capital only. Provider and LLM budgets are tracked separately.
@@ -156,20 +175,27 @@ export function ModuleSetupFields(props: {
 
       {required.has('target_exit') && (
         <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-1">
-            <FieldStatusChip field="target_exit" missing={missing.has('target_exit')} />
-          </div>
+          {targetExitMissing && (
+            <div className="flex flex-wrap items-center gap-1">
+              <FieldStatusChip field="target_exit" />
+            </div>
+          )}
           <label className="block">
             <span className="sr-only">Target exit date / time</span>
-            <input
-              type="datetime-local"
-              value={props.draft.targetExitLocal}
-              onChange={(event) =>
-                props.onChange({ ...props.draft, targetExitLocal: event.target.value })
-              }
-              aria-label="Target exit date / time"
-              className={fieldBorderClass(missing.has('target_exit'), props.compact)}
-            />
+            <div className="relative">
+              <input
+                type="datetime-local"
+                value={props.draft.targetExitLocal}
+                onChange={(event) =>
+                  props.onChange({ ...props.draft, targetExitLocal: event.target.value })
+                }
+                aria-label="Target exit date / time"
+                className={`${fieldBorderClass(targetExitMissing, props.compact)}${targetExitMissing ? '' : ' pr-14'}`}
+              />
+              {!targetExitMissing && (
+                <ConfirmedFieldCheck field="target_exit" insetForNativeControl />
+              )}
+            </div>
           </label>
         </div>
       )}

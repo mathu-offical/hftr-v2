@@ -1,36 +1,65 @@
-import { LlmProvider, LlmTier, TIER_PROVIDER } from '@hftr/contracts';
+import {
+  admitsRetention,
+  CompanyLlmPolicy,
+  DEFAULT_TIER_MODELS,
+  lookupModelCapability,
+  LlmProvider,
+  LlmTier,
+  type ModelCapability,
+} from '@hftr/contracts';
 
-/** Default models per tier; overridable via env (see .env.example). */
-const DEFAULT_MODELS: Record<LlmTier, string> = {
-  strategic: 'claude-sonnet-4-5',
-  tactical: 'mistral-medium-latest',
-  execution: 'llama-3.3-70b-versatile',
-  assistant: 'mistral-medium-latest',
-};
-
-const MODEL_ENV: Partial<Record<LlmTier, string>> = {
-  strategic: 'ANTHROPIC_STRATEGIC_MODEL',
-  tactical: 'MISTRAL_TACTICAL_MODEL',
-  execution: 'GROQ_EXECUTION_MODEL',
-};
-
-export function modelForTier(tier: LlmTier): { provider: LlmProvider; model: string } {
-  const envName = MODEL_ENV[tier];
-  const override = envName ? process.env[envName] : undefined;
-  return { provider: TIER_PROVIDER[tier], model: override || DEFAULT_MODELS[tier] };
+export interface ResolvedModel {
+  capability: ModelCapability;
 }
 
-export function apiKeyForProvider(provider: LlmProvider): string | undefined {
-  switch (provider) {
-    case 'anthropic':
-      return process.env.ANTHROPIC_API_KEY;
-    case 'mistral':
-      return process.env.MISTRAL_API_KEY;
-    case 'groq':
-      return process.env.GROQ_API_KEY;
-    default: {
-      const _exhaustive: never = provider;
-      throw new Error(_exhaustive);
-    }
+export type ResolveModelFailure = 'model_not_allowlisted' | 'retention_blocked';
+
+export function resolveModelForTier(
+  policy: CompanyLlmPolicy,
+  tier: LlmTier,
+  overrides?: { provider?: LlmProvider; modelId?: string },
+): { ok: true; resolved: ResolvedModel } | { ok: false; failure: ResolveModelFailure } {
+  const parsedPolicy = CompanyLlmPolicy.parse(policy);
+  const tierOverride = parsedPolicy.tierModels[tier];
+  const defaultRow = DEFAULT_TIER_MODELS[tier];
+
+  const provider = overrides?.provider ?? defaultRow.provider;
+  const modelId = overrides?.modelId ?? tierOverride ?? defaultRow.modelId;
+
+  const capability = lookupModelCapability(provider, modelId);
+  if (!capability) {
+    return { ok: false, failure: 'model_not_allowlisted' };
   }
+  if (!capability.tiers.includes(tier)) {
+    return { ok: false, failure: 'model_not_allowlisted' };
+  }
+  if (!admitsRetention(capability, parsedPolicy)) {
+    return { ok: false, failure: 'retention_blocked' };
+  }
+  return { ok: true, resolved: { capability } };
+}
+
+/** Rough pre-call cost estimate for budget admission (1k in / 2k out tokens). */
+export function estimateCallCostCents(capability: ModelCapability): number {
+  const tokensIn = 1_000;
+  const tokensOut = 2_000;
+  return Math.max(
+    1,
+    Math.ceil(
+      (tokensIn * capability.inputCostCentsPerMTok +
+        tokensOut * capability.outputCostCentsPerMTok) /
+        1_000_000,
+    ),
+  );
+}
+
+export function actualCostCents(
+  capability: ModelCapability,
+  tokensIn: number,
+  tokensOut: number,
+): number {
+  return Math.ceil(
+    (tokensIn * capability.inputCostCentsPerMTok + tokensOut * capability.outputCostCentsPerMTok) /
+      1_000_000,
+  );
 }

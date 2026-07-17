@@ -99,9 +99,21 @@ Persisted `module_links.link_kind` remains authoritative; handle ids are present
 
 ## Validation UI
 
-- Each required field row shows its own **Required · {label}** or **Set · {label}** chip immediately above or beside that control.
+- Each missing required field row shows its own **Required · {label}** chip immediately above or
+  beside that control.
 - Missing fields: warn border + warn chip on that row only.
-- Complete fields: ok border/chip on that row.
+- Complete fields return to the normal neutral field border. They do not keep a green outline or
+  a verbose **Set · {label}** chip.
+- Complete fields show one subtle green check chip **inside the trailing edge of the field
+  boundary**:
+  - topic/sector: inside the text input;
+  - capital allocation: inside the numeric value input (the mode select stays normal);
+  - target exit: inside the date/time input with spacing reserved for the native calendar control.
+- The check is pointer-transparent and accompanied by screen-reader text
+  `Confirmed: {field label}`. Inputs reserve right padding so text and native controls never
+  overlap it.
+- The same shared `ModuleSetupFields` treatment applies to compact canvas nodes, company creation,
+  and engine setup forms; individual surfaces must not implement their own confirmed-state chrome.
 - No global “Setup complete” / stacked chip strip that is detached from fields (optional single footer line OK only as secondary summary).
 - Draft → active remains blocked server-side while `missingModuleSetupFields` is non-empty.
 

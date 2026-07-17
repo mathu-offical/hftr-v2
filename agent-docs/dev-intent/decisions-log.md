@@ -367,6 +367,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   an ENGINE but remains outside `engine_instance_id` domain membership. Canonical design:
   `ui-ux/canvas-layout-and-dedicated-math-design.md`.
 
+- **D-034 (subtle confirmed-field validation, 2026-07-17):**
+  Approved design; implementation pending. Missing setup fields keep their explicit warning border
+  and **Required · label** chip. Confirmed fields return to normal neutral input chrome and show
+  only a subtle green check chip inside the field's trailing edge; no green field border and no
+  verbose **Set · label** chip. Capital allocation places the check inside the value input, while
+  target-exit spacing avoids the native calendar control. The shared `ModuleSetupFields`
+  implementation owns this behavior across company creation, engine setup, and canvas nodes, with
+  pointer-transparent chrome and screen-reader text `Confirmed: {field label}`.
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

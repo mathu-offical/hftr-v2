@@ -351,6 +351,22 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   work ships: `assistant_edits` proposals, `simulation_runs` API/UI, assistant proposal cards.
   OQ-1 (pricing) remains open until user input.
 
+- **D-033 (scoped canvas Reflow + dedicated Math tools, 2026-07-17):**
+  Approved design; implementation pending. (a) **Scoped layout actions:** each ENGINE header gets
+  a Reflow button that restores persisted members, returns Math tools to owners, lays out the
+  internal pipeline with connection-safe gutters, and recomputes bounds. The main canvas Reflow
+  first repairs child/group and owner/tool placement, reflows engines, then arranges all engines
+  and ungrouped top-level envelopes in one horizontal line. Ordinary drag remains freeform.
+  (b) **Required Math ownership:** `research`, `trend`, `trading`, `simulator`, `analyzer`, and
+  `generator` receive one dedicated persisted Math module by default; a Math module has one
+  optional owner but may retain additional D-028 attachments. (c) **Required topology:** every
+  owner has `owner → Math` and `Math → owner` data-feed edges. Financial paths to a model-bearing
+  consumer must traverse its Math tool (`source/router → Math → owner`) with no direct bypass.
+  (d) **Presentation:** dedicated Math renders as one compact bottom-docked tool node with its own
+  labeled handles and measured owner/tool envelope; it is visually contained when its owner is in
+  an ENGINE but remains outside `engine_instance_id` domain membership. Canonical design:
+  `ui-ux/canvas-layout-and-dedicated-math-design.md`.
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

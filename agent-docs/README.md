@@ -31,6 +31,7 @@ implementation proceeds.
 | `ui-ux/ui-spec.md` | Canvas, panels, galaxy view, design system, visual standards |
 | `ui-ux/canvas-node-dashboard-design.md` | D-026 labeled ports + fixed dashboard card |
 | `ui-ux/canvas-engine-group-design.md` | D-028 ENGINE parent groups + Math tools |
+| `ui-ux/canvas-layout-and-dedicated-math-design.md` | D-033 scoped Reflow + dedicated Math ownership and routing |
 | `research/v1-carryover.md` | Everything ported from v1: contracts, bands, catalogs, guardrails |
 | `testing/README.md` | Testing doc index; `/paper-experiment` workflow map |
 | `testing/requirements-matrix.md` | REQ-ID → evidence matrix (paper intent-alignment program) |

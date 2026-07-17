@@ -31,6 +31,7 @@ import {
   LINK_KIND_ORDER,
   linkKindForHandlePair,
   missingModuleSetupFields,
+  moduleRequiresMath,
   MODULE_CONFIG_SCHEMAS,
   moduleLinkPorts,
   ModuleType,
@@ -64,6 +65,7 @@ import {
 } from './engines';
 import { COMPANY_TEMPLATES, ENGINE_TEMPLATES } from './templates';
 import {
+  CANVAS_LAYOUT,
   LAYOUT_COLUMN_STEP,
   layoutCanvas,
   rankEngineMembers,
@@ -138,8 +140,11 @@ describe('canvas link port helpers', () => {
     });
   });
 
-  it('exposes Math tool inbound on generator; generator still has no outbound', () => {
-    expect(moduleLinkPorts('generator')).toEqual({ inbound: ['data_feed'], outbound: [] });
+  it('exposes reciprocal data ports for generator dedicated Math ownership', () => {
+    expect(moduleLinkPorts('generator')).toEqual({
+      inbound: ['data_feed'],
+      outbound: ['data_feed'],
+    });
   });
 
   it('builds stable handle ids from kind and direction', () => {
@@ -735,7 +740,41 @@ describe('canvas layout (D-033)', () => {
     id,
     type,
     engineInstanceId: engineId,
+    toolOwnerModuleId: null,
     position: { x: 0, y: 0 },
+  });
+
+  it('requires dedicated Math only for model-bearing analytical owners', () => {
+    expect(moduleRequiresMath('research')).toBe(true);
+    expect(moduleRequiresMath('trend')).toBe(true);
+    expect(moduleRequiresMath('trading')).toBe(true);
+    expect(moduleRequiresMath('simulator')).toBe(true);
+    expect(moduleRequiresMath('analyzer')).toBe(true);
+    expect(moduleRequiresMath('generator')).toBe(true);
+    expect(moduleRequiresMath('library')).toBe(false);
+    expect(moduleRequiresMath('math')).toBe(false);
+  });
+
+  it('docks explicit dedicated Math below its measured owner without link inference', () => {
+    const ownerId = '00000000-0000-4000-8000-0000000000e1';
+    const mathId = '00000000-0000-4000-8000-0000000000e2';
+    const owner = { ...mkModule(ownerId), width: 300, height: 340 };
+    const math = {
+      ...mkModule(mathId, 'math'),
+      engineInstanceId: null,
+      toolOwnerModuleId: ownerId,
+    };
+    const result = reflowEngineAtOrigin(
+      { id: engineId, memberModuleIds: [ownerId] },
+      [owner, math],
+      [],
+      { x: 100, y: 100 },
+      ENGINE_GROUP_PADDING,
+    );
+    const ownerPos = result.modules.find((module) => module.id === ownerId)!.canvasPosition;
+    const mathPos = result.modules.find((module) => module.id === mathId)!.canvasPosition;
+    expect(mathPos.x).toBe(ownerPos.x + (owner.width - CANVAS_LAYOUT.mathToolWidth) / 2);
+    expect(mathPos.y).toBe(ownerPos.y + owner.height + CANVAS_LAYOUT.mathAttachmentGap);
   });
 
   it('ranks members downstream from their producers', () => {

@@ -31,11 +31,14 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   topic_sectors_overridden boolean default false (D-028: true when member opts out of engine
   master topic cascade), capital_allocation_ref nullable, target_exit_ref nullable,
   canvas_position jsonb {x,y}, philosophy_override text,
-  engine_instance_id uuid nullable FK → engine_instances (`ON DELETE SET NULL`, D-028).
-  Migration `0008_blushing_kronos`.
-  Notes: `math` is auto-created per company (one seed module), default name `Deterministic Math
-  Calculator` (D-008, D-023); D-028 adds repeatable Math tool modules (multi-attach, deletable,
-  never `engine_instance_id`). `holding_fund` represents a deterministic capital source on the
+  engine_instance_id uuid nullable FK → engine_instances (`ON DELETE SET NULL`, D-028),
+  tool_owner_module_id uuid nullable self-FK (`ON DELETE SET NULL`, unique; D-033). Migration
+  `0018_dedicated_math_ownership` adds explicit ownership without guessing for legacy Math rows.
+  Notes: `math` retains one unowned company seed for shared topology (D-008/D-023). D-033 also
+  provisions one dedicated Math row for each research, trend, trading, simulator, analyzer, or
+  generator owner. Dedicated ownership is explicit through `tool_owner_module_id`; Math remains
+  outside `engine_instance_id` even when visually contained by its owner's engine. D-028 shared
+  multi-attach Math remains valid. `holding_fund` represents a deterministic capital source on the
   canvas (`HoldingFundModuleConfig`: `source`, `allocationPolicyRef`) — topology only in M1,
   no ledger transfers yet (D-023); `policy` nodes occupy the rightmost canvas column and bind
   policy envelopes to the trading modules linked into them (spec: "trading modules → trading

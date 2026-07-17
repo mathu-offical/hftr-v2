@@ -23,6 +23,20 @@ export const ModuleType = z.enum([
 ]);
 export type ModuleType = z.infer<typeof ModuleType>;
 
+/** D-033: module types that receive one dedicated deterministic Math tool. */
+export const MATH_REQUIRED_MODULE_TYPES: ReadonlySet<ModuleType> = new Set([
+  'research',
+  'trend',
+  'trading',
+  'simulator',
+  'analyzer',
+  'generator',
+]);
+
+export function moduleRequiresMath(type: ModuleType): boolean {
+  return MATH_REQUIRED_MODULE_TYPES.has(type);
+}
+
 export const TradingSubtype = z.enum(['crypto', 'prediction', 'hft', 'day', 'long_term', 'custom']);
 export type TradingSubtype = z.infer<typeof TradingSubtype>;
 
@@ -56,12 +70,21 @@ export const LINK_RULES: Readonly<Record<string, readonly LinkKind[]>> = {
   'analyzer->research': ['verification', 'data_feed'],
   'trading->analyzer': ['verification'],
   'analyzer->policy': ['verification'],
+  // Dedicated Math ownership (D-033): owner input/context → Math.
+  'research->math': ['data_feed'],
+  'trend->math': ['data_feed'],
+  'trading->math': ['data_feed'],
+  'simulator->math': ['data_feed'],
+  'analyzer->math': ['data_feed'],
+  'generator->math': ['data_feed'],
+  // Trading capital must traverse the trading owner's dedicated Math tool.
+  'fund_router->math': ['fund_route'],
   // Math TOOL attachments (D-028): one Math may attach to many consumers.
   'math->research': ['data_feed'],
   'math->library': ['data_feed'],
   'math->live_api': ['data_feed'],
   'math->trend': ['data_feed'],
-  'math->trading': ['data_feed'],
+  'math->trading': ['data_feed', 'fund_route'],
   'math->simulator': ['data_feed'],
   'math->analyzer': ['data_feed'],
   'math->policy': ['data_feed'],

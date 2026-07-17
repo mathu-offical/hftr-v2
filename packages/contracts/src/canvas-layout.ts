@@ -56,8 +56,12 @@ export interface LayoutModule {
   id: string;
   type: ModuleType;
   engineInstanceId: string | null;
+  /** Explicit dedicated Math ownership (D-033); set only on Math modules. */
+  toolOwnerModuleId: string | null;
   /** Absolute canvas position (engine children use absolute coords for layout). */
   position: { x: number; y: number };
+  width?: number;
+  height?: number;
 }
 
 export interface LayoutLink {
@@ -277,23 +281,40 @@ export function layoutEngineGroup(
     });
   }
 
-  // Dock Math tools that attach into this engine under their primary consumer.
+  // Dock dedicated Math tools under their explicit owner. Legacy unowned Math
+  // may still use link inference until an operator provisions ownership.
   const consumers = new Set(ranked.map((r) => r.id));
   const mathModules = [...modulesById.values()].filter((m) => m.type === 'math');
   for (const math of mathModules) {
-    const attachments = links.filter(
-      (link) =>
-        link.fromModuleId === math.id &&
-        consumers.has(link.toModuleId) &&
-        isMathToolAttachment('math', modulesById.get(link.toModuleId)!.type, link.linkKind),
-    );
-    if (attachments.length === 0) continue;
-    const ownerId = attachments.map((a) => a.toModuleId).sort()[0]!;
+    const explicitOwnerId =
+      math.toolOwnerModuleId && consumers.has(math.toolOwnerModuleId)
+        ? math.toolOwnerModuleId
+        : null;
+    const attachments = explicitOwnerId
+      ? []
+      : links.filter(
+          (link) =>
+            link.fromModuleId === math.id &&
+            consumers.has(link.toModuleId) &&
+            isMathToolAttachment('math', modulesById.get(link.toModuleId)!.type, link.linkKind),
+        );
+    const ownerId =
+      explicitOwnerId ?? attachments.map((attachment) => attachment.toModuleId).sort()[0];
+    if (!ownerId) continue;
     const ownerPos = positions.get(ownerId);
     if (!ownerPos) continue;
+    const owner = modulesById.get(ownerId);
+    const ownerWidth = Math.max(
+      owner?.width ?? CANVAS_LAYOUT.moduleWidth,
+      CANVAS_LAYOUT.moduleWidth,
+    );
+    const ownerHeight = Math.max(
+      owner?.height ?? CANVAS_LAYOUT.moduleHeight,
+      CANVAS_LAYOUT.moduleHeight,
+    );
     positions.set(math.id, {
-      x: ownerPos.x + (CANVAS_LAYOUT.moduleWidth - CANVAS_LAYOUT.mathToolWidth) / 2,
-      y: ownerPos.y + CANVAS_LAYOUT.moduleHeight + CANVAS_LAYOUT.mathAttachmentGap,
+      x: ownerPos.x + (ownerWidth - CANVAS_LAYOUT.mathToolWidth) / 2,
+      y: ownerPos.y + ownerHeight + CANVAS_LAYOUT.mathAttachmentGap,
     });
   }
 

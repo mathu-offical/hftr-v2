@@ -127,6 +127,13 @@
       "when": 1784325000000,
       "tag": "0017_archive_retention",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1784326000000,
+      "tag": "0018_dedicated_math_ownership",
+      "breakpoints": true
     }
   ]
 }

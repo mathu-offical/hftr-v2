@@ -9,6 +9,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { brokerConnections } from './brokers';
 
@@ -133,11 +134,19 @@ export const modules = pgTable(
     engineInstanceId: uuid('engine_instance_id').references(() => engineInstances.id, {
       onDelete: 'set null',
     }),
+    /**
+     * D-033: explicit dedicated-tool ownership. Set only on Math rows; unique
+     * nullable FK gives each owner at most one dedicated Math tool.
+     */
+    toolOwnerModuleId: uuid('tool_owner_module_id').references((): AnyPgColumn => modules.id, {
+      onDelete: 'set null',
+    }),
     ...timestamps,
   },
   (t) => [
     index('modules_company_idx').on(t.companyId),
     index('modules_engine_instance_idx').on(t.engineInstanceId),
+    uniqueIndex('modules_tool_owner_unique').on(t.toolOwnerModuleId),
   ],
 );
 

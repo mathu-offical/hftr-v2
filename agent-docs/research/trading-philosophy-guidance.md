@@ -214,19 +214,28 @@ Deterministic movement is future work — philosophy should not assume transfers
 
 | baseline_ref | template | feed_class | alignment | notes |
 | --- | --- | --- | --- | --- |
-| _pending_ | day_trading_starter | synthetic_sim | partial | e2e topology only (EXP-2026-07-17-demo) |
+| EXP-2026-07-17-01 | unit (philosophy control) | synthetic_sim | pass | risk_appetite → sizing BPS; fail-closed levers |
+| EXP-2026-07-17-02 | multi-company live-data | — | deferred | blocked on venue adapters |
+
+See `testing/experiment-log.md` for full scorecards.
 
 ### 8.2 Observed tensions
 
-_To be filled when M2 pipeline produces C/O vectors._
+- Free-text philosophy alone never changed sizing (pre-D-025) — structured axes required.
+- Strategy family UI toggles were ignored until promote read `strategyFamilies[0]`.
+- Labeling synthetic quotes as `live_feed` created false provenance confidence — fixed to `synthetic_sim`.
 
 ### 8.3 Operator patterns that score well
 
-_To be filled after ≥3 scored experiments._
+- Set **risk_appetite** explicitly before promoting; typical is the safe paper default.
+- Pair a named strategy family on the trading module with a matching narrative philosophy prompt.
+- Keep **compliance_tightness** at typical/max in paper until verification pass rates are measured.
 
 ### 8.4 Common drift modes
 
-_To be filled from drift reports — e.g. declared flat-by-close vs swing family mismatch._
+- Declared aggressive risk but empty `strategyFamilies` → falls back to `trend_following_v1`.
+- Declared live-grade provenance while still on synthetic quotes — audit must fail until adapters land.
+- Multi-tenant verification leakage via unscoped `/activity` (fixed D-025).
 
 ---
 

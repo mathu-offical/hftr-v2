@@ -66,9 +66,9 @@ plan live gates pass.
 
 | ID | Description | Expected deterministic effect | Evidence artifact | executable_today | REQ links |
 | --- | --- | --- | --- | --- | --- |
-| PHIL-001 | All strategic risk axes at `min` | Small per-name size; low heat; tight vol target scalar | `LeverSetting` band positions min (future) | no | axis taxonomy §risk |
-| PHIL-002 | All strategic risk axes at `max` (paper) | Larger sizes attempted; **hard guardrails still cap** | `ScopeEnforcementResult.rejected` for out-of-range if above immutable cap | no | guardrail catalog |
-| PHIL-003 | Midpoint (`typical`) on all bands | Baseline replay matches seeded-testing defaults | Control snapshot id in trace | no | v1 seeded-testing-baseline |
+| PHIL-001 | All strategic risk axes at `min` | Small per-name size; low heat; tight vol target scalar | `philosophyProfile` → promote `leverState` + sizing BPS; `philosophy.test.ts` | partial | REQ-PHIL-002/004; axis taxonomy §risk; D-025 |
+| PHIL-002 | All strategic risk axes at `max` (paper) | Larger sizes attempted; **hard guardrails still cap** | `enforceScopeStrict` rejects out-of-band; larger BPS vs min in unit cohort | partial | REQ-PHIL-001/004; guardrail catalog; D-025 |
+| PHIL-003 | Midpoint (`typical`) on all bands | Baseline replay matches seeded-testing defaults | Control snapshot axes in promote path; EXP unit cohort | partial | REQ-PHIL-003/004; D-025 |
 | PHIL-004 | Conflicting: aggressive risk + tight slippage + high urgency | Slippage recovery tree fires before size expansion | Recovery ladder `rec-*` phase log | no | axis taxonomy conflicting table |
 | PHIL-005 | Conflicting: trend regime + mean-reversion family | Lower promotion score; no compile without qualifying lead | Activation validation failure | no | `activationTier` |
 | PHIL-006 | Philosophy prompt emphasizes "never short" + family allows short | Short branches suppressed at tactical `branch_order_class_set` | Block reason `shorts_disabled` | no | compliance + guardrails |

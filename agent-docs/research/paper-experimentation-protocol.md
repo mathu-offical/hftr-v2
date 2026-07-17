@@ -9,6 +9,8 @@
   - `/Users/matt-mobile/MATT/web_dev/hftr-v2/agent-docs/testing/scenario-encyclopedia.md`
   - `/Users/matt-mobile/MATT/web_dev/hftr-v2/agent-docs/testing/intent-alignment-scoring.md`
   - `/Users/matt-mobile/MATT/web_dev/hftr-v2/agent-docs/testing/philosophy-axis-taxonomy.md`
+  - `/Users/matt-mobile/MATT/web_dev/hftr-v2/agent-docs/testing/requirements-matrix.md`
+  - `/Users/matt-mobile/MATT/web_dev/hftr-v2/agent-docs/testing/README.md`
   - `/Users/matt-mobile/MATT/web_dev/hftr-v2/agent-docs/research/trading-philosophy-guidance.md`
 
 ## Purpose

@@ -10,11 +10,21 @@
 
 These templates will require specific data inputs and can be hydrated from libraries or directly from research or other data modules.
 
-# DEFAULT SEEDED TRADING ENGINE
+# COMPANY CREATION
+- must give discrete options for adding seed modules
+- each module should have a funds allocation (amount or percentage), a topic/sector focus (dropdown options to add + custom entered) as well as a target exit date/time.
+
+
+
+# DEFAULT SEEDED TRADING ENGINES
 
 - this will be created based on initial user selection of which engines they want to include in company creation.
 
 - names of all nodes need to be default according to actual specific functions.
+
+- adding new trading engines should require same user entered info from company creation dialogue
+
+- do not seed topics or sectors of engines, just seed construction and logic.
 
 ## BASIC TRADE ENGINE
 

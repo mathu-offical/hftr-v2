@@ -40,11 +40,6 @@ implementation proceeds.
 | `research/trading-philosophy-guidance.md` | Multi-objective philosophy guidance (axes, prompts, experiment learnings) |
 | `research/tech-decisions.md` | Justified technology choices with alternatives considered |
 | `dev-intent/decisions-log.md` | Dated log of user decisions and clarifications |
-| `testing/scenario-encyclopedia.md` | Combinatorial intent-alignment scenarios (IDs, evidence, executable_today) |
-| `testing/philosophy-axis-taxonomy.md` | Slideable philosophy axes → band families → LeverSetting mapping |
-| `testing/intent-alignment-scoring.md` | D/C/O vectors, alignment score, drift report, scorecard template |
-| `research/paper-experimentation-protocol.md` | Canonical paper-only experiment template and preflight |
-| `research/trading-philosophy-guidance.md` | Multi-objective philosophy guidance (no guaranteed returns) |
 
 ## Implementation status
 

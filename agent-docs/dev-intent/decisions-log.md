@@ -236,6 +236,22 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   IronBee browser MCP was unavailable, so **no IronBee verification is claimed**. Formal G1
   sign-off waits on those two external verification surfaces.
 
+- **D-025 (paper intent-alignment program + philosophy control plane, 2026-07-17):** Adopted
+  the exhaustive paper-only experimentation program. (a) **Docs:** `agent-docs/testing/*`
+  (requirements matrix 166 REQs, scenario encyclopedia, axis taxonomy, intent-alignment scoring)
+  + `research/paper-experimentation-protocol.md` + `trading-philosophy-guidance.md`. (b) **Cursor:**
+  `/paper-experiment` command, `paper-experiment` + `intent-alignment-audit` skills, workflow;
+  safety/number-handling/verify-change deltas. (c) **PhilosophyProfile:** contracts +
+  `companies.philosophy_profile` + TopDrawer axis controls (min/typical/max); mapper →
+  `LeverState` via `enforceAllLayers`; promote reads profile + trading `strategyFamilies[0]` +
+  linked policy `policyEnvelopeRef`; compile sizing uses `risk_appetite` → BPS (25/75/200).
+  (d) **Provenance/isolation fixes:** synthetic quotes use `sourceClass: synthetic_sim` (not
+  `live_feed`); paper traces populate `simulatorGapTags`; `/activity` scopes verifications by
+  company trace ids. (e) **Success metric:** intention alignment (declared vs observed), not
+  absolute paper P&L. Venues beyond paper_sim remain deferred until adapters exist. Migration
+  `0009_philosophy_profile`. Verified: typecheck + unit tests including philosophy mapping.
+  Live multi-company browser cohort and IronBee not claimed in this slice.
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;
@@ -253,6 +269,11 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   sign-up UI verified rendering; full automated sign-up E2E pending (Clerk bot protection
   blocks scripted account creation — verify manually or with Clerk testing tokens).
 
+- **OQ-11 (open):** Experiment log home — append experiment scorecards to
+  `agent-docs/testing/experiment-log.md` vs DB `simulation_runs` once that table ships (M4).
+  Interim: markdown experiment-log.
+- **OQ-12 (open):** Commit policy for experiment-only sessions — user rule “commit only when
+  asked” vs workspace mandatory end-of-run. Resolve per session until productized.
 - **OQ-1 (open):** Credit pack pricing and subscription tier pricing — needs user input before M4.
 - **OQ-2 (open):** Criteria/timing for adding a dedicated always-on worker for market-hours
   watchers — decide with M3/M5 latency data.

@@ -139,6 +139,10 @@ throttle presets enforced.
 - Curation: update owning agent-docs in the same change; log decisions + open questions.
 - Safety invariants (README §curation contract) enforced in review; any live-trading surface
   change requires explicit gate criteria in this plan first.
+- **Paper experimentation (D-025):** paper-only cohorts follow
+  `research/paper-experimentation-protocol.md` and `/paper-experiment`. Success is intention
+  alignment (`testing/intent-alignment-scoring.md`), not absolute paper P&L. Requirements
+  coverage lives in `testing/requirements-matrix.md`.
 
 ## Open questions (tracked in dev-intent/decisions-log.md)
 

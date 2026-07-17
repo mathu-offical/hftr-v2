@@ -8,10 +8,10 @@
 
 | Status | Count |
 |---|---:|
-| implemented | 109 |
+| implemented | 110 |
 | stub | 11 |
 | doc-only | 0 |
-| deferred | 46 |
+| deferred | 45 |
 
 ## Doc-drift flags
 
@@ -326,7 +326,8 @@ Additional drift (not in JSON flag list):
 - **REQ-PIP-001**: Honest placeholder until M2 Claude synthesis.
 - **REQ-PIP-003**: Model tiers replaced by deterministic placeholders; schema-ready for M2/M3.
 - **REQ-PIP-005**: Deterministic placeholder; Mistral tree_expand deferred M3.
-- **REQ-PIP-006**: LAST model stage boundary preserved; real Groq call deferred M3.
+- **REQ-PIP-006**: Reads `philosophyProfile.risk_appetite` for sizing; real Groq deferred M3.
+- **REQ-PHIL-006**: Automated S_axis scoring deferred until M3 lever resolver.
 - **REQ-PIP-012**: Replaced by Alpaca live_api feeds in M3 (REQ-DEF-006).
 - **REQ-NRA-007**: API exists; full lineage graph UI deferred M3 (flow 7 not Playwright-covered).
 - **REQ-AST-004**: Retention/erasure policy unresolved OQ-10.

@@ -375,7 +375,9 @@ function PhilosophyTab(props: {
               className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] p-2"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-medium text-[var(--color-ink)]">{axis.label}</span>
+                <span className="text-[11px] font-medium text-[var(--color-ink)]">
+                  {axis.label}
+                </span>
                 <span className="font-mono text-[9px] text-[var(--color-ink-faint)]">
                   {axis.layer}
                 </span>

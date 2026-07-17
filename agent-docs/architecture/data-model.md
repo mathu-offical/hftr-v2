@@ -14,7 +14,8 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 
 ## Companies & modules
 
-- **companies** — clerk_user_id, name, philosophy_prompt, goals jsonb, reinvestment_policy jsonb,
+- **companies** — clerk_user_id, name, philosophy_prompt, philosophy_profile jsonb (slideable
+  axes → LeverSetting; D-025), goals jsonb, reinvestment_policy jsonb,
   scoping_policies jsonb, mode `paper|live`, seed_credits_cents (paper), broker_connection_id
   nullable, auto_fund_policy jsonb (approval thresholds), archived_at.
 - **modules** — company_id, type `research|library|live_api|trend|trading|policy|generator|

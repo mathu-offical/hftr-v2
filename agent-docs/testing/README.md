@@ -13,6 +13,7 @@ Living documentation for verifying that shipped code matches product, architectu
 | [scenario-encyclopedia.md](./scenario-encyclopedia.md) | Phase-1 deterministic scenario classes (`ISO-*`, `ARCH-*`, `PHIL-*`, …) for alignment regression |
 | [philosophy-axis-taxonomy.md](./philosophy-axis-taxonomy.md) | Operator philosophy axes mapped to catalog bands and `LeverSetting` |
 | [intent-alignment-scoring.md](./intent-alignment-scoring.md) | Multi-objective alignment scoring model (behavior vs declared intent, not PnL) |
+| [experiment-log.md](./experiment-log.md) | Append-only paper cohort scorecards (EXP-*) |
 
 ## How to use with `/paper-experiment`
 
@@ -54,8 +55,8 @@ Each requirement row:
 | `evidence` | Code paths, migrations, tests, or APIs proving current state |
 | `scenarios` | Verification scenarios (vitest, Playwright, manual browser flows) |
 | `venues` | `paper_sim`, `alpaca`, `kalshi`, `polymarket`, `coinbase`, `platform`, `all` |
-| `philosophy_axes` | Multi-objective framing: `strategy_outcome`, `execution_quality`, `risk_controls`, `compliance_posture`, `operator_transparency`, `research_quality` |
-| `safety_class` | `safety_critical`, `compliance`, `financial`, `operational`, `informational` |
+| `philosophyAxes` | Taxonomy axis families (see philosophy-axis-taxonomy.md) and/or multi-objective framing |
+| `safetyClass` | `safety_critical`, `compliance`, `financial`, `operational`, `informational` |
 | `notes` | Optional — includes explicit **doc-drift** flags when specs claim coverage that code/tests lack |
 
 ## Status honesty (paper program)

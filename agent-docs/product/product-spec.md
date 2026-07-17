@@ -10,10 +10,13 @@ watches, steers, and approves through the canvas + three panels + the assistant.
 
 ## 2. Companies
 
-- Fields: name, philosophy prompt, trading goals, re-investment strategy, scoping policies,
-  mode (paper|live), seed amount, per-module allocations (manual or auto), broker connection.
+- Fields: name, philosophy prompt, **structured philosophy profile** (slideable axes →
+  bounded-range lever positions; D-025), trading goals, re-investment strategy, scoping
+  policies, mode (paper|live), seed amount, per-module allocations (manual or auto), broker
+  connection.
 - Company policies bound everything downstream: risk bands, session allowances, approval
-  thresholds for fund movements, LLM budget tier.
+  thresholds for fund movements, LLM budget tier. Philosophy axes deterministically affect
+  promote/compile sizing and control snapshots; free-text never supplies raw sizes or times.
 - A user can own many companies; each company is one canvas.
 - **Company creation (implemented D-024):** offers discrete seed modules/engines and an inline
   setup section. Capital-bearing nodes (`holding_fund`, `fund_router`, `trading`) require a fixed

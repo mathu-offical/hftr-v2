@@ -82,6 +82,16 @@ export {
   type EquityMarkKind,
 } from './equity/equity';
 
+// Service resolution (company-equity-and-service-sources design)
+export {
+  resolveModuleServiceCoverage,
+  type ModuleServiceBinding,
+  type ModuleServiceInput,
+  type ModuleServiceSource,
+  type ResolvedModuleServiceCoverage,
+  type ServiceSourceKind,
+} from './services/resolve-module-services';
+
 // Calc / NRA
 export * as calcStore from './calc/store';
 export { evaluate as calcEvaluate, type CalcCaller } from './calc/evaluate';

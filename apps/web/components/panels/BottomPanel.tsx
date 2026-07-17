@@ -338,13 +338,17 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
                 `Execution outcome: ${e.outcome}.`,
                 e.failureCode
                   ? `Failure code: ${e.failureCode}.`
-                  : (e.description ?? `${e.venue} · ${e.mode} mode.`),
+                  : e.description ?? `${e.venue} · ${e.mode} mode.`,
                 v
                   ? `Verification: ${v.result}${v.failureCode ? ` (${v.failureCode})` : ''}.`
                   : 'No verification record linked to this trace yet.',
               ];
               return [
-                <Justification key="o" sourceClass="deterministic_placeholder" lines={outcomeLines}>
+                <Justification
+                  key="o"
+                  sourceClass="deterministic_placeholder"
+                  lines={outcomeLines}
+                >
                   <button
                     onClick={openTrace}
                     aria-label={`Open decision trace for execution ${e.id}`}
@@ -572,7 +576,9 @@ function AddCandidateForm(props: {
       await props.onCreated();
     } catch (err) {
       setMessage(
-        err instanceof RequestError ? `Add failed (${err.status}).` : 'Could not add candidate.',
+        err instanceof RequestError
+          ? `Add failed (${err.status}).`
+          : 'Could not add candidate.',
       );
     } finally {
       setBusy(false);

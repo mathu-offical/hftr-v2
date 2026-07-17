@@ -14,7 +14,31 @@ These templates will require specific data inputs and can be hydrated from libra
 
 - this will be created based on initial user selection of which engines they want to include in company creation.
 
+- names of all nodes need to be default according to actual specific functions.
+
+## BASIC TRADE ENGINE
+
+[RESEARCH MODULES]
+|
+[DATA MODULES] 
+└─ Market + Runtime History Data
+└─ Library Data
+└─ Live APIs
+| |
+| [TREND MODULES]
+| |
+[TRADING MODULE]
+└─
+└─
+└─ fund source -> Math Module -> fund router
+|
+[POLICY VERIFICATION MODULES]
+└─> transaction execution monitor
+└─> trading policy
+
+
 # JUSTIFICATION POP UPS
 
 - any element that is decided by an LLM decision or touched by llm needs to have a pop up on hover that shows the full justification for that action.
 
+# 

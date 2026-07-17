@@ -76,6 +76,7 @@
 - these show flow between nodes.
 - should be colored according to type
 - should have resting and active states (animation for active, and specific animation when data is ACTUALLY sent)
+- these should be right angle, curved elbow arrows and should generally be structured to avoid nodes.
 
 #### CONTROL BUS
 

@@ -248,6 +248,7 @@ export async function executePaperTrade(
     stopPriceCents: null,
     fillTimeoutMs: 30_000,
     idempotencyKey: envelope.idempotencyKey,
+    clientOrderId,
     lineage: { quantityRef, limitPriceRef: limitRef, fillTimeoutRef: timeoutRef },
   };
   const taskRows = await db
@@ -512,6 +513,24 @@ async function executeVenueTrade(
   };
 }
 
+export interface FinalizeRecoveredVenueFillArgs {
+  companyId: string;
+  moduleId: string;
+  taskId: string;
+  instructionId: string;
+  symbol: string;
+  actionVerb: 'buy' | 'sell';
+  quantity: number;
+  fillPriceCents: number;
+  venueOrderId: string;
+  quote: QuoteSnapshot;
+  quoteRef: string;
+  sessionSnapshot: Record<string, unknown>;
+  venue: Venue;
+  limitPriceCents: number | null;
+  quantityInt: string;
+}
+
 interface FinalizeContext {
   task: DeterministicActionTask;
   taskId: string;
@@ -522,6 +541,116 @@ interface FinalizeContext {
   quoteRef: string;
   sessionSnapshot: Record<string, unknown>;
   venue: Venue;
+}
+
+interface AppliedVenueFill {
+  traceId: string;
+  verifyPass: boolean;
+  actualNotional: number;
+  balanceAfter: bigint;
+}
+
+async function applyVenueFillFinalization(
+  db: Db,
+  clock: Clock,
+  args: FinalizeRecoveredVenueFillArgs & { traceOutcome: 'filled' | 'recovered' },
+): Promise<AppliedVenueFill> {
+  const {
+    companyId,
+    moduleId,
+    taskId,
+    instructionId,
+    symbol,
+    actionVerb,
+    quantity,
+    fillPriceCents,
+    venueOrderId,
+    quote,
+    quoteRef,
+    sessionSnapshot,
+    venue,
+    limitPriceCents,
+    quantityInt,
+    traceOutcome,
+  } = args;
+
+  const fillRecord = {
+    qtyInt: quantityInt,
+    qtyScale: 0,
+    priceCents: fillPriceCents,
+    atRef: quoteRef,
+  };
+
+  await db
+    .update(deterministicTasks)
+    .set({ status: 'filled', venueOrderId, updatedAt: new Date(clock.nowMs()) })
+    .where(eq(deterministicTasks.id, taskId));
+  await db
+    .update(actionInstructions)
+    .set({ status: 'dispatched', updatedAt: new Date(clock.nowMs()) })
+    .where(eq(actionInstructions.id, instructionId));
+
+  const traceId = await writeFillTrace(db, {
+    companyId,
+    moduleId,
+    taskId,
+    outcome: traceOutcome,
+    fills: [fillRecord],
+    sessionSnapshot,
+    failureCode: null,
+    venue,
+  });
+
+  const fieldResults = buildFillVerificationFields({
+    quantity,
+    quantityInt,
+    fillPriceCents,
+    quoteLastCents: quote.lastCents,
+    actionVerb,
+    limitPriceCents,
+  });
+  const verifyPass = fieldResults.every((f) => f.pass);
+  await db.insert(verificationRecords).values({
+    traceId,
+    taskId,
+    result: verifyPass ? 'pass' : 'fail',
+    fieldResults,
+    failureCode: verifyPass ? null : 'verification_schema_block',
+  });
+
+  await applyFill(db, {
+    companyId,
+    moduleId,
+    symbol,
+    side: actionVerb,
+    qty: quantity,
+    priceCents: fillPriceCents,
+  });
+  const actualNotional = quantity * fillPriceCents;
+  const delta = actionVerb === 'buy' ? -BigInt(actualNotional) : BigInt(actualNotional);
+  const balanceAfter = (await getCompanyBalanceCents(db, companyId)) + delta;
+  await db.insert(ledgerEntries).values({
+    companyId,
+    moduleId,
+    kind: 'trade',
+    amountCents: delta,
+    balanceAfterCents: balanceAfter,
+    traceId,
+    description:
+      actionVerb === 'sell'
+        ? `sell ${quantity} ${symbol} @ ${venue} fill`
+        : `buy ${quantity} ${symbol} @ ${venue} fill`,
+  });
+
+  return { traceId, verifyPass, actualNotional, balanceAfter };
+}
+
+export async function finalizeRecoveredVenueFill(
+  db: Db,
+  clock: Clock,
+  args: FinalizeRecoveredVenueFillArgs,
+): Promise<void> {
+  await applyVenueFillFinalization(db, clock, { ...args, traceOutcome: 'recovered' });
 }
 
 async function finalizeFilledTrade(
@@ -542,89 +671,28 @@ async function finalizeFilledTrade(
     venue,
   } = ctx;
 
-  const fillRecord = {
-    qtyInt: task.quantityInt,
-    qtyScale: 0,
-    priceCents: fillPriceCents,
-    atRef: quoteRef,
-  };
-
-  await db
-    .update(deterministicTasks)
-    .set({ status: 'filled', venueOrderId, updatedAt: new Date(clock.nowMs()) })
-    .where(eq(deterministicTasks.id, taskId));
-  await db
-    .update(actionInstructions)
-    .set({ status: 'dispatched', updatedAt: new Date(clock.nowMs()) })
-    .where(eq(actionInstructions.id, instructionId));
-
-  const traceId = await writeTrace(
+  const { traceId, verifyPass, actualNotional, balanceAfter } = await applyVenueFillFinalization(
     db,
-    req,
-    taskId,
-    'filled',
-    [fillRecord],
-    sessionSnapshot,
-    null,
-    venue,
+    clock,
+    {
+      companyId: req.companyId,
+      moduleId: req.moduleId,
+      taskId,
+      instructionId,
+      symbol: quote.symbol,
+      actionVerb: req.actionVerb,
+      quantity: req.quantity,
+      fillPriceCents,
+      venueOrderId,
+      quote,
+      quoteRef,
+      sessionSnapshot,
+      venue,
+      limitPriceCents: task.limitPriceCents,
+      quantityInt: task.quantityInt,
+      traceOutcome: 'filled',
+    },
   );
-
-  const deviationBps = Math.abs(
-    Math.round(((fillPriceCents - (quote.lastCents ?? fillPriceCents)) / fillPriceCents) * 10_000),
-  );
-  const fieldResults = [
-    {
-      field: 'quantity',
-      pass: fillRecord.qtyInt === String(req.quantity),
-      detail: 'fill quantity matches instruction',
-    },
-    {
-      field: 'fill_price_deviation',
-      pass: deviationBps <= MAX_FILL_DEVIATION_BPS,
-      detail: `deviation ${deviationBps} bps vs bound ${MAX_FILL_DEVIATION_BPS}`,
-    },
-    {
-      field: 'limit_respected',
-      pass:
-        task.limitPriceCents === null ||
-        (req.actionVerb === 'buy'
-          ? fillPriceCents <= task.limitPriceCents
-          : fillPriceCents >= task.limitPriceCents),
-      detail: 'fill respects limit price',
-    },
-  ];
-  const verifyPass = fieldResults.every((f) => f.pass);
-  await db.insert(verificationRecords).values({
-    traceId,
-    taskId,
-    result: verifyPass ? 'pass' : 'fail',
-    fieldResults,
-    failureCode: verifyPass ? null : 'verification_schema_block',
-  });
-
-  await applyFill(db, {
-    companyId: req.companyId,
-    moduleId: req.moduleId,
-    symbol: quote.symbol,
-    side: req.actionVerb,
-    qty: req.quantity,
-    priceCents: fillPriceCents,
-  });
-  const actualNotional = req.quantity * fillPriceCents;
-  const delta = req.actionVerb === 'buy' ? -BigInt(actualNotional) : BigInt(actualNotional);
-  const balanceAfter = (await getCompanyBalanceCents(db, req.companyId)) + delta;
-  await db.insert(ledgerEntries).values({
-    companyId: req.companyId,
-    moduleId: req.moduleId,
-    kind: 'trade',
-    amountCents: delta,
-    balanceAfterCents: balanceAfter,
-    traceId,
-    description:
-      req.actionVerb === 'sell'
-        ? `sell ${req.quantity} ${quote.symbol} @ ${venue} fill`
-        : `buy ${req.quantity} ${quote.symbol} @ ${venue} fill`,
-  });
 
   return {
     outcome: 'filled',
@@ -635,6 +703,43 @@ async function finalizeFilledTrade(
     notionalCents: actualNotional,
     balanceAfterCents: balanceAfter.toString(),
   };
+}
+
+export function buildFillVerificationFields(args: {
+  quantity: number;
+  quantityInt: string;
+  fillPriceCents: number;
+  quoteLastCents: number | null;
+  actionVerb: 'buy' | 'sell';
+  limitPriceCents: number | null;
+}): Array<{ field: string; pass: boolean; detail: string }> {
+  const deviationBps = Math.abs(
+    Math.round(
+      ((args.fillPriceCents - (args.quoteLastCents ?? args.fillPriceCents)) / args.fillPriceCents) *
+        10_000,
+    ),
+  );
+  return [
+    {
+      field: 'quantity',
+      pass: args.quantityInt === String(args.quantity),
+      detail: 'fill quantity matches instruction',
+    },
+    {
+      field: 'fill_price_deviation',
+      pass: deviationBps <= MAX_FILL_DEVIATION_BPS,
+      detail: `deviation ${deviationBps} bps vs bound ${MAX_FILL_DEVIATION_BPS}`,
+    },
+    {
+      field: 'limit_respected',
+      pass:
+        args.limitPriceCents === null ||
+        (args.actionVerb === 'buy'
+          ? args.fillPriceCents <= args.limitPriceCents
+          : args.fillPriceCents >= args.limitPriceCents),
+      detail: 'fill respects limit price',
+    },
+  ];
 }
 
 function computeFill(
@@ -659,6 +764,43 @@ function paperSimGapTags(outcome: 'filled' | 'rejected' | 'blocked'): string[] {
     return ['synthetic_quote', 'inline_fill_model', 'no_venue_latency', 'no_partial_fills'];
   }
   return ['synthetic_quote', 'pre_dispatch_block'];
+}
+
+async function writeFillTrace(
+  db: Db,
+  params: {
+    companyId: string;
+    moduleId: string;
+    taskId: string;
+    outcome: 'filled' | 'recovered';
+    fills: unknown[];
+    sessionSnapshot: Record<string, unknown>;
+    failureCode: string | null;
+    venue: Venue;
+  },
+): Promise<string> {
+  const rows = await db
+    .insert(actionTraces)
+    .values({
+      taskId: params.taskId,
+      companyId: params.companyId,
+      moduleId: params.moduleId,
+      venue: params.venue,
+      mode: 'paper',
+      outcome: params.outcome,
+      fills: params.fills,
+      sessionLegalitySnapshot: params.sessionSnapshot,
+      policyEnvelopeVersion: POLICY_ENVELOPE_VERSION,
+      // Honest paper_sim provenance: recovered venue fills share the filled gap set when
+      // the fill still came from the synthetic path; non-paper venues leave tags empty.
+      simulatorGapTags:
+        params.venue === 'paper_sim'
+          ? paperSimGapTags(params.outcome === 'recovered' ? 'filled' : params.outcome)
+          : [],
+      failureCode: params.failureCode,
+    })
+    .returning({ id: actionTraces.id });
+  return rows[0]!.id;
 }
 
 async function writeTrace(

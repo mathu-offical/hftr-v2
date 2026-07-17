@@ -76,6 +76,10 @@ export function UserSettingsLauncher() {
  * User settings modal (ui-ux.spec USER SETTINGS): per-user LLM API keys, research
  * gather keys, and broker credentials. Keys are stored encrypted server-side; the
  * client only ever sees a hint.
+ *
+ * Layout: fixed dialog height (`h-[min(36rem,90vh)]`) with sticky header + tabs;
+ * only the tab panel scrolls (`min-h-0 flex-1 overflow-y-auto`) so short tabs stay
+ * the same chrome size and long lists do not grow the shell.
  */
 export function UserSettingsModal(props: { open: boolean; onClose: () => void }) {
   const [tab, setTab] = useState<SettingsTab>('llm');
@@ -287,25 +291,32 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         aria-modal="true"
         aria-label="User settings"
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] shadow-2xl"
+        className="flex h-[min(36rem,90vh)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] shadow-2xl"
       >
-        <div className="flex items-center justify-between border-b border-[var(--color-line)] p-5 pb-3">
-          <div>
-            <h2 className="text-sm font-medium text-[var(--color-ink)]">User settings</h2>
-            <p className="mt-0.5 text-[11px] text-[var(--color-ink-faint)]">
-              Credentials are encrypted at rest. Never shown in full after save.
-            </p>
+        <header className="shrink-0 border-b border-[var(--color-line)] p-5 pb-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-sm font-medium text-[var(--color-ink)]">User settings</h2>
+              <p className="mt-0.5 text-[11px] text-[var(--color-ink-faint)]">
+                Credentials are encrypted at rest. Never shown in full after save.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={props.onClose}
+              aria-label="Close settings"
+              className="shrink-0 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+            >
+              ×
+            </button>
           </div>
-          <button
-            onClick={props.onClose}
-            aria-label="Close settings"
-            className="text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-          >
-            ×
-          </button>
-        </div>
+        </header>
 
-        <div className="flex gap-1 border-b border-[var(--color-line)] px-5" role="tablist">
+        <div
+          className="flex shrink-0 gap-1 border-b border-[var(--color-line)] px-5"
+          role="tablist"
+          aria-label="Settings sections"
+        >
           {(
             [
               { id: 'llm' as const, label: 'LLM providers' },
@@ -315,8 +326,11 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
           ).map((t) => (
             <button
               key={t.id}
+              type="button"
               role="tab"
+              id={`user-settings-tab-${t.id}`}
               aria-selected={tab === t.id}
+              aria-controls={`user-settings-panel-${t.id}`}
               onClick={() => setTab(t.id)}
               className={`border-b-2 px-3 py-2 text-[11px] uppercase tracking-wider ${
                 tab === t.id
@@ -329,7 +343,12 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
           ))}
         </div>
 
-        <div className="overflow-y-auto p-5">
+        <div
+          id={`user-settings-panel-${tab}`}
+          role="tabpanel"
+          aria-labelledby={`user-settings-tab-${tab}`}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5"
+        >
           {tab === 'llm' && (
             <ul className="space-y-4">
               {PROVIDERS.map((p) => {
@@ -350,6 +369,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                         </span>
                         <span className="flex gap-2">
                           <button
+                            type="button"
                             onClick={() => verify(p.id)}
                             disabled={busy === p.id}
                             className="text-[var(--color-accent)] hover:underline disabled:opacity-50"
@@ -357,6 +377,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                             Verify
                           </button>
                           <button
+                            type="button"
                             onClick={() => remove(p.id)}
                             disabled={busy === p.id}
                             className="text-[var(--color-block)] hover:underline disabled:opacity-50"
@@ -390,6 +411,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                         className="min-w-0 flex-1 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
                       />
                       <button
+                        type="button"
                         onClick={() => save(p.id)}
                         disabled={busy === p.id}
                         className="shrink-0 rounded-md border border-[var(--color-accent)] px-2.5 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
@@ -433,6 +455,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                             </span>
                           </span>
                           <button
+                            type="button"
                             onClick={() => void removeResearchKey(p.id)}
                             disabled={busy === p.id}
                             className="text-[var(--color-block)] hover:underline disabled:opacity-50"
@@ -456,6 +479,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                           className="min-w-0 flex-1 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
                         />
                         <button
+                          type="button"
                           onClick={() => void saveResearchKey(p.id)}
                           disabled={busy === p.id}
                           className="shrink-0 rounded-md border border-[var(--color-accent)] px-2.5 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"

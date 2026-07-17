@@ -35,8 +35,12 @@ export async function PUT(req: Request) {
         serializeKalshiCredentials(input.apiKeyId, input.privateKeyPem, true),
         'broker_credentials',
       );
-    } catch {
-      throw new ApiError(500, 'encryption_failed');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      throw new ApiError(
+        msg.startsWith('encryption_key_missing:') ? 503 : 500,
+        msg.startsWith('encryption_key_missing:') ? 'encryption_key_missing' : 'encryption_failed',
+      );
     }
 
     const rows = await db

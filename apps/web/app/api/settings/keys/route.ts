@@ -9,11 +9,26 @@ export const dynamic = 'force-dynamic';
 
 const RetentionAttested = z.enum(['none', 'org_zdr']);
 
+/** Provider keys can be long JWTs / opaque tokens; keep a hard ceiling for abuse. */
+const ApiKeyString = z
+  .string()
+  .trim()
+  .min(8, 'Key must be at least 8 characters')
+  .max(512, 'Key must be at most 512 characters');
+
 const UpsertKeyInput = z.object({
   provider: LlmProvider,
-  apiKey: z.string().min(8).max(200).optional(),
+  apiKey: ApiKeyString.optional(),
   retentionAttested: RetentionAttested.optional(),
 });
+
+function encryptionError(err: unknown): ApiError {
+  const msg = err instanceof Error ? err.message : '';
+  if (msg.startsWith('encryption_key_missing:')) {
+    return new ApiError(503, 'encryption_key_missing');
+  }
+  return new ApiError(500, 'encryption_failed');
+}
 
 export async function GET() {
   return withAuth(async ({ db, clerkUserId }) => {
@@ -50,11 +65,15 @@ export async function PUT(req: Request) {
     }
 
     if (input.apiKey) {
+      if (input.provider === 'anthropic' && !input.apiKey.startsWith('sk-ant-')) {
+        throw new ApiError(400, 'invalid_key_format');
+      }
+
       let encrypted: { ciphertext: string; hint: string };
       try {
-        encrypted = encryptSecret(input.apiKey);
-      } catch {
-        throw new ApiError(500, 'encryption_failed');
+        encrypted = encryptSecret(input.apiKey, 'llm_settings');
+      } catch (err) {
+        throw encryptionError(err);
       }
 
       const rows = await db

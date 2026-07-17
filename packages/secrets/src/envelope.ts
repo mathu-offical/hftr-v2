@@ -36,10 +36,10 @@ function resolveKey(purpose: CredentialPurposeT): Buffer {
 
   const nodeEnv = process.env.NODE_ENV;
   if (nodeEnv === 'production' || process.env.VERCEL_ENV === 'production') {
-    throw new Error(`${envName} is required in production`);
+    throw new Error(`encryption_key_missing:${envName}`);
   }
   if (process.env.VERCEL_ENV === 'preview') {
-    throw new Error(`${envName} is required in preview`);
+    throw new Error(`encryption_key_missing:${envName}`);
   }
 
   if (!warnedMissing[purpose]) {

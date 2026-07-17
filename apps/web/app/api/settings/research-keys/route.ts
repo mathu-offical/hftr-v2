@@ -9,8 +9,20 @@ export const dynamic = 'force-dynamic';
 
 const UpsertResearchKeyInput = z.object({
   provider: ResearchKeyProvider,
-  apiKey: z.string().min(8).max(200),
+  apiKey: z
+    .string()
+    .trim()
+    .min(8, 'Key must be at least 8 characters')
+    .max(512, 'Key must be at most 512 characters'),
 });
+
+function encryptionError(err: unknown): ApiError {
+  const msg = err instanceof Error ? err.message : '';
+  if (msg.startsWith('encryption_key_missing:')) {
+    return new ApiError(503, 'encryption_key_missing');
+  }
+  return new ApiError(500, 'encryption_failed');
+}
 
 export async function GET() {
   return withAuth(async ({ db, clerkUserId }) => {
@@ -33,8 +45,8 @@ export async function PUT(req: Request) {
     let encrypted: { ciphertext: string; hint: string };
     try {
       encrypted = encryptSecret(input.apiKey, 'research_settings');
-    } catch {
-      throw new ApiError(500, 'encryption_failed');
+    } catch (err) {
+      throw encryptionError(err);
     }
 
     const rows = await db

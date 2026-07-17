@@ -2,12 +2,31 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { BrokerConnectionSummary, LlmProvider } from '@hftr/contracts';
-import { api } from '@/lib/client';
+import { api, RequestError } from '@/lib/client';
 
 type RetentionAttested = 'none' | 'org_zdr';
 type SettingsTab = 'llm' | 'research' | 'brokers';
 type ResearchKeyProvider = 'brave' | 'market_news';
 
+function formatSaveError(err: unknown): string {
+  if (!(err instanceof RequestError)) return 'Save failed.';
+  switch (err.code) {
+    case 'encryption_key_missing':
+      return 'Server encryption key missing — redeploy with SETTINGS_ENCRYPTION_KEY.';
+    case 'encryption_failed':
+      return 'Could not encrypt key on server.';
+    case 'invalid_key_format':
+      return 'Key format rejected for this provider.';
+    case 'invalid_input': {
+      const detail = err.issues?.[0]?.message;
+      return detail ? `Invalid input: ${detail}` : 'Invalid input.';
+    }
+    case 'unauthorized':
+      return 'Not signed in.';
+    default:
+      return `Save failed (${err.code}).`;
+  }
+}
 const RESEARCH_KEY_PROVIDERS: { id: ResearchKeyProvider; label: string; hint: string }[] = [
   { id: 'brave', label: 'Brave Search', hint: 'Web search for research gather' },
   { id: 'market_news', label: 'Market news', hint: 'Public market news feeds' },
@@ -122,6 +141,17 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
       setMessages((m) => ({ ...m, [provider]: 'Key must be at least 8 characters.' }));
       return;
     }
+    if (hasKey && apiKey.length > 512) {
+      setMessages((m) => ({ ...m, [provider]: 'Key must be at most 512 characters.' }));
+      return;
+    }
+    if (hasKey && provider === 'anthropic' && !apiKey.startsWith('sk-ant-')) {
+      setMessages((m) => ({
+        ...m,
+        [provider]: 'Anthropic keys must start with sk-ant-.',
+      }));
+      return;
+    }
 
     setBusy(provider);
     try {
@@ -138,8 +168,8 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
       setDrafts((d) => ({ ...d, [provider]: '' }));
       setMessages((m) => ({ ...m, [provider]: 'Saved.' }));
       await load();
-    } catch {
-      setMessages((m) => ({ ...m, [provider]: 'Save failed.' }));
+    } catch (err) {
+      setMessages((m) => ({ ...m, [provider]: formatSaveError(err) }));
     } finally {
       setBusy(null);
     }
@@ -223,8 +253,8 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
       setResearchDrafts((d) => ({ ...d, [provider]: '' }));
       setMessages((m) => ({ ...m, [provider]: 'Saved.' }));
       await load();
-    } catch {
-      setMessages((m) => ({ ...m, [provider]: 'Save failed.' }));
+    } catch (err) {
+      setMessages((m) => ({ ...m, [provider]: formatSaveError(err) }));
     } finally {
       setBusy(null);
     }

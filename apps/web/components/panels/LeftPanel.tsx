@@ -122,13 +122,13 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 text-sm">
         {tab === 'research' && (
           <>
+            <NewResearchModuleForm companyId={companyId} />
             {research.length === 0 ? (
-              <p className="px-1 text-xs text-[var(--color-ink-faint)]">
-                No research or trend modules yet — add them from the canvas palette. The 3D research
-                galaxy lands with the research milestone.
+              <p className="mt-3 px-1 text-xs text-[var(--color-ink-faint)]">
+                No research or trend modules yet. Create one above or add from the canvas palette.
               </p>
             ) : (
-              <ul className="space-y-3">
+              <ul className="mt-3 space-y-3">
                 {research.map((m) => (
                   <li key={m.id} className="rounded-lg border border-[var(--color-line)] p-2.5">
                     <div className="flex items-center justify-between">
@@ -157,12 +157,13 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
 
         {tab === 'data' && (
           <>
+            <NewDataSourceForm companyId={companyId} />
             {sources.length === 0 ? (
-              <p className="px-1 text-xs text-[var(--color-ink-faint)]">
-                No data sources yet — add a Live API or Library module from the canvas palette.
+              <p className="mt-3 px-1 text-xs text-[var(--color-ink-faint)]">
+                No data sources yet. Add one above or from the canvas palette.
               </p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="mt-3 space-y-2">
                 {sources.map((m) => {
                   const hydrates = props.links
                     .filter((l) => l.fromModuleId === m.id && l.linkKind === 'data_feed')
@@ -197,6 +198,201 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
         )}
       </div>
     </aside>
+  );
+}
+
+const compactInput =
+  'w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)]';
+
+/** Compact form to create a research module from the left panel. */
+function NewResearchModuleForm(props: { companyId: string }) {
+  const [name, setName] = useState('');
+  const [topicScope, setTopicScope] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function create() {
+    const trimmedName = name.trim();
+    const trimmedScope = topicScope.trim();
+    if (!trimmedName || !trimmedScope || !props.companyId) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      await api(`/api/companies/${props.companyId}/modules`, {
+        method: 'POST',
+        body: {
+          type: 'research',
+          name: trimmedName,
+          config: { topicScope: trimmedScope, curiosity: 'balanced' },
+          canvasPosition: { x: 80, y: 200 + Math.random() * 40 },
+        },
+      });
+      setMessage('Created — reloading canvas…');
+      setTimeout(() => window.location.reload(), 800);
+    } catch (err) {
+      setMessage(err instanceof RequestError ? `Create failed (${err.status}).` : 'Create failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void create();
+      }}
+      className="rounded-lg border border-[var(--color-line)] p-2.5"
+      aria-label="Create new research module"
+    >
+      <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+        New research module
+      </p>
+      <div className="mt-2 space-y-1.5">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Module name"
+          aria-label="Research module name"
+          className={compactInput}
+        />
+        <input
+          value={topicScope}
+          onChange={(e) => setTopicScope(e.target.value)}
+          placeholder="Topic scope"
+          aria-label="Research topic scope"
+          className={compactInput}
+        />
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={busy || !name.trim() || !topicScope.trim()}
+          aria-label="Create research module"
+          className="rounded-md border border-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+        >
+          {busy ? 'Creating…' : 'Create'}
+        </button>
+        {message && <span className="text-[10px] text-[var(--color-ink-faint)]">{message}</span>}
+      </div>
+    </form>
+  );
+}
+
+/** Compact form to add a live API or library data source module. */
+function NewDataSourceForm(props: { companyId: string }) {
+  const [kind, setKind] = useState<'live_api' | 'library'>('live_api');
+  const [name, setName] = useState('');
+  const [instruments, setInstruments] = useState('SPY');
+  const [topicScope, setTopicScope] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function create() {
+    const trimmedName = name.trim();
+    if (!trimmedName || !props.companyId) return;
+    if (kind === 'library' && !topicScope.trim()) return;
+    if (kind === 'live_api' && !instruments.trim()) return;
+
+    const config =
+      kind === 'live_api'
+        ? {
+            venue: 'paper_sim' as const,
+            instruments: instruments
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean),
+          }
+        : { topicScope: topicScope.trim() };
+
+    setBusy(true);
+    setMessage(null);
+    try {
+      await api(`/api/companies/${props.companyId}/modules`, {
+        method: 'POST',
+        body: {
+          type: kind,
+          name: trimmedName,
+          config,
+          canvasPosition: {
+            x: kind === 'live_api' ? 80 : 200,
+            y: 120 + Math.random() * 40,
+          },
+        },
+      });
+      setMessage('Created — reloading canvas…');
+      setTimeout(() => window.location.reload(), 800);
+    } catch (err) {
+      setMessage(err instanceof RequestError ? `Create failed (${err.status}).` : 'Create failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const canSubmit = name.trim() && (kind === 'live_api' ? instruments.trim() : topicScope.trim());
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void create();
+      }}
+      className="rounded-lg border border-[var(--color-line)] p-2.5"
+      aria-label="Add data source module"
+    >
+      <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+        Add data source
+      </p>
+      <div className="mt-2 space-y-1.5">
+        <select
+          value={kind}
+          onChange={(e) => setKind(e.target.value as 'live_api' | 'library')}
+          aria-label="Data source kind"
+          className={compactInput}
+        >
+          <option value="live_api">Live API</option>
+          <option value="library">Library</option>
+        </select>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Module name"
+          aria-label="Data source module name"
+          className={compactInput}
+        />
+        {kind === 'live_api' ? (
+          <input
+            value={instruments}
+            onChange={(e) => setInstruments(e.target.value)}
+            placeholder="Instruments (comma-separated)"
+            aria-label="Live API instruments"
+            className={compactInput}
+          />
+        ) : (
+          <input
+            value={topicScope}
+            onChange={(e) => setTopicScope(e.target.value)}
+            placeholder="Topic scope"
+            aria-label="Library topic scope"
+            className={compactInput}
+          />
+        )}
+        {kind === 'live_api' && (
+          <p className="text-[10px] text-[var(--color-ink-faint)]">venue: paper_sim</p>
+        )}
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={busy || !canSubmit}
+          aria-label="Create data source module"
+          className="rounded-md border border-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+        >
+          {busy ? 'Creating…' : 'Create'}
+        </button>
+        {message && <span className="text-[10px] text-[var(--color-ink-faint)]">{message}</span>}
+      </div>
+    </form>
   );
 }
 

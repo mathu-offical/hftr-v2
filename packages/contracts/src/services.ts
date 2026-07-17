@@ -80,6 +80,7 @@ function requirement(
 
 export const MODULE_SERVICE_REQUIREMENTS: Record<ModuleTypeValue, ServiceRequirement> = {
   research: requirement(['research_provider'], ['historical_bars']),
+  librarian: requirement([], ['research_provider']),
   library: requirement([], ['research_provider']),
   live_api: requirement(
     ['market_quotes'],

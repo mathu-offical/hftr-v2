@@ -8,6 +8,7 @@ import { TradingMode } from './foundation';
 
 export const ModuleType = z.enum([
   'research',
+  'librarian',
   'library',
   'live_api',
   'trend',
@@ -26,6 +27,7 @@ export type ModuleType = z.infer<typeof ModuleType>;
 /** D-033: module types that receive one dedicated deterministic Math tool. */
 export const MATH_REQUIRED_MODULE_TYPES: ReadonlySet<ModuleType> = new Set([
   'research',
+  'librarian',
   'trend',
   'trading',
   'simulator',
@@ -40,6 +42,78 @@ export function moduleRequiresMath(type: ModuleType): boolean {
 export const TradingSubtype = z.enum(['crypto', 'prediction', 'hft', 'day', 'long_term', 'custom']);
 export type TradingSubtype = z.infer<typeof TradingSubtype>;
 
+/** D-042: external / specialty research curator kinds (`config.researchSubtype`). */
+export const ResearchSubtype = z.enum([
+  'external_web',
+  'external_filings',
+  'external_market_news',
+  'specialty_desk',
+  'event_catalyst',
+  'crypto_onchain_context',
+  'prediction_niche',
+]);
+export type ResearchSubtype = z.infer<typeof ResearchSubtype>;
+
+/** D-042: librarian agent kinds (`config.librarianSubtype`). */
+export const LibrarianSubtype = z.enum(['librarian_relevance', 'librarian_seed_keeper']);
+export type LibrarianSubtype = z.infer<typeof LibrarianSubtype>;
+
+/** D-042: library content class (`config.libraryClass`). */
+export const LibraryClass = z.enum([
+  'seeded_mechanisms',
+  'topic_runtime',
+  'market_history',
+  'runtime_market_cache',
+  'runtime_app_logs',
+  'specialty_evidence',
+  'master_graph',
+]);
+export type LibraryClass = z.infer<typeof LibraryClass>;
+
+/** D-042: typed Math tools (`config.mathType`). */
+export const MathType = z.enum([
+  'company_hub',
+  'fund_path',
+  'desk_execution',
+  'trend_signal',
+  'research_metric',
+  'analyzer_reconcile',
+  'simulator_sandbox',
+  'session_calendar',
+]);
+export type MathType = z.infer<typeof MathType>;
+
+/** Preferred dedicated Math type when auto-provisioning for an owner module. */
+export function preferredMathTypeForOwner(owner: ModuleType): MathType {
+  switch (owner) {
+    case 'research':
+    case 'librarian':
+      return 'research_metric';
+    case 'trend':
+      return 'trend_signal';
+    case 'trading':
+      return 'desk_execution';
+    case 'analyzer':
+      return 'analyzer_reconcile';
+    case 'simulator':
+      return 'simulator_sandbox';
+    case 'generator':
+      return 'research_metric';
+    case 'library':
+    case 'live_api':
+    case 'policy':
+    case 'holding_fund':
+    case 'fund_router':
+    case 'math':
+    case 'display':
+      return 'company_hub';
+    default: {
+      const _exhaustive: never = owner;
+      return _exhaustive;
+    }
+  }
+}
+
 export const ModuleStatus = z.enum(['active', 'paused', 'error', 'draft']);
 export type ModuleStatus = z.infer<typeof ModuleStatus>;
 
@@ -52,8 +126,12 @@ export type LinkKind = z.infer<typeof LinkKind>;
  */
 export const LINK_RULES: Readonly<Record<string, readonly LinkKind[]>> = {
   'research->library': ['data_feed'],
+  'librarian->library': ['data_feed'],
+  'library->librarian': ['data_feed'],
   'library->trend': ['data_feed'],
   'library->research': ['data_feed'],
+  'research->librarian': ['data_feed'],
+  'librarian->research': ['data_feed'],
   'live_api->trend': ['data_feed'],
   'live_api->trading': ['data_feed'],
   'trend->trading': ['directive'],
@@ -68,10 +146,12 @@ export const LINK_RULES: Readonly<Record<string, readonly LinkKind[]>> = {
   'simulator->research': ['verification'],
   'analyzer->trend': ['verification', 'data_feed'],
   'analyzer->research': ['verification', 'data_feed'],
+  'analyzer->librarian': ['verification', 'data_feed'],
   'trading->analyzer': ['verification'],
   'analyzer->policy': ['verification'],
   // Dedicated Math ownership (D-033): owner input/context ↔ Math (data only).
   'research->math': ['data_feed'],
+  'librarian->math': ['data_feed'],
   'trend->math': ['data_feed'],
   'trading->math': ['data_feed'],
   'simulator->math': ['data_feed'],
@@ -79,6 +159,7 @@ export const LINK_RULES: Readonly<Record<string, readonly LinkKind[]>> = {
   'generator->math': ['data_feed'],
   // Math TOOL attachments (D-028): calculated ValueRefs return as data_feed.
   'math->research': ['data_feed'],
+  'math->librarian': ['data_feed'],
   'math->library': ['data_feed'],
   'math->live_api': ['data_feed'],
   'math->trend': ['data_feed'],
@@ -92,6 +173,8 @@ export const LINK_RULES: Readonly<Record<string, readonly LinkKind[]>> = {
   'analyzer->display': ['data_feed'],
   'trend->display': ['data_feed'],
   'live_api->display': ['data_feed'],
+  'library->display': ['data_feed'],
+  'librarian->display': ['data_feed'],
 };
 
 /** Module types allowed on either end of a fund_route edge. */
@@ -235,6 +318,7 @@ export function deriveGeneratedModuleName(input: {
 /** Canvas column per module type (left → right ordering, ui-spec §3). */
 export const MODULE_COLUMN: Record<ModuleType, number> = {
   research: 0,
+  librarian: 0,
   library: 1,
   live_api: 1,
   math: 1,
@@ -265,6 +349,7 @@ export const CAPITAL_BEARING_MODULE_TYPES: ReadonlySet<ModuleType> = new Set([
 
 const TOPIC_SCOPED_MODULE_TYPES: ReadonlySet<ModuleType> = new Set([
   'research',
+  'librarian',
   'library',
   'live_api',
   'trend',
@@ -339,6 +424,8 @@ export function missingModuleSetupFields(
 
 export const ResearchModuleConfig = z.object({
   topicScope: z.string().min(1),
+  /** D-042: curator specialization. */
+  researchSubtype: ResearchSubtype.default('external_web'),
   curiosity: z.enum(['conservative', 'balanced', 'exploratory']).default('balanced'),
   cadenceMinutes: z.number().int().min(30).max(1440).default(180),
   targetLibraryIds: z.array(z.string().uuid()).default([]),
@@ -348,11 +435,32 @@ export const ResearchModuleConfig = z.object({
   admissionMode: z
     .enum(['auto_admit_validated', 'require_operator_approval'])
     .default('auto_admit_validated'),
+  /** When true, operator owns deeper lever picks; LLM still constrained to envelopes. */
+  manualControl: z.boolean().default(false),
+});
+
+export const LibrarianModuleConfig = z.object({
+  topicScope: z.string().min(1),
+  librarianSubtype: LibrarianSubtype.default('librarian_relevance'),
+  cadenceMinutes: z.number().int().min(30).max(1440).default(360),
+  targetLibraryIds: z.array(z.string().uuid()).default([]),
+  /** Relative weights inside envelope — LLM/user picks; never raw scores as authority. */
+  relevanceWeights: z
+    .object({
+      topical: z.number().min(0).max(1).default(0.4),
+      freshness: z.number().min(0).max(1).default(0.3),
+      evidenceFit: z.number().min(0).max(1).default(0.3),
+    })
+    .default({ topical: 0.4, freshness: 0.3, evidenceFit: 0.3 }),
+  seedProtect: z.boolean().default(false),
+  manualControl: z.boolean().default(false),
 });
 
 export const LibraryModuleConfig = z.object({
   topicScope: z.string().min(1),
   masterLibrary: z.boolean().default(false),
+  /** D-042: library content class. */
+  libraryClass: LibraryClass.default('topic_runtime'),
 });
 
 export const LiveApiModuleConfig = z.object({
@@ -362,10 +470,22 @@ export const LiveApiModuleConfig = z.object({
   pollSeconds: z.number().int().min(5).max(3600).default(60),
 });
 
+export const TrendPosture = z.enum([
+  'session_intraday',
+  'crypto_cross_cap',
+  'event_probability',
+  'position_horizon',
+  'microstructure_swarm',
+  'research_only',
+]);
+export type TrendPosture = z.infer<typeof TrendPosture>;
+
 export const TrendModuleConfig = z.object({
   focus: z.string().min(1),
+  trendPosture: TrendPosture.default('session_intraday'),
   maxActiveTrends: z.number().int().min(1).max(50).default(10),
   cadenceMinutes: z.number().int().min(5).max(1440).default(30),
+  manualControl: z.boolean().default(false),
 });
 
 export const TradingModuleConfig = z.object({
@@ -373,6 +493,7 @@ export const TradingModuleConfig = z.object({
   strategyFamilies: z.array(z.string()).default([]),
   exitTimelineDays: z.number().int().min(0).max(3650).default(1),
   cadenceMinutes: z.number().int().min(1).max(60).default(5),
+  manualControl: z.boolean().default(false),
 });
 
 export const PolicyModuleConfig = z.object({
@@ -403,8 +524,14 @@ export const FundRouterModuleConfig = z.object({
 
 export const GenericModuleConfig = z.object({}).passthrough();
 
+export const MathModuleConfig = z.object({
+  mathType: MathType.default('company_hub'),
+});
+export type MathModuleConfig = z.infer<typeof MathModuleConfig>;
+
 export const MODULE_CONFIG_SCHEMAS: Record<ModuleType, z.ZodTypeAny> = {
   research: ResearchModuleConfig,
+  librarian: LibrarianModuleConfig,
   library: LibraryModuleConfig,
   live_api: LiveApiModuleConfig,
   trend: TrendModuleConfig,
@@ -415,7 +542,7 @@ export const MODULE_CONFIG_SCHEMAS: Record<ModuleType, z.ZodTypeAny> = {
   analyzer: GenericModuleConfig,
   holding_fund: HoldingFundModuleConfig,
   fund_router: FundRouterModuleConfig,
-  math: z.object({}).strict(), // math module carries no user config
+  math: MathModuleConfig,
   display: DisplayModuleConfig,
 };
 

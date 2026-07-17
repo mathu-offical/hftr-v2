@@ -53,7 +53,14 @@ export interface EngineTemplateInput {
 export interface EngineTemplate {
   id: string;
   label: string;
-  category: 'day_trading' | 'trend_research' | 'crypto' | 'prediction' | 'high_frequency';
+  category:
+    | 'day_trading'
+    | 'trend_research'
+    | 'crypto'
+    | 'prediction'
+    | 'high_frequency'
+    | 'long_term'
+    | 'research';
   description: string;
   available: boolean;
   unavailableReason?: string;
@@ -74,13 +81,30 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'research',
         name: 'Market Regime Research',
-        config: { topicScope: 'pending_operator_scope', curiosity: 'balanced' },
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'external_market_news',
+          curiosity: 'balanced',
+        },
         position: { x: 0, y: 0 },
+      },
+      {
+        type: 'librarian',
+        name: 'Evidence Librarian',
+        config: {
+          topicScope: 'pending_operator_scope',
+          librarianSubtype: 'librarian_relevance',
+        },
+        position: { x: 0, y: 280 },
       },
       {
         type: 'library',
         name: 'Strategy Evidence Library',
-        config: { topicScope: 'pending_operator_scope', masterLibrary: false },
+        config: {
+          topicScope: 'pending_operator_scope',
+          masterLibrary: false,
+          libraryClass: 'specialty_evidence',
+        },
         position: { x: 460, y: 0 },
       },
       {
@@ -97,7 +121,12 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'trend',
         name: 'Market Trend Scanner',
-        config: { focus: 'pending_operator_scope', maxActiveTrends: 10, cadenceMinutes: 30 },
+        config: {
+          focus: 'pending_operator_scope',
+          trendPosture: 'session_intraday',
+          maxActiveTrends: 10,
+          cadenceMinutes: 30,
+        },
         position: { x: 920, y: 276 },
       },
       {
@@ -147,16 +176,16 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
     ],
     links: [
-      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
-      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 3, toIndex: 4, linkKind: 'directive' },
-      { fromIndex: 5, toIndex: 'math', linkKind: 'fund_route' },
-      { fromIndex: 'math', toIndex: 6, linkKind: 'fund_route' },
-      // fund_router → trading owner Math is provisioned at insert (not stubbed here).
-      { fromIndex: 4, toIndex: 7, linkKind: 'verification' },
-      { fromIndex: 7, toIndex: 8, linkKind: 'verification' },
-      { fromIndex: 4, toIndex: 8, linkKind: 'directive' },
+      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 4, toIndex: 5, linkKind: 'directive' },
+      { fromIndex: 6, toIndex: 'math', linkKind: 'fund_route' },
+      { fromIndex: 'math', toIndex: 7, linkKind: 'fund_route' },
+      { fromIndex: 5, toIndex: 8, linkKind: 'verification' },
+      { fromIndex: 8, toIndex: 9, linkKind: 'verification' },
+      { fromIndex: 5, toIndex: 9, linkKind: 'directive' },
     ],
     inputs: [
       {
@@ -164,7 +193,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         label: 'Sector focus',
         kind: 'text',
         placeholder: 'e.g. large-cap tech momentum',
-        target: { moduleIndex: 3, configKey: 'focus' },
+        target: { moduleIndex: 4, configKey: 'focus' },
       },
       {
         // Multiple inputs targeting the same configKey are joined with ' — '.
@@ -172,7 +201,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         label: 'Trading philosophy',
         kind: 'select',
         options: ['momentum continuation', 'mean reversion', 'breakout capture'],
-        target: { moduleIndex: 3, configKey: 'focus' },
+        target: { moduleIndex: 4, configKey: 'focus' },
       },
     ],
   },
@@ -229,13 +258,21 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'research',
         name: 'Crypto Regime Research',
-        config: { topicScope: 'pending_operator_scope', curiosity: 'balanced' },
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'crypto_onchain_context',
+          curiosity: 'balanced',
+        },
         position: { x: 40, y: 420 },
       },
       {
         type: 'library',
         name: 'Crypto Evidence Library',
-        config: { topicScope: 'pending_operator_scope', masterLibrary: false },
+        config: {
+          topicScope: 'pending_operator_scope',
+          libraryClass: 'specialty_evidence',
+          masterLibrary: false,
+        },
         position: { x: 300, y: 420 },
       },
       {
@@ -252,7 +289,12 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'trend',
         name: 'Crypto Trend Scanner',
-        config: { focus: 'pending_operator_scope', maxActiveTrends: 8, cadenceMinutes: 15 },
+        config: {
+          focus: 'pending_operator_scope',
+          trendPosture: 'crypto_cross_cap',
+          maxActiveTrends: 8,
+          cadenceMinutes: 15,
+        },
         position: { x: 560, y: 500 },
       },
       {
@@ -341,13 +383,21 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'research',
         name: 'Event Probability Research',
-        config: { topicScope: 'pending_operator_scope', curiosity: 'balanced' },
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'prediction_niche',
+          curiosity: 'balanced',
+        },
         position: { x: 40, y: 420 },
       },
       {
         type: 'library',
         name: 'Event Evidence Library',
-        config: { topicScope: 'pending_operator_scope', masterLibrary: false },
+        config: {
+          topicScope: 'pending_operator_scope',
+          libraryClass: 'specialty_evidence',
+          masterLibrary: false,
+        },
         position: { x: 300, y: 420 },
       },
       {
@@ -364,7 +414,12 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'trend',
         name: 'Event Trend Scanner',
-        config: { focus: 'pending_operator_scope', maxActiveTrends: 10, cadenceMinutes: 60 },
+        config: {
+          focus: 'pending_operator_scope',
+          trendPosture: 'event_probability',
+          maxActiveTrends: 10,
+          cadenceMinutes: 60,
+        },
         position: { x: 560, y: 500 },
       },
       {
@@ -443,6 +498,754 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     ],
   },
   {
+    id: 'engine_long_term',
+    label: 'Long-term engine',
+    category: 'long_term',
+    description:
+      'Full spine for horizon positioning: filings research, specialty evidence, low-cadence trend and execution.',
+    available: true,
+    modules: [
+      {
+        type: 'research',
+        name: 'Fundamentals Research',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'external_filings',
+          curiosity: 'conservative',
+          cadenceMinutes: 720,
+        },
+        position: { x: 0, y: 0 },
+      },
+      {
+        type: 'research',
+        name: 'Event Catalyst Research',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'event_catalyst',
+          curiosity: 'balanced',
+          cadenceMinutes: 360,
+        },
+        position: { x: 0, y: 280 },
+      },
+      {
+        type: 'librarian',
+        name: 'Horizon Librarian',
+        config: {
+          topicScope: 'pending_operator_scope',
+          librarianSubtype: 'librarian_relevance',
+        },
+        position: { x: 0, y: 560 },
+      },
+      {
+        type: 'library',
+        name: 'Long-horizon Evidence',
+        config: {
+          topicScope: 'pending_operator_scope',
+          libraryClass: 'specialty_evidence',
+          masterLibrary: false,
+        },
+        position: { x: 460, y: 140 },
+      },
+      {
+        type: 'live_api',
+        name: 'Paper Market Feed',
+        config: {
+          venue: 'paper_sim',
+          instruments: [],
+          feedClass: 'synthetic_sim',
+          pollSeconds: 300,
+        },
+        position: { x: 460, y: 552 },
+      },
+      {
+        type: 'trend',
+        name: 'Horizon Trend Scanner',
+        config: {
+          focus: 'pending_operator_scope',
+          trendPosture: 'position_horizon',
+          maxActiveTrends: 8,
+          cadenceMinutes: 240,
+        },
+        position: { x: 920, y: 276 },
+      },
+      {
+        type: 'trading',
+        name: 'Paper Long-term Execution',
+        config: {
+          subtype: 'long_term',
+          strategyFamilies: ['strat-003'],
+          exitTimelineDays: 180,
+          cadenceMinutes: 60,
+        },
+        position: { x: 1380, y: 276 },
+      },
+      {
+        type: 'holding_fund',
+        name: 'Paper Seed Holding Fund',
+        config: { source: 'company_seed', allocationPolicyRef: 'paper_balanced_general_v1' },
+        position: { x: 920, y: 828 },
+      },
+      {
+        type: 'fund_router',
+        name: 'Deterministic Fund Router',
+        config: {
+          policyEnvelopeRef: 'paper_balanced_general_v1',
+          approvalMode: 'manual',
+          targetModuleIds: [],
+        },
+        position: { x: 1380, y: 828 },
+      },
+      {
+        type: 'analyzer',
+        name: 'Horizon Execution Monitor',
+        config: {},
+        position: { x: 1840, y: 276 },
+      },
+      {
+        type: 'policy',
+        name: 'Paper Long-term Policy',
+        config: {
+          policyEnvelopeRef: 'paper_balanced_general_v1',
+          notes: 'Long-horizon paper policy verification.',
+        },
+        position: { x: 1840, y: 828 },
+      },
+    ],
+    links: [
+      { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 4, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 5, toIndex: 6, linkKind: 'directive' },
+      { fromIndex: 7, toIndex: 'math', linkKind: 'fund_route' },
+      { fromIndex: 'math', toIndex: 8, linkKind: 'fund_route' },
+      { fromIndex: 6, toIndex: 9, linkKind: 'verification' },
+      { fromIndex: 9, toIndex: 10, linkKind: 'verification' },
+      { fromIndex: 6, toIndex: 10, linkKind: 'directive' },
+    ],
+    inputs: [
+      {
+        key: 'topicScope',
+        label: 'Horizon scope',
+        kind: 'text',
+        placeholder: 'e.g. defensive rotation, quality compounders',
+        target: { moduleIndex: 0, configKey: 'topicScope' },
+      },
+      {
+        key: 'focus',
+        label: 'Trend focus',
+        kind: 'text',
+        placeholder: 'e.g. multi-week sector leadership',
+        target: { moduleIndex: 5, configKey: 'focus' },
+      },
+    ],
+  },
+  {
+    id: 'research_web_fabric',
+    label: 'Web research fabric',
+    category: 'research',
+    description: 'Pure-data research ENGINE: web discover + librarian → topic libraries.',
+    available: true,
+    modules: [
+      {
+        type: 'research',
+        name: 'Web Research',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'external_web',
+          curiosity: 'exploratory',
+        },
+        position: { x: 0, y: 0 },
+      },
+      {
+        type: 'librarian',
+        name: 'Relevance Librarian',
+        config: {
+          topicScope: 'pending_operator_scope',
+          librarianSubtype: 'librarian_relevance',
+        },
+        position: { x: 0, y: 280 },
+      },
+      {
+        type: 'library',
+        name: 'Topic Runtime Library',
+        config: {
+          topicScope: 'pending_operator_scope',
+          libraryClass: 'topic_runtime',
+          masterLibrary: false,
+        },
+        position: { x: 460, y: 140 },
+      },
+    ],
+    links: [
+      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 1, linkKind: 'data_feed' },
+    ],
+    inputs: [
+      {
+        key: 'topicScope',
+        label: 'Research scope',
+        kind: 'text',
+        placeholder: 'e.g. semiconductor supply chain',
+        target: { moduleIndex: 0, configKey: 'topicScope' },
+      },
+    ],
+  },
+  {
+    id: 'research_filings_fundamentals',
+    label: 'Filings & fundamentals',
+    category: 'research',
+    description: 'Pure-data ENGINE focused on SEC/EDGAR and fundamentals curation.',
+    available: true,
+    modules: [
+      {
+        type: 'research',
+        name: 'Filings Research',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'external_filings',
+          curiosity: 'conservative',
+        },
+        position: { x: 0, y: 0 },
+      },
+      {
+        type: 'librarian',
+        name: 'Fundamentals Librarian',
+        config: {
+          topicScope: 'pending_operator_scope',
+          librarianSubtype: 'librarian_relevance',
+        },
+        position: { x: 0, y: 280 },
+      },
+      {
+        type: 'library',
+        name: 'Fundamentals Library',
+        config: {
+          topicScope: 'pending_operator_scope',
+          libraryClass: 'topic_runtime',
+          masterLibrary: false,
+        },
+        position: { x: 460, y: 140 },
+      },
+    ],
+    links: [
+      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+    ],
+    inputs: [
+      {
+        key: 'topicScope',
+        label: 'Filings scope',
+        kind: 'text',
+        placeholder: 'e.g. S&P 500 10-K themes',
+        target: { moduleIndex: 0, configKey: 'topicScope' },
+      },
+    ],
+  },
+  {
+    id: 'research_seed_mechanisms',
+    label: 'Seeded mechanisms keeper',
+    category: 'research',
+    description: 'Protect and refresh compile-time seeded trading-mechanism libraries.',
+    available: true,
+    modules: [
+      {
+        type: 'librarian',
+        name: 'Seed Keeper',
+        config: {
+          topicScope: 'trading mechanisms',
+          librarianSubtype: 'librarian_seed_keeper',
+          seedProtect: true,
+        },
+        position: { x: 0, y: 0 },
+      },
+      {
+        type: 'research',
+        name: 'Mechanism Web Refresh',
+        config: {
+          topicScope: 'trading mechanisms',
+          researchSubtype: 'external_web',
+          curiosity: 'conservative',
+        },
+        position: { x: 0, y: 280 },
+      },
+      {
+        type: 'library',
+        name: 'Seeded Mechanisms Library',
+        config: {
+          topicScope: 'trading mechanisms',
+          libraryClass: 'seeded_mechanisms',
+          masterLibrary: false,
+        },
+        position: { x: 460, y: 140 },
+      },
+    ],
+    links: [
+      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+    ],
+    inputs: [],
+  },
+  {
+    id: 'research_event_catalyst',
+    label: 'Event catalyst research',
+    category: 'research',
+    description: 'Pure-data event/macro archetype curation for later desk promotion.',
+    available: true,
+    modules: [
+      {
+        type: 'research',
+        name: 'Event Catalyst Research',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'event_catalyst',
+          curiosity: 'balanced',
+        },
+        position: { x: 0, y: 0 },
+      },
+      {
+        type: 'librarian',
+        name: 'Event Librarian',
+        config: {
+          topicScope: 'pending_operator_scope',
+          librarianSubtype: 'librarian_relevance',
+        },
+        position: { x: 0, y: 280 },
+      },
+      {
+        type: 'library',
+        name: 'Event Evidence Library',
+        config: {
+          topicScope: 'pending_operator_scope',
+          libraryClass: 'specialty_evidence',
+          masterLibrary: false,
+        },
+        position: { x: 460, y: 140 },
+      },
+    ],
+    links: [
+      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+    ],
+    inputs: [
+      {
+        key: 'topicScope',
+        label: 'Event scope',
+        kind: 'text',
+        placeholder: 'e.g. earnings season, CPI prints',
+        target: { moduleIndex: 0, configKey: 'topicScope' },
+      },
+    ],
+  },
+  {
+    id: 'research_market_regime_lab',
+    label: 'Market regime lab',
+    category: 'research',
+    description: 'Market-trend research ENGINE with live feed and research-only trend scanner.',
+    available: true,
+    modules: [
+      {
+        type: 'research',
+        name: 'Market News Research',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'external_market_news',
+          curiosity: 'balanced',
+        },
+        position: { x: 0, y: 0 },
+      },
+      {
+        type: 'research',
+        name: 'Desk Specialty Research',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'specialty_desk',
+          curiosity: 'balanced',
+        },
+        position: { x: 0, y: 280 },
+      },
+      {
+        type: 'librarian',
+        name: 'Regime Librarian',
+        config: {
+          topicScope: 'pending_operator_scope',
+          librarianSubtype: 'librarian_relevance',
+        },
+        position: { x: 0, y: 560 },
+      },
+      {
+        type: 'library',
+        name: 'Regime Evidence Library',
+        config: {
+          topicScope: 'pending_operator_scope',
+          libraryClass: 'specialty_evidence',
+          masterLibrary: false,
+        },
+        position: { x: 460, y: 140 },
+      },
+      {
+        type: 'live_api',
+        name: 'Paper Market Feed',
+        config: {
+          venue: 'paper_sim',
+          instruments: [],
+          feedClass: 'synthetic_sim',
+          pollSeconds: 60,
+        },
+        position: { x: 460, y: 552 },
+      },
+      {
+        type: 'trend',
+        name: 'Research-only Trend Scanner',
+        config: {
+          focus: 'pending_operator_scope',
+          trendPosture: 'research_only',
+          maxActiveTrends: 10,
+          cadenceMinutes: 60,
+        },
+        position: { x: 920, y: 276 },
+      },
+    ],
+    links: [
+      { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 4, toIndex: 5, linkKind: 'data_feed' },
+    ],
+    inputs: [
+      {
+        key: 'topicScope',
+        label: 'Regime scope',
+        kind: 'text',
+        placeholder: 'e.g. risk-on/risk-off equities',
+        target: { moduleIndex: 0, configKey: 'topicScope' },
+      },
+      {
+        key: 'focus',
+        label: 'Scanner focus',
+        kind: 'text',
+        placeholder: 'e.g. breadth and leadership',
+        target: { moduleIndex: 5, configKey: 'focus' },
+      },
+    ],
+  },
+  {
+    id: 'research_crypto_context',
+    label: 'Crypto context research',
+    category: 'research',
+    description: 'Crypto narrative + cross-cap trend lab (market_trend mode).',
+    available: true,
+    modules: [
+      {
+        type: 'research',
+        name: 'Crypto Context Research',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'crypto_onchain_context',
+          curiosity: 'exploratory',
+        },
+        position: { x: 0, y: 0 },
+      },
+      {
+        type: 'research',
+        name: 'Crypto Market News',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'external_market_news',
+          curiosity: 'balanced',
+        },
+        position: { x: 0, y: 280 },
+      },
+      {
+        type: 'library',
+        name: 'Crypto Knowledge Library',
+        config: {
+          topicScope: 'pending_operator_scope',
+          libraryClass: 'specialty_evidence',
+          masterLibrary: false,
+        },
+        position: { x: 460, y: 140 },
+      },
+      {
+        type: 'live_api',
+        name: 'Alpaca Crypto Feed',
+        config: {
+          venue: 'alpaca',
+          instruments: ['BTC/USD'],
+          feedClass: 'crypto_latest_quotes',
+          pollSeconds: 30,
+        },
+        position: { x: 460, y: 552 },
+      },
+      {
+        type: 'trend',
+        name: 'Crypto Cross-cap Scanner',
+        config: {
+          focus: 'pending_operator_scope',
+          trendPosture: 'crypto_cross_cap',
+          maxActiveTrends: 8,
+          cadenceMinutes: 30,
+        },
+        position: { x: 920, y: 276 },
+      },
+    ],
+    links: [
+      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
+    ],
+    inputs: [
+      {
+        key: 'focus',
+        label: 'Crypto focus',
+        kind: 'text',
+        placeholder: 'e.g. BTC/ETH regime + alts',
+        target: { moduleIndex: 4, configKey: 'focus' },
+      },
+    ],
+  },
+  {
+    id: 'research_prediction_niche',
+    label: 'Prediction niche research',
+    category: 'research',
+    description: 'Event/probability research lab before prediction desk wiring.',
+    available: true,
+    modules: [
+      {
+        type: 'research',
+        name: 'Prediction Niche Research',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'prediction_niche',
+          curiosity: 'exploratory',
+        },
+        position: { x: 0, y: 0 },
+      },
+      {
+        type: 'research',
+        name: 'Event Catalyst Research',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'event_catalyst',
+          curiosity: 'balanced',
+        },
+        position: { x: 0, y: 280 },
+      },
+      {
+        type: 'library',
+        name: 'Prediction Evidence Library',
+        config: {
+          topicScope: 'pending_operator_scope',
+          libraryClass: 'specialty_evidence',
+          masterLibrary: false,
+        },
+        position: { x: 460, y: 140 },
+      },
+      {
+        type: 'live_api',
+        name: 'Kalshi Demo Feed',
+        config: {
+          venue: 'kalshi',
+          instruments: [],
+          feedClass: 'kalshi_demo',
+          pollSeconds: 60,
+        },
+        position: { x: 460, y: 552 },
+      },
+      {
+        type: 'trend',
+        name: 'Event Probability Scanner',
+        config: {
+          focus: 'pending_operator_scope',
+          trendPosture: 'event_probability',
+          maxActiveTrends: 10,
+          cadenceMinutes: 60,
+        },
+        position: { x: 920, y: 276 },
+      },
+    ],
+    links: [
+      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
+    ],
+    inputs: [
+      {
+        key: 'topicScope',
+        label: 'Event scope',
+        kind: 'text',
+        placeholder: 'e.g. elections, macro prints',
+        target: { moduleIndex: 0, configKey: 'topicScope' },
+      },
+    ],
+  },
+  {
+    id: 'research_desk_aligned',
+    label: 'Desk-aligned research',
+    category: 'research',
+    description: 'Specialty-desk curator + evidence library + research-only trend feeder.',
+    available: true,
+    modules: [
+      {
+        type: 'research',
+        name: 'Desk Specialty Research',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'specialty_desk',
+          curiosity: 'balanced',
+        },
+        position: { x: 0, y: 0 },
+      },
+      {
+        type: 'librarian',
+        name: 'Desk Librarian',
+        config: {
+          topicScope: 'pending_operator_scope',
+          librarianSubtype: 'librarian_relevance',
+        },
+        position: { x: 0, y: 280 },
+      },
+      {
+        type: 'library',
+        name: 'Desk Evidence Library',
+        config: {
+          topicScope: 'pending_operator_scope',
+          libraryClass: 'specialty_evidence',
+          masterLibrary: false,
+        },
+        position: { x: 460, y: 140 },
+      },
+      {
+        type: 'live_api',
+        name: 'Paper Market Feed',
+        config: {
+          venue: 'paper_sim',
+          instruments: [],
+          feedClass: 'synthetic_sim',
+          pollSeconds: 60,
+        },
+        position: { x: 460, y: 552 },
+      },
+      {
+        type: 'trend',
+        name: 'Desk Feeder Trend',
+        config: {
+          focus: 'pending_operator_scope',
+          trendPosture: 'research_only',
+          maxActiveTrends: 10,
+          cadenceMinutes: 45,
+        },
+        position: { x: 920, y: 276 },
+      },
+    ],
+    links: [
+      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
+    ],
+    inputs: [
+      {
+        key: 'topicScope',
+        label: 'Desk scope',
+        kind: 'text',
+        placeholder: 'e.g. day-trade large-cap tech',
+        target: { moduleIndex: 0, configKey: 'topicScope' },
+      },
+    ],
+  },
+  {
+    id: 'research_multi_curator',
+    label: 'Multi-curator fabric',
+    category: 'research',
+    description:
+      'Broad pure-data fabric with web, filings, and market-news curators plus librarian.',
+    available: true,
+    modules: [
+      {
+        type: 'research',
+        name: 'Web Curator',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'external_web',
+          curiosity: 'exploratory',
+        },
+        position: { x: 0, y: 0 },
+      },
+      {
+        type: 'research',
+        name: 'Filings Curator',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'external_filings',
+          curiosity: 'conservative',
+        },
+        position: { x: 0, y: 280 },
+      },
+      {
+        type: 'research',
+        name: 'Market News Curator',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'external_market_news',
+          curiosity: 'balanced',
+        },
+        position: { x: 0, y: 560 },
+      },
+      {
+        type: 'librarian',
+        name: 'Fabric Librarian',
+        config: {
+          topicScope: 'pending_operator_scope',
+          librarianSubtype: 'librarian_relevance',
+        },
+        position: { x: 0, y: 840 },
+      },
+      {
+        type: 'library',
+        name: 'Multi-topic Library',
+        config: {
+          topicScope: 'pending_operator_scope',
+          libraryClass: 'topic_runtime',
+          masterLibrary: false,
+        },
+        position: { x: 460, y: 280 },
+      },
+      {
+        type: 'library',
+        name: 'Specialty Cross-ref Library',
+        config: {
+          topicScope: 'pending_operator_scope',
+          libraryClass: 'specialty_evidence',
+          masterLibrary: false,
+        },
+        position: { x: 460, y: 700 },
+      },
+    ],
+    links: [
+      { fromIndex: 0, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 4, toIndex: 3, linkKind: 'data_feed' },
+    ],
+    inputs: [
+      {
+        key: 'topicScope',
+        label: 'Fabric scope',
+        kind: 'text',
+        placeholder: 'e.g. company-wide market knowledge',
+        target: { moduleIndex: 0, configKey: 'topicScope' },
+      },
+    ],
+  },
+  {
     id: 'engine_hft',
     label: 'High-frequency engine',
     category: 'high_frequency',
@@ -503,13 +1306,30 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
       {
         type: 'research',
         name: 'Market Regime Research',
-        config: { topicScope: 'pending_operator_scope', curiosity: 'balanced' },
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'external_market_news',
+          curiosity: 'balanced',
+        },
         position: { x: 40, y: 300 },
+      },
+      {
+        type: 'librarian',
+        name: 'Evidence Librarian',
+        config: {
+          topicScope: 'pending_operator_scope',
+          librarianSubtype: 'librarian_relevance',
+        },
+        position: { x: 40, y: 580 },
       },
       {
         type: 'library',
         name: 'Strategy Evidence Library',
-        config: { topicScope: 'pending_operator_scope', masterLibrary: false },
+        config: {
+          topicScope: 'pending_operator_scope',
+          libraryClass: 'specialty_evidence',
+          masterLibrary: false,
+        },
         position: { x: 500, y: 300 },
       },
       {
@@ -526,7 +1346,12 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
       {
         type: 'trend',
         name: 'Market Trend Scanner',
-        config: { focus: 'pending_operator_scope', maxActiveTrends: 10, cadenceMinutes: 30 },
+        config: {
+          focus: 'pending_operator_scope',
+          trendPosture: 'session_intraday',
+          maxActiveTrends: 10,
+          cadenceMinutes: 30,
+        },
         position: { x: 960, y: 576 },
       },
       {
@@ -577,16 +1402,17 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
       },
     ],
     links: [
-      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
-      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 3, toIndex: 4, linkKind: 'directive' },
-      { fromIndex: 5, toIndex: 'math', linkKind: 'fund_route' },
-      { fromIndex: 'math', toIndex: 6, linkKind: 'fund_route' },
+      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 4, toIndex: 5, linkKind: 'directive' },
+      { fromIndex: 6, toIndex: 'math', linkKind: 'fund_route' },
+      { fromIndex: 'math', toIndex: 7, linkKind: 'fund_route' },
       // fund_router → trading owner Math is provisioned at insert (not stubbed here).
-      { fromIndex: 4, toIndex: 7, linkKind: 'verification' },
-      { fromIndex: 7, toIndex: 8, linkKind: 'verification' },
-      { fromIndex: 4, toIndex: 8, linkKind: 'directive' },
+      { fromIndex: 5, toIndex: 8, linkKind: 'verification' },
+      { fromIndex: 8, toIndex: 9, linkKind: 'verification' },
+      { fromIndex: 5, toIndex: 9, linkKind: 'directive' },
     ],
   },
   trend_research_lab: {
@@ -597,19 +1423,32 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
       {
         type: 'research',
         name: 'Scoped Market Research',
-        config: { topicScope: 'pending_operator_scope', curiosity: 'balanced' },
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'external_web',
+          curiosity: 'balanced',
+        },
         position: { x: 20, y: 240 },
       },
       {
         type: 'library',
         name: 'Research Evidence Library',
-        config: { topicScope: 'pending_operator_scope', masterLibrary: false },
+        config: {
+          topicScope: 'pending_operator_scope',
+          libraryClass: 'topic_runtime',
+          masterLibrary: false,
+        },
         position: { x: 280, y: 240 },
       },
       {
         type: 'trend',
         name: 'Scoped Trend Scanner',
-        config: { focus: 'pending_operator_scope', maxActiveTrends: 10, cadenceMinutes: 120 },
+        config: {
+          focus: 'pending_operator_scope',
+          trendPosture: 'research_only',
+          maxActiveTrends: 10,
+          cadenceMinutes: 120,
+        },
         position: { x: 540, y: 240 },
       },
     ],

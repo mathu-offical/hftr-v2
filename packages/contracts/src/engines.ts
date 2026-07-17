@@ -79,6 +79,7 @@ export type DeleteEngineInstanceInput = z.infer<typeof DeleteEngineInstanceInput
 /** Module types that may receive a Math tool attachment (n8n-style multi-attach). */
 export const MATH_TOOL_CONSUMER_TYPES: ReadonlySet<ModuleType> = new Set([
   'research',
+  'librarian',
   'library',
   'live_api',
   'trend',

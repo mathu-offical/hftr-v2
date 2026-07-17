@@ -4,6 +4,7 @@ import {
   missingModuleSetupFields,
   MODULE_CONFIG_SCHEMAS,
   UpdateModuleInput,
+  type ModuleType,
 } from '@hftr/contracts';
 import { moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
@@ -71,21 +72,52 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
     if (input.status !== undefined) patch.status = input.status;
     if (input.canvasPosition !== undefined) patch.canvasPosition = input.canvasPosition;
+    if (input.engineInstanceId !== undefined) {
+      if (existing.type === 'math') {
+        throw new ApiError(422, 'math_module_cannot_join_engine');
+      }
+      if (input.engineInstanceId) {
+        await scoping.getOwnedEngineInstance(db, clerkUserId, companyId, input.engineInstanceId);
+      }
+      patch.engineInstanceId = input.engineInstanceId;
+    }
+
     const config =
       input.config !== undefined
         ? MODULE_CONFIG_SCHEMAS[existing.type].parse(input.config)
         : (existing.config as Record<string, unknown>);
     if (input.config !== undefined) patch.config = config;
-    const setupPatch = await recordModuleSetup(
-      db,
-      clock,
-      companyId,
-      moduleId,
-      existing.type,
-      config,
-      input.setup,
-    );
-    Object.assign(patch, setupPatch);
+
+    if (input.restoreEngineTopic === true) {
+      const engineId = (input.engineInstanceId ?? existing.engineInstanceId) as string | null;
+      if (!engineId) throw new ApiError(422, 'module_not_in_engine');
+      const engine = await scoping.getOwnedEngineInstance(db, clerkUserId, companyId, engineId);
+      const setupPatch = await recordModuleSetup(
+        db,
+        clock,
+        companyId,
+        moduleId,
+        existing.type as ModuleType,
+        config,
+        { topicSectors: engine.masterTopicSectors },
+      );
+      Object.assign(patch, setupPatch);
+      patch.topicSectorsOverridden = false;
+    } else {
+      const setupPatch = await recordModuleSetup(
+        db,
+        clock,
+        companyId,
+        moduleId,
+        existing.type,
+        config,
+        input.setup,
+      );
+      Object.assign(patch, setupPatch);
+      if (input.setup?.topicSectors !== undefined) {
+        patch.topicSectorsOverridden = true;
+      }
+    }
 
     const updated = await db
       .update(modules)
@@ -100,9 +132,7 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
     const { companyId, moduleId } = Params.parse(await ctx.params);
     const existing = await scoping.getOwnedModule(db, clerkUserId, companyId, moduleId);
-    if (existing.type === 'math') {
-      throw new ApiError(422, 'math_module_not_deletable'); // D-008
-    }
+    // D-028: Math tools are deletable (repeatable / multi-attach).
 
     const incidentLinks = await db
       .select({

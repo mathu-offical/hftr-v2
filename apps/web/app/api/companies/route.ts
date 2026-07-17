@@ -3,11 +3,12 @@ import { z } from 'zod';
 import {
   COMPANY_TEMPLATES,
   CompanyTemplateId,
+  computeEngineBoundsFromPositions,
   CreateCompanyInput,
   DEFAULT_PHILOSOPHY_PROFILE,
   MODULE_CONFIG_SCHEMAS,
 } from '@hftr/contracts';
-import { companies, moduleLinks, modules } from '@hftr/db/schema';
+import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
 import { createSystemClock } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
@@ -69,11 +70,33 @@ export async function POST(req: Request) {
       throw new ApiError(500, 'math_module_create_failed');
     }
 
-    // Template modules + links (D-016).
+    // Template modules + links (D-016) wrapped in an ENGINE group (D-028).
     if (template.modules.length > 0) {
       const parsedConfigs = template.modules.map((module) =>
         MODULE_CONFIG_SCHEMAS[module.type].parse(module.config),
       );
+      const masterTopicSectors = input.templateSetup?.topicSectors ?? [];
+      const canvasBounds = computeEngineBoundsFromPositions(
+        template.modules.map((m) => m.position),
+      );
+      const engineTemplateId =
+        input.template === 'day_trading_starter'
+          ? 'engine_day_trading'
+          : input.template === 'trend_research_lab'
+            ? 'engine_trend_research'
+            : input.template;
+      const [engineRow] = await db
+        .insert(engineInstances)
+        .values({
+          companyId: company.id,
+          templateId: engineTemplateId,
+          label: template.label,
+          masterTopicSectors,
+          canvasBounds,
+        })
+        .returning({ id: engineInstances.id });
+      if (!engineRow) throw new ApiError(500, 'engine_instance_create_failed');
+
       const created = await db
         .insert(modules)
         .values(
@@ -86,6 +109,8 @@ export async function POST(req: Request) {
             config: parsedConfigs[index],
             status: 'draft' as const,
             canvasPosition: m.position,
+            engineInstanceId: engineRow.id,
+            topicSectorsOverridden: false,
           })),
         )
         .returning({ id: modules.id });

@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { CreateModuleInput, MODULE_CONFIG_SCHEMAS } from '@hftr/contracts';
-import { modules } from '@hftr/db/schema';
+import { libraries, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
 import { createSystemClock } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
@@ -28,9 +28,7 @@ export async function POST(req: Request, ctx: Ctx) {
     await scoping.getOwnedCompany(db, clerkUserId, companyId);
     const input = await parseBody(req, CreateModuleInput);
 
-    if (input.type === 'math') {
-      throw new ApiError(422, 'math_module_is_singleton'); // auto-created with the company
-    }
+    // D-028: Math is repeatable and multi-attachable (n8n-style tools).
 
     const existing = await scoping.listModules(db, clerkUserId, companyId);
     if (existing.length >= MAX_MODULES_PER_COMPANY) {
@@ -44,6 +42,10 @@ export async function POST(req: Request, ctx: Ctx) {
       throw new ApiError(422, 'target_exit_must_be_future');
     }
 
+    if (input.engineInstanceId) {
+      await scoping.getOwnedEngineInstance(db, clerkUserId, companyId, input.engineInstanceId);
+    }
+
     const inserted = await db
       .insert(modules)
       .values({
@@ -54,7 +56,9 @@ export async function POST(req: Request, ctx: Ctx) {
         nameCustomized: false,
         config,
         canvasPosition: input.canvasPosition ?? { x: 0, y: 0 },
-        status: 'draft',
+        status: input.type === 'math' ? 'active' : 'draft',
+        engineInstanceId: input.type === 'math' ? null : (input.engineInstanceId ?? null),
+        topicSectorsOverridden: false,
       })
       .returning();
     const module = inserted[0];
@@ -68,12 +72,33 @@ export async function POST(req: Request, ctx: Ctx) {
       config as Record<string, unknown>,
       input.setup,
     );
-    if (Object.keys(setupPatch).length === 0) return { module };
-    const updated = await db
-      .update(modules)
-      .set(setupPatch)
-      .where(eq(modules.id, module.id))
-      .returning();
-    return { module: updated[0] };
+    let resultModule = module;
+    if (Object.keys(setupPatch).length > 0) {
+      const updated = await db
+        .update(modules)
+        .set(setupPatch)
+        .where(eq(modules.id, module.id))
+        .returning();
+      resultModule = updated[0] ?? module;
+    }
+
+    if (input.type === 'library') {
+      const topicScope =
+        typeof (config as { topicScope?: string }).topicScope === 'string'
+          ? (config as { topicScope: string }).topicScope
+          : '';
+      await db
+        .insert(libraries)
+        .values({
+          companyId,
+          moduleId: resultModule.id,
+          name: resultModule.name,
+          topicScope,
+          masterLibrary: false,
+        })
+        .onConflictDoNothing({ target: [libraries.companyId, libraries.name] });
+    }
+
+    return { module: resultModule };
   });
 }

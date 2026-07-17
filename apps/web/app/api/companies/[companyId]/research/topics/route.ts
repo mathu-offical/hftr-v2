@@ -4,6 +4,7 @@ import { CreateResearchTopicInput } from '@hftr/contracts';
 import { scoping } from '@hftr/db';
 import { researchTopics } from '@hftr/db/schema';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
+import { serializeTopic, topicConceptCounts } from '@/lib/research-topics';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +31,14 @@ export async function GET(req: Request, ctx: Ctx) {
       )
       .orderBy(desc(researchTopics.createdAt))
       .limit(200);
-    return { topics: rows };
+
+    const counts = await topicConceptCounts(
+      db,
+      rows.map((r) => r.id),
+    );
+    return {
+      topics: rows.map((row) => serializeTopic(row, counts.get(row.id) ?? 0)),
+    };
   });
 }
 
@@ -69,10 +77,11 @@ export async function POST(req: Request, ctx: Ctx) {
         title: input.title,
         priority: input.priority,
         provenance: input.provenance ?? null,
+        synopsisMd: input.synopsisMd ?? '',
       })
       .returning();
     const topic = inserted[0];
     if (!topic) throw new ApiError(500, 'topic_insert_failed');
-    return { topic };
+    return { topic: serializeTopic(topic, 0) };
   });
 }

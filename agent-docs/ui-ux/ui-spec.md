@@ -33,7 +33,7 @@
   loads), company `llm_policy` with tier
   model cost/privacy labels from `MODEL_CAPABILITY_REGISTRY`, broker bind + feed entitlement,
   recent `llm_calls` metadata (request id truncated, retention class — no prompts/outputs).
-  User settings: per-provider **Verify** (`POST /api/settings/keys/:provider/verify`) and
+  User settings modal chrome is **fixed height** (`min(36rem, 90vh)`) with a scrollable tab panel only — short tabs do not shrink the dialog. User settings: per-provider **Verify** (`POST /api/settings/keys/:provider/verify`) and
   Alpaca paper connect/verify with capability readout + bound company id.
 - **Canvas-centric layout** per company beneath the ribbon: slim collapsible strips on the
   left (Research · Data), bottom (Trends · Scenarios · Watch lists · Decisions), and right

@@ -29,30 +29,57 @@ function buildTopicTree(topics: ResearchTopic[]): TopicNode[] {
   return walk(null);
 }
 
+function formatUsage(topic: ResearchTopic): string {
+  return `Q ${topic.queryCount} · Ref ${topic.referenceCount}`;
+}
+
 function TopicBranch(props: {
   node: TopicNode;
   depth: number;
   companyId: string;
   moduleId: string;
+  selectedTopicId: string | null;
+  onSelectTopic: (topicId: string) => void;
   onResearch: (topic: ResearchTopic) => void;
   busyTopicId: string | null;
 }) {
   const { topic, children } = props.node;
+  const selected = props.selectedTopicId === topic.id;
   return (
     <li>
       <div
-        className="flex items-center gap-2 py-0.5"
+        data-testid={`research-topic-${topic.id}`}
+        className={`flex items-center gap-1.5 rounded py-0.5 ${
+          selected ? 'bg-[var(--color-surface-2)]' : ''
+        }`}
         style={{ paddingLeft: `${props.depth * 12}px` }}
       >
-        <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--color-ink)]">
+        <button
+          type="button"
+          onClick={() => props.onSelectTopic(topic.id)}
+          aria-pressed={selected}
+          aria-label={`Select topic ${topic.title}`}
+          className="min-w-0 flex-1 truncate text-left text-[11px] text-[var(--color-ink)] hover:text-[var(--color-accent)]"
+        >
           {topic.title}
+        </button>
+        <span className="shrink-0 text-[9px] text-[var(--color-ink-faint)]">
+          {topic.conceptCount ?? 0}
         </span>
-        <span className="text-[9px] uppercase text-[var(--color-ink-faint)]">{topic.priority}</span>
-        <span className="text-[9px] text-[var(--color-ink-faint)]">{topic.status}</span>
+        <span className="hidden shrink-0 text-[8px] text-[var(--color-ink-faint)] sm:inline">
+          {formatUsage(topic)}
+        </span>
+        <span className="shrink-0 text-[9px] uppercase text-[var(--color-ink-faint)]">
+          {topic.priority}
+        </span>
+        <span className="shrink-0 text-[9px] text-[var(--color-ink-faint)]">{topic.status}</span>
         <button
           type="button"
           disabled={props.busyTopicId === topic.id}
-          onClick={() => props.onResearch(topic)}
+          onClick={(e) => {
+            e.stopPropagation();
+            props.onResearch(topic);
+          }}
           aria-label={`Research topic ${topic.title}`}
           className="shrink-0 rounded border border-[var(--color-line)] px-1.5 py-0.5 text-[9px] text-[var(--color-accent)] hover:border-[var(--color-accent)] disabled:opacity-50"
         >
@@ -68,6 +95,8 @@ function TopicBranch(props: {
               depth={props.depth + 1}
               companyId={props.companyId}
               moduleId={props.moduleId}
+              selectedTopicId={props.selectedTopicId}
+              onSelectTopic={props.onSelectTopic}
               onResearch={props.onResearch}
               busyTopicId={props.busyTopicId}
             />
@@ -82,6 +111,8 @@ export interface ResearchTopicsTreeProps {
   companyId: string;
   moduleId: string;
   moduleName: string;
+  selectedTopicId?: string | null;
+  onSelectTopic?: (topicId: string) => void;
 }
 
 function ResearchTopicsTreeInner(props: ResearchTopicsTreeProps) {
@@ -148,6 +179,7 @@ function ResearchTopicsTreeInner(props: ResearchTopicsTreeProps) {
           mode: 'manual',
           topicScope: topic.title,
           queryText: topic.title,
+          topicId: topic.id,
         },
       });
       setMessage(`Research queued for "${topic.title}".`);
@@ -161,6 +193,13 @@ function ResearchTopicsTreeInner(props: ResearchTopicsTreeProps) {
       setBusyTopicId(null);
     }
   }
+
+  const handleSelectTopic = useCallback(
+    (topicId: string) => {
+      props.onSelectTopic?.(topicId);
+    },
+    [props],
+  );
 
   return (
     <div className="mt-2 border-t border-[var(--color-line)] pt-2">
@@ -180,6 +219,8 @@ function ResearchTopicsTreeInner(props: ResearchTopicsTreeProps) {
               depth={0}
               companyId={props.companyId}
               moduleId={props.moduleId}
+              selectedTopicId={props.selectedTopicId ?? null}
+              onSelectTopic={handleSelectTopic}
               onResearch={(topic) => void researchTopic(topic)}
               busyTopicId={busyTopicId}
             />

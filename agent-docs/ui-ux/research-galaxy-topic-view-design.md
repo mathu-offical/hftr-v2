@@ -1,6 +1,6 @@
 # Research galaxy + topic view design (D-040)
 
-**Status:** specified (docs only; implementation not started)  
+**Status:** implemented and verified (2026-07-17)  
 **Decision:** D-040  
 **Owns:** research canvas overlay (galaxy + article tabs), left-panel topics list, library-nested layout, usage telemetry for concepts/topics  
 **Related:** `ui-spec.md` §4 LEFT + §6; `product/product-spec.md` § Research/Libraries; `architecture/data-model.md` Research & knowledge; TD-09; D-007; D-039; DevSpecs `research-library-philosophy.spec.md` (read-only intent)

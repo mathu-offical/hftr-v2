@@ -59,14 +59,12 @@ test.describe('Research library surfaces (M2)', () => {
       page.getByRole('button', { name: 'Export E2E Export Library to Obsidian zip' }),
     ).toBeVisible();
 
-    await expect(page.getByText('Galaxy view', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Show galaxy view' })).toBeVisible();
+    await expect(page.getByText('Research galaxy', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open research galaxy overlay' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Show galaxy view' }).click();
-    await expect(page.getByRole('button', { name: 'Hide galaxy view' })).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Research galaxy graph' })).toBeVisible({
-      timeout: 15_000,
-    });
+    await page.getByRole('button', { name: 'Open research galaxy overlay' }).click();
+    await expect(page.getByTestId('research-overlay')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('galaxy-view')).toBeVisible();
 
     await expect(
       page.getByText(/No concepts curated yet|Search concepts|Search galaxy/).first(),

@@ -465,7 +465,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   links + ordered concept sections (research/librarian curation). Topics/concepts track
   query and reference counts for system optimization and visual weight. Spec:
   `ui-ux/research-galaxy-topic-view-design.md`; mirrored in `ui-spec.md` §4/§6,
-  `product-spec.md`, `data-model.md`. **Status: specified; implementation not started.**
+  `product-spec.md`, `data-model.md`. **Status: implemented and verified** (migration `0022`,
+  APIs, Research overlay Galaxy|Article, nested GalaxyView, topic membership + usage;
+  Playwright `research-galaxy-topics` + `research-library` pass; IronBee Open galaxy on
+  Momentum Desk).
 
 ## Open questions
 

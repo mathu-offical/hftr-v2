@@ -254,10 +254,10 @@ Additional drift (not in JSON flag list):
 | REQ-RES-004 | Library curation UI + management | agent-docs/ui-ux/ui-spec.md §4 LEFT | **deferred** | libraries schema; left panel partial | M2 research tab | platform | research_quality | operational |
 | REQ-RES-005 | pgvector concept embeddings | agent-docs/architecture/data-model.md | **deferred** | embedding column nullable phase-gated | M2+ search | platform | research_quality | informational |
 | REQ-RES-006 | Scoped web research (Brave optional) | agent-docs/product/product-spec.md §3 Research | **deferred** | research module config spec; D-039 bus partial | M2 autonomous research | platform | research_quality | compliance |
-| REQ-RES-007 | Topics as agent organizations + left-panel nav | agent-docs/ui-ux/research-galaxy-topic-view-design.md | **specified** | D-040; topic_concepts join pending | M2 research overlay | platform | research_quality | operational |
-| REQ-RES-008 | Hard nested library galaxy + topic focus (dim+path) | agent-docs/ui-ux/ui-spec.md §6 | **specified** | D-040; GalaxyView MVP lacks nests/focus | M2 G2 | platform | research_quality | informational |
-| REQ-RES-009 | Hybrid topic Article tab (synopsis + concept sections) | agent-docs/ui-ux/research-galaxy-topic-view-design.md §5 | **specified** | D-040; synopsis_md pending | M2 research overlay | platform | research_quality | operational |
-| REQ-RES-010 | Concept/topic query + reference telemetry | agent-docs/architecture/data-model.md | **specified** | D-040 counters / optional access events | M2+ librarian ranking | platform | research_quality | operational |
+| REQ-RES-007 | Topics as agent organizations + left-panel nav | agent-docs/ui-ux/research-galaxy-topic-view-design.md | **partial** | D-040; migration `0022` + APIs + left topics + overlay select | M2 research overlay | platform | research_quality | operational |
+| REQ-RES-008 | Hard nested library galaxy + topic focus (dim+path) | agent-docs/ui-ux/ui-spec.md §6 | **partial** | D-040 GalaxyView nests + dim/path; IronBee galaxy overlay | M2 G2 | platform | research_quality | informational |
+| REQ-RES-009 | Hybrid topic Article tab (synopsis + concept sections) | agent-docs/ui-ux/research-galaxy-topic-view-design.md §5 | **partial** | D-040 Article tab + e2e synopsis | M2 research overlay | platform | research_quality | operational |
+| REQ-RES-010 | Concept/topic query + reference telemetry | agent-docs/architecture/data-model.md | **partial** | D-040 columns + bump on topic GET / graph optional | M2+ librarian ranking | platform | research_quality | operational |
 
 ## Seed catalogs (8)
 

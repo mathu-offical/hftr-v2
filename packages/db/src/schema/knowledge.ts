@@ -1,5 +1,14 @@
 import { sql } from 'drizzle-orm';
-import { index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { companies, modules } from './companies';
 import { actionInstructions } from './pipeline';
 import { trendCandidates } from './research';
@@ -44,11 +53,21 @@ export const concepts = pgTable(
     status: text('status', { enum: ['active', 'archived'] })
       .notNull()
       .default('active'),
+    /**
+     * Primary library for hard nested galaxy layout (D-040).
+     * FK enforced in migration; uuid-only here to avoid circular import with libraries.ts.
+     */
+    primaryLibraryId: uuid('primary_library_id'),
+    queryCount: integer('query_count').notNull().default(0),
+    lastQueriedAt: timestamp('last_queried_at', { withTimezone: true }),
+    referenceCount: integer('reference_count').notNull().default(0),
+    lastReferencedAt: timestamp('last_referenced_at', { withTimezone: true }),
     ...timestamps,
   },
   (t) => [
     index('concepts_company_idx').on(t.companyId, t.createdAt),
     uniqueIndex('concepts_module_title_unique').on(t.moduleId, t.title),
+    index('concepts_primary_library_idx').on(t.primaryLibraryId),
   ],
 );
 

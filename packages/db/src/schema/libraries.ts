@@ -1,5 +1,14 @@
 import { sql } from 'drizzle-orm';
-import { boolean, index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { companies, modules } from './companies';
 import { concepts } from './knowledge';
 
@@ -82,10 +91,40 @@ export const researchTopics = pgTable(
       .notNull()
       .default('normal'),
     provenance: text('provenance'),
+    /** Hybrid article synopsis (D-040). */
+    synopsisMd: text('synopsis_md').notNull().default(''),
+    queryCount: integer('query_count').notNull().default(0),
+    lastQueriedAt: timestamp('last_queried_at', { withTimezone: true }),
+    referenceCount: integer('reference_count').notNull().default(0),
+    lastReferencedAt: timestamp('last_referenced_at', { withTimezone: true }),
     ...timestamps,
   },
   (t) => [
     index('research_topics_module_idx').on(t.moduleId, t.status),
     index('research_topics_company_idx').on(t.companyId, t.createdAt),
+  ],
+);
+
+/** Ordered concept membership inside a topic (D-040). */
+export const topicConcepts = pgTable(
+  'topic_concepts',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    topicId: uuid('topic_id')
+      .notNull()
+      .references(() => researchTopics.id, { onDelete: 'cascade' }),
+    conceptId: uuid('concept_id')
+      .notNull()
+      .references(() => concepts.id, { onDelete: 'cascade' }),
+    sortOrder: integer('sort_order').notNull().default(0),
+    role: text('role'),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex('topic_concepts_unique').on(t.topicId, t.conceptId),
+    index('topic_concepts_topic_idx').on(t.topicId, t.sortOrder),
+    index('topic_concepts_concept_idx').on(t.conceptId),
   ],
 );

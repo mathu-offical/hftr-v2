@@ -41,19 +41,21 @@ Existing unowned Math modules remain valid. Migration does not guess ownership. 
 For every dedicated owner/Math pair:
 
 ```text
-owner --data_feed--> Math
-Math  --data_feed--> owner
+owner --data_feed--> Math (attaches on Math top)
+Math  --data_feed--> owner (returns from Math top)
 ```
 
 The first edge carries the owner’s calculation inputs/context into the deterministic tool. The return edge carries typed calculated output back to the owner. These are topology and dispatch declarations; they do not permit raw model-generated numbers.
 
-For a model-bearing module that receives financial values, the fund route must also traverse its dedicated Math tool:
+**Fund ports on Math:** left = fund in, right = fund out. Data ports sit on the **top** edge so owner cards connect downward into the tool lane.
+
+For capital routing, funds only flow through Math / holding_fund / fund_router — never into LLM or model-bearing nodes:
 
 ```text
-fund source/router --fund_route--> owner Math --fund_route--> owner
+holding_fund --fund_route--> Math --fund_route--> fund_router --fund_route--> trading owner Math
 ```
 
-No direct fund route may bypass the owner’s Math tool. Link validation therefore adds the necessary `fund_router → math` and `math → trading` fund-route rules while preserving the existing holding-fund → Math → router path.
+Trading receives calculated capital via `data_feed` from its dedicated Math. No `fund_route` handle exists on trading, research, trend, or other model-bearing modules.
 
 ## Math tool presentation
 

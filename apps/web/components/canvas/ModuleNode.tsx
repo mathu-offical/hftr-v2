@@ -213,67 +213,143 @@ export const ModuleNode = memo(function ModuleNode({
 
   return (
     <div className="relative" style={{ width: CARD_WIDTH_PX }}>
-      {ports.inbound.map((kind, index) => {
-        const handleId = handleIdForLink(kind, 'in');
-        const port = LINK_PORT_VISUALS[kind];
-        const top = portTopPercent(index, ports.inbound.length);
-        return (
-          <div key={handleId}>
-            <Handle
-              id={handleId}
-              type="target"
-              position={Position.Left}
-              className="hftr-handle"
-              aria-label={`${port.label} input`}
-              style={{
-                top,
-                width: 8,
-                height: 8,
-                background: port.color,
-                border: '1px solid var(--color-surface-0)',
-              }}
-            />
-            <span
-              className="pointer-events-none absolute -left-[4.5rem] w-16 text-right text-[8px] leading-tight text-[var(--color-ink-faint)]"
-              style={{ top, transform: 'translateY(-50%)' }}
-              aria-hidden
-            >
-              {port.label}
-            </span>
-          </div>
-        );
-      })}
+      {data.moduleType === 'math' ? (
+        <>
+          {/* Data to/from owner modules attaches on the top edge. */}
+          <Handle
+            id={handleIdForLink('data_feed', 'in')}
+            type="target"
+            position={Position.Top}
+            className="hftr-handle"
+            aria-label="Data feed input"
+            style={{
+              left: '32%',
+              width: 8,
+              height: 8,
+              background: LINK_PORT_VISUALS.data_feed.color,
+              border: '1px solid var(--color-surface-0)',
+            }}
+          />
+          <Handle
+            id={handleIdForLink('data_feed', 'out')}
+            type="source"
+            position={Position.Top}
+            className="hftr-handle"
+            aria-label="Data feed output"
+            style={{
+              left: '68%',
+              width: 8,
+              height: 8,
+              background: LINK_PORT_VISUALS.data_feed.color,
+              border: '1px solid var(--color-surface-0)',
+            }}
+          />
+          <Handle
+            id={handleIdForLink('fund_route', 'in')}
+            type="target"
+            position={Position.Left}
+            className="hftr-handle"
+            aria-label="Fund route input"
+            style={{
+              top: '50%',
+              width: 8,
+              height: 8,
+              background: LINK_PORT_VISUALS.fund_route.color,
+              border: '1px solid var(--color-surface-0)',
+            }}
+          />
+          <span
+            className="pointer-events-none absolute -left-[4.5rem] top-1/2 w-16 -translate-y-1/2 text-right text-[8px] leading-tight text-[var(--color-ink-faint)]"
+            aria-hidden
+          >
+            Fund route
+          </span>
+          <Handle
+            id={handleIdForLink('fund_route', 'out')}
+            type="source"
+            position={Position.Right}
+            className="hftr-handle"
+            aria-label="Fund route output"
+            style={{
+              top: '50%',
+              width: 8,
+              height: 8,
+              background: LINK_PORT_VISUALS.fund_route.color,
+              border: '1px solid var(--color-surface-0)',
+            }}
+          />
+          <span
+            className="pointer-events-none absolute -right-[4.5rem] top-1/2 w-16 -translate-y-1/2 text-left text-[8px] leading-tight text-[var(--color-ink-faint)]"
+            aria-hidden
+          >
+            Fund route
+          </span>
+        </>
+      ) : (
+        <>
+          {ports.inbound.map((kind, index) => {
+            const handleId = handleIdForLink(kind, 'in');
+            const port = LINK_PORT_VISUALS[kind];
+            const top = portTopPercent(index, ports.inbound.length);
+            return (
+              <div key={handleId}>
+                <Handle
+                  id={handleId}
+                  type="target"
+                  position={Position.Left}
+                  className="hftr-handle"
+                  aria-label={`${port.label} input`}
+                  style={{
+                    top,
+                    width: 8,
+                    height: 8,
+                    background: port.color,
+                    border: '1px solid var(--color-surface-0)',
+                  }}
+                />
+                <span
+                  className="pointer-events-none absolute -left-[4.5rem] w-16 text-right text-[8px] leading-tight text-[var(--color-ink-faint)]"
+                  style={{ top, transform: 'translateY(-50%)' }}
+                  aria-hidden
+                >
+                  {port.label}
+                </span>
+              </div>
+            );
+          })}
 
-      {ports.outbound.map((kind, index) => {
-        const handleId = handleIdForLink(kind, 'out');
-        const port = LINK_PORT_VISUALS[kind];
-        const top = portTopPercent(index, ports.outbound.length);
-        return (
-          <div key={handleId}>
-            <Handle
-              id={handleId}
-              type="source"
-              position={Position.Right}
-              className="hftr-handle"
-              aria-label={`${port.label} output`}
-              style={{
-                top,
-                width: 8,
-                height: 8,
-                background: port.color,
-                border: '1px solid var(--color-surface-0)',
-              }}
-            />
-            <span
-              className="pointer-events-none absolute -right-[4.5rem] w-16 text-left text-[8px] leading-tight text-[var(--color-ink-faint)]"
-              style={{ top, transform: 'translateY(-50%)' }}
-              aria-hidden
-            >
-              {port.label}
-            </span>
-          </div>
-        );
-      })}
+          {ports.outbound.map((kind, index) => {
+            const handleId = handleIdForLink(kind, 'out');
+            const port = LINK_PORT_VISUALS[kind];
+            const top = portTopPercent(index, ports.outbound.length);
+            return (
+              <div key={handleId}>
+                <Handle
+                  id={handleId}
+                  type="source"
+                  position={Position.Right}
+                  className="hftr-handle"
+                  aria-label={`${port.label} output`}
+                  style={{
+                    top,
+                    width: 8,
+                    height: 8,
+                    background: port.color,
+                    border: '1px solid var(--color-surface-0)',
+                  }}
+                />
+                <span
+                  className="pointer-events-none absolute -right-[4.5rem] w-16 text-left text-[8px] leading-tight text-[var(--color-ink-faint)]"
+                  style={{ top, transform: 'translateY(-50%)' }}
+                  aria-hidden
+                >
+                  {port.label}
+                </span>
+              </div>
+            );
+          })}
+        </>
+      )}
 
       <div
         className="rounded-lg border bg-[var(--color-surface-1)] px-3.5 py-2.5 shadow-lg transition-colors"

@@ -412,6 +412,16 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   top padding (300) clear taller setup cards and dedicated Math docks.
   **Status: implemented and verified.**
 
+- **D-038 (Math top data ports + fund-only-via-Math, 2026-07-17):**
+  Math modules accept owner `data_feed` on the **top** edge; fund_route is **left in / right
+  out**. `LINK_RULES` remove fund endpoints from trading and other model-bearing nodes;
+  `isLegalFundRoute` requires Math on at least one end among {math, holding_fund, fund_router}.
+  Seed path: `holding_fund → shared Math → fund_router → trading owner Math`; trading receives
+  capital as `data_feed` ValueRefs from its dedicated Math (no fund_route into LLM nodes).
+  Verification (2026-07-17): contracts 76 ✓; IronBee MathToolNode handles
+  `data_feed` top in/out + `fund_route` left/right; trading exposes no fund handles.
+  **Status: implemented and verified.**
+
 - **D-036 (auto-disarm + drain latency, 2026-07-17):**
   `autoDisarmCompany` clears `live_armed_at` and `live_gate_evidence_id` on broker verify
   failure, stale evidence while armed (`live-gates/status`), and `resolveExecutionContext` block.

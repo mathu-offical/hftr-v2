@@ -84,22 +84,8 @@ export const LINK_PORT_VISUALS: Record<LinkKind, { label: string; color: string 
 export function edgeKindForHandles(
   sourceHandle: string | null | undefined,
   targetHandle: string | null | undefined,
-  sourceType: ModuleType,
-  targetType: ModuleType,
+  _sourceType: ModuleType,
+  _targetType: ModuleType,
 ): LinkKind | null {
-  const source = sourceHandle ?? 'data-out';
-  const target = targetHandle ?? 'data-in';
-
-  if (source === 'data-out' && target === 'data-in') {
-    if (
-      sourceType === 'fund_router' ||
-      targetType === 'fund_router' ||
-      sourceType === 'holding_fund' ||
-      targetType === 'holding_fund'
-    ) {
-      return 'fund_route';
-    }
-  }
-
   return linkKindForHandlePair(sourceHandle, targetHandle);
 }

@@ -60,9 +60,10 @@
   members; exit is the same overall deadline. Inspector/module PATCH supports **Restore
   engine topic** (`restoreEngineTopic`). Delete engine: modal offers **cascade** (remove
   members + links) vs **ungroup** (keep modules, clear membership).
-- **Math tools (D-028):** additional Math modules may be created from the palette and deleted;
-  each may `data_feed`-attach to allowed consumer types (`MATH_TOOL_CONSUMER_TYPES`). n8n-style
-  TOOL dock chrome on consumers is deferred; link rules and contracts are in place.
+- **Math tools (D-028 / D-033):** additional Math modules may be created from the palette and
+  deleted; each may `data_feed`-attach to allowed consumer types. Dedicated Math tools render as
+  compact nodes with **data handles on top** (owner connection) and **fund handles left→right**.
+  Fund routes never attach to LLM / model-bearing nodes — capital terminates at Math.
 - **Edge routing (implemented D-023):** stored and newly created edges use React Flow
   `type: 'smoothstep'`; connection drag preview uses `ConnectionLineType.SmoothStep`. This yields
   rounded right-angle routing with column spacing as the primary collision control. **Not**

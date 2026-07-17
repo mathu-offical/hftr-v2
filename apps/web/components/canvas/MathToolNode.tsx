@@ -21,8 +21,9 @@ const DATA_COLOR = '#7aa2f7';
 const FUND_COLOR = '#73daca';
 
 /**
- * Compact deterministic tool lane. This is a real graph node (not a duplicate
- * owner badge), so data/fund topology remains visible and inspectable.
+ * Compact deterministic tool lane.
+ * - Data to/from owner modules: top handles
+ * - Funds: left in → right out (never into LLM nodes)
  */
 export const MathToolNode = memo(function MathToolNode({
   data,
@@ -38,27 +39,31 @@ export const MathToolNode = memo(function MathToolNode({
     >
       <Handle
         type="target"
-        position={Position.Left}
+        position={Position.Top}
         id={handleIdForLink('data_feed', 'in')}
-        style={{ background: DATA_COLOR, top: '34%' }}
+        aria-label="Data feed input"
+        style={{ background: DATA_COLOR, left: '32%', width: 8, height: 8 }}
       />
       <Handle
         type="source"
-        position={Position.Right}
+        position={Position.Top}
         id={handleIdForLink('data_feed', 'out')}
-        style={{ background: DATA_COLOR, top: '34%' }}
+        aria-label="Data feed output"
+        style={{ background: DATA_COLOR, left: '68%', width: 8, height: 8 }}
       />
       <Handle
         type="target"
         position={Position.Left}
         id={handleIdForLink('fund_route', 'in')}
-        style={{ background: FUND_COLOR, top: '72%' }}
+        aria-label="Fund route input"
+        style={{ background: FUND_COLOR, top: '50%', width: 8, height: 8 }}
       />
       <Handle
         type="source"
         position={Position.Right}
         id={handleIdForLink('fund_route', 'out')}
-        style={{ background: FUND_COLOR, top: '72%' }}
+        aria-label="Fund route output"
+        style={{ background: FUND_COLOR, top: '50%', width: 8, height: 8 }}
       />
       <span className="h-2 w-2 shrink-0 rounded-full bg-[#bb9af7]" />
       <div className="min-w-0">

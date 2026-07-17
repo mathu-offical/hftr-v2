@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { check, index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { companies } from './companies';
 
 /** Append-only company-scoped assistant conversation log. Never UPDATE/DELETE in app code. */
@@ -18,5 +18,13 @@ export const assistantMessages = pgTable(
     toolResults: jsonb('tool_results'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('assistant_messages_company_idx').on(t.companyId, t.createdAt)],
+  (t) => [
+    index('assistant_messages_company_idx').on(t.companyId, t.createdAt),
+    index('assistant_messages_company_user_created_idx').on(
+      t.companyId,
+      t.clerkUserId,
+      t.createdAt,
+    ),
+    check('assistant_messages_role_check', sql`${t.role} in ('user', 'assistant', 'system')`),
+  ],
 );

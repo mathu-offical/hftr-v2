@@ -61,6 +61,7 @@ export const modules = pgTable(
         'generator',
         'simulator',
         'analyzer',
+        'holding_fund',
         'fund_router',
         'math',
         'display',

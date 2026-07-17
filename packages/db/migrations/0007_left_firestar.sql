@@ -1,0 +1,2 @@
+CREATE INDEX "assistant_messages_company_user_created_idx" ON "assistant_messages" USING btree ("company_id","clerk_user_id","created_at");--> statement-breakpoint
+ALTER TABLE "assistant_messages" ADD CONSTRAINT "assistant_messages_role_check" CHECK ("assistant_messages"."role" in ('user', 'assistant', 'system'));

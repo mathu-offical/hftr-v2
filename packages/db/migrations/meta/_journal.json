@@ -50,6 +50,13 @@
       "when": 1784276095961,
       "tag": "0006_next_susan_delgado",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784277926134,
+      "tag": "0007_left_firestar",
+      "breakpoints": true
     }
   ]
 }

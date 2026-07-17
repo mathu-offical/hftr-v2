@@ -29,3 +29,8 @@ export {
   TREE_EXPAND_V1,
   COMPILE_V1,
 } from './prompts';
+export {
+  ASSISTANT_PROPOSAL_SCHEMA_REF,
+  ASSISTANT_PROPOSAL_JSON_SCHEMA,
+  ASSISTANT_PROPOSAL_SYSTEM_PROMPT,
+} from './assistant-tools';

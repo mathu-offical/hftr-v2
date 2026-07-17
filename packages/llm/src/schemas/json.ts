@@ -1,3 +1,4 @@
+import { ASSISTANT_PROPOSAL_JSON_SCHEMA } from '../assistant-tools';
 /**
  * Hand-authored JSON Schema objects aligned with @hftr/contracts Zod types.
  * Used for provider structured-output hints — validation remains Zod-side.
@@ -123,6 +124,7 @@ const JSON_SCHEMA_REGISTRY: Record<string, Record<string, unknown>> = {
   'concept_batch.v1': CONCEPT_BATCH_V1,
   'tree_expand.v1': TREE_EXPAND_V1,
   'compile.v1': COMPILE_V1,
+  'assistant_proposal.v1': ASSISTANT_PROPOSAL_JSON_SCHEMA as Record<string, unknown>,
 };
 
 export function jsonSchemaForRef(schemaRef: string): Record<string, unknown> | undefined {

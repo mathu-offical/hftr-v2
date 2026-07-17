@@ -19,6 +19,7 @@
     "@hftr/db": "workspace:*",
     "@hftr/engine": "workspace:*",
     "@hftr/llm": "workspace:*",
+    "@hftr/secrets": "workspace:*",
     "@xyflow/react": "^12.11.2",
     "drizzle-orm": "^0.44.7",
     "next": "^15.3.0",

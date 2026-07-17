@@ -12,8 +12,10 @@
     "lint": "prettier --check src"
   },
   "dependencies": {
+    "@hftr/adapters": "workspace:*",
     "@hftr/contracts": "workspace:*",
     "@hftr/db": "workspace:*",
+    "@hftr/secrets": "workspace:*",
     "drizzle-orm": "^0.44.0",
     "zod": "^3.24.0"
   },

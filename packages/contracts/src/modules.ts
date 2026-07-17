@@ -140,15 +140,8 @@ export const CreateCompanyInput = z.object({
   philosophyPrompt: z.string().min(1).max(4000),
   mode: TradingMode.default('paper'),
   seedCreditsCents: z.number().int().min(0).max(100_000_000_00).default(0),
-  template: z
-    .enum([
-      'blank',
-      'day_trading_starter',
-      'crypto_starter',
-      'prediction_starter',
-      'research_first',
-    ])
-    .default('blank'),
+  // Template selection is composed in the route from CompanyTemplateId
+  // (templates.ts) — the single source of truth for available templates.
 });
 export type CreateCompanyInput = z.infer<typeof CreateCompanyInput>;
 

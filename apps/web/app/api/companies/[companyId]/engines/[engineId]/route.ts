@@ -3,7 +3,13 @@ import { z } from 'zod';
 import { DeleteEngineInstanceInput, UpdateEngineInstanceInput } from '@hftr/contracts';
 import { engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
+import { createSystemClock } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
+import {
+  cascadeEngineSetup,
+  engineSetupSnapshotFromInput,
+  recordEngineSetupRefs,
+} from '@/lib/engine-setup-cascade';
 import { cascadeEngineMasterTopic } from '@/lib/engine-topic-cascade';
 import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
 import { cleanupDedicatedMathForOwner } from '@/lib/math-provision';
@@ -16,6 +22,32 @@ const Params = z.object({
 });
 type Ctx = { params: Promise<{ companyId: string; engineId: string }> };
 
+function serializeEngine(row: typeof engineInstances.$inferSelect, memberModuleIds: string[]) {
+  return {
+    id: row.id,
+    companyId: row.companyId,
+    templateId: row.templateId,
+    label: row.label,
+    masterTopicSectors: row.masterTopicSectors,
+    capitalAllocationRef: row.capitalAllocationRef,
+    targetExitRef: row.targetExitRef,
+    setupSnapshot: row.setupSnapshot as {
+      topicSectors: string[];
+      allocationMode: 'amount' | 'percentage';
+      allocationValue: string;
+      targetExitLocal: string;
+    },
+    templateInputs: (row.templateInputs ?? {}) as Record<string, string>,
+    canvasBounds: row.canvasBounds as {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    } | null,
+    memberModuleIds,
+  };
+}
+
 export async function GET(_req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
     const { companyId, engineId } = Params.parse(await ctx.params);
@@ -25,15 +57,10 @@ export async function GET(_req: Request, ctx: Ctx) {
       .from(modules)
       .where(and(eq(modules.companyId, companyId), eq(modules.engineInstanceId, engineId)));
     return {
-      engine: {
-        id: row.id,
-        companyId: row.companyId,
-        templateId: row.templateId,
-        label: row.label,
-        masterTopicSectors: row.masterTopicSectors,
-        canvasBounds: row.canvasBounds,
-        memberModuleIds: members.map((m) => m.id),
-      },
+      engine: serializeEngine(
+        row,
+        members.map((m) => m.id),
+      ),
     };
   });
 }
@@ -41,14 +68,39 @@ export async function GET(_req: Request, ctx: Ctx) {
 export async function PATCH(req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
     const { companyId, engineId } = Params.parse(await ctx.params);
-    await scoping.getOwnedEngineInstance(db, clerkUserId, companyId, engineId);
+    const existing = await scoping.getOwnedEngineInstance(db, clerkUserId, companyId, engineId);
     const input = await parseBody(req, UpdateEngineInstanceInput);
+    const clock = createSystemClock();
 
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     if (input.label !== undefined) patch.label = input.label;
     if (input.canvasBounds !== undefined) patch.canvasBounds = input.canvasBounds;
-    if (input.masterTopicSectors !== undefined) {
+    if (input.templateInputs !== undefined) patch.templateInputs = input.templateInputs;
+
+    const setup = input.setup;
+    if (setup?.topicSectors !== undefined) {
+      patch.masterTopicSectors = setup.topicSectors;
+    } else if (input.masterTopicSectors !== undefined) {
       patch.masterTopicSectors = input.masterTopicSectors;
+    }
+
+    if (input.setupSnapshot !== undefined) {
+      patch.setupSnapshot = input.setupSnapshot;
+    } else if (setup) {
+      patch.setupSnapshot = engineSetupSnapshotFromInput(
+        setup,
+        existing.setupSnapshot as {
+          topicSectors: string[];
+          allocationMode: 'amount' | 'percentage';
+          allocationValue: string;
+          targetExitLocal: string;
+        } | null,
+      );
+    }
+
+    if (setup) {
+      const refs = await recordEngineSetupRefs(db, clock, companyId, engineId, setup);
+      Object.assign(patch, refs);
     }
 
     const [updated] = await db
@@ -59,8 +111,15 @@ export async function PATCH(req: Request, ctx: Ctx) {
     if (!updated) throw new ApiError(404, 'engine_instance_not_found');
 
     let cascaded = 0;
-    if (input.masterTopicSectors !== undefined) {
-      cascaded = await cascadeEngineMasterTopic(db, companyId, engineId, input.masterTopicSectors);
+    if (setup) {
+      cascaded = await cascadeEngineSetup(db, companyId, engineId, setup);
+    } else if (input.masterTopicSectors !== undefined) {
+      cascaded = await cascadeEngineMasterTopic(
+        db,
+        companyId,
+        engineId,
+        input.masterTopicSectors,
+      );
     }
 
     const members = await db
@@ -69,15 +128,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
       .where(and(eq(modules.companyId, companyId), eq(modules.engineInstanceId, engineId)));
 
     return {
-      engine: {
-        id: updated.id,
-        companyId: updated.companyId,
-        templateId: updated.templateId,
-        label: updated.label,
-        masterTopicSectors: updated.masterTopicSectors,
-        canvasBounds: updated.canvasBounds,
-        memberModuleIds: members.map((m) => m.id),
-      },
+      engine: serializeEngine(
+        updated,
+        members.map((m) => m.id),
+      ),
       modules: members,
       cascadedMemberCount: cascaded,
     };

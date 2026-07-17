@@ -56,13 +56,21 @@ export const LINK_RULES: Readonly<Record<string, readonly LinkKind[]>> = {
   'analyzer->research': ['verification', 'data_feed'],
   'trading->analyzer': ['verification'],
   'analyzer->policy': ['verification'],
-  'math->trading': ['data_feed'],
+  // Math TOOL attachments (D-028): one Math may attach to many consumers.
+  'math->research': ['data_feed'],
+  'math->library': ['data_feed'],
+  'math->live_api': ['data_feed'],
   'math->trend': ['data_feed'],
+  'math->trading': ['data_feed'],
+  'math->simulator': ['data_feed'],
+  'math->analyzer': ['data_feed'],
+  'math->policy': ['data_feed'],
+  'math->generator': ['data_feed'],
+  'math->display': ['data_feed'],
   'trading->display': ['data_feed'],
   'analyzer->display': ['data_feed'],
   'trend->display': ['data_feed'],
   'live_api->display': ['data_feed'],
-  'math->display': ['data_feed'],
 };
 
 export function allowedLinkKinds(from: ModuleType, to: ModuleType): readonly LinkKind[] {
@@ -403,16 +411,21 @@ export const CreateModuleInput = z.object({
   config: z.unknown(),
   canvasPosition: CanvasPosition.optional(),
   setup: ModuleSetupInput.optional(),
+  /** Optional ENGINE membership at create (batch engine insert sets this). */
+  engineInstanceId: z.string().uuid().nullable().optional(),
 });
 export type CreateModuleInput = z.infer<typeof CreateModuleInput>;
 
 export const UpdateModuleInput = z.object({
   name: z.string().min(1).max(80).optional(),
   restoreGeneratedName: z.boolean().optional(),
+  /** Restore this module's topic/sector from its ENGINE master (clears override). */
+  restoreEngineTopic: z.boolean().optional(),
   config: z.unknown().optional(),
   status: ModuleStatus.optional(),
   canvasPosition: CanvasPosition.optional(),
   setup: ModuleSetupInput.optional(),
+  engineInstanceId: z.string().uuid().nullable().optional(),
 });
 export type UpdateModuleInput = z.infer<typeof UpdateModuleInput>;
 

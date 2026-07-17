@@ -46,6 +46,14 @@ import {
   PhilosophyProfile,
   RISK_APPETITE_SIZING_BPS,
 } from './philosophy';
+import {
+  computeEngineBoundsFromPositions,
+  DeleteEngineMode,
+  InsertEngineInput,
+  isMathToolAttachment,
+  mathCanAttachTo,
+  UpdateEngineInstanceInput,
+} from './engines';
 import { COMPANY_TEMPLATES, ENGINE_TEMPLATES } from './templates';
 
 describe('env manifest', () => {
@@ -116,8 +124,8 @@ describe('canvas link port helpers', () => {
     });
   });
 
-  it('returns empty port sets for isolated module types', () => {
-    expect(moduleLinkPorts('generator')).toEqual({ inbound: [], outbound: [] });
+  it('exposes Math tool inbound on generator; generator still has no outbound', () => {
+    expect(moduleLinkPorts('generator')).toEqual({ inbound: ['data_feed'], outbound: [] });
   });
 
   it('builds stable handle ids from kind and direction', () => {
@@ -411,6 +419,59 @@ describe('engine templates', () => {
         expect(engine.modules[input.target.moduleIndex], `${engine.id}/${input.key}`).toBeDefined();
       }
     }
+  });
+});
+
+describe('engine instances (D-028)', () => {
+  it('parses insert/update/delete payloads', () => {
+    expect(
+      InsertEngineInput.parse({
+        templateId: 'engine_day_trading',
+        inputs: { philosophy: 'momentum' },
+        setup: { topicSectors: ['semiconductors'] },
+      }),
+    ).toMatchObject({ templateId: 'engine_day_trading' });
+    expect(
+      UpdateEngineInstanceInput.parse({
+        masterTopicSectors: ['energy'],
+        canvasBounds: { x: 0, y: 0, width: 800, height: 600 },
+      }),
+    ).toMatchObject({ masterTopicSectors: ['energy'] });
+    expect(DeleteEngineMode.parse('cascade')).toBe('cascade');
+    expect(DeleteEngineMode.parse('ungroup')).toBe('ungroup');
+  });
+
+  it('allows Math multi-attach tool links to consumers', () => {
+    expect(mathCanAttachTo('trading')).toBe(true);
+    expect(mathCanAttachTo('research')).toBe(true);
+    expect(mathCanAttachTo('holding_fund')).toBe(false);
+    expect(isMathToolAttachment('math', 'trading', 'data_feed')).toBe(true);
+    expect(isMathToolAttachment('math', 'fund_router', 'fund_route')).toBe(false);
+    expect(allowedLinkKinds('math', 'research')).toContain('data_feed');
+    expect(allowedLinkKinds('math', 'analyzer')).toContain('data_feed');
+  });
+
+  it('computes padded engine bounds from member positions', () => {
+    const bounds = computeEngineBoundsFromPositions([
+      { x: 100, y: 200 },
+      { x: 400, y: 200 },
+    ]);
+    expect(bounds.x).toBe(20);
+    expect(bounds.y).toBe(128);
+    expect(bounds.width).toBeGreaterThan(500);
+    expect(bounds.height).toBeGreaterThan(200);
+  });
+
+  it('accepts engineInstanceId and restoreEngineTopic on module payloads', () => {
+    expect(
+      CreateModuleInput.parse({
+        type: 'research',
+        name: 'R',
+        config: { topicScope: 'x' },
+        engineInstanceId: '00000000-0000-4000-8000-000000000099',
+      }).engineInstanceId,
+    ).toBe('00000000-0000-4000-8000-000000000099');
+    expect(UpdateModuleInput.parse({ restoreEngineTopic: true }).restoreEngineTopic).toBe(true);
   });
 });
 

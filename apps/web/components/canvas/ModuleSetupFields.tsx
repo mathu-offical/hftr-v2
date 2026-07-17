@@ -22,6 +22,26 @@ export const SETUP_FIELD_LABELS: Record<ModuleSetupField, string> = {
   target_exit: 'Target exit',
 };
 
+export function missingFieldsFromDraft(
+  requiredFields: readonly ModuleSetupField[],
+  draft: ModuleSetupDraft,
+): ModuleSetupField[] {
+  return requiredFields.filter((field) => {
+    switch (field) {
+      case 'capital_allocation':
+        return !draft.allocationValue.trim();
+      case 'topic_sector':
+        return !draft.topicSectors.trim();
+      case 'target_exit':
+        return !draft.targetExitLocal;
+      default: {
+        const _exhaustive: never = field;
+        return _exhaustive;
+      }
+    }
+  });
+}
+
 export function moduleSetupInputFromDraft(
   draft: ModuleSetupDraft,
   requiredFields: readonly ModuleSetupField[],
@@ -69,10 +89,15 @@ function ConfirmedFieldCheck(props: { field: ModuleSetupField; insetForNativeCon
   );
 }
 
-function fieldBorderClass(missing: boolean, compact?: boolean): string {
+function fieldBorderClass(
+  missing: boolean,
+  compact?: boolean,
+  options?: { width?: 'full' | 'auto' },
+): string {
+  const width = options?.width === 'auto' ? 'w-auto shrink-0' : 'w-full';
   const base = compact
-    ? 'w-full rounded border bg-[var(--color-surface-0)] px-1.5 py-1 text-[10px] outline-none'
-    : 'w-full rounded-md border bg-[var(--color-surface-0)] px-2 py-1.5 text-xs outline-none';
+    ? `${width} rounded border bg-[var(--color-surface-0)] px-1.5 py-1 text-[10px] outline-none`
+    : `${width} rounded-md border bg-[var(--color-surface-0)] px-2 py-1.5 text-xs outline-none`;
   const state = missing
     ? 'border-[var(--color-warn)] focus:border-[var(--color-warn)]'
     : 'border-[var(--color-line)] focus:border-[var(--color-accent)]';
@@ -137,7 +162,7 @@ export function ModuleSetupFields(props: {
           )}
           <label className="block space-y-1">
             <span className="sr-only">Capital allocation</span>
-            <div className="flex gap-1">
+            <div className="flex items-stretch gap-1">
               <select
                 value={props.draft.allocationMode}
                 onChange={(event) =>
@@ -147,12 +172,12 @@ export function ModuleSetupFields(props: {
                   })
                 }
                 aria-label="Capital allocation mode"
-                className={fieldBorderClass(allocationMissing, props.compact)}
+                className={fieldBorderClass(allocationMissing, props.compact, { width: 'auto' })}
               >
                 <option value="amount">USD</option>
                 <option value="percentage">Percent</option>
               </select>
-              <div className="relative min-w-0 flex-1">
+              <div className="relative min-w-[8rem] flex-1">
                 <input
                   inputMode="decimal"
                   value={props.draft.allocationValue}

@@ -97,11 +97,13 @@
   D-028) and **Engines** (insertable end-to-end templates from `ENGINE_TEMPLATES` → persisted
   `engine_instances` group). Company creation still auto-seeds one Math module.
 - **Inline setup validation (D-024, refined D-026):** company and engine template forms render
-  topic/sector, trading-capital allocation (USD or percentage), and target-exit controls. Missing
-  fields have inline **Required** chips and warn borders; confirmed fields return to neutral
-  borders with subtle green checks inside their trailing edges. Skip opens the draft graph. On
-  the canvas, required controls are **always visible** on the fixed node body; the inspector is
-  not suppressed for incomplete nodes.
+  topic/sector, trading-capital allocation (USD or percentage), and target-exit controls **per
+  module**. Company create lists one setup card per seeded template module and lets operators add
+  multiple extra modules/engines with the same inline fields. The USD/percent mode control is
+  compact beside a usable amount input (not full-width). Missing fields have inline **Required**
+  chips and warn borders; confirmed fields return to neutral borders with subtle green checks
+  inside their trailing edges. Skip opens the draft graph. On the canvas, required controls are
+  **always visible** on the fixed node body; the inspector is not suppressed for incomplete nodes.
 - **D-026 + D-034 verified (2026-07-17):** migration `0011_canvas_node_generated_names`
   (`generated_name_base`, `name_customized`); focused Playwright `canvas-node-dashboard.spec.ts`
   (1 test: missing Required chips, confirmed in-field checks with neutral borders, labeled ports,

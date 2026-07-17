@@ -201,10 +201,11 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   a separate meter paid through provider keys. Topic/sector is required for research, library,
   live API, trend, trading, simulator, and analyzer nodes. Capital-bearing nodes also require a
   target exit. Utility/policy/display/Math nodes are not given nonsensical setup requirements.
-  (b) **Creation:** company templates and module-store engine templates expose highlighted inline
-  allocation, topic/sector, and target-exit controls. Complete setup applies shared values to
-  matching template nodes. **Skip setup** creates the graph in draft state and opens the canvas
-  with text-visible required-field chips. (c) **Node controls (superseded by D-026 for canvas
+  (b) **Creation:** company templates expose **per-module** inline allocation, topic/sector, and
+  target-exit controls (one card per seeded module that requires setup). Operators may add multiple
+  extra modules and engines at create time, each with its own inline setup. Shared `templateSetup`
+  remains a backward-compatible fallback when per-index entries are absent. **Skip setup** creates
+  the graph in draft state and opens the canvas with text-visible required-field chips. (c) **Node controls (superseded by D-026 for canvas
   chrome):** originally required controls rendered inside the selected node and incomplete nodes
   suppressed the inspector — replaced by fixed dashboard body + always-available inspector.
   Draft nodes still cannot transition active while required fields are missing.

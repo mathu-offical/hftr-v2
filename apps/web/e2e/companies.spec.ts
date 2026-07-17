@@ -32,9 +32,29 @@ test.describe('Companies directory', () => {
 
     await page.getByRole('button', { name: /Day trading starter/ }).click();
     await expect(page.getByRole('heading', { name: 'Template setup' })).toBeVisible();
-    await expect(page.getByText(/Required · Capital allocation/)).toBeVisible();
-    await expect(page.getByText(/Required · Topic \/ sector/)).toBeVisible();
-    await expect(page.getByText(/Required · Target exit/)).toBeVisible();
+    await expect(page.getByTestId('template-module-setup-0')).toBeVisible();
+    await expect(page.getByText(/Required · Capital allocation/).first()).toBeVisible();
+    await expect(page.getByText(/Required · Topic \/ sector/).first()).toBeVisible();
+    await expect(page.getByText(/Required · Target exit/).first()).toBeVisible();
+
+    const allocationMode = page.getByLabel('Capital allocation mode').first();
+    const allocationValue = page.getByLabel('Capital allocation value').first();
+    await expect(allocationMode).toBeVisible();
+    await expect(allocationValue).toBeVisible();
+    const modeBox = await allocationMode.boundingBox();
+    const valueBox = await allocationValue.boundingBox();
+    expect(modeBox).toBeTruthy();
+    expect(valueBox).toBeTruthy();
+    expect(valueBox!.width).toBeGreaterThan(80);
+    expect(modeBox!.width).toBeLessThan(valueBox!.width);
+    await allocationValue.fill('2500.00');
+    await expect(allocationValue).toHaveValue('2500.00');
+
+    await page.getByLabel('Add module').selectOption('research');
+    await expect(page.getByTestId('extra-seed-module')).toBeVisible();
+    await page.getByLabel('Add engine').selectOption('engine_trend_research');
+    await expect(page.getByTestId('extra-seed-engine')).toBeVisible();
+
     await expect(page.getByRole('button', { name: 'Skip setup & open canvas' })).toBeVisible();
   });
 

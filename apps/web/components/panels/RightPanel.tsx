@@ -13,6 +13,39 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'simulation', label: 'Sims' },
   { id: 'values', label: 'Values' },
 ];
+const RIGHT_TABS: Tab[] = TABS.map((t) => t.id);
+
+function isEditableTarget(e: KeyboardEvent): boolean {
+  const el = e.target;
+  if (!(el instanceof HTMLElement)) return false;
+  const tag = el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return el.isContentEditable;
+}
+
+function readPanelState<T extends Record<string, unknown>>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
+    return parsed as T;
+  } catch {
+    return null;
+  }
+}
+
+function writePanelState(key: string, value: Record<string, unknown>): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // quota or private mode — ignore
+  }
+}
+
+function isRightTab(v: unknown): v is Tab {
+  return typeof v === 'string' && RIGHT_TABS.includes(v as Tab);
+}
 
 interface LedgerRow {
   id: string;
@@ -72,14 +105,50 @@ interface ValueRow {
  * projections over append-only sources.
  */
 export function RightPanel(props: { companyId: string }) {
+  const storageKey = props.companyId ? `hftr:${props.companyId}:panel:right` : null;
+
   const [tab, setTab] = useState<Tab>('executions');
   const [open, setOpen] = useState(true);
+  const [persistReady, setPersistReady] = useState(false);
   const [balance, setBalance] = useState<string | null>(null);
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [executions, setExecutions] = useState<ExecutionRow[]>([]);
   const [verifications, setVerifications] = useState<VerificationRow[]>([]);
   const [positions, setPositions] = useState<PositionRow[]>([]);
   const [values, setValues] = useState<ValueRow[]>([]);
+
+  useEffect(() => {
+    if (!storageKey) {
+      setPersistReady(true);
+      return;
+    }
+    const stored = readPanelState<{ open?: unknown; tab?: unknown }>(storageKey);
+    if (stored) {
+      if (typeof stored.open === 'boolean') setOpen(stored.open);
+      if (isRightTab(stored.tab)) setTab(stored.tab);
+    }
+    setPersistReady(true);
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!storageKey || !persistReady) return;
+    writePanelState(storageKey, { open, tab });
+  }, [storageKey, open, tab, persistReady]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === ']' && !isEditableTarget(e)) {
+        e.preventDefault();
+        setOpen((v) => !v);
+        return;
+      }
+      if (e.key === 'Escape' && open && !isEditableTarget(e)) {
+        setOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
 
   const load = useCallback(async () => {
     const base = `/api/companies/${props.companyId}`;
@@ -114,10 +183,12 @@ export function RightPanel(props: { companyId: string }) {
     return (
       <button
         onClick={() => setOpen(true)}
+        aria-label="Expand info panel (keyboard shortcut ])"
+        title="Expand info panel (])"
         className="border-l border-[var(--color-line)] bg-[var(--color-surface-1)] px-1.5 text-[10px] tracking-widest text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
         style={{ writingMode: 'vertical-rl' }}
       >
-        INFO
+        INFO · ]
       </button>
     );
   }
@@ -143,7 +214,8 @@ export function RightPanel(props: { companyId: string }) {
         <button
           onClick={() => setOpen(false)}
           className="text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-          aria-label="Collapse info panel"
+          aria-label="Collapse info panel (keyboard shortcut ] or Escape)"
+          title="Collapse (] or Esc)"
         >
           ×
         </button>

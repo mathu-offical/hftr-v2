@@ -14,6 +14,39 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'watchlists', label: 'Watch lists' },
   { id: 'decisions', label: 'Decisions + traces' },
 ];
+const BOTTOM_TABS: Tab[] = TABS.map((t) => t.id);
+
+function isEditableTarget(e: KeyboardEvent): boolean {
+  const el = e.target;
+  if (!(el instanceof HTMLElement)) return false;
+  const tag = el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return el.isContentEditable;
+}
+
+function readPanelState<T extends Record<string, unknown>>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
+    return parsed as T;
+  } catch {
+    return null;
+  }
+}
+
+function writePanelState(key: string, value: Record<string, unknown>): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // quota or private mode — ignore
+  }
+}
+
+function isBottomTab(v: unknown): v is Tab {
+  return typeof v === 'string' && BOTTOM_TABS.includes(v as Tab);
+}
 
 interface ModuleOption {
   id: string;
@@ -102,9 +135,12 @@ interface TreeRow {
  * filterable by module. Collapsible to a slim strip.
  */
 export function BottomPanel(props: { companyId: string; modules: ModuleOption[] }) {
+  const storageKey = props.companyId ? `hftr:${props.companyId}:panel:bottom` : null;
+
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('trends');
   const [moduleFilter, setModuleFilter] = useState<string>('all');
+  const [persistReady, setPersistReady] = useState(false);
   const [trends, setTrends] = useState<TrendRow[]>([]);
   const [executions, setExecutions] = useState<ExecutionRow[]>([]);
   const [verifications, setVerifications] = useState<VerificationRow[]>([]);
@@ -112,6 +148,45 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [trees, setTrees] = useState<TreeRow[]>([]);
   const [openTraceId, setOpenTraceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!storageKey) {
+      setPersistReady(true);
+      return;
+    }
+    const stored = readPanelState<{
+      open?: unknown;
+      tab?: unknown;
+      moduleFilter?: unknown;
+    }>(storageKey);
+    if (stored) {
+      if (typeof stored.open === 'boolean') setOpen(stored.open);
+      if (isBottomTab(stored.tab)) setTab(stored.tab);
+      if (typeof stored.moduleFilter === 'string') setModuleFilter(stored.moduleFilter);
+    }
+    setPersistReady(true);
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!storageKey || !persistReady) return;
+    writePanelState(storageKey, { open, tab, moduleFilter });
+  }, [storageKey, open, tab, moduleFilter, persistReady]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === '`' && !isEditableTarget(e)) {
+        e.preventDefault();
+        setOpen((v) => !v);
+        return;
+      }
+      // TraceTimeline closes itself on Escape; only collapse panel when modal is absent.
+      if (e.key === 'Escape' && open && !openTraceId && !isEditableTarget(e)) {
+        setOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, openTraceId]);
 
   const load = useCallback(async () => {
     const base = `/api/companies/${props.companyId}`;
@@ -149,10 +224,11 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
     return (
       <button
         onClick={() => setOpen(true)}
-        aria-label="Expand bottom panel"
+        aria-label="Expand bottom panel (keyboard shortcut backtick)"
+        title="Expand bottom panel (`)"
         className="flex w-full items-center justify-center gap-2 border-t border-[var(--color-line)] bg-[var(--color-surface-1)] py-1 text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
       >
-        Trends · Scenarios · Watch lists · Decisions ▲
+        ` · Trends · Scenarios · Watch lists · Decisions ▲
       </button>
     );
   }
@@ -192,7 +268,8 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
           <button
             onClick={() => setOpen(false)}
             className="text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-            aria-label="Collapse bottom panel"
+            aria-label="Collapse bottom panel (keyboard shortcut backtick or Escape)"
+            title="Collapse (` or Esc)"
           >
             ▼
           </button>
@@ -261,17 +338,13 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
                 `Execution outcome: ${e.outcome}.`,
                 e.failureCode
                   ? `Failure code: ${e.failureCode}.`
-                  : e.description ?? `${e.venue} · ${e.mode} mode.`,
+                  : (e.description ?? `${e.venue} · ${e.mode} mode.`),
                 v
                   ? `Verification: ${v.result}${v.failureCode ? ` (${v.failureCode})` : ''}.`
                   : 'No verification record linked to this trace yet.',
               ];
               return [
-                <Justification
-                  key="o"
-                  sourceClass="deterministic_placeholder"
-                  lines={outcomeLines}
-                >
+                <Justification key="o" sourceClass="deterministic_placeholder" lines={outcomeLines}>
                   <button
                     onClick={openTrace}
                     aria-label={`Open decision trace for execution ${e.id}`}
@@ -499,9 +572,7 @@ function AddCandidateForm(props: {
       await props.onCreated();
     } catch (err) {
       setMessage(
-        err instanceof RequestError
-          ? `Add failed (${err.status}).`
-          : 'Could not add candidate.',
+        err instanceof RequestError ? `Add failed (${err.status}).` : 'Could not add candidate.',
       );
     } finally {
       setBusy(false);

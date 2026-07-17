@@ -55,7 +55,13 @@ Implemented today as docked collapsible panels (`components/panels/`): `LeftPane
 (Research | Data sources), `BottomPanel` (Trends | Scenario engine | Watch lists |
 Decisions + traces, with an all/per-module selector), `RightPanel` (Verify | Executions |
 Ledger — with open positions — | Sims | Values). Full slide-over behavior with deep-link
-routes remains the target below. Open state persistence and keyboard routes are open items.
+routes remains the target below.
+
+**Keyboard + persistence (shipped 2026-07-17, D-022):** `[` toggles left, `]` toggles right,
+`` ` `` toggles bottom; `Esc` collapses the active panel (bottom defers when `TraceTimeline`
+is open). Per-company `localStorage` keys `hftr:{companyId}:panel:{left|bottom|right}` restore
+open state, active tab, and bottom module filter on return visits. Shortcuts are suppressed in
+editable fields.
 
 ### LEFT — Research + Data + Trends
 - Tabs: **Research** | **Data sources** | (contextual third tab when opened from a trend module).
@@ -85,10 +91,15 @@ routes remains the target below. Open state persistence and keyboard routes are 
 
 ## 5. Assistant surface
 
-- Docked pill bottom-right of canvas → expands to a chat column overlaying the right edge
-  (does not conflict with right panel; opening the right panel docks the chat inside it).
-- Messages can carry structured edit-proposal cards (diff-style: field, old → new) with
-  Confirm/Reject; applied edits link to `assistant_edits` audit entries.
+**M1 (shipped, D-022):** docked pill bottom-right of canvas → expands to a chat column overlay.
+`AssistantDock` loads/sends via `GET/POST /api/companies/:companyId/assistant`. History is
+append-only `assistant_messages` in Postgres (company + user scoped). Responses are
+**deterministic read-only lookups** — six regex-routed intents, **no model calls**. Chrome:
+"Read-only · no model calls". `Esc` closes the dock.
+
+**Later milestones:** messages may carry structured edit-proposal cards (diff-style: field,
+old → new) with Confirm/Reject; applied edits link to `assistant_edits` audit entries (M4).
+Mistral conversational chat lands with the research/assistant LLM budget work (M2+).
 
 ## 6. Galaxy view (MVP, signature feature)
 
@@ -102,7 +113,22 @@ routes remains the target below. Open state persistence and keyboard routes are 
 
 ## 7. Key flows (must be Playwright-covered)
 
-1. Sign up (Clerk) → create company via wizard → canvas renders template graph.
+**M1 coverage (shipped 2026-07-17, D-022):** `apps/web/e2e/` runs against a local Next dev
+server on port 3001 with `DEV_AUTH_BYPASS=1` and Clerk keys cleared (`playwright.config.ts`).
+Fixtures archive test companies via `DELETE /api/companies/:id` on teardown.
+
+| Spec | What it exercises |
+|---|---|
+| `companies.spec.ts` | Companies directory; create form exposes Blank / Day trading starter / Trend research lab templates |
+| `company-workspace.spec.ts` | `day_trading_starter` create → canvas template nodes → panel expand/collapse buttons → keyboard `[` `]` `` ` `` → module store → read-only assistant (`queue status` POST + reload persistence) → archive cleanup |
+
+**Not yet covered by M1 Playwright:** Clerk sign-up (flow 1 full), credits/Stripe, full pipeline
+hop (flow 3), broker connect (flow 4), assistant write proposals (flow 5), live-gate block
+(flow 6), Math lineage drill-down (flow 7). CI optional `e2e` job runs the M1 specs against
+service Postgres after applying SQL migrations.
+
+1. Sign up (Clerk) → create company via wizard → canvas renders template graph. *(M1 subset:
+   auth-bypass create + canvas — not Clerk sign-up.)*
 2. Buy credits (Stripe test) → seed paper company → allocations visible on trading nodes.
 3. Run pipeline: trigger research module → concepts appear (left panel + galaxy) → trend module
    emits trend → lead → tree → compiled instruction → paper dispatch → trace in right panel,
@@ -110,14 +136,15 @@ routes remains the target below. Open state persistence and keyboard routes are 
 4. Connect Alpaca paper keys → verify handshake → switch a company to Alpaca paper → dispatch
    reaches Alpaca sandbox → reconciliation trace.
 5. Assistant: "add a day-trading module linked to my main library" → proposal card → confirm →
-   node appears on canvas.
+   node appears on canvas. *(M1: read-only lookup assistant only — no proposal cards.)*
 6. Live-gate attempt without passing checks → visibly blocked with text-first reasons.
 7. Math module: open node → k/v browser shows live values → click a trade's quantity in the
    right-panel trace inspector → lineage graph resolves to its live-source roots and calc ops.
 
 ## 8. Accessibility & quality bar
 
-- Keyboard: panel toggles (`[`, `]`, `\``), canvas node focus cycling, Esc consistency.
+- Keyboard: panel toggles (`[`, `]`, `` ` ``) and Esc collapse **shipped**; canvas node focus
+  cycling remains open.
 - All interactive elements labeled (ARIA); status conveyed in text (already the rule).
 - 60fps canvas pan/zoom on a mid-tier laptop; panel animation ≤300ms; no layout shift on data
   refresh (skeletons + stable row heights).

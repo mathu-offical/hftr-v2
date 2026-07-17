@@ -6,6 +6,39 @@ import { api, RequestError } from '@/lib/client';
 import { provenanceChip, snippet } from './format';
 
 type Tab = 'research' | 'data';
+const LEFT_TABS: Tab[] = ['research', 'data'];
+
+function isEditableTarget(e: KeyboardEvent): boolean {
+  const el = e.target;
+  if (!(el instanceof HTMLElement)) return false;
+  const tag = el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return el.isContentEditable;
+}
+
+function readPanelState<T extends Record<string, unknown>>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
+    return parsed as T;
+  } catch {
+    return null;
+  }
+}
+
+function writePanelState(key: string, value: Record<string, unknown>): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // quota or private mode — ignore
+  }
+}
+
+function isLeftTab(v: unknown): v is Tab {
+  return typeof v === 'string' && LEFT_TABS.includes(v as Tab);
+}
 
 interface ModuleOption {
   id: string;
@@ -46,10 +79,46 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
   const params = useParams<{ companyId: string }>();
   const companyId = params?.companyId ?? '';
 
+  const storageKey = companyId ? `hftr:${companyId}:panel:left` : null;
+
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('research');
+  const [persistReady, setPersistReady] = useState(false);
   const [concepts, setConcepts] = useState<ConceptRow[]>([]);
   const [conceptsLoaded, setConceptsLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!storageKey) {
+      setPersistReady(true);
+      return;
+    }
+    const stored = readPanelState<{ open?: unknown; tab?: unknown }>(storageKey);
+    if (stored) {
+      if (typeof stored.open === 'boolean') setOpen(stored.open);
+      if (isLeftTab(stored.tab)) setTab(stored.tab);
+    }
+    setPersistReady(true);
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!storageKey || !persistReady) return;
+    writePanelState(storageKey, { open, tab });
+  }, [storageKey, open, tab, persistReady]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === '[' && !isEditableTarget(e)) {
+        e.preventDefault();
+        setOpen((v) => !v);
+        return;
+      }
+      if (e.key === 'Escape' && open && !isEditableTarget(e)) {
+        setOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
 
   const loadConcepts = useCallback(async () => {
     if (!companyId) return;
@@ -78,11 +147,12 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
     return (
       <button
         onClick={() => setOpen(true)}
-        aria-label="Expand left panel"
+        aria-label="Expand left panel (keyboard shortcut [)"
+        title="Expand left panel ([)"
         className="border-r border-[var(--color-line)] bg-[var(--color-surface-1)] px-1.5 text-[10px] tracking-widest text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
         style={{ writingMode: 'vertical-rl' }}
       >
-        RESEARCH · DATA
+        RESEARCH · DATA · [
       </button>
     );
   }
@@ -113,7 +183,8 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
         <button
           onClick={() => setOpen(false)}
           className="text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-          aria-label="Collapse left panel"
+          aria-label="Collapse left panel (keyboard shortcut [ or Escape)"
+          title="Collapse ([ or Esc)"
         >
           ×
         </button>

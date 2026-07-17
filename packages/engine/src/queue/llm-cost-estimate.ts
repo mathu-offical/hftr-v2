@@ -6,6 +6,7 @@ export function estimateLlmJobCost(kind: string): JobCostEstimate {
   switch (kind) {
     case 'research.curate':
     case 'research.strategic':
+    case 'research.synthesize':
       return {
         provider: TIER_PROVIDER.strategic,
         estimatedCalls: 1,

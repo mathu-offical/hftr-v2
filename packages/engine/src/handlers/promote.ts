@@ -14,6 +14,8 @@ import { resolvePhilosophyControl } from '../pipeline/philosophy-control';
 import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
 import { estimateLlmJobCost } from '../queue/llm-cost-estimate';
+import { enqueueLinkedResearchCurate } from '../research/enqueue-linked';
+import { loadAdmittedArtifactRefs } from '../research/admitted-evidence';
 
 const PromotePayload = z.object({
   companyId: z.string().uuid(),
@@ -112,6 +114,21 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     }
   }
 
+  const { refs: admittedArtifactRefs, libraryConceptCount } = await loadAdmittedArtifactRefs(
+    db,
+    payload.companyId,
+  );
+  // D-039: when any library concepts exist, evidence_fit consults admitted refs
+  // (not freshness alone). Cold companies with empty libraries keep freshness-only.
+  const evidenceFitRefs = libraryConceptCount > 0 ? admittedArtifactRefs : undefined;
+
+  if (admittedArtifactRefs.length > 0) {
+    await db
+      .update(trendCandidates)
+      .set({ artifactRefs: admittedArtifactRefs })
+      .where(eq(trendCandidates.id, trend.id));
+  }
+
   const gates = evaluateGates({
     symbol: trend.symbol,
     direction: trend.direction,
@@ -125,6 +142,7 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     brokerConnected,
     brokerConnectionMode,
     feedClass: venue === 'paper_sim' ? 'synthetic_sim' : brokerConnected ? 'broker_state' : null,
+    ...(evidenceFitRefs !== undefined ? { admittedArtifactRefs: evidenceFitRefs } : {}),
   });
   const admitted = gatesPass(gates);
 
@@ -138,6 +156,7 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     strategyFamily: control.strategyFamily,
     philosophyPromptPresent: company.philosophyPrompt.length > 0,
     sourceClass: control.sourceClass,
+    artifactRefs: admittedArtifactRefs,
   };
 
   const leadRows = await db
@@ -157,6 +176,13 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     .returning({ id: leadPackages.id });
   const leadId = leadRows[0]!.id;
   if (!admitted) return;
+
+  await enqueueLinkedResearchCurate(db, clock, {
+    companyId: payload.companyId,
+    sourceModuleId: payload.moduleId,
+    queryText: trend.symbol,
+    topicScope: trend.symbol,
+  });
 
   await enqueue(db, clock, {
     queueClass: 'TACTICAL',

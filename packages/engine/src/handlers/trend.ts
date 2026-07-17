@@ -3,6 +3,7 @@ import { trendCandidates } from '@hftr/db/schema';
 import { record } from '../calc/store';
 import { createFixedClock } from '../clock';
 import { getSyntheticQuote } from '../dispatch/quotes';
+import { enqueueLinkedResearchCurate } from '../research/enqueue-linked';
 import { registerHandler } from './registry';
 
 const ScanPayload = z.object({
@@ -29,6 +30,7 @@ registerHandler('trend.scan', async ({ db, clock, job }) => {
   const nowMs = clock.nowMs();
   const thenMs = nowMs - payload.lookbackMinutes * 60_000;
   const scannedAt = new Date(nowMs);
+  let hasNonFlat = false;
 
   for (const symbol of payload.symbols) {
     const nowQuote = getSyntheticQuote(symbol, clock);
@@ -51,15 +53,25 @@ registerHandler('trend.scan', async ({ db, clock, job }) => {
     });
 
     const abs = Math.abs(driftBps);
+    const direction = abs < MODERATE_BPS ? 'flat' : driftBps > 0 ? 'up' : 'down';
+    if (direction !== 'flat') hasNonFlat = true;
     await db.insert(trendCandidates).values({
       companyId: payload.companyId,
       moduleId: payload.moduleId,
       symbol: nowQuote.symbol,
-      direction: abs < MODERATE_BPS ? 'flat' : driftBps > 0 ? 'up' : 'down',
+      direction,
       strengthBand: abs >= STRONG_BPS ? 'strong' : abs >= MODERATE_BPS ? 'moderate' : 'weak',
       driftRef,
       sourceClass: 'deterministic_scan',
       scannedAt,
+    });
+  }
+
+  if (hasNonFlat) {
+    await enqueueLinkedResearchCurate(db, clock, {
+      companyId: payload.companyId,
+      sourceModuleId: payload.moduleId,
+      queryText: payload.symbols.join(' '),
     });
   }
 });

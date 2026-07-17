@@ -13,6 +13,8 @@ export async function attachConceptsToLibraries(opts: {
   moduleId: string;
   conceptIds: string[];
   now: Date;
+  curationStatus?: 'proposed' | 'accepted' | 'auto_admitted' | 'rejected' | 'archived';
+  researchRunId?: string | null;
 }): Promise<void> {
   if (opts.conceptIds.length === 0) return;
 
@@ -38,11 +40,14 @@ export async function attachConceptsToLibraries(opts: {
         .values({
           libraryId,
           conceptId,
-          curationStatus: 'proposed',
+          curationStatus: opts.curationStatus ?? 'proposed',
+          researchRunId: opts.researchRunId ?? null,
         })
         .onConflictDoUpdate({
           target: [libraryConcepts.libraryId, libraryConcepts.conceptId],
           set: {
+            curationStatus: opts.curationStatus ?? undefined,
+            researchRunId: opts.researchRunId ?? undefined,
             updatedAt: opts.now,
           },
         });

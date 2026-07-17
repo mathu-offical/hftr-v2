@@ -41,6 +41,13 @@ export interface GateInput {
   feedClass?: 'synthetic_sim' | 'broker_state' | 'delayed' | null;
   /** When present, tightens regime_fit beyond placeholder admission. */
   regimeTrendUp?: number | null;
+  /**
+   * Opaque refs from admitted library evidence/concepts (D-039).
+   * When provided (including empty), evidence_fit requires freshness AND
+   * at least one admitted ref — not freshness alone.
+   * When omitted, freshness-only (legacy callers / unit tests).
+   */
+  admittedArtifactRefs?: string[] | null;
 }
 
 export const DEFAULT_FRESHNESS_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -180,12 +187,31 @@ export function evaluateGates(input: GateInput): GateEvidence[] {
   const windowMs = input.freshnessWindowMs ?? DEFAULT_FRESHNESS_WINDOW_MS;
   const ageMs = input.nowMs - input.scannedAtMs;
   const fresh = ageMs >= 0 && ageMs <= windowMs;
+  const admittedRefs = input.admittedArtifactRefs;
+  const consultAdmitted = admittedRefs != null;
+  const hasAdmitted = consultAdmitted && admittedRefs.length > 0;
+
+  let evidenceFitPass = fresh;
+  let evidenceText = fresh
+    ? 'trend scan evidence within freshness window'
+    : 'trend scan evidence outside freshness window (stale)';
+
+  if (consultAdmitted) {
+    evidenceFitPass = fresh && hasAdmitted;
+    if (!fresh) {
+      evidenceText = 'trend scan evidence outside freshness window (stale)';
+    } else if (!hasAdmitted) {
+      evidenceText =
+        'no admitted library evidence refs (accepted/auto_admitted) for this promote path';
+    } else {
+      evidenceText = `trend scan fresh; ${admittedRefs.length} admitted library evidence ref(s)`;
+    }
+  }
+
   gates.push({
     gate: 'evidence_fit',
-    result: fresh ? 'pass' : 'fail',
-    evidence: fresh
-      ? 'trend scan evidence within freshness window'
-      : 'trend scan evidence outside freshness window (stale)',
+    result: evidenceFitPass ? 'pass' : 'fail',
+    evidence: evidenceText,
   });
 
   return gates;

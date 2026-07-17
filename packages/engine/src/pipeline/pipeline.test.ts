@@ -60,6 +60,19 @@ describe('six-gate admission', () => {
     expect(fresh.find((g) => g.gate === 'evidence_fit')!.result).toBe('pass');
   });
 
+  it('evidence_fit requires admitted library refs when provided (D-039)', () => {
+    const missing = evaluateGates(baseGateInput({ admittedArtifactRefs: [] }));
+    expect(missing.find((g) => g.gate === 'evidence_fit')!.result).toBe('fail');
+    expect(missing.find((g) => g.gate === 'evidence_fit')!.evidence).toContain('admitted');
+
+    const withRefs = evaluateGates(
+      baseGateInput({
+        admittedArtifactRefs: ['concept:11111111-1111-4111-8111-111111111111'],
+      }),
+    );
+    expect(withRefs.find((g) => g.gate === 'evidence_fit')!.result).toBe('pass');
+  });
+
   it('fails symbol-universe fit for bad symbols and out-of-universe symbols', () => {
     const bad = evaluateGates(baseGateInput({ symbol: 'aapl$' }));
     expect(bad.find((g) => g.gate === 'symbol_universe_fit')!.result).toBe('fail');

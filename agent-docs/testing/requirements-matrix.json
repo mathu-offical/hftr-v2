@@ -1831,7 +1831,10 @@
       "title": "company-workspace.spec.ts Playwright",
       "source": "apps/web/e2e/company-workspace.spec.ts",
       "status": "implemented",
-      "evidence": ["company-workspace.spec.ts 153 lines"],
+      "evidence": [
+        "company-workspace.spec.ts collapses info panel before Save setup",
+        "type-scoped trading node under generated titles"
+      ],
       "scenarios": ["canvas/panels/assistant"],
       "venues": ["paper_sim"],
       "philosophyAxes": ["operator_transparency"],

@@ -31,6 +31,13 @@ import { edgeKindForHandles, LINK_COLORS, type CanvasLink, type CanvasModule } f
 
 const nodeTypes = { module: ModuleNode };
 
+/** True when the click landed on an editable control inside the node body. */
+function isInteractiveNodeTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element && target.closest('input, select, textarea, button, label') !== null
+  );
+}
+
 function applyRenamedModules(
   nodes: ModuleFlowNode[],
   updates: readonly ModuleNameUpdate[],
@@ -410,11 +417,11 @@ export function CompanyCanvas(props: {
           { method: 'DELETE' },
         )
           .then((response) => {
+            setEdges((current) => current.filter((e) => e.id !== edge.id));
             setNodes((current) => applyRenamedModules(current, response.renamedModules ?? []));
           })
           .catch(() => flash('Could not delete link.'));
       }
-      setEdges((current) => current.filter((e) => !deleted.some((d) => d.id === e.id)));
     },
     [props.companyId, setEdges, setNodes],
   );
@@ -478,7 +485,10 @@ export function CompanyCanvas(props: {
           connectionLineType={ConnectionLineType.SmoothStep}
           onEdgesDelete={onEdgesDelete}
           deleteKeyCode={['Backspace', 'Delete']}
-          onNodeClick={(_e, node) => setSelectedId(node.id)}
+          onNodeClick={(event, node) => {
+            if (isInteractiveNodeTarget(event.target)) return;
+            setSelectedId(node.id);
+          }}
           onPaneClick={() => setSelectedId(null)}
           fitView
           fitViewOptions={{ maxZoom: 1 }}

@@ -24,8 +24,13 @@
   (`ModeSwitch`, live gated with an explanation popover — fails closed until the broker
   milestone) → queue chip → **User settings** modal (`UserSettingsLauncher`: six LLM
   providers + Anthropic ZDR attestation + Alpaca paper connect/verify — D-027) → Clerk
-  user button. TopDrawer LLM/operating tab: provider budgets, company `llm_policy`,
-  broker bind, recent `llm_calls` metadata (no prompts/outputs).
+  user button. TopDrawer LLM/operating tab: **trading capital caps** (virtual / broker buying
+  power / effective min when bound, else paper sim), provider budgets + **provider health**
+  strip (credential configured + last failure from recent calls), company `llm_policy` with tier
+  model cost/privacy labels from `MODEL_CAPABILITY_REGISTRY`, broker bind + feed entitlement,
+  recent `llm_calls` metadata (request id truncated, retention class — no prompts/outputs).
+  User settings: per-provider **Verify** (`POST /api/settings/keys/:provider/verify`) and
+  Alpaca paper connect/verify with capability readout + bound company id.
 - **Canvas-centric layout** per company beneath the ribbon: slim collapsible strips on the
   left (Research · Data), bottom (Trends · Scenarios · Watch lists · Decisions), and right
   (Verify · Executions · Ledger · Sims · Values) expand into panels; the canvas keeps the
@@ -49,9 +54,11 @@
   card (no expand-on-select). Header: type chip + function-specific name + text-first status.
   Body: always-visible editable high-level fields for that type (topic/sector, capital
   allocation, target exit where required) with **per-field** Required/Set chips and highlight
-  borders — validation sits on the corresponding control, not a detached banner. Activity /
-  status line remains text-first. Clicking card chrome opens the floating inspector (full /
-  secondary settings); interacting with inline fields does not change card geometry.
+  borders — validation sits on the corresponding control, not a detached banner. Setup commits
+  via an explicit **Save setup** button on the node (PATCH `setup`); fields are not auto-saved
+  on blur/Enter. Activity / status line remains text-first. Clicking card chrome opens the
+  floating inspector (full / secondary settings); interacting with inline fields does not open
+  the inspector or change card geometry.
 - **Labeled ports (per accepted `LinkKind`):** separate left (inbound) / right (outbound)
   handles for each link kind the module type can use (`data_feed`, `directive`, `verification`,
   `fund_route`), each with a visible text label. Connections require matching kind +
@@ -78,6 +85,8 @@
 - **Separate operating meter (D-024):** Company → LLM / operating shows provider credential source,
   call admission, and provider-cost counters for Anthropic/Mistral/Groq. Copy explicitly states
   that this meter is separate from module trading-capital allocation.
+- **Capital caps (D-027):** same tab surfaces virtual cap, broker buying power, and effective cap
+  (`min(virtual, brokerBp)` when bound; paper sim when unbound) via `GET /api/companies/:id/broker`.
 - **Seeded `day_trading_starter` topology (paper-safe, D-023):** ten nodes —
   `Market Regime Research` → `Strategy Evidence Library` + `Paper Market & Runtime Feed` →
   `Market Trend Scanner` → `Paper Day-Trade Execution`, plus `Paper Seed Holding Fund` →
@@ -161,14 +170,18 @@ teardown.
 | Spec | What it exercises |
 |---|---|
 | `companies.spec.ts` | Companies directory; template choices; day-template Required chips and Skip action |
-| `company-workspace.spec.ts` | skipped `day_trading_starter` setup → missing node chips → complete trading setup inline through ValueRef route → separate LLM/operating view → full seeded names + **10** `smoothstep` edges → panels/shortcuts/store → assistant persistence → archive cleanup |
+| `company-workspace.spec.ts` | skipped `day_trading_starter` setup → missing node chips → collapse info panel → complete trading setup inline through ValueRef route (type-scoped node under generated titles) → separate LLM/operating view → full seeded names + **10** `smoothstep` edges → panels/shortcuts/store → assistant persistence → archive cleanup |
+| `service-settings.spec.ts` | user settings (six LLM providers + Brokers/Alpaca fields + verify affordance) → company operating tab (capital caps, provider health, LLM policy, broker bind, recent calls) → broker GET shape without real keys |
 | `paper-intent-alignment.spec.ts` | philosophy save/reload → live gate text → three-company min/typical/max trend→promote→compile→paper dispatch → company-scoped provenance/verification → right-panel fill → unsupported short block |
 
-**Verification status (2026-07-17, D-024):** migration `0008_blushing_kronos` applied; typecheck,
-lint, contract tests, and complete two-spec Playwright suite pass. IronBee verified template
-Required chips, Skip → draft canvas, inline node setup save, separate provider operating budget
-view, and no new console errors. Clerk test-account password remains unavailable; app-flow
-verification used the existing local dev-auth bypass.
+**Verification status (2026-07-17, D-024 + paper-intent closeout):** migrations through
+`0011_canvas_node_generated_names` applied locally for E2E; typecheck and unit/contract tests
+pass for the paper/engine packages under test; Playwright **6/6** pass
+(`companies`, `company-workspace`, `paper-intent-alignment` ×2, `canvas-node-dashboard`,
+`service-settings`). IronBee verified Philosophy drawer axes + Save philosophy and
+text-first **Live trading (gated)**. Clerk test-account password remains unavailable; app-flow
+verification used the existing local dev-auth bypass. Unrelated concurrent package lint
+drift (e.g. adapters Prettier) may still exist outside this verification slice.
 
 **Not yet covered by Playwright:** Clerk sign-up (flow 1 full), credits/Stripe, real-model and
 live-data variants of flow 3, broker connect (flow 4), assistant write proposals (flow 5), and

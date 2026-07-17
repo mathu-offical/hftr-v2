@@ -1,6 +1,9 @@
 import { archiveCompany, e2eCompanyName, expect, test } from './fixtures';
 
 test.describe('Company workspace (M1 read flows)', () => {
+  // Expanded D-026 dashboard assertions + assistant persistence need headroom on cold compile.
+  test.setTimeout(90_000);
+
   test('day_trading_starter canvas, panels, and module store', async ({
     page,
     request,
@@ -53,16 +56,59 @@ test.describe('Company workspace (M1 read flows)', () => {
       await expect(node).toBeVisible();
     }
     await expect(canvas.locator('.react-flow__edge-smoothstep')).toHaveCount(10);
-    await expect(canvas.getByText(/Required · Topic \/ sector/i).first()).toBeVisible();
-    await expect(canvas.getByText(/Required · Capital allocation/i).first()).toBeVisible();
+    await expect(canvas.getByText('Required · Topic / sector').first()).toBeVisible();
+    await expect(canvas.getByText('Required · Capital allocation').first()).toBeVisible();
 
-    // Skipped setup is completed directly inside the selected trading node.
-    const tradingNode = canvas.locator('.react-flow__node', {
-      hasText: 'Paper Day-Trade Execution',
-    });
-    await tradingNode.click();
+    // Right panel is open by default and can occlude in-node setup controls — collapse first.
+    await expect(page.getByText('Paper balance')).toBeVisible();
+    await page.getByRole('button', { name: /Collapse info panel/ }).click();
+    await expect(page.getByRole('button', { name: /Expand info panel/ })).toBeVisible();
+
+    // D-026: fixed dashboard trading node — fields always visible; chrome opens inspector.
+    const tradingNode = canvas
+      .locator('.react-flow__node')
+      .filter({ has: page.getByText('Trading', { exact: true }) });
+    await expect(tradingNode).toContainText('Paper Day-Trade Execution');
+
+    await expect(tradingNode.getByText('Required · Topic / sector')).toBeVisible();
+    await expect(tradingNode.getByText('Required · Capital allocation')).toBeVisible();
+    await expect(tradingNode.getByText('Required · Target exit')).toBeVisible();
+    await expect(tradingNode.getByLabel('Topic / sector')).toBeVisible();
+    await expect(tradingNode.getByLabel('Topic / sector')).toBeEditable();
+    await expect(tradingNode.getByLabel('Capital allocation value')).toBeVisible();
+    await expect(tradingNode.getByLabel('Capital allocation value')).toBeEditable();
+    await expect(tradingNode.getByLabel('Target exit date / time')).toBeVisible();
+    await expect(tradingNode.getByLabel('Target exit date / time')).toBeEditable();
+
+    for (const handleLabel of [
+      'Data feed input',
+      'Directive input',
+      'Fund route input',
+      'Data feed output',
+      'Directive output',
+      'Verification output',
+      'Fund route output',
+    ] as const) {
+      await expect(tradingNode.getByLabel(handleLabel, { exact: true })).toBeAttached();
+    }
+
+    await tradingNode.getByLabel('Topic / sector').click();
+    await expect(page.getByRole('button', { name: 'Close inspector' })).not.toBeVisible();
+
+    const nodeBoxBeforeSelect = await tradingNode.boundingBox();
+    expect(nodeBoxBeforeSelect).not.toBeNull();
+    await tradingNode.getByText('Trading', { exact: true }).click();
+    await expect(page.getByText(/Generated from connections/)).toBeVisible();
+    await expect(page.getByText(/base:\s*Paper Day-Trade Execution/)).toBeVisible();
+    const nodeBoxAfterSelect = await tradingNode.boundingBox();
+    expect(nodeBoxAfterSelect).not.toBeNull();
+    expect(Math.abs(nodeBoxBeforeSelect!.width - nodeBoxAfterSelect!.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(nodeBoxBeforeSelect!.height - nodeBoxAfterSelect!.height)).toBeLessThanOrEqual(
+      1,
+    );
+
     await tradingNode.getByLabel('Topic / sector').fill('Semiconductors, infrastructure');
-    await tradingNode.getByPlaceholder('2500.00').fill('25');
+    await tradingNode.getByLabel('Capital allocation value').fill('25');
     await tradingNode.getByLabel('Target exit date / time').fill('2099-01-02T10:30');
     const setupResponse = page.waitForResponse(
       (response) =>
@@ -71,7 +117,33 @@ test.describe('Company workspace (M1 read flows)', () => {
     );
     await tradingNode.getByRole('button', { name: 'Save setup' }).click();
     expect((await setupResponse).ok()).toBe(true);
-    await expect(tradingNode.getByText(/Set · Capital allocation/)).toBeVisible();
+    await expect(tradingNode.getByText('Set · Topic / sector')).toBeVisible();
+    await expect(tradingNode.getByText('Set · Capital allocation')).toBeVisible();
+    await expect(tradingNode.getByText('Set · Target exit')).toBeVisible();
+
+    const inspectorName = page.locator('aside').getByLabel('Name');
+    await inspectorName.fill('E2E Custom Trading Desk');
+    const renameResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes(`/api/companies/${companyId}/modules/`) &&
+        response.request().method() === 'PATCH',
+    );
+    await inspectorName.blur();
+    expect((await renameResponse).ok()).toBe(true);
+    await expect(page.getByRole('button', { name: 'Restore generated name' })).toBeVisible();
+    await expect(tradingNode).toContainText('E2E Custom Trading Desk');
+
+    const restoreResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes(`/api/companies/${companyId}/modules/`) &&
+        response.request().method() === 'PATCH',
+    );
+    await page.getByRole('button', { name: 'Restore generated name' }).click();
+    expect((await restoreResponse).ok()).toBe(true);
+    await expect(page.getByRole('button', { name: 'Restore generated name' })).not.toBeVisible();
+    await expect(tradingNode).toContainText('Paper Day-Trade Execution');
+
+    await page.getByRole('button', { name: 'Close inspector' }).click();
 
     // Left panel: collapsed by default — expand via button, then collapse.
     const expandLeft = page.getByRole('button', { name: /Expand left panel/ });
@@ -81,7 +153,8 @@ test.describe('Company workspace (M1 read flows)', () => {
     await page.getByRole('button', { name: /Collapse left panel/ }).click();
     await expect(expandLeft).toBeVisible();
 
-    // Right panel: open by default — collapse via button, then expand.
+    // Right panel: re-expand, then collapse/expand cycle.
+    await page.getByRole('button', { name: /Expand info panel/ }).click();
     await expect(page.getByText('Paper balance')).toBeVisible();
     await page.getByRole('button', { name: /Collapse info panel/ }).click();
     await expect(page.getByRole('button', { name: /Expand info panel/ })).toBeVisible();

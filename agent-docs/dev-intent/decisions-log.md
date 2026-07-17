@@ -171,10 +171,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   per accepted `LinkKind` inbound/outbound (not four anonymous data/control/tools points).
   (b) **Card:** fixed-size dashboard with always-visible editable high-level fields; no
   expand-on-select. Click chrome → inspector; fields stay interactive on-canvas. (c) **Validation:**
-  Required/Set chips and highlights sit on the corresponding field. (d) **Names:** auto-derived
-  from function + connections until customized; inspector **Restore generated name**. (e)
-  **Supersedes D-024 §(c)** expand-selected / suppress-inspector-while-incomplete. Shipped with
-  migration `0011_canvas_node_generated_names` and labeled-port `ModuleNode` dashboard.
+  Required/Set chips and highlights sit on the corresponding field; setup saves via explicit
+  **Save setup** (not blur/Enter). (d) **Names:** auto-derived from function + connections until
+  customized; inspector **Restore generated name** (`restoreGeneratedName` PATCH). (e)
+  **Supersedes D-024 §(c)** expand-selected / suppress-inspector-while-incomplete.
+  **Implementation complete** (migration `0011_canvas_node_generated_names`, `ModuleNode` dashboard,
+  `InspectorPanel` restore-name). **Verified (2026-07-17):** Playwright D-026 assertions in
+  `company-workspace.spec.ts` (fixed dashboard fields, labeled ports, chrome→inspector without
+  geometry change, rename + restore generated name) pass; IronBee exercised Philosophy drawer and
+  text-first Live trading (gated) on the same canvas shell.
 
 - **D-024 (inline module setup + separate operating budgets, 2026-07-17):** Resolved OQ-9 from
   operator clarification. (a) **Scope:** capital allocation applies only to capital-bearing

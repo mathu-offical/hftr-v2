@@ -85,9 +85,15 @@ Scoring: `intent-alignment-scoring.md`
 ### Verification
 
 - `pnpm --filter @hftr/web exec playwright test e2e/paper-intent-alignment.spec.ts` — 2 passed
-- `pnpm --filter @hftr/web test:e2e` — 4 passed
-- `pnpm test` — all seven workspaces passed; adapters 18 tests including unsupported-action fail-closed cases
-- Database drift found during preflight (`llm_policy`, then generated module-name columns); migrations 0010 and 0011 applied before rerun
+- `pnpm --filter @hftr/web test:e2e` — **4/4 passed** (companies + company-workspace + paper-intent)
+- `pnpm typecheck` / `pnpm lint` / `pnpm test` — all seven workspaces passed; adapters 18 tests
+  including unsupported-action fail-closed cases
+- Database drift found during preflight (`llm_policy`, then generated module-name columns);
+  migrations 0010 and 0011 applied before rerun
+- IronBee (localhost:3001, DEV_AUTH_BYPASS): Company ▾ → Philosophy shows Risk appetite axes +
+  Save philosophy; ribbon exposes text-first **Live trading (gated)** while mode remains paper.
+  Console buffer still contains historical pre-migration 500s; fresh Playwright suite did not
+  reproduce those failures.
 
 ### Findings and triage
 
@@ -95,5 +101,14 @@ Scoring: `intent-alignment-scoring.md`
    Alpaca mapping now throws and `paper_sim` rejects without a fill or balance mutation.
 2. **Test infrastructure:** the full pipeline Playwright gap is closed for the currently shipped
    deterministic synthetic spine; real model and live-data variants remain deferred.
-3. **Still deferred:** `capitalAllocationRef` does not yet override risk-axis sizing; live Alpaca,
+3. **E2E hardening (post-cohort):** `company-workspace.spec.ts` now collapses the right info panel
+   before in-node Save setup (panel was intercepting clicks), scopes the trading node by type
+   label under generated connection titles, and fills capital via `Capital allocation value`.
+   Canvas ignores node-selection when the click target is an in-node control; decorative settings
+   icon is no longer a focusable button competing with setup fields. Rename assertions re-scope
+   the node locator after the custom title replaces the generated name.
+4. **System fix (fill-path provenance):** venue fill finalization (`writeFillTrace`) was writing
+   empty `simulatorGapTags` for paper_sim fills, regressing honest provenance on the promote→
+   dispatch path. Tags restored via `paperSimGapTags` for paper_sim filled/recovered outcomes.
+5. **Still deferred:** `capitalAllocationRef` does not yet override risk-axis sizing; live Alpaca,
    Kalshi, Polymarket, and Coinbase cohorts require their milestone adapters and credentials.

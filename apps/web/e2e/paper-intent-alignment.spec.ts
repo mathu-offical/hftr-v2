@@ -161,6 +161,9 @@ async function waitForFilledActivity(
 }
 
 test.describe('Paper intent alignment', () => {
+  // Multi-company promote/dispatch cohort can exceed the default 30s under Next compile.
+  test.setTimeout(90_000);
+
   test('persists philosophy axes and keeps live trading fail-closed', async ({
     page,
     request,

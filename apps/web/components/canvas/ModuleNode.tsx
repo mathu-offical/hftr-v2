@@ -215,14 +215,12 @@ export const ModuleNode = memo(function ModuleNode({
               {visual.label}
             </span>
           </div>
-          <button
-            type="button"
-            aria-label="Module settings"
-            className="shrink-0 rounded p-0.5 text-[var(--color-ink-faint)] opacity-50 transition-opacity hover:opacity-100 hover:text-[var(--color-ink-dim)]"
-            tabIndex={-1}
+          <span
+            aria-hidden
+            className="shrink-0 rounded p-0.5 text-[var(--color-ink-faint)] opacity-50"
           >
             <SettingsIcon />
-          </button>
+          </span>
         </div>
 
         <div className="text-sm font-medium leading-snug text-[var(--color-ink)]">{data.name}</div>

@@ -1,16 +1,10 @@
-import { and, eq, lt, sql } from 'drizzle-orm';
-import type { Db } from '@hftr/db';
+import { and, eq } from 'drizzle-orm';
 import { resolveBrokerAdapter } from '@hftr/adapters';
-import {
-  assistantEdits,
-  assistantMessages,
-  brokerBalancesSnapshot,
-  brokerConnections,
-} from '@hftr/db/schema';
+import { brokerBalancesSnapshot, brokerConnections } from '@hftr/db/schema';
 import { decryptSecret } from '@hftr/secrets';
 import { materializeSchedules } from '../schedules/materialize';
-import { countTracesOlderThan } from '../live-gates/gather';
 import { enqueue, pruneCompleted, sweepExpiredLeases } from '../queue/queue';
+import { archiveStaleHotRows } from '../retention/archive';
 import { registerHandler } from './registry';
 
 const COMPLETED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -42,57 +36,40 @@ registerHandler('maintenance.sweep', async ({ db, clock }) => {
 });
 
 /**
- * Retention audit (M6, D-030).
+ * Retention archive (M6, D-036).
  *
- * Archive policy: append-only tables (`action_traces`, `verification_records`,
- * `assistant_messages`, `assistant_edits`, `credit_ledger`) are never hard-deleted
- * by app code. This handler counts rows beyond the 90-day hot window and logs for
- * operator audit until a cold-archive + purge job ships.
+ * Moves rows older than the 90-day hot window from hot tables into archive tables,
+ * then deletes from hot storage. Batches up to 10 rounds per sweep.
  *
  * Non-append `jobs` rows in `completed` status are pruned on a 7-day window by
  * `pruneCompleted` from `maintenance.sweep` — not from this handler.
  */
 registerHandler('maintenance.retention', async ({ db, clock }) => {
-  const nowMs = clock.nowMs();
-  const staleTraces = await countTracesOlderThan(db, TRACE_HOT_RETENTION_MS, nowMs);
-  const staleMessages = await countAssistantMessagesOlderThan(db, TRACE_HOT_RETENTION_MS, nowMs);
-  const staleEdits = await countAssistantEditsOlderThan(db, TRACE_HOT_RETENTION_MS, nowMs);
+  const cutoff = new Date(clock.nowMs() - TRACE_HOT_RETENTION_MS);
+  const totals = { tracesArchived: 0, messagesArchived: 0, editsArchived: 0 };
 
-  if (staleTraces > 0 || staleMessages > 0 || staleEdits > 0) {
-    console.info('maintenance.retention: rows beyond 90d hot window (no purge)', {
-      staleTraces,
-      staleAssistantMessages: staleMessages,
-      staleAssistantEdits: staleEdits,
+  for (let round = 0; round < 10; round += 1) {
+    const counts = await archiveStaleHotRows(db, cutoff);
+    totals.tracesArchived += counts.tracesArchived;
+    totals.messagesArchived += counts.messagesArchived;
+    totals.editsArchived += counts.editsArchived;
+    if (
+      counts.tracesArchived === 0 &&
+      counts.messagesArchived === 0 &&
+      counts.editsArchived === 0
+    ) {
+      break;
+    }
+  }
+
+  if (totals.tracesArchived > 0 || totals.messagesArchived > 0 || totals.editsArchived > 0) {
+    console.info('maintenance.retention: archived stale hot rows', {
+      ...totals,
       retentionDays: 90,
+      cutoff: cutoff.toISOString(),
     });
   }
 });
-
-async function countAssistantMessagesOlderThan(
-  db: Db,
-  retentionMs: number,
-  nowMs: number,
-): Promise<number> {
-  const cutoff = new Date(nowMs - retentionMs);
-  const [row] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(assistantMessages)
-    .where(lt(assistantMessages.createdAt, cutoff));
-  return row?.count ?? 0;
-}
-
-async function countAssistantEditsOlderThan(
-  db: Db,
-  retentionMs: number,
-  nowMs: number,
-): Promise<number> {
-  const cutoff = new Date(nowMs - retentionMs);
-  const [row] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(assistantEdits)
-    .where(lt(assistantEdits.createdAt, cutoff));
-  return row?.count ?? 0;
-}
 
 /** Materialize due job_schedules into enqueued jobs (idempotent per schedule window). */
 registerHandler('maintenance.materialize_schedules', async ({ db, clock }) => {

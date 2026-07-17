@@ -11,6 +11,7 @@ import type { ClaimedJob } from '../queue/queue';
 import { curateDeterministic, loadCatalogHints } from './research-deterministic';
 import type { ModelGateway } from './model-gateway';
 import { registerHandler } from './registry';
+import { estimateLlmJobCost } from '../queue/llm-cost-estimate';
 
 const CuratePayload = z.object({
   companyId: z.string().uuid(),
@@ -93,6 +94,7 @@ registerHandler('research.curate', async ({ db, clock, job, modelGateway }) => {
         await enqueue(db, clock, {
           queueClass: 'STRATEGIC',
           kind: 'research.strategic',
+          costEstimate: estimateLlmJobCost('research.strategic'),
           payload: {
             companyId: payload.companyId,
             moduleId: payload.moduleId,

@@ -25,6 +25,7 @@ export {
   type BudgetRowSnapshot,
 } from './queue/budget-admission';
 export { drainQueues, type DrainResult } from './queue/drain';
+export { estimateLlmJobCost } from './queue/llm-cost-estimate';
 export { exportObsidianNotes, type ObsidianExportNote } from './export/obsidian';
 export type { ObsidianConceptInput, ObsidianLinkInput } from './export/obsidian';
 export {
@@ -53,6 +54,7 @@ import './handlers/compile-select';
 import './handlers/research';
 import './handlers/reconcile';
 import './handlers/simulation';
+import './handlers/analyzer';
 
 // Dispatch
 export {
@@ -151,6 +153,17 @@ export {
 } from './live-gates/checklist';
 export { buildLiveGateEvidence, isLiveArmingAllowed } from './live-gates/evidence';
 export { gatherLiveGateChecklistInput, countTracesOlderThan } from './live-gates/gather';
+export {
+  autoDisarmCompany,
+  autoDisarmCompaniesForBroker,
+  type AutoDisarmReason,
+} from './live-gates/disarm';
+export {
+  getLastDrainMetrics,
+  recordDrainMetrics,
+  type DrainLatencyMetrics,
+} from './queue/drain-metrics';
+export { archiveStaleHotRows, type ArchiveRetentionCounts } from './retention/archive';
 export {
   preDispatchGauntlet,
   type PreDispatchContext,

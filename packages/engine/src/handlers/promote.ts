@@ -13,6 +13,7 @@ import { DEFAULT_FRESHNESS_WINDOW_MS, evaluateGates, gatesPass } from '../pipeli
 import { resolvePhilosophyControl } from '../pipeline/philosophy-control';
 import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
+import { estimateLlmJobCost } from '../queue/llm-cost-estimate';
 
 const PromotePayload = z.object({
   companyId: z.string().uuid(),
@@ -160,6 +161,7 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
   await enqueue(db, clock, {
     queueClass: 'TACTICAL',
     kind: 'tactical.expand',
+    costEstimate: estimateLlmJobCost('tactical.expand'),
     payload: {
       companyId: payload.companyId,
       moduleId: payload.moduleId,

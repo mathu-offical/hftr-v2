@@ -7,6 +7,7 @@ import { buildDecisionTree } from '../pipeline/tree';
 import { treeFromModelOutput, type ModelBuiltDecisionTree } from '../pipeline/tree-expand';
 import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
+import { estimateLlmJobCost } from '../queue/llm-cost-estimate';
 
 const ExpandPayload = z.object({
   companyId: z.string().uuid(),
@@ -109,6 +110,7 @@ registerHandler('tactical.expand', async ({ db, clock, job, modelGateway }) => {
         await enqueue(db, clock, {
           queueClass: 'STRATEGIC',
           kind: 'research.strategic',
+          costEstimate: estimateLlmJobCost('research.strategic'),
           payload: {
             companyId: payload.companyId,
             moduleId: payload.moduleId,
@@ -147,6 +149,7 @@ registerHandler('tactical.expand', async ({ db, clock, job, modelGateway }) => {
   await enqueue(db, clock, {
     queueClass: 'COMPILE',
     kind: 'compile.select',
+    costEstimate: estimateLlmJobCost('compile.select'),
     payload: {
       companyId: payload.companyId,
       moduleId: payload.moduleId,

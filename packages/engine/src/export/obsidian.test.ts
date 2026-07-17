@@ -71,3 +71,28 @@ describe('exportObsidianNotes', () => {
     }
   });
 });
+
+describe('exportObsidianTopicNotes', () => {
+  it('emits topic notes with member wikilinks', async () => {
+    const { exportObsidianTopicNotes } = await import('./obsidian');
+    const notes = exportObsidianTopicNotes({
+      topics: [
+        {
+          id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+          title: 'Semiconductor Cycle',
+          synopsisMd: '## Overview\nSee linked concepts without numeric literals.',
+          status: 'active',
+          priority: 'high',
+          memberTitles: ['Momentum Regime', 'Risk Posture'],
+        },
+      ],
+      folder: 'topics',
+    });
+    expect(notes).toHaveLength(1);
+    expect(notes[0]?.filename).toBe('topics/topic-semiconductor-cycle.md');
+    expect(notes[0]?.markdown).toContain('kind: research_topic');
+    expect(notes[0]?.markdown).toContain('## Overview');
+    expect(notes[0]?.markdown).toContain('- [[Momentum Regime]]');
+    expect(notes[0]?.markdown).toContain('- [[Risk Posture]]');
+  });
+});

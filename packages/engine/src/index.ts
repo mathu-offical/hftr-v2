@@ -26,8 +26,16 @@ export {
 } from './queue/budget-admission';
 export { drainQueues, type DrainResult } from './queue/drain';
 export { estimateLlmJobCost } from './queue/llm-cost-estimate';
-export { exportObsidianNotes, type ObsidianExportNote } from './export/obsidian';
-export type { ObsidianConceptInput, ObsidianLinkInput } from './export/obsidian';
+export {
+  exportObsidianNotes,
+  exportObsidianTopicNotes,
+  type ObsidianExportNote,
+} from './export/obsidian';
+export type {
+  ObsidianConceptInput,
+  ObsidianLinkInput,
+  ObsidianTopicInput,
+} from './export/obsidian';
 export {
   materializeSchedules,
   ensureResearchCadenceSchedule,

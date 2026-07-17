@@ -148,3 +148,65 @@ export function exportObsidianNotes(opts: {
   }
   return notes;
 }
+
+export interface ObsidianTopicInput {
+  id: string;
+  title: string;
+  synopsisMd: string;
+  status: string;
+  priority: string;
+  /** Ordered member concept titles for [[wikilinks]]. */
+  memberTitles: string[];
+}
+
+/**
+ * Topic article notes for Obsidian export: synopsis + wikilinks to member
+ * concept notes (by title). Leak-linted like concept notes.
+ */
+export function exportObsidianTopicNotes(opts: {
+  topics: ObsidianTopicInput[];
+  /** Prefix folder path without trailing slash; filenames only if omitted. */
+  folder?: string;
+}): ObsidianExportNote[] {
+  const used = new Map<string, number>();
+  const notes: ObsidianExportNote[] = [];
+
+  for (const topic of opts.topics) {
+    const base = `topic-${slugifyTitle(topic.title)}`;
+    const count = (used.get(base) ?? 0) + 1;
+    used.set(base, count);
+    const bare = count === 1 ? `${base}.md` : `${base}-${count}.md`;
+    const filename = opts.folder ? `${opts.folder}/${bare}` : bare;
+
+    const lines = ['---'];
+    lines.push(`title: ${yamlEscape(topic.title)}`);
+    lines.push(`hftr_id: ${topic.id}`);
+    lines.push(`kind: research_topic`);
+    lines.push(`status: ${yamlEscape(topic.status)}`);
+    lines.push(`priority: ${yamlEscape(topic.priority)}`);
+    if (topic.memberTitles.length > 0) {
+      lines.push('members:');
+      for (const title of topic.memberTitles) {
+        lines.push(`  - "[[${title.replace(/"/g, '\\"')}]]"`);
+      }
+    }
+    lines.push('---', '', topic.synopsisMd.trim() || '_No synopsis._');
+
+    if (topic.memberTitles.length > 0) {
+      lines.push('', '## Member concepts');
+      for (const title of topic.memberTitles) {
+        lines.push(`- [[${title}]]`);
+      }
+    }
+    lines.push('');
+
+    const markdown = lines.join('\n');
+    const lint = leakLint(markdown, []);
+    if (!lint.ok) {
+      throw new Error(`obsidian_export_numeric_leak:topic:${topic.id}`);
+    }
+    notes.push({ filename, markdown });
+  }
+
+  return notes;
+}

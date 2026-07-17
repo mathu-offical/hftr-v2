@@ -86,13 +86,22 @@ export const jobSchedules = pgTable(
   (t) => [index('job_schedules_enabled_idx').on(t.enabled)],
 );
 
+const LLM_PROVIDERS = [
+  'anthropic',
+  'mistral',
+  'groq',
+  'cerebras',
+  'fireworks',
+  'openrouter',
+] as const;
+
 export const llmCalls = pgTable(
   'llm_calls',
   {
     id: uuid('id')
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    provider: text('provider', { enum: ['anthropic', 'mistral', 'groq'] }).notNull(),
+    provider: text('provider', { enum: LLM_PROVIDERS }).notNull(),
     model: text('model').notNull(),
     tier: text('tier', { enum: ['strategic', 'tactical', 'execution', 'assistant'] }).notNull(),
     companyId: uuid('company_id'),
@@ -105,9 +114,35 @@ export const llmCalls = pgTable(
     schemaValid: boolean('schema_valid').notNull(),
     leakLintPassed: boolean('leak_lint_passed').notNull(),
     rateLimitRemaining: text('rate_limit_remaining'),
+    requestId: text('request_id'),
+    retentionClass: text('retention_class'),
+    failure: text('failure'),
+    idempotencyKey: text('idempotency_key'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('llm_calls_company_idx').on(t.companyId, t.createdAt)],
+  (t) => [
+    index('llm_calls_company_idx').on(t.companyId, t.createdAt),
+    index('llm_calls_idempotency_idx').on(t.idempotencyKey),
+  ],
+);
+
+/** Idempotent model-output cache — never stores secrets; may store validated JSON artifacts. */
+export const llmArtifacts = pgTable(
+  'llm_artifacts',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    idempotencyKey: text('idempotency_key').notNull(),
+    companyId: uuid('company_id'),
+    schemaRef: text('schema_ref').notNull(),
+    provider: text('provider', { enum: LLM_PROVIDERS }).notNull(),
+    model: text('model').notNull(),
+    output: jsonb('output').notNull(),
+    llmCallId: uuid('llm_call_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('llm_artifacts_idempotency_unique').on(t.idempotencyKey)],
 );
 
 export const llmBudgets = pgTable(
@@ -118,7 +153,7 @@ export const llmBudgets = pgTable(
       .default(sql`gen_random_uuid()`),
     scope: text('scope', { enum: ['user', 'company', 'module'] }).notNull(),
     scopeId: text('scope_id').notNull(),
-    provider: text('provider', { enum: ['anthropic', 'mistral', 'groq'] }).notNull(),
+    provider: text('provider', { enum: LLM_PROVIDERS }).notNull(),
     windowMinutes: integer('window_minutes').notNull(),
     maxCalls: integer('max_calls').notNull(),
     maxCostCents: integer('max_cost_cents').notNull(),

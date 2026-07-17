@@ -51,6 +51,41 @@ export const concepts = pgTable(
   ],
 );
 
+/** Typed galaxy / Obsidian edges between concepts. */
+export const conceptLinks = pgTable(
+  'concept_links',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id),
+    fromConceptId: uuid('from_concept_id')
+      .notNull()
+      .references(() => concepts.id),
+    toConceptId: uuid('to_concept_id')
+      .notNull()
+      .references(() => concepts.id),
+    relation: text('relation', {
+      enum: ['supports', 'contradicts', 'causes', 'correlates', 'mentions', 'derived_from'],
+    }).notNull(),
+    weightBand: text('weight_band', { enum: ['weak', 'typical', 'strong'] })
+      .notNull()
+      .default('typical'),
+    sourceClass: text('source_class', {
+      enum: ['deterministic_placeholder', 'model_generated', 'operator'],
+    })
+      .notNull()
+      .default('model_generated'),
+    ...timestamps,
+  },
+  (t) => [
+    index('concept_links_company_idx').on(t.companyId),
+    uniqueIndex('concept_links_unique_edge').on(t.fromConceptId, t.toConceptId, t.relation),
+  ],
+);
+
 /**
  * Six-gate admission record (activation-validation.md). One row per trend
  * promotion attempt; gates jsonb holds the full evidence array so downstream

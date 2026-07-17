@@ -71,6 +71,20 @@
       "when": 1784310000000,
       "tag": "0009_philosophy_profile",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784311523165,
+      "tag": "0010_naive_lady_vermin",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784311861765,
+      "tag": "0011_canvas_node_generated_names",
+      "breakpoints": true
     }
   ]
 }

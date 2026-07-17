@@ -74,7 +74,13 @@ export const userApiKeys = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
     clerkUserId: text('clerk_user_id').notNull(),
-    provider: text('provider', { enum: ['anthropic', 'mistral', 'groq'] }).notNull(),
+    provider: text('provider', {
+      enum: ['anthropic', 'mistral', 'groq', 'cerebras', 'fireworks', 'openrouter'],
+    }).notNull(),
+    /** Operator attestation for org-level ZDR when required (e.g. Anthropic). */
+    retentionAttested: text('retention_attested', { enum: ['none', 'org_zdr'] })
+      .notNull()
+      .default('none'),
     ciphertext: text('ciphertext').notNull(),
     keyHint: text('key_hint').notNull(),
     ...timestamps,

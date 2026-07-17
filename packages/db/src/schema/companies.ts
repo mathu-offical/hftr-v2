@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   index,
   jsonb,
   pgTable,
@@ -9,6 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { brokerConnections } from './brokers';
 
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -26,6 +28,8 @@ export const companies = pgTable(
     philosophyPrompt: text('philosophy_prompt').notNull(),
     /** Structured slideable philosophy axes → LeverSetting band positions. */
     philosophyProfile: jsonb('philosophy_profile').notNull().default({}),
+    /** Company LLM tier model + privacy policy (allowlisted model ids only). */
+    llmPolicy: jsonb('llm_policy').notNull().default({}),
     goals: jsonb('goals').notNull().default({}),
     reinvestmentPolicy: jsonb('reinvestment_policy').notNull().default({}),
     scopingPolicies: jsonb('scoping_policies').notNull().default({}),
@@ -35,12 +39,16 @@ export const companies = pgTable(
     seedCreditsCents: bigint('seed_credits_cents', { mode: 'bigint' })
       .notNull()
       .default(sql`0`),
-    brokerConnectionId: uuid('broker_connection_id'),
+    /** Exclusive bind: unique so one broker connection serves at most one company. */
+    brokerConnectionId: uuid('broker_connection_id').references(() => brokerConnections.id),
     autoFundPolicy: jsonb('auto_fund_policy').notNull().default({}),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     ...timestamps,
   },
-  (t) => [index('companies_owner_idx').on(t.clerkUserId)],
+  (t) => [
+    index('companies_owner_idx').on(t.clerkUserId),
+    uniqueIndex('companies_broker_connection_unique').on(t.brokerConnectionId),
+  ],
 );
 
 export const modules = pgTable(
@@ -73,6 +81,8 @@ export const modules = pgTable(
       enum: ['crypto', 'prediction', 'hft', 'day', 'long_term', 'custom'],
     }),
     name: text('name').notNull(),
+    generatedNameBase: text('generated_name_base').notNull(),
+    nameCustomized: boolean('name_customized').notNull().default(false),
     config: jsonb('config').notNull().default({}),
     configSchemaVersion: text('config_schema_version').notNull().default('1'),
     status: text('status', { enum: ['active', 'paused', 'error', 'draft'] })

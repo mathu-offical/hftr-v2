@@ -11,6 +11,7 @@ import { CompanySwitcher } from '@/components/shell/CompanySwitcher';
 import { ExecutionTicker } from '@/components/shell/ExecutionTicker';
 import { ModeSwitch } from '@/components/shell/ModeSwitch';
 import { TopDrawer } from '@/components/shell/TopDrawer';
+import { UserSettingsLauncher } from '@/components/shell/UserSettingsModal';
 import { UserMenu } from '@/components/UserMenu';
 import { getAuthUserId } from '@/lib/auth';
 
@@ -64,6 +65,7 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
         <div className="flex shrink-0 items-center gap-3">
           <ModeSwitch mode={company.mode} />
           <QueueStatsChip />
+          <UserSettingsLauncher />
           <UserMenu />
         </div>
       </header>

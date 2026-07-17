@@ -70,6 +70,14 @@ export const engineInstances = pgTable(
     templateId: text('template_id').notNull(),
     label: text('label').notNull(),
     masterTopicSectors: text('master_topic_sectors').array().notNull().default([]),
+    /** D-035: total capital envelope ValueRef (cascades as equal split to members). */
+    capitalAllocationRef: text('capital_allocation_ref'),
+    /** D-035: overall exit ValueRef shared by exit-bearing members. */
+    targetExitRef: text('target_exit_ref'),
+    /** Operator-visible draft strings for group chrome hydration. */
+    setupSnapshot: jsonb('setup_snapshot').notNull().default({}),
+    /** Engine template input values collected at insert time. */
+    templateInputs: jsonb('template_inputs').notNull().default({}),
     canvasBounds: jsonb('canvas_bounds'),
     ...timestamps,
   },

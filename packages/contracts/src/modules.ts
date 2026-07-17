@@ -69,6 +69,122 @@ export function allowedLinkKinds(from: ModuleType, to: ModuleType): readonly Lin
   return LINK_RULES[`${from}->${to}`] ?? [];
 }
 
+/** Canonical port ordering for canvas handle stacks (top → bottom). */
+export const LINK_KIND_ORDER: readonly LinkKind[] = [
+  'data_feed',
+  'directive',
+  'verification',
+  'fund_route',
+];
+
+const GENERATED_MODULE_NAME_MAX_LENGTH = 80;
+
+function orderLinkKinds(kinds: Iterable<LinkKind>): readonly LinkKind[] {
+  const allowed = new Set(kinds);
+  return LINK_KIND_ORDER.filter((kind) => allowed.has(kind));
+}
+
+/** Inbound/outbound link-kind ports a module type may expose on the canvas. */
+export function moduleLinkPorts(type: ModuleType): {
+  inbound: readonly LinkKind[];
+  outbound: readonly LinkKind[];
+} {
+  const inbound = new Set<LinkKind>();
+  const outbound = new Set<LinkKind>();
+
+  for (const [key, kinds] of Object.entries(LINK_RULES)) {
+    const [from, to] = key.split('->') as [ModuleType, ModuleType];
+    if (to === type) {
+      for (const kind of kinds) inbound.add(kind);
+    }
+    if (from === type) {
+      for (const kind of kinds) outbound.add(kind);
+    }
+  }
+
+  return {
+    inbound: orderLinkKinds(inbound),
+    outbound: orderLinkKinds(outbound),
+  };
+}
+
+export function handleIdForLink(kind: LinkKind, direction: 'in' | 'out'): string {
+  return `${kind}-${direction}`;
+}
+
+function parseKindHandle(handle: string): { kind: LinkKind; direction: 'in' | 'out' } | null {
+  const suffix = handle.endsWith('-in') ? 'in' : handle.endsWith('-out') ? 'out' : null;
+  if (!suffix) return null;
+  const kindPart = handle.slice(0, -(suffix.length + 1));
+  const parsed = LinkKind.safeParse(kindPart);
+  if (!parsed.success) return null;
+  return { kind: parsed.data, direction: suffix };
+}
+
+/**
+ * Decode a source/target handle pair into a link kind.
+ * New handles require matching `{kind}-out` → `{kind}-in`.
+ * Legacy migration pairs map to their canonical kinds; fund-route ambiguity on
+ * `data-out` → `data-in` stays `data_feed` here (endpoint-aware UI resolves fund).
+ */
+export function linkKindForHandlePair(
+  sourceHandle?: string | null,
+  targetHandle?: string | null,
+): LinkKind | null {
+  if (!sourceHandle || !targetHandle) return null;
+
+  const source = parseKindHandle(sourceHandle);
+  const target = parseKindHandle(targetHandle);
+  if (source && target) {
+    if (source.direction !== 'out' || target.direction !== 'in') return null;
+    if (source.kind !== target.kind) return null;
+    return source.kind;
+  }
+
+  if (sourceHandle === 'data-out' && targetHandle === 'data-in') return 'data_feed';
+  if (sourceHandle === 'data-out' && targetHandle === 'control-in') return 'directive';
+  if (sourceHandle === 'tools-out' && targetHandle === 'data-in') return 'verification';
+
+  return null;
+}
+
+function normalizeNeighborNames(names: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const name of names) {
+    const trimmed = name.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    normalized.push(trimmed);
+  }
+  return normalized.sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Derive a display name from the module type, base function label, and neighbor
+ * base names (never full generated neighbor strings).
+ */
+export function deriveGeneratedModuleName(input: {
+  type: ModuleType;
+  baseName: string;
+  inboundNames: readonly string[];
+  outboundNames: readonly string[];
+}): string {
+  const baseName = input.baseName.trim();
+  if (input.type === 'math') return baseName;
+
+  const inbound = normalizeNeighborNames(input.inboundNames);
+  const outbound = normalizeNeighborNames(input.outboundNames);
+  if (inbound.length === 0 && outbound.length === 0) return baseName;
+
+  let name = baseName;
+  if (inbound.length > 0) name += ` ← ${inbound.join(' · ')}`;
+  if (outbound.length > 0) name += ` → ${outbound.join(' · ')}`;
+
+  if (name.length <= GENERATED_MODULE_NAME_MAX_LENGTH) return name;
+  return name.slice(0, GENERATED_MODULE_NAME_MAX_LENGTH).trimEnd();
+}
+
 /** Canvas column per module type (left → right ordering, ui-spec §3). */
 export const MODULE_COLUMN: Record<ModuleType, number> = {
   research: 0,
@@ -283,6 +399,7 @@ export type UpdateCompanyInput = z.infer<typeof UpdateCompanyInput>;
 export const CreateModuleInput = z.object({
   type: ModuleType,
   name: z.string().min(1).max(80),
+  generatedNameBase: z.string().min(1).max(80).optional(),
   config: z.unknown(),
   canvasPosition: CanvasPosition.optional(),
   setup: ModuleSetupInput.optional(),
@@ -291,6 +408,7 @@ export type CreateModuleInput = z.infer<typeof CreateModuleInput>;
 
 export const UpdateModuleInput = z.object({
   name: z.string().min(1).max(80).optional(),
+  restoreGeneratedName: z.boolean().optional(),
   config: z.unknown().optional(),
   status: ModuleStatus.optional(),
   canvasPosition: CanvasPosition.optional(),

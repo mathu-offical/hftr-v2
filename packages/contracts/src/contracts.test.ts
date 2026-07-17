@@ -14,12 +14,28 @@ import {
 import { ENVIRONMENT_REQUIREMENTS } from './env';
 import { HandoffEnvelope } from './foundation';
 import {
+  admitsRetention,
+  CompanyLlmPolicy,
+  DEFAULT_TIER_MODELS,
+  lookupModelCapability,
+  MODEL_CAPABILITY_REGISTRY,
+} from './llm';
+import { ConceptBatch, ResearchDirective } from './research-artifacts';
+import { leakLint } from './leak-lint';
+import {
   allowedLinkKinds,
   CapitalAllocationInput,
+  CreateModuleInput,
+  deriveGeneratedModuleName,
+  handleIdForLink,
+  LINK_KIND_ORDER,
+  linkKindForHandlePair,
   missingModuleSetupFields,
   MODULE_CONFIG_SCHEMAS,
+  moduleLinkPorts,
   ModuleType,
   requiredModuleSetupFields,
+  UpdateModuleInput,
 } from './modules';
 import { ValueRefHandle, CalcRequest } from './numeric';
 import { ActionInstruction } from './pipeline';
@@ -81,6 +97,160 @@ describe('link rules', () => {
   });
 });
 
+describe('canvas link port helpers', () => {
+  it('exposes canonical link kind display order', () => {
+    expect(LINK_KIND_ORDER).toEqual(['data_feed', 'directive', 'verification', 'fund_route']);
+  });
+
+  it('derives trading inbound/outbound ports from LINK_RULES in canonical order', () => {
+    expect(moduleLinkPorts('trading')).toEqual({
+      inbound: ['data_feed', 'directive', 'fund_route'],
+      outbound: ['data_feed', 'directive', 'verification', 'fund_route'],
+    });
+  });
+
+  it('derives trend ports with only kinds the type participates in', () => {
+    expect(moduleLinkPorts('trend')).toEqual({
+      inbound: ['data_feed', 'verification'],
+      outbound: ['data_feed', 'directive'],
+    });
+  });
+
+  it('returns empty port sets for isolated module types', () => {
+    expect(moduleLinkPorts('generator')).toEqual({ inbound: [], outbound: [] });
+  });
+
+  it('builds stable handle ids from kind and direction', () => {
+    expect(handleIdForLink('directive', 'out')).toBe('directive-out');
+    expect(handleIdForLink('fund_route', 'in')).toBe('fund_route-in');
+  });
+
+  it('accepts matching new handle pairs and rejects mixed kinds', () => {
+    expect(
+      linkKindForHandlePair(
+        handleIdForLink('directive', 'out'),
+        handleIdForLink('directive', 'in'),
+      ),
+    ).toBe('directive');
+    expect(
+      linkKindForHandlePair(
+        handleIdForLink('data_feed', 'out'),
+        handleIdForLink('data_feed', 'in'),
+      ),
+    ).toBe('data_feed');
+    expect(
+      linkKindForHandlePair(
+        handleIdForLink('directive', 'out'),
+        handleIdForLink('data_feed', 'in'),
+      ),
+    ).toBeNull();
+    expect(
+      linkKindForHandlePair(
+        handleIdForLink('directive', 'in'),
+        handleIdForLink('directive', 'out'),
+      ),
+    ).toBeNull();
+  });
+
+  it('maps legacy handle pairs during migration', () => {
+    expect(linkKindForHandlePair('data-out', 'data-in')).toBe('data_feed');
+    expect(linkKindForHandlePair('data-out', 'control-in')).toBe('directive');
+    expect(linkKindForHandlePair('tools-out', 'data-in')).toBe('verification');
+    expect(linkKindForHandlePair('tools-out', 'control-in')).toBeNull();
+  });
+
+  it('returns null for missing or unknown handles', () => {
+    expect(linkKindForHandlePair(null, 'data-in')).toBeNull();
+    expect(linkKindForHandlePair('data-out', undefined)).toBeNull();
+    expect(linkKindForHandlePair('unknown-out', 'data-in')).toBeNull();
+  });
+});
+
+describe('generated module names', () => {
+  const mathBase = 'Deterministic Math Calculator';
+
+  it('keeps math names stable without neighbor suffixes', () => {
+    expect(
+      deriveGeneratedModuleName({
+        type: 'math',
+        baseName: mathBase,
+        inboundNames: ['Paper Seed Holding Fund'],
+        outboundNames: ['Fund Router'],
+      }),
+    ).toBe(mathBase);
+  });
+
+  it('returns base only when disconnected', () => {
+    expect(
+      deriveGeneratedModuleName({
+        type: 'trading',
+        baseName: 'Paper Day-Trade Execution',
+        inboundNames: [],
+        outboundNames: ['  ', ''],
+      }),
+    ).toBe('Paper Day-Trade Execution');
+  });
+
+  it('deduplicates, sorts, and formats inbound/outbound neighbor context', () => {
+    expect(
+      deriveGeneratedModuleName({
+        type: 'trading',
+        baseName: 'Paper Day-Trade Execution',
+        inboundNames: ['  Fund B ', 'Trend Alpha', 'Trend Alpha', 'Fund A'],
+        outboundNames: ['Policy', 'Analyzer'],
+      }),
+    ).toBe('Paper Day-Trade Execution ← Fund A · Fund B · Trend Alpha → Analyzer · Policy');
+  });
+
+  it('caps generated names at 80 characters', () => {
+    const longInbound = Array.from({ length: 6 }, (_, index) => `Upstream Module ${index + 1}`);
+    const derived = deriveGeneratedModuleName({
+      type: 'trading',
+      baseName: 'Paper Day-Trade Execution',
+      inboundNames: longInbound,
+      outboundNames: [],
+    });
+    expect(derived.length).toBeLessThanOrEqual(80);
+    expect(derived.startsWith('Paper Day-Trade Execution ← ')).toBe(true);
+  });
+
+  it('is deterministic for the same neighbor inputs', () => {
+    const input = {
+      type: 'trend' as const,
+      baseName: 'Market Trend Scanner',
+      inboundNames: ['Research Hub', 'Live API Feed'],
+      outboundNames: ['Paper Day-Trade Execution'],
+    };
+    expect(deriveGeneratedModuleName(input)).toBe(deriveGeneratedModuleName(input));
+  });
+});
+
+describe('module payload schemas', () => {
+  it('accepts optional generatedNameBase on create', () => {
+    expect(
+      CreateModuleInput.safeParse({
+        type: 'trading',
+        name: 'Paper Day-Trade Execution',
+        generatedNameBase: 'Paper Day-Trade Execution',
+        config: { subtype: 'day' },
+      }).success,
+    ).toBe(true);
+    expect(
+      CreateModuleInput.safeParse({
+        type: 'trading',
+        name: 'Paper Day-Trade Execution',
+        generatedNameBase: '',
+        config: { subtype: 'day' },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('accepts optional restoreGeneratedName on update', () => {
+    expect(UpdateModuleInput.safeParse({ restoreGeneratedName: true }).success).toBe(true);
+    expect(UpdateModuleInput.safeParse({ name: 'Custom Label' }).success).toBe(true);
+  });
+});
+
 describe('module inline setup', () => {
   it('requires capital and exit only for capital-bearing nodes', () => {
     expect(requiredModuleSetupFields('trading')).toEqual([
@@ -115,6 +285,51 @@ describe('module inline setup', () => {
     expect(CapitalAllocationInput.safeParse({ mode: 'percentage', value: '100.01' }).success).toBe(
       false,
     );
+  });
+});
+
+describe('LLM capability registry (D-026)', () => {
+  it('defaults execution to groq gpt-oss-20b with strict schema', () => {
+    const def = DEFAULT_TIER_MODELS.execution;
+    const cap = lookupModelCapability(def.provider, def.modelId);
+    expect(cap?.schemaMode).toBe('json_schema_strict');
+    expect(cap?.retentionClass).toBe('default_zdr');
+  });
+
+  it('blocks Mistral under strict_zdr and admits Cerebras', () => {
+    const policy = CompanyLlmPolicy.parse({ privacyMode: 'strict_zdr' });
+    const mistral = MODEL_CAPABILITY_REGISTRY.find((m) => m.provider === 'mistral')!;
+    const cerebras = lookupModelCapability('cerebras', 'zai-glm-4.7')!;
+    expect(admitsRetention(mistral, policy)).toBe(false);
+    expect(admitsRetention(cerebras, policy)).toBe(true);
+  });
+
+  it('admits Anthropic only with ZDR attestation', () => {
+    const blocked = CompanyLlmPolicy.parse({
+      privacyMode: 'strict_zdr',
+      anthropicZdrAttested: false,
+    });
+    const allowed = CompanyLlmPolicy.parse({
+      privacyMode: 'strict_zdr',
+      anthropicZdrAttested: true,
+    });
+    const claude = lookupModelCapability('anthropic', 'claude-sonnet-4-5')!;
+    expect(admitsRetention(claude, blocked)).toBe(false);
+    expect(admitsRetention(claude, allowed)).toBe(true);
+  });
+
+  it('parses research concept batches without numeric fields', () => {
+    const batch = ConceptBatch.parse({
+      concepts: [{ title: 'Regime thesis', body: 'Qualitative note only', tags: ['regime'] }],
+      links: [],
+    });
+    expect(batch.concepts).toHaveLength(1);
+    expect(ResearchDirective.parse({ topicScope: 'equities' }).catalogHints).toEqual([]);
+  });
+
+  it('exports leakLint that rejects raw digits', () => {
+    expect(leakLint({ note: 'allocate 500 dollars' }, []).ok).toBe(false);
+    expect(leakLint({ note: 'allocate via nv_abc' }, []).ok).toBe(true);
   });
 });
 

@@ -44,6 +44,8 @@ export const SubmitResult = z.object({
   accepted: z.boolean(),
   venueOrderId: z.string().nullable(),
   rejectReason: z.string().nullable(),
+  clientOrderId: z.string().nullable().optional(),
+  requestId: z.string().nullable().optional(),
 });
 export type SubmitResult = z.infer<typeof SubmitResult>;
 
@@ -55,6 +57,40 @@ export const FillRecord = z.object({
   atIso: z.string().datetime(),
 });
 export type FillRecord = z.infer<typeof FillRecord>;
+
+export const PositionSnapshot = z.object({
+  symbol: z.string(),
+  qtyInt: z.string(),
+  qtyScale: z.number().int(),
+  avgEntryCents: z.number().int().nullable(),
+  marketValueCents: z.number().int().nullable(),
+});
+export type PositionSnapshot = z.infer<typeof PositionSnapshot>;
+
+export const OrderStatus = z.enum([
+  'accepted',
+  'pending_new',
+  'new',
+  'partially_filled',
+  'filled',
+  'canceled',
+  'expired',
+  'rejected',
+  'unknown',
+]);
+export type OrderStatus = z.infer<typeof OrderStatus>;
+
+export const BrokerOrderSnapshot = z.object({
+  venueOrderId: z.string(),
+  clientOrderId: z.string().nullable(),
+  status: OrderStatus,
+  filledQtyInt: z.string().nullable(),
+  filledQtyScale: z.number().int().nonnegative().nullable(),
+  avgFillPriceCents: z.number().int().nullable(),
+  rawStatus: z.string().nullable(),
+  asOfIso: z.string().datetime(),
+});
+export type BrokerOrderSnapshot = z.infer<typeof BrokerOrderSnapshot>;
 
 /**
  * The adapter interface. `submitOrder` may ONLY be called by the deterministic
@@ -71,4 +107,6 @@ export interface BrokerAdapter {
   submitOrder(task: DeterministicActionTask): Promise<SubmitResult>;
   cancelOrder(venueOrderId: string): Promise<SubmitResult>;
   getFills(sinceIso: string): Promise<FillRecord[]>;
+  getOrderByClientId?(clientOrderId: string): Promise<BrokerOrderSnapshot | null>;
+  getPositions?(): Promise<PositionSnapshot[]>;
 }

@@ -11,6 +11,7 @@ const Params = z.object({ companyId: z.string().uuid(), moduleId: z.string().uui
 type Ctx = { params: Promise<{ companyId: string; moduleId: string }> };
 
 const ScanInput = z.object({
+  /** Optional — when empty, trend.scan fills from live_api→trend links + module config. */
   symbols: z
     .array(
       z
@@ -19,8 +20,8 @@ const ScanInput = z.object({
         .max(12)
         .regex(/^[A-Za-z.]+$/),
     )
-    .min(1)
-    .max(24),
+    .max(24)
+    .default([]),
   lookbackMinutes: z.number().int().min(5).max(390).default(60),
 });
 

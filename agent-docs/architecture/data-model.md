@@ -90,6 +90,10 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   catalog_version, title, tier, payload jsonb. Seeded from
   `packages/db/src/seed/catalogs/*.json` via `seed-catalogs.ts` (97 entries at
   `v1_snapshot_2026_07_16`). D-016.
+- **watchlist_items** — (module_id, symbol) unique; bias `long|short|neutral`, note,
+  source_class `operator|trend_promotion`, status `watching|triggered|archived`. Owned by
+  trading/trend modules only (API 422s otherwise); surfaces in the bottom panel's
+  Watch lists tab and the module inspector. Migration `0003_bitter_piledriver`. D-017.
 
 ## Simulations & training
 

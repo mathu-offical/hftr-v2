@@ -141,3 +141,21 @@ production build).
   activate modules, scan (4 candidates), buy 10 AAPL, sell 4 (balance $10,000 → $8,545.50 →
   $9,125.14; position 10 → 6 with realized PnL); oversell blocked at engine. All checks green.
 - Remaining M1 gate items: panel keyboard routes, read-only assistant, Playwright flows.
+
+## Session 2026-07-17 (shell + spec panels, decision D-019)
+
+- **App-shell ribbon shipped** (DevSpecs ui-ux spec): company switcher dropdown, executions
+  ticker tape, gated paper/live master switch, top drawer (Ledger/PnL, Trading profile,
+  Settings, Philosophy — both editable fields PATCH the company API).
+- **Panel geometry now matches the spec:** left Research/Data sources; bottom Trends /
+  Scenario engine / Watch lists / Decisions + traces with a per-module selector; right
+  Verify / Executions / Ledger (with open positions) / Sims / Values. All collapse to slim
+  strips. `ActivityPanel` retired.
+- **Typed node handles:** data-in (left), data-out (right), control-in (top), tools-out
+  (bottom), colored by type; link kind derived from the handle pair on connect; edges
+  animate only while touching modules have active jobs.
+- **Watch lists:** `watchlist_items` table (migration `0003_bitter_piledriver`), CRUD API
+  scoped to trading/trend modules, inspector add-form, bottom-panel view.
+- **New read APIs:** `/executions`, `/verifications`, `/simulations` (placeholder), all
+  ownership-scoped. Verified in the browser end-to-end; typecheck/lint/tests/build green.
+- Remaining gate items unchanged: panel keyboard routes, read-only assistant, Playwright flows.

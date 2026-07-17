@@ -17,11 +17,17 @@
 
 ## 2. Application shell
 
-- **Top bar (L→R):** logo → company switcher dropdown → canvas breadcrumbs → divider →
-  paper/live mode badge+toggle (guarded) → credits/budget meter → notifications →
-  settings → Clerk user button.
-- **Full-window canvas** per company beneath the top bar. No persistent sidebars — the three
-  panels slide over the canvas.
+- **Top ribbon (L→R, implemented 2026-07-17 per DevSpecs/ui-ux.spec.md):** logo → company
+  switcher dropdown (`CompanySwitcher`) → top-drawer toggle (`TopDrawer`: Ledger/PnL,
+  Trading profile, Settings, Philosophy tabs) → executions ticker tape (`ExecutionTicker`,
+  marquee of recent fills/blocks with amounts, pauses on hover) → paper/live master switch
+  (`ModeSwitch`, live gated with an explanation popover — fails closed until the broker
+  milestone) → queue chip → Clerk user button.
+- **Canvas-centric layout** per company beneath the ribbon: slim collapsible strips on the
+  left (Research · Data), bottom (Trends · Scenarios · Watch lists · Decisions), and right
+  (Verify · Executions · Ledger · Sims · Values) expand into panels; the canvas keeps the
+  remaining space. The earlier "full slide-over" model is deferred; current panels are
+  docked flex children so canvas context is never fully hidden.
 
 ## 3. Canvas (React Flow)
 
@@ -42,11 +48,13 @@
 - Performance rules (mandatory): memoized custom nodes/edges, nodeTypes defined at module scope,
   Zustand + `useShallow` selectors, no components subscribing to whole nodes/edges arrays.
 
-## 4. Panels (full-screen slide-overs; spring in from their side, collapse back)
+## 4. Panels
 
-All three: overlay canvas fully (with 8% canvas peek strip on the origin side), Esc/peek-click to
-close, per-panel deep-link routes (`/c/:companyId/research`, `/control`, `/execution`) so state
-is shareable/restorable. Open state persists per company.
+Implemented today as docked collapsible panels (`components/panels/`): `LeftPanel`
+(Research | Data sources), `BottomPanel` (Trends | Scenario engine | Watch lists |
+Decisions + traces, with an all/per-module selector), `RightPanel` (Verify | Executions |
+Ledger — with open positions — | Sims | Values). Full slide-over behavior with deep-link
+routes remains the target below. Open state persistence and keyboard routes are open items.
 
 ### LEFT — Research + Data + Trends
 - Tabs: **Research** | **Data sources** | (contextual third tab when opened from a trend module).

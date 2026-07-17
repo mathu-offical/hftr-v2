@@ -128,6 +128,24 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   **commit verified work before ending**. Fixed close sequence: verify → curate docs → commit →
   report. Push remains user-request-only. Updated rules, skills, and workflows accordingly.
 
+- **D-019 (app-shell ribbon, spec panels, typed handles, watchlists, 2026-07-17):**
+  Implemented DevSpecs/ui-ux.spec.md's shell and panel geometry (parallel sub-agent build).
+  (a) Top ribbon: company dropdown, executions ticker tape (marquee over `/executions`),
+  gated paper/live master switch, and a top drawer with Ledger/PnL, Trading profile,
+  Settings, and Philosophy (editable, PATCHes the company). (b) Panels: left
+  Research/Data-sources, bottom Trends/Scenario-engine/Watch-lists/Decisions+traces (with
+  per-module selector), right Verify/Executions/Ledger(+positions)/Sims/Values — replacing
+  the single ActivityPanel; all collapse to slim strips rather than full slide-overs (that
+  behavior stays on the roadmap). (c) Canvas nodes now expose four typed handles (left
+  data-in, right data-out, top control-in, bottom tools-out), colored by type; edge kind is
+  derived from the handle pair; edges animate only while the touching modules have active
+  jobs. Handles are presentation-only in the link payload for now. (d) New `watchlist_items`
+  table + CRUD API (trading/trend modules only) with an inspector add-form; executions,
+  verifications, and placeholder simulations APIs back the new panels. Template enum
+  drift in `CreateCompanyInput` removed — `CompanyTemplateId` is the single source.
+  Verified in the browser: ticker showing fills, drawer PnL rollup, watch-list add →
+  bottom panel row, decisions tab joining traces to verification passes, trends tab.
+
 ## Open questions
 
 - **OQ-7 (resolved 2026-07-16):** Clerk dev-instance keys added to `apps/web/.env.local`;

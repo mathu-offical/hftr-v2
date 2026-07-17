@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@hftr/db';
 import { createSystemClock, drainQueues } from '@hftr/engine';
+import { createOwnerScopedModelGateway } from '@/lib/model-gateway';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -20,9 +21,11 @@ export async function GET(req: Request) {
   const clock = createSystemClock();
   const workerId = `vercel:${process.env.VERCEL_DEPLOYMENT_ID ?? 'local'}:${clock.nowMs()}`;
   try {
-    const result = await drainQueues(getDb(), clock, {
+    const db = getDb();
+    const result = await drainQueues(db, clock, {
       workerId,
       budgetMs: 45_000, // leave headroom inside maxDuration
+      modelGateway: createOwnerScopedModelGateway(db),
     });
     return NextResponse.json(result);
   } catch (err) {

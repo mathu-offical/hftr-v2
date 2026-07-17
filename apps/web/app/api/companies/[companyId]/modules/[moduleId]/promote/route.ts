@@ -4,9 +4,10 @@ import { scoping } from '@hftr/db';
 import { trendCandidates } from '@hftr/db/schema';
 import { createSystemClock, drainQueues, enqueue } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
+import { createWebModelGateway } from '@/lib/model-gateway';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const Params = z.object({ companyId: z.string().uuid(), moduleId: z.string().uuid() });
 type Ctx = { params: Promise<{ companyId: string; moduleId: string }> };
@@ -17,10 +18,9 @@ const PromoteInput = z.object({
 });
 
 /**
- * Promote a trend candidate through the pipeline spine: six-gate admission →
- * decision tree → compile → (when compiled) deterministic paper dispatch.
- * The route only validates and enqueues; the RESEARCH queue handler owns the
- * flow. Inline drain gives the UI an immediate result.
+ * Promote a trend candidate through the pipeline spine:
+ * trend.promote (admission) → tactical.expand → compile.select → dispatch.
+ * Inline drain runs the multi-hop chain with the user-key ModelGateway.
  */
 export async function POST(req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
@@ -61,8 +61,9 @@ export async function POST(req: Request, ctx: Ctx) {
     });
     const drained = await drainQueues(db, clock, {
       workerId: `inline:${clerkUserId.slice(0, 12)}`,
-      budgetMs: 15_000,
-      batchSize: 3,
+      budgetMs: 45_000,
+      batchSize: 8,
+      modelGateway: createWebModelGateway(db, clerkUserId),
     });
     return { queued: true, drained };
   });

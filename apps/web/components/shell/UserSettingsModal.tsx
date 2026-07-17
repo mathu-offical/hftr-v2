@@ -156,6 +156,30 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
     }
   }
 
+  async function verify(provider: LlmProvider) {
+    setBusy(provider);
+    try {
+      const res = await api<{ ok: boolean; failure: string | null; deferred?: boolean }>(
+        `/api/settings/keys/${provider}/verify`,
+        { method: 'POST' },
+      );
+      if (res.ok && res.deferred) {
+        setMessages((m) => ({ ...m, [provider]: 'Format ok — live ping deferred.' }));
+      } else if (res.ok) {
+        setMessages((m) => ({ ...m, [provider]: 'Verified with provider.' }));
+      } else {
+        setMessages((m) => ({
+          ...m,
+          [provider]: `Verify failed: ${res.failure ?? 'unknown'}`,
+        }));
+      }
+    } catch {
+      setMessages((m) => ({ ...m, [provider]: 'Verify failed.' }));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
@@ -218,20 +242,29 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                       <span className="text-[10px] text-[var(--color-ink-faint)]">{p.tier}</span>
                     </div>
                     {saved ? (
-                      <div className="flex items-center justify-between text-[11px] text-[var(--color-ink-dim)]">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--color-ink-dim)]">
                         <span>
                           saved ·····{saved.keyHint}
                           <span className="ml-2 text-[var(--color-ink-faint)]">
                             {new Date(saved.updatedAt).toLocaleDateString()}
                           </span>
                         </span>
-                        <button
-                          onClick={() => remove(p.id)}
-                          disabled={busy === p.id}
-                          className="text-[var(--color-block)] hover:underline disabled:opacity-50"
-                        >
-                          Delete
-                        </button>
+                        <span className="flex gap-2">
+                          <button
+                            onClick={() => verify(p.id)}
+                            disabled={busy === p.id}
+                            className="text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                          >
+                            Verify
+                          </button>
+                          <button
+                            onClick={() => remove(p.id)}
+                            disabled={busy === p.id}
+                            className="text-[var(--color-block)] hover:underline disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        </span>
                       </div>
                     ) : (
                       <p className="text-[11px] text-[var(--color-ink-faint)]">No key saved</p>
@@ -389,13 +422,21 @@ function BrokersTab(props: {
             )}
           </p>
           {connection.capabilities && (
-            <p className="mt-1 text-[var(--color-ink-faint)]">
-              Assets: {connection.capabilities.assets.join(', ')} · Sessions:{' '}
-              {connection.capabilities.sessions}
-            </p>
+            <div className="mt-1.5 space-y-0.5 text-[var(--color-ink-dim)]">
+              <p>Assets: {connection.capabilities.assets.join(', ')}</p>
+              <p>Order types: {connection.capabilities.orderTypes.join(', ')}</p>
+              <p>Sessions: {connection.capabilities.sessions}</p>
+              <p>Supports paper: {connection.capabilities.supportsPaper ? 'yes' : 'no'}</p>
+              <p>
+                Fractional: {connection.capabilities.supportsFractional ? 'yes' : 'no'} · Funding:{' '}
+                {connection.capabilities.fundingUx}
+              </p>
+            </div>
           )}
           {connection.boundCompanyId && (
-            <p className="mt-1 text-[var(--color-ink-faint)]">Bound to a company workspace</p>
+            <p className="mt-1 font-mono text-[10px] text-[var(--color-ink-faint)]">
+              Bound company: {connection.boundCompanyId}
+            </p>
           )}
           <div className="mt-2 flex gap-2">
             <button

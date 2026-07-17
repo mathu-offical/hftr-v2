@@ -10,10 +10,13 @@ import {
   PHILOSOPHY_AXIS_CATALOG,
   type BandPosition,
   type BrokerConnectionSummary,
+  type CompanyBrokerStatus,
   type CompanyLlmPolicy,
   type LlmBudgetSummary,
   type LlmBudgetsResponse,
+  type ModelCapability,
   type PhilosophyProfile,
+  type RetentionClass,
 } from '@hftr/contracts';
 import { api } from '@/lib/client';
 
@@ -248,10 +251,27 @@ const PROFILE_OPTIONS = [
   { id: 'custom', label: 'Custom' },
 ] as const;
 
+function retentionLabel(rc: RetentionClass): string {
+  return rc.replace(/_/g, ' ');
+}
+
+function modelMetaLabel(model: ModelCapability): string {
+  const inPerM = (model.inputCostCentsPerMTok / 100).toFixed(2);
+  const outPerM = (model.outputCostCentsPerMTok / 100).toFixed(2);
+  return `~$${inPerM}/$${outPerM} per 1M tok · ${retentionLabel(model.retentionClass)}`;
+}
+
+function truncateRequestId(id: string | null): string {
+  if (!id) return '—';
+  if (id.length <= 10) return id;
+  return `${id.slice(0, 6)}…${id.slice(-3)}`;
+}
+
 function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] }) {
   const [policyData, setPolicyData] = useState<LlmPolicyResponse | null>(null);
   const [calls, setCalls] = useState<LlmCallRow[]>([]);
   const [brokers, setBrokers] = useState<BrokerConnectionSummary[]>([]);
+  const [brokerStatus, setBrokerStatus] = useState<CompanyBrokerStatus | null>(null);
   const [policyMessage, setPolicyMessage] = useState<string | null>(null);
   const [brokerMessage, setBrokerMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -259,14 +279,16 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
   const loadExtras = useCallback(async () => {
     const base = `/api/companies/${props.companyId}`;
     try {
-      const [policyRes, callsRes, brokersRes] = await Promise.all([
+      const [policyRes, callsRes, brokersRes, brokerRes] = await Promise.all([
         api<LlmPolicyResponse>(`${base}/llm-policy`),
         api<{ calls: LlmCallRow[] }>(`${base}/llm-calls?limit=20`),
         api<{ connections: BrokerConnectionSummary[] }>('/api/settings/brokers'),
+        api<CompanyBrokerStatus>(`${base}/broker`),
       ]);
       setPolicyData(policyRes);
       setCalls(callsRes.calls);
       setBrokers(brokersRes.connections);
+      setBrokerStatus(brokerRes);
     } catch {
       // transient
     }
@@ -321,7 +343,18 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
 
   return (
     <div className="space-y-6">
-      <OperatingBudgets budgets={props.budgets} />
+      {brokerStatus ? (
+        <CapitalCapsSection status={brokerStatus} />
+      ) : (
+        <section className="space-y-2">
+          <div>
+            <h3 className="text-sm font-medium text-[var(--color-ink)]">Trading capital caps</h3>
+            <p className="text-[11px] text-[var(--color-ink-faint)]">Loading capital caps…</p>
+          </div>
+        </section>
+      )}
+
+      <OperatingBudgets budgets={props.budgets} calls={calls} />
 
       {policy && (
         <section className="space-y-3">
@@ -393,6 +426,7 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
             {LlmTier.options.map((tier) => {
               const eligible = modelsForTier(tier).filter((m) => admitsRetention(m, policy));
               const current = policy.tierModels[tier] ?? '';
+              const selected = eligible.find((m) => m.modelId === current) ?? null;
               return (
                 <label key={tier} className="block space-y-1">
                   <span className="text-[11px] text-[var(--color-ink-dim)]">
@@ -412,10 +446,15 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
                     <option value="">Default</option>
                     {eligible.map((m) => (
                       <option key={`${m.provider}:${m.modelId}`} value={m.modelId}>
-                        {m.displayName} ({m.provider})
+                        {m.displayName} ({m.provider}) — {modelMetaLabel(m)}
                       </option>
                     ))}
                   </select>
+                  {selected && (
+                    <p className="text-[9px] text-[var(--color-ink-faint)]">
+                      {modelMetaLabel(selected)}
+                    </p>
+                  )}
                 </label>
               );
             })}
@@ -449,9 +488,16 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
                 {boundConnection.status}
               </span>
             </div>
+            {brokerStatus?.feedEntitlementLabel && (
+              <p className="mt-1 text-[var(--color-ink-dim)]">
+                Feed: {brokerStatus.feedEntitlementLabel}
+              </p>
+            )}
             {boundConnection.capabilities && (
               <p className="mt-1 text-[var(--color-ink-dim)]">
-                Buying power and balances sync on dispatch when connected.
+                Assets: {boundConnection.capabilities.assets.join(', ')} · Order types:{' '}
+                {boundConnection.capabilities.orderTypes.join(', ')} · Paper:{' '}
+                {boundConnection.capabilities.supportsPaper ? 'yes' : 'no'}
               </p>
             )}
             <button
@@ -463,9 +509,7 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
             </button>
           </div>
         ) : (
-          <p className="text-[11px] text-[var(--color-ink-faint)]">
-            No broker bound — using paper sim.
-          </p>
+          <p className="text-[11px] text-[var(--color-ink-faint)]">No broker bound — paper sim.</p>
         )}
         {paperBrokers.length > 0 && (
           <label className="block max-w-sm space-y-1">
@@ -504,6 +548,8 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
               <th className="pb-1 font-normal">Tier</th>
               <th className="pb-1 font-normal">Model</th>
               <th className="pb-1 font-normal">Cost</th>
+              <th className="pb-1 font-normal">Req</th>
+              <th className="pb-1 font-normal">Retention</th>
               <th className="pb-1 font-normal">Checks</th>
             </tr>
           </thead>
@@ -516,6 +562,15 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
                   {c.provider}/{c.model}
                 </td>
                 <td className="py-1 pr-2 font-mono">{dollars(c.costCents)}</td>
+                <td
+                  className="max-w-16 truncate py-1 pr-2 font-mono text-[var(--color-ink-faint)]"
+                  title={c.requestId ?? undefined}
+                >
+                  {truncateRequestId(c.requestId)}
+                </td>
+                <td className="py-1 pr-2 text-[var(--color-ink-faint)]">
+                  {c.retentionClass ? retentionLabel(c.retentionClass as RetentionClass) : '—'}
+                </td>
                 <td className="py-1">
                   <ValidationChips
                     schemaValid={c.schemaValid}
@@ -527,7 +582,7 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
             ))}
             {calls.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-2 text-[var(--color-ink-faint)]">
+                <td colSpan={7} className="py-2 text-[var(--color-ink-faint)]">
                   No LLM calls recorded yet.
                 </td>
               </tr>
@@ -561,7 +616,50 @@ function ValidationChips(props: {
   );
 }
 
-function OperatingBudgets(props: { budgets: LlmBudgetSummary[] }) {
+function CapitalCapsSection(props: { status: CompanyBrokerStatus }) {
+  const virtual = dollars(props.status.virtualBalanceCents);
+  const effective = dollars(props.status.effectiveCapCents);
+  const brokerBp = props.status.brokerSnapshot
+    ? dollars(props.status.brokerSnapshot.buyingPowerCents)
+    : null;
+
+  return (
+    <section className="space-y-2">
+      <div>
+        <h3 className="text-sm font-medium text-[var(--color-ink)]">Trading capital caps</h3>
+        <p className="text-[11px] text-[var(--color-ink-faint)]">
+          Effective admission uses min(virtual allocation, broker buying power) when a broker is
+          bound; otherwise paper sim uses virtual balance only.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-6">
+        <Metric label="Virtual cap" value={virtual} />
+        {props.status.bound && brokerBp !== null ? (
+          <>
+            <Metric label="Broker buying power" value={brokerBp} />
+            <Metric label="Effective cap" value={effective} />
+          </>
+        ) : (
+          <Metric label="Mode" value="paper sim" />
+        )}
+      </div>
+      <p className="text-[10px] text-[var(--color-ink-faint)]">
+        Venue: {props.status.venue}
+        {props.status.feedEntitlementLabel ? ` · Feed: ${props.status.feedEntitlementLabel}` : ''}
+        {props.status.liveGateBlocked ? ' · Live gate blocked' : ''}
+      </p>
+    </section>
+  );
+}
+
+function OperatingBudgets(props: { budgets: LlmBudgetSummary[]; calls: LlmCallRow[] }) {
+  const lastFailureByProvider = new Map<string, string>();
+  for (const call of props.calls) {
+    if (call.failure && !lastFailureByProvider.has(call.provider)) {
+      lastFailureByProvider.set(call.provider, call.failure);
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div>
@@ -602,6 +700,37 @@ function OperatingBudgets(props: { budgets: LlmBudgetSummary[] }) {
           </div>
         ))}
       </div>
+      <ProviderHealthStrip budgets={props.budgets} lastFailureByProvider={lastFailureByProvider} />
+    </div>
+  );
+}
+
+function ProviderHealthStrip(props: {
+  budgets: LlmBudgetSummary[];
+  lastFailureByProvider: Map<string, string>;
+}) {
+  return (
+    <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-0)] p-3">
+      <h4 className="text-[11px] font-medium text-[var(--color-ink)]">Provider health</h4>
+      <ul className="mt-2 space-y-1 text-[10px] text-[var(--color-ink-dim)]">
+        {props.budgets.map((budget) => {
+          const configured = budget.credentialSource === 'user_key';
+          const lastFailure = props.lastFailureByProvider.get(budget.provider);
+          return (
+            <li key={budget.provider} className="flex flex-wrap items-baseline gap-x-2">
+              <span className="capitalize text-[var(--color-ink)]">{budget.provider}</span>
+              <span
+                className={configured ? 'text-[var(--color-ok)]' : 'text-[var(--color-ink-faint)]'}
+              >
+                {configured ? 'credential configured' : 'unconfigured'}
+              </span>
+              {lastFailure && (
+                <span className="text-[var(--color-block)]">last failure: {lastFailure}</span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

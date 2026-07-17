@@ -108,6 +108,31 @@ export const actionTraces = pgTable(
   (t) => [index('action_traces_company_idx').on(t.companyId, t.createdAt)],
 );
 
+/**
+ * Cold archive for action_traces (D-036). Rows are copied here before hot-table
+ * deletion by maintenance.retention — never delete without an archive copy.
+ */
+export const actionTracesArchive = pgTable(
+  'action_traces_archive',
+  {
+    id: uuid('id').primaryKey(),
+    taskId: uuid('task_id'),
+    companyId: uuid('company_id').notNull(),
+    moduleId: uuid('module_id').notNull(),
+    venue: text('venue').notNull(),
+    mode: text('mode').notNull(),
+    outcome: text('outcome').notNull(),
+    fills: jsonb('fills').notNull().default([]),
+    simulatorGapTags: jsonb('simulator_gap_tags').notNull().default([]),
+    sessionLegalitySnapshot: jsonb('session_legality_snapshot').notNull().default({}),
+    policyEnvelopeVersion: text('policy_envelope_version').notNull(),
+    failureCode: text('failure_code'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    archivedAt: timestamp('archived_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('action_traces_archive_company_idx').on(t.companyId, t.createdAt)],
+);
+
 /** Append-only verification outcomes (schema-locked field checks). */
 export const verificationRecords = pgTable(
   'verification_records',

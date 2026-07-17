@@ -108,10 +108,24 @@
       "breakpoints": true
     },
     {
+      "idx": 15,
+      "version": "7",
+      "when": 1784322000000,
+      "tag": "0015_assistant_edits_simulations",
+      "breakpoints": true
+    },
+    {
       "idx": 16,
       "version": "7",
       "when": 1784324000000,
       "tag": "0016_engine_setup_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1784325000000,
+      "tag": "0017_archive_retention",
       "breakpoints": true
     }
   ]

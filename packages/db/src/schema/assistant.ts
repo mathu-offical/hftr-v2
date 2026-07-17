@@ -53,3 +53,36 @@ export const assistantEdits = pgTable(
     check('assistant_edits_status_check', sql`${t.status} in ('pending', 'confirmed', 'rejected')`),
   ],
 );
+
+/** Cold archive for assistant_messages — copy-before-delete (D-036). */
+export const assistantMessagesArchive = pgTable(
+  'assistant_messages_archive',
+  {
+    id: uuid('id').primaryKey(),
+    companyId: uuid('company_id').notNull(),
+    clerkUserId: text('clerk_user_id').notNull(),
+    role: text('role').notNull(),
+    content: text('content').notNull(),
+    toolResults: jsonb('tool_results'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    archivedAt: timestamp('archived_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('assistant_messages_archive_company_idx').on(t.companyId, t.createdAt)],
+);
+
+/** Cold archive for assistant_edits — copy-before-delete (D-036). */
+export const assistantEditsArchive = pgTable(
+  'assistant_edits_archive',
+  {
+    id: uuid('id').primaryKey(),
+    companyId: uuid('company_id').notNull(),
+    clerkUserId: text('clerk_user_id').notNull(),
+    tool: text('tool').notNull(),
+    proposal: jsonb('proposal').notNull(),
+    status: text('status').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    archivedAt: timestamp('archived_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('assistant_edits_archive_company_idx').on(t.companyId, t.createdAt)],
+);

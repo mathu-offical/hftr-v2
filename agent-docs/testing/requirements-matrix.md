@@ -8,10 +8,10 @@
 
 | Status | Count |
 |---|---:|
-| implemented | 110 |
+| implemented | 111 |
 | stub | 11 |
 | doc-only | 0 |
-| deferred | 45 |
+| deferred | 44 |
 
 ## Doc-drift flags
 
@@ -20,7 +20,8 @@
 - **REQ-TST-006** — doc-drift: flow 1 claimed in spec table but explicitly marked not Clerk-covered.
 
 Additional drift (not in JSON flag list):
-- **REQ-TST-007** — ui-spec flow 3 (full pipeline E2E) listed but not Playwright-covered.
+- none currently (REQ-TST-007 synthetic spine covered by `paper-intent-alignment.spec.ts`;
+  real-model/live-data variants remain deferred in the REQ-TST-007 row notes).
 - **REQ-TST-008** — ui-spec flow 7 (Math lineage) listed but not Playwright-covered.
 - **ui-spec §7** claims IronBee verification; master-build-plan G1 notes IronBee was unavailable for formal sign-off — treat browser claims as environment-dependent.
 

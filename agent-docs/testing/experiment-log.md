@@ -25,7 +25,7 @@ Scoring: `intent-alignment-scoring.md`
 | Hard fails | none |
 | System fixes from run | wired philosophy→promote/compile; activity verification scoping; simulatorGapTags |
 | Philosophy learnings | Risk axis is the highest-leverage intentional control for paper sizing until capitalAllocationRef joins the compile path |
-| Not verified | Multi-company browser cohort; Alpaca/Kalshi live data; IronBee UI exercise of TopDrawer axes |
+| Not verified | Alpaca/Kalshi live-data cohort (see EXP-02). Multi-company browser cohort and TopDrawer philosophy axes completed in EXP-03 + IronBee |
 
 ### Scorecard (unit)
 
@@ -39,9 +39,10 @@ Scoring: `intent-alignment-scoring.md`
 
 ### Follow-ups
 
-1. Browser cohort: 3 companies with conflicting philosophies → promote → assert controlSnapshot axes + quantity delta
+1. **Done (quantity):** EXP-03 asserts min < typical < max fill quantities across three companies.
+   **Still open:** assert promote `controlSnapshot` philosophy axes / `sizingBasisBps` in E2E or DB integration
 2. Wire `capitalAllocationRef` into sizing when present (higher priority than risk BPS)
-3. Playwright flow for philosophy drawer save + promote
+3. **Done:** Playwright philosophy drawer save + reload (`paper-intent-alignment.spec.ts` test 1)
 
 ### Browser verification (IronBee, 2026-07-17)
 
@@ -50,7 +51,7 @@ Scoring: `intent-alignment-scoring.md`
 - Set Risk appetite → `max`, saved; GET `/api/companies/{id}` returned `philosophyProfile.axes.risk_appetite: "max"`
 - Live switch remains gated (text-first)
 - Console: pre-existing React Flow `nodeTypes` warning; Fast Refresh noise during HMR — not philosophy-specific regressions
-- Multi-company create blocked in UI when template setup incomplete (D-024 required chips) — unit cohort remains primary evidence for axes→sizing
+- Later EXP-03 cohort used API create + Playwright promote spine when template Required chips block multi-company UI create
 
 ---
 
@@ -59,7 +60,7 @@ Scoring: `intent-alignment-scoring.md`
 | Field | Value |
 |---|---|
 | Status | deferred |
-| Blocker | No Alpaca/Kalshi/Polymarket/Coinbase adapters; quotes remain synthetic |
+| Blocker | No live-data multi-company E2E cohort yet; Alpaca unit/adapter stubs exist but quotes remain synthetic_sim in paper spine |
 | Plan | Activate when M3/M4 adapters + credentials exist; keep paper/demo only |
 | Scenario refs | scenario-encyclopedia data provenance + multi-company isolation classes |
 

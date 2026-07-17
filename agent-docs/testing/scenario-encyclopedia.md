@@ -21,7 +21,7 @@ may cover many instances via parameterization (company count N, band position, f
 | **Expected deterministic effect** | What the engine/platform must do — not PnL |
 | **Evidence artifact** | Traceable output for alignment scoring |
 | **executable_today** | `yes` = runnable now; `partial` = subset; `no` = blocked on M2+ pipeline |
-| **REQ links** | Decisions, sprint tasks, product/architecture refs (no `REQ-*` ids exist yet) |
+| **REQ links** | Stable `REQ-*` ids from `requirements-matrix.md` / `.json`, plus decisions / sprint refs |
 
 **Paper-only default.** Live scenarios exist for fail-closed verification only until master-build
 plan live gates pass.
@@ -33,7 +33,7 @@ plan live gates pass.
 | ID | Description | Expected deterministic effect | Evidence artifact | executable_today | REQ links |
 | --- | --- | --- | --- | --- | --- |
 | ISO-001 | Single user owns companies A (day trading) and B (trend research lab); same Clerk session | Company A API reads return only A modules/jobs/traces; B likewise; no cross-`company_id` rows | API response bodies scoped; DB query logs show `company_id` predicate | partial | `data-model.md` ownership; Playwright creates one company |
-| ISO-002 | N=3 companies with conflicting philosophy prompts (conservative / balanced / aggressive risk language) | Each company's module configs and lever state remain isolated; no cross-company traces | `paper-intent-alignment.spec.ts` min/typical/max cohort; per-company activity projections | yes | REQ-PHIL-004; REQ-TST-007; D-025 |
+| ISO-002 | N=3 companies with conflicting structured `risk_appetite` axes (min / typical / max) under otherwise identical paper inputs | Each company's module configs and lever state remain isolated; no cross-company traces; quantities order with risk axis | `paper-intent-alignment.spec.ts` min/typical/max cohort; per-company activity projections | yes | REQ-PHIL-004; REQ-TST-007; D-025 |
 | ISO-003 | Concurrent assistant messages in A and B within same minute | Rate limit (`20/min/company`) applies per company independently | `assistant_messages` counts per `company_id`; 429 only on hot company | yes | D-022 assistant admission |
 | ISO-004 | Queue drain claims jobs for A and B in one batch | Fairness cap prevents A from starving B; claimed rows retain `company_id` | `jobs` claim query result; `/api/queue/stats` per class | no | `job-orchestration.md` §2 fairness |
 | ISO-005 | User archives company A; B remains active | A returns 404/410 on scoped routes; B unaffected; A jobs not claimed | Archive flag + API status codes | partial | e2e `archiveCompany` fixture |
@@ -91,7 +91,7 @@ plan live gates pass.
 | ORD-006 | Trailing stop regular session only | Off-hours attempt rejected or alternate protection branch | Session legality rejection | no | tier-lever §2.3 note |
 | ORD-007 | Bracket OTO entry + stop + target | Parent/child ids linked; cancel parent cascades deterministically | OTO linkage in trace | no | branch_order_class_set |
 | ORD-008 | Oversell: sell qty > position | Deterministic reject before broker call | `blocked` + reason `insufficient_position` | no | dispatch guard |
-| ORD-009 | Short equity when policy disallows | Compile or dispatch blocked fail-closed | Playwright unsupported NVDA sell: blocked trace + `pre_dispatch_block` | partial | product paper default; EXP-2026-07-17-03 |
+| ORD-009 | Short equity when policy disallows | Compile or dispatch blocked fail-closed | Playwright unsupported NVDA sell: blocked trace + `pre_dispatch_block` | yes | product paper default; EXP-2026-07-17-03 |
 | ORD-010 | Short allowed paper symbol (if policy on) | Negative qty instruction with locate check stub | Trace with side=short | no | broker adapter |
 | ORD-011 | Cancel/replace within `cancel_replace_band` max | Priority-preserving replace; attempt counted | `ActionTrace` cancel_replace attribution | no | tier-lever §3.7 |
 | ORD-012 | Cancel/replace exceeds max attempts | Escalate to recovery ladder; no blind resend | `dead` job or `blocked` state | no | recovery catalog |
@@ -124,7 +124,7 @@ plan live gates pass.
 
 | ID | Description | Expected deterministic effect | Evidence artifact | executable_today | REQ links |
 | --- | --- | --- | --- | --- | --- |
-| DATA-001 | `synthetic_sim` feed class (paper default) | Quotes tagged `sourceClass: live_feed` with synthetic adapter id; labeled in UI | ValueRef provenance `sourceId` | no | `templates.ts` feedClass |
+| DATA-001 | `synthetic_sim` feed class (paper default) | Quotes tagged honest synthetic provenance; paper traces carry simulator gap tags | Activity `simulatorGapTags` + ValueRef `sourceClass`/`sourceId` | partial | `templates.ts` feedClass; EXP-2026-07-17-03 (gap tags yes; UI label still thin) |
 | DATA-002 | Alpaca IEX paper entitlement | Poll/stream within envelope budgets; entitlement string truthful in UI | Feed config + throttle trace | no | broker-integration.md |
 | DATA-003 | Kalshi demo books | Probability quotes 0–1; separate precision rules | Adapter snapshot rows | no | prediction preset (gated) |
 | DATA-004 | Polymarket test / Coinbase sandbox | Venue-specific session + throttle; custody unresolved (OQ-5) | Adapter health card | no | OQ-5 |
@@ -217,8 +217,8 @@ ARCH-005, ARCH-008, Q-007, Q-008, LIVE-001, NRA-007, NRA-008.
 | `assistant_messages` row | assistant route | ISO-003, Q-007 |
 | `modules` setup refs | PATCH module | NRA-007/008 |
 | `llm_budgets` counters | operating budget route | ISO-007 |
-| `action_traces` (future) | dispatch | ORD-*, MKT-* |
-| `verification_records` (future) | verify stage | ORD-* |
+| `action_traces` | paper dispatch / `/activity` | ORD-*, MKT-*, EXP-03 provenance |
+| `verification_records` | verify stage / `/activity` join | ORD-*, EXP-03 blocked/pass |
 | `jobs` / dead-letter (future) | queue | Q-* |
 | Leak lint report (future) | packages/llm | NRA-001/002 |
 | ValueRef lineage export (future) | Math module | NRA-009 |

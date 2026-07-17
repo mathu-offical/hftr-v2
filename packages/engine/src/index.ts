@@ -17,19 +17,26 @@ export { drainQueues, type DrainResult } from './queue/drain';
 
 // Handlers (importing registers built-ins)
 export { registerHandler, getHandler, registeredKinds } from './handlers/registry';
+export type { ModelGateway, ResearchSynthesizeInput } from './handlers/model-gateway';
 import './handlers/maintenance';
 import './handlers/dispatch';
 import './handlers/trend';
 import './handlers/promote';
 import './handlers/research';
+import './handlers/reconcile';
+import './handlers/reconcile';
 
 // Dispatch
 export {
   executePaperTrade,
-  getCompanyBalanceCents,
   type PaperTradeRequest,
   type PaperTradeResult,
 } from './dispatch/paper-trade';
+export { getCompanyBalanceCents } from './dispatch/balances';
+export {
+  resolveExecutionContext,
+  type ResolvedExecutionContext,
+} from './dispatch/execution-context';
 export { getSyntheticQuote } from './dispatch/quotes';
 export { applyFill, getPosition, type PositionRow } from './dispatch/positions';
 

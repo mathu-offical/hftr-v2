@@ -1,6 +1,7 @@
 import type { Db } from '@hftr/db';
 import { TIMEOUT_LEASE_MS, QueueClass } from '@hftr/contracts';
 import type { Clock } from '../clock';
+import type { ModelGateway } from '../handlers/model-gateway';
 import { getHandler } from '../handlers/registry';
 import { claimJobs, completeJob, failJob } from './queue';
 
@@ -11,16 +12,19 @@ export interface DrainResult {
   deadlineHit: boolean;
 }
 
+export interface DrainOptions {
+  workerId: string;
+  budgetMs: number;
+  batchSize?: number;
+  modelGateway?: ModelGateway;
+}
+
 /**
  * Drain loop invoked by the Vercel cron route (/api/queue/drain).
  * Claims small batches until the wall-clock budget is spent so the
  * serverless invocation always finishes cleanly.
  */
-export async function drainQueues(
-  db: Db,
-  clock: Clock,
-  opts: { workerId: string; budgetMs: number; batchSize?: number },
-): Promise<DrainResult> {
+export async function drainQueues(db: Db, clock: Clock, opts: DrainOptions): Promise<DrainResult> {
   const startedAt = clock.nowMs();
   const result: DrainResult = { claimed: 0, completed: 0, failed: 0, deadlineHit: false };
 
@@ -46,7 +50,12 @@ export async function drainQueues(
         continue;
       }
       try {
-        await handler({ db, clock, job });
+        await handler({
+          db,
+          clock,
+          job,
+          ...(opts.modelGateway !== undefined ? { modelGateway: opts.modelGateway } : {}),
+        });
         await completeJob(db, clock, job.id);
         result.completed += 1;
       } catch (err) {

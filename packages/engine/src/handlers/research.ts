@@ -1,6 +1,8 @@
-import { ilike, inArray, or, type SQL } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { catalogEntries, concepts } from '@hftr/db/schema';
+import { ConceptBatch } from '@hftr/contracts';
+import { companies, conceptLinks, concepts, modules } from '@hftr/db/schema';
+import { curateDeterministic, loadCatalogHints } from './research-deterministic';
 import { registerHandler } from './registry';
 
 const CuratePayload = z.object({
@@ -9,69 +11,142 @@ const CuratePayload = z.object({
   topicScope: z.string().max(200).default(''),
 });
 
-const CURATED_CATALOGS = ['strategy_families', 'guardrail_packages'];
-const MAX_CONCEPTS_PER_RUN = 8;
-
 /**
- * Deterministic research curation placeholder (RESEARCH queue). Selects
- * catalog entries relevant to the module's topic scope and upserts them as
- * concepts. No model is involved: bodies are composed from catalog fields
- * only (no invented claims), sourceClass is honestly labeled
- * `deterministic_placeholder`, and sourceRef cites the catalog entry. A real
- * research-tier model call replaces this selection without schema changes.
+ * RESEARCH queue: prefers injected ModelGateway strategic synthesis when
+ * available; otherwise (or on any failure) falls back to deterministic catalog
+ * curation with honest sourceClass labels.
  */
-registerHandler('research.curate', async ({ db, clock, job }) => {
+registerHandler('research.curate', async ({ db, clock, job, modelGateway }) => {
   const payload = CuratePayload.parse(job.payload);
   const now = new Date(clock.nowMs());
 
-  const tokens = payload.topicScope
-    .split(/[^A-Za-z0-9_]+/)
-    .map((t) => t.trim())
-    .filter((t) => t.length >= 3)
-    .slice(0, 6);
+  if (modelGateway && process.env.HFTR_LLM_MODE !== 'deterministic') {
+    const [company] = await db
+      .select({
+        philosophyPrompt: companies.philosophyPrompt,
+        philosophyProfile: companies.philosophyProfile,
+      })
+      .from(companies)
+      .where(eq(companies.id, payload.companyId))
+      .limit(1);
+    const [mod] = await db
+      .select({ topicSectors: modules.topicSectors })
+      .from(modules)
+      .where(and(eq(modules.id, payload.moduleId), eq(modules.companyId, payload.companyId)))
+      .limit(1);
 
-  const filters: SQL[] = [inArray(catalogEntries.catalog, CURATED_CATALOGS)];
-  for (const token of tokens) {
-    filters.push(ilike(catalogEntries.title, `%${token}%`));
-  }
+    const existing = await db
+      .select({ title: concepts.title })
+      .from(concepts)
+      .where(and(eq(concepts.moduleId, payload.moduleId), eq(concepts.status, 'active')))
+      .limit(40);
 
-  const entries = await db
-    .select()
-    .from(catalogEntries)
-    .where(or(...filters))
-    .orderBy(catalogEntries.catalog, catalogEntries.entryKey)
-    .limit(MAX_CONCEPTS_PER_RUN);
+    const catalogHints = await loadCatalogHints({ db, topicScope: payload.topicScope });
+    const philosophyAxes =
+      company?.philosophyProfile && typeof company.philosophyProfile === 'object'
+        ? Object.keys(company.philosophyProfile as Record<string, unknown>).slice(0, 16)
+        : [];
 
-  for (const entry of entries) {
-    const tags = [entry.catalog, ...(entry.tier ? [entry.tier] : [])];
-    const body =
-      `Catalog reference: "${entry.title}" from the ${entry.catalog} catalog ` +
-      `(entry ${entry.entryKey}, version ${entry.catalogVersion}` +
-      `${entry.tier ? `, tier ${entry.tier}` : ''}). ` +
-      'Selected deterministically for this module by catalog relevance — ' +
-      'not model-generated research. Full details live in the cited catalog entry.';
+    const result = await modelGateway.synthesizeResearch({
+      companyId: payload.companyId,
+      moduleId: payload.moduleId,
+      jobId: job.id,
+      topicScope: payload.topicScope,
+      topicSectors: mod?.topicSectors ?? [],
+      philosophyAxes,
+      catalogHints,
+      existingConceptTitles: existing.map((r) => r.title),
+    });
 
-    await db
-      .insert(concepts)
-      .values({
+    if (result.ok) {
+      await persistConceptBatch({
+        db,
         companyId: payload.companyId,
         moduleId: payload.moduleId,
-        title: entry.title,
-        body,
-        tags,
-        sourceClass: 'deterministic_placeholder',
-        sourceRef: `${entry.catalog}/${entry.entryKey}`,
+        batch: result.batch,
+        now,
+      });
+      return;
+    }
+  }
+
+  await curateDeterministic({
+    db,
+    companyId: payload.companyId,
+    moduleId: payload.moduleId,
+    topicScope: payload.topicScope,
+    now,
+  });
+});
+
+async function persistConceptBatch(opts: {
+  db: import('@hftr/db').Db;
+  companyId: string;
+  moduleId: string;
+  batch: ConceptBatch;
+  now: Date;
+}): Promise<void> {
+  const titleToId = new Map<string, string>();
+
+  for (const draft of opts.batch.concepts) {
+    const rows = await opts.db
+      .insert(concepts)
+      .values({
+        companyId: opts.companyId,
+        moduleId: opts.moduleId,
+        title: draft.title,
+        body: draft.body,
+        tags: draft.tags,
+        sourceClass: 'model_generated',
+        sourceRef: draft.sourceRef,
         status: 'active',
       })
       .onConflictDoUpdate({
         target: [concepts.moduleId, concepts.title],
         set: {
-          body,
-          tags,
-          sourceRef: `${entry.catalog}/${entry.entryKey}`,
+          body: draft.body,
+          tags: draft.tags,
+          sourceClass: 'model_generated',
+          sourceRef: draft.sourceRef,
           status: 'active',
-          updatedAt: now,
+          updatedAt: opts.now,
+        },
+      })
+      .returning({ id: concepts.id, title: concepts.title });
+    const row = rows[0];
+    if (row) titleToId.set(row.title, row.id);
+  }
+
+  // Reload titles that may already exist from prior runs for link resolution.
+  if (opts.batch.links.length > 0) {
+    const all = await opts.db
+      .select({ id: concepts.id, title: concepts.title })
+      .from(concepts)
+      .where(eq(concepts.moduleId, opts.moduleId));
+    for (const c of all) titleToId.set(c.title, c.id);
+  }
+
+  for (const link of opts.batch.links) {
+    const fromId = titleToId.get(link.fromTitle);
+    const toId = titleToId.get(link.toTitle);
+    if (!fromId || !toId || fromId === toId) continue;
+    await opts.db
+      .insert(conceptLinks)
+      .values({
+        companyId: opts.companyId,
+        fromConceptId: fromId,
+        toConceptId: toId,
+        relation: link.relation,
+        weightBand: link.weightBand,
+        sourceClass: 'model_generated',
+      })
+      .onConflictDoUpdate({
+        target: [conceptLinks.fromConceptId, conceptLinks.toConceptId, conceptLinks.relation],
+        set: {
+          weightBand: link.weightBand,
+          sourceClass: 'model_generated',
+          updatedAt: opts.now,
         },
       });
   }
-});
+}

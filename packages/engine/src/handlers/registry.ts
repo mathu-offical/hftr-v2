@@ -1,6 +1,7 @@
 import type { Db } from '@hftr/db';
 import type { Clock } from '../clock';
 import type { ClaimedJob } from '../queue/queue';
+import type { ModelGateway } from './model-gateway';
 
 /**
  * Job handler registry. A handler's `kind` matches `jobs.kind`
@@ -12,6 +13,8 @@ export interface HandlerContext {
   db: Db;
   clock: Clock;
   job: ClaimedJob;
+  /** Optional — set by drainQueues when the app wires @hftr/llm. */
+  modelGateway?: ModelGateway;
 }
 
 export type JobHandler = (ctx: HandlerContext) => Promise<void>;

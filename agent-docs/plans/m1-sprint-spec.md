@@ -131,7 +131,9 @@ created, invalid link 422, math delete 422, noop job enqueued → drained → co
 
 - Common setup matrix in contracts; capital/exit only for capital-bearing modules and
   topic/sector only for scoped analytical modules.
-- Company templates and engine insertion share inline Required/Set controls plus Skip-to-draft.
+- Company templates and engine insertion share inline controls: missing fields show per-field
+  **Required · label** chips and warning borders; confirmed fields use neutral borders and subtle
+  in-field green checks. Both surfaces retain Skip-to-draft.
 - Incomplete nodes render missing chips and selected-node setup controls; activation fails closed.
 - Financial and time inputs record append-only `operator_input` ValueRefs; modules store opaque
   refs plus qualitative `topic_sectors` (migration `0008_blushing_kronos`, applied locally).

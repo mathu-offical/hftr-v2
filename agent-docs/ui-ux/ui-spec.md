@@ -69,8 +69,9 @@
 - **Node anatomy (dashboard card — design D-026 / `canvas-node-dashboard-design.md`):** fixed-size
   card (no expand-on-select). Header: type chip + function-specific name + text-first status.
   Body: always-visible editable high-level fields for that type (topic/sector, capital
-  allocation, target exit where required) with **per-field** Required/Set chips and highlight
-  borders — validation sits on the corresponding control, not a detached banner. Setup commits
+  allocation, target exit where required). Missing fields have **per-field Required chips** and
+  warn borders; confirmed fields have neutral borders and subtle green checks inside the trailing
+  field edge. Validation stays on the corresponding control, not in a detached banner. Setup commits
   via an explicit **Save setup** button on the node (PATCH `setup`); fields are not auto-saved
   on blur/Enter. Activity / status line remains text-first. Clicking card chrome opens the
   floating inspector (full / secondary settings); interacting with inline fields does not open
@@ -95,18 +96,21 @@
   D-028) and **Engines** (insertable end-to-end templates from `ENGINE_TEMPLATES` → persisted
   `engine_instances` group). Company creation still auto-seeds one Math module.
 - **Inline setup validation (D-024, refined D-026):** company and engine template forms render
-  Required/Set chips plus topic/sector, trading-capital allocation (USD or percentage), and
-  target-exit controls. Skip opens the draft graph. On the canvas, required controls are
-  **always visible** on the fixed node body with validation chips/highlights inline on each
-  field; the inspector is not suppressed for incomplete nodes.
-- **D-026 verified (2026-07-17):** migration `0011_canvas_node_generated_names`
+  topic/sector, trading-capital allocation (USD or percentage), and target-exit controls. Missing
+  fields have inline **Required** chips and warn borders; confirmed fields return to neutral
+  borders with subtle green checks inside their trailing edges. Skip opens the draft graph. On
+  the canvas, required controls are **always visible** on the fixed node body; the inspector is
+  not suppressed for incomplete nodes.
+- **D-026 + D-034 verified (2026-07-17):** migration `0011_canvas_node_generated_names`
   (`generated_name_base`, `name_customized`); focused Playwright `canvas-node-dashboard.spec.ts`
-  (1 test: per-field chips, labeled ports, fixed card geometry on chrome-click, explicit **Save
-  setup**, rename + restore generated name); IronBee on seeded day-trading company confirmed
-  per-kind handles, always-visible fields, inspector Name + generated connection/base text, no new
-  console errors. Customize/restore verified in Playwright only — not in IronBee (pre-migration
-  sample). `company-workspace.spec.ts` D-026 assertions not exercised (run stopped on unrelated
-  LLM drawer expectation).
+  (1 test: missing Required chips, confirmed in-field checks with neutral borders, labeled ports,
+  fixed card geometry on chrome-click, explicit **Save setup**, rename + restore generated name).
+  IronBee on the seeded day-trading company confirmed per-kind handles, always-visible fields,
+  inspector Name + generated connection/base text, all three `Confirmed:` statuses, and cropped
+  in-field check placement including native calendar spacing; incremental console check after
+  sequence 1427 returned no new errors. Customize/restore verified in Playwright only — not in
+  IronBee (pre-migration sample). `company-workspace.spec.ts` D-026/D-034 assertions not exercised
+  (run stopped on unrelated missing `LLM privacy & models` UI).
 - **Separate operating meter (D-024):** Company → LLM / operating shows provider credential source,
   call admission, and provider-cost counters for Anthropic/Mistral/Groq. Copy explicitly states
   that this meter is separate from module trading-capital allocation.
@@ -196,7 +200,7 @@ teardown.
 |---|---|
 | `companies.spec.ts` | Companies directory; template choices; day-template Required chips and Skip action; card mode/engines + navigate/rename/duplicate/archive |
 | `company-workspace.spec.ts` | skipped `day_trading_starter` setup → missing node chips → collapse info panel → complete trading setup inline through ValueRef route (type-scoped node under generated titles) → separate LLM/operating view → full seeded names + **10** `smoothstep` edges → panels/shortcuts/store → assistant persistence → archive cleanup |
-| `canvas-node-dashboard.spec.ts` | **D-026:** skip setup → always-visible trading fields + per-field Required/Set chips → labeled LinkKind handles → chrome-click inspector without geometry change → explicit **Save setup** → rename + restore generated name |
+| `canvas-node-dashboard.spec.ts` | **D-026/D-034:** skip setup → always-visible trading fields + missing Required chips → confirmed in-field checks with neutral borders → labeled LinkKind handles → chrome-click inspector without geometry change → explicit **Save setup** → rename + restore generated name |
 | `service-settings.spec.ts` | user settings (six LLM providers + Brokers/Alpaca fields + verify affordance) → company operating tab (capital caps, provider health, LLM policy, broker bind, recent calls) → broker GET shape without real keys |
 | `paper-intent-alignment.spec.ts` | philosophy save/reload → live gate text → three-company min/typical/max trend→promote→compile→paper dispatch → company-scoped provenance/verification → right-panel fill → unsupported short block |
 

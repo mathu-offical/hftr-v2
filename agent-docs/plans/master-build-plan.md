@@ -64,9 +64,10 @@ Gate G0: deployed skeleton, auth round-trip in browser, migrations reproducible 
    Skip-to-draft path; incomplete nodes show inline controls; allocation/time resolve to ValueRefs;
    provider operating budgets render separately.
 7. **D-026 canvas node dashboard:** labeled `LinkKind` ports, fixed-size always-visible setup
-   fields with per-field Required/Set chips, explicit **Save setup**, chrome-click inspector with
-   restore-generated-name (`generated_name_base`, `name_customized`; API `generatedNameBase`,
-   `nameCustomized`, `restoreGeneratedName`). **Verified (2026-07-17):** migration
+   fields where missing values show per-field **Required · label** chips and warning borders while
+   confirmed values use neutral borders and subtle in-field green checks; explicit **Save setup**,
+   chrome-click inspector with restore-generated-name (`generated_name_base`, `name_customized`;
+   API `generatedNameBase`, `nameCustomized`, `restoreGeneratedName`). **Verified (2026-07-17):** migration
    `0011_canvas_node_generated_names` after `0010`; typecheck/lint/test pass; focused Playwright
    `canvas-node-dashboard.spec.ts` 1/1; IronBee handles/fields/inspector naming + clean console
    (customize/restore via Playwright only).

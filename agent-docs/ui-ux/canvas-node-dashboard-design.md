@@ -1,7 +1,7 @@
 # Canvas node dashboard design (2026-07-17)
 
 **Status:** implemented and verified (2026-07-17)  
-**Decision:** D-026 (logged in `dev-intent/decisions-log.md`)  
+**Decisions:** D-026, D-034 (logged in `dev-intent/decisions-log.md`)
 **Supersedes (node chrome):** D-024 §(c) “expand selected node for setup / suppress inspector while incomplete”
 
 ## Goal
@@ -13,7 +13,7 @@ Make canvas modules feel like a compact, interactive dashboard:
 3. **Fixed card size** — no expand-on-select / no in-node “expanded info” shell. “Static” means fixed geometry, not read-only.
 4. **Inspector on click** — selecting the card chrome opens the right-side inspector with full/secondary settings.
 5. **Function-specific names** — auto-derived from type + connections until the operator customizes; restore-default available while editing.
-6. **Inline validation** — Required/Set chips and field highlights sit next to the corresponding control, not as a detached banner.
+6. **Inline validation** — missing fields show Required chips and warn borders; confirmed fields use neutral borders and subtle green checks inside the corresponding control, not a detached banner.
 
 ## Non-goals
 
@@ -103,7 +103,7 @@ Persisted `module_links.link_kind` remains authoritative; handle ids are present
   beside that control.
 - Missing fields: warn border + warn chip on that row only.
 - Complete fields return to the normal neutral field border. They do not keep a green outline or
-  a verbose **Set · {label}** chip.
+  a confirmed-state text chip.
 - Complete fields show one subtle green check chip **inside the trailing edge of the field
   boundary**:
   - topic/sector: inside the text input;
@@ -179,9 +179,9 @@ if React Flow removed it before the server failure.
 **Automated:** `pnpm typecheck` PASS (7/7 packages); `pnpm lint` PASS (7/7); `pnpm test` PASS
 (contracts 39, adapters 20, secrets 5, llm 13, engine 44; db/web no test files, exit 0).
 Focused Playwright `apps/web/e2e/canvas-node-dashboard.spec.ts` **1/1** pass (~5.5s): skip setup →
-per-field Required/Set chips on always-visible fields → labeled LinkKind handles → chrome-click
-inspector without card geometry change → explicit **Save setup** → rename + **Restore generated
-name**.
+missing Required chips on always-visible fields → confirmed in-field checks with neutral borders →
+labeled LinkKind handles → chrome-click inspector without card geometry change → explicit **Save
+setup** → rename + **Restore generated name**.
 
 **IronBee (seeded day-trading company):** ARIA confirmed per-kind labeled handles and
 always-visible setup fields; chrome-click opened inspector with exact Name label and generated
@@ -192,6 +192,16 @@ that path) — covered by focused Playwright above.
 **Not claimed:** `company-workspace.spec.ts` was attempted but stopped before D-026 assertions
 (unrelated concurrent LLM drawer expectation); neither pass nor fail recorded for D-026 in that
 spec.
+
+**D-034 verified (2026-07-17):** `pnpm --filter @hftr/web exec tsc --noEmit` PASS;
+`pnpm --filter @hftr/web lint` PASS; focused `canvas-node-dashboard.spec.ts` **1/1** PASS
+(asserts no confirmed-state text chips, `Confirmed: {field label}` ARIA labels, and neutral
+`border-[var(--color-line)]` on confirmed inputs). IronBee on seeded day-trading canvas: ARIA
+exposed `Confirmed:` statuses for topic/sector, capital allocation, and target exit; cropped
+node screenshot confirmed in-field checks inside topic, allocation value, and target-exit
+inputs with native calendar spacing reserved; incremental console check after sequence 1427
+returned no new errors. `company-workspace.spec.ts` not claimed — blocked earlier by unrelated
+missing `LLM privacy & models` UI.
 
 ## Open points resolved in this design
 

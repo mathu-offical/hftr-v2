@@ -23,13 +23,16 @@ watches, steers, and approves through the canvas + three panels + the assistant.
   rename (`PATCH`), soft-delete/archive (`DELETE`), and **duplicate**
   (`POST .../duplicate`) which copies canvas topology (engines, modules, links) into a new
   **paper** company in one atomic database batch. Duplication never copies capital, allocations,
-  ValueRefs, auto-funding, live arming, or broker bind; non-Math modules return to `draft` for
-  explicit operator review. Runtime artifacts (traces, jobs, libraries) stay on the source.
+  ValueRefs, source-library IDs, auto-funding, live arming, or broker bind; topology-local module
+  IDs are remapped and non-Math modules return to `draft` for explicit operator review. Runtime
+  artifacts (traces, jobs, libraries) stay on the source.
 - **Company creation (implemented D-024):** offers discrete seed modules/engines and an inline
   setup section. Capital-bearing nodes (`holding_fund`, `fund_router`, `trading`) require a fixed
   or percentage capital allocation plus target exit; research/data/signal/trading analysis nodes
-  require topic/sector. Highlighted Required/Set chips validate in place. **Skip setup & open
-  canvas** creates draft nodes with visible missing-field chips and inline node controls.
+  require topic/sector. Missing fields validate in place with per-field **Required · label** chips
+  and warning borders; confirmed fields use neutral borders and subtle in-field green checks.
+  **Skip setup & open canvas** creates draft nodes with visible missing-field chips and inline
+  node controls.
 - The create form picks one of three company templates (`blank`,
   `day_trading_starter`, `trend_research_lab`). The module store additionally exposes insertable
   end-to-end `ENGINE_TEMPLATES` (day-trading and trend-research available; crypto/prediction/HFT

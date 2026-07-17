@@ -121,9 +121,13 @@ pnpm exec playwright test e2e/canvas-node-dashboard.spec.ts --reporter=line
 
 Expected: PASS.
 
-- [ ] **Step 7: Verify through IronBee**
+- [x] **Step 7: Verify through IronBee**
 
 Navigate to a day-trading canvas, save setup values, inspect the ARIA snapshot for `Confirmed:` statuses, take a screenshot to confirm checks are inside field boundaries, and check console messages for new errors.
+
+Evidence (2026-07-17): ARIA exposed `Confirmed:` statuses for all three fields; cropped node
+screenshot visually confirmed checks inside topic, allocation value, and target-exit fields with
+native calendar spacing; incremental console check after sequence 1427 returned no new errors.
 
 - [x] **Step 8: Commit**
 

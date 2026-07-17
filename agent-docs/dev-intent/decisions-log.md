@@ -171,8 +171,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   per accepted `LinkKind` inbound/outbound (not four anonymous data/control/tools points).
   (b) **Card:** fixed-size dashboard with always-visible editable high-level fields; no
   expand-on-select. Click chrome → inspector; fields stay interactive on-canvas. (c) **Validation:**
-  Required/Set chips and highlights sit on the corresponding field; setup saves via explicit
-  **Save setup** (not blur/Enter). (d) **Names:** auto-derived from function + connections until
+  missing fields show per-field **Required · label** chips and warning borders; confirmed fields
+  use neutral borders and subtle in-field green checks. Setup saves via explicit **Save setup**
+  (not blur/Enter). (d) **Names:** auto-derived from function + connections until
   customized; inspector **Restore generated name** (`restoreGeneratedName` PATCH). (e)
   **Supersedes D-024 §(c)** expand-selected / suppress-inspector-while-incomplete.
   **Implementation complete** (migration `0011_canvas_node_generated_names` → `generated_name_base`,
@@ -186,9 +187,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   client state if React Flow removed it before server failure. **Verified (2026-07-17):** migration
   applied after `0010`; `pnpm typecheck`/`lint`/`test` pass (contracts 39, adapters 20, secrets 5,
   llm 13, engine 44); focused Playwright `canvas-node-dashboard.spec.ts` 1/1 (always-visible fields,
-  per-field chips, labeled ports, fixed geometry on chrome-click, explicit **Save setup**, rename +
-  restore generated name); IronBee on seeded day-trading company confirmed per-kind handles,
-  always-visible fields, inspector Name + generated connection/base text, no new console errors.
+  missing Required chips, confirmed in-field checks with neutral borders, labeled ports, fixed
+  geometry on chrome-click, explicit **Save setup**, rename + restore generated name); IronBee on
+  seeded day-trading company confirmed per-kind handles, always-visible fields, inspector Name +
+  generated connection/base text, no new console errors.
   IronBee did not complete customize/restore (pre-migration sample). `company-workspace.spec.ts`
   not exercised through D-026 assertions (run stopped on unrelated LLM drawer expectation).
 
@@ -368,13 +370,19 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `ui-ux/canvas-layout-and-dedicated-math-design.md`.
 
 - **D-034 (subtle confirmed-field validation, 2026-07-17):**
-  Approved design; implementation pending. Missing setup fields keep their explicit warning border
+  Implemented and verified (2026-07-17). Missing setup fields keep their explicit warning border
   and **Required · label** chip. Confirmed fields return to normal neutral input chrome and show
-  only a subtle green check chip inside the field's trailing edge; no green field border and no
-  verbose **Set · label** chip. Capital allocation places the check inside the value input, while
+  only a subtle green check chip inside the field's trailing edge, without a confirmed-state text
+  chip or green field border. Capital allocation places the check inside the value input, while
   target-exit spacing avoids the native calendar control. The shared `ModuleSetupFields`
   implementation owns this behavior across company creation, engine setup, and canvas nodes, with
-  pointer-transparent chrome and screen-reader text `Confirmed: {field label}`.
+  pointer-transparent chrome and screen-reader text `Confirmed: {field label}`. Verification:
+  `pnpm --filter @hftr/web exec tsc --noEmit` PASS; `pnpm --filter @hftr/web lint` PASS; focused
+  `canvas-node-dashboard.spec.ts` 1/1 PASS; IronBee ARIA exposed `Confirmed:` statuses for all
+  three fields, cropped node screenshot confirmed checks inside topic, allocation value, and
+  target-exit fields with native calendar spacing, and incremental console check after sequence
+  1427 returned no new errors. `company-workspace.spec.ts` not claimed — blocked earlier by
+  unrelated missing `LLM privacy & models` UI.
 
 ## Open questions
 

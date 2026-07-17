@@ -1,5 +1,14 @@
 import { sql } from 'drizzle-orm';
-import { bigint, index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -56,3 +65,19 @@ export const subscriptions = pgTable('subscriptions', {
   periodEnd: timestamp('period_end', { withTimezone: true }),
   ...timestamps,
 });
+
+/** Per-user LLM provider API keys (AES-GCM ciphertext at rest). */
+export const userApiKeys = pgTable(
+  'user_api_keys',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    clerkUserId: text('clerk_user_id').notNull(),
+    provider: text('provider', { enum: ['anthropic', 'mistral', 'groq'] }).notNull(),
+    ciphertext: text('ciphertext').notNull(),
+    keyHint: text('key_hint').notNull(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex('user_api_keys_user_provider_unique').on(t.clerkUserId, t.provider)],
+);

@@ -63,6 +63,7 @@ export const modules = pgTable(
         'analyzer',
         'fund_router',
         'math',
+        'display',
       ],
     }).notNull(),
     subtype: text('subtype', {

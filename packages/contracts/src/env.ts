@@ -38,4 +38,9 @@ export const ENVIRONMENT_REQUIREMENTS: readonly EnvRequirement[] = [
     requiredIn: ['preview', 'prod'],
     consumer: 'apps/web (broker credentials at rest)',
   },
+  {
+    name: 'SETTINGS_ENCRYPTION_KEY',
+    requiredIn: ['preview', 'prod'],
+    consumer: 'apps/web (per-user LLM API keys at rest)',
+  },
 ] as const;

@@ -18,6 +18,7 @@ export const ModuleType = z.enum([
   'analyzer',
   'fund_router',
   'math',
+  'display',
 ]);
 export type ModuleType = z.infer<typeof ModuleType>;
 
@@ -52,6 +53,11 @@ export const LINK_RULES: Readonly<Record<string, readonly LinkKind[]>> = {
   'trading->analyzer': ['verification'],
   'math->trading': ['data_feed'],
   'math->trend': ['data_feed'],
+  'trading->display': ['data_feed'],
+  'analyzer->display': ['data_feed'],
+  'trend->display': ['data_feed'],
+  'live_api->display': ['data_feed'],
+  'math->display': ['data_feed'],
 };
 
 export function allowedLinkKinds(from: ModuleType, to: ModuleType): readonly LinkKind[] {
@@ -71,6 +77,7 @@ export const MODULE_COLUMN: Record<ModuleType, number> = {
   generator: 3,
   fund_router: 3,
   policy: 4,
+  display: 4,
 };
 
 export const CanvasPosition = z.object({ x: z.number(), y: z.number() });
@@ -117,6 +124,16 @@ export const PolicyModuleConfig = z.object({
   notes: z.string().default(''),
 });
 
+export const DisplayKind = z.enum(['table', 'list', 'ledger', 'chart', 'graph']);
+export type DisplayKind = z.infer<typeof DisplayKind>;
+
+export const DisplayModuleConfig = z.object({
+  displayKind: DisplayKind.default('table'),
+  title: z.string().min(1).max(80).default('Display'),
+  sourceModuleIds: z.array(z.string().uuid()).default([]),
+});
+export type DisplayModuleConfig = z.infer<typeof DisplayModuleConfig>;
+
 export const GenericModuleConfig = z.object({}).passthrough();
 
 export const MODULE_CONFIG_SCHEMAS: Record<ModuleType, z.ZodTypeAny> = {
@@ -131,6 +148,7 @@ export const MODULE_CONFIG_SCHEMAS: Record<ModuleType, z.ZodTypeAny> = {
   analyzer: GenericModuleConfig,
   fund_router: GenericModuleConfig,
   math: z.object({}).strict(), // math module carries no user config
+  display: DisplayModuleConfig,
 };
 
 // ── API payloads ─────────────────────────────────────────────────────────────

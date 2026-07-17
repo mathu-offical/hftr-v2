@@ -36,6 +36,13 @@
       "when": 1784272425146,
       "tag": "0004_petite_hellfire_club",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784274684165,
+      "tag": "0005_smiling_kid_colt",
+      "breakpoints": true
     }
   ]
 }

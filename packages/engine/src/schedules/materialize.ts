@@ -1,6 +1,6 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull } from 'drizzle-orm';
 import type { QueueClass } from '@hftr/contracts';
-import { jobSchedules } from '@hftr/db/schema';
+import { companies, jobSchedules } from '@hftr/db/schema';
 import type { Db } from '@hftr/db';
 import type { Clock } from '../clock';
 import { enqueue } from '../queue/queue';
@@ -55,9 +55,27 @@ export async function materializeSchedules(db: Db, clock: Clock): Promise<number
   const nowMs = clock.nowMs();
   const now = new Date(nowMs);
   const schedules = await db.select().from(jobSchedules).where(eq(jobSchedules.enabled, true));
+  const companyIds = [
+    ...new Set(
+      schedules
+        .map((schedule) => schedule.companyId)
+        .filter((companyId): companyId is string => typeof companyId === 'string'),
+    ),
+  ];
+  const archivedCompanyIds = new Set<string>();
+  if (companyIds.length > 0) {
+    const archivedRows = await db
+      .select({ id: companies.id })
+      .from(companies)
+      .where(and(inArray(companies.id, companyIds), isNotNull(companies.archivedAt)));
+    for (const row of archivedRows) {
+      archivedCompanyIds.add(row.id);
+    }
+  }
 
   let materialized = 0;
   for (const schedule of schedules) {
+    if (schedule.companyId && archivedCompanyIds.has(schedule.companyId)) continue;
     const { due, windowStartMs } = isScheduleDue(schedule, nowMs);
     if (!due) continue;
 

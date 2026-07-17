@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { AdapterCapabilities, BrokerConnectionSummary } from '@hftr/contracts';
 import { AdapterCapabilities as AdapterCapabilitiesSchema } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
@@ -63,7 +63,7 @@ export async function assertConnectionUnbound(
   const rows = await db
     .select({ id: companies.id })
     .from(companies)
-    .where(eq(companies.brokerConnectionId, connectionId))
+    .where(and(eq(companies.brokerConnectionId, connectionId), isNull(companies.archivedAt)))
     .limit(1);
   const bound = rows[0];
   if (!bound) return;

@@ -54,12 +54,22 @@ export async function listCompaniesDirectory(db: Db, clerkUserId: string) {
   }));
 }
 
-/** Returns the company or throws NotFoundError. Base check for all child access. */
+/**
+ * Returns a non-archived owned company or throws NotFoundError.
+ * Archived companies are treated as gone for scoped API/workspace access
+ * (ISO-005); archive itself clears live/broker state before this filter applies.
+ */
 export async function getOwnedCompany(db: Db, clerkUserId: string, companyId: string) {
   const rows = await db
     .select()
     .from(companies)
-    .where(and(eq(companies.id, companyId), eq(companies.clerkUserId, clerkUserId)))
+    .where(
+      and(
+        eq(companies.id, companyId),
+        eq(companies.clerkUserId, clerkUserId),
+        isNull(companies.archivedAt),
+      ),
+    )
     .limit(1);
   const company = rows[0];
   if (!company) throw new NotFoundError('company');

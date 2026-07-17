@@ -174,6 +174,17 @@ test.describe('Companies directory', () => {
     await expect(
       page.locator('[data-testid="company-card"]').filter({ hasText: renamed }),
     ).toBeVisible();
+
+    // Archived company is gone from scoped APIs (ISO-005 / fail-closed archive).
+    const afterArchive = await request.get(`/api/companies/${duplicateId}`);
+    expect(afterArchive.status()).toBe(404);
+    const renameArchived = await request.patch(`/api/companies/${duplicateId}`, {
+      data: { name: `${renamed} (ghost)` },
+    });
+    expect(renameArchived.status()).toBe(404);
+    const duplicateArchived = await request.post(`/api/companies/${duplicateId}/duplicate`);
+    expect(duplicateArchived.status()).toBe(404);
+
     await archiveCompany(request, duplicateId!).catch(() => undefined);
   });
 });

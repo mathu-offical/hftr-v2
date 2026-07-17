@@ -25,7 +25,11 @@ watches, steers, and approves through the canvas + three panels + the assistant.
   **paper** company in one atomic database batch. Duplication never copies capital, allocations,
   ValueRefs, source-library IDs, auto-funding, live arming, or broker bind; topology-local module
   IDs are remapped and non-Math modules return to `draft` for explicit operator review. Runtime
-  artifacts (traces, jobs, libraries) stay on the source.
+  artifacts (traces, jobs, libraries) stay on the source. **Archive is fail-closed:** one atomic
+  batch sets `archived_at`, forces `mode=paper`, clears live arming/evidence and broker bind,
+  disables company `job_schedules`, and pauses active modules. Scoped company APIs and
+  `resolveExecutionContext` treat archived companies as not found; schedule materialization skips
+  archived company schedules.
 - **Company creation (implemented D-024):** offers discrete seed modules/engines and an inline
   setup section. Capital-bearing nodes (`holding_fund`, `fund_router`, `trading`) require a fixed
   or percentage capital allocation plus target exit; research/data/signal/trading analysis nodes

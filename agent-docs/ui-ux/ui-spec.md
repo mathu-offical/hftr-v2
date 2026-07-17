@@ -39,7 +39,8 @@
 - **Companies directory (`/companies`):** card grid with paper (cyan) / live (red) text-first
   mode badges, included engine labels, link into the company canvas, and a ⋯ menu for rename,
   duplicate (always a zero-capital paper copy of topology with non-Math modules reset to draft),
-  and archive/delete.
+  and archive/delete (fail-closed: leaves directory, stops schedules, clears live/broker bind;
+  traces kept).
 
 ## 3. Canvas (React Flow)
 

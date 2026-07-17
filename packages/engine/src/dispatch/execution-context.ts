@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { BrokerAdapter, LiveGateEvidence, Venue } from '@hftr/contracts';
 import { LiveGateEvidence as LiveGateEvidenceSchema } from '@hftr/contracts';
 import { resolveBrokerAdapter, type BrokerConnectionResolveInput } from '@hftr/adapters';
@@ -64,7 +64,7 @@ export async function resolveExecutionContext(
       liveGateEvidenceId: companies.liveGateEvidenceId,
     })
     .from(companies)
-    .where(eq(companies.id, companyId))
+    .where(and(eq(companies.id, companyId), isNull(companies.archivedAt)))
     .limit(1);
   const company = companyRows[0];
   if (!company) {

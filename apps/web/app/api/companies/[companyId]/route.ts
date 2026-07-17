@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { UpdateCompanyInput } from '@hftr/contracts';
-import { companies } from '@hftr/db/schema';
+import { companies, jobSchedules, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
 import { parseBody, withAuth } from '@/lib/api';
 
@@ -35,15 +35,39 @@ export async function PATCH(req: Request, ctx: Ctx) {
   });
 }
 
-/** Archive (soft delete) — traces and ledgers are never destroyed. */
+/**
+ * Archive (soft delete) — traces and ledgers are never destroyed.
+ * Fail-closed: force paper, clear live arming/evidence, unbind broker,
+ * disable company schedules, and pause active modules in one Neon batch.
+ */
 export async function DELETE(_req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
     const { companyId } = Params.parse(await ctx.params);
     await scoping.getOwnedCompany(db, clerkUserId, companyId);
-    await db
-      .update(companies)
-      .set({ archivedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(companies.id, companyId), eq(companies.clerkUserId, clerkUserId)));
+    const now = new Date();
+
+    await db.batch([
+      db
+        .update(companies)
+        .set({
+          archivedAt: now,
+          mode: 'paper',
+          brokerConnectionId: null,
+          liveArmedAt: null,
+          liveGateEvidenceId: null,
+          updatedAt: now,
+        })
+        .where(and(eq(companies.id, companyId), eq(companies.clerkUserId, clerkUserId))),
+      db
+        .update(jobSchedules)
+        .set({ enabled: false, updatedAt: now })
+        .where(eq(jobSchedules.companyId, companyId)),
+      db
+        .update(modules)
+        .set({ status: 'paused', updatedAt: now })
+        .where(and(eq(modules.companyId, companyId), eq(modules.status, 'active'))),
+    ]);
+
     return { archived: true };
   });
 }

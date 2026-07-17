@@ -96,7 +96,7 @@ export function CompanyCard(props: CompanyCardProps) {
 
   async function deleteCompany() {
     const confirmed = window.confirm(
-      `Archive “${displayName}”? The company leaves the directory; traces and ledgers are kept.`,
+      `Archive “${displayName}”? It leaves the directory, stops schedules, and clears live/broker binding. Traces and ledgers are kept.`,
     );
     if (!confirmed) return;
     setBusy(true);

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AdapterCapabilities, ConnectionStatus } from './broker';
+import { AdapterCapabilities, BalanceSnapshot, ConnectionStatus, Venue } from './broker';
 
 /** Broker venues that accept user-owned API credentials (not paper_sim). */
 export const CredentialVenue = z.enum(['alpaca', 'kalshi', 'polymarket', 'coinbase']);
@@ -41,6 +41,31 @@ export const BindCompanyBrokerInput = z.object({
   brokerConnectionId: z.string().uuid().nullable(),
 });
 export type BindCompanyBrokerInput = z.infer<typeof BindCompanyBrokerInput>;
+
+/** Company-scoped broker bind + capital admission projection (GET /api/companies/:id/broker). */
+export const CompanyBrokerStatus = z.object({
+  bound: z.boolean(),
+  connection: BrokerConnectionSummary.nullable(),
+  venue: Venue,
+  /** Quote feed entitlement label when the bound adapter exposes one (e.g. alpaca_iex_paper). */
+  feedEntitlementLabel: z.string().nullable(),
+  virtualBalanceCents: z.string(),
+  brokerSnapshot: BalanceSnapshot.nullable(),
+  /** min(virtual, broker buying power) when bound with snapshot; else virtual. */
+  effectiveCapCents: z.string(),
+  mode: BrokerMode,
+  /** Always true when company mode is live — live dispatch remains fail-closed. */
+  liveGateBlocked: z.boolean(),
+});
+export type CompanyBrokerStatus = z.infer<typeof CompanyBrokerStatus>;
+
+export const LlmKeyVerifyResult = z.object({
+  ok: z.boolean(),
+  failure: z.string().nullable(),
+  /** When true, only format/decrypt was checked (no provider spend). */
+  deferred: z.boolean().optional(),
+});
+export type LlmKeyVerifyResult = z.infer<typeof LlmKeyVerifyResult>;
 
 /** Re-export order snapshot types from broker for consumers that import this module. */
 export { BrokerOrderSnapshot, OrderStatus } from './broker';

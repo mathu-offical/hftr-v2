@@ -150,6 +150,7 @@ export const DeterministicActionTask = z.object({
   stopPriceCents: z.number().int().nullable(),
   fillTimeoutMs: z.number().int().positive(),
   idempotencyKey: z.string().min(8),
+  clientOrderId: z.string().min(8).optional(),
   lineage: z.object({
     quantityRef: z.string(),
     limitPriceRef: z.string().nullable(),

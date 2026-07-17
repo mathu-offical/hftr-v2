@@ -36,6 +36,23 @@ export {
   scheduleWindowKey,
 } from './schedules/materialize';
 export { attachConceptsToLibraries } from './libraries/attach';
+export {
+  loadCompanyLinkGraph,
+  neighborIds,
+  resolveDirectiveTradingTarget,
+  resolveInboundLibraryModules,
+  resolveInboundLiveApiModules,
+  resolveLinkedModules,
+  resolveLinkedResearchModules,
+  resolveOutboundLibraryModules,
+  resolvePolicyModuleForTrading,
+  resolveViaLinkedModules,
+  instrumentsFromModuleConfig,
+  type CompanyLinkGraph,
+  type GraphEdge,
+  type GraphModule,
+  type GraphLinkKind,
+} from './graph/module-links';
 
 // Handlers (importing registers built-ins)
 export { registerHandler, getHandler, registeredKinds } from './handlers/registry';

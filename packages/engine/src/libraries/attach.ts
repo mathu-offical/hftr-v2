@@ -1,11 +1,16 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { ResearchModuleConfig } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { libraries, libraryConcepts, modules } from '@hftr/db/schema';
+import {
+  loadCompanyLinkGraph,
+  resolveOutboundLibraryModules,
+} from '../graph/module-links';
 
 /**
- * Attach newly persisted concepts to target libraries (proposed curation).
- * Falls back to the company master library when no explicit targets are set.
+ * Attach newly persisted concepts to target libraries.
+ * Preference order: research→library canvas data_feed edges → config
+ * targetLibraryIds → company master library.
  */
 export async function attachConceptsToLibraries(opts: {
   db: Db;
@@ -25,12 +30,12 @@ export async function attachConceptsToLibraries(opts: {
     .limit(1);
   if (!mod) return;
 
-  const config = ResearchModuleConfig.safeParse(mod.config);
-  const targetLibraryIds =
-    config.success && config.data.targetLibraryIds.length > 0
-      ? config.data.targetLibraryIds
-      : await resolveMasterLibraryId(opts.db, opts.companyId);
-
+  const targetLibraryIds = await resolveAttachLibraryIds(
+    opts.db,
+    opts.companyId,
+    opts.moduleId,
+    mod.config,
+  );
   if (targetLibraryIds.length === 0) return;
 
   for (const libraryId of targetLibraryIds) {
@@ -53,6 +58,37 @@ export async function attachConceptsToLibraries(opts: {
         });
     }
   }
+}
+
+async function resolveAttachLibraryIds(
+  db: Db,
+  companyId: string,
+  researchModuleId: string,
+  rawConfig: unknown,
+): Promise<string[]> {
+  const graph = await loadCompanyLinkGraph(db, companyId);
+  const linkedLibraryMods = resolveOutboundLibraryModules(graph, researchModuleId);
+  if (linkedLibraryMods.length > 0) {
+    const moduleIds = linkedLibraryMods.map((m) => m.id);
+    const linked = await db
+      .select({ id: libraries.id })
+      .from(libraries)
+      .where(
+        and(
+          eq(libraries.companyId, companyId),
+          eq(libraries.status, 'active'),
+          inArray(libraries.moduleId, moduleIds),
+        ),
+      );
+    if (linked.length > 0) return linked.map((r) => r.id);
+  }
+
+  const config = ResearchModuleConfig.safeParse(rawConfig);
+  if (config.success && config.data.targetLibraryIds.length > 0) {
+    return config.data.targetLibraryIds;
+  }
+
+  return resolveMasterLibraryId(db, companyId);
 }
 
 async function resolveMasterLibraryId(db: Db, companyId: string): Promise<string[]> {

@@ -4,11 +4,16 @@ import {
   companies,
   brokerConnections,
   leadPackages,
-  moduleLinks,
   modules,
   trendCandidates,
 } from '@hftr/db/schema';
 import { getSession, sessionPhase, venueDate } from '../calendar/calendar';
+import {
+  loadCompanyLinkGraph,
+  resolveDirectiveTradingTarget,
+  resolveInboundLibraryModules,
+  resolvePolicyModuleForTrading,
+} from '../graph/module-links';
 import { DEFAULT_FRESHNESS_WINDOW_MS, evaluateGates, gatesPass } from '../pipeline/gates';
 import { resolvePhilosophyControl } from '../pipeline/philosophy-control';
 import { enqueue } from '../queue/queue';
@@ -61,9 +66,16 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     .select()
     .from(modules)
     .where(eq(modules.companyId, payload.companyId));
-  const dispatchModuleId = payload.targetModuleId ?? payload.moduleId;
+
+  const graph = await loadCompanyLinkGraph(db, payload.companyId);
+  const linkedTrading = resolveDirectiveTradingTarget(graph, payload.moduleId);
+  const resolvedTargetId = payload.targetModuleId ?? linkedTrading?.id ?? null;
+  const dispatchModuleId = resolvedTargetId ?? payload.moduleId;
   const tradingModule =
     companyModules.find((m) => m.id === dispatchModuleId && m.type === 'trading') ??
+    (linkedTrading
+      ? companyModules.find((m) => m.id === linkedTrading.id)
+      : undefined) ??
     companyModules.find((m) => m.type === 'trading');
   const tradingConfig = (tradingModule?.config ?? {}) as { strategyFamilies?: string[] };
   const strategyFamily =
@@ -71,15 +83,9 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
       ? tradingConfig.strategyFamilies[0]
       : null;
 
-  const policyLinks = await db
-    .select()
-    .from(moduleLinks)
-    .where(
-      and(eq(moduleLinks.companyId, payload.companyId), eq(moduleLinks.linkKind, 'verification')),
-    );
-  const policyModuleIds = new Set(policyLinks.flatMap((l) => [l.fromModuleId, l.toModuleId]));
-  const policyModule = companyModules.find((m) => m.type === 'policy' && policyModuleIds.has(m.id));
+  const policyModule = resolvePolicyModuleForTrading(graph, tradingModule?.id ?? null);
   const policyConfig = (policyModule?.config ?? {}) as { policyEnvelopeRef?: string };
+  const linkedLibraryMods = resolveInboundLibraryModules(graph, payload.moduleId);
 
   const control = resolvePhilosophyControl({
     philosophyProfile: company.philosophyProfile,
@@ -117,6 +123,9 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
   const { refs: admittedArtifactRefs, libraryConceptCount } = await loadAdmittedArtifactRefs(
     db,
     payload.companyId,
+    linkedLibraryMods.length > 0
+      ? { libraryModuleIds: linkedLibraryMods.map((m) => m.id) }
+      : undefined,
   );
   // D-039: when any library concepts exist, evidence_fit consults admitted refs
   // (not freshness alone). Cold companies with empty libraries keep freshness-only.
@@ -164,7 +173,7 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     .values({
       companyId: payload.companyId,
       moduleId: payload.moduleId,
-      targetModuleId: payload.targetModuleId ?? null,
+      targetModuleId: resolvedTargetId,
       trendId: trend.id,
       symbol: trend.symbol,
       direction: trend.direction,
@@ -193,7 +202,7 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
       moduleId: payload.moduleId,
       leadId,
       trendId: trend.id,
-      ...(payload.targetModuleId !== undefined ? { targetModuleId: payload.targetModuleId } : {}),
+      ...(resolvedTargetId ? { targetModuleId: resolvedTargetId } : {}),
       controlSnapshot,
     },
     idempotencyKey: `tactical-expand-${leadId}`,

@@ -1,13 +1,30 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
-import { gatherEvidencePackages, normalizeToEvidencePackage } from '@hftr/adapters';
+import {
+  gatherEvidencePackages,
+  normalizeToEvidencePackage,
+  type LibraryConceptEvidenceInput,
+} from '@hftr/adapters';
 import {
   EvidencePackage,
   ResearchModuleConfig,
   ResearchSourceKind,
   RESEARCH_SOURCE_FEED_CLASS,
 } from '@hftr/contracts';
-import { modules, researchEvidence, researchRequests } from '@hftr/db/schema';
+import type { Db } from '@hftr/db';
+import {
+  concepts,
+  libraries,
+  libraryConcepts,
+  modules,
+  researchEvidence,
+  researchRequests,
+} from '@hftr/db/schema';
+import {
+  loadCompanyLinkGraph,
+  resolveLinkedModules,
+  resolveOutboundLibraryModules,
+} from '../graph/module-links';
 import { curiosityFromConfig, resolveCuriosityMaxEvidence } from '../research/curiosity';
 import { loadResearchRequest, upsertResearchResult, upsertResearchRun } from '../research/run-state';
 import { enqueue } from '../queue/queue';
@@ -63,15 +80,26 @@ registerHandler('research.gather', async ({ db, clock, job }) => {
   const requestedKinds = payload.sourceKinds ?? ResearchSourceKind.array().parse(rawSourceKinds);
   const externalKinds = requestedKinds.filter((k) => k !== 'catalog');
   const wantsCatalog = requestedKinds.includes('catalog') || requestedKinds.length === 0;
+  const wantsLibrary = requestedKinds.includes('library') || requestedKinds.length === 0;
+
+  const libraryConceptsForGather = wantsLibrary
+    ? await loadLinkedLibraryConceptEvidence(db, payload.companyId, payload.moduleId)
+    : [];
 
   const defaultExternalKinds: ResearchSourceKind[] = [
     'brave_search',
     'sec_edgar',
     'market_news',
   ];
+  const sourceKinds: ResearchSourceKind[] =
+    externalKinds.length > 0 ? [...externalKinds] : [...defaultExternalKinds];
+  if (libraryConceptsForGather.length > 0 && !sourceKinds.includes('library')) {
+    sourceKinds.push('library');
+  }
+
   const { packages: gathered, errors: gatherErrors } = await gatherEvidencePackages({
     query: queryText || topicScope,
-    sourceKinds: externalKinds.length > 0 ? externalKinds : defaultExternalKinds,
+    sourceKinds,
     allowlist: config.sourceAllowlist,
     blocklist: config.sourceBlocklist,
     maxEvidence,
@@ -79,6 +107,7 @@ registerHandler('research.gather', async ({ db, clock, job }) => {
     marketNewsApiKey: payload.marketNewsApiKey ?? null,
     secAllowEmptyOnError: true,
     marketNewsAllowDeterministicFallback: true,
+    libraryConcepts: libraryConceptsForGather,
   });
 
   const packages: EvidencePackage[] = [...gathered];
@@ -173,3 +202,64 @@ registerHandler('research.gather', async ({ db, clock, job }) => {
     moduleId: payload.moduleId,
   });
 });
+
+/** Admitted/accepted concepts from libraries linked to this research module on the canvas. */
+async function loadLinkedLibraryConceptEvidence(
+  db: Db,
+  companyId: string,
+  researchModuleId: string,
+): Promise<LibraryConceptEvidenceInput[]> {
+  const graph = await loadCompanyLinkGraph(db, companyId);
+  const outbound = resolveOutboundLibraryModules(graph, researchModuleId);
+  const inbound = resolveLinkedModules(graph, {
+    fromModuleId: researchModuleId,
+    targetTypes: ['library'],
+    kinds: ['data_feed'],
+    direction: 'in',
+    activeOnly: false,
+  });
+  const libraryModuleIds = [
+    ...new Set([...outbound, ...inbound].map((m) => m.id)),
+  ];
+  if (libraryModuleIds.length === 0) return [];
+
+  const libRows = await db
+    .select({ id: libraries.id, name: libraries.name, moduleId: libraries.moduleId })
+    .from(libraries)
+    .where(
+      and(
+        eq(libraries.companyId, companyId),
+        eq(libraries.status, 'active'),
+        inArray(libraries.moduleId, libraryModuleIds),
+      ),
+    );
+  if (libRows.length === 0) return [];
+
+  const libraryIds = libRows.map((l) => l.id);
+  const nameById = new Map(libRows.map((l) => [l.id, l.name]));
+  const rows = await db
+    .select({
+      conceptId: libraryConcepts.conceptId,
+      libraryId: libraryConcepts.libraryId,
+      curationStatus: libraryConcepts.curationStatus,
+      title: concepts.title,
+      body: concepts.body,
+    })
+    .from(libraryConcepts)
+    .innerJoin(concepts, eq(concepts.id, libraryConcepts.conceptId))
+    .where(inArray(libraryConcepts.libraryId, libraryIds))
+    .limit(48);
+
+  return rows
+    .filter((r) => r.curationStatus === 'accepted' || r.curationStatus === 'auto_admitted')
+    .map((r) => {
+      const libraryName = nameById.get(r.libraryId);
+      return {
+        conceptId: r.conceptId,
+        title: r.title,
+        body: r.body,
+        libraryId: r.libraryId,
+        ...(libraryName ? { libraryName } : {}),
+      };
+    });
+}

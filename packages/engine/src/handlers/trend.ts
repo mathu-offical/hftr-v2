@@ -3,13 +3,18 @@ import { trendCandidates } from '@hftr/db/schema';
 import { record } from '../calc/store';
 import { createFixedClock } from '../clock';
 import { getSyntheticQuote } from '../dispatch/quotes';
+import {
+  instrumentsFromModuleConfig,
+  loadCompanyLinkGraph,
+  resolveInboundLiveApiModules,
+} from '../graph/module-links';
 import { enqueueLinkedResearchCurate } from '../research/enqueue-linked';
 import { registerHandler } from './registry';
 
 const ScanPayload = z.object({
   companyId: z.string().uuid(),
   moduleId: z.string().uuid(),
-  symbols: z.array(z.string().min(1).max(12)).min(1).max(24),
+  symbols: z.array(z.string().min(1).max(12)).max(24).default([]),
   lookbackMinutes: z.number().int().min(5).max(390).default(60),
 });
 
@@ -20,19 +25,31 @@ const STRONG_BPS = 60;
 /**
  * Deterministic trend scan (RESEARCH queue). Computes quote drift over the
  * lookback window and emits trend candidates with qualitative strength bands.
- * Honestly labeled `deterministic_scan` — this is NOT model output; the LLM
- * tiers will later nominate candidates through the same table with
- * `model_nominated`. Drift values land in the ValueRef store, so the model
- * tier only ever sees the band, never the number.
+ * Symbols come from the job payload and/or live_api→trend data_feed edges /
+ * trend module instruments config — canvas links drive scan inputs.
  */
 registerHandler('trend.scan', async ({ db, clock, job }) => {
   const payload = ScanPayload.parse(job.payload);
+  const graph = await loadCompanyLinkGraph(db, payload.companyId);
+  const trendMod = graph.modulesById.get(payload.moduleId);
+  const fromLiveApi = resolveInboundLiveApiModules(graph, payload.moduleId).flatMap((m) =>
+    instrumentsFromModuleConfig(m.config),
+  );
+  const fromTrendConfig = trendMod ? instrumentsFromModuleConfig(trendMod.config) : [];
+  const symbolSet = new Set<string>();
+  for (const s of [...payload.symbols, ...fromLiveApi, ...fromTrendConfig]) {
+    const up = s.trim().toUpperCase();
+    if (up.length >= 1 && up.length <= 12) symbolSet.add(up);
+  }
+  const symbols = [...symbolSet].slice(0, 24);
+  if (symbols.length === 0) return;
+
   const nowMs = clock.nowMs();
   const thenMs = nowMs - payload.lookbackMinutes * 60_000;
   const scannedAt = new Date(nowMs);
   let hasNonFlat = false;
 
-  for (const symbol of payload.symbols) {
+  for (const symbol of symbols) {
     const nowQuote = getSyntheticQuote(symbol, clock);
     const thenQuote = getSyntheticQuote(symbol, createFixedClock(thenMs));
     const nowPx = nowQuote.lastCents ?? 0;
@@ -71,7 +88,7 @@ registerHandler('trend.scan', async ({ db, clock, job }) => {
     await enqueueLinkedResearchCurate(db, clock, {
       companyId: payload.companyId,
       sourceModuleId: payload.moduleId,
-      queryText: payload.symbols.join(' '),
+      queryText: symbols.join(' '),
     });
   }
 });

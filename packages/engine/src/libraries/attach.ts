@@ -1,0 +1,67 @@
+import { and, eq } from 'drizzle-orm';
+import { ResearchModuleConfig } from '@hftr/contracts';
+import type { Db } from '@hftr/db';
+import { libraries, libraryConcepts, modules } from '@hftr/db/schema';
+
+/**
+ * Attach newly persisted concepts to target libraries (proposed curation).
+ * Falls back to the company master library when no explicit targets are set.
+ */
+export async function attachConceptsToLibraries(opts: {
+  db: Db;
+  companyId: string;
+  moduleId: string;
+  conceptIds: string[];
+  now: Date;
+}): Promise<void> {
+  if (opts.conceptIds.length === 0) return;
+
+  const [mod] = await opts.db
+    .select({ config: modules.config })
+    .from(modules)
+    .where(and(eq(modules.id, opts.moduleId), eq(modules.companyId, opts.companyId)))
+    .limit(1);
+  if (!mod) return;
+
+  const config = ResearchModuleConfig.safeParse(mod.config);
+  const targetLibraryIds =
+    config.success && config.data.targetLibraryIds.length > 0
+      ? config.data.targetLibraryIds
+      : await resolveMasterLibraryId(opts.db, opts.companyId);
+
+  if (targetLibraryIds.length === 0) return;
+
+  for (const libraryId of targetLibraryIds) {
+    for (const conceptId of opts.conceptIds) {
+      await opts.db
+        .insert(libraryConcepts)
+        .values({
+          libraryId,
+          conceptId,
+          curationStatus: 'proposed',
+        })
+        .onConflictDoUpdate({
+          target: [libraryConcepts.libraryId, libraryConcepts.conceptId],
+          set: {
+            updatedAt: opts.now,
+          },
+        });
+    }
+  }
+}
+
+async function resolveMasterLibraryId(db: Db, companyId: string): Promise<string[]> {
+  const rows = await db
+    .select({ id: libraries.id })
+    .from(libraries)
+    .where(
+      and(
+        eq(libraries.companyId, companyId),
+        eq(libraries.masterLibrary, true),
+        eq(libraries.status, 'active'),
+      ),
+    )
+    .limit(1);
+  const master = rows[0];
+  return master ? [master.id] : [];
+}

@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { and, eq, gte } from 'drizzle-orm';
 import type {
   BrokerAdapter,
   DeterministicActionTask,
+  GuardrailEvaluation,
   HandoffEnvelope,
+  LimitsSnapshot,
   QuoteSnapshot,
   Venue,
 } from '@hftr/contracts';
@@ -14,14 +16,19 @@ import {
   deterministicTasks,
   dispatchReconciliationEvents,
   ledgerEntries,
+  modules,
   verificationRecords,
 } from '@hftr/db/schema';
 import type { Clock } from '../clock';
 import { getSession, sessionPhase, venueDate } from '../calendar/calendar';
 import { record } from '../calc/store';
+import { evaluateGuardrails } from '../guardrails/evaluate';
+import { computeOperatingLimits } from '../limits/compute';
+import type { LimitContext } from '../limits/context';
 import { enqueue } from '../queue/queue';
 import { getCompanyBalanceCents } from './balances';
 import { resolveExecutionContext } from './execution-context';
+import { preDispatchGauntlet } from './pre-dispatch';
 import { applyFill, getPosition } from './positions';
 import { getSyntheticQuote } from './quotes';
 
@@ -57,6 +64,9 @@ const VERIFICATION_SCHEMA_VERSION = 'trade_verify_v1';
 const MAX_QUANTITY = 100_000;
 const QUOTE_TTL_MS = 90_000;
 const MAX_FILL_DEVIATION_BPS = 50;
+const DEFAULT_BROKER_ENVELOPE_ID = 'bpe-001';
+const DEFAULT_GUARDRAIL_PACKAGE_IDS = ['grd-001', 'grd-003'] as const;
+const ORDER_FREQ_WINDOW_MS = 60_000;
 
 export { getCompanyBalanceCents } from './balances';
 
@@ -256,6 +266,126 @@ export async function executePaperTrade(
     .values({ instructionId, payload: task, idempotencyKey: task.idempotencyKey })
     .returning({ id: deterministicTasks.id });
   const taskId = taskRows[0]!.id;
+
+  const referenceCentsForGauntlet = quote.askCents ?? quote.lastCents ?? 0;
+  let effectiveCapCents = execCtx.virtualBalanceCents;
+  let brokerBuyingPowerCents: bigint | undefined;
+  if (venue !== 'paper_sim') {
+    try {
+      const brokerBalances = await adapter.getBalances();
+      brokerBuyingPowerCents = BigInt(brokerBalances.buyingPowerCents);
+      effectiveCapCents =
+        effectiveCapCents < brokerBuyingPowerCents ? effectiveCapCents : brokerBuyingPowerCents;
+    } catch {
+      await db
+        .update(deterministicTasks)
+        .set({ status: 'blocked', updatedAt: new Date(clock.nowMs()) })
+        .where(eq(deterministicTasks.id, taskId));
+      await db
+        .update(actionInstructions)
+        .set({ status: 'blocked', updatedAt: new Date(clock.nowMs()) })
+        .where(eq(actionInstructions.id, instructionId));
+      return blocked(
+        db,
+        clock,
+        req,
+        envelope,
+        'broker_policy_block',
+        'broker buying power unavailable for pre-dispatch gauntlet',
+        sessionSnapshot,
+        venue,
+      );
+    }
+  }
+
+  let limitsSnapshot: LimitsSnapshot;
+  let guardrailEvaluations: GuardrailEvaluation[];
+  try {
+    const nowMs = clock.nowMs();
+    const recentTraceTimestampsMs = await loadRecentDispatchTraceTimestamps(
+      db,
+      req.companyId,
+      nowMs,
+    );
+    const activeGuardrailPackageIds = await resolveActiveGuardrailPackageIds(db, req.moduleId);
+    const limitCtx: LimitContext = {
+      companyId: req.companyId,
+      moduleId: req.moduleId,
+      mode: execCtx.companyMode,
+      nowMs,
+      sessionPhase: phase,
+      virtualBalanceCents: execCtx.virtualBalanceCents,
+      equityCents: execCtx.virtualBalanceCents,
+      realizedLossCents: 0n,
+      brokerEnvelopeId: DEFAULT_BROKER_ENVELOPE_ID,
+      recentTraceTimestampsMs,
+    };
+    if (brokerBuyingPowerCents !== undefined) {
+      limitCtx.brokerBuyingPowerCents = brokerBuyingPowerCents;
+    }
+    limitsSnapshot = computeOperatingLimits(limitCtx);
+
+    const quoteAsOfMs = Date.parse(quote.asOfIso);
+    const quoteFreshnessStale = !Number.isFinite(quoteAsOfMs) || nowMs - quoteAsOfMs > QUOTE_TTL_MS;
+    guardrailEvaluations = evaluateGuardrails({
+      nowMs,
+      sessionPhase: phase,
+      mode: execCtx.companyMode,
+      activePackageIds: activeGuardrailPackageIds,
+      quoteFreshnessStale,
+    });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : 'catalog or limits evaluation failed';
+    await db
+      .update(deterministicTasks)
+      .set({ status: 'blocked', updatedAt: new Date(clock.nowMs()) })
+      .where(eq(deterministicTasks.id, taskId));
+    await db
+      .update(actionInstructions)
+      .set({ status: 'blocked', updatedAt: new Date(clock.nowMs()) })
+      .where(eq(actionInstructions.id, instructionId));
+    return blocked(
+      db,
+      clock,
+      req,
+      envelope,
+      'limits_block',
+      `pre-dispatch safety evaluation failed closed: ${detail}`,
+      sessionSnapshot,
+      venue,
+    );
+  }
+
+  const gauntlet = preDispatchGauntlet(task, {
+    mode: execCtx.companyMode,
+    sessionPhase: phase,
+    effectiveCapCents,
+    priceCents: referenceCentsForGauntlet,
+    liveGateBlocked: true, // fail-closed: live not armed in v2; blocks live mode in gauntlet
+    maxQuantity: MAX_QUANTITY,
+    limitsSnapshot,
+    guardrailEvaluations,
+  });
+  if (!gauntlet.ok) {
+    await db
+      .update(deterministicTasks)
+      .set({ status: 'blocked', updatedAt: new Date(clock.nowMs()) })
+      .where(eq(deterministicTasks.id, taskId));
+    await db
+      .update(actionInstructions)
+      .set({ status: 'blocked', updatedAt: new Date(clock.nowMs()) })
+      .where(eq(actionInstructions.id, instructionId));
+    return blocked(
+      db,
+      clock,
+      req,
+      envelope,
+      gauntlet.failureCode ?? 'broker_policy_block',
+      gauntlet.detail,
+      sessionSnapshot,
+      venue,
+    );
+  }
 
   if (venue !== 'paper_sim') {
     return executeVenueTrade(db, clock, req, {
@@ -974,4 +1104,32 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
       },
     );
   });
+}
+
+async function loadRecentDispatchTraceTimestamps(
+  db: Db,
+  companyId: string,
+  nowMs: number,
+): Promise<number[]> {
+  const windowStart = new Date(nowMs - ORDER_FREQ_WINDOW_MS);
+  const rows = await db
+    .select({ createdAt: actionTraces.createdAt })
+    .from(actionTraces)
+    .where(and(eq(actionTraces.companyId, companyId), gte(actionTraces.createdAt, windowStart)));
+  return rows.map((row) => row.createdAt.getTime());
+}
+
+async function resolveActiveGuardrailPackageIds(db: Db, moduleId: string): Promise<string[]> {
+  const moduleRows = await db
+    .select({ config: modules.config })
+    .from(modules)
+    .where(eq(modules.id, moduleId))
+    .limit(1);
+  const cfg = moduleRows[0]?.config as Record<string, unknown> | null;
+  const ids = cfg?.guardrailPackageIds;
+  if (Array.isArray(ids)) {
+    const filtered = ids.filter((id): id is string => typeof id === 'string' && id.length > 0);
+    if (filtered.length > 0) return filtered;
+  }
+  return [...DEFAULT_GUARDRAIL_PACKAGE_IDS];
 }

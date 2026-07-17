@@ -1,6 +1,13 @@
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { companies, leadPackages, moduleLinks, modules, trendCandidates } from '@hftr/db/schema';
+import {
+  companies,
+  brokerConnections,
+  leadPackages,
+  moduleLinks,
+  modules,
+  trendCandidates,
+} from '@hftr/db/schema';
 import { getSession, sessionPhase, venueDate } from '../calendar/calendar';
 import { DEFAULT_FRESHNESS_WINDOW_MS, evaluateGates, gatesPass } from '../pipeline/gates';
 import { resolvePhilosophyControl } from '../pipeline/philosophy-control';
@@ -82,6 +89,28 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     control.freshnessWindow === 'strict_12h'
       ? STRICT_FRESHNESS_WINDOW_MS
       : DEFAULT_FRESHNESS_WINDOW_MS;
+
+  let brokerConnected = false;
+  let brokerConnectionMode: 'paper' | 'live' | null = null;
+  let venue: 'paper_sim' | 'alpaca' | 'kalshi' | 'polymarket' | 'coinbase' | null = 'paper_sim';
+  if (company.brokerConnectionId) {
+    const connRows = await db
+      .select({
+        venue: brokerConnections.venue,
+        mode: brokerConnections.mode,
+        status: brokerConnections.status,
+      })
+      .from(brokerConnections)
+      .where(eq(brokerConnections.id, company.brokerConnectionId))
+      .limit(1);
+    const conn = connRows[0];
+    if (conn && conn.status === 'connected') {
+      brokerConnected = true;
+      brokerConnectionMode = conn.mode;
+      venue = conn.venue;
+    }
+  }
+
   const gates = evaluateGates({
     symbol: trend.symbol,
     direction: trend.direction,
@@ -91,6 +120,10 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     mode: company.mode,
     instruments: Array.isArray(moduleConfig.instruments) ? moduleConfig.instruments : null,
     freshnessWindowMs,
+    venue,
+    brokerConnected,
+    brokerConnectionMode,
+    feedClass: venue === 'paper_sim' ? 'synthetic_sim' : brokerConnected ? 'broker_state' : null,
   });
   const admitted = gatesPass(gates);
 

@@ -5,6 +5,7 @@ import type { Db } from '@hftr/db';
 import { companies, conceptLinks, concepts, modules } from '@hftr/db/schema';
 import type { Clock } from '../clock';
 import { venueDate } from '../calendar/calendar';
+import { attachConceptsToLibraries } from '../libraries/attach';
 import { enqueue } from '../queue/queue';
 import type { ClaimedJob } from '../queue/queue';
 import { curateDeterministic, loadCatalogHints } from './research-deterministic';
@@ -164,6 +165,7 @@ async function persistConceptBatch(opts: {
   now: Date;
 }): Promise<void> {
   const titleToId = new Map<string, string>();
+  const persistedIds: string[] = [];
 
   for (const draft of opts.batch.concepts) {
     const rows = await opts.db
@@ -191,7 +193,10 @@ async function persistConceptBatch(opts: {
       })
       .returning({ id: concepts.id, title: concepts.title });
     const row = rows[0];
-    if (row) titleToId.set(row.title, row.id);
+    if (row) {
+      titleToId.set(row.title, row.id);
+      persistedIds.push(row.id);
+    }
   }
 
   if (opts.batch.links.length > 0) {
@@ -225,4 +230,12 @@ async function persistConceptBatch(opts: {
         },
       });
   }
+
+  await attachConceptsToLibraries({
+    db: opts.db,
+    companyId: opts.companyId,
+    moduleId: opts.moduleId,
+    conceptIds: persistedIds,
+    now: opts.now,
+  });
 }

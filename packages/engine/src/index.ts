@@ -10,10 +10,31 @@ export {
   queueStats,
   sweepExpiredLeases,
   pruneCompleted,
+  deferBudgetQueuedJobs,
+  clearBudgetQueueErrors,
   type EnqueueDef,
   type ClaimedJob,
+  type JobCostEstimate,
 } from './queue/queue';
+export {
+  BUDGET_QUEUED_ERROR,
+  LLM_BUDGET_QUEUE_CLASSES,
+  hasNonEmptyCostEstimate,
+  isBudgetExhausted,
+  shouldDeferForBudget,
+  type BudgetRowSnapshot,
+} from './queue/budget-admission';
 export { drainQueues, type DrainResult } from './queue/drain';
+export { exportObsidianNotes, type ObsidianExportNote } from './export/obsidian';
+export type { ObsidianConceptInput, ObsidianLinkInput } from './export/obsidian';
+export {
+  materializeSchedules,
+  ensureResearchCadenceSchedule,
+  parseScheduleExpr,
+  isScheduleDue,
+  scheduleWindowKey,
+} from './schedules/materialize';
+export { attachConceptsToLibraries } from './libraries/attach';
 
 // Handlers (importing registers built-ins)
 export { registerHandler, getHandler, registeredKinds } from './handlers/registry';
@@ -31,6 +52,7 @@ import './handlers/tactical';
 import './handlers/compile-select';
 import './handlers/research';
 import './handlers/reconcile';
+import './handlers/simulation';
 
 // Dispatch
 export {
@@ -99,3 +121,58 @@ export {
   buildOrientation,
   type SessionInfo,
 } from './calendar/calendar';
+
+// Dynamic safety foundation (D-028)
+export { computeOperatingLimits } from './limits/compute';
+export { clampLimit, clampLossRemaining } from './limits/clamp';
+export type { LimitContext } from './limits/context';
+export {
+  loadGuardrailPackages,
+  loadBrokerEnvelopes,
+  loadSessionConstraints,
+  loadLiveGateThresholdBands,
+  CATALOG_VERSION,
+  LIVE_GATE_BANDS_VERSION,
+} from './limits/catalog-loader';
+export {
+  evaluateGuardrails,
+  guardrailsBlock,
+  type GuardrailEvalContext,
+} from './guardrails/evaluate';
+export {
+  getGuardrailPackage,
+  listGuardrailPackageIds,
+  guardrailPackageRef,
+} from './guardrails/registry';
+export {
+  evaluateLiveGateChecklist,
+  liveGateIdsInOrder,
+  LIVE_GATE_EVIDENCE_MAX_AGE_MS,
+} from './live-gates/checklist';
+export { buildLiveGateEvidence, isLiveArmingAllowed } from './live-gates/evidence';
+export { gatherLiveGateChecklistInput, countTracesOlderThan } from './live-gates/gather';
+export {
+  preDispatchGauntlet,
+  type PreDispatchContext,
+  type PreDispatchResult,
+} from './dispatch/pre-dispatch';
+export {
+  resolveLeverSetting,
+  resolveBandPosition,
+  resolveSizingBasisBps,
+} from './pipeline/lever-resolver';
+export {
+  walkValueLineage,
+  MAX_LINEAGE_DEPTH,
+  type LineageNode,
+  type LineageWalkResult,
+} from './calc/lineage';
+export {
+  canDecideTransfer,
+  validateTransferDecision,
+  transferLedgerDeltaCents,
+  transferDescription,
+  isTerminalTransferStatus,
+  type TransferDecision,
+  type FundTransferStatus,
+} from './fund-transfers/transfer';

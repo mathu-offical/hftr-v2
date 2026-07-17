@@ -1,8 +1,9 @@
-import { eq } from 'drizzle-orm';
-import type { BrokerAdapter, Venue } from '@hftr/contracts';
+import { desc, eq } from 'drizzle-orm';
+import type { BrokerAdapter, LiveGateEvidence, Venue } from '@hftr/contracts';
+import { LiveGateEvidence as LiveGateEvidenceSchema } from '@hftr/contracts';
 import { resolveBrokerAdapter, type BrokerConnectionResolveInput } from '@hftr/adapters';
 import type { Db } from '@hftr/db';
-import { brokerConnections, companies } from '@hftr/db/schema';
+import { brokerConnections, companies, liveGateEvidence } from '@hftr/db/schema';
 import { decryptSecret } from '@hftr/secrets';
 import type { Clock } from '../clock';
 import { getCompanyBalanceCents } from './balances';
@@ -21,6 +22,35 @@ function parseStoredCredentials(plain: string): unknown {
   return JSON.parse(plain) as unknown;
 }
 
+async function loadLiveGateEvidence(
+  db: Db,
+  companyId: string,
+  evidenceId: string | null,
+): Promise<LiveGateEvidence | null> {
+  if (evidenceId) {
+    const rows = await db
+      .select({ evidence: liveGateEvidence.evidence })
+      .from(liveGateEvidence)
+      .where(eq(liveGateEvidence.id, evidenceId))
+      .limit(1);
+    const row = rows[0];
+    if (row) {
+      const parsed = LiveGateEvidenceSchema.safeParse(row.evidence);
+      return parsed.success ? parsed.data : null;
+    }
+  }
+  const latest = await db
+    .select({ evidence: liveGateEvidence.evidence })
+    .from(liveGateEvidence)
+    .where(eq(liveGateEvidence.companyId, companyId))
+    .orderBy(desc(liveGateEvidence.createdAt))
+    .limit(1);
+  const row = latest[0];
+  if (!row) return null;
+  const parsed = LiveGateEvidenceSchema.safeParse(row.evidence);
+  return parsed.success ? parsed.data : null;
+}
+
 export async function resolveExecutionContext(
   db: Db,
   clock: Clock,
@@ -30,6 +60,8 @@ export async function resolveExecutionContext(
     .select({
       mode: companies.mode,
       brokerConnectionId: companies.brokerConnectionId,
+      liveArmedAt: companies.liveArmedAt,
+      liveGateEvidenceId: companies.liveGateEvidenceId,
     })
     .from(companies)
     .where(eq(companies.id, companyId))
@@ -39,7 +71,10 @@ export async function resolveExecutionContext(
     throw new Error('company_not_found');
   }
 
-  if (company.mode === 'live') {
+  const nowMs = clock.nowMs();
+  const armedAtMs = company.liveArmedAt?.getTime() ?? null;
+
+  if (company.mode === 'live' && !armedAtMs) {
     throw new Error('live_gate_blocked');
   }
 
@@ -53,14 +88,32 @@ export async function resolveExecutionContext(
     const conn = connRows[0];
     if (conn) {
       const plain = decryptSecret(conn.ciphertext, 'broker_credentials');
+      const credentials = parseStoredCredentials(plain);
       connectionInput = {
         venue: conn.venue,
         mode: conn.mode,
         status: conn.status,
-        credentials: parseStoredCredentials(plain),
+        credentials,
+        ...(conn.venue === 'kalshi' && typeof credentials === 'object' && credentials !== null
+          ? {
+              demoMode:
+                'demoMode' in credentials
+                  ? Boolean((credentials as { demoMode?: boolean }).demoMode)
+                  : true,
+            }
+          : {}),
       };
     }
   }
+
+  if (connectionInput?.mode === 'live' && !armedAtMs) {
+    throw new Error('live_gate_blocked');
+  }
+
+  const evidence =
+    connectionInput?.mode === 'live' || company.mode === 'live'
+      ? await loadLiveGateEvidence(db, companyId, company.liveGateEvidenceId)
+      : null;
 
   const virtualBalanceCents = await getCompanyBalanceCents(db, companyId);
   const adapter = resolveBrokerAdapter({
@@ -69,6 +122,11 @@ export async function resolveExecutionContext(
     paperSim: {
       getQuote: (symbol) => getSyntheticQuote(symbol, clock),
       startingCashCents: Number(virtualBalanceCents),
+    },
+    liveArming: {
+      armedAtMs,
+      evidence,
+      nowMs,
     },
   });
 

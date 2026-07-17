@@ -1,8 +1,17 @@
-import { and, eq, inArray, lt, lte, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, lt, lte, or, sql } from 'drizzle-orm';
 import type { Db } from '@hftr/db';
-import { jobs } from '@hftr/db/schema';
+import { jobs, llmBudgets } from '@hftr/db/schema';
 import { PRIORITY_VALUE, type PriorityBand, type QueueClass } from '@hftr/contracts';
 import type { Clock } from '../clock';
+import {
+  BUDGET_QUEUED_ERROR,
+  hasNonEmptyCostEstimate,
+  isBudgetExhausted,
+  isLlmBudgetQueueClass,
+  LLM_BUDGET_QUEUE_CLASSES,
+  resolveBudgetProvider,
+  type JobCostEstimate,
+} from './budget-admission';
 
 /**
  * Custom Postgres queue (agent-docs/architecture/job-orchestration.md).
@@ -20,7 +29,10 @@ export interface EnqueueDef {
   maxAttempts?: number;
   companyId?: string | null;
   moduleId?: string | null;
+  costEstimate?: JobCostEstimate;
 }
+
+export type { JobCostEstimate };
 
 /** Insert a job; duplicate idempotency keys are silently ignored (dedup). */
 export async function enqueue(db: Db, clock: Clock, def: EnqueueDef): Promise<void> {
@@ -36,6 +48,7 @@ export async function enqueue(db: Db, clock: Clock, def: EnqueueDef): Promise<vo
       maxAttempts: def.maxAttempts ?? 5,
       companyId: def.companyId ?? null,
       moduleId: def.moduleId ?? null,
+      costEstimate: def.costEstimate ?? {},
     })
     .onConflictDoNothing({ target: jobs.idempotencyKey });
 }
@@ -53,7 +66,134 @@ export type ClaimedJob = typeof jobs.$inferSelect;
  * Claim due jobs with FOR UPDATE SKIP LOCKED so concurrent drains never
  * double-claim. Also reclaims jobs whose lease expired (crashed worker).
  */
+/** Stamp budget_queued on pending LLM jobs when company budget is exhausted. */
+export async function deferBudgetQueuedJobs(db: Db, clock: Clock): Promise<number> {
+  const nowMs = clock.nowMs();
+  const now = new Date(nowMs);
+  const pending = await db
+    .select()
+    .from(jobs)
+    .where(
+      and(
+        eq(jobs.status, 'pending'),
+        inArray(jobs.queueClass, [...LLM_BUDGET_QUEUE_CLASSES]),
+        isNotNull(jobs.companyId),
+        or(sql`${jobs.lastError} IS NULL`, sql`${jobs.lastError} <> ${BUDGET_QUEUED_ERROR}`),
+      ),
+    );
+
+  let deferred = 0;
+  for (const job of pending) {
+    const estimate = (job.costEstimate ?? {}) as JobCostEstimate;
+    if (!hasNonEmptyCostEstimate(estimate) || !job.companyId) continue;
+    const provider = resolveBudgetProvider(estimate);
+    if (!provider) continue;
+
+    const budgetRows = await db
+      .select()
+      .from(llmBudgets)
+      .where(
+        and(
+          eq(llmBudgets.scope, 'company'),
+          eq(llmBudgets.scopeId, job.companyId),
+          eq(llmBudgets.provider, provider),
+        ),
+      )
+      .limit(1);
+    const budget = budgetRows[0];
+    if (!budget) continue;
+
+    if (
+      isBudgetExhausted(
+        {
+          consumedCalls: budget.consumedCalls,
+          maxCalls: budget.maxCalls,
+          consumedCostCents: budget.consumedCostCents,
+          maxCostCents: budget.maxCostCents,
+          windowMinutes: budget.windowMinutes,
+          windowStartedAt: budget.windowStartedAt,
+        },
+        estimate,
+        nowMs,
+      )
+    ) {
+      await db
+        .update(jobs)
+        .set({ lastError: BUDGET_QUEUED_ERROR, updatedAt: now })
+        .where(eq(jobs.id, job.id));
+      deferred += 1;
+    }
+  }
+  return deferred;
+}
+
+/** Clear budget_queued marker when company budget has headroom again. */
+export async function clearBudgetQueueErrors(db: Db, clock: Clock): Promise<number> {
+  const nowMs = clock.nowMs();
+  const now = new Date(nowMs);
+  const queued = await db
+    .select()
+    .from(jobs)
+    .where(and(eq(jobs.status, 'pending'), eq(jobs.lastError, BUDGET_QUEUED_ERROR)));
+
+  let cleared = 0;
+  for (const job of queued) {
+    const estimate = (job.costEstimate ?? {}) as JobCostEstimate;
+    if (!job.companyId || !isLlmBudgetQueueClass(job.queueClass)) {
+      await db.update(jobs).set({ lastError: null, updatedAt: now }).where(eq(jobs.id, job.id));
+      cleared += 1;
+      continue;
+    }
+    if (!hasNonEmptyCostEstimate(estimate)) {
+      await db.update(jobs).set({ lastError: null, updatedAt: now }).where(eq(jobs.id, job.id));
+      cleared += 1;
+      continue;
+    }
+    const provider = resolveBudgetProvider(estimate);
+    if (!provider) {
+      await db.update(jobs).set({ lastError: null, updatedAt: now }).where(eq(jobs.id, job.id));
+      cleared += 1;
+      continue;
+    }
+
+    const budgetRows = await db
+      .select()
+      .from(llmBudgets)
+      .where(
+        and(
+          eq(llmBudgets.scope, 'company'),
+          eq(llmBudgets.scopeId, job.companyId),
+          eq(llmBudgets.provider, provider),
+        ),
+      )
+      .limit(1);
+    const budget = budgetRows[0];
+    if (!budget) {
+      await db.update(jobs).set({ lastError: null, updatedAt: now }).where(eq(jobs.id, job.id));
+      cleared += 1;
+      continue;
+    }
+
+    const snapshot = {
+      consumedCalls: budget.consumedCalls,
+      maxCalls: budget.maxCalls,
+      consumedCostCents: budget.consumedCostCents,
+      maxCostCents: budget.maxCostCents,
+      windowMinutes: budget.windowMinutes,
+      windowStartedAt: budget.windowStartedAt,
+    };
+    if (!isBudgetExhausted(snapshot, estimate, nowMs)) {
+      await db.update(jobs).set({ lastError: null, updatedAt: now }).where(eq(jobs.id, job.id));
+      cleared += 1;
+    }
+  }
+  return cleared;
+}
+
 export async function claimJobs(db: Db, clock: Clock, opts: ClaimOptions): Promise<ClaimedJob[]> {
+  await clearBudgetQueueErrors(db, clock);
+  await deferBudgetQueuedJobs(db, clock);
+
   const now = new Date(clock.nowMs());
   const leaseUntil = new Date(clock.nowMs() + opts.leaseMs);
   const rows = await db.execute(sql`
@@ -74,6 +214,7 @@ export async function claimJobs(db: Db, clock: Clock, opts: ClaimOptions): Promi
           status = 'pending'
           OR (status = 'active' AND locked_until < ${now.toISOString()})
         )
+        AND COALESCE(last_error, '') <> ${BUDGET_QUEUED_ERROR}
       ORDER BY priority DESC, run_after ASC
       LIMIT ${opts.limit}
       FOR UPDATE SKIP LOCKED

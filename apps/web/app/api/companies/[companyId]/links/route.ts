@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { allowedLinkKinds, CreateLinkInput, ModuleType } from '@hftr/contracts';
+import { allowedLinkKinds, CreateLinkInput, isLegalFundRoute, ModuleType } from '@hftr/contracts';
 import { moduleLinks } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
@@ -31,19 +31,16 @@ export async function POST(req: Request, ctx: Ctx) {
     const from = await scoping.getOwnedModule(db, clerkUserId, companyId, input.fromModuleId);
     const to = await scoping.getOwnedModule(db, clerkUserId, companyId, input.toModuleId);
 
+    const fromType = ModuleType.parse(from.type);
+    const toType = ModuleType.parse(to.type);
+
     // Canvas edge validation against the LINK_RULES matrix.
-    const allowed = allowedLinkKinds(ModuleType.parse(from.type), ModuleType.parse(to.type));
+    const allowed = allowedLinkKinds(fromType, toType);
     if (!allowed.includes(input.linkKind)) {
       throw new ApiError(422, 'link_kind_not_allowed');
     }
-    if (input.linkKind === 'fund_route' && from.type === 'fund_router' && to.type === 'trading') {
-      const companyModules = await scoping.listModules(db, clerkUserId, companyId);
-      const dedicatedMath = companyModules.find(
-        (module) => module.type === 'math' && module.toolOwnerModuleId === to.id,
-      );
-      if (dedicatedMath) {
-        throw new ApiError(422, 'fund_route_must_traverse_owner_math');
-      }
+    if (input.linkKind === 'fund_route' && !isLegalFundRoute(fromType, toType)) {
+      throw new ApiError(422, 'fund_route_must_traverse_math');
     }
 
     const inserted = await db

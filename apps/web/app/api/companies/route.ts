@@ -25,6 +25,7 @@ import {
 import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
 import { recordModuleSetup } from '@/lib/module-setup';
 import { provisionDedicatedMathTools } from '@/lib/math-provision';
+import { fundRouterToTradingMathLinks } from '@/lib/fund-route-links';
 
 export const dynamic = 'force-dynamic';
 
@@ -281,44 +282,31 @@ export async function POST(req: Request) {
       }
       if (template.links.length > 0) {
         await db.insert(moduleLinks).values(
-          template.links.flatMap((l) => {
+          template.links.map((l) => {
             const fromModuleId = l.fromIndex === 'math' ? mathModule.id : created[l.fromIndex]?.id;
             const toModuleId = l.toIndex === 'math' ? mathModule.id : created[l.toIndex]?.id;
             if (!fromModuleId || !toModuleId) {
               throw new ApiError(500, 'template_link_unresolved');
             }
-            const fromType = l.fromIndex === 'math' ? 'math' : template.modules[l.fromIndex]?.type;
-            const toType = l.toIndex === 'math' ? 'math' : template.modules[l.toIndex]?.type;
-            const ownerMathId =
-              l.linkKind === 'fund_route' && fromType === 'fund_router' && toType === 'trading'
-                ? dedicatedMathByOwner.get(toModuleId)
-                : null;
-            if (ownerMathId) {
-              return [
-                {
-                  companyId: company.id,
-                  fromModuleId,
-                  toModuleId: ownerMathId,
-                  linkKind: 'fund_route' as const,
-                },
-                {
-                  companyId: company.id,
-                  fromModuleId: ownerMathId,
-                  toModuleId,
-                  linkKind: 'fund_route' as const,
-                },
-              ];
-            }
-            return [
-              {
-                companyId: company.id,
-                fromModuleId,
-                toModuleId,
-                linkKind: l.linkKind,
-              },
-            ];
+            return {
+              companyId: company.id,
+              fromModuleId,
+              toModuleId,
+              linkKind: l.linkKind,
+            };
           }),
         );
+      }
+      const routerToMath = fundRouterToTradingMathLinks(
+        company.id,
+        created.map((row, index) => ({
+          id: row.id,
+          type: template.modules[index]!.type,
+        })),
+        dedicatedMathByOwner,
+      );
+      if (routerToMath.length > 0) {
+        await db.insert(moduleLinks).values(routerToMath).onConflictDoNothing();
       }
     }
 
@@ -507,44 +495,31 @@ export async function POST(req: Request) {
 
       if (engine.links.length > 0) {
         await db.insert(moduleLinks).values(
-          engine.links.flatMap((l) => {
+          engine.links.map((l) => {
             const fromModuleId = l.fromIndex === 'math' ? mathModule.id : created[l.fromIndex]?.id;
             const toModuleId = l.toIndex === 'math' ? mathModule.id : created[l.toIndex]?.id;
             if (!fromModuleId || !toModuleId) {
               throw new ApiError(500, 'engine_link_unresolved');
             }
-            const fromType = l.fromIndex === 'math' ? 'math' : engine.modules[l.fromIndex]?.type;
-            const toType = l.toIndex === 'math' ? 'math' : engine.modules[l.toIndex]?.type;
-            const ownerMathId =
-              l.linkKind === 'fund_route' && fromType === 'fund_router' && toType === 'trading'
-                ? dedicatedMathByOwner.get(toModuleId)
-                : null;
-            if (ownerMathId) {
-              return [
-                {
-                  companyId: company.id,
-                  fromModuleId,
-                  toModuleId: ownerMathId,
-                  linkKind: 'fund_route' as const,
-                },
-                {
-                  companyId: company.id,
-                  fromModuleId: ownerMathId,
-                  toModuleId,
-                  linkKind: 'fund_route' as const,
-                },
-              ];
-            }
-            return [
-              {
-                companyId: company.id,
-                fromModuleId,
-                toModuleId,
-                linkKind: l.linkKind,
-              },
-            ];
+            return {
+              companyId: company.id,
+              fromModuleId,
+              toModuleId,
+              linkKind: l.linkKind,
+            };
           }),
         );
+      }
+      const routerToMath = fundRouterToTradingMathLinks(
+        company.id,
+        created.map((row, index) => ({
+          id: row.id,
+          type: engine.modules[index]!.type,
+        })),
+        dedicatedMathByOwner,
+      );
+      if (routerToMath.length > 0) {
+        await db.insert(moduleLinks).values(routerToMath).onConflictDoNothing();
       }
     }
 

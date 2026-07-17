@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import {
   allowedLinkKinds,
   AssistantEditProposal,
+  isLegalFundRoute,
   MODULE_CONFIG_SCHEMAS,
   moduleRequiresMath,
   ModuleType,
@@ -133,23 +134,14 @@ export async function applyAssistantEdit(
       }
       const from = await scoping.getOwnedModule(db, clerkUserId, companyId, proposal.fromModuleId);
       const to = await scoping.getOwnedModule(db, clerkUserId, companyId, proposal.toModuleId);
-      const allowed = allowedLinkKinds(ModuleType.parse(from.type), ModuleType.parse(to.type));
+      const fromType = ModuleType.parse(from.type);
+      const toType = ModuleType.parse(to.type);
+      const allowed = allowedLinkKinds(fromType, toType);
       if (!allowed.includes(proposal.linkKind)) {
         throw new ApiError(422, 'link_kind_not_allowed');
       }
-      if (
-        proposal.linkKind === 'fund_route' &&
-        from.type === 'fund_router' &&
-        to.type === 'trading'
-      ) {
-        const companyModules = await scoping.listModules(db, clerkUserId, companyId);
-        if (
-          companyModules.some(
-            (module) => module.type === 'math' && module.toolOwnerModuleId === to.id,
-          )
-        ) {
-          throw new ApiError(422, 'fund_route_must_traverse_owner_math');
-        }
+      if (proposal.linkKind === 'fund_route' && !isLegalFundRoute(fromType, toType)) {
+        throw new ApiError(422, 'fund_route_must_traverse_math');
       }
       const inserted = await db
         .insert(moduleLinks)

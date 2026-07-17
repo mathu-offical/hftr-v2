@@ -27,24 +27,30 @@ test.describe('Company workspace (M1 read flows)', () => {
     await page.getByRole('button', { name: 'LLM / operating' }).click();
     await expect(page.getByText('Provider operating budgets')).toBeVisible();
     await expect(page.getByText(/separate from module trading-capital allocations/)).toBeVisible();
+    await expect(page.getByText('LLM privacy & models')).toBeVisible();
+    await expect(page.getByText('Recent LLM calls')).toBeVisible();
     await page.getByRole('button', { name: 'Close ▲' }).click();
 
     // Full seeded engine: named research/data/trend/execution/funds/policy functions.
     const canvas = page.locator('.react-flow');
     await expect(canvas).toBeVisible();
-    for (const nodeName of [
-      'Deterministic Math Calculator',
-      'Market Regime Research',
-      'Strategy Evidence Library',
-      'Paper Market & Runtime Feed',
-      'Market Trend Scanner',
-      'Paper Day-Trade Execution',
-      'Paper Seed Holding Fund',
-      'Deterministic Fund Router',
-      'Transaction Execution Monitor',
-      'Paper Trading Policy',
-    ]) {
-      await expect(canvas.locator('.text-sm.font-medium', { hasText: nodeName })).toBeVisible();
+    for (const [typeLabel, baseName] of [
+      ['Math', 'Deterministic Math Calculator'],
+      ['Research', 'Market Regime Research'],
+      ['Library', 'Strategy Evidence Library'],
+      ['Live API', 'Paper Market & Runtime Feed'],
+      ['Trend', 'Market Trend Scanner'],
+      ['Trading', 'Paper Day-Trade Execution'],
+      ['Holding fund', 'Paper Seed Holding Fund'],
+      ['Fund router', 'Deterministic Fund Router'],
+      ['Analyzer', 'Transaction Execution Monitor'],
+      ['Policy', 'Paper Trading Policy'],
+    ] as const) {
+      const node = canvas
+        .locator('.react-flow__node')
+        .filter({ has: page.getByText(typeLabel, { exact: true }) })
+        .filter({ hasText: baseName });
+      await expect(node).toBeVisible();
     }
     await expect(canvas.locator('.react-flow__edge-smoothstep')).toHaveCount(10);
     await expect(canvas.getByText(/Required · topic sector/).first()).toBeVisible();

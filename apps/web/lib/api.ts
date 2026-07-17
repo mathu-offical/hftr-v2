@@ -1,6 +1,8 @@
+import { and, eq } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getDb, NotFoundError, type Db } from '@hftr/db';
+import { companies } from '@hftr/db/schema';
 import { getAuthUserId } from './auth';
 
 /**
@@ -57,6 +59,18 @@ export class ApiError extends Error {
     super(code);
     this.name = 'ApiError';
   }
+}
+
+/** Ownership-scoped company load — 404 on miss (no existence leak). */
+export async function requireCompany(db: Db, companyId: string, clerkUserId: string) {
+  const rows = await db
+    .select()
+    .from(companies)
+    .where(and(eq(companies.id, companyId), eq(companies.clerkUserId, clerkUserId)))
+    .limit(1);
+  const row = rows[0];
+  if (!row) throw new NotFoundError('company');
+  return row;
 }
 
 /** Parse a JSON body against a schema; throws ZodError → 400. */

@@ -2,10 +2,15 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import {
+  admitsRetention,
   DEFAULT_PHILOSOPHY_PROFILE,
+  LlmTier,
+  modelsForTier,
   normalizePhilosophyProfile,
   PHILOSOPHY_AXIS_CATALOG,
   type BandPosition,
+  type BrokerConnectionSummary,
+  type CompanyLlmPolicy,
   type LlmBudgetSummary,
   type LlmBudgetsResponse,
   type PhilosophyProfile,
@@ -184,7 +189,9 @@ export function TopDrawer(props: {
                 </div>
               )}
 
-              {tab === 'operating' && <OperatingBudgets budgets={llmBudgets} />}
+              {tab === 'operating' && (
+                <OperatingTab companyId={props.companyId} budgets={llmBudgets} />
+              )}
 
               {tab === 'settings' && (
                 <SettingsTab companyId={props.companyId} name={props.companyName} />
@@ -202,6 +209,355 @@ export function TopDrawer(props: {
         </div>
       )}
     </>
+  );
+}
+
+interface LlmPolicyResponse {
+  policy: CompanyLlmPolicy;
+  brokerConnectionId: string | null;
+  userAnthropicZdrAttested: boolean;
+}
+
+interface LlmCallRow {
+  id: string;
+  provider: string;
+  model: string;
+  tier: string;
+  tokens: { in: number; out: number };
+  costCents: number;
+  latencyMs: number;
+  schemaValid: boolean;
+  leakLintPassed: boolean;
+  failure: string | null;
+  requestId: string | null;
+  retentionClass: string | null;
+  createdAt: string;
+}
+
+const TIER_LABELS: Record<(typeof LlmTier.options)[number], string> = {
+  strategic: 'Strategic',
+  tactical: 'Tactical',
+  execution: 'Execution',
+  assistant: 'Assistant',
+};
+
+const PROFILE_OPTIONS = [
+  { id: 'privacy_cost', label: 'Privacy / cost' },
+  { id: 'strict_compile', label: 'Strict compile' },
+  { id: 'premium_quality', label: 'Premium quality' },
+  { id: 'custom', label: 'Custom' },
+] as const;
+
+function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] }) {
+  const [policyData, setPolicyData] = useState<LlmPolicyResponse | null>(null);
+  const [calls, setCalls] = useState<LlmCallRow[]>([]);
+  const [brokers, setBrokers] = useState<BrokerConnectionSummary[]>([]);
+  const [policyMessage, setPolicyMessage] = useState<string | null>(null);
+  const [brokerMessage, setBrokerMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const loadExtras = useCallback(async () => {
+    const base = `/api/companies/${props.companyId}`;
+    try {
+      const [policyRes, callsRes, brokersRes] = await Promise.all([
+        api<LlmPolicyResponse>(`${base}/llm-policy`),
+        api<{ calls: LlmCallRow[] }>(`${base}/llm-calls?limit=20`),
+        api<{ connections: BrokerConnectionSummary[] }>('/api/settings/brokers'),
+      ]);
+      setPolicyData(policyRes);
+      setCalls(callsRes.calls);
+      setBrokers(brokersRes.connections);
+    } catch {
+      // transient
+    }
+  }, [props.companyId]);
+
+  useEffect(() => {
+    void loadExtras();
+  }, [loadExtras]);
+
+  async function savePolicy(patch: Partial<CompanyLlmPolicy>) {
+    if (!policyData) return;
+    setBusy(true);
+    try {
+      const merged: CompanyLlmPolicy = {
+        ...policyData.policy,
+        ...patch,
+        tierModels: { ...policyData.policy.tierModels, ...(patch.tierModels ?? {}) },
+      };
+      const res = await api<LlmPolicyResponse>(`/api/companies/${props.companyId}/llm-policy`, {
+        method: 'PATCH',
+        body: merged,
+      });
+      setPolicyData(res);
+      setPolicyMessage('LLM policy saved.');
+    } catch {
+      setPolicyMessage('Policy save failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function bindBroker(connectionId: string | null) {
+    setBusy(true);
+    try {
+      await api(`/api/companies/${props.companyId}/broker`, {
+        method: 'PATCH',
+        body: { brokerConnectionId: connectionId },
+      });
+      await loadExtras();
+      setBrokerMessage(connectionId ? 'Broker bound.' : 'Broker unbound.');
+    } catch {
+      setBrokerMessage('Broker bind failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const policy = policyData?.policy;
+  const boundId = policyData?.brokerConnectionId ?? null;
+  const boundConnection = brokers.find((b) => b.id === boundId) ?? null;
+  const paperBrokers = brokers.filter((b) => b.mode === 'paper' && b.status !== 'revoked');
+
+  return (
+    <div className="space-y-6">
+      <OperatingBudgets budgets={props.budgets} />
+
+      {policy && (
+        <section className="space-y-3">
+          <div>
+            <h3 className="text-sm font-medium text-[var(--color-ink)]">LLM privacy & models</h3>
+            <p className="text-[11px] text-[var(--color-ink-faint)]">
+              Tier model picks must pass retention policy. Anthropic ZDR attestation is set in user
+              settings.
+            </p>
+          </div>
+          <div className="grid max-w-xl gap-3 sm:grid-cols-2">
+            <label className="block space-y-1">
+              <span className="text-[11px] text-[var(--color-ink-dim)]">Privacy mode</span>
+              <select
+                value={policy.privacyMode}
+                disabled={busy}
+                onChange={(e) =>
+                  void savePolicy({
+                    privacyMode: e.target.value as CompanyLlmPolicy['privacyMode'],
+                  })
+                }
+                className="w-full rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
+              >
+                <option value="strict_zdr">Strict ZDR</option>
+                <option value="standard">Standard</option>
+              </select>
+            </label>
+            <label className="block space-y-1">
+              <span className="text-[11px] text-[var(--color-ink-dim)]">Profile</span>
+              <select
+                value={policy.profileId}
+                disabled={busy}
+                onChange={(e) =>
+                  void savePolicy({
+                    profileId: e.target.value as CompanyLlmPolicy['profileId'],
+                  })
+                }
+                className="w-full rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
+              >
+                {PROFILE_OPTIONS.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <p className="text-[10px] text-[var(--color-ink-faint)]">
+            User Anthropic ZDR attested:{' '}
+            <span className="text-[var(--color-ink-dim)]">
+              {policyData.userAnthropicZdrAttested ? 'yes' : 'no'}
+            </span>
+            {' · '}
+            Company policy flag:{' '}
+            <span className="text-[var(--color-ink-dim)]">
+              {policy.anthropicZdrAttested ? 'yes' : 'no'}
+            </span>
+          </p>
+          <label className="flex items-center gap-2 text-[11px] text-[var(--color-ink-dim)]">
+            <input
+              type="checkbox"
+              checked={policy.anthropicZdrAttested}
+              disabled={busy}
+              onChange={(e) => void savePolicy({ anthropicZdrAttested: e.target.checked })}
+            />
+            Company Anthropic ZDR attested (policy)
+          </label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {LlmTier.options.map((tier) => {
+              const eligible = modelsForTier(tier).filter((m) => admitsRetention(m, policy));
+              const current = policy.tierModels[tier] ?? '';
+              return (
+                <label key={tier} className="block space-y-1">
+                  <span className="text-[11px] text-[var(--color-ink-dim)]">
+                    {TIER_LABELS[tier]}
+                  </span>
+                  <select
+                    value={current}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const modelId = e.target.value || null;
+                      void savePolicy({
+                        tierModels: { ...policy.tierModels, [tier]: modelId },
+                      });
+                    }}
+                    className="w-full rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
+                  >
+                    <option value="">Default</option>
+                    {eligible.map((m) => (
+                      <option key={`${m.provider}:${m.modelId}`} value={m.modelId}>
+                        {m.displayName} ({m.provider})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              );
+            })}
+          </div>
+          {policyMessage && (
+            <p className="text-[10px] text-[var(--color-ink-faint)]">{policyMessage}</p>
+          )}
+        </section>
+      )}
+
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-sm font-medium text-[var(--color-ink)]">Broker connection</h3>
+          <p className="text-[11px] text-[var(--color-ink-faint)]">
+            Bind one verified paper connection per company. Configure credentials in user settings.
+          </p>
+        </div>
+        {boundConnection ? (
+          <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-0)] p-3 text-[11px]">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-[var(--color-ink)]">
+                {boundConnection.venue} · {boundConnection.mode}
+              </span>
+              <span
+                className={
+                  boundConnection.status === 'connected'
+                    ? 'text-[var(--color-ok)]'
+                    : 'text-[var(--color-ink-faint)]'
+                }
+              >
+                {boundConnection.status}
+              </span>
+            </div>
+            {boundConnection.capabilities && (
+              <p className="mt-1 text-[var(--color-ink-dim)]">
+                Buying power and balances sync on dispatch when connected.
+              </p>
+            )}
+            <button
+              onClick={() => void bindBroker(null)}
+              disabled={busy}
+              className="mt-2 text-[10px] text-[var(--color-block)] hover:underline disabled:opacity-50"
+            >
+              Unbind
+            </button>
+          </div>
+        ) : (
+          <p className="text-[11px] text-[var(--color-ink-faint)]">
+            No broker bound — using paper sim.
+          </p>
+        )}
+        {paperBrokers.length > 0 && (
+          <label className="block max-w-sm space-y-1">
+            <span className="text-[11px] text-[var(--color-ink-dim)]">Bind connection</span>
+            <select
+              value={boundId ?? ''}
+              disabled={busy}
+              onChange={(e) => void bindBroker(e.target.value || null)}
+              className="w-full rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
+            >
+              <option value="">Paper sim (none)</option>
+              {paperBrokers.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.venue} · {b.status} ····{b.keyHint}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {brokerMessage && (
+          <p className="text-[10px] text-[var(--color-ink-faint)]">{brokerMessage}</p>
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <div>
+          <h3 className="text-sm font-medium text-[var(--color-ink)]">Recent LLM calls</h3>
+          <p className="text-[11px] text-[var(--color-ink-faint)]">
+            Metadata only — prompts and outputs are never returned.
+          </p>
+        </div>
+        <table className="w-full text-left text-[10px]">
+          <thead className="text-[var(--color-ink-faint)]">
+            <tr>
+              <th className="pb-1 font-normal">Time</th>
+              <th className="pb-1 font-normal">Tier</th>
+              <th className="pb-1 font-normal">Model</th>
+              <th className="pb-1 font-normal">Cost</th>
+              <th className="pb-1 font-normal">Checks</th>
+            </tr>
+          </thead>
+          <tbody className="text-[var(--color-ink-dim)]">
+            {calls.map((c) => (
+              <tr key={c.id} className="border-t border-[var(--color-line)]">
+                <td className="py-1 pr-2">{new Date(c.createdAt).toLocaleString()}</td>
+                <td className="py-1 pr-2">{c.tier}</td>
+                <td className="max-w-32 truncate py-1 pr-2" title={c.model}>
+                  {c.provider}/{c.model}
+                </td>
+                <td className="py-1 pr-2 font-mono">{dollars(c.costCents)}</td>
+                <td className="py-1">
+                  <ValidationChips
+                    schemaValid={c.schemaValid}
+                    leakLintPassed={c.leakLintPassed}
+                    failure={c.failure}
+                  />
+                </td>
+              </tr>
+            ))}
+            {calls.length === 0 && (
+              <tr>
+                <td colSpan={5} className="py-2 text-[var(--color-ink-faint)]">
+                  No LLM calls recorded yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </section>
+    </div>
+  );
+}
+
+function ValidationChips(props: {
+  schemaValid: boolean;
+  leakLintPassed: boolean;
+  failure: string | null;
+}) {
+  if (props.failure) {
+    return <span className="text-[var(--color-block)]">{props.failure}</span>;
+  }
+  return (
+    <span className="flex gap-1">
+      <span className={props.schemaValid ? 'text-[var(--color-ok)]' : 'text-[var(--color-block)]'}>
+        schema:{props.schemaValid ? 'ok' : 'fail'}
+      </span>
+      <span
+        className={props.leakLintPassed ? 'text-[var(--color-ok)]' : 'text-[var(--color-block)]'}
+      >
+        leak:{props.leakLintPassed ? 'ok' : 'fail'}
+      </span>
+    </span>
   );
 }
 

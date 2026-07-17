@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { scoping } from '@hftr/db';
 import { createSystemClock, drainQueues, enqueue } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
+import { createWebModelGateway } from '@/lib/model-gateway';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -13,9 +14,8 @@ type Ctx = { params: Promise<{ companyId: string; moduleId: string }> };
 const CurateInput = z.object({}).default({});
 
 /**
- * Trigger deterministic research curation for a research module (RESEARCH
- * queue). Topic scope comes from the module config; the handler upserts
- * catalog-cited concepts labeled deterministic_placeholder.
+ * Trigger research curation (RESEARCH queue). Uses the LLM gateway when the
+ * operator has configured admitted keys; otherwise deterministic catalog fallback.
  */
 export async function POST(req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
@@ -42,6 +42,7 @@ export async function POST(req: Request, ctx: Ctx) {
       workerId: `inline:${clerkUserId.slice(0, 12)}`,
       budgetMs: 15_000,
       batchSize: 3,
+      modelGateway: createWebModelGateway(db, clerkUserId),
     });
     return { queued: true, drained };
   });

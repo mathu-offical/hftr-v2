@@ -165,6 +165,10 @@ Levers already constrain models to bounded choices. NRA tightens the resolution:
   finalizer** below compile resolves every ref to a concrete fixed-point number, applies
   venue precision/tick rounding tables, and runs the final sanity gauntlet (§7). Groq formats
   structure; it cannot inject digits (schema types + leak linter).
+- **Tier model selection (D-027):** company operating UI and `llm_policy` tier picks are
+  qualitative only — allowlisted model ids, estimated cost bands, and privacy retention labels.
+  Model tiers never emit order quantities, prices, or schedules; compile output stays band/ref
+  shaped until the model-free finalizer.
 
 ## 7. Sanity gauntlet (every morph point deterministically checked)
 

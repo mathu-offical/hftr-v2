@@ -48,6 +48,10 @@ Gate G0: deployed skeleton, auth round-trip in browser, migrations reproducible 
 6. **D-024 setup completion:** company/engine templates collect inline capital/scope/exit with a
    Skip-to-draft path; incomplete nodes show inline controls; allocation/time resolve to ValueRefs;
    provider operating budgets render separately.
+7. **D-026 canvas node dashboard:** labeled `LinkKind` ports, fixed-size always-visible setup
+   fields with per-field Required/Set chips, explicit **Save setup**, chrome-click inspector with
+   restore-generated-name. **Implementation complete;** IronBee browser verification and focused
+   Playwright D-026 coverage in `company-workspace.spec.ts` pending.
 
 **Gate G1 (local complete — remote CI evidence pending, D-022/D-023/D-024):** create company → compose
 module graph → queue processes a synthetic job → node activity reflects it → panels + assistant +
@@ -57,11 +61,14 @@ console errors. Remote CI e2e first run remains pending.
 
 **M2 in progress (D-027 service integration slice):** (1) OQ-8 resolved — user keys only;
 `@hftr/llm` invoke gateway with retention admission, NRA substitute, budgets, `llm_calls` /
-`llm_artifacts` ledger; (2) `concept_links` migrated; research.curate uses ModelGateway with
-deterministic fallback; (3) Alpaca paper adapter + exclusive `broker_connections` + VERIFY
-reconcile handler pulled forward from M4 for parallel real-service work. Remaining for G2:
-galaxy MVP, Obsidian export, library curation UI, live provider smoke with operator keys,
-scenario promotion of default model profiles.
+`llm_artifacts` ledger + hand-authored JSON schemas; (2) `concept_links` migrated;
+research.curate / research.strategic / tactical.expand / compile.select job chain with
+ModelGateway + deterministic fallbacks (quantity always calculator-owned); (3) Alpaca paper
+adapter + exclusive `broker_connections` + VERIFY reconcile that finalizes ledger/positions +
+`maintenance.broker_balances` snapshots; (4) operator UI: capital caps, provider health,
+tier cost/privacy labels, key/broker verify, Playwright `service-settings.spec.ts`. Remaining
+for G2: galaxy MVP, Obsidian export, library curation UI, live provider/Alpaca smoke with
+operator keys, scenario promotion of default model profiles.
 
 ## M2 — Research stack (Claude+Mistral) + libraries + galaxy MVP + numeric core
 

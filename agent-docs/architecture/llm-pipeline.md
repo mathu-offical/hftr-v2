@@ -35,6 +35,20 @@ tactical/assistant `cerebras/zai-glm-4.7` (default ZDR), execution `groq/openai/
 (strict json_schema). Optional env model-id overrides must still be allowlisted.
 `HFTR_LLM_MODE=deterministic` forces placeholder handlers for CI.
 
+### Job chain (D-027)
+
+```
+research.curate (RESEARCH) ──optional escalate──► research.strategic (STRATEGIC)
+trend.promote (RESEARCH admission)
+  → tactical.expand (TACTICAL)     // TreeExpandOutput or deterministic tree
+  → compile.select (COMPILE)       // CompileSelectionOutput bands + deterministic qty
+  → dispatch.paper_trade (DISPATCH) // model-free
+  → verify.reconcile_order (VERIFY) // venue fill settlement
+```
+
+ModelGateway is injected at drain time (inline promote/curate uses the session user;
+cron uses company-owner key resolution). Quantity/price remain calculator-owned.
+
 ## 2. Choice-generation over token-generation (v2 spec §"UPDATED LLM MODEL USAGE")
 
 LLMs primarily SELECT from deterministic control palettes rather than generate free assessments:

@@ -75,5 +75,10 @@ payloads with precision-safe rounding tables per instrument.
   expected `ActionInstruction` outcomes → `verification_records` + `dispatch_reconciliation`
   events (v1 pattern). WebSocket auth/listen/error/reconcile events are compliance evidence and
   are persisted.
+- **Capital admission projection:** `GET /api/companies/:id/broker` returns bound connection
+  summary, venue, feed entitlement label when known, latest `broker_balances_snapshot` (or live
+  adapter hydrate when connected and no snapshot yet), company virtual balance, and
+  `effectiveCapCents = min(virtual, broker buying power)` when bound — else virtual only.
+  `liveGateBlocked` is always true for live-mode companies until explicit gates pass.
 - Every venue adapter ships with a recorded-fixture test suite + a sandbox smoke test runnable
   in CI (paper creds via env).

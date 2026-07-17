@@ -50,6 +50,8 @@ export async function POST(req: Request, ctx: Ctx) {
         companyId,
         type: input.type,
         name: input.name,
+        generatedNameBase: input.generatedNameBase ?? input.name,
+        nameCustomized: false,
         config,
         canvasPosition: input.canvasPosition ?? { x: 0, y: 0 },
         status: 'draft',

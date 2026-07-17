@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Handle, type NodeProps, type Node } from '@xyflow/react';
+import { memo, useEffect, useState } from 'react';
+import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import {
+  handleIdForLink,
   missingModuleSetupFields,
+  moduleLinkPorts,
   requiredModuleSetupFields,
   type ModuleSetupField,
   type ModuleStatus,
@@ -16,10 +18,12 @@ import {
   moduleSetupInputFromDraft,
   type ModuleSetupDraft,
 } from './ModuleSetupFields';
-import { HANDLE_SPEC, MODULE_VISUALS, type HandleGroup } from './types';
+import { LINK_PORT_VISUALS, MODULE_VISUALS } from './types';
 
 export type ModuleNodeData = {
   name: string;
+  generatedNameBase: string;
+  nameCustomized: boolean;
   moduleType: ModuleType;
   status: ModuleStatus;
   /** Server-composed text-first status projection line (T1.4). */
@@ -36,10 +40,12 @@ export type ModuleNodeData = {
 
 export type ModuleFlowNode = Node<ModuleNodeData, 'module'>;
 
-const HANDLE_GROUPS: HandleGroup[] = ['dataIn', 'dataOut', 'controlIn', 'toolsOut'];
+const CARD_WIDTH_PX = 280;
 
-/** Math is tool-access oriented; its data-plane handles read as secondary. */
-const MATH_DEEMPHASIZED: ReadonlySet<HandleGroup> = new Set(['dataIn', 'dataOut']);
+function portTopPercent(index: number, total: number): string {
+  if (total <= 1) return '50%';
+  return `${((index + 1) / (total + 1)) * 100}%`;
+}
 
 function SettingsIcon() {
   return (
@@ -58,12 +64,16 @@ function SettingsIcon() {
 }
 
 /**
- * Canvas node: type-tinted card with text-first status (never color alone).
- * Handles follow the ui-spec node model — left data in, right data out,
- * top control in, bottom tools out — colored by the type they accept.
+ * Fixed dashboard canvas node: labeled link-kind ports, always-visible setup
+ * fields, and text-first status. Selection changes border only — no expand.
  */
-export function ModuleNode({ id, data, selected }: NodeProps<ModuleFlowNode>) {
+export const ModuleNode = memo(function ModuleNode({
+  id,
+  data,
+  selected,
+}: NodeProps<ModuleFlowNode>) {
   const visual = MODULE_VISUALS[data.moduleType];
+  const ports = moduleLinkPorts(data.moduleType);
   const requiredSetupFields = requiredModuleSetupFields(data.moduleType);
   const [setupDraft, setSetupDraft] = useState<ModuleSetupDraft>({
     ...EMPTY_MODULE_SETUP_DRAFT,
@@ -120,104 +130,136 @@ export function ModuleNode({ id, data, selected }: NodeProps<ModuleFlowNode>) {
       setSavingSetup(false);
     }
   }
+
   const statusLine =
     data.moduleType === 'display' && data.configSnippet
       ? data.configSnippet
       : (data.statusText ?? data.status);
+
   return (
-    <div
-      className="group min-w-40 rounded-lg border bg-[var(--color-surface-1)] px-3.5 py-2.5 shadow-lg transition-colors"
-      style={{
-        borderColor: selected ? visual.hue : 'var(--color-line)',
-        boxShadow: selected ? `0 0 0 1px ${visual.hue}` : undefined,
-      }}
-    >
-      {HANDLE_GROUPS.map((group) => {
-        const spec = HANDLE_SPEC[group];
-        const deemphasized = data.moduleType === 'math' && MATH_DEEMPHASIZED.has(group);
+    <div className="relative" style={{ width: CARD_WIDTH_PX }}>
+      {ports.inbound.map((kind, index) => {
+        const handleId = handleIdForLink(kind, 'in');
+        const port = LINK_PORT_VISUALS[kind];
+        const top = portTopPercent(index, ports.inbound.length);
         return (
-          <Handle
-            key={spec.id}
-            id={spec.id}
-            type={spec.type}
-            position={spec.position}
-            className="hftr-handle"
-            style={{
-              width: 8,
-              height: 8,
-              background: spec.color,
-              border: '1px solid var(--color-surface-0)',
-              opacity: deemphasized ? 0.35 : 1,
-            }}
-          />
+          <div key={handleId}>
+            <Handle
+              id={handleId}
+              type="target"
+              position={Position.Left}
+              className="hftr-handle"
+              aria-label={`${port.label} input`}
+              style={{
+                top,
+                width: 8,
+                height: 8,
+                background: port.color,
+                border: '1px solid var(--color-surface-0)',
+              }}
+            />
+            <span
+              className="pointer-events-none absolute -left-[4.5rem] w-16 text-right text-[8px] leading-tight text-[var(--color-ink-faint)]"
+              style={{ top, transform: 'translateY(-50%)' }}
+              aria-hidden
+            >
+              {port.label}
+            </span>
+          </div>
         );
       })}
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: visual.hue }} />
-          <span className="text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-            {visual.label}
-          </span>
+
+      {ports.outbound.map((kind, index) => {
+        const handleId = handleIdForLink(kind, 'out');
+        const port = LINK_PORT_VISUALS[kind];
+        const top = portTopPercent(index, ports.outbound.length);
+        return (
+          <div key={handleId}>
+            <Handle
+              id={handleId}
+              type="source"
+              position={Position.Right}
+              className="hftr-handle"
+              aria-label={`${port.label} output`}
+              style={{
+                top,
+                width: 8,
+                height: 8,
+                background: port.color,
+                border: '1px solid var(--color-surface-0)',
+              }}
+            />
+            <span
+              className="pointer-events-none absolute -right-[4.5rem] w-16 text-left text-[8px] leading-tight text-[var(--color-ink-faint)]"
+              style={{ top, transform: 'translateY(-50%)' }}
+              aria-hidden
+            >
+              {port.label}
+            </span>
+          </div>
+        );
+      })}
+
+      <div
+        className="rounded-lg border bg-[var(--color-surface-1)] px-3.5 py-2.5 shadow-lg transition-colors"
+        style={{
+          width: CARD_WIDTH_PX,
+          borderColor: selected ? visual.hue : 'var(--color-line)',
+          boxShadow: selected ? `0 0 0 1px ${visual.hue}` : undefined,
+        }}
+      >
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: visual.hue }} />
+            <span className="text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+              {visual.label}
+            </span>
+          </div>
+          <button
+            type="button"
+            aria-label="Module settings"
+            className="shrink-0 rounded p-0.5 text-[var(--color-ink-faint)] opacity-50 transition-opacity hover:opacity-100 hover:text-[var(--color-ink-dim)]"
+            tabIndex={-1}
+          >
+            <SettingsIcon />
+          </button>
         </div>
-        <button
-          type="button"
-          aria-label="Module settings"
-          className="shrink-0 rounded p-0.5 text-[var(--color-ink-faint)] opacity-50 transition-opacity hover:opacity-100 hover:text-[var(--color-ink-dim)]"
-          tabIndex={-1}
-        >
-          <SettingsIcon />
-        </button>
-      </div>
-      <div className="text-sm font-medium text-[var(--color-ink)]">{data.name}</div>
-      <div className="mt-1 flex items-center gap-1.5 text-[10px] text-[var(--color-ink-dim)]">
-        {(data.activeJobs ?? 0) > 0 && (
-          <span
-            className="h-1.5 w-1.5 animate-pulse rounded-full"
-            style={{ background: visual.hue }}
-          />
-        )}
-        <span>{statusLine}</span>
-      </div>
-      {requiredSetupFields.length > 0 && (
-        <div className="nodrag nowheel mt-2 border-t border-[var(--color-line)] pt-2">
-          {!selected ? (
-            <div className="flex flex-wrap gap-1">
-              {missingSetup.map((field) => (
-                <span
-                  key={field}
-                  className="rounded-full border border-[var(--color-warn)] px-1.5 py-0.5 text-[9px] text-[var(--color-warn)]"
-                >
-                  Required · {field.replace('_', ' ')}
-                </span>
-              ))}
-              {missingSetup.length === 0 && (
-                <span className="rounded-full border border-[var(--color-ok)] px-1.5 py-0.5 text-[9px] text-[var(--color-ok)]">
-                  Setup complete
-                </span>
-              )}
-            </div>
-          ) : (
-            <div className="w-64 space-y-2">
-              <ModuleSetupFields
-                requiredFields={requiredSetupFields}
-                missingFields={missingSetup}
-                draft={setupDraft}
-                onChange={setSetupDraft}
-                compact
-              />
-              <button
-                type="button"
-                disabled={savingSetup}
-                onClick={() => void saveSetup()}
-                className="w-full rounded border border-[var(--color-accent)] px-2 py-1 text-[10px] text-[var(--color-accent)] disabled:opacity-50"
-              >
-                {savingSetup ? 'Saving…' : 'Save setup'}
-              </button>
-              {setupError && <p className="text-[9px] text-[var(--color-block)]">{setupError}</p>}
-            </div>
+
+        <div className="text-sm font-medium leading-snug text-[var(--color-ink)]">{data.name}</div>
+
+        <div className="mt-1 flex items-center gap-1.5 text-[10px] text-[var(--color-ink-dim)]">
+          {(data.activeJobs ?? 0) > 0 && (
+            <span
+              className="h-1.5 w-1.5 animate-pulse rounded-full"
+              style={{ background: visual.hue }}
+            />
           )}
+          <span>{statusLine}</span>
         </div>
-      )}
+
+        {requiredSetupFields.length > 0 && (
+          <div className="nodrag nowheel mt-2 border-t border-[var(--color-line)] pt-2">
+            <ModuleSetupFields
+              requiredFields={requiredSetupFields}
+              missingFields={missingSetup}
+              draft={setupDraft}
+              onChange={setSetupDraft}
+              compact
+            />
+            <button
+              type="button"
+              disabled={savingSetup}
+              onClick={() => void saveSetup()}
+              className="mt-2 w-full rounded border border-[var(--color-accent)] px-2 py-1 text-[10px] text-[var(--color-accent)] disabled:opacity-50"
+            >
+              {savingSetup ? 'Saving…' : 'Save setup'}
+            </button>
+            {setupError && (
+              <p className="mt-1 text-[9px] text-[var(--color-block)]">{setupError}</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
-}
+});

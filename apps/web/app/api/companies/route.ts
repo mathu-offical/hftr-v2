@@ -11,6 +11,7 @@ import { companies, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
 import { createSystemClock } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
+import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
 import { recordModuleSetup } from '@/lib/module-setup';
 
 export const dynamic = 'force-dynamic';
@@ -57,6 +58,8 @@ export async function POST(req: Request) {
         companyId: company.id,
         type: 'math',
         name: 'Deterministic Math Calculator',
+        generatedNameBase: 'Deterministic Math Calculator',
+        nameCustomized: false,
         config: {},
         status: 'active',
         canvasPosition: template.mathPosition ?? { x: 320, y: 40 },
@@ -78,6 +81,8 @@ export async function POST(req: Request) {
             companyId: company.id,
             type: m.type,
             name: m.name,
+            generatedNameBase: m.name,
+            nameCustomized: false,
             config: parsedConfigs[index],
             status: 'draft' as const,
             canvasPosition: m.position,
@@ -121,6 +126,10 @@ export async function POST(req: Request) {
             };
           }),
         );
+        await refreshGeneratedModuleNames(db, company.id, [
+          mathModule.id,
+          ...created.map((row) => row.id),
+        ]);
       }
     }
 

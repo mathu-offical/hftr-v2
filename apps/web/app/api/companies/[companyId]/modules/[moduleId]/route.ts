@@ -9,6 +9,10 @@ import { moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
 import { createSystemClock } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
+import {
+  refreshGeneratedModuleNames,
+  restoreGeneratedModuleName,
+} from '@/lib/module-generated-name';
 import { recordModuleSetup } from '@/lib/module-setup';
 
 export const dynamic = 'force-dynamic';
@@ -51,7 +55,20 @@ export async function PATCH(req: Request, ctx: Ctx) {
     }
 
     const patch: Record<string, unknown> = { updatedAt: new Date() };
-    if (input.name !== undefined) patch.name = input.name;
+
+    if (input.restoreGeneratedName === true) {
+      const restoredName = await restoreGeneratedModuleName(db, companyId, moduleId);
+      if (restoredName === null) throw new ApiError(404, 'module_not_found');
+      patch.name = restoredName;
+      patch.nameCustomized = false;
+    } else if (input.name !== undefined) {
+      if (existing.type === 'math') {
+        throw new ApiError(422, 'math_module_name_not_customizable');
+      }
+      patch.name = input.name;
+      patch.nameCustomized = true;
+    }
+
     if (input.status !== undefined) patch.status = input.status;
     if (input.canvasPosition !== undefined) patch.canvasPosition = input.canvasPosition;
     const config =
@@ -86,6 +103,27 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     if (existing.type === 'math') {
       throw new ApiError(422, 'math_module_not_deletable'); // D-008
     }
+
+    const incidentLinks = await db
+      .select({
+        fromModuleId: moduleLinks.fromModuleId,
+        toModuleId: moduleLinks.toModuleId,
+      })
+      .from(moduleLinks)
+      .where(
+        and(
+          eq(moduleLinks.companyId, companyId),
+          or(eq(moduleLinks.fromModuleId, moduleId), eq(moduleLinks.toModuleId, moduleId)),
+        ),
+      );
+    const neighborIds = [
+      ...new Set(
+        incidentLinks.flatMap((link) =>
+          [link.fromModuleId, link.toModuleId].filter((id) => id !== moduleId),
+        ),
+      ),
+    ];
+
     // Remove edges first, then the node.
     await db
       .delete(moduleLinks)
@@ -96,6 +134,8 @@ export async function DELETE(_req: Request, ctx: Ctx) {
         ),
       );
     await db.delete(modules).where(and(eq(modules.id, moduleId), eq(modules.companyId, companyId)));
-    return { deleted: true };
+
+    const renamedModules = await refreshGeneratedModuleNames(db, companyId, neighborIds);
+    return { deleted: true, renamedModules };
   });
 }

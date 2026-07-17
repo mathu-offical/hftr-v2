@@ -3,6 +3,7 @@ import { allowedLinkKinds, CreateLinkInput, ModuleType } from '@hftr/contracts';
 import { moduleLinks } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
+import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +50,11 @@ export async function POST(req: Request, ctx: Ctx) {
     if (inserted.length === 0) {
       throw new ApiError(409, 'link_already_exists');
     }
-    return { link: inserted[0] };
+    const link = inserted[0]!;
+    const renamedModules = await refreshGeneratedModuleNames(db, companyId, [
+      link.fromModuleId,
+      link.toModuleId,
+    ]);
+    return { link, renamedModules };
   });
 }

@@ -14,6 +14,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import {
   allowedLinkKinds,
+  handleIdForLink,
   missingModuleSetupFields,
   MODULE_COLUMN,
   type EngineTemplate,
@@ -22,12 +23,34 @@ import {
   type ModuleType,
 } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
+import type { ModuleNameUpdate } from '@/lib/module-generated-name';
 import { InspectorPanel } from './InspectorPanel';
 import { ModuleNode, type ModuleFlowNode } from './ModuleNode';
 import { Palette } from './Palette';
 import { edgeKindForHandles, LINK_COLORS, type CanvasLink, type CanvasModule } from './types';
 
 const nodeTypes = { module: ModuleNode };
+
+function applyRenamedModules(
+  nodes: ModuleFlowNode[],
+  updates: readonly ModuleNameUpdate[],
+): ModuleFlowNode[] {
+  if (updates.length === 0) return nodes;
+  const byId = new Map(updates.map((update) => [update.moduleId, update]));
+  return nodes.map((node) => {
+    const renamed = byId.get(node.id);
+    if (!renamed) return node;
+    return {
+      ...node,
+      data: {
+        ...node.data,
+        name: renamed.name,
+        generatedNameBase: renamed.generatedNameBase,
+        nameCustomized: renamed.nameCustomized,
+      },
+    };
+  });
+}
 
 function toNode(m: CanvasModule, companyId: string): ModuleFlowNode {
   return {
@@ -37,6 +60,8 @@ function toNode(m: CanvasModule, companyId: string): ModuleFlowNode {
     deletable: false, // module removal goes through the inspector's guarded delete
     data: {
       name: m.name,
+      generatedNameBase: m.generatedNameBase,
+      nameCustomized: m.nameCustomized,
       moduleType: m.type,
       status: m.status,
       companyId,
@@ -53,20 +78,14 @@ function toEdge(l: CanvasLink): Edge {
     id: l.id,
     source: l.fromModuleId,
     target: l.toModuleId,
-    // Rounded elbow routing matches the canonical connection language. React
-    // Flow's built-in smooth-step path is deterministic but not a full
-    // obstacle router; column spacing remains the first collision control.
     type: 'smoothstep',
-    // Stored links carry no handle info (handles are presentation-only for
-    // now); rehydrate them onto the handles their kind implies, defaulting to
-    // the data plane (data-out → data-in).
-    sourceHandle: l.linkKind === 'verification' ? 'tools-out' : 'data-out',
-    targetHandle: l.linkKind === 'directive' ? 'control-in' : 'data-in',
+    sourceHandle: handleIdForLink(l.linkKind, 'out'),
+    targetHandle: handleIdForLink(l.linkKind, 'in'),
     label: l.linkKind.replace('_', ' '),
     style: { stroke: LINK_COLORS[l.linkKind], strokeWidth: 1.5 },
     labelStyle: { fill: 'var(--color-ink-faint)', fontSize: 10 },
     labelBgStyle: { fill: 'var(--color-surface-0)' },
-    animated: false, // resting by default; activity animates it (poll effect)
+    animated: false,
   };
 }
 
@@ -196,16 +215,15 @@ export function CompanyCanvas(props: {
         return;
       }
       try {
-        // Handles are presentation-only for now: the persisted link keeps the
-        // (fromModuleId, toModuleId, linkKind) shape.
-        const { link } = await api<{ link: CanvasLink }>(
-          `/api/companies/${props.companyId}/links`,
-          {
-            method: 'POST',
-            body: { fromModuleId: from.id, toModuleId: to.id, linkKind },
-          },
-        );
+        const { link, renamedModules } = await api<{
+          link: CanvasLink;
+          renamedModules: ModuleNameUpdate[];
+        }>(`/api/companies/${props.companyId}/links`, {
+          method: 'POST',
+          body: { fromModuleId: from.id, toModuleId: to.id, linkKind },
+        });
         setEdges((current) => [...current, toEdge(link)]);
+        setNodes((current) => applyRenamedModules(current, renamedModules ?? []));
       } catch (err) {
         flash(
           err instanceof RequestError && err.code === 'link_already_exists'
@@ -214,7 +232,7 @@ export function CompanyCanvas(props: {
         );
       }
     },
-    [nodes, props.companyId, setEdges],
+    [nodes, props.companyId, setEdges, setNodes],
   );
 
   const addModule = useCallback(
@@ -223,26 +241,38 @@ export function CompanyCanvas(props: {
       const inColumn = nodes.filter((n) => MODULE_COLUMN[n.data.moduleType] === column).length;
       const position = { x: 80 + column * 260, y: 60 + inColumn * 140 };
       try {
-        const { module } = await api<{ module: { id: string } }>(
-          `/api/companies/${props.companyId}/modules`,
-          { method: 'POST', body: { type, name, config, canvasPosition: position } },
-        );
+        const { module } = await api<{
+          module: {
+            id: string;
+            name: string;
+            generatedNameBase: string;
+            nameCustomized: boolean;
+            topicSectors: string[];
+            capitalAllocationRef: string | null;
+            targetExitRef: string | null;
+          };
+        }>(`/api/companies/${props.companyId}/modules`, {
+          method: 'POST',
+          body: { type, name, config, canvasPosition: position },
+        });
         setNodes((current) => [
           ...current,
           toNode(
             {
               id: module.id,
               type,
-              name,
+              name: module.name,
+              generatedNameBase: module.generatedNameBase,
+              nameCustomized: module.nameCustomized,
               status: 'draft',
               position,
-              topicSectors: [],
-              capitalAllocationRef: null,
-              targetExitRef: null,
+              topicSectors: module.topicSectors,
+              capitalAllocationRef: module.capitalAllocationRef,
+              targetExitRef: module.targetExitRef,
               missingSetupFields: missingModuleSetupFields(type, {
-                topicSectors: [],
-                capitalAllocationRef: null,
-                targetExitRef: null,
+                topicSectors: module.topicSectors,
+                capitalAllocationRef: module.capitalAllocationRef,
+                targetExitRef: module.targetExitRef,
               }),
             },
             props.companyId,
@@ -286,6 +316,9 @@ export function CompanyCanvas(props: {
 
       const created: Array<{
         id: string;
+        name: string;
+        generatedNameBase: string;
+        nameCustomized: boolean;
         topicSectors: string[];
         capitalAllocationRef: string | null;
         targetExitRef: string | null;
@@ -296,6 +329,9 @@ export function CompanyCanvas(props: {
         const { module } = await api<{
           module: {
             id: string;
+            name: string;
+            generatedNameBase: string;
+            nameCustomized: boolean;
             topicSectors: string[];
             capitalAllocationRef: string | null;
             targetExitRef: string | null;
@@ -317,7 +353,9 @@ export function CompanyCanvas(props: {
             {
               id: module.id,
               type: m.type,
-              name: m.name,
+              name: module.name,
+              generatedNameBase: module.generatedNameBase,
+              nameCustomized: module.nameCustomized,
               status: 'draft',
               position,
               topicSectors: module.topicSectors,
@@ -345,18 +383,19 @@ export function CompanyCanvas(props: {
         if (!fromModuleId || !toModuleId) {
           throw new Error('engine_link_unresolved');
         }
-        const { link } = await api<{ link: CanvasLink }>(
-          `/api/companies/${props.companyId}/links`,
-          {
-            method: 'POST',
-            body: {
-              fromModuleId,
-              toModuleId,
-              linkKind: l.linkKind,
-            },
+        const { link, renamedModules } = await api<{
+          link: CanvasLink;
+          renamedModules: ModuleNameUpdate[];
+        }>(`/api/companies/${props.companyId}/links`, {
+          method: 'POST',
+          body: {
+            fromModuleId,
+            toModuleId,
+            linkKind: l.linkKind,
           },
-        );
+        });
         setEdges((current) => [...current, toEdge(link)]);
+        setNodes((current) => applyRenamedModules(current, renamedModules ?? []));
       }
       flash(`${engine.label} inserted — activate its modules to start.`);
     },
@@ -366,17 +405,27 @@ export function CompanyCanvas(props: {
   const onEdgesDelete = useCallback(
     (deleted: Edge[]) => {
       for (const edge of deleted) {
-        void api(`/api/companies/${props.companyId}/links/${edge.id}`, { method: 'DELETE' }).catch(
-          () => flash('Could not delete link.'),
-        );
+        void api<{ deleted: true; renamedModules: ModuleNameUpdate[] }>(
+          `/api/companies/${props.companyId}/links/${edge.id}`,
+          { method: 'DELETE' },
+        )
+          .then((response) => {
+            setNodes((current) => applyRenamedModules(current, response.renamedModules ?? []));
+          })
+          .catch(() => flash('Could not delete link.'));
       }
       setEdges((current) => current.filter((e) => !deleted.some((d) => d.id === e.id)));
     },
-    [props.companyId, setEdges],
+    [props.companyId, setEdges, setNodes],
   );
 
   const updateModule = useCallback(
-    (id: string, patch: Partial<{ name: string; status: ModuleStatus }>) => {
+    (
+      id: string,
+      patch: Partial<
+        Pick<CanvasModule, 'name' | 'status' | 'generatedNameBase' | 'nameCustomized'>
+      >,
+    ) => {
       setNodes((current) =>
         current.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)),
       );
@@ -385,8 +434,11 @@ export function CompanyCanvas(props: {
   );
 
   const removeModule = useCallback(
-    (id: string) => {
-      setNodes((current) => current.filter((n) => n.id !== id));
+    (id: string, renamedModules?: readonly ModuleNameUpdate[]) => {
+      setNodes((current) => {
+        const remaining = current.filter((n) => n.id !== id);
+        return applyRenamedModules(remaining, renamedModules ?? []);
+      });
       setEdges((current) => current.filter((e) => e.source !== id && e.target !== id));
       setSelectedId(null);
     },
@@ -400,6 +452,8 @@ export function CompanyCanvas(props: {
       id: node.id,
       type: node.data.moduleType,
       name: node.data.name,
+      generatedNameBase: node.data.generatedNameBase,
+      nameCustomized: node.data.nameCustomized,
       status: node.data.status,
       position: node.position,
       topicSectors: node.data.topicSectors,
@@ -437,7 +491,7 @@ export function CompanyCanvas(props: {
         </ReactFlow>
       </div>
 
-      {selected && selected.missingSetupFields.length === 0 && (
+      {selected && (
         <InspectorPanel
           companyId={props.companyId}
           module={selected}

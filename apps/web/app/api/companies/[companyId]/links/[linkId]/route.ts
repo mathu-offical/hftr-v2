@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { scoping, NotFoundError } from '@hftr/db';
 import { moduleLinks } from '@hftr/db/schema';
 import { withAuth } from '@/lib/api';
+import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,8 +17,16 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     const deleted = await db
       .delete(moduleLinks)
       .where(and(eq(moduleLinks.id, linkId), eq(moduleLinks.companyId, companyId)))
-      .returning({ id: moduleLinks.id });
+      .returning({
+        fromModuleId: moduleLinks.fromModuleId,
+        toModuleId: moduleLinks.toModuleId,
+      });
     if (deleted.length === 0) throw new NotFoundError('link');
-    return { deleted: true };
+    const { fromModuleId, toModuleId } = deleted[0]!;
+    const renamedModules = await refreshGeneratedModuleNames(db, companyId, [
+      fromModuleId,
+      toModuleId,
+    ]);
+    return { deleted: true, renamedModules };
   });
 }

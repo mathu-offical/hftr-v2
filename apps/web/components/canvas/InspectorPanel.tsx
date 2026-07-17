@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { ModuleStatus } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
+import type { ModuleNameUpdate } from '@/lib/module-generated-name';
 import {
   DisplayConfigForm,
   TradingConfigForm,
@@ -14,6 +15,10 @@ import { MODULE_VISUALS, type CanvasModule } from './types';
 
 const STATUS_OPTIONS: ModuleStatus[] = ['draft', 'active', 'paused'];
 
+type ModulePatch = Partial<
+  Pick<CanvasModule, 'name' | 'status' | 'generatedNameBase' | 'nameCustomized'>
+>;
+
 /**
  * Floating inspector card for the selected module (layered over the canvas,
  * top-right): rename, status, per-type controls, delete.
@@ -21,13 +26,14 @@ const STATUS_OPTIONS: ModuleStatus[] = ['draft', 'active', 'paused'];
 export function InspectorPanel(props: {
   companyId: string;
   module: CanvasModule;
-  onUpdated: (id: string, patch: Partial<Pick<CanvasModule, 'name' | 'status'>>) => void;
-  onDeleted: (id: string) => void;
+  onUpdated: (id: string, patch: ModulePatch) => void;
+  onDeleted: (id: string, renamedModules?: readonly ModuleNameUpdate[]) => void;
   onClose: () => void;
 }) {
   const { module: mod } = props;
   const [name, setName] = useState(mod.name);
   const [error, setError] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
   const visual = MODULE_VISUALS[mod.type];
   const isMath = mod.type === 'math';
 
@@ -39,14 +45,52 @@ export function InspectorPanel(props: {
   async function saveName() {
     if (name.trim() === mod.name || name.trim() === '') return;
     try {
-      await api(`/api/companies/${props.companyId}/modules/${mod.id}`, {
+      const { module } = await api<{
+        module: {
+          name: string;
+          generatedNameBase: string;
+          nameCustomized: boolean;
+        };
+      }>(`/api/companies/${props.companyId}/modules/${mod.id}`, {
         method: 'PATCH',
         body: { name: name.trim() },
       });
-      props.onUpdated(mod.id, { name: name.trim() });
+      props.onUpdated(mod.id, {
+        name: module.name,
+        generatedNameBase: module.generatedNameBase,
+        nameCustomized: module.nameCustomized,
+      });
+      setName(module.name);
     } catch {
       setError('Rename failed.');
       setName(mod.name);
+    }
+  }
+
+  async function restoreGeneratedName() {
+    setRestoring(true);
+    setError(null);
+    try {
+      const { module } = await api<{
+        module: {
+          name: string;
+          generatedNameBase: string;
+          nameCustomized: boolean;
+        };
+      }>(`/api/companies/${props.companyId}/modules/${mod.id}`, {
+        method: 'PATCH',
+        body: { restoreGeneratedName: true },
+      });
+      props.onUpdated(mod.id, {
+        name: module.name,
+        generatedNameBase: module.generatedNameBase,
+        nameCustomized: module.nameCustomized,
+      });
+      setName(module.name);
+    } catch {
+      setError('Could not restore the generated name.');
+    } finally {
+      setRestoring(false);
     }
   }
 
@@ -64,8 +108,11 @@ export function InspectorPanel(props: {
 
   async function remove() {
     try {
-      await api(`/api/companies/${props.companyId}/modules/${mod.id}`, { method: 'DELETE' });
-      props.onDeleted(mod.id);
+      const response = await api<{ deleted: true; renamedModules: ModuleNameUpdate[] }>(
+        `/api/companies/${props.companyId}/modules/${mod.id}`,
+        { method: 'DELETE' },
+      );
+      props.onDeleted(mod.id, response.renamedModules);
     } catch (err) {
       setError(
         err instanceof RequestError && err.code === 'math_module_not_deletable'
@@ -104,6 +151,23 @@ export function InspectorPanel(props: {
           maxLength={80}
           className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-60"
         />
+        <p className="text-[10px] text-[var(--color-ink-faint)]">
+          {mod.nameCustomized ? (
+            <>Custom name · base function label: {mod.generatedNameBase}</>
+          ) : (
+            <>Generated from connections · base: {mod.generatedNameBase}</>
+          )}
+        </p>
+        {mod.nameCustomized && !isMath && (
+          <button
+            type="button"
+            disabled={restoring}
+            onClick={() => void restoreGeneratedName()}
+            className="text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+          >
+            {restoring ? 'Restoring…' : 'Restore generated name'}
+          </button>
+        )}
       </label>
 
       <div className="space-y-1.5">
@@ -167,7 +231,7 @@ export function InspectorPanel(props: {
         </p>
       ) : (
         <button
-          onClick={remove}
+          onClick={() => void remove()}
           className="mt-auto rounded-md border border-[var(--color-line)] px-3 py-2 text-sm text-[var(--color-block)] hover:border-[var(--color-block)]"
         >
           Delete module

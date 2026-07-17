@@ -96,6 +96,8 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
               id: m.id,
               type: m.type,
               name: m.name,
+              generatedNameBase: m.generatedNameBase,
+              nameCustomized: m.nameCustomized,
               status: m.status,
               position: (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number },
               topicSectors: m.topicSectors,

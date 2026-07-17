@@ -18,6 +18,13 @@ watches, steers, and approves through the canvas + three panels + the assistant.
   thresholds for fund movements, LLM budget tier. Philosophy axes deterministically affect
   promote/compile sizing and control snapshots; free-text never supplies raw sizes or times.
 - A user can own many companies; each company is one canvas.
+- **Companies directory (implemented):** each card shows **paper|live** mode (text-first badge),
+  included **engine** labels (`engine_instances`), and navigates to `/companies/:id`. Card menu:
+  rename (`PATCH`), soft-delete/archive (`DELETE`), and **duplicate**
+  (`POST .../duplicate`) which copies canvas topology (engines, modules, links) into a new
+  **paper** company in one atomic database batch. Duplication never copies capital, allocations,
+  ValueRefs, auto-funding, live arming, or broker bind; non-Math modules return to `draft` for
+  explicit operator review. Runtime artifacts (traces, jobs, libraries) stay on the source.
 - **Company creation (implemented D-024):** offers discrete seed modules/engines and an inline
   setup section. Capital-bearing nodes (`holding_fund`, `fund_router`, `trading`) require a fixed
   or percentage capital allocation plus target exit; research/data/signal/trading analysis nodes

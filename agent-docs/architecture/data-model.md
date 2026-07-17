@@ -192,12 +192,12 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   /api/companies/:companyId/assistant` returns newest 100 in chronological order. POST admission:
   20 user messages per company per rolling minute. User + assistant rows insert in one multi-row
   `INSERT` (Neon HTTP driver lacks interactive transactions). M1 path is deterministic regex
-  intent routing to six read lookups — **no LLM tier calls**. Retention/erasure policy
-  unresolved (OQ-10).
+  intent routing to six read lookups — **no LLM tier calls**. Retention: **90d hot** per D-030;
+  purge/archive job pending (same milestone as trace cold storage).
 - **assistant_sessions** — not implemented in M1; session grouping deferred until Mistral chat
   ships (M2+). Company + user scoping on messages is sufficient for M1 history.
-- **assistant_edits** — audit of every mutation the assistant performed: tool name, JSON patch,
-  affected entity, user confirmation state, reversal ref. **M4** (write tools + proposal cards).
+- **assistant_edits** — APPEND-ONLY audit of assistant-proposed mutations (M4): tool name, JSON
+  patch, affected entity, confirmation state. **90d hot retention** per D-030; purge job pending.
 
 ## Seed catalogs (read-mostly, versioned)
 

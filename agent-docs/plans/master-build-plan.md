@@ -8,6 +8,21 @@ then breadth.
 Sprint-level task breakdowns: `m0-sprint-spec.md`, `m1-sprint-spec.md` (subsequent milestone
 sprint specs are written when the prior gate passes, incorporating learnings).
 
+## Gate status (honest, 2026-07-17)
+
+| Gate | Status | Shipped | Remaining |
+|------|--------|---------|-----------|
+| **G0** Foundation | **Passed** | Monorepo, Clerk, Drizzle migrations, Vercel skeleton, CI typecheck/lint/vitest | — |
+| **G1** Canvas + queue spine | **Passed (local)** | Company wizard, canvas CRUD, queue drain, panels, deterministic assistant, Playwright M1 flows | Remote CI e2e first green run |
+| **G2** Research stack | **Partial** | Libraries/topics migration, galaxy MVP, Obsidian zip export, schedule materializer, `research-library.spec.ts` | Real-provider research smoke, autonomous topic soak, default model-profile promotion |
+| **G3** Paper trading loop | **Partial** | Deterministic promote→compile→dispatch, pre-dispatch gauntlet, fund approvals, lineage API | Engine tests **83/294** v1 parity target; full NRA finalizer; Playwright flows 3+7 green in CI |
+| **G4** Brokers + billing | **Partial (non-billing)** | Assistant proposals, `simulation_runs` API/UI, Alpaca connect UX | **Billing deferred (D-032)**; Stripe; Alpaca paper full-loop e2e; assistant model write path |
+| **G5** Multi-venue + live | **Partial** | Live-gate APIs + `ModeSwitch` arming UI; Kalshi demo stub | **Live Alpaca unverified**; crypto/HFT/long-term presets; dedicated worker decision (OQ-2) |
+| **G6** Polish + ops | **Partial** | Dead-letter GET/retry API + bottom tab; `maintenance.retention` audit log; `ops/runbook.md` | Perf/a11y pass; trace purge/archive job; Polymarket adapter |
+
+**Not done (explicit):** real-provider Alpaca/Kalshi smoke with operator keys; ≥294 engine
+contract tests; Stripe/Clerk billing; live dispatch verification on a funded paper account.
+
 ## M0 — Foundation (repo, auth, data, deploy skeleton)
 
 Deliverables:
@@ -70,9 +85,9 @@ console errors. Remote CI e2e first run remains pending.
 **M2 / G2 candidate (2026-07-17):** D-027 service integration plus research product surfaces:
 libraries / library_concepts / research_topics (migration `0012`); graph + Obsidian zip export;
 galaxy MVP (`react-force-graph-3d` + 2D fallback); schedule materializer + budget-queued claim
-semantics; Playwright `research-library.spec.ts`. Remaining for formal G2 sign-off: live
-provider/Alpaca smoke with operator keys, autonomous cadence soak on a real topic, and default
-model-profile promotion after paper scenario suite.
+semantics; Playwright `research-library.spec.ts` (galaxy + API/UI Obsidian zip export). Remaining
+for formal G2 sign-off: live provider/Alpaca smoke with operator keys, autonomous cadence soak
+on a real topic, and default model-profile promotion after paper scenario suite.
 
 ## M2 — Research stack (Claude+Mistral) + libraries + galaxy MVP + numeric core
 
@@ -97,7 +112,7 @@ library on a real topic within budget caps. Flow verified in browser; LLM ledger
 
 **Progress (2026-07-17):** Dynamic safety foundation (D-029) — limits/guardrails/live-gates
 contracts + tables (`0013`); `preDispatchGauntlet` wired; lever-resolver; fund-transfer
-approve/reject + Approvals tab; ValueRef lineage walk API + Values tab. Engine tests ~79
+approve/reject + Approvals tab; ValueRef lineage walk API + Values tab. Engine tests **83**
 (still below ≥294 v1 parity target). Live remains fail-closed until arming (M5).
 
 1. Port + harden engine: bands catalog, lever registries (strategic/tactical/execution),

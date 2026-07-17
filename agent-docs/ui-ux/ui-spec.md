@@ -36,6 +36,10 @@
   (Verify · Executions · Ledger · Sims · Values) expand into panels; the canvas keeps the
   remaining space. The earlier "full slide-over" model is deferred; current panels are
   docked flex children so canvas context is never fully hidden.
+- **Companies directory (`/companies`):** card grid with paper (cyan) / live (red) text-first
+  mode badges, included engine labels, link into the company canvas, and a ⋯ menu for rename,
+  duplicate (always a zero-capital paper copy of topology with non-Math modules reset to draft),
+  and archive/delete.
 
 ## 3. Canvas (React Flow)
 
@@ -190,7 +194,7 @@ teardown.
 
 | Spec | What it exercises |
 |---|---|
-| `companies.spec.ts` | Companies directory; template choices; day-template Required chips and Skip action |
+| `companies.spec.ts` | Companies directory; template choices; day-template Required chips and Skip action; card mode/engines + navigate/rename/duplicate/archive |
 | `company-workspace.spec.ts` | skipped `day_trading_starter` setup → missing node chips → collapse info panel → complete trading setup inline through ValueRef route (type-scoped node under generated titles) → separate LLM/operating view → full seeded names + **10** `smoothstep` edges → panels/shortcuts/store → assistant persistence → archive cleanup |
 | `canvas-node-dashboard.spec.ts` | **D-026:** skip setup → always-visible trading fields + per-field Required/Set chips → labeled LinkKind handles → chrome-click inspector without geometry change → explicit **Save setup** → rename + restore generated name |
 | `service-settings.spec.ts` | user settings (six LLM providers + Brokers/Alpaca fields + verify affordance) → company operating tab (capital caps, provider health, LLM policy, broker bind, recent calls) → broker GET shape without real keys |

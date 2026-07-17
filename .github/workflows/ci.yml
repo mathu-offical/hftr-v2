@@ -32,6 +32,8 @@ jobs:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ''
           CLERK_SECRET_KEY: ''
 
+      # Credentialed Alpaca/LLM smoke is opt-in (never commit secrets).
+      # Set repository secrets + workflow_dispatch when operators want venue smoke.
   e2e:
     runs-on: ubuntu-latest
     services:

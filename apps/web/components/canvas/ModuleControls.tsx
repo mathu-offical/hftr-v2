@@ -369,6 +369,7 @@ export function DisplayConfigForm(props: { companyId: string; moduleId: string }
 }
 
 type Curiosity = 'conservative' | 'balanced' | 'exploratory';
+type AdmissionMode = 'auto_admit_validated' | 'require_operator_approval';
 
 interface ResearchConfig {
   topicScope: string;
@@ -377,6 +378,7 @@ interface ResearchConfig {
   targetLibraryIds: string[];
   sourceAllowlist: string[];
   sourceBlocklist: string[];
+  admissionMode: AdmissionMode;
 }
 
 interface LibraryOption {
@@ -390,6 +392,7 @@ const DEFAULT_RESEARCH_CONFIG: Omit<ResearchConfig, 'topicScope'> = {
   targetLibraryIds: [],
   sourceAllowlist: [],
   sourceBlocklist: [],
+  admissionMode: 'auto_admit_validated',
 };
 
 export function ResearchConfigForm(props: { companyId: string; moduleId: string }) {
@@ -479,6 +482,21 @@ export function ResearchConfigForm(props: { companyId: string; moduleId: string 
           <option value="conservative">conservative</option>
           <option value="balanced">balanced</option>
           <option value="exploratory">exploratory</option>
+        </select>
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Admission mode</span>
+        <select
+          value={config.admissionMode}
+          disabled={saving}
+          onChange={(e) =>
+            void saveConfig({ ...config, admissionMode: e.target.value as AdmissionMode })
+          }
+          aria-label="Research admission mode"
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          <option value="auto_admit_validated">Auto-admit after validation</option>
+          <option value="require_operator_approval">Require operator approval</option>
         </select>
       </label>
       <label className="block space-y-1">

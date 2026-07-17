@@ -1,0 +1,118 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import { api, RequestError } from '@/lib/client';
+import { toneFor } from './format';
+
+export interface ResearchRunSnapshot {
+  requestId: string;
+  phase: string;
+  evidenceCount: number;
+  conceptCount: number;
+  validationPassed: boolean | null;
+}
+
+interface RunRow {
+  id?: string;
+  requestId?: string;
+  phase?: string;
+  status?: string;
+  evidenceCount?: number;
+  conceptCount?: number;
+  validationPassed?: boolean;
+  evidenceIds?: string[];
+  conceptIds?: string[];
+  validation?: { overallPass?: boolean };
+}
+
+function parseRun(row: RunRow): ResearchRunSnapshot {
+  return {
+    requestId: String(row.requestId ?? row.id ?? ''),
+    phase: String(row.phase ?? row.status ?? 'unknown'),
+    evidenceCount: Number(row.evidenceCount ?? row.evidenceIds?.length ?? 0),
+    conceptCount: Number(row.conceptCount ?? row.conceptIds?.length ?? 0),
+    validationPassed:
+      typeof row.validationPassed === 'boolean'
+        ? row.validationPassed
+        : (row.validation?.overallPass ?? null),
+  };
+}
+
+/** Polls research runs once after a short delay when pollToken increments. */
+export function ResearchRunStatus(props: {
+  companyId: string;
+  moduleId?: string;
+  pollToken: number;
+  onRun?: (run: ResearchRunSnapshot) => void;
+}) {
+  const [run, setRun] = useState<ResearchRunSnapshot | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const onRunRef = useRef(props.onRun);
+  onRunRef.current = props.onRun;
+
+  useEffect(() => {
+    if (!props.pollToken || !props.companyId) return;
+    setMessage(null);
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const qs = props.moduleId ? `?moduleId=${props.moduleId}` : '';
+          const data = await api<{ runs: RunRow[] }>(
+            `/api/companies/${props.companyId}/research/runs${qs}`,
+          );
+          const latest = data.runs?.[0];
+          if (!latest) {
+            setMessage('No runs recorded yet.');
+            setRun(null);
+            return;
+          }
+          const snapshot = parseRun(latest);
+          setRun(snapshot);
+          onRunRef.current?.(snapshot);
+        } catch (err) {
+          setRun(null);
+          setMessage(
+            err instanceof RequestError && err.status === 404
+              ? 'Runs API not available yet.'
+              : 'Could not load run status.',
+          );
+        }
+      })();
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [props.pollToken, props.companyId, props.moduleId]);
+
+  if (!props.pollToken) return null;
+  if (message) {
+    return <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">{message}</p>;
+  }
+  if (!run) {
+    return (
+      <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">Checking run status…</p>
+    );
+  }
+
+  const validationLabel =
+    run.validationPassed === null
+      ? 'validation pending'
+      : run.validationPassed
+        ? 'validation passed'
+        : 'validation failed';
+
+  return (
+    <div
+      className="mt-1.5 rounded-md border border-[var(--color-line)] px-2 py-1.5 text-[10px] text-[var(--color-ink-dim)]"
+      aria-live="polite"
+    >
+      <span className="text-[var(--color-ink)]">{run.phase}</span>
+      <span className="mx-1 text-[var(--color-ink-faint)]">·</span>
+      <span>{run.evidenceCount} evidence</span>
+      <span className="mx-1 text-[var(--color-ink-faint)]">·</span>
+      <span>{run.conceptCount} concepts</span>
+      <span className="mx-1 text-[var(--color-ink-faint)]">·</span>
+      <span style={{ color: toneFor(run.validationPassed ? 'pass' : 'fail') }}>
+        {validationLabel}
+      </span>
+    </div>
+  );
+}

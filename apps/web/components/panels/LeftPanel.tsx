@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import type { Library, ResearchGraphResponse } from '@hftr/contracts';
+import type { CurationStatus, Library, ResearchGraphResponse } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import { GalaxyView } from '@/components/research/GalaxyView';
 import { ResearchTopicsTree } from '@/components/research/ResearchTopicsTree';
-import { provenanceChip, snippet } from './format';
+import { ResearchRunStatus } from '@/components/panels/ResearchRunStatus';
+import { provenanceChip, snippet, toneFor } from './format';
 
 type Tab = 'research' | 'data';
 const LEFT_TABS: Tab[] = ['research', 'data'];
@@ -176,6 +177,9 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
 
   const research = props.modules.filter((m) => m.type === 'research' || m.type === 'trend');
   const researchModules = props.modules.filter((m) => m.type === 'research');
+  const requiresOperatorApproval = researchModules.some(
+    (m) => m.config.admissionMode === 'require_operator_approval',
+  );
   const sources = props.modules.filter((m) => m.type === 'live_api' || m.type === 'library');
   const nameOf = (id: string) => props.modules.find((m) => m.id === id)?.name ?? 'unknown';
 
@@ -234,11 +238,16 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
               companyId={companyId}
               libraries={libraries}
               loaded={librariesLoaded}
+              requiresOperatorApproval={requiresOperatorApproval}
               onChanged={() => {
                 void loadLibraries();
                 void loadGraph();
+                void loadConcepts();
               }}
             />
+            {researchModules.length > 0 && (
+              <CompanySweepAction companyId={companyId} onDone={loadConcepts} />
+            )}
             <div className="mt-3 flex items-center justify-between rounded-lg border border-[var(--color-line)] px-2.5 py-2">
               <span className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
                 Galaxy view
@@ -298,7 +307,12 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                     </div>
                     <div className="mt-1 text-[10px] text-[var(--color-ink-faint)]">{m.status}</div>
                     {m.type === 'research' && (
-                      <CurateAction companyId={companyId} moduleId={m.id} onDone={loadConcepts} />
+                      <ResearchActions
+                        companyId={companyId}
+                        moduleId={m.id}
+                        topicScope={String(m.config.topicScope ?? m.config.focus ?? '')}
+                        onDone={loadConcepts}
+                      />
                     )}
                     <ConceptsBrowser
                       concepts={concepts.filter((c) => c.moduleId === m.id)}
@@ -372,11 +386,12 @@ async function downloadLibraryExport(companyId: string, libraryId: string, name:
   URL.revokeObjectURL(url);
 }
 
-/** Libraries list with create form and Obsidian zip export per library. */
+/** Libraries list with create form, curation browser, and Obsidian export. */
 function LibrariesSection(props: {
   companyId: string;
   libraries: Library[];
   loaded: boolean;
+  requiresOperatorApproval: boolean;
   onChanged: () => void;
 }) {
   const [name, setName] = useState('');
@@ -439,28 +454,34 @@ function LibrariesSection(props: {
       ) : (
         <ul className="mt-2 space-y-1.5">
           {props.libraries.map((lib) => (
-            <li
-              key={lib.id}
-              className="flex items-center justify-between gap-2 rounded-md border border-[var(--color-line)] px-2 py-1.5"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-[11px] font-medium text-[var(--color-ink)]">
-                  {lib.name}
-                </p>
-                <p className="truncate text-[10px] text-[var(--color-ink-faint)]">
-                  {lib.topicScope || 'no scope'} · {lib.status}
-                  {lib.masterLibrary ? ' · master' : ''}
-                </p>
+            <li key={lib.id}>
+              <div className="flex items-center justify-between gap-2 rounded-md border border-[var(--color-line)] px-2 py-1.5">
+                <div className="min-w-0">
+                  <p className="truncate text-[11px] font-medium text-[var(--color-ink)]">
+                    {lib.name}
+                  </p>
+                  <p className="truncate text-[10px] text-[var(--color-ink-faint)]">
+                    {lib.topicScope || 'no scope'} · {lib.status}
+                    {lib.masterLibrary ? ' · master' : ''}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={exportingId === lib.id}
+                  onClick={() => void exportLibrary(lib)}
+                  aria-label={`Export ${lib.name} to Obsidian zip`}
+                  className="shrink-0 rounded-md border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50"
+                >
+                  {exportingId === lib.id ? 'Exporting…' : 'Export'}
+                </button>
               </div>
-              <button
-                type="button"
-                disabled={exportingId === lib.id}
-                onClick={() => void exportLibrary(lib)}
-                aria-label={`Export ${lib.name} to Obsidian zip`}
-                className="shrink-0 rounded-md border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50"
-              >
-                {exportingId === lib.id ? 'Exporting…' : 'Export'}
-              </button>
+              <LibraryConceptsPanel
+                companyId={props.companyId}
+                libraryId={lib.id}
+                libraryName={lib.name}
+                requiresOperatorApproval={props.requiresOperatorApproval}
+                onChanged={props.onChanged}
+              />
             </li>
           ))}
         </ul>
@@ -687,26 +708,25 @@ function NewDataSourceForm(props: { companyId: string }) {
   );
 }
 
-/** "Curate now" button for research modules: queues a curation run. */
-function CurateAction(props: { companyId: string; moduleId: string; onDone: () => void }) {
+/** Company-wide research sweep across all research modules. */
+function CompanySweepAction(props: { companyId: string; onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [pollToken, setPollToken] = useState(0);
 
-  async function curate() {
+  async function sweep() {
     setBusy(true);
     setMessage(null);
     try {
-      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}/curate`, {
-        method: 'POST',
-        body: {},
-      });
-      setMessage('Curation queued.');
+      await api(`/api/companies/${props.companyId}/research/sweep`, { method: 'POST', body: {} });
+      setMessage('Company sweep queued.');
+      setPollToken((n) => n + 1);
       props.onDone();
     } catch (err) {
       setMessage(
         err instanceof RequestError && err.status === 404
-          ? 'Curation not available yet.'
-          : 'Curation request failed.',
+          ? 'Sweep API not available yet.'
+          : 'Company sweep failed.',
       );
     } finally {
       setBusy(false);
@@ -714,16 +734,389 @@ function CurateAction(props: { companyId: string; moduleId: string; onDone: () =
   }
 
   return (
-    <div className="mt-1.5 flex items-center gap-2">
+    <div className="mt-3 rounded-lg border border-[var(--color-line)] px-2.5 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+          Company research
+        </span>
+        <button
+          type="button"
+          onClick={() => void sweep()}
+          disabled={busy}
+          aria-label="Run company-wide research sweep"
+          className="rounded-md border border-[var(--color-accent)] px-2 py-0.5 text-[10px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+        >
+          {busy ? 'Sweeping…' : 'Company sweep'}
+        </button>
+      </div>
+      {message && <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">{message}</p>}
+      <ResearchRunStatus companyId={props.companyId} pollToken={pollToken} />
+    </div>
+  );
+}
+
+type CurationFilter = 'all' | CurationStatus;
+
+const CURATION_FILTERS: { id: CurationFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'proposed', label: 'Proposed' },
+  { id: 'auto_admitted', label: 'Auto-admitted' },
+  { id: 'accepted', label: 'Accepted' },
+  { id: 'rejected', label: 'Rejected' },
+];
+
+interface LibraryConceptRow {
+  id: string;
+  conceptId: string;
+  curationStatus: CurationStatus;
+  title?: string;
+  body?: string;
+}
+
+function LibraryConceptsPanel(props: {
+  companyId: string;
+  libraryId: string;
+  libraryName: string;
+  requiresOperatorApproval: boolean;
+  onChanged: () => void;
+}) {
+  const [open, setOpen] = useState(props.requiresOperatorApproval);
+  const [loaded, setLoaded] = useState(false);
+  const [concepts, setConcepts] = useState<LibraryConceptRow[]>([]);
+  const [filter, setFilter] = useState<CurationFilter>(
+    props.requiresOperatorApproval ? 'proposed' : 'all',
+  );
+  const [busyConceptId, setBusyConceptId] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!props.companyId || !props.libraryId) return;
+    try {
+      const data = await api<{ libraryConcepts: LibraryConceptRow[] }>(
+        `/api/companies/${props.companyId}/libraries/${props.libraryId}/concepts`,
+      );
+      setConcepts(data.libraryConcepts);
+    } catch {
+      setConcepts([]);
+    } finally {
+      setLoaded(true);
+    }
+  }, [props.companyId, props.libraryId]);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoaded(false);
+    void load();
+  }, [open, load]);
+
+  const filtered = useMemo(() => {
+    if (filter === 'all') return concepts;
+    return concepts.filter((c) => c.curationStatus === filter);
+  }, [concepts, filter]);
+
+  async function curateConcept(conceptId: string, curationStatus: CurationStatus) {
+    setBusyConceptId(conceptId);
+    setMessage(null);
+    try {
+      await api(`/api/companies/${props.companyId}/libraries/${props.libraryId}/curate`, {
+        method: 'POST',
+        body: { conceptId, curationStatus },
+      });
+      setMessage(curationStatus === 'accepted' ? 'Concept accepted.' : 'Concept rejected.');
+      await load();
+      props.onChanged();
+    } catch {
+      setMessage('Curation update failed.');
+    } finally {
+      setBusyConceptId(null);
+    }
+  }
+
+  return (
+    <div className="mt-1 pl-1">
       <button
-        onClick={curate}
-        disabled={busy}
-        aria-label="Curate this research module now"
-        className="rounded-md border border-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={`${open ? 'Hide' : 'Show'} concepts for ${props.libraryName}`}
+        className="text-[10px] text-[var(--color-accent)] hover:underline"
       >
-        {busy ? 'Curating…' : 'Curate now'}
+        {open ? 'Hide concepts' : 'Show concepts'}
+        {props.requiresOperatorApproval ? ' · approval required' : ''}
       </button>
+      {open && (
+        <div className="mt-1.5 space-y-1.5 border-l border-[var(--color-line)] pl-2">
+          <div className="flex flex-wrap gap-1">
+            {CURATION_FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setFilter(f.id)}
+                aria-pressed={filter === f.id}
+                aria-label={`Filter library concepts: ${f.label}`}
+                className={`rounded-full border px-1.5 py-0.5 text-[9px] ${
+                  filter === f.id
+                    ? f.id === 'proposed' && props.requiresOperatorApproval
+                      ? 'border-[var(--color-warn)] text-[var(--color-warn)]'
+                      : 'border-[var(--color-accent)] text-[var(--color-accent)]'
+                    : 'border-[var(--color-line)] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          {!loaded ? (
+            <p className="text-[10px] text-[var(--color-ink-faint)]">Loading concepts…</p>
+          ) : filtered.length === 0 ? (
+            <p className="text-[10px] text-[var(--color-ink-faint)]">No concepts in this filter.</p>
+          ) : (
+            <ul className="space-y-1">
+              {filtered.map((c) => (
+                <li
+                  key={c.id}
+                  className="rounded border border-[var(--color-line)] px-2 py-1 text-[10px]"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-medium text-[var(--color-ink)]">
+                      {c.title ?? 'Untitled concept'}
+                    </span>
+                    <span
+                      className="shrink-0 uppercase"
+                      style={{ color: toneFor(c.curationStatus === 'rejected' ? 'rejected' : 'flat') }}
+                    >
+                      {c.curationStatus.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                  {c.body && (
+                    <p className="mt-0.5 text-[var(--color-ink-dim)]">{snippet(c.body, 100)}</p>
+                  )}
+                  {c.curationStatus === 'proposed' && (
+                    <div className="mt-1 flex gap-2">
+                      <button
+                        type="button"
+                        disabled={busyConceptId === c.conceptId}
+                        onClick={() => void curateConcept(c.conceptId, 'accepted')}
+                        aria-label={`Accept concept ${c.title ?? c.conceptId}`}
+                        className="text-[var(--color-ok)] hover:underline disabled:opacity-50"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busyConceptId === c.conceptId}
+                        onClick={() => void curateConcept(c.conceptId, 'rejected')}
+                        aria-label={`Reject concept ${c.title ?? c.conceptId}`}
+                        className="text-[var(--color-block)] hover:underline disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {message && <p className="text-[10px] text-[var(--color-ink-faint)]">{message}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface EvidenceRow {
+  id: string;
+  title: string;
+  sourceKind: string;
+  feedClass: string;
+  summary: string;
+}
+
+interface ValidationGateRow {
+  gateId: string;
+  passed: boolean;
+  scoreBand: string;
+  reason: string;
+}
+
+/** Manual query, opportunistic curate, evidence, and run status for research modules. */
+function ResearchActions(props: {
+  companyId: string;
+  moduleId: string;
+  topicScope: string;
+  onDone: () => void;
+}) {
+  const [queryText, setQueryText] = useState('');
+  const [busy, setBusy] = useState<'research' | 'curate' | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [pollToken, setPollToken] = useState(0);
+  const [evidence, setEvidence] = useState<EvidenceRow[]>([]);
+  const [evidenceLoaded, setEvidenceLoaded] = useState(false);
+  const [gates, setGates] = useState<ValidationGateRow[]>([]);
+
+  const loadEvidence = useCallback(async () => {
+    if (!props.companyId || !props.moduleId) return;
+    try {
+      const data = await api<{ evidence: EvidenceRow[] }>(
+        `/api/companies/${props.companyId}/modules/${props.moduleId}/research/evidence`,
+      );
+      setEvidence(data.evidence);
+    } catch {
+      setEvidence([]);
+    } finally {
+      setEvidenceLoaded(true);
+    }
+  }, [props.companyId, props.moduleId]);
+
+  useEffect(() => {
+    void loadEvidence();
+  }, [loadEvidence]);
+
+  async function loadRequestDetail(requestId: string) {
+    if (!requestId) return;
+    try {
+      const data = await api<{ validation?: { gates?: ValidationGateRow[] } }>(
+        `/api/companies/${props.companyId}/research/requests/${requestId}`,
+      );
+      setGates(data.validation?.gates ?? []);
+    } catch {
+      setGates([]);
+    }
+  }
+
+  async function runManualResearch() {
+    const trimmed = queryText.trim();
+    if (!trimmed) {
+      setMessage('Enter a research query.');
+      return;
+    }
+    setBusy('research');
+    setMessage(null);
+    try {
+      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}/curate`, {
+        method: 'POST',
+        body: { queryText: trimmed, mode: 'manual' },
+      });
+      setMessage('Research queued.');
+      setPollToken((n) => n + 1);
+      props.onDone();
+      void loadEvidence();
+    } catch (err) {
+      setMessage(
+        err instanceof RequestError && err.status === 404
+          ? 'Research API not available yet.'
+          : 'Research request failed.',
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function curateNow() {
+    setBusy('curate');
+    setMessage(null);
+    try {
+      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}/curate`, {
+        method: 'POST',
+        body: {
+          mode: 'opportunistic',
+          topicScope: props.topicScope || undefined,
+        },
+      });
+      setMessage('Curation queued.');
+      setPollToken((n) => n + 1);
+      props.onDone();
+      void loadEvidence();
+    } catch (err) {
+      setMessage(
+        err instanceof RequestError && err.status === 404
+          ? 'Curation not available yet.'
+          : 'Curation request failed.',
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="mt-1.5 space-y-1.5 border-t border-[var(--color-line)] pt-1.5">
+      <label className="block space-y-1">
+        <span className="text-[10px] text-[var(--color-ink-faint)]">Research query</span>
+        <textarea
+          value={queryText}
+          onChange={(e) => setQueryText(e.target.value)}
+          rows={2}
+          placeholder="What should this module investigate?"
+          aria-label="Manual research query"
+          className="w-full resize-none rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)]"
+        />
+      </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => void runManualResearch()}
+          disabled={busy !== null}
+          aria-label="Run manual research query"
+          className="rounded-md border border-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+        >
+          {busy === 'research' ? 'Researching…' : 'Research'}
+        </button>
+        <button
+          type="button"
+          onClick={() => void curateNow()}
+          disabled={busy !== null}
+          aria-label="Curate this research module now"
+          className="rounded-md border border-[var(--color-line)] px-2 py-0.5 text-[11px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50"
+        >
+          {busy === 'curate' ? 'Curating…' : 'Curate now'}
+        </button>
+      </div>
       {message && <span className="text-[10px] text-[var(--color-ink-faint)]">{message}</span>}
+      <ResearchRunStatus
+        companyId={props.companyId}
+        moduleId={props.moduleId}
+        pollToken={pollToken}
+        onRun={(run) => void loadRequestDetail(run.requestId)}
+      />
+      {gates.length > 0 && (
+        <ul className="space-y-1 rounded-md border border-[var(--color-line)] px-2 py-1.5">
+          {gates.map((g) => (
+            <li key={g.gateId} className="flex flex-wrap items-baseline gap-x-2 text-[10px]">
+              <span className="text-[var(--color-ink)]">{g.gateId}</span>
+              <span style={{ color: toneFor(g.passed ? 'pass' : 'fail') }}>
+                {g.passed ? 'passed' : 'failed'}
+              </span>
+              <span className="text-[var(--color-ink-faint)]">{g.scoreBand}</span>
+              {g.reason && <span className="text-[var(--color-ink-dim)]">{g.reason}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div>
+        <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+          Evidence
+        </p>
+        {!evidenceLoaded ? (
+          <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">Loading evidence…</p>
+        ) : evidence.length === 0 ? (
+          <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">No evidence yet.</p>
+        ) : (
+          <ul className="mt-1 space-y-1">
+            {evidence.map((e) => (
+              <li
+                key={e.id}
+                className="rounded border border-[var(--color-line)] px-2 py-1 text-[10px]"
+              >
+                <div className="font-medium text-[var(--color-ink)]">{e.title}</div>
+                <div className="text-[var(--color-ink-faint)]">
+                  {e.sourceKind.replace(/_/g, ' ')} · {e.feedClass}
+                </div>
+                <p className="mt-0.5 text-[var(--color-ink-dim)]">{snippet(e.summary, 120)}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

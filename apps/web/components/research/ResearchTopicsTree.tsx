@@ -29,7 +29,14 @@ function buildTopicTree(topics: ResearchTopic[]): TopicNode[] {
   return walk(null);
 }
 
-function TopicBranch(props: { node: TopicNode; depth: number }) {
+function TopicBranch(props: {
+  node: TopicNode;
+  depth: number;
+  companyId: string;
+  moduleId: string;
+  onResearch: (topic: ResearchTopic) => void;
+  busyTopicId: string | null;
+}) {
   const { topic, children } = props.node;
   return (
     <li>
@@ -37,14 +44,33 @@ function TopicBranch(props: { node: TopicNode; depth: number }) {
         className="flex items-center gap-2 py-0.5"
         style={{ paddingLeft: `${props.depth * 12}px` }}
       >
-        <span className="text-[11px] text-[var(--color-ink)]">{topic.title}</span>
+        <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--color-ink)]">
+          {topic.title}
+        </span>
         <span className="text-[9px] uppercase text-[var(--color-ink-faint)]">{topic.priority}</span>
         <span className="text-[9px] text-[var(--color-ink-faint)]">{topic.status}</span>
+        <button
+          type="button"
+          disabled={props.busyTopicId === topic.id}
+          onClick={() => props.onResearch(topic)}
+          aria-label={`Research topic ${topic.title}`}
+          className="shrink-0 rounded border border-[var(--color-line)] px-1.5 py-0.5 text-[9px] text-[var(--color-accent)] hover:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          {props.busyTopicId === topic.id ? '…' : 'Research'}
+        </button>
       </div>
       {children.length > 0 && (
         <ul>
           {children.map((child) => (
-            <TopicBranch key={child.topic.id} node={child} depth={props.depth + 1} />
+            <TopicBranch
+              key={child.topic.id}
+              node={child}
+              depth={props.depth + 1}
+              companyId={props.companyId}
+              moduleId={props.moduleId}
+              onResearch={props.onResearch}
+              busyTopicId={props.busyTopicId}
+            />
           ))}
         </ul>
       )}
@@ -63,6 +89,7 @@ function ResearchTopicsTreeInner(props: ResearchTopicsTreeProps) {
   const [loaded, setLoaded] = useState(false);
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
+  const [busyTopicId, setBusyTopicId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -111,6 +138,30 @@ function ResearchTopicsTreeInner(props: ResearchTopicsTreeProps) {
     }
   }
 
+  async function researchTopic(topic: ResearchTopic) {
+    setBusyTopicId(topic.id);
+    setMessage(null);
+    try {
+      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}/curate`, {
+        method: 'POST',
+        body: {
+          mode: 'manual',
+          topicScope: topic.title,
+          queryText: topic.title,
+        },
+      });
+      setMessage(`Research queued for "${topic.title}".`);
+    } catch (err) {
+      setMessage(
+        err instanceof RequestError && err.status === 404
+          ? 'Curation not available yet.'
+          : 'Research request failed.',
+      );
+    } finally {
+      setBusyTopicId(null);
+    }
+  }
+
   return (
     <div className="mt-2 border-t border-[var(--color-line)] pt-2">
       <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
@@ -123,7 +174,15 @@ function ResearchTopicsTreeInner(props: ResearchTopicsTreeProps) {
       ) : (
         <ul className="mt-1">
           {tree.map((node) => (
-            <TopicBranch key={node.topic.id} node={node} depth={0} />
+            <TopicBranch
+              key={node.topic.id}
+              node={node}
+              depth={0}
+              companyId={props.companyId}
+              moduleId={props.moduleId}
+              onResearch={(topic) => void researchTopic(topic)}
+              busyTopicId={busyTopicId}
+            />
           ))}
         </ul>
       )}

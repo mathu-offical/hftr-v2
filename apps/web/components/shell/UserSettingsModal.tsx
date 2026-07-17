@@ -6,6 +6,12 @@ import { api } from '@/lib/client';
 
 type RetentionAttested = 'none' | 'org_zdr';
 type SettingsTab = 'llm' | 'brokers';
+type ResearchKeyProvider = 'brave' | 'market_news';
+
+const RESEARCH_KEY_PROVIDERS: { id: ResearchKeyProvider; label: string; hint: string }[] = [
+  { id: 'brave', label: 'Brave Search', hint: 'Web search for research gather' },
+  { id: 'market_news', label: 'Market news', hint: 'Public market news feeds' },
+];
 
 const PROVIDERS: { id: LlmProvider; label: string; tier: string }[] = [
   { id: 'anthropic', label: 'Anthropic (Claude)', tier: 'strategic' },
@@ -20,6 +26,12 @@ interface KeyRow {
   provider: LlmProvider;
   keyHint: string;
   retentionAttested: RetentionAttested;
+  updatedAt: string;
+}
+
+interface ResearchKeyRow {
+  provider: ResearchKeyProvider;
+  keyHint: string;
   updatedAt: string;
 }
 
@@ -47,6 +59,7 @@ export function UserSettingsLauncher() {
 export function UserSettingsModal(props: { open: boolean; onClose: () => void }) {
   const [tab, setTab] = useState<SettingsTab>('llm');
   const [keys, setKeys] = useState<KeyRow[]>([]);
+  const [researchKeys, setResearchKeys] = useState<ResearchKeyRow[]>([]);
   const [drafts, setDrafts] = useState<Record<LlmProvider, string>>({
     anthropic: '',
     mistral: '',
@@ -56,17 +69,30 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
     openrouter: '',
   });
   const [anthropicZdr, setAnthropicZdr] = useState(false);
-  const [messages, setMessages] = useState<Partial<Record<LlmProvider | 'brokers', string>>>({});
-  const [busy, setBusy] = useState<LlmProvider | 'brokers' | null>(null);
+  const [researchDrafts, setResearchDrafts] = useState<Record<ResearchKeyProvider, string>>({
+    brave: '',
+    market_news: '',
+  });
+  const [messages, setMessages] = useState<
+    Partial<Record<LlmProvider | ResearchKeyProvider | 'brokers', string>>
+  >({});
+  const [busy, setBusy] = useState<LlmProvider | ResearchKeyProvider | 'brokers' | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const r = await api<{ keys: KeyRow[] }>('/api/settings/keys');
-      setKeys(r.keys);
-      const anthropic = r.keys.find((k) => k.provider === 'anthropic');
+      const [llm, research] = await Promise.all([
+        api<{ keys: KeyRow[] }>('/api/settings/keys'),
+        api<{ keys: ResearchKeyRow[] }>('/api/settings/research-keys').catch(() => ({
+          keys: [] as ResearchKeyRow[],
+        })),
+      ]);
+      setKeys(llm.keys);
+      setResearchKeys(research.keys);
+      const anthropic = llm.keys.find((k) => k.provider === 'anthropic');
       setAnthropicZdr(anthropic?.retentionAttested === 'org_zdr');
     } catch {
       setKeys([]);
+      setResearchKeys([]);
     }
   }, []);
 
@@ -175,6 +201,42 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
       }
     } catch {
       setMessages((m) => ({ ...m, [provider]: 'Verify failed.' }));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function saveResearchKey(provider: ResearchKeyProvider) {
+    const apiKey = researchDrafts[provider].trim();
+    const saved = researchKeys.find((k) => k.provider === provider);
+    if (apiKey.length < 8 && !saved) {
+      setMessages((m) => ({ ...m, [provider]: 'Key must be at least 8 characters.' }));
+      return;
+    }
+    setBusy(provider);
+    try {
+      await api('/api/settings/research-keys', {
+        method: 'PUT',
+        body: apiKey.length >= 8 ? { provider, apiKey } : { provider },
+      });
+      setResearchDrafts((d) => ({ ...d, [provider]: '' }));
+      setMessages((m) => ({ ...m, [provider]: 'Saved.' }));
+      await load();
+    } catch {
+      setMessages((m) => ({ ...m, [provider]: 'Save failed.' }));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function removeResearchKey(provider: ResearchKeyProvider) {
+    setBusy(provider);
+    try {
+      await api(`/api/settings/research-keys/${provider}`, { method: 'DELETE' });
+      setMessages((m) => ({ ...m, [provider]: 'Removed.' }));
+      await load();
+    } catch {
+      setMessages((m) => ({ ...m, [provider]: 'Delete failed.' }));
     } finally {
       setBusy(null);
     }
@@ -304,6 +366,69 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                   </li>
                 );
               })}
+              <li className="border-t border-[var(--color-line)] pt-4">
+                <p className="text-xs font-medium text-[var(--color-ink)]">Research gather keys</p>
+                <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">
+                  Optional keys for external research sources (Brave, market news).
+                </p>
+                <ul className="mt-3 space-y-4">
+                  {RESEARCH_KEY_PROVIDERS.map((p) => {
+                    const saved = researchKeys.find((k) => k.provider === p.id);
+                    return (
+                      <li key={p.id} className="space-y-1.5">
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-xs text-[var(--color-ink)]">{p.label}</span>
+                          <span className="text-[10px] text-[var(--color-ink-faint)]">{p.hint}</span>
+                        </div>
+                        {saved ? (
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--color-ink-dim)]">
+                            <span>
+                              saved ·····{saved.keyHint}
+                              <span className="ml-2 text-[var(--color-ink-faint)]">
+                                {new Date(saved.updatedAt).toLocaleDateString()}
+                              </span>
+                            </span>
+                            <button
+                              onClick={() => void removeResearchKey(p.id)}
+                              disabled={busy === p.id}
+                              className="text-[var(--color-block)] hover:underline disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-[var(--color-ink-faint)]">No key saved</p>
+                        )}
+                        <div className="flex gap-1.5">
+                          <input
+                            type="password"
+                            value={researchDrafts[p.id]}
+                            onChange={(e) =>
+                              setResearchDrafts((d) => ({ ...d, [p.id]: e.target.value }))
+                            }
+                            placeholder={saved ? 'Replace key…' : 'Paste API key'}
+                            aria-label={`${p.label} API key`}
+                            autoComplete="off"
+                            className="min-w-0 flex-1 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
+                          />
+                          <button
+                            onClick={() => void saveResearchKey(p.id)}
+                            disabled={busy === p.id}
+                            className="shrink-0 rounded-md border border-[var(--color-accent)] px-2.5 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+                          >
+                            Save
+                          </button>
+                        </div>
+                        {messages[p.id] && (
+                          <p className="text-[10px] text-[var(--color-ink-faint)]">
+                            {messages[p.id]}
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </li>
             </ul>
           )}
 

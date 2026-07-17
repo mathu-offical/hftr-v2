@@ -130,6 +130,8 @@ Navigate to a day-trading canvas, save setup values, inspect the ARIA snapshot f
 Evidence (2026-07-17): ARIA exposed `Confirmed:` statuses for all three fields; cropped node
 screenshot visually confirmed checks inside topic, allocation value, and target-exit fields with
 native calendar spacing; incremental console check after sequence 1427 returned no new errors.
+`company-workspace.spec.ts` reached and passed the D-034 assertions after exact-label hardening;
+its full run remains red later at an unrelated bottom-panel expansion assertion.
 
 - [x] **Step 8: Commit**
 

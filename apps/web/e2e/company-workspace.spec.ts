@@ -124,13 +124,13 @@ test.describe('Company workspace (M1 read flows)', () => {
     await expect(tradingNode.getByLabel('Confirmed: Topic / sector')).toBeVisible();
     await expect(tradingNode.getByLabel('Confirmed: Capital allocation')).toBeVisible();
     await expect(tradingNode.getByLabel('Confirmed: Target exit')).toBeVisible();
-    await expect(tradingNode.getByLabel('Topic / sector')).toHaveClass(
+    await expect(tradingNode.getByLabel('Topic / sector', { exact: true })).toHaveClass(
       /border-\[var\(--color-line\)\]/,
     );
-    await expect(tradingNode.getByLabel('Capital allocation value')).toHaveClass(
+    await expect(tradingNode.getByLabel('Capital allocation value', { exact: true })).toHaveClass(
       /border-\[var\(--color-line\)\]/,
     );
-    await expect(tradingNode.getByLabel('Target exit date / time')).toHaveClass(
+    await expect(tradingNode.getByLabel('Target exit date / time', { exact: true })).toHaveClass(
       /border-\[var\(--color-line\)\]/,
     );
 

@@ -189,9 +189,9 @@ connection/base text; full-page screenshot captured; console query after final f
 new error messages. Customize/restore **not** verified in IronBee (pre-migration sample blocked
 that path) — covered by focused Playwright above.
 
-**Not claimed:** `company-workspace.spec.ts` was attempted but stopped before D-026 assertions
-(unrelated concurrent LLM drawer expectation); neither pass nor fail recorded for D-026 in that
-spec.
+`company-workspace.spec.ts` now reaches and passes the D-026/D-034 setup assertions after its
+field locators were made exact. The full spec remains red later at an unrelated bottom-panel
+collapse/expand assertion, so no full-spec pass is claimed.
 
 **D-034 verified (2026-07-17):** `pnpm --filter @hftr/web exec tsc --noEmit` PASS;
 `pnpm --filter @hftr/web lint` PASS; focused `canvas-node-dashboard.spec.ts` **1/1** PASS
@@ -200,8 +200,8 @@ spec.
 exposed `Confirmed:` statuses for topic/sector, capital allocation, and target exit; cropped
 node screenshot confirmed in-field checks inside topic, allocation value, and target-exit
 inputs with native calendar spacing reserved; incremental console check after sequence 1427
-returned no new errors. `company-workspace.spec.ts` not claimed — blocked earlier by unrelated
-missing `LLM privacy & models` UI.
+returned no new errors. `company-workspace.spec.ts` reached and passed this D-034 assertion block
+after exact-label hardening; its later bottom-panel failure is outside D-034.
 
 ## Open points resolved in this design
 

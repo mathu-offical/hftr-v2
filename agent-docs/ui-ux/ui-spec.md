@@ -110,8 +110,9 @@
   inspector Name + generated connection/base text, all three `Confirmed:` statuses, and cropped
   in-field check placement including native calendar spacing; incremental console check after
   sequence 1427 returned no new errors. Customize/restore verified in Playwright only — not in
-  IronBee (pre-migration sample). `company-workspace.spec.ts` D-026/D-034 assertions not exercised
-  (run stopped on unrelated missing `LLM privacy & models` UI).
+  IronBee (pre-migration sample). `company-workspace.spec.ts` exercised the D-026/D-034 setup
+  assertions successfully after exact-label hardening; its full run remains red later at the
+  unrelated bottom-panel collapse/expand assertion.
 - **Separate operating meter (D-024):** Company → LLM / operating shows provider credential source,
   call admission, and provider-cost counters for Anthropic/Mistral/Groq. Copy explicitly states
   that this meter is separate from module trading-capital allocation.
@@ -217,8 +218,8 @@ locally after `0010`; `pnpm typecheck`/`lint`/`test` pass (7/7 packages; contrac
 20, secrets 5, llm 13, engine 44); focused Playwright `canvas-node-dashboard.spec.ts` **1/1**
 pass. IronBee on seeded day-trading company: per-kind handles, always-visible fields,
 chrome→inspector naming, no new console errors (customize/restore not exercised in IronBee).
-`company-workspace.spec.ts` not claimed for D-026 (run stopped before D-026 assertions on
-unrelated LLM drawer expectation).
+`company-workspace.spec.ts` reached and passed its D-026/D-034 setup assertions after exact-label
+hardening; the full spec remains red later at an unrelated bottom-panel expansion assertion.
 
 **Not yet covered by Playwright:** Clerk sign-up (flow 1 full), credits/Stripe, real-model and
 live-data variants of flow 3, broker connect (flow 4), assistant write proposals (flow 5), and

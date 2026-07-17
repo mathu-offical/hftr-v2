@@ -192,7 +192,8 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   seeded day-trading company confirmed per-kind handles, always-visible fields, inspector Name +
   generated connection/base text, no new console errors.
   IronBee did not complete customize/restore (pre-migration sample). `company-workspace.spec.ts`
-  not exercised through D-026 assertions (run stopped on unrelated LLM drawer expectation).
+  now reaches and passes the D-026/D-034 setup assertions after exact-label hardening; its full
+  run remains red later at an unrelated bottom-panel collapse/expand assertion.
 
 - **D-024 (inline module setup + separate operating budgets, 2026-07-17):** Resolved OQ-9 from
   operator clarification. (a) **Scope:** capital allocation applies only to capital-bearing
@@ -381,8 +382,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `canvas-node-dashboard.spec.ts` 1/1 PASS; IronBee ARIA exposed `Confirmed:` statuses for all
   three fields, cropped node screenshot confirmed checks inside topic, allocation value, and
   target-exit fields with native calendar spacing, and incremental console check after sequence
-  1427 returned no new errors. `company-workspace.spec.ts` not claimed — blocked earlier by
-  unrelated missing `LLM privacy & models` UI.
+  1427 returned no new errors. `company-workspace.spec.ts` reached and passed the D-034 assertion
+  block after exact-label hardening; no full-spec pass is claimed because it later fails at an
+  unrelated bottom-panel collapse/expand assertion.
 
 ## Open questions
 

@@ -48,8 +48,24 @@ test.describe('Research topics galaxy overlay (D-040)', () => {
 
     const graphRes = await request.get(`/api/companies/${companyId}/research/graph`);
     expect(graphRes.ok()).toBeTruthy();
-    const graph = (await graphRes.json()) as { libraries: unknown[] };
+    const graph = (await graphRes.json()) as {
+      libraries: unknown[];
+      nodes: Array<{ id: string }>;
+    };
     expect(Array.isArray(graph.libraries)).toBeTruthy();
+
+    const graphConceptCount = graph.nodes?.length ?? 0;
+    if (graphConceptCount > 0) {
+      const concepts = graph.nodes.slice(0, Math.min(3, graphConceptCount)).map((node, index) => ({
+        conceptId: node.id,
+        sortOrder: index,
+      }));
+      const membershipRes = await request.put(
+        `/api/companies/${companyId}/research/topics/${topic.id}/concepts`,
+        { data: { concepts } },
+      );
+      expect(membershipRes.ok()).toBeTruthy();
+    }
 
     const detailRes = await request.get(`/api/companies/${companyId}/research/topics/${topic.id}`);
     expect(detailRes.ok()).toBeTruthy();
@@ -68,9 +84,36 @@ test.describe('Research topics galaxy overlay (D-040)', () => {
     await expect(page.getByTestId('galaxy-view')).toBeVisible();
     await expect(page.getByTestId('research-tab-galaxy')).toHaveAttribute('aria-pressed', 'true');
 
+    if (graphConceptCount > 0) {
+      await expect(page.getByText(/Focused \d+ concepts/)).toBeVisible({ timeout: 10_000 });
+    }
+
     await page.getByTestId('research-tab-article').click();
     await expect(page.getByText('Synopsis', { exact: true })).toBeVisible();
     await expect(page.getByText('Semantic synopsis for semiconductors.')).toBeVisible();
+
+    await page.getByTestId('article-edit-synopsis').click();
+    await expect(page.getByTestId('article-synopsis-editor')).toBeVisible();
+    await page.getByTestId('article-synopsis-editor').fill(
+      '## Overview\nUpdated synopsis for semiconductors after operator edit.',
+    );
+    await page.getByTestId('article-save-synopsis').click();
+    await expect(page.getByText('Updated synopsis for semiconductors after operator edit.')).toBeVisible({
+      timeout: 10_000,
+    });
+
+    if ((graph.libraries?.length ?? 0) > 0) {
+      await page.getByTestId('research-tab-galaxy').click();
+      await expect(page.getByRole('toolbar', { name: 'Library nest filters' })).toBeVisible();
+    }
+
+    if (graphConceptCount > 0) {
+      await page.getByTestId('research-tab-article').click();
+      await expect(page.getByText('Member concepts', { exact: true })).toBeVisible();
+    } else {
+      await page.getByTestId('research-tab-galaxy').click();
+      await expect(page.getByTestId('galaxy-view')).toBeVisible();
+    }
 
     await archiveCompany(request, companyId);
     createdCompanyIds.length = 0;

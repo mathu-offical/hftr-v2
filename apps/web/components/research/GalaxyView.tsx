@@ -21,6 +21,14 @@ import styles from './galaxy-view.module.css';
 
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false });
 
+type ForceGraphHandle = {
+  zoomToFit?: (
+    durationMs?: number,
+    padding?: number,
+    nodeFilter?: (node: { id?: string | number }) => boolean,
+  ) => void;
+};
+
 type ForceGraph3DComponent = ComponentType<Record<string, unknown>>;
 
 let forceGraph3DPromise: Promise<{ default: ForceGraph3DComponent }> | null = null;
@@ -136,7 +144,10 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     [props.focusConceptIds],
   );
   const libraryFilter = useMemo(
-    () => (props.selectedLibraryIds ? new Set(props.selectedLibraryIds) : null),
+    () =>
+      props.selectedLibraryIds && props.selectedLibraryIds.length > 0
+        ? new Set(props.selectedLibraryIds)
+        : null,
     [props.selectedLibraryIds],
   );
 
@@ -149,6 +160,11 @@ function GalaxyViewInner(props: GalaxyViewProps) {
   const [statusText, setStatusText] = useState<string | null>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
   const graphBox = useGraphDimensions();
+  const graphHandleRef = useRef<ForceGraphHandle | null>(null);
+
+  const captureGraphRef = useCallback((instance: ForceGraphHandle | null) => {
+    graphHandleRef.current = instance;
+  }, []);
 
   const force2d = props.nodes.length > 200;
 
@@ -259,6 +275,29 @@ function GalaxyViewInner(props: GalaxyViewProps) {
 
   const use3dRenderer = !force2d && mode3d && threeAvailable === true && ForceGraph3D !== null;
   const hasTopicFocus = focusSet !== null && focusSet.size > 0;
+
+  const fitFocusedNodes = useCallback(() => {
+    if (!focusSet || focusSet.size === 0) return;
+    const fg = graphHandleRef.current;
+    if (!fg?.zoomToFit) return;
+    const durationMs = reducedMotion ? 0 : 400;
+    fg.zoomToFit(durationMs, 48, (node) => {
+      if (node.id === undefined) return false;
+      return focusSet.has(String(node.id));
+    });
+  }, [focusSet, reducedMotion]);
+
+  useEffect(() => {
+    if (!hasTopicFocus) return;
+    const frame = requestAnimationFrame(() => {
+      fitFocusedNodes();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [hasTopicFocus, fitFocusedNodes, use3dRenderer, graphData.nodes.length]);
+
+  const onEngineStop = useCallback(() => {
+    if (hasTopicFocus) fitFocusedNodes();
+  }, [hasTopicFocus, fitFocusedNodes]);
 
   const onNodeClick = useCallback(
     (node: { id?: string | number }) => {
@@ -416,8 +455,10 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         </div>
       </div>
 
-      {statusText && (
+      {(hasTopicFocus || statusText) && (
         <p className="px-2 py-1 text-[10px] text-[var(--color-ink-faint)]" aria-live="polite">
+          {hasTopicFocus && `Focused ${focusSet!.size} concepts`}
+          {hasTopicFocus && statusText ? ' · ' : null}
           {statusText}
         </p>
       )}
@@ -472,6 +513,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
 
           {use3dRenderer && ForceGraph3D ? (
             <ForceGraph3D
+              ref={captureGraphRef as never}
               {...graphCommon}
               width={graphBox.width}
               height={graphBox.height}
@@ -479,14 +521,17 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               nodeOpacity={nodeOpacityAccessor}
               linkOpacity={hasTopicFocus ? 0.55 : 0.35}
               linkWidth={linkWidthAccessor}
+              onEngineStop={onEngineStop}
             />
           ) : (
             <ForceGraph2D
+              ref={captureGraphRef as never}
               {...graphCommon}
               width={graphBox.width}
               height={graphBox.height}
               nodeRelSize={4}
               linkWidth={linkWidthAccessor}
+              onEngineStop={onEngineStop}
               nodeCanvasObjectMode={() => 'replace'}
               linkCanvasObjectMode={() => 'after'}
               linkCanvasObject={(link, ctx, globalScale) => {

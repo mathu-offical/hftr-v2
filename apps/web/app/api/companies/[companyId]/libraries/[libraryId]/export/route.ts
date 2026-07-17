@@ -1,11 +1,17 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import JSZip from 'jszip';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { ConceptLinkRelation } from '@hftr/contracts';
 import { getDb } from '@hftr/db';
-import { conceptLinks, concepts, libraryConcepts } from '@hftr/db/schema';
-import { exportObsidianNotes } from '@hftr/engine';
+import {
+  conceptLinks,
+  concepts,
+  libraryConcepts,
+  researchTopics,
+  topicConcepts,
+} from '@hftr/db/schema';
+import { exportObsidianNotes, exportObsidianTopicNotes } from '@hftr/engine';
 import { errorResponse } from '@/lib/api';
 import { getAuthUserId } from '@/lib/auth';
 import { getOwnedLibrary, obsidianZipFilename } from '@/lib/libraries';
@@ -117,8 +123,74 @@ export async function GET(_req: Request, ctx: Ctx) {
       libraryName: library.name,
     });
 
+    // D-040: include topic articles that reference any exported concept.
+    const topicNotes =
+      conceptIds.length === 0
+        ? []
+        : await (async () => {
+            const memberships = await db
+              .select({
+                topicId: topicConcepts.topicId,
+                conceptId: topicConcepts.conceptId,
+                sortOrder: topicConcepts.sortOrder,
+                title: concepts.title,
+                topicTitle: researchTopics.title,
+                synopsisMd: researchTopics.synopsisMd,
+                status: researchTopics.status,
+                priority: researchTopics.priority,
+              })
+              .from(topicConcepts)
+              .innerJoin(researchTopics, eq(researchTopics.id, topicConcepts.topicId))
+              .innerJoin(concepts, eq(concepts.id, topicConcepts.conceptId))
+              .where(
+                and(
+                  eq(researchTopics.companyId, companyId),
+                  inArray(topicConcepts.conceptId, conceptIds),
+                ),
+              )
+              .orderBy(asc(topicConcepts.sortOrder))
+              .limit(2000);
+
+            const byTopic = new Map<
+              string,
+              {
+                id: string;
+                title: string;
+                synopsisMd: string;
+                status: string;
+                priority: string;
+                memberTitles: string[];
+              }
+            >();
+            for (const row of memberships) {
+              let bucket = byTopic.get(row.topicId);
+              if (!bucket) {
+                bucket = {
+                  id: row.topicId,
+                  title: row.topicTitle,
+                  synopsisMd: row.synopsisMd ?? '',
+                  status: row.status,
+                  priority: row.priority,
+                  memberTitles: [],
+                };
+                byTopic.set(row.topicId, bucket);
+              }
+              if (!bucket.memberTitles.includes(row.title)) {
+                bucket.memberTitles.push(row.title);
+              }
+            }
+
+            return exportObsidianTopicNotes({
+              topics: [...byTopic.values()],
+              folder: 'topics',
+            });
+          })();
+
     const zip = new JSZip();
     for (const note of notes) {
+      zip.file(note.filename, note.markdown);
+    }
+    for (const note of topicNotes) {
       zip.file(note.filename, note.markdown);
     }
 

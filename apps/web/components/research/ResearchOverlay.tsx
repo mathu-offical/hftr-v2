@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import type { ResearchGraphResponse, ResearchTopicDetail, TopicConcept } from '@hftr/contracts';
@@ -65,7 +65,25 @@ function ConceptSection(props: { membership: TopicConcept; defaultOpen: boolean 
   );
 }
 
-function ArticleTab(props: { topic: ResearchTopicDetail | null; loading: boolean }) {
+function ArticleTab(props: {
+  companyId: string;
+  topic: ResearchTopicDetail | null;
+  loading: boolean;
+  onTopicPatched: (partial: Partial<ResearchTopicDetail>) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (props.topic) {
+      setDraft(props.topic.synopsisMd ?? '');
+      setEditing(false);
+      setSaveError(null);
+    }
+  }, [props.topic?.id, props.topic?.synopsisMd]);
+
   if (props.loading) {
     return <p className="p-4 text-[11px] text-[var(--color-ink-faint)]">Loading article…</p>;
   }
@@ -78,6 +96,30 @@ function ArticleTab(props: { topic: ResearchTopicDetail | null; loading: boolean
   }
 
   const topic = props.topic;
+
+  const saveSynopsis = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const data = await api<{ topic: ResearchTopicDetail }>(
+        `/api/companies/${props.companyId}/research/topics/${topic.id}`,
+        { method: 'PATCH', body: { synopsisMd: draft } },
+      );
+      props.onTopicPatched({
+        synopsisMd: data.topic.synopsisMd,
+        title: data.topic.title,
+        status: data.topic.status,
+        priority: data.topic.priority,
+        updatedAt: data.topic.updatedAt,
+      });
+      setEditing(false);
+    } catch {
+      setSaveError('Could not save synopsis. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-3">
       <header className="mb-3 border-b border-[var(--color-line)] pb-2">
@@ -91,18 +133,72 @@ function ArticleTab(props: { topic: ResearchTopicDetail | null; loading: boolean
         </p>
       </header>
 
-      {topic.synopsisMd ? (
-        <section aria-label="Topic synopsis" className="mb-4">
-          <p className="mb-1.5 text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+      <section aria-label="Topic synopsis" className="mb-4">
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
             Synopsis
           </p>
+          {!editing ? (
+            <button
+              type="button"
+              data-testid="article-edit-synopsis"
+              onClick={() => {
+                setDraft(topic.synopsisMd ?? '');
+                setEditing(true);
+              }}
+              className="rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+            >
+              Edit
+            </button>
+          ) : (
+            <div className="flex gap-1">
+              <button
+                type="button"
+                data-testid="article-save-synopsis"
+                disabled={saving}
+                onClick={() => void saveSynopsis()}
+                className="rounded border border-[var(--color-accent)] px-2 py-0.5 text-[10px] text-[var(--color-accent)] disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                type="button"
+                data-testid="article-cancel-synopsis"
+                disabled={saving}
+                onClick={() => {
+                  setDraft(topic.synopsisMd ?? '');
+                  setEditing(false);
+                  setSaveError(null);
+                }}
+                className="rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-ink-faint)]"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+        {editing ? (
+          <textarea
+            data-testid="article-synopsis-editor"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={10}
+            aria-label="Edit topic synopsis markdown"
+            className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2 py-1.5 font-mono text-[11px] text-[var(--color-ink)] outline-none focus:border-[var(--color-accent)]"
+          />
+        ) : topic.synopsisMd ? (
           <div className="prose prose-invert max-w-none text-[12px] text-[var(--color-ink-dim)] prose-p:my-1.5 prose-headings:text-[var(--color-ink)]">
             <ReactMarkdown>{topic.synopsisMd}</ReactMarkdown>
           </div>
-        </section>
-      ) : (
-        <p className="mb-4 text-[11px] text-[var(--color-ink-faint)]">No synopsis yet.</p>
-      )}
+        ) : (
+          <p className="text-[11px] text-[var(--color-ink-faint)]">No synopsis yet.</p>
+        )}
+        {saveError && (
+          <p className="mt-1 text-[10px] text-[var(--color-warn)]" role="alert">
+            {saveError}
+          </p>
+        )}
+      </section>
 
       <section aria-label="Concept sections">
         <p className="mb-2 text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
@@ -132,26 +228,47 @@ function ResearchOverlayInner() {
   const [graphLoading, setGraphLoading] = useState(false);
   const [articleLoading, setArticleLoading] = useState(false);
   const [topicForArticle, setTopicForArticle] = useState<ResearchTopicDetail | null>(null);
+  const [selectedLibraryIds, setSelectedLibraryIds] = useState<string[]>([]);
+  const bumpQueriesDoneRef = useRef(false);
 
-  const loadGraph = useCallback(async () => {
-    if (!rv.companyId) return;
-    setGraphLoading(true);
-    try {
-      const data = await api<ResearchGraphResponse>(
-        `/api/companies/${rv.companyId}/research/graph`,
-      );
-      setGraph(data);
-    } catch {
-      setGraph({ nodes: [], links: [], tags: [], libraries: [] });
-    } finally {
-      setGraphLoading(false);
-    }
-  }, [rv.companyId]);
+  const loadGraph = useCallback(
+    async (opts?: { bumpQueries?: boolean }) => {
+      if (!rv.companyId) return;
+      setGraphLoading(true);
+      try {
+        const qs = opts?.bumpQueries ? '?bumpQueries=1' : '';
+        const data = await api<ResearchGraphResponse>(
+          `/api/companies/${rv.companyId}/research/graph${qs}`,
+        );
+        setGraph(data);
+      } catch {
+        setGraph({ nodes: [], links: [], tags: [], libraries: [] });
+      } finally {
+        setGraphLoading(false);
+      }
+    },
+    [rv.companyId],
+  );
+
+  const toggleLibraryFilter = useCallback((libraryId: string) => {
+    setSelectedLibraryIds((prev) =>
+      prev.includes(libraryId) ? prev.filter((id) => id !== libraryId) : [...prev, libraryId],
+    );
+  }, []);
+
+  const clearLibraryFilters = useCallback(() => {
+    setSelectedLibraryIds([]);
+  }, []);
 
   useEffect(() => {
-    if (!rv.overlayOpen) return;
-    void loadGraph();
-    const interval = setInterval(() => void loadGraph(), 30_000);
+    if (!rv.overlayOpen) {
+      bumpQueriesDoneRef.current = false;
+      return;
+    }
+    const bumpQueries = !bumpQueriesDoneRef.current;
+    if (bumpQueries) bumpQueriesDoneRef.current = true;
+    void loadGraph({ bumpQueries });
+    const interval = setInterval(() => void loadGraph({ bumpQueries: false }), 30_000);
     return () => clearInterval(interval);
   }, [rv.overlayOpen, loadGraph]);
 
@@ -242,6 +359,49 @@ function ResearchOverlayInner() {
         </div>
       </header>
 
+      {rv.activeTab === 'galaxy' && (graph?.libraries?.length ?? 0) > 0 && (
+        <div
+          className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-[var(--color-line)] px-3 py-1.5"
+          role="toolbar"
+          aria-label="Library nest filters"
+        >
+          {(graph?.libraries ?? []).map((lib) => {
+            const selected = selectedLibraryIds.includes(lib.id);
+            return (
+              <button
+                key={lib.id}
+                type="button"
+                data-testid={`galaxy-library-chip-${lib.id}`}
+                onClick={() => toggleLibraryFilter(lib.id)}
+                aria-pressed={selected}
+                aria-label={`Filter galaxy by library ${lib.name}`}
+                className={`rounded-full border px-2 py-0.5 text-[10px] ${
+                  selected
+                    ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
+                    : 'border-[var(--color-line)] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
+                }`}
+              >
+                {lib.name}
+                {lib.conceptCount !== undefined && (
+                  <span className="ml-1 text-[9px] opacity-70">{lib.conceptCount}</span>
+                )}
+              </button>
+            );
+          })}
+          {selectedLibraryIds.length > 0 && (
+            <button
+              type="button"
+              data-testid="galaxy-clear-library-filters"
+              onClick={clearLibraryFilters}
+              aria-label="Clear library filters"
+              className="rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+            >
+              Clear libraries
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="min-h-0 flex-1 overflow-hidden">
         {rv.activeTab === 'galaxy' ? (
           <>
@@ -255,13 +415,19 @@ function ResearchOverlayInner() {
               tags={graph?.tags ?? []}
               libraries={graph?.libraries ?? []}
               focusConceptIds={rv.focusConceptIds}
+              selectedLibraryIds={selectedLibraryIds.length > 0 ? selectedLibraryIds : null}
               className="h-full min-h-0 border-0 rounded-none"
             />
           </>
         ) : (
           <ArticleTab
+            companyId={rv.companyId}
             topic={topicForArticle ?? rv.selectedTopic}
             loading={articleLoading && !topicForArticle && !rv.selectedTopic}
+            onTopicPatched={(partial) => {
+              rv.patchSelectedTopic(partial);
+              setTopicForArticle((prev) => (prev ? { ...prev, ...partial } : prev));
+            }}
           />
         )}
       </div>

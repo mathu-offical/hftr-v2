@@ -170,9 +170,9 @@ truthful.
 
 ### 5.3 Export
 
-Obsidian zip continues per library; topic articles export as additional markdown notes with
-wikilinks to member concept files when exporting company or selected libraries (M2 export
-slice).
+Obsidian zip continues per library; topic articles that reference exported concepts are
+included under `topics/` as markdown notes with wikilinks to member concept titles
+(`exportObsidianTopicNotes` + library export route).
 
 ## 6. Usage & reference telemetry
 
@@ -224,10 +224,12 @@ APIs:
 
 ## 9. Verification plan (when implementing)
 
-- [ ] Contract tests for topic membership + usage increments  
-- [ ] Playwright: select topic → galaxy dims + path visible; Article tab shows synopsis + sections  
-- [ ] IronBee: nested library hulls; zoom into one library; tag layer + reduced-motion  
-- [ ] Console clean after overlay open/close  
+- [x] Contract tests for topic membership + usage increments  
+- [x] Playwright: select topic → galaxy dims + path visible; Article tab shows synopsis + sections  
+- [x] Library nest multi-select chrome + synopsis Edit/Save (PATCH)  
+- [x] Obsidian export includes topic notes with member wikilinks  
+- [x] IronBee: open galaxy overlay (Galaxy/Article/search); library toolbar when nests exist  
+- [x] Console: no Application error after Open galaxy (after HMR settle)  
 
 ## 10. Out of scope (this decision)
 

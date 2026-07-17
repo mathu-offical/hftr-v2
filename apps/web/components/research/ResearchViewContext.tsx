@@ -18,6 +18,8 @@ export interface ResearchViewContextValue {
   setActiveTab: (tab: ResearchOverlayTab) => void;
   selectTopic: (topicId: string) => Promise<void>;
   clearTopicFocus: () => void;
+  /** Merge fields onto the currently selected topic (e.g. after PATCH synopsis). */
+  patchSelectedTopic: (partial: Partial<ResearchTopicDetail>) => void;
 }
 
 const ResearchViewContext = createContext<ResearchViewContextValue | null>(null);
@@ -71,6 +73,13 @@ export function ResearchViewProvider(props: { companyId: string; children: React
     [loadTopicDetail],
   );
 
+  const patchSelectedTopic = useCallback((partial: Partial<ResearchTopicDetail>) => {
+    setSelectedTopic((prev) => (prev ? { ...prev, ...partial } : prev));
+    if (partial.memberships) {
+      setFocusConceptIds(partial.memberships.map((m) => m.conceptId));
+    }
+  }, []);
+
   const value = useMemo<ResearchViewContextValue>(
     () => ({
       companyId: props.companyId,
@@ -84,6 +93,7 @@ export function ResearchViewProvider(props: { companyId: string; children: React
       setActiveTab,
       selectTopic,
       clearTopicFocus,
+      patchSelectedTopic,
     }),
     [
       props.companyId,
@@ -96,6 +106,7 @@ export function ResearchViewProvider(props: { companyId: string; children: React
       closeOverlay,
       selectTopic,
       clearTopicFocus,
+      patchSelectedTopic,
     ],
   );
 

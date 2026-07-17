@@ -23,10 +23,12 @@
 ### Task 1: Shared confirmed-field presentation
 
 **Files:**
+
 - Modify: `apps/web/components/canvas/ModuleSetupFields.tsx:50-175`
 - Test: `apps/web/e2e/canvas-node-dashboard.spec.ts:39-53`
 
 **Interfaces:**
+
 - Consumes: `missingFields: readonly ModuleSetupField[]`
 - Produces: shared `ConfirmedFieldCheck` presentation and neutral confirmed `fieldBorderClass`
 
@@ -42,7 +44,9 @@ await expect(tradingNode.getByLabel('Confirmed: Target exit')).toBeVisible();
 await expect(topicField).toHaveClass(/border-\[var\(--color-line\)\]/);
 ```
 
-- [x] **Step 2: Run the focused E2E test and confirm it fails**
+- [ ] **Step 2: Run the focused E2E test and confirm it fails**
+
+> Note: Red phase was not recorded — disk-full recovery truncated working files before the failing run could be captured; restored from git and proceeded to implementation.
 
 Run:
 
@@ -121,7 +125,9 @@ Expected: PASS.
 
 Navigate to a day-trading canvas, save setup values, inspect the ARIA snapshot for `Confirmed:` statuses, take a screenshot to confirm checks are inside field boundaries, and check console messages for new errors.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
+
+Completed as `dd71f0c` (`feat(canvas): subtle confirmed-field validation (D-034)`).
 
 Stage only:
 

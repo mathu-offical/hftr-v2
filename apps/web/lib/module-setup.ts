@@ -27,6 +27,7 @@ function setupConfig(
   const scope = topicSectors.join(', ');
   switch (type) {
     case 'research':
+    case 'librarian':
     case 'library':
       return { ...config, topicScope: scope };
     case 'trend':

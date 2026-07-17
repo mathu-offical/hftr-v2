@@ -3,6 +3,8 @@ import { z } from 'zod';
 import {
   DisplayModuleConfig,
   FundRouterModuleConfig,
+  LibrarianModuleConfig,
+  MathModuleConfig,
   ResearchModuleConfig,
   type ModuleType,
 } from '@hftr/contracts';
@@ -165,6 +167,10 @@ function copyModuleConfig(
       const parsed = ResearchModuleConfig.parse(config);
       return { ...parsed, targetLibraryIds: [] };
     }
+    case 'librarian': {
+      const parsed = LibrarianModuleConfig.parse(config);
+      return { ...parsed, targetLibraryIds: [] };
+    }
     case 'display': {
       const parsed = DisplayModuleConfig.parse(config);
       return {
@@ -185,6 +191,9 @@ function copyModuleConfig(
         }),
       };
     }
+    case 'math': {
+      return MathModuleConfig.parse(config ?? {});
+    }
     case 'library':
     case 'live_api':
     case 'trend':
@@ -194,7 +203,6 @@ function copyModuleConfig(
     case 'simulator':
     case 'analyzer':
     case 'holding_fund':
-    case 'math':
       return config;
     default: {
       const _exhaustive: never = type;

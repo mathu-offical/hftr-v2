@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, or } from 'drizzle-orm';
-import { moduleRequiresMath, type ModuleType } from '@hftr/contracts';
+import { moduleRequiresMath, preferredMathTypeForOwner, type ModuleType } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { moduleLinks, modules } from '@hftr/db/schema';
 
@@ -52,6 +52,7 @@ export async function provisionDedicatedMathTools(
   const tools = requiredOwners.map((owner) => ({
     id: randomUUID(),
     ownerModuleId: owner.id,
+    ownerType: owner.type,
     position: mathPositionForOwner(owner),
     name: `Math · ${owner.name}`.slice(0, 80),
     ownerToMathLinkId: randomUUID(),
@@ -67,7 +68,7 @@ export async function provisionDedicatedMathTools(
         name: tool.name,
         generatedNameBase: tool.name,
         nameCustomized: false,
-        config: {},
+        config: { mathType: preferredMathTypeForOwner(tool.ownerType) },
         status: 'active' as const,
         canvasPosition: tool.position,
         engineInstanceId: null,

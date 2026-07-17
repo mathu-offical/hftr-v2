@@ -1,6 +1,7 @@
 'use client';
 
 import { memo, useEffect, useState } from 'react';
+import { Layers } from 'lucide-react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import {
   handleIdForLink,
@@ -51,21 +52,6 @@ function portTopPercent(index: number, total: number): string {
   return `${((index + 1) / (total + 1)) * 100}%`;
 }
 
-function SettingsIcon() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-    </svg>
-  );
-}
 
 /**
  * Fixed dashboard canvas node: labeled link-kind ports, always-visible setup
@@ -366,12 +352,22 @@ export const ModuleNode = memo(function ModuleNode({
               {visual.label}
             </span>
           </div>
-          <span
-            aria-hidden
-            className="shrink-0 rounded p-0.5 text-[var(--color-ink-faint)] opacity-50"
+          <button
+            type="button"
+            className="nodrag shrink-0 rounded border border-[var(--color-line)] px-1.5 py-0.5 text-[9px] text-[var(--color-ink-faint)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent('hftr:open-process-modal', {
+                  detail: { moduleId: id },
+                }),
+              );
+            }}
           >
-            <SettingsIcon />
-          </span>
+            <span className="flex items-center gap-1">
+              <Layers size={10} aria-hidden />
+              Process
+            </span>
+          </button>
         </div>
 
         <div className="text-sm font-medium leading-snug text-[var(--color-ink)]">{data.name}</div>

@@ -74,11 +74,27 @@ function heuristicCreateModule(message: string): AssistantEditProposal | null {
   if (!parsedType.success) return null;
   const type = parsedType.data;
   const defaultConfig: Partial<Record<ModuleType, Record<string, unknown>>> = {
-    research: { topicScope: 'general', curiosity: 'balanced', cadenceMinutes: 180 },
-    library: { topicScope: 'general' },
-    trend: { focus: 'market scan', maxActiveTrends: 10, cadenceMinutes: 30 },
+    research: {
+      topicScope: 'general',
+      researchSubtype: 'external_web',
+      curiosity: 'balanced',
+      cadenceMinutes: 180,
+    },
+    librarian: {
+      topicScope: 'general',
+      librarianSubtype: 'librarian_relevance',
+      cadenceMinutes: 360,
+    },
+    library: { topicScope: 'general', libraryClass: 'topic_runtime' },
+    trend: {
+      focus: 'market scan',
+      trendPosture: 'session_intraday',
+      maxActiveTrends: 10,
+      cadenceMinutes: 30,
+    },
     trading: { subtype: 'day', strategyFamilies: [], exitTimelineDays: 1, cadenceMinutes: 5 },
     policy: { policyEnvelopeRef: 'paper_balanced_general_v1', notes: '' },
+    math: { mathType: 'company_hub' },
     analyzer: {},
     simulator: {},
   };

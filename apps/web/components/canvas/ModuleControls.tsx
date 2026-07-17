@@ -5,6 +5,26 @@ import { api } from '@/lib/client';
 import { LlmAvailabilityChips } from '@/components/shell/LlmConnectionStatus';
 import { ACTIVITY_REFRESH_EVENT } from './PaperTradeForm';
 
+function ManualControlToggle(props: {
+  enabled: boolean;
+  disabled?: boolean;
+  onChange: (manualControl: boolean) => void | Promise<void>;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-2 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-2 text-[11px] text-[var(--color-ink-dim)]">
+      <span>Manual control</span>
+      <input
+        type="checkbox"
+        checked={props.enabled}
+        disabled={props.disabled}
+        onChange={(e) => void props.onChange(e.target.checked)}
+        aria-label="Manual control of in-envelope levers"
+        className="h-3.5 w-3.5 accent-[var(--color-accent)]"
+      />
+    </label>
+  );
+}
+
 /**
  * Type-specific module controls for the inspector. Trend modules get a scan
  * trigger; trading modules get strategy-family configuration backed by the
@@ -148,6 +168,7 @@ interface TradingConfig {
   strategyFamilies: string[];
   exitTimelineDays: number;
   cadenceMinutes: number;
+  manualControl: boolean;
 }
 
 const DEFAULT_TRADING_CONFIG: TradingConfig = {
@@ -155,6 +176,7 @@ const DEFAULT_TRADING_CONFIG: TradingConfig = {
   strategyFamilies: [],
   exitTimelineDays: 1,
   cadenceMinutes: 5,
+  manualControl: false,
 };
 
 export function TradingConfigForm(props: { companyId: string; moduleId: string }) {
@@ -217,6 +239,24 @@ export function TradingConfigForm(props: { companyId: string; moduleId: string }
       <span className="text-xs text-[var(--color-ink-dim)]">
         Strategy families ({config.strategyFamilies.length} selected)
       </span>
+      <ManualControlToggle
+        enabled={config.manualControl}
+        onChange={async (manualControl) => {
+          const next = { ...config, manualControl };
+          const prev = config;
+          setConfig(next);
+          try {
+            await api(`/api/companies/${props.companyId}/modules/${props.moduleId}`, {
+              method: 'PATCH',
+              body: { config: next },
+            });
+            setMessage(null);
+          } catch {
+            setConfig(prev);
+            setMessage('Save failed.');
+          }
+        }}
+      />
       <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
         {families.map((f) => {
           const selected = config.strategyFamilies.includes(f.entryKey);
@@ -377,12 +417,14 @@ type AdmissionMode = 'auto_admit_validated' | 'require_operator_approval';
 
 interface ResearchConfig {
   topicScope: string;
+  researchSubtype: string;
   curiosity: Curiosity;
   cadenceMinutes: number;
   targetLibraryIds: string[];
   sourceAllowlist: string[];
   sourceBlocklist: string[];
   admissionMode: AdmissionMode;
+  manualControl: boolean;
 }
 
 interface LibraryOption {
@@ -391,13 +433,25 @@ interface LibraryOption {
 }
 
 const DEFAULT_RESEARCH_CONFIG: Omit<ResearchConfig, 'topicScope'> = {
+  researchSubtype: 'external_web',
   curiosity: 'balanced',
   cadenceMinutes: 180,
   targetLibraryIds: [],
   sourceAllowlist: [],
   sourceBlocklist: [],
   admissionMode: 'auto_admit_validated',
+  manualControl: false,
 };
+
+const RESEARCH_SUBTYPE_OPTIONS = [
+  { value: 'external_web', label: 'External web' },
+  { value: 'external_filings', label: 'Filings & fundamentals' },
+  { value: 'external_market_news', label: 'Market news' },
+  { value: 'specialty_desk', label: 'Specialty desk' },
+  { value: 'event_catalyst', label: 'Event catalyst' },
+  { value: 'crypto_onchain_context', label: 'Crypto on-chain context' },
+  { value: 'prediction_niche', label: 'Prediction niche' },
+] as const;
 
 export function ResearchConfigForm(props: { companyId: string; moduleId: string }) {
   const [config, setConfig] = useState<ResearchConfig | null>(null);
@@ -476,6 +530,21 @@ export function ResearchConfigForm(props: { companyId: string; moduleId: string 
     <div className="space-y-2.5 border-t border-[var(--color-line)] pt-4">
       <span className="text-xs text-[var(--color-ink-dim)]">Research settings</span>
       <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Research subtype</span>
+        <select
+          value={config.researchSubtype}
+          disabled={saving}
+          onChange={(e) => void saveConfig({ ...config, researchSubtype: e.target.value })}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          {RESEARCH_SUBTYPE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block space-y-1">
         <span className="text-[11px] text-[var(--color-ink-dim)]">Curiosity</span>
         <select
           value={config.curiosity}
@@ -503,6 +572,11 @@ export function ResearchConfigForm(props: { companyId: string; moduleId: string 
           <option value="require_operator_approval">Require operator approval</option>
         </select>
       </label>
+      <ManualControlToggle
+        enabled={config.manualControl}
+        disabled={saving}
+        onChange={(manualControl) => void saveConfig({ ...config, manualControl })}
+      />
       <label className="block space-y-1">
         <span className="text-[11px] text-[var(--color-ink-dim)]">Cadence (minutes)</span>
         <input
@@ -579,6 +653,466 @@ export function ResearchConfigForm(props: { companyId: string; moduleId: string 
           className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
         />
       </label>
+      {message && <p className="text-xs text-[var(--color-block)]">{message}</p>}
+    </div>
+  );
+}
+
+interface LibrarianConfig {
+  topicScope: string;
+  librarianSubtype: string;
+  cadenceMinutes: number;
+  targetLibraryIds: string[];
+  seedProtect: boolean;
+  manualControl: boolean;
+}
+
+const DEFAULT_LIBRARIAN_CONFIG: Omit<LibrarianConfig, 'topicScope'> = {
+  librarianSubtype: 'librarian_relevance',
+  cadenceMinutes: 360,
+  targetLibraryIds: [],
+  seedProtect: false,
+  manualControl: false,
+};
+
+const LIBRARIAN_SUBTYPE_OPTIONS = [
+  { value: 'librarian_relevance', label: 'Relevance & hygiene' },
+  { value: 'librarian_seed_keeper', label: 'Seed keeper' },
+] as const;
+
+export function LibrarianConfigForm(props: { companyId: string; moduleId: string }) {
+  const [config, setConfig] = useState<LibrarianConfig | null>(null);
+  const [libraries, setLibraries] = useState<LibraryOption[]>([]);
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let stopped = false;
+    async function load() {
+      try {
+        const [mod, libs] = await Promise.all([
+          api<{ module: { config: Partial<LibrarianConfig> } }>(
+            `/api/companies/${props.companyId}/modules/${props.moduleId}`,
+          ),
+          api<{ libraries: LibraryOption[] }>(`/api/companies/${props.companyId}/libraries`).catch(
+            () => ({ libraries: [] as LibraryOption[] }),
+          ),
+        ]);
+        if (stopped) return;
+        setConfig({
+          topicScope: mod.module.config.topicScope ?? '',
+          ...DEFAULT_LIBRARIAN_CONFIG,
+          ...mod.module.config,
+        });
+        setLibraries(libs.libraries);
+      } catch {
+        if (!stopped) setMessage('Could not load librarian settings.');
+      }
+    }
+    void load();
+    return () => {
+      stopped = true;
+    };
+  }, [props.companyId, props.moduleId]);
+
+  async function saveConfig(next: LibrarianConfig) {
+    const prev = config;
+    setConfig(next);
+    setSaving(true);
+    try {
+      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}`, {
+        method: 'PATCH',
+        body: { config: next },
+      });
+      setMessage(null);
+    } catch {
+      setConfig(prev);
+      setMessage('Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!config) {
+    return (
+      <div className="border-t border-[var(--color-line)] pt-4 text-xs text-[var(--color-ink-faint)]">
+        {message ?? 'Loading librarian settings…'}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5 border-t border-[var(--color-line)] pt-4">
+      <span className="text-xs text-[var(--color-ink-dim)]">Librarian settings</span>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Librarian subtype</span>
+        <select
+          value={config.librarianSubtype}
+          disabled={saving}
+          onChange={(e) => void saveConfig({ ...config, librarianSubtype: e.target.value })}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          {LIBRARIAN_SUBTYPE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex items-center justify-between gap-2 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-2">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Protect seeded mechanisms</span>
+        <input
+          type="checkbox"
+          checked={config.seedProtect}
+          disabled={saving}
+          onChange={(e) => void saveConfig({ ...config, seedProtect: e.target.checked })}
+          className="h-3.5 w-3.5 accent-[var(--color-accent)]"
+        />
+      </label>
+      <ManualControlToggle
+        enabled={config.manualControl}
+        disabled={saving}
+        onChange={(manualControl) => void saveConfig({ ...config, manualControl })}
+      />
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Cadence (minutes)</span>
+        <input
+          type="number"
+          min={30}
+          max={1440}
+          value={config.cadenceMinutes}
+          disabled={saving}
+          onChange={(e) => {
+            const n = Number.parseInt(e.target.value, 10);
+            if (Number.isFinite(n)) setConfig({ ...config, cadenceMinutes: n });
+          }}
+          onBlur={() => void saveConfig(config)}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        />
+      </label>
+      <div className="space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Target libraries</span>
+        {libraries.length === 0 ? (
+          <p className="text-[10px] text-[var(--color-ink-faint)]">No libraries yet.</p>
+        ) : (
+          <div className="max-h-32 space-y-1 overflow-y-auto">
+            {libraries.map((lib) => {
+              const selected = config.targetLibraryIds.includes(lib.id);
+              return (
+                <button
+                  key={lib.id}
+                  type="button"
+                  disabled={saving}
+                  onClick={() => {
+                    const nextIds = selected
+                      ? config.targetLibraryIds.filter((id) => id !== lib.id)
+                      : [...config.targetLibraryIds, lib.id];
+                    void saveConfig({ ...config, targetLibraryIds: nextIds });
+                  }}
+                  className={`flex w-full rounded-md border px-2 py-1 text-left text-[11px] ${
+                    selected
+                      ? 'border-[var(--color-accent)] text-[var(--color-ink)]'
+                      : 'border-[var(--color-line)] text-[var(--color-ink-dim)] hover:text-[var(--color-ink)]'
+                  }`}
+                >
+                  {lib.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      {message && <p className="text-xs text-[var(--color-block)]">{message}</p>}
+    </div>
+  );
+}
+
+interface LibraryConfig {
+  topicScope: string;
+  masterLibrary: boolean;
+  libraryClass: string;
+}
+
+const DEFAULT_LIBRARY_CONFIG: Omit<LibraryConfig, 'topicScope'> = {
+  masterLibrary: false,
+  libraryClass: 'topic_runtime',
+};
+
+const LIBRARY_CLASS_OPTIONS = [
+  { value: 'seeded_mechanisms', label: 'Seeded mechanisms' },
+  { value: 'topic_runtime', label: 'Topic runtime' },
+  { value: 'market_history', label: 'Market history' },
+  { value: 'runtime_market_cache', label: 'Runtime market cache' },
+  { value: 'runtime_app_logs', label: 'Runtime app logs' },
+  { value: 'specialty_evidence', label: 'Specialty evidence' },
+  { value: 'master_graph', label: 'Master graph' },
+] as const;
+
+export function LibraryConfigForm(props: { companyId: string; moduleId: string }) {
+  const [config, setConfig] = useState<LibraryConfig | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let stopped = false;
+    async function load() {
+      try {
+        const mod = await api<{ module: { config: Partial<LibraryConfig> } }>(
+          `/api/companies/${props.companyId}/modules/${props.moduleId}`,
+        );
+        if (stopped) return;
+        setConfig({
+          topicScope: mod.module.config.topicScope ?? '',
+          ...DEFAULT_LIBRARY_CONFIG,
+          ...mod.module.config,
+        });
+      } catch {
+        if (!stopped) setMessage('Could not load library settings.');
+      }
+    }
+    void load();
+    return () => {
+      stopped = true;
+    };
+  }, [props.companyId, props.moduleId]);
+
+  async function saveConfig(next: LibraryConfig) {
+    const prev = config;
+    setConfig(next);
+    setSaving(true);
+    try {
+      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}`, {
+        method: 'PATCH',
+        body: { config: next },
+      });
+      setMessage(null);
+    } catch {
+      setConfig(prev);
+      setMessage('Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!config) {
+    return (
+      <div className="border-t border-[var(--color-line)] pt-4 text-xs text-[var(--color-ink-faint)]">
+        {message ?? 'Loading library settings…'}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5 border-t border-[var(--color-line)] pt-4">
+      <span className="text-xs text-[var(--color-ink-dim)]">Library settings</span>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Library class</span>
+        <select
+          value={config.libraryClass}
+          disabled={saving}
+          onChange={(e) => void saveConfig({ ...config, libraryClass: e.target.value })}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          {LIBRARY_CLASS_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {message && <p className="text-xs text-[var(--color-block)]">{message}</p>}
+    </div>
+  );
+}
+
+interface MathConfig {
+  mathType: string;
+}
+
+const DEFAULT_MATH_CONFIG: MathConfig = { mathType: 'company_hub' };
+
+const MATH_TYPE_OPTIONS = [
+  { value: 'company_hub', label: 'Company hub' },
+  { value: 'fund_path', label: 'Fund path' },
+  { value: 'desk_execution', label: 'Desk execution' },
+  { value: 'trend_signal', label: 'Trend signal' },
+  { value: 'research_metric', label: 'Research metric' },
+  { value: 'analyzer_reconcile', label: 'Analyzer reconcile' },
+  { value: 'simulator_sandbox', label: 'Simulator sandbox' },
+  { value: 'session_calendar', label: 'Session calendar' },
+] as const;
+
+export function MathConfigForm(props: { companyId: string; moduleId: string }) {
+  const [config, setConfig] = useState<MathConfig | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let stopped = false;
+    async function load() {
+      try {
+        const mod = await api<{ module: { config: Partial<MathConfig> } }>(
+          `/api/companies/${props.companyId}/modules/${props.moduleId}`,
+        );
+        if (stopped) return;
+        setConfig({ ...DEFAULT_MATH_CONFIG, ...mod.module.config });
+      } catch {
+        if (!stopped) setMessage('Could not load Math settings.');
+      }
+    }
+    void load();
+    return () => {
+      stopped = true;
+    };
+  }, [props.companyId, props.moduleId]);
+
+  async function saveConfig(next: MathConfig) {
+    const prev = config;
+    setConfig(next);
+    setSaving(true);
+    try {
+      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}`, {
+        method: 'PATCH',
+        body: { config: next },
+      });
+      setMessage(null);
+    } catch {
+      setConfig(prev);
+      setMessage('Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!config) {
+    return (
+      <div className="border-t border-[var(--color-line)] pt-4 text-xs text-[var(--color-ink-faint)]">
+        {message ?? 'Loading Math settings…'}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5 border-t border-[var(--color-line)] pt-4">
+      <span className="text-xs text-[var(--color-ink-dim)]">Math type</span>
+      <select
+        value={config.mathType}
+        disabled={saving}
+        onChange={(e) => void saveConfig({ ...config, mathType: e.target.value })}
+        className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+      >
+        {MATH_TYPE_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      {message && <p className="text-xs text-[var(--color-block)]">{message}</p>}
+    </div>
+  );
+}
+
+interface TrendConfig {
+  focus: string;
+  trendPosture: string;
+  maxActiveTrends: number;
+  cadenceMinutes: number;
+  manualControl: boolean;
+}
+
+const DEFAULT_TREND_CONFIG: Omit<TrendConfig, 'focus'> = {
+  trendPosture: 'session_intraday',
+  maxActiveTrends: 10,
+  cadenceMinutes: 30,
+  manualControl: false,
+};
+
+const TREND_POSTURE_OPTIONS = [
+  { value: 'session_intraday', label: 'Session intraday' },
+  { value: 'crypto_cross_cap', label: 'Crypto cross-cap' },
+  { value: 'event_probability', label: 'Event probability' },
+  { value: 'position_horizon', label: 'Position horizon' },
+  { value: 'microstructure_swarm', label: 'Microstructure swarm' },
+  { value: 'research_only', label: 'Research only' },
+] as const;
+
+export function TrendConfigForm(props: { companyId: string; moduleId: string }) {
+  const [config, setConfig] = useState<TrendConfig | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let stopped = false;
+    async function load() {
+      try {
+        const mod = await api<{ module: { config: Partial<TrendConfig> } }>(
+          `/api/companies/${props.companyId}/modules/${props.moduleId}`,
+        );
+        if (stopped) return;
+        setConfig({
+          focus: mod.module.config.focus ?? '',
+          ...DEFAULT_TREND_CONFIG,
+          ...mod.module.config,
+        });
+      } catch {
+        if (!stopped) setMessage('Could not load trend settings.');
+      }
+    }
+    void load();
+    return () => {
+      stopped = true;
+    };
+  }, [props.companyId, props.moduleId]);
+
+  async function saveConfig(next: TrendConfig) {
+    const prev = config;
+    setConfig(next);
+    setSaving(true);
+    try {
+      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}`, {
+        method: 'PATCH',
+        body: { config: next },
+      });
+      setMessage(null);
+    } catch {
+      setConfig(prev);
+      setMessage('Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!config) {
+    return (
+      <div className="border-t border-[var(--color-line)] pt-4 text-xs text-[var(--color-ink-faint)]">
+        {message ?? 'Loading trend settings…'}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5 border-t border-[var(--color-line)] pt-4">
+      <span className="text-xs text-[var(--color-ink-dim)]">Trend settings</span>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Trend posture</span>
+        <select
+          value={config.trendPosture}
+          disabled={saving}
+          onChange={(e) => void saveConfig({ ...config, trendPosture: e.target.value })}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          {TREND_POSTURE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <ManualControlToggle
+        enabled={config.manualControl}
+        disabled={saving}
+        onChange={(manualControl) => void saveConfig({ ...config, manualControl })}
+      />
       {message && <p className="text-xs text-[var(--color-block)]">{message}</p>}
     </div>
   );

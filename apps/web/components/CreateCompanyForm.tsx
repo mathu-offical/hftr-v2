@@ -94,6 +94,12 @@ const ADDABLE_MODULES: Array<{
     hint: 'Explores topics, feeds libraries',
   },
   {
+    type: 'librarian',
+    defaultName: 'Library Librarian',
+    defaultConfig: { topicScope: 'pending_operator_scope' },
+    hint: 'Queries libraries, relevance, topic hygiene',
+  },
+  {
     type: 'library',
     defaultName: 'Research Evidence Library',
     defaultConfig: { topicScope: 'pending_operator_scope', masterLibrary: false },

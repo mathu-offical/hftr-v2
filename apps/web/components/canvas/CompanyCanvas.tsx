@@ -39,6 +39,7 @@ import { api, RequestError } from '@/lib/client';
 import type { ModuleNameUpdate } from '@/lib/module-generated-name';
 import { EngineGroupNode, type EngineGroupFlowNode } from './EngineGroupNode';
 import { InspectorPanel } from './InspectorPanel';
+import { ModuleProcessDetailModal } from './ModuleProcessDetailModal';
 import { MathToolNode, type MathToolFlowNode } from './MathToolNode';
 import { ModuleNode, type ModuleFlowNode } from './ModuleNode';
 import { CanvasSettingsMenu } from './CanvasSettingsMenu';
@@ -608,6 +609,7 @@ export function CompanyCanvas(props: {
   const [clearBusy, setClearBusy] = useState(false);
   const clearInFlightRef = useRef(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [processModuleId, setProcessModuleId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const rfInstanceRef = useRef<ReactFlowInstance<CanvasFlowNode, Edge> | null>(null);
 
@@ -1644,6 +1646,39 @@ export function CompanyCanvas(props: {
     };
   }, [nodes, selectedId]);
 
+  const processModule: CanvasModule | null = useMemo(() => {
+    const node = nodes.find((n) => n.id === processModuleId);
+    if (!node || !isModuleNode(node)) return null;
+    const abs = absoluteModulePosition(node, nodes);
+    return {
+      id: node.id,
+      type: node.data.moduleType,
+      name: node.data.name,
+      generatedNameBase: node.data.generatedNameBase,
+      nameCustomized: node.data.nameCustomized,
+      status: node.data.status,
+      position: abs,
+      topicSectors: node.data.topicSectors,
+      capitalAllocationRef: node.data.capitalAllocationRef,
+      targetExitRef: node.data.targetExitRef,
+      missingSetupFields: node.data.missingSetupFields,
+      engineInstanceId: node.data.engineInstanceId,
+      toolOwnerModuleId: node.data.toolOwnerModuleId ?? null,
+      topicSectorsOverridden: node.data.topicSectorsOverridden,
+    };
+  }, [nodes, processModuleId]);
+
+  useEffect(() => {
+    function onOpenProcess(event: Event) {
+      const detail = (event as CustomEvent<{ moduleId?: string }>).detail;
+      if (!detail?.moduleId) return;
+      setProcessModuleId(detail.moduleId);
+      setSelectedId(detail.moduleId);
+    }
+    window.addEventListener('hftr:open-process-modal', onOpenProcess);
+    return () => window.removeEventListener('hftr:open-process-modal', onOpenProcess);
+  }, []);
+
   return (
     <div className="relative flex min-h-0 flex-1">
       <Palette onAdd={addModule} onInsertEngine={insertEngine} />
@@ -1704,6 +1739,17 @@ export function CompanyCanvas(props: {
           onUpdated={updateModule}
           onDeleted={removeModule}
           onClose={() => setSelectedId(null)}
+          onOpenProcess={() => setProcessModuleId(selected.id)}
+        />
+      )}
+
+      {processModule && (
+        <ModuleProcessDetailModal
+          companyId={props.companyId}
+          moduleId={processModule.id}
+          moduleType={processModule.type}
+          moduleName={processModule.name}
+          onClose={() => setProcessModuleId(null)}
         />
       )}
 

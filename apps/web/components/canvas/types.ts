@@ -47,6 +47,7 @@ export interface CanvasLink {
 /** Visual identity per module type (ui-spec §3: subtle color coding). */
 export const MODULE_VISUALS: Record<ModuleType, { label: string; hue: string }> = {
   research: { label: 'Research', hue: '#7aa2f7' },
+  librarian: { label: 'Librarian', hue: '#89b4fa' },
   library: { label: 'Library', hue: '#9ece6a' },
   live_api: { label: 'Live API', hue: '#7dcfff' },
   math: { label: 'Math', hue: '#bb9af7' },

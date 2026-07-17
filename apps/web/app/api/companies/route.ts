@@ -132,7 +132,7 @@ export async function POST(req: Request) {
         name: 'Deterministic Math Calculator',
         generatedNameBase: 'Deterministic Math Calculator',
         nameCustomized: false,
-        config: {},
+        config: { mathType: 'company_hub' },
         status: 'active',
         canvasPosition: template.mathPosition ?? { x: 320, y: 40 },
       })

@@ -166,8 +166,12 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
     return () => clearInterval(interval);
   }, [open, loadConcepts, loadLibraries]);
 
-  const research = props.modules.filter((m) => m.type === 'research' || m.type === 'trend');
-  const researchModules = props.modules.filter((m) => m.type === 'research');
+  const research = props.modules.filter(
+    (m) => m.type === 'research' || m.type === 'librarian' || m.type === 'trend',
+  );
+  const researchModules = props.modules.filter(
+    (m) => m.type === 'research' || m.type === 'librarian',
+  );
   const [admissionOverrides, setAdmissionOverrides] = useState<
     Record<string, 'auto_admit_validated' | 'require_operator_approval'>
   >({});

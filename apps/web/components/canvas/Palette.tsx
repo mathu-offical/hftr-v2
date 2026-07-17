@@ -34,6 +34,12 @@ const ADDABLE: Array<{
     hint: 'Explores topics, feeds libraries',
   },
   {
+    type: 'librarian',
+    defaultName: 'Library Librarian',
+    defaultConfig: { topicScope: 'General library curation' },
+    hint: 'Queries libraries, relevance, topic hygiene',
+  },
+  {
     type: 'library',
     defaultName: 'Research Evidence Library',
     defaultConfig: { topicScope: 'General' },
@@ -96,14 +102,14 @@ const ADDABLE: Array<{
   {
     type: 'math',
     defaultName: 'Math Tool',
-    defaultConfig: {},
+    defaultConfig: { mathType: 'company_hub' },
     hint: 'Repeatable calculator; attach to many nodes (D-028)',
   },
 ];
 
 /** Store categories (DevSpecs/dev-notebook.md: divide nodes by category). */
 const CATEGORIES: Array<{ label: string; types: ModuleType[] }> = [
-  { label: 'Research & knowledge', types: ['research', 'library'] },
+  { label: 'Research & knowledge', types: ['research', 'librarian', 'library'] },
   { label: 'Data', types: ['live_api'] },
   { label: 'Signals', types: ['trend'] },
   { label: 'Trading', types: ['trading'] },

@@ -227,7 +227,10 @@ export function CompanyCanvas(props: {
         const position = { x: m.position.x, y: yOffset + (m.position.y - baseY) };
         const { module } = await api<{ module: { id: string } }>(
           `/api/companies/${props.companyId}/modules`,
-          { method: 'POST', body: { type: m.type, name: m.name, config: configs[i], canvasPosition: position } },
+          {
+            method: 'POST',
+            body: { type: m.type, name: m.name, config: configs[i], canvasPosition: position },
+          },
         );
         created.push(module);
         setNodes((current) => [

@@ -3,7 +3,12 @@
 import { useEffect, useState } from 'react';
 import type { ModuleStatus } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
-import { TradingConfigForm, TrendScanForm, WatchlistForm } from './ModuleControls';
+import {
+  DisplayConfigForm,
+  TradingConfigForm,
+  TrendScanForm,
+  WatchlistForm,
+} from './ModuleControls';
 import { PaperTradeForm } from './PaperTradeForm';
 import { MODULE_VISUALS, type CanvasModule } from './types';
 
@@ -141,6 +146,10 @@ export function InspectorPanel(props: {
           />
           <WatchlistForm companyId={props.companyId} moduleId={mod.id} />
         </>
+      )}
+
+      {mod.type === 'display' && (
+        <DisplayConfigForm companyId={props.companyId} moduleId={mod.id} />
       )}
 
       {isMath ? (

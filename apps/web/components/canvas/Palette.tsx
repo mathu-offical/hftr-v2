@@ -27,6 +27,11 @@ const ADDABLE: Array<{ type: ModuleType; defaultConfig: unknown; hint: string }>
   { type: 'simulator', defaultConfig: {}, hint: 'Paper-tests strategies' },
   { type: 'analyzer', defaultConfig: {}, hint: 'Reviews outcomes' },
   { type: 'fund_router', defaultConfig: {}, hint: 'Moves allocations under policy' },
+  {
+    type: 'display',
+    defaultConfig: { displayKind: 'table', title: 'Display' },
+    hint: 'Graphs, lists, tables, ledgers',
+  },
 ];
 
 /** Store categories (DevSpecs/dev-notebook.md: divide nodes by category). */
@@ -37,6 +42,7 @@ const CATEGORIES: Array<{ label: string; types: ModuleType[] }> = [
   { label: 'Trading', types: ['trading'] },
   { label: 'Controls', types: ['policy', 'fund_router'] },
   { label: 'Utilities', types: ['simulator', 'analyzer'] },
+  { label: 'Display', types: ['display'] },
 ];
 
 /**

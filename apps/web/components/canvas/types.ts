@@ -29,6 +29,7 @@ export const MODULE_VISUALS: Record<ModuleType, { label: string; hue: string }> 
   generator: { label: 'Generator', hue: '#c0caf5' },
   fund_router: { label: 'Fund router', hue: '#73daca' },
   policy: { label: 'Policy', hue: '#a9b1d6' },
+  display: { label: 'Display', hue: '#56b6c2' },
 };
 
 export const LINK_COLORS: Record<LinkKind, string> = {

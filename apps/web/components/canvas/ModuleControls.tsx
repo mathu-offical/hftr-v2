@@ -240,3 +240,130 @@ export function TradingConfigForm(props: { companyId: string; moduleId: string }
     </div>
   );
 }
+
+const DISPLAY_KINDS = ['table', 'list', 'ledger', 'chart', 'graph'] as const;
+type DisplayKindOption = (typeof DISPLAY_KINDS)[number];
+
+interface DisplayConfig {
+  displayKind: DisplayKindOption;
+  title: string;
+  sourceModuleIds: string[];
+}
+
+const DEFAULT_DISPLAY_CONFIG: DisplayConfig = {
+  displayKind: 'table',
+  title: 'Display',
+  sourceModuleIds: [],
+};
+
+export function DisplayConfigForm(props: { companyId: string; moduleId: string }) {
+  const [config, setConfig] = useState<DisplayConfig | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let stopped = false;
+    async function load() {
+      try {
+        const mod = await api<{ module: { config: Partial<DisplayConfig> } }>(
+          `/api/companies/${props.companyId}/modules/${props.moduleId}`,
+        );
+        if (stopped) return;
+        setConfig({ ...DEFAULT_DISPLAY_CONFIG, ...mod.module.config });
+      } catch {
+        if (!stopped) setMessage('Could not load display settings.');
+      }
+    }
+    void load();
+    return () => {
+      stopped = true;
+    };
+  }, [props.companyId, props.moduleId]);
+
+  async function updateDisplayKind(displayKind: DisplayKindOption) {
+    if (!config) return;
+    const next = { ...config, displayKind };
+    const prev = config;
+    setConfig(next);
+    setSaving(true);
+    try {
+      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}`, {
+        method: 'PATCH',
+        body: { config: next },
+      });
+      setMessage(null);
+    } catch {
+      setConfig(prev);
+      setMessage('Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveTitle(title: string) {
+    if (!config || title.trim() === config.title) return;
+    const trimmed = title.trim();
+    if (!trimmed) {
+      setMessage('Title is required.');
+      return;
+    }
+    const next = { ...config, title: trimmed };
+    const prev = config;
+    setConfig(next);
+    setSaving(true);
+    try {
+      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}`, {
+        method: 'PATCH',
+        body: { config: next },
+      });
+      setMessage(null);
+    } catch {
+      setConfig(prev);
+      setMessage('Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!config) {
+    return (
+      <div className="border-t border-[var(--color-line)] pt-4 text-xs text-[var(--color-ink-faint)]">
+        {message ?? 'Loading display settings…'}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5 border-t border-[var(--color-line)] pt-4">
+      <span className="text-xs text-[var(--color-ink-dim)]">Display settings</span>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Kind</span>
+        <select
+          value={config.displayKind}
+          onChange={(e) => void updateDisplayKind(e.target.value as DisplayKindOption)}
+          disabled={saving}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          {DISPLAY_KINDS.map((kind) => (
+            <option key={kind} value={kind}>
+              {kind}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Title</span>
+        <input
+          defaultValue={config.title}
+          key={`${props.moduleId}-${config.title}`}
+          onBlur={(e) => void saveTitle(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+          maxLength={80}
+          disabled={saving}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        />
+      </label>
+      {message && <p className="text-xs text-[var(--color-block)]">{message}</p>}
+    </div>
+  );
+}

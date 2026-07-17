@@ -15,21 +15,18 @@ watches, steers, and approves through the canvas + three panels + the assistant.
 - Company policies bound everything downstream: risk bands, session allowances, approval
   thresholds for fund movements, LLM budget tier.
 - A user can own many companies; each company is one canvas.
-- **Company creation (canonical 2026-07-17, `DevSpecs/dev-notebook.md`):** must offer discrete
-  options for seed modules/engines; each module eventually needs a funds allocation (fixed
-  amount or percentage), a topic/sector focus (dropdown + custom entry), and a target exit
-  date/time. Adding new trading engines should require the same operator-entered info as company
-  creation. Do not seed topics/sectors — seed construction and logic only.
-- **Implemented today (D-023):** create form picks one of three company templates (`blank`,
+- **Company creation (implemented D-024):** offers discrete seed modules/engines and an inline
+  setup section. Capital-bearing nodes (`holding_fund`, `fund_router`, `trading`) require a fixed
+  or percentage capital allocation plus target exit; research/data/signal/trading analysis nodes
+  require topic/sector. Highlighted Required/Set chips validate in place. **Skip setup & open
+  canvas** creates draft nodes with visible missing-field chips and inline node controls.
+- The create form picks one of three company templates (`blank`,
   `day_trading_starter`, `trend_research_lab`). The module store additionally exposes insertable
   end-to-end `ENGINE_TEMPLATES` (day-trading and trend-research available; crypto/prediction/HFT
   listed with honest gating reasons). Templates seed no topic, sector, or instrument universe:
-  scope fields use `pending_operator_scope` and instruments start empty. Engine insertion can
-  collect scope today, but it does **not** yet enforce the complete common per-module setup.
-- **Deferred (OQ-9):** both company creation and later engine insertion must collect per-module
-  allocation amount/percentage, topic/sector preset-plus-custom, and target exit date/time.
-  Allocation and exit values must resolve through ValueRefs and temporal refs per
-  `architecture/number-handling.md`.
+  scope fields use `pending_operator_scope` and instruments start empty until operator setup.
+  Company creation and later engine insertion use the same setup contract. Allocation and exit
+  resolve through ValueRefs and temporal refs per `architecture/number-handling.md`.
 
 ## 3. Modules (user-creatable, multi-instance)
 
@@ -108,7 +105,9 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
 ## 4. Funds model
 
 - Paper companies: seeded from platform credits (Stripe one-click purchases). Simulated capital
-  is distinct from credits used for LLM budget (two meters; both visible).
+  is distinct from provider/API operating budgets. Company → LLM / operating displays Anthropic,
+  Mistral, and Groq credential source plus call/cost admission counters separately from trading
+  allocation (D-024).
 - Live companies: funds live at the broker; app reads balances, allocates virtually across
   modules (allocations are app-level bookkeeping constraining dispatch sizing — the broker sees
   one account). "Add funds" deep-links to venue funding (see broker-integration.md).

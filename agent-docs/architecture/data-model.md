@@ -20,8 +20,9 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 - **modules** — company_id, type `research|library|live_api|trend|trading|policy|generator|
   simulator|analyzer|holding_fund|fund_router|math|display`, subtype (trading: `crypto|prediction|
   hft|day|long_term|custom`), name, config jsonb (schema per type), status
-  `active|paused|error|draft`, allocation_cents, canvas_position jsonb {x,y},
-  philosophy_override text.
+  `active|paused|error|draft`, legacy allocation_cents, topic_sectors text[],
+  capital_allocation_ref nullable, target_exit_ref nullable, canvas_position jsonb {x,y},
+  philosophy_override text. Migration `0008_blushing_kronos`.
   Notes: `math` is auto-created per company, non-deletable, default name `Deterministic Math
   Calculator` (D-008, D-023); `holding_fund` represents a deterministic capital source on the
   canvas (`HoldingFundModuleConfig`: `source`, `allocationPolicyRef`) — topology only in M1,
@@ -149,7 +150,8 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 - **llm_calls** — provider, model, tier, module_id, tokens in/out, cost_cents, latency_ms,
   schema_valid bool, rate_limit_remaining, job_id.
 - **llm_budgets** — scope (user/company/module), provider, window, max_calls, max_cost_cents,
-  consumed counters.
+  consumed counters. The Company → LLM / operating projection displays these provider call/cost
+  counters and credential source separately from module capital allocation (D-024).
 
 ## Assistant
 

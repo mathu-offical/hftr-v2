@@ -56,6 +56,14 @@
 - **Module store (D-023):** floating palette (top-left) with **Modules** (category-grouped singles
   with function-specific default names) and **Engines** (insertable end-to-end templates from
   `ENGINE_TEMPLATES`). Math is absent — auto-created per company.
+- **Inline setup validation (D-024):** company and engine template forms render Required/Set chips
+  plus topic/sector, trading-capital allocation (USD or percentage), and target-exit controls.
+  Skip opens the draft graph. Each incomplete node repeats its missing-field chips; selecting it
+  expands all required controls inside the node. While incomplete, the floating inspector is
+  suppressed to avoid occluding the inline form; it returns immediately after setup is complete.
+- **Separate operating meter (D-024):** Company → LLM / operating shows provider credential source,
+  call admission, and provider-cost counters for Anthropic/Mistral/Groq. Copy explicitly states
+  that this meter is separate from module trading-capital allocation.
 - **Seeded `day_trading_starter` topology (paper-safe, D-023):** ten nodes —
   `Market Regime Research` → `Strategy Evidence Library` + `Paper Market & Runtime Feed` →
   `Market Trend Scanner` → `Paper Day-Trade Execution`, plus `Paper Seed Holding Fund` →
@@ -138,13 +146,14 @@ teardown.
 
 | Spec | What it exercises |
 |---|---|
-| `companies.spec.ts` | Companies directory; create form exposes Blank / Day trading starter / Trend research lab templates |
-| `company-workspace.spec.ts` | `day_trading_starter` create → full seeded engine node names (incl. `Deterministic Math Calculator`, holding fund, fund router, policy/analyzer) → **10** `smoothstep` edges → panel expand/collapse → keyboard `[` `]` `` ` `` → module store Modules/Engines tabs → read-only assistant (`queue status` + capabilities card + reload persistence) → archive cleanup |
+| `companies.spec.ts` | Companies directory; template choices; day-template Required chips and Skip action |
+| `company-workspace.spec.ts` | skipped `day_trading_starter` setup → missing node chips → complete trading setup inline through ValueRef route → separate LLM/operating view → full seeded names + **10** `smoothstep` edges → panels/shortcuts/store → assistant persistence → archive cleanup |
 
-**Verification status (2026-07-17, D-023):** local typecheck, lint, unit tests, production build,
-and the final complete two-spec Playwright suite pass after the expanded topology landed.
-Migration `0007_left_firestar` local apply is unconfirmed; IronBee DevTools unavailable — no
-IronBee verification claimed.
+**Verification status (2026-07-17, D-024):** migration `0008_blushing_kronos` applied; typecheck,
+lint, contract tests, and complete two-spec Playwright suite pass. IronBee verified template
+Required chips, Skip → draft canvas, inline node setup save, separate provider operating budget
+view, and no new console errors. Clerk test-account password remains unavailable; app-flow
+verification used the existing local dev-auth bypass.
 
 **Not yet covered by M1 Playwright:** Clerk sign-up (flow 1 full), credits/Stripe, full pipeline
 hop (flow 3), broker connect (flow 4), assistant write proposals (flow 5), live-gate block

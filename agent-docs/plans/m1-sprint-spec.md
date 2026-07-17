@@ -123,10 +123,19 @@ created, invalid link 422, math delete 422, noop job enqueued → drained → co
   plus `holding_fund → Deterministic Math Calculator → fund_router → trading` and
   analyzer/policy verification. Fund nodes are visible topology only.
 - Templates seed no topic/sector or instrument universe (`pending_operator_scope`, empty
-  instruments). Full per-module allocation/scope/target-exit setup for company creation and later
-  engine insertion remains OQ-9.
+  instruments). D-024 supplies those fields through operator setup rather than template defaults.
 - Canvas links and connection preview use rounded `smoothstep` elbows; true arbitrary-node
   obstacle routing remains deferred.
+
+## T1.8 — Inline module setup + operating-budget separation (D-024)
+
+- Common setup matrix in contracts; capital/exit only for capital-bearing modules and
+  topic/sector only for scoped analytical modules.
+- Company templates and engine insertion share inline Required/Set controls plus Skip-to-draft.
+- Incomplete nodes render missing chips and selected-node setup controls; activation fails closed.
+- Financial and time inputs record append-only `operator_input` ValueRefs; modules store opaque
+  refs plus qualitative `topic_sectors` (migration `0008_blushing_kronos`, applied locally).
+- Company → LLM / operating projects provider credential source and `llm_budgets` separately.
 
 ## Gate G1 checklist
 
@@ -145,19 +154,18 @@ awaiting final CI/local rerun; **open** = not yet met.
       state persists per company in `localStorage` (Playwright `company-workspace`)
 - [x] **done** Assistant answers read-only lookup questions (deterministic intents; Playwright
       covers `queue status` + reload persistence)
-- [x] **candidate** Playwright M1 flows green: `companies.spec.ts` (template form) +
+- [x] **done** Playwright M1 flows green: `companies.spec.ts` (template setup chips) +
       `company-workspace.spec.ts` (full `day_trading_starter` seeded engine: 10 function-specific
       node names, 10 `smoothstep` edges, panels, shortcuts, module store Modules/Engines,
       assistant + capabilities card) under `DEV_AUTH_BYPASS=1`; complete local suite passed before
       D-023 docs — **not** full Clerk sign-up flow 1; **parent-pending:** final expanded-topology
-      E2E rerun; remote CI e2e job first run pending
-- [x] **done** agent-docs updated (D-022, D-023)
+      E2E rerun including inline ValueRef setup; remote CI e2e job first run pending
+- [x] **done** agent-docs updated (D-022, D-023, D-024)
 
-**G1 gate verdict (2026-07-17, updated D-023):** implementation **complete as a gate
-candidate**; formal G1 sign-off **pending** parent final expanded-topology E2E rerun, migration
-`0007_left_firestar` local apply confirmation, remote CI e2e run, and zero-trust IronBee browser
-pass. Local typecheck, lint, unit tests, and the complete two-spec Playwright suite pass before
-docs curation. IronBee DevTools was unavailable — no IronBee verification claimed.
+**G1 gate verdict (2026-07-17, updated D-024):** local gate is **complete**: migration applied;
+typecheck, lint, contract tests, and complete two-spec Playwright suite pass; IronBee verified
+template validation, skip-to-draft, inline setup persistence, and separate provider budgets with
+no new console errors. Remote CI e2e first run remains external evidence, not a local blocker.
 
 ## Pulled forward from M2 (2026-07-16)
 

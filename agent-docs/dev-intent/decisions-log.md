@@ -166,6 +166,26 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   POST `/trends` records operator_input ValueRef for drift. LLM call path still reads
   env keys only until user-key injection lands (follow-up).
 
+- **D-024 (inline module setup + separate operating budgets, 2026-07-17):** Resolved OQ-9 from
+  operator clarification. (a) **Scope:** capital allocation applies only to capital-bearing
+  `holding_fund`, `fund_router`, and `trading` modules; LLM/API-provider operating budgets remain
+  a separate meter paid through provider keys. Topic/sector is required for research, library,
+  live API, trend, trading, simulator, and analyzer nodes. Capital-bearing nodes also require a
+  target exit. Utility/policy/display/Math nodes are not given nonsensical setup requirements.
+  (b) **Creation:** company templates and module-store engine templates expose highlighted inline
+  allocation, topic/sector, and target-exit controls. Complete setup applies shared values to
+  matching template nodes. **Skip setup** creates the graph in draft state and opens the canvas
+  with text-visible required-field chips. (c) **Node controls:** required controls render directly
+  inside the selected canvas node; incomplete nodes suppress the overlapping inspector until
+  setup is saved. Draft nodes cannot transition active while required fields are missing.
+  (d) **NRA:** `modules.topic_sectors` stores qualitative scope; `capital_allocation_ref` and
+  `target_exit_ref` point to append-only `operator_input` ValueRefs (`usd_cents|pct` and
+  `timestamp_ms`). Migration `0008_blushing_kronos` adds these fields. (e) **Operating budget
+  visualization:** Company → LLM / operating reads user/environment credential source and
+  company `llm_budgets` call/cost counters separately from trading capital. Verified: migration
+  applied; typecheck/lint/contracts; two-spec Playwright; IronBee create → skip → inline setup
+  save → separate provider budget view; no new console errors.
+
 - **D-023 (canonical DevSpecs sync: engines, holding fund, elbows, assistant hardening,
   2026-07-17):** Aligned implementation and agent-docs with `DevSpecs/dev-notebook.md`
   (2026-07-17) and `DevSpecs/ui-ux.spec.md` §Connections. (a) **Company creation &
@@ -218,14 +238,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 
 ## Open questions
 
-- **OQ-9 (open):** Per-module company/engine setup semantics — the create wizard and later
-  engine insertion must collect allocation (fixed amount or percentage), topic/sector
-  preset-plus-custom, and target exit date/time for each seeded module. Clarify whether funds
-  mean trading capital only for capital-bearing modules or separate operating/LLM budgets for
-  research/data/policy modules, and whether setup is inline or a required post-create step.
-  Fixed amounts/percentages must resolve to ValueRefs and target exit dates to temporal refs per
-  the Numeric/Temporal Reference Architecture — never encode raw authoritative numbers/times
-  into model paths. Canonical intent: `DevSpecs/dev-notebook.md` §COMPANY CREATION.
+- **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;
+  provider/LLM operating budgets are separate. Company and engine template setup is inline with a
+  Skip path; incomplete draft nodes show required-field chips and expose the same controls inline
+  on selection. Financial and target-exit values resolve to append-only ValueRefs.
 - **OQ-10 (open):** Assistant message retention and erasure policy — TTL, company archive
   behavior, account deletion, and whether summary `tool_results` history follows the same rules
   as `content`. No policy encoded yet; `assistant_messages` remains append-only with no purge

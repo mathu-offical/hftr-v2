@@ -198,22 +198,30 @@ Calculator**) exposing the NRA:
 - Seeded paper engines wire `holding_fund → math → fund_router` fund-route links on the canvas.
   **Topology only in M1** — actual fund movement through holding fund/router remains M3+.
 
-## 8b. Per-module allocation and target exit (canonical intent, not yet implemented)
+## 8b. Per-module allocation and target exit (implemented D-024)
 
-`DevSpecs/dev-notebook.md` §COMPANY CREATION requires every module to eventually carry:
-- a funds allocation (fixed amount or percentage), and
-- an operator-selected topic/sector focus (preset plus custom entry), and
-- a target exit date/time.
-The same setup contract applies when an operator inserts another trading engine. Templates seed
-construction/logic only; they do not seed topics, sectors, or instrument universes.
+The common setup contract is module-type-specific rather than forcing meaningless fields onto
+every utility:
 
-**NRA constraints (OQ-9):**
-- Fixed amounts and percentages must resolve to **ValueRefs** (operator input or calc-derived from
-  ledger refs) — never model-emitted numbers.
-- Target exit dates/times must resolve to **temporal refs** (`timestamp_ms`, `session_date`, or
-  calendar-derived schedule refs) — never authoritative datetimes in model output paths.
-- Whether “funds” means trading capital only or separate operating/LLM budgets by module type,
-  and whether setup is inline or a required post-create step, remain unresolved (OQ-9).
+- `holding_fund`, `fund_router`, `trading`: capital allocation + target exit.
+- `research`, `library`, `live_api`, `trend`, `trading`, `simulator`, `analyzer`: topic/sector.
+- `math`, `policy`, `generator`, `display`: no common setup requirement; their own config schema
+  remains authoritative.
+
+Company and engine template forms collect the union of their nodes' requirements and apply values
+only to matching nodes. Skip creates draft nodes with missing-field chips; the selected node
+exposes the same controls inline. Activation fails closed with `module_setup_incomplete`.
+
+**NRA implementation:**
+- `apps/web/lib/module-setup.ts` converts validated decimal strings into fixed-point
+  `operator_input` ValueRefs: fixed USD → `usd_cents` scale 0; percentages → `pct` scale 4.
+- Target exit uses an offset-bearing ISO input from the browser and records `timestamp_ms` with
+  the operator's IANA timezone. Past targets are rejected before recording.
+- `modules.capital_allocation_ref` and `modules.target_exit_ref` hold opaque refs only; changed
+  values append a new `numeric_values` row. `modules.topic_sectors` is qualitative text and may
+  enter scoped model context without numeric substitution.
+- Provider/LLM operating budgets are never inferred from these refs; `llm_budgets` and provider
+  key sources remain a separate admission/spend surface.
 
 ## 9. Build integration
 

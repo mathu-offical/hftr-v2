@@ -45,15 +45,15 @@ Gate G0: deployed skeleton, auth round-trip in browser, migrations reproducible 
    trend → execution; holding fund → Math → fund router; transaction monitor + trading policy);
    function-specific palette/template names; `smoothstep` rounded-elbow edges (not full obstacle
    routing — ELK/pathfinding deferred). Fund/router nodes are topology only — no ledger transfers.
-   Per-module allocation/exit at create remains OQ-9.
+6. **D-024 setup completion:** company/engine templates collect inline capital/scope/exit with a
+   Skip-to-draft path; incomplete nodes show inline controls; allocation/time resolve to ValueRefs;
+   provider operating budgets render separately.
 
-**Gate G1 (candidate — pending external verification, D-022/D-023):** create company → compose
+**Gate G1 (local complete — remote CI evidence pending, D-022/D-023/D-024):** create company → compose
 module graph → queue processes a synthetic job → node activity reflects it → panels + assistant +
-Playwright M1 flows green. Recorded local evidence: typecheck, lint, unit tests, and the complete
-two-spec Playwright suite pass (including expanded-topology assertions) before docs curation.
-**Parent-pending:** final E2E rerun after all D-023 code landed; migration `0007_left_firestar`
-local apply; remote CI e2e first run; IronBee browser MCP unavailable — do not claim IronBee
-verification. Formal G1 sign-off waits on those external checks.
+Playwright M1 flows green. Recorded evidence: migration `0008` applied; typecheck/lint/contracts;
+complete two-spec Playwright; IronBee create/skip/inline setup/provider-budget pass with no new
+console errors. Remote CI e2e first run remains pending.
 
 **M2 not started.** Next dependency slices before real provider calls (do not mark M2 done until
 verified): (1) LLM call boundary + key precedence (OQ-8) with `llm_calls` admission wired;
@@ -148,6 +148,5 @@ throttle presets enforced.
 - OQ-4: v1 database reuse for read-only research import (currently: fresh DB, optional one-time
   content import script from v1 catalogs only).
 - OQ-5: Polymarket key custody model (wallet management) before that adapter ships.
-- OQ-9: per-module allocation + target exit timing at company creation vs post-create (NRA
-  ValueRef/temporal ref resolution).
+- OQ-9: resolved D-024 — inline + Skip-to-draft; capital-bearing modules only; NRA refs.
 - OQ-10: assistant message retention/erasure policy.

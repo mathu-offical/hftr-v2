@@ -112,11 +112,11 @@ const CATEGORIES: Array<{ label: string; types: ModuleType[] }> = [
   { label: 'Display', types: ['display'] },
 ];
 
+type StoreSection = 'modules' | 'engines';
+
 /**
- * Floating module store, layered over the canvas (top-left). Two sections:
- * single modules grouped by category, and insertable end-to-end engine
- * templates that require user inputs before insertion (dev-notebook spec).
- * Company seeds one Math module; D-028 allows additional Math tools.
+ * Floating module/engine store (top-left). Two launcher buttons open the same
+ * store on Modules or Engines; engines are browsed and inserted from here.
  */
 export function Palette(props: {
   onAdd: (type: ModuleType, name: string, config: unknown) => void;
@@ -127,10 +127,30 @@ export function Palette(props: {
   ) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
-  const [section, setSection] = useState<'modules' | 'engines'>('modules');
+  const [section, setSection] = useState<StoreSection>('modules');
   const [configuring, setConfiguring] = useState<EngineTemplate | null>(null);
   const [engineTemplates, setEngineTemplates] = useState<EngineTemplate[]>([]);
   const [enginesLoading, setEnginesLoading] = useState(false);
+
+  function openStore(next: StoreSection) {
+    setSection(next);
+    setConfiguring(null);
+    setOpen(true);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      if (configuring) {
+        setConfiguring(null);
+        return;
+      }
+      setOpen(false);
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, configuring]);
 
   useEffect(() => {
     if (!open || section !== 'engines') return;
@@ -153,19 +173,34 @@ export function Palette(props: {
 
   if (!open) {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        aria-label="Open module store"
-        className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-full border border-[var(--color-line)] bg-[var(--color-surface-1)]/90 px-3.5 py-2 text-xs text-[var(--color-ink-dim)] shadow-lg backdrop-blur hover:border-[var(--color-accent)] hover:text-[var(--color-ink)]"
-      >
-        <span className="text-[var(--color-accent)]">+</span>
-        Add module
-      </button>
+      <div className="absolute left-4 top-4 z-20 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => openStore('modules')}
+          aria-label="Open modules store"
+          className="flex items-center gap-2 rounded-full border border-[var(--color-line)] bg-[var(--color-surface-1)]/90 px-3.5 py-2 text-xs text-[var(--color-ink-dim)] shadow-lg backdrop-blur hover:border-[var(--color-accent)] hover:text-[var(--color-ink)]"
+        >
+          <span className="text-[var(--color-accent)]">+</span>
+          Modules
+        </button>
+        <button
+          type="button"
+          onClick={() => openStore('engines')}
+          aria-label="Open engines store"
+          className="flex items-center gap-2 rounded-full border border-[var(--color-line)] bg-[var(--color-surface-1)]/90 px-3.5 py-2 text-xs text-[var(--color-ink-dim)] shadow-lg backdrop-blur hover:border-[var(--color-accent)] hover:text-[var(--color-ink)]"
+        >
+          <span className="text-[var(--color-accent)]">+</span>
+          Engines
+        </button>
+      </div>
     );
   }
 
   return (
-    <aside className="absolute left-4 top-4 z-20 flex max-h-[calc(100%-2rem)] w-64 flex-col overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)]/95 shadow-2xl backdrop-blur">
+    <aside
+      className="absolute left-4 top-4 z-20 flex max-h-[calc(100%-2rem)] w-72 flex-col overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)]/95 shadow-2xl backdrop-blur"
+      aria-label={section === 'engines' ? 'Engines store' : 'Modules store'}
+    >
       <div className="flex items-center justify-between border-b border-[var(--color-line)] px-3 py-2">
         <div className="flex gap-1">
           {(
@@ -176,6 +211,7 @@ export function Palette(props: {
           ).map((s) => (
             <button
               key={s.id}
+              type="button"
               onClick={() => {
                 setSection(s.id);
                 setConfiguring(null);
@@ -191,8 +227,9 @@ export function Palette(props: {
           ))}
         </div>
         <button
+          type="button"
           onClick={() => setOpen(false)}
-          aria-label="Close module store"
+          aria-label="Close store"
           className="text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
         >
           ×
@@ -234,15 +271,24 @@ export function Palette(props: {
 
         {section === 'engines' && !configuring && (
           <div className="space-y-1.5">
+            <p className="px-2 pb-1 text-[10px] leading-snug text-[var(--color-ink-faint)]">
+              Insertable end-to-end engine templates. Engines are added from this store only.
+            </p>
             {enginesLoading && (
               <p className="px-2 py-1 text-[10px] text-[var(--color-ink-faint)]">
                 Loading engine catalog…
+              </p>
+            )}
+            {!enginesLoading && engineTemplates.length === 0 && (
+              <p className="px-2 py-2 text-[10px] text-[var(--color-warn)]">
+                No engine templates available.
               </p>
             )}
             {!enginesLoading &&
               engineTemplates.map((engine) => (
                 <button
                   key={engine.id}
+                  type="button"
                   disabled={!engine.available}
                   onClick={() => setConfiguring(engine)}
                   className="w-full rounded-lg border border-[var(--color-line)] px-2.5 py-2 text-left hover:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50"

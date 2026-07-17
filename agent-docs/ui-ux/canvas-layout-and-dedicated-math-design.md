@@ -104,7 +104,9 @@ Cycles use a stable fallback order based on template order, then module creation
 
 ## Canvas-scoped Reflow
 
-The main canvas controls expose a top-level **Reflow canvas** button.
+The main canvas **Canvas settings** menu (top-right) exposes **Reflow canvas** (and
+**Clear canvas…** with a delete-all confirmation: Escape/backdrop cancel while idle; Clear
+disabled when empty).
 
 1. Restore module children to their persisted engine groups.
 2. Restore dedicated Math tools to their owner lanes.

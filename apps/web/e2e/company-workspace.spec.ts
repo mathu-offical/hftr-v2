@@ -199,12 +199,30 @@ test.describe('Company workspace (M1 read flows)', () => {
     await page.keyboard.press('`');
     await expect(expandBottom).toBeVisible();
 
-    // Module store floating button exposes Modules and Engines sections.
-    await page.getByRole('button', { name: 'Open module store' }).click();
+    // Floating store launchers for modules and engines.
+    await expect(page.getByRole('button', { name: 'Open modules store' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open engines store' })).toBeVisible();
+    await page.getByRole('button', { name: 'Open modules store' }).click();
     await expect(page.getByRole('button', { name: 'Modules', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Engines', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Close module store' }).click();
-    await expect(page.getByRole('button', { name: 'Open module store' })).toBeVisible();
+    await page.getByRole('button', { name: 'Close store' }).click();
+    await expect(page.getByRole('button', { name: 'Open modules store' })).toBeVisible();
+    await page.getByRole('button', { name: 'Open engines store' }).click();
+    await expect(page.getByLabel('Engines store')).toBeVisible();
+    await page.getByRole('button', { name: 'Close store' }).click();
+
+    // Canvas settings hosts reflow + clear-canvas confirm.
+    await page.getByRole('button', { name: 'Canvas settings' }).click();
+    await expect(page.getByRole('menuitem', { name: 'Reflow canvas' })).toBeVisible();
+    await page.getByRole('menuitem', { name: 'Clear canvas…' }).click();
+    await expect(page.getByRole('heading', { name: 'Clear canvas?' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('heading', { name: 'Clear canvas?' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Canvas settings' }).click();
+    await page.getByRole('menuitem', { name: 'Clear canvas…' }).click();
+    await expect(page.getByRole('heading', { name: 'Clear canvas?' })).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByRole('heading', { name: 'Clear canvas?' })).toHaveCount(0);
 
     // Read-only assistant persists company-scoped history in the database.
     await page.getByRole('button', { name: 'Open read-only assistant' }).click();

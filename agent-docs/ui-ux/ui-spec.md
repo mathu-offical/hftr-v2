@@ -94,10 +94,15 @@
 - Minimap + zoom controls bottom-right; fit-view on load; LOD: below zoom threshold, node bodies
   simplify to icon+status dot (perf + readability).
 - Empty state: company template picker rendered as ghost-nodes.
-- **Module store (D-023, engines D-028):** floating palette (top-left) with **Modules**
-  (category-grouped singles with function-specific default names; Math repeatable as TOOL per
-  D-028) and **Engines** (insertable end-to-end templates from `ENGINE_TEMPLATES` → persisted
-  `engine_instances` group). Company creation still auto-seeds one Math module.
+- **Module / engine store (D-023, engines D-028):** two floating launcher buttons (top-left) —
+  **+ Modules** and **+ Engines** — open the same store on the matching tab. Modules are
+  category-grouped singles (Math repeatable as TOOL per D-028). Engines are insertable
+  end-to-end templates from `ENGINE_TEMPLATES` → persisted `engine_instances`; engines are
+  browsed and inserted from this store only. Company creation still auto-seeds one Math module.
+- **Canvas settings (top-right):** floating **Canvas settings** menu hosts **Reflow canvas**
+  (connection-safe layout) and **Clear canvas…** (confirm modal → cascade-delete every engine
+  group and delete every remaining module/Math tool/link). Clear is disabled when the graph is
+  empty; Escape / backdrop dismisses the confirm while not busy.
 - **Inline setup validation (D-024, refined D-026):** company and engine template forms render
   topic/sector, trading-capital allocation (USD or percentage), and target-exit controls **per
   module**. Company create lists one setup card per seeded template module and lets operators add

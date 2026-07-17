@@ -60,7 +60,7 @@ test.describe('Canvas ENGINE groups (D-028)', () => {
       timeout: 15_000,
     });
 
-    await page.getByRole('button', { name: /Open module store|Module store/i }).click();
+    await page.getByRole('button', { name: /Open engines store/i }).click();
     await page.getByRole('button', { name: 'Engines', exact: true }).click();
     await page.getByRole('button', { name: /Trend research engine/i }).click();
     await page.getByRole('button', { name: 'Skip setup' }).click();

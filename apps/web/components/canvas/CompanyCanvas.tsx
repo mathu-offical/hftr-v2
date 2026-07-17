@@ -41,6 +41,7 @@ import { EngineGroupNode, type EngineGroupFlowNode } from './EngineGroupNode';
 import { InspectorPanel } from './InspectorPanel';
 import { MathToolNode, type MathToolFlowNode } from './MathToolNode';
 import { ModuleNode, type ModuleFlowNode } from './ModuleNode';
+import { CanvasSettingsMenu } from './CanvasSettingsMenu';
 import { Palette } from './Palette';
 import {
   edgeKindForHandles,
@@ -68,6 +69,70 @@ function isMathToolNode(node: CanvasFlowNode): node is MathToolFlowNode {
 
 function isGraphModuleNode(node: CanvasFlowNode): node is ModuleFlowNode | MathToolFlowNode {
   return isModuleNode(node) || isMathToolNode(node);
+}
+
+function ClearCanvasDialog(props: {
+  busy: boolean;
+  engineCount: number;
+  moduleCount: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape' && !props.busy) props.onCancel();
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [props.busy, props.onCancel]);
+
+  return (
+    <div
+      className="absolute inset-0 z-30 flex items-center justify-center bg-black/40"
+      onClick={() => {
+        if (!props.busy) props.onCancel();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="clear-canvas-title"
+        className="w-80 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] p-4 shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h3 id="clear-canvas-title" className="text-sm font-medium text-[var(--color-ink)]">
+          Clear canvas?
+        </h3>
+        <p className="mt-2 text-xs leading-relaxed text-[var(--color-ink-dim)]">
+          This permanently deletes every module, dedicated Math tool, engine group, and link on this
+          company canvas ({props.moduleCount} node
+          {props.moduleCount === 1 ? '' : 's'}
+          {props.engineCount > 0
+            ? `, ${props.engineCount} engine group${props.engineCount === 1 ? '' : 's'}`
+            : ''}
+          ). This cannot be undone from the UI.
+        </p>
+        <div className="mt-4 flex flex-col gap-2">
+          <button
+            type="button"
+            disabled={props.busy}
+            onClick={props.onConfirm}
+            className="rounded-md border border-[var(--color-block)] px-3 py-2 text-xs text-[var(--color-block)] disabled:opacity-50"
+          >
+            {props.busy ? 'Clearing…' : 'Delete all nodes'}
+          </button>
+          <button
+            type="button"
+            disabled={props.busy}
+            onClick={props.onCancel}
+            className="rounded-md border border-[var(--color-line)] px-3 py-2 text-xs text-[var(--color-ink-dim)]"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function engineBounds(node: EngineGroupFlowNode): {
@@ -539,6 +604,9 @@ export function CompanyCanvas(props: {
 }) {
   const [deleteEngineId, setDeleteEngineId] = useState<string | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [clearCanvasOpen, setClearCanvasOpen] = useState(false);
+  const [clearBusy, setClearBusy] = useState(false);
+  const clearInFlightRef = useRef(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const rfInstanceRef = useRef<ReactFlowInstance<CanvasFlowNode, Edge> | null>(null);
@@ -936,6 +1004,15 @@ export function CompanyCanvas(props: {
     };
   }, [props.companyId, setNodes, setEdges]);
 
+  useEffect(() => {
+    if (!deleteEngineId || deleteBusy) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') setDeleteEngineId(null);
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [deleteEngineId, deleteBusy]);
+
   function flash(message: string) {
     setNotice(message);
     setTimeout(() => setNotice(null), 4000);
@@ -1331,6 +1408,64 @@ export function CompanyCanvas(props: {
     [nodes, edges, props.companyId, setNodes, setEdges, stableEngineCallbacks],
   );
 
+  const confirmClearCanvas = useCallback(async () => {
+    if (clearInFlightRef.current) return;
+    const snapshot = nodes;
+    const engineIds = snapshot.filter(isEngineGroupNode).map((node) => node.id);
+    const moduleIds = snapshot.filter(isGraphModuleNode).map((node) => node.id);
+    if (engineIds.length === 0 && moduleIds.length === 0) {
+      setNodes([]);
+      setEdges([]);
+      setSelectedId(null);
+      setClearCanvasOpen(false);
+      flash('Canvas is already empty.');
+      return;
+    }
+
+    clearInFlightRef.current = true;
+    setClearBusy(true);
+    try {
+      for (const engineId of engineIds) {
+        try {
+          await api(`/api/companies/${props.companyId}/engines/${engineId}`, {
+            method: 'DELETE',
+            body: { mode: 'cascade' },
+          });
+        } catch (error) {
+          if (error instanceof RequestError && error.status === 404) continue;
+          throw error;
+        }
+      }
+
+      for (const moduleId of moduleIds) {
+        try {
+          await api(`/api/companies/${props.companyId}/modules/${moduleId}`, {
+            method: 'DELETE',
+          });
+        } catch (error) {
+          // Cascade or concurrent delete already removed the row.
+          if (error instanceof RequestError && error.status === 404) continue;
+          throw error;
+        }
+      }
+
+      setNodes([]);
+      setEdges([]);
+      setSelectedId(null);
+      setClearCanvasOpen(false);
+      flash('Canvas cleared.');
+    } catch {
+      flash('Could not clear the canvas.');
+    } finally {
+      clearInFlightRef.current = false;
+      setClearBusy(false);
+    }
+  }, [nodes, props.companyId, setNodes, setEdges]);
+
+  const cancelClearCanvas = useCallback(() => {
+    if (!clearBusy) setClearCanvasOpen(false);
+  }, [clearBusy]);
+
   const confirmDeleteEngine = useCallback(
     async (mode: DeleteEngineMode) => {
       if (!deleteEngineId) return;
@@ -1552,13 +1687,12 @@ export function CompanyCanvas(props: {
           <Background gap={24} color="var(--color-line)" />
           <Controls showInteractive={false} />
           <Panel position="top-right">
-            <button
-              type="button"
-              onClick={() => void handleCanvasReflow()}
-              className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-1.5 text-xs text-[var(--color-ink-dim)] shadow-sm hover:border-[var(--color-accent)] hover:text-[var(--color-ink)]"
-            >
-              Reflow canvas
-            </button>
+            <CanvasSettingsMenu
+              disabled={clearBusy || deleteBusy}
+              canClear={nodes.length > 0}
+              onReflow={() => void handleCanvasReflow()}
+              onRequestClear={() => setClearCanvasOpen(true)}
+            />
           </Panel>
         </ReactFlow>
       </div>
@@ -1574,9 +1708,22 @@ export function CompanyCanvas(props: {
       )}
 
       {deleteEngineId && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40">
-          <div className="w-80 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] p-4 shadow-2xl">
-            <h3 className="text-sm font-medium text-[var(--color-ink)]">Delete engine group?</h3>
+        <div
+          className="absolute inset-0 z-30 flex items-center justify-center bg-black/40"
+          onClick={() => {
+            if (!deleteBusy) setDeleteEngineId(null);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-engine-title"
+            className="w-80 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] p-4 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id="delete-engine-title" className="text-sm font-medium text-[var(--color-ink)]">
+              Delete engine group?
+            </h3>
             <p className="mt-2 text-xs leading-relaxed text-[var(--color-ink-dim)]">
               Delete modules removes all member nodes and their links. Ungroup only removes the
               engine chrome and keeps modules on the canvas.
@@ -1609,6 +1756,16 @@ export function CompanyCanvas(props: {
             </div>
           </div>
         </div>
+      )}
+
+      {clearCanvasOpen && (
+        <ClearCanvasDialog
+          busy={clearBusy}
+          engineCount={nodes.filter(isEngineGroupNode).length}
+          moduleCount={nodes.filter(isGraphModuleNode).length}
+          onCancel={cancelClearCanvas}
+          onConfirm={() => void confirmClearCanvas()}
+        />
       )}
 
       {notice && (

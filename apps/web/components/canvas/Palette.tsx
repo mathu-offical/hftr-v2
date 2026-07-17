@@ -62,7 +62,7 @@ const ADDABLE: Array<{
   {
     type: 'holding_fund',
     defaultName: 'Company Holding Fund',
-    defaultConfig: { source: 'company_pool' },
+    defaultConfig: { source: 'company_seed' },
     hint: 'Represents a deterministic capital source',
   },
   {

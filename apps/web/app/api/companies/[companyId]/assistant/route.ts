@@ -119,7 +119,6 @@ async function runReadTool(
     case 'company_summary': {
       const company = await scoping.getOwnedCompany(db, clerkUserId, companyId);
       const moduleRows = await scoping.listModules(db, clerkUserId, companyId);
-      const linkRows = await scoping.listLinks(db, clerkUserId, companyId);
       return {
         tool,
         summary: `${company.name} · ${company.mode} · ${moduleRows.length} modules`,

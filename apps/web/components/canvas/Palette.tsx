@@ -5,31 +5,76 @@ import { ENGINE_TEMPLATES, type EngineTemplate, type ModuleType } from '@hftr/co
 import { MODULE_VISUALS } from './types';
 
 /** Default configs satisfying each type's contract schema (minimum viable). */
-const ADDABLE: Array<{ type: ModuleType; defaultConfig: unknown; hint: string }> = [
+const ADDABLE: Array<{
+  type: ModuleType;
+  defaultName: string;
+  defaultConfig: unknown;
+  hint: string;
+}> = [
   {
     type: 'research',
+    defaultName: 'Market Research',
     defaultConfig: { topicScope: 'General market research' },
     hint: 'Explores topics, feeds libraries',
   },
-  { type: 'library', defaultConfig: { topicScope: 'General' }, hint: 'Curated knowledge store' },
+  {
+    type: 'library',
+    defaultName: 'Research Evidence Library',
+    defaultConfig: { topicScope: 'General' },
+    hint: 'Curated knowledge store',
+  },
   {
     type: 'live_api',
+    defaultName: 'Paper Market Data Feed',
     defaultConfig: { venue: 'paper_sim', instruments: ['SPY'] },
     hint: 'Market data feed',
   },
   {
     type: 'trend',
+    defaultName: 'Market Trend Scanner',
     defaultConfig: { focus: 'Broad market momentum' },
     hint: 'Finds tradeable trends',
   },
-  { type: 'trading', defaultConfig: { subtype: 'day' }, hint: 'Executes a strategy pipeline' },
-  { type: 'policy', defaultConfig: {}, hint: 'Binds risk/goal envelopes' },
-  { type: 'simulator', defaultConfig: {}, hint: 'Paper-tests strategies' },
-  { type: 'analyzer', defaultConfig: {}, hint: 'Reviews outcomes' },
-  { type: 'fund_router', defaultConfig: {}, hint: 'Moves allocations under policy' },
+  {
+    type: 'trading',
+    defaultName: 'Paper Trading Desk',
+    defaultConfig: { subtype: 'day' },
+    hint: 'Executes a strategy pipeline',
+  },
+  {
+    type: 'policy',
+    defaultName: 'Paper Trading Policy',
+    defaultConfig: {},
+    hint: 'Binds risk/goal envelopes',
+  },
+  {
+    type: 'simulator',
+    defaultName: 'Strategy Paper Simulator',
+    defaultConfig: {},
+    hint: 'Paper-tests strategies',
+  },
+  {
+    type: 'analyzer',
+    defaultName: 'Execution Outcome Analyzer',
+    defaultConfig: {},
+    hint: 'Reviews outcomes',
+  },
+  {
+    type: 'holding_fund',
+    defaultName: 'Company Holding Fund',
+    defaultConfig: { source: 'company_pool' },
+    hint: 'Represents a deterministic capital source',
+  },
+  {
+    type: 'fund_router',
+    defaultName: 'Deterministic Fund Router',
+    defaultConfig: {},
+    hint: 'Moves allocations under policy',
+  },
   {
     type: 'display',
-    defaultConfig: { displayKind: 'table', title: 'Display' },
+    defaultName: 'Operations Table',
+    defaultConfig: { displayKind: 'table', title: 'Operations Table' },
     hint: 'Graphs, lists, tables, ledgers',
   },
 ];
@@ -40,7 +85,7 @@ const CATEGORIES: Array<{ label: string; types: ModuleType[] }> = [
   { label: 'Data', types: ['live_api'] },
   { label: 'Signals', types: ['trend'] },
   { label: 'Trading', types: ['trading'] },
-  { label: 'Controls', types: ['policy', 'fund_router'] },
+  { label: 'Funds & controls', types: ['holding_fund', 'fund_router', 'policy'] },
   { label: 'Utilities', types: ['simulator', 'analyzer'] },
   { label: 'Display', types: ['display'] },
 ];
@@ -121,7 +166,7 @@ export function Palette(props: {
                 return (
                   <button
                     key={type}
-                    onClick={() => props.onAdd(type, visual.label, entry.defaultConfig)}
+                    onClick={() => props.onAdd(type, entry.defaultName, entry.defaultConfig)}
                     className="group flex w-full flex-col gap-0.5 rounded-lg px-2.5 py-1.5 text-left hover:bg-[var(--color-surface-2)]"
                   >
                     <span className="flex items-center gap-2 text-sm text-[var(--color-ink-dim)] group-hover:text-[var(--color-ink)]">

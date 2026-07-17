@@ -152,6 +152,14 @@ export function InspectorPanel(props: {
         <DisplayConfigForm companyId={props.companyId} moduleId={mod.id} />
       )}
 
+      {(mod.type === 'holding_fund' || mod.type === 'fund_router') && (
+        <p className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] p-2 text-xs leading-relaxed text-[var(--color-ink-faint)]">
+          Visible paper topology only. This module does not move funds yet; future transfers must
+          resolve through ValueRefs, the deterministic Math calculator, approval policy, and the
+          immutable ledger.
+        </p>
+      )}
+
       {isMath ? (
         <p className="text-xs leading-relaxed text-[var(--color-ink-faint)]">
           The Math module audits every number and timestamp in this company. It is created with the

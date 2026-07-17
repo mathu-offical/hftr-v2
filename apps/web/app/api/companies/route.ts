@@ -38,19 +38,25 @@ export async function POST(req: Request) {
       })
       .returning();
     const company = inserted[0]!;
+    const template = COMPANY_TEMPLATES[input.template];
 
     // Every company gets its non-deletable Math module (D-008).
-    await db.insert(modules).values({
-      companyId: company.id,
-      type: 'math',
-      name: 'Math',
-      config: {},
-      status: 'active',
-      canvasPosition: { x: 320, y: 40 },
-    });
+    const [mathModule] = await db
+      .insert(modules)
+      .values({
+        companyId: company.id,
+        type: 'math',
+        name: 'Deterministic Math Calculator',
+        config: {},
+        status: 'active',
+        canvasPosition: template.mathPosition ?? { x: 320, y: 40 },
+      })
+      .returning({ id: modules.id });
+    if (!mathModule) {
+      throw new ApiError(500, 'math_module_create_failed');
+    }
 
     // Template modules + links (D-016).
-    const template = COMPANY_TEMPLATES[input.template];
     if (template.modules.length > 0) {
       const created = await db
         .insert(modules)
@@ -67,12 +73,19 @@ export async function POST(req: Request) {
         .returning({ id: modules.id });
       if (template.links.length > 0) {
         await db.insert(moduleLinks).values(
-          template.links.map((l) => ({
-            companyId: company.id,
-            fromModuleId: created[l.fromIndex]!.id,
-            toModuleId: created[l.toIndex]!.id,
-            linkKind: l.linkKind,
-          })),
+          template.links.map((l) => {
+            const fromModuleId = l.fromIndex === 'math' ? mathModule.id : created[l.fromIndex]?.id;
+            const toModuleId = l.toIndex === 'math' ? mathModule.id : created[l.toIndex]?.id;
+            if (!fromModuleId || !toModuleId) {
+              throw new ApiError(500, 'template_link_unresolved');
+            }
+            return {
+              companyId: company.id,
+              fromModuleId,
+              toModuleId,
+              linkKind: l.linkKind,
+            };
+          }),
         );
       }
     }

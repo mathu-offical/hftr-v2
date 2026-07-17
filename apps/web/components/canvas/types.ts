@@ -27,6 +27,7 @@ export const MODULE_VISUALS: Record<ModuleType, { label: string; hue: string }> 
   trading: { label: 'Trading', hue: '#f7768e' },
   simulator: { label: 'Simulator', hue: '#ff9e64' },
   generator: { label: 'Generator', hue: '#c0caf5' },
+  holding_fund: { label: 'Holding fund', hue: '#4fd6be' },
   fund_router: { label: 'Fund router', hue: '#73daca' },
   policy: { label: 'Policy', hue: '#a9b1d6' },
   display: { label: 'Display', hue: '#56b6c2' },
@@ -61,7 +62,8 @@ export const HANDLE_SPEC: Record<
 /**
  * Deterministic handle-pair → link-kind mapping:
  * - data-out → data-in   = data_feed (fund_route instead when either endpoint
- *   is a fund_router — fund routing rides the data path between fund-ish modules)
+ *   is a holding fund or fund router — fund routing rides the data path
+ *   between fund-plane modules)
  * - data-out → control-in = directive (output driving another module's control)
  * - tools-out → data-in   = verification (tool/module access feeding evidence)
  * Any other pair has no kind and the connection is rejected.
@@ -75,7 +77,10 @@ export function edgeKindForHandles(
   const pair = `${sourceHandle ?? 'data-out'}->${targetHandle ?? 'data-in'}`;
   switch (pair) {
     case 'data-out->data-in':
-      return sourceType === 'fund_router' || targetType === 'fund_router'
+      return sourceType === 'fund_router' ||
+        targetType === 'fund_router' ||
+        sourceType === 'holding_fund' ||
+        targetType === 'holding_fund'
         ? 'fund_route'
         : 'data_feed';
     case 'data-out->control-in':

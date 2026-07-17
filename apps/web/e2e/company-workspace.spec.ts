@@ -24,12 +24,24 @@ test.describe('Company workspace (M1 read flows)', () => {
     // Top ribbon: paper mode chip (text-first per ui-spec).
     await expect(page.getByText('paper', { exact: true }).first()).toBeVisible();
 
-    // Template graph nodes on canvas (Math is auto-provisioned; template adds three modules).
+    // Full seeded engine: named research/data/trend/execution/funds/policy functions.
     const canvas = page.locator('.react-flow');
     await expect(canvas).toBeVisible();
-    for (const nodeName of ['Math', 'Market Feed', 'Trend Scanner', 'Day Desk']) {
+    for (const nodeName of [
+      'Deterministic Math Calculator',
+      'Market Regime Research',
+      'Strategy Evidence Library',
+      'Paper Market & Runtime Feed',
+      'Market Trend Scanner',
+      'Paper Day-Trade Execution',
+      'Paper Seed Holding Fund',
+      'Deterministic Fund Router',
+      'Transaction Execution Monitor',
+      'Paper Trading Policy',
+    ]) {
       await expect(canvas.locator('.text-sm.font-medium', { hasText: nodeName })).toBeVisible();
     }
+    await expect(canvas.locator('.react-flow__edge-smoothstep')).toHaveCount(10);
 
     // Left panel: collapsed by default — expand via button, then collapse.
     const expandLeft = page.getByRole('button', { name: /Expand left panel/ });
@@ -91,6 +103,18 @@ test.describe('Company workspace (M1 read flows)', () => {
       timeout: 20_000,
     });
     await expect(page.getByText('queue status', { exact: true })).toBeVisible();
+
+    await page.getByLabel('Assistant message').fill('hello there');
+    const capabilitiesResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/companies/${companyId}/assistant`) &&
+        response.request().method() === 'POST',
+    );
+    await page.getByRole('button', { name: 'Send message' }).click();
+    expect((await capabilitiesResponse).ok()).toBeTruthy();
+    await expect(page.getByText(/I can look up:/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('capabilities', { exact: true })).toBeVisible();
+
     await page.getByRole('button', { name: 'Close assistant' }).click();
     await page.reload();
     await page.getByRole('button', { name: 'Open read-only assistant' }).click();

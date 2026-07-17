@@ -1,21 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { AssistantMessage, AssistantToolResultSummary } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
-
-interface AssistantMessage {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  toolResults: ToolResultCard[] | null;
-  createdAt: string;
-}
-
-interface ToolResultCard {
-  tool: string;
-  summary: string;
-  data: Record<string, unknown>;
-}
 
 function formatTime(iso: string): string {
   try {
@@ -45,7 +32,7 @@ function roleLabel(role: AssistantMessage['role']): string {
   }
 }
 
-function ToolResultsSummary({ results }: { results: ToolResultCard[] }) {
+function ToolResultsSummary({ results }: { results: AssistantToolResultSummary[] }) {
   return (
     <div className="mt-2 space-y-1.5">
       {results.map((r, i) => (
@@ -53,9 +40,14 @@ function ToolResultsSummary({ results }: { results: ToolResultCard[] }) {
           key={`${r.tool}-${i}`}
           className="rounded border border-[var(--color-line)] bg-[var(--color-surface-2)] px-2 py-1.5"
         >
-          <p className="font-mono text-[10px] uppercase tracking-wide text-[var(--color-ink-faint)]">
-            {r.tool.replace(/_/g, ' ')}
-          </p>
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="font-mono text-[10px] uppercase tracking-wide text-[var(--color-ink-faint)]">
+              {r.tool.replace(/_/g, ' ')}
+            </p>
+            {r.status === 'failed' && (
+              <span className="text-[10px] font-medium text-[var(--color-block)]">Failed</span>
+            )}
+          </div>
           <p className="text-[11px] text-[var(--color-ink-dim)]">{r.summary}</p>
         </div>
       ))}
@@ -136,11 +128,17 @@ export function AssistantDock(props: { companyId: string }) {
       setMessages((prev) => [...prev, data.userMessage, data.assistantMessage]);
     } catch (err: unknown) {
       setInput(text);
-      setError(
-        err instanceof RequestError && err.status === 400
-          ? 'Message must be between 1 and 2000 characters.'
-          : 'Could not send message.',
-      );
+      if (err instanceof RequestError) {
+        if (err.status === 400) {
+          setError('Message must be between 1 and 2000 characters.');
+        } else if (err.status === 429) {
+          setError('Too many messages — wait a minute and try again.');
+        } else {
+          setError('Could not send message.');
+        }
+      } else {
+        setError('Could not send message.');
+      }
     } finally {
       setLoading(false);
     }

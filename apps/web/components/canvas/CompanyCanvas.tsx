@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Background,
+  ConnectionLineType,
   Controls,
   ReactFlow,
   useEdgesState,
@@ -41,6 +42,10 @@ function toEdge(l: CanvasLink): Edge {
     id: l.id,
     source: l.fromModuleId,
     target: l.toModuleId,
+    // Rounded elbow routing matches the canonical connection language. React
+    // Flow's built-in smooth-step path is deterministic but not a full
+    // obstacle router; column spacing remains the first collision control.
+    type: 'smoothstep',
     // Stored links carry no handle info (handles are presentation-only for
     // now); rehydrate them onto the handles their kind implies, defaulting to
     // the data plane (data-out → data-in).
@@ -239,13 +244,24 @@ export function CompanyCanvas(props: {
         ]);
       }
       for (const l of engine.links) {
+        const fromModuleId =
+          l.fromIndex === 'math'
+            ? nodes.find((node) => node.data.moduleType === 'math')?.id
+            : created[l.fromIndex]?.id;
+        const toModuleId =
+          l.toIndex === 'math'
+            ? nodes.find((node) => node.data.moduleType === 'math')?.id
+            : created[l.toIndex]?.id;
+        if (!fromModuleId || !toModuleId) {
+          throw new Error('engine_link_unresolved');
+        }
         const { link } = await api<{ link: CanvasLink }>(
           `/api/companies/${props.companyId}/links`,
           {
             method: 'POST',
             body: {
-              fromModuleId: created[l.fromIndex]!.id,
-              toModuleId: created[l.toIndex]!.id,
+              fromModuleId,
+              toModuleId,
               linkKind: l.linkKind,
             },
           },
@@ -311,6 +327,7 @@ export function CompanyCanvas(props: {
           onNodesChange={onNodesChange}
           onNodeDragStop={persistPosition}
           onConnect={onConnect}
+          connectionLineType={ConnectionLineType.SmoothStep}
           onEdgesDelete={onEdgesDelete}
           deleteKeyCode={['Backspace', 'Delete']}
           onNodeClick={(_e, node) => setSelectedId(node.id)}

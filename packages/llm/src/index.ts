@@ -17,6 +17,7 @@ export {
   SCHEMA_REFS,
   schemaForRef,
   registerSchema,
+  jsonSchemaForRef,
   ConceptBatch,
   TreeExpandOutput,
   CompileSelectionOutput,

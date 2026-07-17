@@ -23,4 +23,6 @@ export function registerSchema(schemaRef: string, schema: z.ZodType): void {
   REGISTRY[schemaRef] = schema;
 }
 
+export { jsonSchemaForRef } from './json';
+
 export { ConceptBatch, TreeExpandOutput, CompileSelectionOutput };

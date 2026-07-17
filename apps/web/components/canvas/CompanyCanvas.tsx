@@ -14,9 +14,11 @@ import {
 import '@xyflow/react/dist/style.css';
 import {
   allowedLinkKinds,
+  missingModuleSetupFields,
   MODULE_COLUMN,
   type EngineTemplate,
   type ModuleStatus,
+  type ModuleSetupInput,
   type ModuleType,
 } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
@@ -27,13 +29,22 @@ import { edgeKindForHandles, LINK_COLORS, type CanvasLink, type CanvasModule } f
 
 const nodeTypes = { module: ModuleNode };
 
-function toNode(m: CanvasModule): ModuleFlowNode {
+function toNode(m: CanvasModule, companyId: string): ModuleFlowNode {
   return {
     id: m.id,
     type: 'module',
     position: m.position,
     deletable: false, // module removal goes through the inspector's guarded delete
-    data: { name: m.name, moduleType: m.type, status: m.status },
+    data: {
+      name: m.name,
+      moduleType: m.type,
+      status: m.status,
+      companyId,
+      topicSectors: m.topicSectors,
+      capitalAllocationRef: m.capitalAllocationRef,
+      targetExitRef: m.targetExitRef,
+      missingSetupFields: m.missingSetupFields,
+    },
   };
 }
 
@@ -72,11 +83,41 @@ export function CompanyCanvas(props: {
   initialLinks: CanvasLink[];
 }) {
   const [nodes, setNodes, onNodesChange] = useNodesState<ModuleFlowNode>(
-    props.initialModules.map(toNode),
+    props.initialModules.map((module) => toNode(module, props.companyId)),
   );
   const [edges, setEdges] = useEdgesState<Edge>(props.initialLinks.map(toEdge));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    function handleSetupSaved(event: Event) {
+      const detail = (
+        event as CustomEvent<{
+          moduleId: string;
+          topicSectors: string[];
+          capitalAllocationRef: string | null;
+          targetExitRef: string | null;
+        }>
+      ).detail;
+      setNodes((current) =>
+        current.map((node) => {
+          if (node.id !== detail.moduleId) return node;
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              topicSectors: detail.topicSectors,
+              capitalAllocationRef: detail.capitalAllocationRef,
+              targetExitRef: detail.targetExitRef,
+              missingSetupFields: missingModuleSetupFields(node.data.moduleType, detail),
+            },
+          };
+        }),
+      );
+    }
+    window.addEventListener('hftr:module-setup-saved', handleSetupSaved);
+    return () => window.removeEventListener('hftr:module-setup-saved', handleSetupSaved);
+  }, [setNodes]);
 
   // T1.4 node status projections: poll the server-composed status lines.
   useEffect(() => {
@@ -188,7 +229,24 @@ export function CompanyCanvas(props: {
         );
         setNodes((current) => [
           ...current,
-          toNode({ id: module.id, type, name, status: 'draft', position }),
+          toNode(
+            {
+              id: module.id,
+              type,
+              name,
+              status: 'draft',
+              position,
+              topicSectors: [],
+              capitalAllocationRef: null,
+              targetExitRef: null,
+              missingSetupFields: missingModuleSetupFields(type, {
+                topicSectors: [],
+                capitalAllocationRef: null,
+                targetExitRef: null,
+              }),
+            },
+            props.companyId,
+          ),
         ]);
         setSelectedId(module.id);
       } catch (err) {
@@ -208,7 +266,7 @@ export function CompanyCanvas(props: {
    * then the links between them, offset below existing nodes.
    */
   const insertEngine = useCallback(
-    async (engine: EngineTemplate, inputs: Record<string, string>) => {
+    async (engine: EngineTemplate, inputs: Record<string, string>, setup?: ModuleSetupInput) => {
       const configs = engine.modules.map((m) => ({ ...m.config }));
       // Inputs sharing a target configKey compose in declaration order.
       const grouped = new Map<string, string[]>();
@@ -226,21 +284,53 @@ export function CompanyCanvas(props: {
       const yOffset = nodes.length > 0 ? Math.max(...nodes.map((n) => n.position.y)) + 180 : 60;
       const baseY = Math.min(...engine.modules.map((m) => m.position.y));
 
-      const created: { id: string }[] = [];
+      const created: Array<{
+        id: string;
+        topicSectors: string[];
+        capitalAllocationRef: string | null;
+        targetExitRef: string | null;
+      }> = [];
       for (let i = 0; i < engine.modules.length; i += 1) {
         const m = engine.modules[i]!;
         const position = { x: m.position.x, y: yOffset + (m.position.y - baseY) };
-        const { module } = await api<{ module: { id: string } }>(
-          `/api/companies/${props.companyId}/modules`,
-          {
-            method: 'POST',
-            body: { type: m.type, name: m.name, config: configs[i], canvasPosition: position },
+        const { module } = await api<{
+          module: {
+            id: string;
+            topicSectors: string[];
+            capitalAllocationRef: string | null;
+            targetExitRef: string | null;
+          };
+        }>(`/api/companies/${props.companyId}/modules`, {
+          method: 'POST',
+          body: {
+            type: m.type,
+            name: m.name,
+            config: configs[i],
+            canvasPosition: position,
+            setup,
           },
-        );
+        });
         created.push(module);
         setNodes((current) => [
           ...current,
-          toNode({ id: module.id, type: m.type, name: m.name, status: 'draft', position }),
+          toNode(
+            {
+              id: module.id,
+              type: m.type,
+              name: m.name,
+              status: 'draft',
+              position,
+              topicSectors: module.topicSectors,
+              capitalAllocationRef: module.capitalAllocationRef,
+              targetExitRef: module.targetExitRef,
+              missingSetupFields: missingModuleSetupFields(m.type, {
+                topicSectors: module.topicSectors,
+                capitalAllocationRef: module.capitalAllocationRef,
+                targetExitRef: module.targetExitRef,
+              }),
+            },
+            props.companyId,
+          ),
         ]);
       }
       for (const l of engine.links) {
@@ -312,6 +402,10 @@ export function CompanyCanvas(props: {
       name: node.data.name,
       status: node.data.status,
       position: node.position,
+      topicSectors: node.data.topicSectors,
+      capitalAllocationRef: node.data.capitalAllocationRef,
+      targetExitRef: node.data.targetExitRef,
+      missingSetupFields: node.data.missingSetupFields,
     };
   }, [nodes, selectedId]);
 
@@ -343,7 +437,7 @@ export function CompanyCanvas(props: {
         </ReactFlow>
       </div>
 
-      {selected && (
+      {selected && selected.missingSetupFields.length === 0 && (
         <InspectorPanel
           companyId={props.companyId}
           module={selected}

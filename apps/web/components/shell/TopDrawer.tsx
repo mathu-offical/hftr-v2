@@ -1,12 +1,22 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import {
+  DEFAULT_PHILOSOPHY_PROFILE,
+  normalizePhilosophyProfile,
+  PHILOSOPHY_AXIS_CATALOG,
+  type BandPosition,
+  type LlmBudgetSummary,
+  type LlmBudgetsResponse,
+  type PhilosophyProfile,
+} from '@hftr/contracts';
 import { api } from '@/lib/client';
 
-type Tab = 'ledger' | 'profile' | 'settings' | 'philosophy';
+type Tab = 'ledger' | 'profile' | 'operating' | 'settings' | 'philosophy';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'ledger', label: 'Ledger / PnL' },
   { id: 'profile', label: 'Trading profile' },
+  { id: 'operating', label: 'LLM / operating' },
   { id: 'settings', label: 'Settings' },
   { id: 'philosophy', label: 'Philosophy' },
 ];
@@ -46,6 +56,7 @@ export function TopDrawer(props: {
   companyId: string;
   companyName: string;
   philosophy: string;
+  philosophyProfile?: unknown;
   seedCreditsCents: string;
   createdAt: string;
 }) {
@@ -54,17 +65,20 @@ export function TopDrawer(props: {
   const [balance, setBalance] = useState<string | null>(null);
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [positions, setPositions] = useState<PositionRow[]>([]);
+  const [llmBudgets, setLlmBudgets] = useState<LlmBudgetSummary[]>([]);
 
   const load = useCallback(async () => {
     try {
       const base = `/api/companies/${props.companyId}`;
-      const [a, p] = await Promise.all([
+      const [a, p, budgets] = await Promise.all([
         api<{ balanceCents: string; ledger: LedgerRow[] }>(`${base}/activity`),
         api<{ positions: PositionRow[] }>(`${base}/positions`),
+        api<LlmBudgetsResponse>(`${base}/llm-budgets`),
       ]);
       setBalance(a.balanceCents);
       setLedger(a.ledger);
       setPositions(p.positions);
+      setLlmBudgets(budgets.providers);
     } catch {
       // transient
     }
@@ -170,18 +184,86 @@ export function TopDrawer(props: {
                 </div>
               )}
 
+              {tab === 'operating' && <OperatingBudgets budgets={llmBudgets} />}
+
               {tab === 'settings' && (
                 <SettingsTab companyId={props.companyId} name={props.companyName} />
               )}
 
               {tab === 'philosophy' && (
-                <PhilosophyTab companyId={props.companyId} philosophy={props.philosophy} />
+                <PhilosophyTab
+                  companyId={props.companyId}
+                  philosophy={props.philosophy}
+                  philosophyProfile={props.philosophyProfile}
+                />
               )}
             </div>
           </div>
         </div>
       )}
     </>
+  );
+}
+
+function OperatingBudgets(props: { budgets: LlmBudgetSummary[] }) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <h3 className="text-sm font-medium text-[var(--color-ink)]">Provider operating budgets</h3>
+        <p className="text-[11px] text-[var(--color-ink-faint)]">
+          API-provider spend and call admission are separate from module trading-capital
+          allocations.
+        </p>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        {props.budgets.map((budget) => (
+          <div
+            key={budget.provider}
+            className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-0)] p-3"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium capitalize text-[var(--color-ink)]">
+                {budget.provider}
+              </span>
+              <span className="rounded-full border border-[var(--color-line)] px-1.5 py-0.5 text-[9px] text-[var(--color-ink-faint)]">
+                {budget.credentialSource.replace('_', ' ')}
+              </span>
+            </div>
+            <div className="mt-3 space-y-1.5 text-[10px] text-[var(--color-ink-dim)]">
+              <BudgetLine label="Calls" consumed={budget.consumedCalls} maximum={budget.maxCalls} />
+              <BudgetLine
+                label="Provider cost"
+                consumed={budget.consumedCostCents}
+                maximum={budget.maxCostCents}
+                cents
+              />
+              <p className="text-[var(--color-ink-faint)]">
+                {budget.windowMinutes
+                  ? `${budget.windowMinutes}-minute admission window`
+                  : 'No company budget configured'}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BudgetLine(props: {
+  label: string;
+  consumed: number;
+  maximum: number | null;
+  cents?: boolean;
+}) {
+  const format = (value: number) => (props.cents ? dollars(value) : value.toLocaleString());
+  return (
+    <div className="flex justify-between gap-3">
+      <span>{props.label}</span>
+      <span className="font-mono text-[var(--color-ink)]">
+        {format(props.consumed)} / {props.maximum === null ? 'unbounded' : format(props.maximum)}
+      </span>
+    </div>
   );
 }
 
@@ -238,35 +320,80 @@ function SettingsTab(props: { companyId: string; name: string }) {
   );
 }
 
-function PhilosophyTab(props: { companyId: string; philosophy: string }) {
+function PhilosophyTab(props: {
+  companyId: string;
+  philosophy: string;
+  philosophyProfile?: unknown;
+}) {
   const [text, setText] = useState(props.philosophy);
+  const [profile, setProfile] = useState<PhilosophyProfile>(() =>
+    normalizePhilosophyProfile(props.philosophyProfile ?? DEFAULT_PHILOSOPHY_PROFILE),
+  );
   const [message, setMessage] = useState<string | null>(null);
+
+  function setAxis(axisId: keyof PhilosophyProfile['axes'], position: BandPosition) {
+    setProfile((prev) => ({
+      version: 1,
+      axes: { ...prev.axes, [axisId]: position },
+    }));
+  }
 
   async function save() {
     try {
       await api(`/api/companies/${props.companyId}`, {
         method: 'PATCH',
-        body: { philosophyPrompt: text },
+        body: { philosophyPrompt: text, philosophyProfile: profile },
       });
-      setMessage('Philosophy saved — new pipeline runs will use it.');
+      setMessage(
+        'Philosophy saved — promote/compile will map axes to lever band positions and sizing.',
+      );
     } catch {
       setMessage('Save failed.');
     }
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <p className="text-xs text-[var(--color-ink-faint)]">
-        The philosophy steers every model tier in this company. It never contains numbers the engine
-        relies on — sizing and limits live in deterministic config.
+        Free-text steers narrative research context. Slideable axes map deterministically to
+        bounded-range lever positions (min / typical / max). They never emit raw prices or
+        timestamps — only band selections the calculator understands.
       </p>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        rows={6}
+        rows={4}
         maxLength={4000}
         className="w-full resize-none rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
       />
+      <div className="grid max-h-64 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
+        {PHILOSOPHY_AXIS_CATALOG.map((axis) => {
+          const value = profile.axes[axis.id] ?? 'typical';
+          return (
+            <label
+              key={axis.id}
+              className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] p-2"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-medium text-[var(--color-ink)]">{axis.label}</span>
+                <span className="font-mono text-[9px] text-[var(--color-ink-faint)]">
+                  {axis.layer}
+                </span>
+              </div>
+              <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">{axis.description}</p>
+              <select
+                value={value}
+                onChange={(e) => setAxis(axis.id, e.target.value as BandPosition)}
+                className="mt-1.5 w-full rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] px-1.5 py-1 text-[11px] outline-none focus:border-[var(--color-accent)]"
+              >
+                <option value="min">min (conservative)</option>
+                <option value="typical">typical</option>
+                <option value="max">max (aggressive)</option>
+              </select>
+            </label>
+          );
+        })}
+      </div>
       <button
         onClick={save}
         className="rounded-md border border-[var(--color-accent)] px-3 py-1.5 text-sm text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10"

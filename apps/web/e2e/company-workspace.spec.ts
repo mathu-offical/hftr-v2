@@ -15,7 +15,7 @@ test.describe('Company workspace (M1 read flows)', () => {
     await page.getByLabel('Name').fill(companyName);
     await page.getByLabel(/Philosophy/).fill(philosophy);
     await page.getByRole('button', { name: /Day trading starter/ }).click();
-    await page.getByRole('button', { name: 'Create (paper mode)' }).click();
+    await page.getByRole('button', { name: 'Skip setup & open canvas' }).click();
 
     await page.waitForURL(/\/companies\/[0-9a-f-]{36}$/);
     const companyId = page.url().split('/').pop()!;
@@ -23,6 +23,11 @@ test.describe('Company workspace (M1 read flows)', () => {
 
     // Top ribbon: paper mode chip (text-first per ui-spec).
     await expect(page.getByText('paper', { exact: true }).first()).toBeVisible();
+    await page.getByRole('button', { name: 'Company ▾' }).click();
+    await page.getByRole('button', { name: 'LLM / operating' }).click();
+    await expect(page.getByText('Provider operating budgets')).toBeVisible();
+    await expect(page.getByText(/separate from module trading-capital allocations/)).toBeVisible();
+    await page.getByRole('button', { name: 'Close ▲' }).click();
 
     // Full seeded engine: named research/data/trend/execution/funds/policy functions.
     const canvas = page.locator('.react-flow');
@@ -42,6 +47,25 @@ test.describe('Company workspace (M1 read flows)', () => {
       await expect(canvas.locator('.text-sm.font-medium', { hasText: nodeName })).toBeVisible();
     }
     await expect(canvas.locator('.react-flow__edge-smoothstep')).toHaveCount(10);
+    await expect(canvas.getByText(/Required · topic sector/).first()).toBeVisible();
+    await expect(canvas.getByText(/Required · capital allocation/).first()).toBeVisible();
+
+    // Skipped setup is completed directly inside the selected trading node.
+    const tradingNode = canvas.locator('.react-flow__node', {
+      hasText: 'Paper Day-Trade Execution',
+    });
+    await tradingNode.click();
+    await tradingNode.getByLabel('Topic / sector').fill('Semiconductors, infrastructure');
+    await tradingNode.getByPlaceholder('2500.00').fill('25');
+    await tradingNode.getByLabel('Target exit date / time').fill('2099-01-02T10:30');
+    const setupResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes(`/api/companies/${companyId}/modules/`) &&
+        response.request().method() === 'PATCH',
+    );
+    await tradingNode.getByRole('button', { name: 'Save setup' }).click();
+    expect((await setupResponse).ok()).toBe(true);
+    await expect(tradingNode.getByText(/Set · Capital allocation/)).toBeVisible();
 
     // Left panel: collapsed by default — expand via button, then collapse.
     const expandLeft = page.getByRole('button', { name: /Expand left panel/ });

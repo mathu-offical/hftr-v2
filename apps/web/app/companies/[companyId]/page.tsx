@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
+import { missingModuleSetupFields } from '@hftr/contracts';
 import { getDb, NotFoundError, scoping } from '@hftr/db';
 import { AssistantDock } from '@/components/assistant/AssistantDock';
 import { CompanyCanvas } from '@/components/canvas/CompanyCanvas';
@@ -58,6 +59,7 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
             companyId={companyId}
             companyName={company.name}
             philosophy={company.philosophyPrompt}
+            philosophyProfile={company.philosophyProfile}
             seedCreditsCents={company.seedCreditsCents.toString()}
             createdAt={company.createdAt.toISOString()}
           />
@@ -96,6 +98,14 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
               name: m.name,
               status: m.status,
               position: (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number },
+              topicSectors: m.topicSectors,
+              capitalAllocationRef: m.capitalAllocationRef,
+              targetExitRef: m.targetExitRef,
+              missingSetupFields: missingModuleSetupFields(m.type, {
+                topicSectors: m.topicSectors,
+                capitalAllocationRef: m.capitalAllocationRef,
+                targetExitRef: m.targetExitRef,
+              }),
             }))}
             initialLinks={linkRows.map((l) => ({
               id: l.id,

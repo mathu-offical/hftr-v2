@@ -2,7 +2,18 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { COMPANY_TEMPLATES, type CompanyTemplateId } from '@hftr/contracts';
+import {
+  COMPANY_TEMPLATES,
+  requiredModuleSetupFields,
+  type CompanyTemplateId,
+  type ModuleSetupField,
+} from '@hftr/contracts';
+import {
+  EMPTY_MODULE_SETUP_DRAFT,
+  ModuleSetupFields,
+  moduleSetupInputFromDraft,
+  type ModuleSetupDraft,
+} from '@/components/canvas/ModuleSetupFields';
 import { api, RequestError } from '@/lib/client';
 
 /**
@@ -16,11 +27,33 @@ export function CreateCompanyForm() {
   const [philosophy, setPhilosophy] = useState('');
   const [seedDollars, setSeedDollars] = useState('10000');
   const [template, setTemplate] = useState<CompanyTemplateId>('blank');
+  const [setupDraft, setSetupDraft] = useState<ModuleSetupDraft>(EMPTY_MODULE_SETUP_DRAFT);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  const requiredSetupFields = [
+    ...new Set(
+      COMPANY_TEMPLATES[template].modules.flatMap((module) =>
+        requiredModuleSetupFields(module.type),
+      ),
+    ),
+  ] as ModuleSetupField[];
+  const missingSetupFields = requiredSetupFields.filter((field) => {
+    switch (field) {
+      case 'capital_allocation':
+        return !setupDraft.allocationValue.trim();
+      case 'topic_sector':
+        return !setupDraft.topicSectors.trim();
+      case 'target_exit':
+        return !setupDraft.targetExitLocal;
+      default: {
+        const _exhaustive: never = field;
+        return _exhaustive;
+      }
+    }
+  });
+
+  async function createCompany(skipSetup: boolean) {
     setBusy(true);
     setError(null);
     try {
@@ -33,6 +66,9 @@ export function CreateCompanyForm() {
           mode: 'paper',
           seedCreditsCents: seed,
           template,
+          templateSetup: skipSetup
+            ? undefined
+            : moduleSetupInputFromDraft(setupDraft, requiredSetupFields),
         },
       });
       router.push(`/companies/${company.id}`);
@@ -56,8 +92,11 @@ export function CreateCompanyForm() {
 
   return (
     <form
-      onSubmit={submit}
-      className="w-full max-w-lg space-y-4 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] p-6"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void createCompany(false);
+      }}
+      className="w-full max-w-2xl space-y-4 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] p-6"
     >
       <h2 className="text-lg font-medium">New company</h2>
 
@@ -119,16 +158,43 @@ export function CreateCompanyForm() {
         </div>
       </div>
 
+      {requiredSetupFields.length > 0 && (
+        <section className="space-y-2 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-0)] p-3">
+          <div>
+            <h3 className="text-sm font-medium text-[var(--color-ink)]">Template setup</h3>
+            <p className="text-[11px] text-[var(--color-ink-faint)]">
+              Applied to matching nodes. You can customize each node on the canvas.
+            </p>
+          </div>
+          <ModuleSetupFields
+            requiredFields={requiredSetupFields}
+            missingFields={missingSetupFields}
+            draft={setupDraft}
+            onChange={setSetupDraft}
+          />
+        </section>
+      )}
+
       {error && <p className="text-sm text-[var(--color-block)]">{error}</p>}
 
       <div className="flex gap-3">
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || missingSetupFields.length > 0}
           className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
         >
           {busy ? 'Creating…' : 'Create (paper mode)'}
         </button>
+        {requiredSetupFields.length > 0 && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void createCompany(true)}
+            className="rounded-lg border border-[var(--color-warn)] px-4 py-2 text-sm text-[var(--color-warn)] hover:bg-[var(--color-warn)]/10 disabled:opacity-50"
+          >
+            Skip setup & open canvas
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setOpen(false)}

@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { scoping } from '@hftr/db';
 import { actionTraces, ledgerEntries, verificationRecords } from '@hftr/db/schema';
@@ -13,6 +13,7 @@ type Ctx = { params: Promise<{ companyId: string }> };
 /**
  * Right-panel activity projection: balance, recent ledger entries, recent
  * traces with their verification results. Read-only; append-only sources.
+ * Verifications are scoped via company-owned trace ids (no global fetch).
  */
 export async function GET(_req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
@@ -35,14 +36,15 @@ export async function GET(_req: Request, ctx: Ctx) {
         .limit(25),
     ]);
 
+    const traceIds = traces.map((t) => t.id);
     const verifications =
-      traces.length === 0
+      traceIds.length === 0
         ? []
         : await db
             .select()
             .from(verificationRecords)
-            .orderBy(desc(verificationRecords.createdAt))
-            .limit(50);
+            .where(inArray(verificationRecords.traceId, traceIds))
+            .orderBy(desc(verificationRecords.createdAt));
     const verifyByTrace = new Map(verifications.map((v) => [v.traceId, v]));
 
     return {

@@ -1,5 +1,5 @@
 import { Position } from '@xyflow/react';
-import type { LinkKind, ModuleStatus, ModuleType } from '@hftr/contracts';
+import type { LinkKind, ModuleSetupField, ModuleStatus, ModuleType } from '@hftr/contracts';
 
 export interface CanvasModule {
   id: string;
@@ -7,6 +7,10 @@ export interface CanvasModule {
   name: string;
   status: ModuleStatus;
   position: { x: number; y: number };
+  topicSectors: string[];
+  capitalAllocationRef: string | null;
+  targetExitRef: string | null;
+  missingSetupFields: ModuleSetupField[];
 }
 
 export interface CanvasLink {

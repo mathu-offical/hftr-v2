@@ -1,8 +1,17 @@
+import { eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { COMPANY_TEMPLATES, CompanyTemplateId, CreateCompanyInput } from '@hftr/contracts';
+import {
+  COMPANY_TEMPLATES,
+  CompanyTemplateId,
+  CreateCompanyInput,
+  DEFAULT_PHILOSOPHY_PROFILE,
+  MODULE_CONFIG_SCHEMAS,
+} from '@hftr/contracts';
 import { companies, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
+import { createSystemClock } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
+import { recordModuleSetup } from '@/lib/module-setup';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +42,7 @@ export async function POST(req: Request) {
         clerkUserId,
         name: input.name,
         philosophyPrompt: input.philosophyPrompt,
+        philosophyProfile: DEFAULT_PHILOSOPHY_PROFILE,
         mode: input.mode,
         seedCreditsCents: BigInt(input.seedCreditsCents),
       })
@@ -58,19 +68,43 @@ export async function POST(req: Request) {
 
     // Template modules + links (D-016).
     if (template.modules.length > 0) {
+      const parsedConfigs = template.modules.map((module) =>
+        MODULE_CONFIG_SCHEMAS[module.type].parse(module.config),
+      );
       const created = await db
         .insert(modules)
         .values(
-          template.modules.map((m) => ({
+          template.modules.map((m, index) => ({
             companyId: company.id,
             type: m.type,
             name: m.name,
-            config: m.config,
+            config: parsedConfigs[index],
             status: 'draft' as const,
             canvasPosition: m.position,
           })),
         )
         .returning({ id: modules.id });
+      const clock = createSystemClock();
+      for (let index = 0; index < created.length; index += 1) {
+        const createdModule = created[index];
+        const templateModule = template.modules[index];
+        const config = parsedConfigs[index];
+        if (!createdModule || !templateModule || !config) {
+          throw new ApiError(500, 'template_module_unresolved');
+        }
+        const setupPatch = await recordModuleSetup(
+          db,
+          clock,
+          company.id,
+          createdModule.id,
+          templateModule.type,
+          config as Record<string, unknown>,
+          input.templateSetup,
+        );
+        if (Object.keys(setupPatch).length > 0) {
+          await db.update(modules).set(setupPatch).where(eq(modules.id, createdModule.id));
+        }
+      }
       if (template.links.length > 0) {
         await db.insert(moduleLinks).values(
           template.links.map((l) => {

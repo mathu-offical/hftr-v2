@@ -1,8 +1,11 @@
+import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { CreateModuleInput, MODULE_CONFIG_SCHEMAS } from '@hftr/contracts';
 import { modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
+import { createSystemClock } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
+import { recordModuleSetup } from '@/lib/module-setup';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +39,10 @@ export async function POST(req: Request, ctx: Ctx) {
 
     // Per-type config validation (schema registry from contracts).
     const config = MODULE_CONFIG_SCHEMAS[input.type].parse(input.config ?? {});
+    const clock = createSystemClock();
+    if (input.setup?.targetExitAt && Date.parse(input.setup.targetExitAt) <= clock.nowMs()) {
+      throw new ApiError(422, 'target_exit_must_be_future');
+    }
 
     const inserted = await db
       .insert(modules)
@@ -48,6 +55,23 @@ export async function POST(req: Request, ctx: Ctx) {
         status: 'draft',
       })
       .returning();
-    return { module: inserted[0] };
+    const module = inserted[0];
+    if (!module) throw new ApiError(500, 'module_insert_failed');
+    const setupPatch = await recordModuleSetup(
+      db,
+      clock,
+      companyId,
+      module.id,
+      input.type,
+      config as Record<string, unknown>,
+      input.setup,
+    );
+    if (Object.keys(setupPatch).length === 0) return { module };
+    const updated = await db
+      .update(modules)
+      .set(setupPatch)
+      .where(eq(modules.id, module.id))
+      .returning();
+    return { module: updated[0] };
   });
 }

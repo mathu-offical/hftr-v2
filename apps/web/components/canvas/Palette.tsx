@@ -1,7 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { ENGINE_TEMPLATES, type EngineTemplate, type ModuleType } from '@hftr/contracts';
+import {
+  ENGINE_TEMPLATES,
+  requiredModuleSetupFields,
+  type EngineTemplate,
+  type ModuleSetupField,
+  type ModuleSetupInput,
+  type ModuleType,
+} from '@hftr/contracts';
+import {
+  EMPTY_MODULE_SETUP_DRAFT,
+  ModuleSetupFields,
+  moduleSetupInputFromDraft,
+  type ModuleSetupDraft,
+} from './ModuleSetupFields';
 import { MODULE_VISUALS } from './types';
 
 /** Default configs satisfying each type's contract schema (minimum viable). */
@@ -98,7 +111,11 @@ const CATEGORIES: Array<{ label: string; types: ModuleType[] }> = [
  */
 export function Palette(props: {
   onAdd: (type: ModuleType, name: string, config: unknown) => void;
-  onInsertEngine: (engine: EngineTemplate, inputs: Record<string, string>) => Promise<void>;
+  onInsertEngine: (
+    engine: EngineTemplate,
+    inputs: Record<string, string>,
+    setup?: ModuleSetupInput,
+  ) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [section, setSection] = useState<'modules' | 'engines'>('modules');
@@ -214,8 +231,8 @@ export function Palette(props: {
           <EngineConfigForm
             engine={configuring}
             onCancel={() => setConfiguring(null)}
-            onInsert={async (inputs) => {
-              await props.onInsertEngine(configuring, inputs);
+            onInsert={async (inputs, setup) => {
+              await props.onInsertEngine(configuring, inputs, setup);
               setConfiguring(null);
               setOpen(false);
             }}
@@ -230,21 +247,45 @@ export function Palette(props: {
 function EngineConfigForm(props: {
   engine: EngineTemplate;
   onCancel: () => void;
-  onInsert: (inputs: Record<string, string>) => Promise<void>;
+  onInsert: (inputs: Record<string, string>, setup?: ModuleSetupInput) => Promise<void>;
 }) {
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(props.engine.inputs.map((i) => [i.key, i.options?.[0] ?? ''])),
   );
+  const [setupDraft, setSetupDraft] = useState<ModuleSetupDraft>(EMPTY_MODULE_SETUP_DRAFT);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const missing = props.engine.inputs.some((i) => !values[i.key]?.trim());
+  const engineInputs = props.engine.inputs.filter(
+    (input) => input.key !== 'focus' && input.key !== 'topicScope',
+  );
+  const requiredSetupFields = [
+    ...new Set(props.engine.modules.flatMap((module) => requiredModuleSetupFields(module.type))),
+  ] as ModuleSetupField[];
+  const missingSetupFields = requiredSetupFields.filter((field) => {
+    switch (field) {
+      case 'capital_allocation':
+        return !setupDraft.allocationValue.trim();
+      case 'topic_sector':
+        return !setupDraft.topicSectors.trim();
+      case 'target_exit':
+        return !setupDraft.targetExitLocal;
+      default: {
+        const _exhaustive: never = field;
+        return _exhaustive;
+      }
+    }
+  });
+  const missingEngineInputs = engineInputs.some((input) => !values[input.key]?.trim());
 
-  async function insert() {
+  async function insert(skipSetup: boolean) {
     setBusy(true);
     setError(null);
     try {
-      await props.onInsert(values);
+      await props.onInsert(
+        values,
+        skipSetup ? undefined : moduleSetupInputFromDraft(setupDraft, requiredSetupFields),
+      );
     } catch {
       setError('Insert failed — some modules may have been created.');
       setBusy(false);
@@ -259,7 +300,7 @@ function EngineConfigForm(props: {
           {props.engine.description}
         </p>
       </div>
-      {props.engine.inputs.map((input) => (
+      {engineInputs.map((input) => (
         <label key={input.key} className="block space-y-1">
           <span className="text-[11px] text-[var(--color-ink-dim)]">{input.label}</span>
           {input.kind === 'select' ? (
@@ -284,13 +325,27 @@ function EngineConfigForm(props: {
           )}
         </label>
       ))}
+      <ModuleSetupFields
+        requiredFields={requiredSetupFields}
+        missingFields={missingSetupFields}
+        draft={setupDraft}
+        onChange={setSetupDraft}
+        compact
+      />
       <div className="flex gap-2">
         <button
-          onClick={insert}
-          disabled={busy || missing}
+          onClick={() => void insert(false)}
+          disabled={busy || missingEngineInputs || missingSetupFields.length > 0}
           className="flex-1 rounded-md border border-[var(--color-accent)] px-2 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
         >
           {busy ? 'Inserting…' : 'Insert engine'}
+        </button>
+        <button
+          onClick={() => void insert(true)}
+          disabled={busy || missingEngineInputs}
+          className="rounded-md border border-[var(--color-warn)] px-2 py-1.5 text-xs text-[var(--color-warn)] disabled:opacity-50"
+        >
+          Skip setup
         </button>
         <button
           onClick={props.onCancel}

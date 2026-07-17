@@ -432,7 +432,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   append-only (`research_evidence`); promote `evidence_fit` consults admitted library refs when
   library concepts exist (not freshness alone). Migrations `0019`–`0021`; research keys in
   `user_research_keys` (Brave / market_news).
-  **Status: implemented; browser soak pending credentials.**
+  **Status: implemented; research UI Slice 5 polished (left-panel admission, multi-poll run
+  status + validation, galaxy provenance fields, library bulk approve/reject); browser verified
+  2026-07-17 on sample company.**
 
 - **D-036 (auto-disarm + drain latency, 2026-07-17):**
   `autoDisarmCompany` clears `live_armed_at` and `live_gate_evidence_id` on broker verify

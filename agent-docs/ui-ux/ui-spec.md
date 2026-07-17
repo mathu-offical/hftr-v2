@@ -150,6 +150,14 @@ editable fields.
 - Research tab: module progress (topics tree, coverage), concept browser (search/tag filter),
   wikis/documentation view (rendered markdown), **galaxy view toggle** (full-panel 3D graph,
   see §6), library management + Obsidian export buttons.
+- Research module cards (D-039): **admission mode** select (auto-admit vs require approval),
+  manual query / Curate now / company sweep, multi-poll **run status** (phase · evidence ·
+  concepts · validation · admission applied), **validation gate scores** after a run, and an
+  evidence list. On terminal run phase, evidence + concepts + galaxy reload.
+- Libraries: curation filters (all / proposed / accepted / …) plus **Approve all proposed** /
+  **Reject all proposed** bulk actions when any concepts are proposed.
+- Galaxy concept detail: text-first **library admission**, **evidence ref**, and **research run**
+  provenance when present on the graph node.
 - Data sources tab: connected live APIs with freshness/entitlement labels, create-new-source
   flow, library list with curation status.
 

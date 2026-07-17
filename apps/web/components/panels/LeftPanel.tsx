@@ -1,12 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { CurationStatus, Library, ResearchGraphResponse } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import { GalaxyView } from '@/components/research/GalaxyView';
 import { ResearchTopicsTree } from '@/components/research/ResearchTopicsTree';
-import { ResearchRunStatus } from '@/components/panels/ResearchRunStatus';
+import {
+  ResearchRunStatus,
+  type ResearchRunSnapshot,
+} from '@/components/panels/ResearchRunStatus';
 import { provenanceChip, snippet, toneFor } from './format';
 
 type Tab = 'research' | 'data';
@@ -177,9 +180,17 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
 
   const research = props.modules.filter((m) => m.type === 'research' || m.type === 'trend');
   const researchModules = props.modules.filter((m) => m.type === 'research');
-  const requiresOperatorApproval = researchModules.some(
-    (m) => m.config.admissionMode === 'require_operator_approval',
-  );
+  const [admissionOverrides, setAdmissionOverrides] = useState<
+    Record<string, 'auto_admit_validated' | 'require_operator_approval'>
+  >({});
+  const requiresOperatorApproval = researchModules.some((m) => {
+    const mode =
+      admissionOverrides[m.id] ??
+      (m.config.admissionMode === 'require_operator_approval'
+        ? 'require_operator_approval'
+        : 'auto_admit_validated');
+    return mode === 'require_operator_approval';
+  });
   const sources = props.modules.filter((m) => m.type === 'live_api' || m.type === 'library');
   const nameOf = (id: string) => props.modules.find((m) => m.id === id)?.name ?? 'unknown';
 
@@ -311,7 +322,21 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                         companyId={companyId}
                         moduleId={m.id}
                         topicScope={String(m.config.topicScope ?? m.config.focus ?? '')}
-                        onDone={loadConcepts}
+                        moduleConfig={m.config}
+                        admissionMode={
+                          admissionOverrides[m.id] ??
+                          (m.config.admissionMode === 'require_operator_approval'
+                            ? 'require_operator_approval'
+                            : 'auto_admit_validated')
+                        }
+                        onAdmissionChange={(mode) =>
+                          setAdmissionOverrides((prev) => ({ ...prev, [m.id]: mode }))
+                        }
+                        onDone={() => {
+                          void loadConcepts();
+                          void loadGraph();
+                          void loadLibraries();
+                        }}
                       />
                     )}
                     <ConceptsBrowser
@@ -832,6 +857,38 @@ function LibraryConceptsPanel(props: {
     }
   }
 
+  const proposedIds = useMemo(
+    () => concepts.filter((c) => c.curationStatus === 'proposed').map((c) => c.conceptId),
+    [concepts],
+  );
+
+  async function bulkCurate(curationStatus: 'accepted' | 'rejected') {
+    if (proposedIds.length === 0) return;
+    setBusyConceptId('__bulk__');
+    setMessage(null);
+    let ok = 0;
+    let failed = 0;
+    for (const conceptId of proposedIds) {
+      try {
+        await api(`/api/companies/${props.companyId}/libraries/${props.libraryId}/curate`, {
+          method: 'POST',
+          body: { conceptId, curationStatus },
+        });
+        ok += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    setMessage(
+      failed === 0
+        ? `${ok} concept${ok === 1 ? '' : 's'} ${curationStatus === 'accepted' ? 'approved' : 'rejected'}.`
+        : `${ok} updated, ${failed} failed.`,
+    );
+    await load();
+    props.onChanged();
+    setBusyConceptId(null);
+  }
+
   return (
     <div className="mt-1 pl-1">
       <button
@@ -866,6 +923,28 @@ function LibraryConceptsPanel(props: {
               </button>
             ))}
           </div>
+          {proposedIds.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busyConceptId !== null}
+                onClick={() => void bulkCurate('accepted')}
+                aria-label={`Approve all ${proposedIds.length} proposed concepts`}
+                className="rounded border border-[var(--color-ok)] px-1.5 py-0.5 text-[9px] text-[var(--color-ok)] hover:bg-[var(--color-ok)]/10 disabled:opacity-50"
+              >
+                {busyConceptId === '__bulk__' ? 'Updating…' : `Approve all proposed (${proposedIds.length})`}
+              </button>
+              <button
+                type="button"
+                disabled={busyConceptId !== null}
+                onClick={() => void bulkCurate('rejected')}
+                aria-label={`Reject all ${proposedIds.length} proposed concepts`}
+                className="rounded border border-[var(--color-block)] px-1.5 py-0.5 text-[9px] text-[var(--color-block)] hover:bg-[var(--color-block)]/10 disabled:opacity-50"
+              >
+                Reject all proposed
+              </button>
+            </div>
+          )}
           {!loaded ? (
             <p className="text-[10px] text-[var(--color-ink-faint)]">Loading concepts…</p>
           ) : filtered.length === 0 ? (
@@ -895,7 +974,7 @@ function LibraryConceptsPanel(props: {
                     <div className="mt-1 flex gap-2">
                       <button
                         type="button"
-                        disabled={busyConceptId === c.conceptId}
+                        disabled={busyConceptId === c.conceptId || busyConceptId === '__bulk__'}
                         onClick={() => void curateConcept(c.conceptId, 'accepted')}
                         aria-label={`Accept concept ${c.title ?? c.conceptId}`}
                         className="text-[var(--color-ok)] hover:underline disabled:opacity-50"
@@ -904,7 +983,7 @@ function LibraryConceptsPanel(props: {
                       </button>
                       <button
                         type="button"
-                        disabled={busyConceptId === c.conceptId}
+                        disabled={busyConceptId === c.conceptId || busyConceptId === '__bulk__'}
                         onClick={() => void curateConcept(c.conceptId, 'rejected')}
                         aria-label={`Reject concept ${c.title ?? c.conceptId}`}
                         className="text-[var(--color-block)] hover:underline disabled:opacity-50"
@@ -939,20 +1018,24 @@ interface ValidationGateRow {
   reason: string;
 }
 
-/** Manual query, opportunistic curate, evidence, and run status for research modules. */
+/** Manual query, opportunistic curate, evidence, admission, and run status for research modules. */
 function ResearchActions(props: {
   companyId: string;
   moduleId: string;
   topicScope: string;
+  moduleConfig: Record<string, unknown>;
+  admissionMode: 'auto_admit_validated' | 'require_operator_approval';
+  onAdmissionChange: (mode: 'auto_admit_validated' | 'require_operator_approval') => void;
   onDone: () => void;
 }) {
   const [queryText, setQueryText] = useState('');
-  const [busy, setBusy] = useState<'research' | 'curate' | null>(null);
+  const [busy, setBusy] = useState<'research' | 'curate' | 'admission' | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pollToken, setPollToken] = useState(0);
   const [evidence, setEvidence] = useState<EvidenceRow[]>([]);
   const [evidenceLoaded, setEvidenceLoaded] = useState(false);
   const [gates, setGates] = useState<ValidationGateRow[]>([]);
+  const lastTerminalRequestId = useRef<string | null>(null);
 
   const loadEvidence = useCallback(async () => {
     if (!props.companyId || !props.moduleId) return;
@@ -984,6 +1067,35 @@ function ResearchActions(props: {
     }
   }
 
+  async function setAdmissionMode(
+    next: 'auto_admit_validated' | 'require_operator_approval',
+  ) {
+    if (next === props.admissionMode) return;
+    setBusy('admission');
+    setMessage(null);
+    try {
+      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}`, {
+        method: 'PATCH',
+        body: {
+          config: {
+            ...props.moduleConfig,
+            admissionMode: next,
+          },
+        },
+      });
+      props.onAdmissionChange(next);
+      setMessage(
+        next === 'require_operator_approval'
+          ? 'Admission: operator approval required.'
+          : 'Admission: auto-admit after validation.',
+      );
+    } catch {
+      setMessage('Could not update admission mode.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function runManualResearch() {
     const trimmed = queryText.trim();
     if (!trimmed) {
@@ -992,6 +1104,7 @@ function ResearchActions(props: {
     }
     setBusy('research');
     setMessage(null);
+    lastTerminalRequestId.current = null;
     try {
       await api(`/api/companies/${props.companyId}/modules/${props.moduleId}/curate`, {
         method: 'POST',
@@ -999,8 +1112,6 @@ function ResearchActions(props: {
       });
       setMessage('Research queued.');
       setPollToken((n) => n + 1);
-      props.onDone();
-      void loadEvidence();
     } catch (err) {
       setMessage(
         err instanceof RequestError && err.status === 404
@@ -1015,6 +1126,7 @@ function ResearchActions(props: {
   async function curateNow() {
     setBusy('curate');
     setMessage(null);
+    lastTerminalRequestId.current = null;
     try {
       await api(`/api/companies/${props.companyId}/modules/${props.moduleId}/curate`, {
         method: 'POST',
@@ -1025,8 +1137,6 @@ function ResearchActions(props: {
       });
       setMessage('Curation queued.');
       setPollToken((n) => n + 1);
-      props.onDone();
-      void loadEvidence();
     } catch (err) {
       setMessage(
         err instanceof RequestError && err.status === 404
@@ -1038,8 +1148,34 @@ function ResearchActions(props: {
     }
   }
 
+  function handleRunSnapshot(run: ResearchRunSnapshot) {
+    void loadRequestDetail(run.requestId);
+    if (run.phase !== 'done' && run.phase !== 'failed') return;
+    if (lastTerminalRequestId.current === run.requestId) return;
+    lastTerminalRequestId.current = run.requestId;
+    void loadEvidence();
+    props.onDone();
+  }
+
   return (
     <div className="mt-1.5 space-y-1.5 border-t border-[var(--color-line)] pt-1.5">
+      <label className="block space-y-1">
+        <span className="text-[10px] text-[var(--color-ink-faint)]">Admission mode</span>
+        <select
+          value={props.admissionMode}
+          disabled={busy !== null}
+          onChange={(e) =>
+            void setAdmissionMode(
+              e.target.value as 'auto_admit_validated' | 'require_operator_approval',
+            )
+          }
+          aria-label="Research admission mode"
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          <option value="auto_admit_validated">Auto-admit after validation</option>
+          <option value="require_operator_approval">Require operator approval</option>
+        </select>
+      </label>
       <label className="block space-y-1">
         <span className="text-[10px] text-[var(--color-ink-faint)]">Research query</span>
         <textarea
@@ -1076,10 +1212,13 @@ function ResearchActions(props: {
         companyId={props.companyId}
         moduleId={props.moduleId}
         pollToken={pollToken}
-        onRun={(run) => void loadRequestDetail(run.requestId)}
+        onRun={handleRunSnapshot}
       />
       {gates.length > 0 && (
-        <ul className="space-y-1 rounded-md border border-[var(--color-line)] px-2 py-1.5">
+        <ul
+          className="space-y-1 rounded-md border border-[var(--color-line)] px-2 py-1.5"
+          aria-label="Validation gate scores"
+        >
           {gates.map((g) => (
             <li key={g.gateId} className="flex flex-wrap items-baseline gap-x-2 text-[10px]">
               <span className="text-[var(--color-ink)]">{g.gateId}</span>

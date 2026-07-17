@@ -88,6 +88,16 @@ test.describe('Research bus (D-039)', () => {
       page.getByRole('button', { name: /Company sweep|Curate now|Research/ }).first(),
     ).toBeVisible({ timeout: 15_000 });
 
+    await expect(page.getByRole('combobox', { name: /Research admission mode/i })).toBeVisible({
+      timeout: 10_000,
+    });
+    await page.getByRole('combobox', { name: /Research admission mode/i }).selectOption({
+      label: 'Require operator approval',
+    });
+    await expect(page.getByRole('combobox', { name: /Research admission mode/i })).toHaveValue(
+      'require_operator_approval',
+    );
+
     await archiveCompany(request, companyId);
     createdCompanyIds.length = 0;
   });

@@ -154,8 +154,22 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   file count. New workflow/command: `end-of-run.md` / `/end-run`. Paragraph-only messages
   and truncated file lists are forbidden.
 
+- **D-021 (pipeline spine, user settings keys, display nodes, panel create UX, 2026-07-17):**
+  Coordinated FE/BE pass against DevSpecs ui-ux + init + dev-notebook. (a) Ported v1
+  activation → tree → compile spine as deterministic placeholders (`concepts`,
+  `lead_packages`, `decision_trees`, `compile_events`; handlers `research.curate` /
+  `trend.promote`); e2e promote yields filled paper trace. (b) User settings modal for
+  Anthropic/Mistral/Groq keys encrypted at rest (`user_api_keys`, AES-GCM via
+  `SETTINGS_ENCRYPTION_KEY`). (c) `display` module type with kind table/list/ledger/
+  chart/graph. (d) Left-panel create research/data-source; bottom Add-candidate +
+  Promote + gate strip + TraceTimeline + Justification honesty popovers. (e) Manual
+  POST `/trends` records operator_input ValueRef for drift. LLM call path still reads
+  env keys only until user-key injection lands (follow-up).
+
 ## Open questions
 
+- **OQ-8 (open):** When user-saved LLM keys exist, should they override env keys, or
+  should env remain the deployment default with user keys as optional personal overrides?
 - **OQ-7 (resolved 2026-07-16):** Clerk dev-instance keys added to `apps/web/.env.local`;
   the dev bypass self-deactivates (it requires Clerk to be unconfigured). Clerk-hosted
   sign-up UI verified rendering; full automated sign-up E2E pending (Clerk bot protection

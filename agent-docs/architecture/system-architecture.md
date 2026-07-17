@@ -115,10 +115,14 @@ Route handlers under `apps/web/app/api/`, all Clerk-authenticated + Zod-validate
 
 ## 6. Deployment
 
-- Vercel project (new), Neon Postgres (fresh), Vercel Cron for schedules, custom queue drain
-  (see `job-orchestration.md`). Env contract defined in `.env.example` from day one and kept in
-  sync with `packages/contracts` `ENVIRONMENT_REQUIREMENTS` (fixing v1's `POSTGRES_URL` vs
-  `DATABASE_URL` inconsistency: v2 standardizes on `DATABASE_URL`).
+- Vercel project (`hftr`, linked to `mathu-offical/hftr-v2`), Neon Postgres (fresh), Vercel Cron
+  for schedules, custom queue drain (see `job-orchestration.md`). Root Directory is `apps/web`
+  (not v1's `apps/hftr-web`); install/build run from monorepo root via
+  `pnpm install` / `pnpm turbo run build --filter=@hftr/web`.
+- Env contract defined in `.env.example` and kept in sync with `packages/contracts`
+  `ENVIRONMENT_REQUIREMENTS` (v2 standardizes on `DATABASE_URL`; do not use v1 `POSTGRES_URL` /
+  NextAuth vars). `turbo.json` `globalEnv` lists the same runtime keys so Turbo does not strip
+  them on Vercel.
 - Secrets: Clerk, Stripe, Anthropic, Mistral, Groq, Alpaca (paper+live), Kalshi, Neon.
   Broker secrets stored encrypted (per-user, AES-GCM with app KMS key env var); only last-four
   ever displayed (v1 pattern).

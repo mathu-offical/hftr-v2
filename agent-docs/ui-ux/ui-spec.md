@@ -22,7 +22,8 @@
   Trading profile, Settings, Philosophy tabs) → executions ticker tape (`ExecutionTicker`,
   marquee of recent fills/blocks with amounts, pauses on hover) → paper/live master switch
   (`ModeSwitch`, live gated with an explanation popover — fails closed until the broker
-  milestone) → queue chip → Clerk user button.
+  milestone) → queue chip → **User settings** modal (`UserSettingsLauncher`: encrypted
+  Anthropic/Mistral/Groq API keys) → Clerk user button.
 - **Canvas-centric layout** per company beneath the ribbon: slim collapsible strips on the
   left (Research · Data), bottom (Trends · Scenarios · Watch lists · Decisions), and right
   (Verify · Executions · Ledger · Sims · Values) expand into panels; the canvas keeps the

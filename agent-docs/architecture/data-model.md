@@ -94,6 +94,20 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   source_class `operator|trend_promotion`, status `watching|triggered|archived`. Owned by
   trading/trend modules only (API 422s otherwise); surfaces in the bottom panel's
   Watch lists tab and the module inspector. Migration `0003_bitter_piledriver`. D-017.
+- **concepts** — research-module curated knowledge rows (title, body, tags jsonb,
+  source_class `deterministic_placeholder|model_generated|operator`). Written by
+  `research.curate` (catalog-backed placeholder until LLM tiers wire). Migration
+  `0004_petite_hellfire_club`. D-021.
+- **lead_packages** — six-gate admission record (activation-validation.md): trend →
+  gates jsonb evidence, status `pending|admitted|rejected|decomposed|expired`,
+  strategy_family, optional target trading module. Written by `trend.promote`. D-021.
+- **decision_trees** — tactical decomposition of an admitted lead: branches jsonb,
+  recovery_ladder jsonb, status `draft|compile_ready|compile_blocked|dispatched|
+  invalidated`, source_class honest placeholder labeling. D-021.
+- **compile_events** — execution-agent compile outcome: `compiled|blocked` with
+  block_reason taxonomy (`incomplete_branch`, `unsupported_order_class`,
+  `missing_recovery_ladder`, …), optional instruction_id into action_instructions,
+  lineage jsonb. Last model-bearing stage boundary before model-free dispatch. D-021.
 
 ## Simulations & training
 

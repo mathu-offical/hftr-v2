@@ -19,7 +19,9 @@ created, invalid link 422, math delete 422, noop job enqueued → drained → co
   chip in the top bar. Schedules/materializer still open.
 - **Infra:** Neon project `hftr-v2` (bold-surf-86557348) created + migrated + XNYS calendar
   seeded (2026–27); GitHub Actions CI added; dev auth bypass (`DEV_AUTH_BYPASS=1`, inactive in
-  production or once Clerk keys are set). Clerk keys still needed for real auth (user action).
+  production or once Clerk keys are set). Vercel project `hftr` rootDirectory corrected to
+  `apps/web` (was stale `apps/hftr-web`); production env seeded with `DATABASE_URL` + Clerk +
+  `CRON_SECRET` — `/api/health` returns `db: true` on https://hftr.vercel.app (2026-07-17).
 
 ## T1.1 — Company CRUD + wizard
 
@@ -159,3 +161,19 @@ production build).
 - **New read APIs:** `/executions`, `/verifications`, `/simulations` (placeholder), all
   ownership-scoped. Verified in the browser end-to-end; typecheck/lint/tests/build green.
 - Remaining gate items unchanged: panel keyboard routes, read-only assistant, Playwright flows.
+
+## Session 2026-07-17 (pipeline spine + settings + display, decision D-021)
+
+- **v1 pipeline spine (deterministic placeholders):** `concepts`, `lead_packages`,
+  `decision_trees`, `compile_events` + handlers `research.curate` / `trend.promote` +
+  APIs (concepts/leads/trees/timeline/promote/curate). Verified promote e2e:
+  six gates pass → tree dispatched → compile → paper fill.
+- **Research/Trend/Decision UI:** left-panel create research + data source; concepts
+  browser with Curate now; bottom Trends Add-candidate + Promote; Scenario engine
+  six-gate strip; Decisions → TraceTimeline modal; Justification hover honesty.
+- **User settings modal:** encrypted per-user Anthropic/Mistral/Groq keys
+  (`user_api_keys`, migration `0005_smiling_kid_colt`).
+- **Display nodes:** new `display` module type (table/list/ledger/chart/graph) in
+  contracts, palette, inspector config form.
+- Remaining: wire saved user keys into `@hftr/llm` call path; galaxy view; assistant;
+  Playwright; keyboard panel routes.

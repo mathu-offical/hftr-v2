@@ -37,6 +37,11 @@ describe('mapTaskToAlpacaOrder', () => {
     });
   });
 
+  it('prefers task.clientOrderId over idempotencyKey', () => {
+    const body = mapTaskToAlpacaOrder(task({ clientOrderId: 'co_task_client_id_12' }));
+    expect(body.client_order_id).toBe('co_task_client_id_12');
+  });
+
   it('converts limit price cents to dollars', () => {
     const body = mapTaskToAlpacaOrder(
       task({ orderType: 'limit', limitPriceCents: 15025 }),
@@ -165,6 +170,50 @@ describe('createAlpacaPaperAdapter', () => {
       accepted: true,
       venueOrderId: 'ord-99',
       requestId: 'req-order-1',
+    });
+  });
+
+  it('submitOrder sends task.clientOrderId to Alpaca', async () => {
+    let postedBody: unknown;
+    const fetchImpl = async (url: string | URL | Request, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes('/v2/orders') && init?.method === 'POST') {
+        postedBody = JSON.parse(String(init.body));
+        return new Response(
+          JSON.stringify({
+            id: 'ord-co',
+            client_order_id: 'co_stable_reconcile_1',
+            status: 'accepted',
+            filled_qty: '0',
+            filled_avg_price: null,
+            symbol: 'AAPL',
+          }),
+          { status: 200, headers: { 'X-Request-ID': 'req-co-1' } },
+        );
+      }
+      return new Response('not found', { status: 404 });
+    };
+
+    const client = createAlpacaClient({
+      keyId: 'PKTESTKEY1',
+      secret: 'secret-test',
+      fetchImpl: fetchImpl as typeof fetch,
+    });
+    const adapter = createAlpacaPaperAdapter({
+      keyId: 'PKTESTKEY1',
+      secret: 'secret-test',
+      nowMs: () => T0,
+      client,
+    });
+
+    await adapter.submitOrder(
+      task({
+        clientOrderId: 'co_stable_reconcile_1',
+        idempotencyKey: 'ptrade-different-key-99',
+      }),
+    );
+    expect(postedBody).toMatchObject({
+      client_order_id: 'co_stable_reconcile_1',
     });
   });
 

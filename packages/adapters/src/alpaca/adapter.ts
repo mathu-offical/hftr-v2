@@ -183,7 +183,7 @@ export function createAlpacaAdapter(opts: AlpacaAdapterOptions): BrokerAdapter {
     },
 
     async submitOrder(task: DeterministicActionTask): Promise<SubmitResult> {
-      const body = mapTaskToAlpacaOrder(task);
+      const body = mapTaskToAlpacaOrder(task, task.clientOrderId ?? undefined);
       const res = await client.postTrading<AlpacaOrder>('/v2/orders', body);
       if (!res.ok || !res.data) {
         const reason = res.errorBody?.includes('insufficient')

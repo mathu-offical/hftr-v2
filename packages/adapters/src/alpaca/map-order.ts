@@ -61,7 +61,7 @@ export function mapTaskToAlpacaOrder(
     side,
     type: task.orderType,
     time_in_force: task.timeInForce === 'day' ? 'day' : 'gtc',
-    client_order_id: clientOrderId ?? task.idempotencyKey,
+    client_order_id: clientOrderId ?? task.clientOrderId ?? task.idempotencyKey,
   };
   if (task.limitPriceCents !== null) {
     body.limit_price = centsToDollars(task.limitPriceCents);

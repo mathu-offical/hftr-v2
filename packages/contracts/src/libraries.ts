@@ -2,7 +2,13 @@ import { z } from 'zod';
 import { ConceptLinkRelation } from './research-artifacts';
 
 /** Curation lifecycle for a concept inside a library. */
-export const CurationStatus = z.enum(['proposed', 'accepted', 'rejected', 'archived']);
+export const CurationStatus = z.enum([
+  'proposed',
+  'accepted',
+  'auto_admitted',
+  'rejected',
+  'archived',
+]);
 export type CurationStatus = z.infer<typeof CurationStatus>;
 
 export const Library = z.object({

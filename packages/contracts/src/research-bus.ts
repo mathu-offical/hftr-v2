@@ -1,0 +1,169 @@
+import { z } from 'zod';
+import { HandoffEnvelope } from './foundation';
+
+/**
+ * Research bus contracts (D-039): typed request/result + evidence + validation
+ * for the autonomous gather → validate → synthesize → admit pipeline.
+ * Opaque refs and qualitative bands only — never raw money/time literals.
+ */
+
+export const ResearchQueryMode = z.enum([
+  'manual',
+  'module',
+  'company',
+  'opportunistic',
+  'validation',
+]);
+export type ResearchQueryMode = z.infer<typeof ResearchQueryMode>;
+
+/** Per-module library admission after validation passes. */
+export const AdmissionMode = z.enum(['auto_admit_validated', 'require_operator_approval']);
+export type AdmissionMode = z.infer<typeof AdmissionMode>;
+
+export const ResearchSourceKind = z.enum([
+  'brave_search',
+  'sec_edgar',
+  'market_news',
+  'alpaca_bars',
+  'catalog',
+  'library',
+  'operator',
+]);
+export type ResearchSourceKind = z.infer<typeof ResearchSourceKind>;
+
+export const LegalUseClass = z.enum(['ALLOWED', 'RESTRICTED', 'REVIEW_REQUIRED']);
+export type LegalUseClass = z.infer<typeof LegalUseClass>;
+
+/** Opaque artifact handle — never embeds raw financial digits. */
+export const ResearchArtifactRef = z
+  .string()
+  .min(3)
+  .max(200)
+  .regex(
+    /^(concept|topic|library|evidence|value_ref|request|result):[A-Za-z0-9_.:-]+$/,
+    'invalid_artifact_ref',
+  );
+export type ResearchArtifactRef = z.infer<typeof ResearchArtifactRef>;
+
+export const EvidencePackage = z.object({
+  id: z.string().uuid().optional(),
+  sourceKind: ResearchSourceKind,
+  /** Honest feed/source entitlement label (e.g. brave_search, sec_edgar_free). */
+  feedClass: z.string().min(1).max(80),
+  /** Qualitative title — leak-linted. */
+  title: z.string().min(1).max(300),
+  /** Qualitative summary — no raw money/time; digits redacted at normalize. */
+  summary: z.string().min(1).max(4000),
+  digest: z.string().min(8).max(128),
+  legalUseClass: LegalUseClass.default('ALLOWED'),
+  /** ISO expiry for freshness gates; null = session-scoped. */
+  expiresAt: z.string().datetime().nullable().default(null),
+  artifactRefs: z.array(ResearchArtifactRef).max(24).default([]),
+  /** Opaque external URL or filing accession — not model-facing body. */
+  externalRef: z.string().max(500).nullable().default(null),
+  authorityClass: z
+    .enum([
+      'DETERMINISTIC',
+      'PROVIDER_ANALYZED',
+      'CURATED_BACKGROUND',
+      'TRAINING_DERIVED',
+      'OPERATOR_INPUT',
+    ])
+    .default('DETERMINISTIC'),
+});
+export type EvidencePackage = z.infer<typeof EvidencePackage>;
+
+export const ValidationGateId = z.enum([
+  'relevance',
+  'duplicate',
+  'source_entitlement',
+  'leak_recheck',
+  'coherence',
+  'freshness',
+]);
+export type ValidationGateId = z.infer<typeof ValidationGateId>;
+
+export const ValidationGateResult = z.object({
+  gateId: ValidationGateId,
+  passed: z.boolean(),
+  /** Qualitative score band — never a raw float for computation. */
+  scoreBand: z.enum(['low', 'medium', 'high']).default('medium'),
+  reason: z.string().max(300).default(''),
+});
+export type ValidationGateResult = z.infer<typeof ValidationGateResult>;
+
+export const ConceptValidationResult = z.object({
+  overallPass: z.boolean(),
+  gates: z.array(ValidationGateResult).min(1).max(12),
+  relevanceBand: z.enum(['low', 'medium', 'high']).default('medium'),
+  artifactRefs: z.array(ResearchArtifactRef).max(24).default([]),
+});
+export type ConceptValidationResult = z.infer<typeof ConceptValidationResult>;
+
+export const ResearchRequest = z.object({
+  mode: ResearchQueryMode,
+  companyId: z.string().uuid(),
+  /** Research module that owns the run; null for company_sweep fan-out root. */
+  moduleId: z.string().uuid().nullable(),
+  /** Freeform operator/module query — qualitative; leak-linted before synthesize. */
+  queryText: z.string().max(500).default(''),
+  topicId: z.string().uuid().nullable().default(null),
+  topicScope: z.string().max(200).default(''),
+  sourceModuleId: z.string().uuid().nullable().default(null),
+  sourceKinds: z.array(ResearchSourceKind).max(8).default([]),
+  maxEvidence: z.number().int().min(1).max(24).default(8),
+  envelope: HandoffEnvelope,
+});
+export type ResearchRequest = z.infer<typeof ResearchRequest>;
+
+export const ResearchResultStatus = z.enum([
+  'gathered',
+  'validated',
+  'validation_failed',
+  'synthesized',
+  'admitted',
+  'proposed',
+  'rejected',
+  'failed',
+]);
+export type ResearchResultStatus = z.infer<typeof ResearchResultStatus>;
+
+export const ResearchResult = z.object({
+  requestId: z.string().uuid(),
+  companyId: z.string().uuid(),
+  moduleId: z.string().uuid().nullable(),
+  status: ResearchResultStatus,
+  evidenceIds: z.array(z.string().uuid()).max(48).default([]),
+  conceptIds: z.array(z.string().uuid()).max(24).default([]),
+  artifactRefs: z.array(ResearchArtifactRef).max(48).default([]),
+  validation: ConceptValidationResult.nullable().default(null),
+  admissionMode: AdmissionMode.nullable().default(null),
+  summaryBand: z.enum(['low', 'medium', 'high']).default('medium'),
+  failureReason: z.string().max(300).nullable().default(null),
+  envelope: HandoffEnvelope,
+});
+export type ResearchResult = z.infer<typeof ResearchResult>;
+
+/** External research gather providers (operator-supplied API keys). */
+export const ResearchKeyProvider = z.enum(['brave', 'market_news']);
+export type ResearchKeyProvider = z.infer<typeof ResearchKeyProvider>;
+
+export const CreateResearchQueryInput = z.object({
+  mode: ResearchQueryMode.default('manual'),
+  moduleId: z.string().uuid().optional(),
+  queryText: z.string().min(1).max(500),
+  topicId: z.string().uuid().optional(),
+  topicScope: z.string().max(200).optional(),
+  sourceKinds: z.array(ResearchSourceKind).max(8).optional(),
+});
+export type CreateResearchQueryInput = z.infer<typeof CreateResearchQueryInput>;
+
+export const RESEARCH_SOURCE_FEED_CLASS: Record<ResearchSourceKind, string> = {
+  brave_search: 'brave_search',
+  sec_edgar: 'sec_edgar_free',
+  market_news: 'market_news_public',
+  alpaca_bars: 'alpaca_iex_paper',
+  catalog: 'seed_catalog',
+  library: 'company_library',
+  operator: 'operator_input',
+};

@@ -15,6 +15,7 @@ const LOCAL_DEV_SALT = 'hftr-v2-local-dev-settings-encryption-salt';
 const PURPOSE_ENV: Record<CredentialPurposeT, string> = {
   llm_settings: 'SETTINGS_ENCRYPTION_KEY',
   broker_credentials: 'CREDENTIALS_ENCRYPTION_KEY',
+  research_settings: 'SETTINGS_ENCRYPTION_KEY',
 };
 
 let warnedMissing: Partial<Record<CredentialPurposeT, boolean>> = {};

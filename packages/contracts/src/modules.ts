@@ -344,6 +344,10 @@ export const ResearchModuleConfig = z.object({
   targetLibraryIds: z.array(z.string().uuid()).default([]),
   sourceAllowlist: z.array(z.string()).default([]),
   sourceBlocklist: z.array(z.string()).default([]),
+  /** D-039: default auto-admit after model-free validation; operator may require approval. */
+  admissionMode: z
+    .enum(['auto_admit_validated', 'require_operator_approval'])
+    .default('auto_admit_validated'),
 });
 
 export const LibraryModuleConfig = z.object({

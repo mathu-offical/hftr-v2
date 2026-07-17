@@ -757,6 +757,7 @@ describe('Libraries and research graph (M2)', () => {
       CreateLibraryInput.parse({ name: 'Semiconductors', topicScope: 'chips' }).masterLibrary,
     ).toBe(false);
     expect(CurationStatus.options).toContain('proposed');
+    expect(CurationStatus.options).toContain('auto_admitted');
     const graph = ResearchGraphResponse.parse({
       nodes: [
         {
@@ -773,6 +774,85 @@ describe('Libraries and research graph (M2)', () => {
       tags: ['chips'],
     });
     expect(graph.nodes).toHaveLength(1);
+  });
+});
+
+describe('Research bus (D-039)', () => {
+  it('parses ResearchRequest, EvidencePackage, ConceptValidationResult, AdmissionMode', async () => {
+    const {
+      ResearchRequest,
+      EvidencePackage,
+      ConceptValidationResult,
+      AdmissionMode,
+      ResearchQueryMode,
+      CreateResearchQueryInput,
+      RESEARCH_SOURCE_FEED_CLASS,
+    } = await import('./research-bus');
+    const { HandoffEnvelope } = await import('./foundation');
+    const { ResearchModuleConfig } = await import('./modules');
+
+    expect(AdmissionMode.options).toContain('auto_admit_validated');
+    expect(ResearchQueryMode.options).toContain('manual');
+    expect(RESEARCH_SOURCE_FEED_CLASS.brave_search).toBe('brave_search');
+
+    const envelope = HandoffEnvelope.parse({
+      contractVersion: '1',
+      producerRunId: null,
+      companyId: '11111111-1111-4111-8111-111111111111',
+      moduleId: '22222222-2222-4222-8222-222222222222',
+      authorityClass: 'DETERMINISTIC',
+      mutationClass: 'IMMUTABLE',
+      queueClass: 'RESEARCH',
+      priorityBand: 'NORMAL',
+      timeoutClass: 'MEDIUM',
+      idempotencyKey: 'research-req-test-01',
+      replayHash: null,
+      controlSnapshotRef: null,
+      causationRefs: [],
+      expiresAt: null,
+    });
+
+    const req = ResearchRequest.parse({
+      mode: 'manual',
+      companyId: envelope.companyId,
+      moduleId: envelope.moduleId,
+      queryText: 'semiconductor supply qualitative outlook',
+      envelope,
+    });
+    expect(req.maxEvidence).toBe(8);
+
+    const evidence = EvidencePackage.parse({
+      sourceKind: 'brave_search',
+      feedClass: 'brave_search',
+      title: 'Supply chain note',
+      summary: 'Qualitative outlook without raw money figures.',
+      digest: 'abc12345digest',
+      artifactRefs: ['evidence:abc12345digest'],
+    });
+    expect(evidence.legalUseClass).toBe('ALLOWED');
+
+    const validation = ConceptValidationResult.parse({
+      overallPass: true,
+      gates: [
+        { gateId: 'relevance', passed: true, scoreBand: 'high', reason: 'topic overlap' },
+        { gateId: 'leak_recheck', passed: true, scoreBand: 'high', reason: 'clean' },
+      ],
+      relevanceBand: 'high',
+    });
+    expect(validation.overallPass).toBe(true);
+
+    expect(
+      CreateResearchQueryInput.parse({
+        queryText: 'research chips',
+        moduleId: envelope.moduleId!,
+      }).mode,
+    ).toBe('manual');
+
+    expect(
+      ResearchModuleConfig.parse({
+        topicScope: 'chips',
+      }).admissionMode,
+    ).toBe('auto_admit_validated');
   });
 });
 

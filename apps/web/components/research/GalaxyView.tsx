@@ -276,9 +276,41 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               <div className="prose prose-invert mt-2 max-w-none text-[11px] text-[var(--color-ink-dim)] prose-p:my-1 prose-headings:my-1 prose-headings:text-[var(--color-ink)]">
                 <ReactMarkdown>{selected.body}</ReactMarkdown>
               </div>
-              <p className="mt-1 text-[9px] text-[var(--color-ink-faint)]">
-                {selected.sourceClass.replace(/_/g, ' ')} · {selected.status}
-              </p>
+              <dl className="mt-2 space-y-0.5 text-[9px] text-[var(--color-ink-faint)]">
+                <div className="flex flex-wrap gap-x-2">
+                  <dt className="sr-only">Source class</dt>
+                  <dd>{selected.sourceClass.replace(/_/g, ' ')}</dd>
+                  <dt className="sr-only">Concept status</dt>
+                  <dd>· {selected.status}</dd>
+                </div>
+                {selected.curationStatus && (
+                  <div>
+                    <dt className="inline">Library admission: </dt>
+                    <dd className="inline text-[var(--color-ink-dim)]">
+                      {selected.curationStatus.replace(/_/g, ' ')}
+                    </dd>
+                  </div>
+                )}
+                {selected.sourceRef && (
+                  <div>
+                    <dt className="inline">Evidence ref: </dt>
+                    <dd className="inline break-all text-[var(--color-ink-dim)]">
+                      {selected.sourceRef}
+                    </dd>
+                  </div>
+                )}
+                {selected.researchRunId && (
+                  <div>
+                    <dt className="inline">Research run: </dt>
+                    <dd className="inline break-all text-[var(--color-ink-dim)]">
+                      {selected.researchRunId}
+                    </dd>
+                  </div>
+                )}
+                {!selected.curationStatus && !selected.sourceRef && !selected.researchRunId && (
+                  <p>No research-bus provenance on this concept yet.</p>
+                )}
+              </dl>
             </div>
           )}
         </div>

@@ -356,7 +356,7 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   OQ-1 (pricing) remains open until user input.
 
 - **D-033 (scoped canvas Reflow + dedicated Math tools, 2026-07-17):**
-  Implemented and runtime-verified (2026-07-17). (a) **Scoped layout actions:** `packages/contracts/src/canvas-layout.ts`
+  Implemented and runtime-verified (2026-07-17; movable tools + no doubled seed Math 2026-07-17). (a) **Scoped layout actions:** `packages/contracts/src/canvas-layout.ts`
   pure helpers; `PATCH /api/companies/:id/canvas/layout` batch persist; each ENGINE header **Reflow**
   + canvas **Reflow canvas** button; connection-safe template positions + `ENGINE_GROUP_PADDING`
   (112/112/120/160). Trackpad **scroll pans** (`panOnScroll` + `PanOnScrollMode.Free`) and
@@ -364,9 +364,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Reflow canvas + engine Reflow visible; layout PATCH 200. (b–d) Migration
   `0018_dedicated_math_ownership` adds unique nullable `tool_owner_module_id`; required analytical
   owners auto-provision reciprocal data-linked Math rows; trading fund routes are rewritten and
-  validated through the owner's Math; compact `MathToolNode` renders directly below the measured
-  owner and follows owner/engine movement. Legacy unowned shared Math remains valid and is never
-  assigned by migration guesswork.
+  validated through the owner's Math; default company/engine templates no longer route funds
+  through the shared company Math seed (holding_fund → fund_router → owner Math → trading).
+  Compact `MathToolNode` is independently draggable and persists its position; owner drag moves
+  tools by delta without snapping them back. Shared Math attachment badges are suppressed when
+  the dedicated compact node is already rendered. Legacy unowned shared Math remains valid and
+  is never assigned by migration guesswork.
 
 - **D-034 (subtle confirmed-field validation, 2026-07-17):**
   Implemented and verified (2026-07-17). Missing setup fields keep their explicit warning border

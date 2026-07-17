@@ -1,6 +1,6 @@
 # Canvas spacing, reflow, and dedicated Math tools (2026-07-17)
 
-**Status:** Implemented and runtime-verified (2026-07-17)  
+**Status:** Implemented and runtime-verified (2026-07-17); Math tools independently movable; default seeds do not double shared + dedicated Math on fund paths  
 **Decision:** D-033 (`dev-intent/decisions-log.md`)  
 **Related:** D-028 (`canvas-engine-group-design.md`); D-026 (`canvas-node-dashboard-design.md`)
 

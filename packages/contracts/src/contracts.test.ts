@@ -431,6 +431,10 @@ describe('company templates', () => {
           allowedLinkKinds(from!.type, to!.type),
           `${template.id}: ${from!.type}->${to!.type}`,
         ).toContain(l.linkKind);
+        if (l.linkKind === 'fund_route') {
+          expect(l.fromIndex, `${template.id} fund from`).not.toBe('math');
+          expect(l.toIndex, `${template.id} fund to`).not.toBe('math');
+        }
       }
     }
   });
@@ -458,6 +462,12 @@ describe('engine templates', () => {
           allowedLinkKinds(from!.type, to!.type),
           `${engine.id}: ${from!.type}->${to!.type}`,
         ).toContain(l.linkKind);
+        // Dedicated trading Math owns the fund path — shared company Math must
+        // not appear in default seeded fund routes (D-033).
+        if (l.linkKind === 'fund_route') {
+          expect(l.fromIndex, `${engine.id} fund from`).not.toBe('math');
+          expect(l.toIndex, `${engine.id} fund to`).not.toBe('math');
+        }
       }
       for (const input of engine.inputs) {
         expect(engine.modules[input.target.moduleIndex], `${engine.id}/${input.key}`).toBeDefined();

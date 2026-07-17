@@ -128,32 +128,38 @@ function isInteractiveNodeTarget(target: EventTarget | null): boolean {
   );
 }
 
-function alignDedicatedMathNodes(nodes: CanvasFlowNode[]): CanvasFlowNode[] {
+/** Default placement under an owner (reflow / first provision only). */
+function defaultMathOffset(owner: Pick<ModuleFlowNode, 'measured'>): { x: number; y: number } {
+  const ownerWidth = Math.max(owner.measured?.width ?? 280, 280);
+  const ownerHeight = Math.max(owner.measured?.height ?? 220, 220);
+  return {
+    x: (ownerWidth - 220) / 2,
+    y: ownerHeight + 24,
+  };
+}
+
+/**
+ * Keep dedicated Math tools in the same engine parent as their owner without
+ * forcing position — operators may drag tools independently.
+ */
+function syncDedicatedMathParents(nodes: CanvasFlowNode[]): CanvasFlowNode[] {
   const owners = new Map(nodes.filter(isModuleNode).map((node) => [node.id, node] as const));
   let changed = false;
   const next = nodes.map((node) => {
     if (!isMathToolNode(node)) return node;
     const owner = owners.get(node.data.ownerModuleId);
     if (!owner) return node;
-    const ownerWidth = Math.max(owner.measured?.width ?? 280, 280);
-    const ownerHeight = Math.max(owner.measured?.height ?? 220, 220);
-    const target = {
-      x: owner.position.x + (ownerWidth - 220) / 2,
-      y: owner.position.y + ownerHeight + 24,
-    };
     const parentId = owner.parentId;
     if (
-      node.position.x === target.x &&
-      node.position.y === target.y &&
       node.parentId === parentId &&
-      node.data.ownerEngineInstanceId === owner.data.engineInstanceId
+      node.data.ownerEngineInstanceId === owner.data.engineInstanceId &&
+      node.data.ownerName === owner.data.name
     ) {
       return node;
     }
     changed = true;
     const base = {
       ...node,
-      position: target,
       data: {
         ...node.data,
         ownerName: owner.data.name,
@@ -187,17 +193,17 @@ function appendProvisionedMath(
       (node): node is ModuleFlowNode => isModuleNode(node) && node.id === tool.ownerModuleId,
     );
     if (!owner) continue;
-    const ownerHeight = Math.max(owner.measured?.height ?? 220, 220);
-    const ownerWidth = Math.max(owner.measured?.width ?? 280, 280);
+    const offset = defaultMathOffset(owner);
     additions.push({
       id: tool.id,
       type: 'mathTool',
       position: {
-        x: owner.position.x + (ownerWidth - 220) / 2,
-        y: owner.position.y + ownerHeight + 24,
+        x: owner.position.x + offset.x,
+        y: owner.position.y + offset.y,
       },
       ...(owner.parentId ? { parentId: owner.parentId } : {}),
       expandParent: false,
+      draggable: true,
       data: {
         name: `Math · ${owner.data.name}`,
         companyId,
@@ -211,7 +217,7 @@ function appendProvisionedMath(
     });
   }
   return {
-    nodes: alignDedicatedMathNodes([...nodes, ...additions]),
+    nodes: syncDedicatedMathParents([...nodes, ...additions]),
     edges: [...edges, ...tools.flatMap((tool) => tool.links.map(toEdge))],
   };
 }
@@ -241,6 +247,8 @@ function applyRenamedModules(
 function applyMathAttachments(nodes: CanvasFlowNode[], edges: Edge[]): CanvasFlowNode[] {
   const typeById = new Map<string, ModuleType>();
   const nameById = new Map<string, string>();
+  // Dedicated Math tools already render as compact nodes — do not also badge them.
+  const dedicatedMathIds = new Set(nodes.filter(isMathToolNode).map((node) => node.id));
   for (const node of nodes) {
     if (!isModuleNode(node)) continue;
     typeById.set(node.id, node.data.moduleType);
@@ -249,6 +257,7 @@ function applyMathAttachments(nodes: CanvasFlowNode[], edges: Edge[]): CanvasFlo
 
   const attachments = new Map<string, { id: string; name: string }[]>();
   for (const edge of edges) {
+    if (dedicatedMathIds.has(edge.source)) continue;
     const linkKind = (edge.data as { linkKind?: LinkKind } | undefined)?.linkKind;
     if (!linkKind) continue;
     const fromType = typeById.get(edge.source);
@@ -348,7 +357,14 @@ function buildInitialGraph(
   const attachmentMap = new Map<string, { id: string; name: string }[]>();
   const typeById = new Map(modules.map((m) => [m.id, m.type]));
   const nameById = new Map(modules.map((m) => [m.id, m.name]));
+  // Explicit dedicated Math renders as MathToolNode — badge only shared/unowned Math.
+  const dedicatedMathIds = new Set(
+    modules
+      .filter((module) => module.type === 'math' && module.toolOwnerModuleId)
+      .map((module) => module.id),
+  );
   for (const link of links) {
+    if (dedicatedMathIds.has(link.fromModuleId)) continue;
     const fromType = typeById.get(link.fromModuleId);
     const toType = typeById.get(link.toModuleId);
     if (!fromType || !toType) continue;
@@ -402,6 +418,7 @@ function buildInitialGraph(
             : m.position,
           ...(ownerEngine ? { parentId: ownerEngine.id } : {}),
           expandParent: false,
+          draggable: true,
           data: {
             name: m.name,
             companyId,
@@ -575,12 +592,7 @@ export function CompanyCanvas(props: {
     ),
   );
   const [edges, setEdges] = useEdgesState<Edge>(props.initialLinks.map(toEdge));
-
-  // Dedicated Math tools remain centered below their explicit owner during
-  // initial measurement, owner drag, engine moves, and reload hydration.
-  useEffect(() => {
-    setNodes((current) => alignDedicatedMathNodes(current));
-  }, [nodes, setNodes]);
+  const ownerDragOriginRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
   const handleRequestDelete = useCallback((engineId: string) => {
     setDeleteEngineId(engineId);
@@ -965,19 +977,20 @@ export function CompanyCanvas(props: {
           },
         });
 
-        const ownerHeight = Math.max(node.measured?.height ?? 220, 220);
-        const ownerWidth = Math.max(node.measured?.width ?? 280, 280);
         const dedicatedTools = nodes.filter(
           (candidate): candidate is MathToolFlowNode =>
             isMathToolNode(candidate) && candidate.data.ownerModuleId === node.id,
         );
+        // Persist current tool positions (already coupled via drag delta) —
+        // do not snap tools back under the owner.
         for (const tool of dedicatedTools) {
+          const toolAbs = absoluteModulePosition(tool, nodes);
           await api(`/api/companies/${props.companyId}/modules/${tool.id}`, {
             method: 'PATCH',
             body: {
               canvasPosition: {
-                x: Math.round(abs.x + (ownerWidth - 220) / 2),
-                y: Math.round(abs.y + ownerHeight + 24),
+                x: Math.round(toolAbs.x),
+                y: Math.round(toolAbs.y),
               },
             },
           });
@@ -989,34 +1002,36 @@ export function CompanyCanvas(props: {
               (n): n is EngineGroupFlowNode => isEngineGroupNode(n) && n.id === targetEngineId,
             );
             const parentBounds = engineNode ? engineBounds(engineNode) : null;
-            return current.map((n) => {
-              if (!isModuleNode(n) || n.id !== node.id) return n;
-              if (!targetEngineId || !parentBounds) {
-                const { parentId: _parent, ...rest } = n;
+            return syncDedicatedMathParents(
+              current.map((n) => {
+                if (!isModuleNode(n) || n.id !== node.id) return n;
+                if (!targetEngineId || !parentBounds) {
+                  const { parentId: _parent, ...rest } = n;
+                  return {
+                    ...rest,
+                    position: abs,
+                    expandParent: false,
+                    data: {
+                      ...n.data,
+                      engineInstanceId: null,
+                    },
+                  };
+                }
                 return {
-                  ...rest,
-                  position: abs,
+                  ...n,
+                  parentId: targetEngineId,
+                  position: {
+                    x: abs.x - parentBounds.x,
+                    y: abs.y - parentBounds.y,
+                  },
                   expandParent: false,
                   data: {
                     ...n.data,
-                    engineInstanceId: null,
+                    engineInstanceId: targetEngineId,
                   },
                 };
-              }
-              return {
-                ...n,
-                parentId: targetEngineId,
-                position: {
-                  x: abs.x - parentBounds.x,
-                  y: abs.y - parentBounds.y,
-                },
-                expandParent: false,
-                data: {
-                  ...n.data,
-                  engineInstanceId: targetEngineId,
-                },
-              };
-            });
+              }),
+            );
           });
         }
       } catch {
@@ -1024,6 +1039,38 @@ export function CompanyCanvas(props: {
       }
     },
     [nodes, props.companyId, setNodes],
+  );
+
+  const onOwnerDragStart = useCallback((_e: unknown, node: CanvasFlowNode) => {
+    if (!isModuleNode(node) || node.data.moduleType === 'math') return;
+    ownerDragOriginRef.current.set(node.id, { x: node.position.x, y: node.position.y });
+  }, []);
+
+  const onOwnerDrag = useCallback(
+    (_e: unknown, node: CanvasFlowNode) => {
+      if (!isModuleNode(node) || node.data.moduleType === 'math') return;
+      const prev = ownerDragOriginRef.current.get(node.id);
+      if (!prev) return;
+      const dx = node.position.x - prev.x;
+      const dy = node.position.y - prev.y;
+      if (dx === 0 && dy === 0) return;
+      ownerDragOriginRef.current.set(node.id, { x: node.position.x, y: node.position.y });
+      setNodes((current) =>
+        current.map((candidate) => {
+          if (!isMathToolNode(candidate) || candidate.data.ownerModuleId !== node.id) {
+            return candidate;
+          }
+          return {
+            ...candidate,
+            position: {
+              x: candidate.position.x + dx,
+              y: candidate.position.y + dy,
+            },
+          };
+        }),
+      );
+    },
+    [setNodes],
   );
 
   const onConnect = useCallback(
@@ -1128,6 +1175,7 @@ export function CompanyCanvas(props: {
             type: 'mathTool',
             position: tool.position,
             expandParent: false,
+            draggable: true,
             data: {
               name: `Math · ${module.name}`,
               companyId: props.companyId,
@@ -1437,6 +1485,8 @@ export function CompanyCanvas(props: {
             rfInstanceRef.current = instance;
           }}
           onNodesChange={onNodesChange}
+          onNodeDragStart={onOwnerDragStart}
+          onNodeDrag={onOwnerDrag}
           onNodeDragStop={persistNodeDragStop}
           onConnect={onConnect}
           connectionLineType={ConnectionLineType.SmoothStep}

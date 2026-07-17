@@ -24,6 +24,8 @@ export const companies = pgTable(
     clerkUserId: text('clerk_user_id').notNull(),
     name: text('name').notNull(),
     philosophyPrompt: text('philosophy_prompt').notNull(),
+    /** Structured slideable philosophy axes → LeverSetting band positions. */
+    philosophyProfile: jsonb('philosophy_profile').notNull().default({}),
     goals: jsonb('goals').notNull().default({}),
     reinvestmentPolicy: jsonb('reinvestment_policy').notNull().default({}),
     scopingPolicies: jsonb('scoping_policies').notNull().default({}),
@@ -79,6 +81,9 @@ export const modules = pgTable(
     allocationCents: bigint('allocation_cents', { mode: 'bigint' })
       .notNull()
       .default(sql`0`),
+    topicSectors: text('topic_sectors').array().notNull().default([]),
+    capitalAllocationRef: text('capital_allocation_ref'),
+    targetExitRef: text('target_exit_ref'),
     canvasPosition: jsonb('canvas_position').notNull().default({ x: 0, y: 0 }),
     philosophyOverride: text('philosophy_override'),
     ...timestamps,

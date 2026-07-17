@@ -111,6 +111,8 @@ export const decisionTrees = pgTable(
       .default('draft'),
     branches: jsonb('branches').notNull().default([]),
     recoveryLadder: jsonb('recovery_ladder').notNull().default([]),
+    /** Accumulated LeverSetting map from philosophy / tier jobs. */
+    leverState: jsonb('lever_state').notNull().default({}),
     sourceClass: text('source_class', {
       enum: ['deterministic_placeholder', 'model_generated', 'operator'],
     })

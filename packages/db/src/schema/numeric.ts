@@ -45,6 +45,7 @@ export const numericValues = pgTable(
     sourceClass: text('source_class', {
       enum: [
         'live_feed',
+        'synthetic_sim',
         'broker_state',
         'ledger',
         'derived',

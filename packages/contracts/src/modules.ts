@@ -59,32 +59,30 @@ export const LINK_RULES: Readonly<Record<string, readonly LinkKind[]>> = {
   'trend->trading': ['directive'],
   'trend->simulator': ['directive'],
   'trading->policy': ['directive'],
-  'trading->fund_router': ['fund_route'],
+  // Funds only flow through Math (never into LLM / model-bearing nodes).
   'holding_fund->math': ['fund_route'],
-  'holding_fund->fund_router': ['fund_route'],
   'math->fund_router': ['fund_route'],
-  'fund_router->trading': ['fund_route'],
+  'fund_router->math': ['fund_route'],
+  'math->holding_fund': ['fund_route'],
   'simulator->trend': ['verification'],
   'simulator->research': ['verification'],
   'analyzer->trend': ['verification', 'data_feed'],
   'analyzer->research': ['verification', 'data_feed'],
   'trading->analyzer': ['verification'],
   'analyzer->policy': ['verification'],
-  // Dedicated Math ownership (D-033): owner input/context → Math.
+  // Dedicated Math ownership (D-033): owner input/context ↔ Math (data only).
   'research->math': ['data_feed'],
   'trend->math': ['data_feed'],
   'trading->math': ['data_feed'],
   'simulator->math': ['data_feed'],
   'analyzer->math': ['data_feed'],
   'generator->math': ['data_feed'],
-  // Trading capital must traverse the trading owner's dedicated Math tool.
-  'fund_router->math': ['fund_route'],
-  // Math TOOL attachments (D-028): one Math may attach to many consumers.
+  // Math TOOL attachments (D-028): calculated ValueRefs return as data_feed.
   'math->research': ['data_feed'],
   'math->library': ['data_feed'],
   'math->live_api': ['data_feed'],
   'math->trend': ['data_feed'],
-  'math->trading': ['data_feed', 'fund_route'],
+  'math->trading': ['data_feed'],
   'math->simulator': ['data_feed'],
   'math->analyzer': ['data_feed'],
   'math->policy': ['data_feed'],
@@ -95,6 +93,24 @@ export const LINK_RULES: Readonly<Record<string, readonly LinkKind[]>> = {
   'trend->display': ['data_feed'],
   'live_api->display': ['data_feed'],
 };
+
+/** Module types allowed on either end of a fund_route edge. */
+export const FUND_ROUTE_MODULE_TYPES: ReadonlySet<ModuleType> = new Set([
+  'math',
+  'holding_fund',
+  'fund_router',
+]);
+
+/**
+ * Fund routes must traverse Math: both ends are fund participants and at
+ * least one end is Math. LLM / model-bearing nodes never carry fund_route.
+ */
+export function isLegalFundRoute(from: ModuleType, to: ModuleType): boolean {
+  if (!FUND_ROUTE_MODULE_TYPES.has(from) || !FUND_ROUTE_MODULE_TYPES.has(to)) {
+    return false;
+  }
+  return from === 'math' || to === 'math';
+}
 
 export function allowedLinkKinds(from: ModuleType, to: ModuleType): readonly LinkKind[] {
   return LINK_RULES[`${from}->${to}`] ?? [];

@@ -151,10 +151,9 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'directive' },
-      // Fund path uses the trading owner's dedicated Math (provisioned at insert),
-      // not the shared company Math seed — avoids doubled Math in default seeds.
-      { fromIndex: 5, toIndex: 6, linkKind: 'fund_route' },
-      { fromIndex: 6, toIndex: 4, linkKind: 'fund_route' },
+      { fromIndex: 5, toIndex: 'math', linkKind: 'fund_route' },
+      { fromIndex: 'math', toIndex: 6, linkKind: 'fund_route' },
+      // fund_router → trading owner Math is provisioned at insert (not stubbed here).
       { fromIndex: 4, toIndex: 7, linkKind: 'verification' },
       { fromIndex: 7, toIndex: 8, linkKind: 'verification' },
       { fromIndex: 4, toIndex: 8, linkKind: 'directive' },
@@ -307,10 +306,9 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'directive' },
-      // Fund path uses the trading owner's dedicated Math (provisioned at insert),
-      // not the shared company Math seed — avoids doubled Math in default seeds.
-      { fromIndex: 5, toIndex: 6, linkKind: 'fund_route' },
-      { fromIndex: 6, toIndex: 4, linkKind: 'fund_route' },
+      { fromIndex: 5, toIndex: 'math', linkKind: 'fund_route' },
+      { fromIndex: 'math', toIndex: 6, linkKind: 'fund_route' },
+      // fund_router → trading owner Math is provisioned at insert (not stubbed here).
       { fromIndex: 4, toIndex: 7, linkKind: 'verification' },
       { fromIndex: 7, toIndex: 8, linkKind: 'verification' },
       { fromIndex: 4, toIndex: 8, linkKind: 'directive' },
@@ -420,10 +418,9 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'directive' },
-      // Fund path uses the trading owner's dedicated Math (provisioned at insert),
-      // not the shared company Math seed — avoids doubled Math in default seeds.
-      { fromIndex: 5, toIndex: 6, linkKind: 'fund_route' },
-      { fromIndex: 6, toIndex: 4, linkKind: 'fund_route' },
+      { fromIndex: 5, toIndex: 'math', linkKind: 'fund_route' },
+      { fromIndex: 'math', toIndex: 6, linkKind: 'fund_route' },
+      // fund_router → trading owner Math is provisioned at insert (not stubbed here).
       { fromIndex: 4, toIndex: 7, linkKind: 'verification' },
       { fromIndex: 7, toIndex: 8, linkKind: 'verification' },
       { fromIndex: 4, toIndex: 8, linkKind: 'directive' },
@@ -584,10 +581,9 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
       { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'directive' },
-      // Fund path uses the trading owner's dedicated Math (provisioned at insert),
-      // not the shared company Math seed — avoids doubled Math in default seeds.
-      { fromIndex: 5, toIndex: 6, linkKind: 'fund_route' },
-      { fromIndex: 6, toIndex: 4, linkKind: 'fund_route' },
+      { fromIndex: 5, toIndex: 'math', linkKind: 'fund_route' },
+      { fromIndex: 'math', toIndex: 6, linkKind: 'fund_route' },
+      // fund_router → trading owner Math is provisioned at insert (not stubbed here).
       { fromIndex: 4, toIndex: 7, linkKind: 'verification' },
       { fromIndex: 7, toIndex: 8, linkKind: 'verification' },
       { fromIndex: 4, toIndex: 8, linkKind: 'directive' },

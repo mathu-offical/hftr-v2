@@ -28,6 +28,7 @@ import {
   CreateModuleInput,
   deriveGeneratedModuleName,
   handleIdForLink,
+  isLegalFundRoute,
   LINK_KIND_ORDER,
   linkKindForHandlePair,
   missingModuleSetupFields,
@@ -129,9 +130,33 @@ describe('canvas link port helpers', () => {
 
   it('derives trading inbound/outbound ports from LINK_RULES in canonical order', () => {
     expect(moduleLinkPorts('trading')).toEqual({
-      inbound: ['data_feed', 'directive', 'fund_route'],
-      outbound: ['data_feed', 'directive', 'verification', 'fund_route'],
+      inbound: ['data_feed', 'directive'],
+      outbound: ['data_feed', 'directive', 'verification'],
     });
+  });
+
+  it('keeps fund_route ports only on Math and fund modules', () => {
+    expect(moduleLinkPorts('math')).toEqual({
+      inbound: ['data_feed', 'fund_route'],
+      outbound: ['data_feed', 'fund_route'],
+    });
+    expect(moduleLinkPorts('holding_fund').outbound).toContain('fund_route');
+    expect(moduleLinkPorts('holding_fund').inbound).toContain('fund_route');
+    expect(moduleLinkPorts('fund_router').inbound).toContain('fund_route');
+    expect(moduleLinkPorts('fund_router').outbound).toContain('fund_route');
+    expect(moduleLinkPorts('trading').inbound).not.toContain('fund_route');
+    expect(moduleLinkPorts('trading').outbound).not.toContain('fund_route');
+    expect(moduleLinkPorts('research').inbound).not.toContain('fund_route');
+  });
+
+  it('requires fund routes to traverse Math', () => {
+    expect(isLegalFundRoute('holding_fund', 'math')).toBe(true);
+    expect(isLegalFundRoute('math', 'fund_router')).toBe(true);
+    expect(isLegalFundRoute('fund_router', 'math')).toBe(true);
+    expect(isLegalFundRoute('holding_fund', 'fund_router')).toBe(false);
+    expect(isLegalFundRoute('fund_router', 'trading')).toBe(false);
+    expect(isLegalFundRoute('math', 'trading')).toBe(false);
+    expect(allowedLinkKinds('math', 'trading')).toEqual(['data_feed']);
   });
 
   it('derives trend ports with only kinds the type participates in', () => {
@@ -433,8 +458,12 @@ describe('company templates', () => {
           `${template.id}: ${from!.type}->${to!.type}`,
         ).toContain(l.linkKind);
         if (l.linkKind === 'fund_route') {
-          expect(l.fromIndex, `${template.id} fund from`).not.toBe('math');
-          expect(l.toIndex, `${template.id} fund to`).not.toBe('math');
+          // Seed fund path must traverse shared Math (holding → math → router).
+          expect(
+            l.fromIndex === 'math' || l.toIndex === 'math',
+            `${template.id} fund must involve math`,
+          ).toBe(true);
+          expect(isLegalFundRoute(from!.type, to!.type)).toBe(true);
         }
       }
     }
@@ -463,11 +492,13 @@ describe('engine templates', () => {
           allowedLinkKinds(from!.type, to!.type),
           `${engine.id}: ${from!.type}->${to!.type}`,
         ).toContain(l.linkKind);
-        // Dedicated trading Math owns the fund path — shared company Math must
-        // not appear in default seeded fund routes (D-033).
+        // Holding → shared Math → fund_router; trading owner Math is wired at insert.
         if (l.linkKind === 'fund_route') {
-          expect(l.fromIndex, `${engine.id} fund from`).not.toBe('math');
-          expect(l.toIndex, `${engine.id} fund to`).not.toBe('math');
+          expect(
+            l.fromIndex === 'math' || l.toIndex === 'math',
+            `${engine.id} fund must involve math`,
+          ).toBe(true);
+          expect(isLegalFundRoute(from!.type, to!.type)).toBe(true);
         }
       }
       for (const input of engine.inputs) {

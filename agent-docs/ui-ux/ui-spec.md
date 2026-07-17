@@ -234,9 +234,11 @@ after applying SQL migrations.
 1. Sign up (Clerk) → create company via wizard → canvas renders template graph. *(M1 subset:
    auth-bypass create + canvas — not Clerk sign-up.)*
 2. Buy credits (Stripe test) → seed paper company → allocations visible on trading nodes.
-3. Run pipeline: trigger research module → concepts appear (left panel + galaxy) → trend module
-   emits trend → lead → tree → compiled instruction → paper dispatch → trace in right panel,
-   with canvas edges animating during each hop.
+3. Run pipeline: trigger research module (manual query / Curate now / company sweep) →
+   evidence list + validation → concepts appear (left panel + galaxy; auto-admit or proposed)
+   → trend module promotes with admitted library refs → trading module receives lead → paper
+   dispatch → fill appears in right panel Executions + Ledger, with canvas edges animating
+   during each hop.
 4. Connect Alpaca paper keys → verify handshake → switch a company to Alpaca paper → dispatch
    reaches Alpaca sandbox → reconciliation trace.
 5. Assistant: "add a day-trading module linked to my main library" → proposal card → confirm →

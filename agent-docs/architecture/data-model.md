@@ -121,12 +121,19 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   trading/trend modules only (API 422s otherwise); surfaces in the bottom panel's
   Watch lists tab and the module inspector. Migration `0003_bitter_piledriver`. D-017.
 - **concepts** — research-module curated knowledge rows (title, body, tags jsonb,
-  source_class `deterministic_placeholder|model_generated|operator`). Written by
-  `research.curate` (catalog-backed placeholder until LLM tiers wire). Migration
-  `0004_petite_hellfire_club`. D-021.
+  source_class `deterministic_placeholder|model_generated|operator`, optional
+  `research_run_id`). Written by the D-039 synthesize/admit path (orchestrated by
+  `research.curate`). Migration `0004_petite_hellfire_club`; research bus `0019`.
+- **research_requests / research_evidence / research_results / research_runs** — typed research
+  bus (D-039): request envelope + mode, append-only evidence packages, validation/admission
+  projection, operator-visible run phase. Migrations `0019_research_bus`, `0020_research_keys`.
+- **library_concepts** — curation_status includes `auto_admitted` (D-039 admission default).
 - **lead_packages** — six-gate admission record (activation-validation.md): trend →
   gates jsonb evidence, status `pending|admitted|rejected|decomposed|expired`,
   strategy_family, optional target trading module. Written by `trend.promote`. D-021.
+  `evidence_fit` consults admitted library artifact refs when library concepts exist (D-039).
+- **trend_candidates** — optional `artifact_refs` jsonb copied from admitted library refs at
+  promote (migration `0021_trend_artifact_refs`).
 - **decision_trees** — tactical decomposition of an admitted lead: branches jsonb,
   recovery_ladder jsonb, status `draft|compile_ready|compile_blocked|dispatched|
   invalidated`, source_class honest placeholder labeling. D-021.

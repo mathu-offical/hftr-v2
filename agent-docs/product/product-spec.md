@@ -68,17 +68,24 @@ All default node names describe actual function. Fund/router nodes are **visible
 M1 — deterministic fund movement is not implemented by this slice (D-023).
 
 ### Research modules (model-bearing, curious)
-- Autonomous agents building tagged concept databases; opportunistic source-seeking (scoped web
-  research via provider tools; Brave Search optional).
+- Autonomous agents building tagged concept databases; opportunistic multi-source gather
+  (Brave Search, SEC EDGAR filings, market/news feeds) plus model-free validation before
+  optional strategic synthesis (D-039).
 - Config: topic scope, curiosity level (exploration vs exploitation ratio), cadence, target
-  libraries, source allowlist/blocklist.
-- Output: concepts + tags + typed links (galaxy graph), library curation proposals.
-- Progress view: topics tree, recent concepts, coverage stats, next planned inquiries.
+  libraries, source allowlist/blocklist, **admission mode** (`auto_admit_validated` default or
+  `require_operator_approval`).
+- Query origins: manual operator query, module-auto from linked trend/promote events,
+  company-wide sweep, research cadence schedule.
+- Output: evidence packages → validated concepts + tags + typed links (galaxy graph); library
+  curation as `auto_admitted` or `proposed` per admission mode.
+- Progress view: topics tree, recent concepts, evidence list, validation scores, coverage stats,
+  next planned inquiries.
 
 ### Data modules
 - **Libraries:** curated knowledge bases hydrated by research modules; per-company, shareable
   across modules; scoped by topic but cross-referenced (all libraries are subsets of the master
-  library graph). Views: browse/tag/search, graph view, markdown preview.
+  library graph). Curation statuses include `proposed`, `accepted`, `auto_admitted`, `rejected`,
+  `archived`. Views: browse/tag/search, graph view, markdown preview.
   **Export: Obsidian-optimized folder of .md files** (frontmatter: tags, links as wikilinks,
   provenance) — zip download per library or whole company.
 - **Live APIs:** deterministic feed managers (Alpaca data, Kalshi books, future venues).

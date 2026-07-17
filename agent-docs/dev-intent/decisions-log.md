@@ -422,6 +422,18 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `data_feed` top in/out + `fund_route` left/right; trading exposes no fund handles.
   **Status: implemented and verified.**
 
+- **D-039 (research bus + multi-source gather + admission default, 2026-07-17):**
+  Research is an autonomous two-phase pipeline: model-free `research.gather` (Brave + SEC +
+  market/news, allow/blocklists) → model-free `research.validate` → optional strategic
+  `research.synthesize` → model-free `research.admit`. `research.curate` is a thin orchestrator;
+  `research.company_sweep` fans out across active research modules. Query origins: manual,
+  module-auto (linked trend/promote), company sweep, cadence. Admission default
+  `auto_admit_validated` with per-module `require_operator_approval`. Evidence persists
+  append-only (`research_evidence`); promote `evidence_fit` consults admitted library refs when
+  library concepts exist (not freshness alone). Migrations `0019`–`0021`; research keys in
+  `user_research_keys` (Brave / market_news).
+  **Status: implemented; browser soak pending credentials.**
+
 - **D-036 (auto-disarm + drain latency, 2026-07-17):**
   `autoDisarmCompany` clears `live_armed_at` and `live_gate_evidence_id` on broker verify
   failure, stale evidence while armed (`live-gates/status`), and `resolveExecutionContext` block.

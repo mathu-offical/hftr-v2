@@ -35,11 +35,17 @@ tactical/assistant `cerebras/zai-glm-4.7` (default ZDR), execution `groq/openai/
 (strict json_schema). Optional env model-id overrides must still be allowlisted.
 `HFTR_LLM_MODE=deterministic` forces placeholder handlers for CI.
 
-### Job chain (D-027)
+### Job chain (D-027 / D-039)
 
 ```
-research.curate (RESEARCH) ──optional escalate──► research.strategic (STRATEGIC)
-trend.promote (RESEARCH admission)
+research.curate (RESEARCH orchestrator)
+  → research.gather (RESEARCH, model-free: Brave/SEC/market/news + catalog)
+  → research.validate (RESEARCH, model-free relevance/leak/entitlement)
+  → research.synthesize (STRATEGIC, optional LLM → ConceptBatch)
+  → research.admit (RESEARCH, auto_admit_validated | require_operator_approval)
+research.company_sweep → fan-out research.curate per active research module
+research.strategic (STRATEGIC escalate path; deterministic fallback)
+trend.promote (RESEARCH admission; evidence_fit consults admitted library refs)
   → tactical.expand (TACTICAL)     // TreeExpandOutput or deterministic tree
   → compile.select (COMPILE)       // CompileSelectionOutput bands + deterministic qty
   → dispatch.paper_trade (DISPATCH) // model-free
@@ -48,6 +54,7 @@ trend.promote (RESEARCH admission)
 
 ModelGateway is injected at drain time (inline promote/curate uses the session user;
 cron uses company-owner key resolution). Quantity/price remain calculator-owned.
+Gather + validate never call models; synthesize is the strategic optional stage.
 
 ## 2. Choice-generation over token-generation (v2 spec §"UPDATED LLM MODEL USAGE")
 

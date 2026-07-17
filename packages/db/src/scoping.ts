@@ -1,6 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import type { Db } from './client';
-import { companies, moduleLinks, modules } from './schema/companies';
+import { companies, engineInstances, moduleLinks, modules } from './schema/companies';
 
 /**
  * Ownership-scoped accessors. Every API handler MUST go through these —
@@ -59,4 +59,26 @@ export async function getOwnedModule(
 export async function listLinks(db: Db, clerkUserId: string, companyId: string) {
   await getOwnedCompany(db, clerkUserId, companyId);
   return db.select().from(moduleLinks).where(eq(moduleLinks.companyId, companyId));
+}
+
+export async function listEngineInstances(db: Db, clerkUserId: string, companyId: string) {
+  await getOwnedCompany(db, clerkUserId, companyId);
+  return db.select().from(engineInstances).where(eq(engineInstances.companyId, companyId));
+}
+
+export async function getOwnedEngineInstance(
+  db: Db,
+  clerkUserId: string,
+  companyId: string,
+  engineInstanceId: string,
+) {
+  await getOwnedCompany(db, clerkUserId, companyId);
+  const rows = await db
+    .select()
+    .from(engineInstances)
+    .where(and(eq(engineInstances.id, engineInstanceId), eq(engineInstances.companyId, companyId)))
+    .limit(1);
+  const row = rows[0];
+  if (!row) throw new NotFoundError('engine_instance');
+  return row;
 }

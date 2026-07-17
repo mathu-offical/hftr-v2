@@ -42,6 +42,10 @@ export const companies = pgTable(
     /** Exclusive bind: unique so one broker connection serves at most one company. */
     brokerConnectionId: uuid('broker_connection_id').references(() => brokerConnections.id),
     autoFundPolicy: jsonb('auto_fund_policy').notNull().default({}),
+    /** When set, operator has armed live after passing live-gate evidence (D-031). */
+    liveArmedAt: timestamp('live_armed_at', { withTimezone: true }),
+    /** Latest append-only live_gate_evidence row used for arming. */
+    liveGateEvidenceId: uuid('live_gate_evidence_id'),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     ...timestamps,
   },
@@ -49,6 +53,28 @@ export const companies = pgTable(
     index('companies_owner_idx').on(t.clerkUserId),
     uniqueIndex('companies_broker_connection_unique').on(t.brokerConnectionId),
   ],
+);
+
+/**
+ * Persisted ENGINE group (D-028). Member modules reference this via
+ * modules.engine_instance_id. Math modules are never members.
+ */
+export const engineInstances = pgTable(
+  'engine_instances',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id),
+    templateId: text('template_id').notNull(),
+    label: text('label').notNull(),
+    masterTopicSectors: text('master_topic_sectors').array().notNull().default([]),
+    canvasBounds: jsonb('canvas_bounds'),
+    ...timestamps,
+  },
+  (t) => [index('engine_instances_company_idx').on(t.companyId)],
 );
 
 export const modules = pgTable(
@@ -92,13 +118,20 @@ export const modules = pgTable(
       .notNull()
       .default(sql`0`),
     topicSectors: text('topic_sectors').array().notNull().default([]),
+    topicSectorsOverridden: boolean('topic_sectors_overridden').notNull().default(false),
     capitalAllocationRef: text('capital_allocation_ref'),
     targetExitRef: text('target_exit_ref'),
     canvasPosition: jsonb('canvas_position').notNull().default({ x: 0, y: 0 }),
     philosophyOverride: text('philosophy_override'),
+    engineInstanceId: uuid('engine_instance_id').references(() => engineInstances.id, {
+      onDelete: 'set null',
+    }),
     ...timestamps,
   },
-  (t) => [index('modules_company_idx').on(t.companyId)],
+  (t) => [
+    index('modules_company_idx').on(t.companyId),
+    index('modules_engine_instance_idx').on(t.engineInstanceId),
+  ],
 );
 
 export const moduleLinks = pgTable(

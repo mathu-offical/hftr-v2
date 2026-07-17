@@ -19,6 +19,7 @@ out/
 .DS_Store
 *.log
 .cursor/runtime/
+.worktrees/
 
 # Test / coverage
 coverage/

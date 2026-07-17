@@ -23,6 +23,7 @@ implementation proceeds.
 | `plans/m0-sprint-spec.md`, `plans/m1-sprint-spec.md` | Execution-level task breakdowns per milestone |
 | `architecture/system-architecture.md` | Full-stack architecture: tiers, boundaries, services, monorepo layout |
 | `architecture/data-model.md` | Complete v2 Postgres schema (Neon), entity contracts |
+| `architecture/engine-node-family-design.md` | D-042: canvas families, v1→node map, research/Math types, ENGINE specialties |
 | `architecture/llm-pipeline.md` | Three-tier Claude/Mistral/Groq pipeline, schemas, rate-limit strategy |
 | `architecture/job-orchestration.md` | Custom Postgres queue + scheduler design (no vendor lock-in) |
 | `architecture/number-handling.md` | Numeric + temporal reference architecture: ValueRef store, calculator, clock/calendar authority, leak linting, Math module |

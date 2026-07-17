@@ -444,6 +444,20 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   and library gather EvidencePackages. `fund_route` remains topology-only (D-023 / REQ-DEF-001).
   **Status: implemented; unit tests on graph helpers + library gather normalize.**
 
+- **D-042 (engine node families + v1 detail mapping + typed Math/research, 2026-07-17):**
+  Canvas stays operator modules; v1 stages (`research_topic`…`loop_refine`) map into owning
+  nodes and surface in a **detail modal** (observe + bounded tune). Shared control plane for
+  user + LLM (user owns high-level directives; opt-in manual on any in-envelope lever).
+  Execution ENGINEs = full spine with specialties (day/crypto/prediction/long_term/hft).
+  Research ENGINEs specialize by research type (web fabric, filings, seed mechanisms, event,
+  market regime lab, crypto context, prediction niche, desk-aligned, multi-curator).
+  New `librarian` module type; research/library/math subtypes in config; typed Math
+  (`company_hub`, `fund_path`, `desk_execution`, `trend_signal`, `research_metric`,
+  `analyzer_reconcile`, `simulator_sandbox`, `session_calendar`). Spec:
+  `architecture/engine-node-family-design.md`. **Status: implemented (contracts + templates +
+  librarian module + typed Math + process detail modal + inspector forms); browser E2E for new
+  research ENGINE insert pending follow-up.**
+
 - **D-036 (auto-disarm + drain latency, 2026-07-17):**
   `autoDisarmCompany` clears `live_armed_at` and `live_gate_evidence_id` on broker verify
   failure, stale evidence while armed (`live-gates/status`), and `resolveExecutionContext` block.
@@ -465,10 +479,11 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   links + ordered concept sections (research/librarian curation). Topics/concepts track
   query and reference counts for system optimization and visual weight. Spec:
   `ui-ux/research-galaxy-topic-view-design.md`; mirrored in `ui-spec.md` §4/§6,
-  `product-spec.md`, `data-model.md`. **Status: implemented and verified** (migration `0022`,
-  APIs, Research overlay Galaxy|Article, nested GalaxyView, topic membership + usage;
-  Playwright `research-galaxy-topics` + `research-library` pass; IronBee Open galaxy on
-  Momentum Desk).
+  `product-spec.md`, `data-model.md`. **Status: implemented** — migration `0022`; APIs;
+  Research overlay Galaxy|Article; nested GalaxyView hulls with hard nest clamp; topic focus
+  dim/path + zoomToFit + include-neighbors; Article `[[wikilink]]` resolve; synopsis leak lint;
+  library filter chips; query bump-once; topic membership + usage. Playwright
+  `research-galaxy-topics` pass. Remaining for G2 sign-off: credentialed provider soak.
 
 ## Open questions
 

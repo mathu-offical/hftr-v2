@@ -71,6 +71,9 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
 - Autonomous agents building tagged concept databases; opportunistic multi-source gather
   (Brave Search, SEC EDGAR filings, market/news feeds) plus model-free validation before
   optional strategic synthesis (D-039).
+- **Subtypes (D-042):** `external_web`, `external_filings`, `external_market_news`,
+  `specialty_desk`, `event_catalyst`, `crypto_onchain_context`, `prediction_niche` — set via
+  `config.researchSubtype`; specialty packs seed with matching execution/research ENGINEs.
 - Config: topic scope, curiosity level (exploration vs exploitation ratio), cadence, target
   libraries, source allowlist/blocklist, **admission mode** (`auto_admit_validated` default or
   `require_operator_approval`).
@@ -89,12 +92,18 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
 - Progress / UI: left-panel topics list → main overlay **Galaxy | Article** tabs; nested
   library galaxy; topic focus (dim + animated path). See
   `ui-ux/research-galaxy-topic-view-design.md`.
+- **Process detail (D-042):** node detail modal maps v1 `research_topic` stages (gather →
+  validate → synthesize → admit) with observe + bounded tune; same levers for operator and LLM.
 
 ### Librarian modules (model-bearing, company-scoped)
 - Query existing library resources; curate and sanity/relevance-check them; assign relevance
   scores across metrics; may create/reorganize libraries and update topic memberships /
   synopses so the knowledge graph stays coherent for operators and downstream promote/
   evidence_fit paths (aligns with DevSpecs research-library philosophy; D-040).
+- **First-class canvas module type `librarian` (D-042)** with subtypes `librarian_relevance`
+  and `librarian_seed_keeper`. May sit inside research ENGINEs or free at company scope.
+- Links: `librarian→library` and `library→librarian` `data_feed`; Math attach via
+  `research_metric` tools when needed.
 
 ### Data modules
 - **Libraries:** curated knowledge bases hydrated by research modules; per-company, shareable
@@ -117,7 +126,8 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
 ### Trading modules (expertise presets)
 - Common core: v1 pipeline embedded (tactical trees → compile → deterministic dispatch →
   verification), seed allocation, desired exit timeline, attached data/research/trend modules,
-  full internal verification loop.
+  full internal verification loop. **Detail modal (D-042)** exposes tree/compile/dispatch/
+  loop_refine as observe + bounded-tune layers (not separate canvas nodes).
 - Presets tune default strategy families, bands, cadences, venues:
   - **Crypto** — 24/7 sessions, Alpaca crypto (then Coinbase), cross-cap trend watching.
   - **Prediction markets** — Kalshi/Polymarket adapters, probability-edge families, niche data
@@ -130,6 +140,12 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   - **Long-term** — stability/liquidity balance targets, long-horizon trends, one-time event
     positioning, lowest cadence.
 - Custom type via Module generator.
+- **ENGINE templates (D-042):** execution specialties share one full-spine topology; research
+  ENGINE specialties (`research_web_fabric`, `research_filings_fundamentals`,
+  `research_seed_mechanisms`, `research_event_catalyst`, `research_market_regime_lab`,
+  `research_crypto_context`, `research_prediction_niche`, `research_desk_aligned`,
+  `research_multi_curator`) seed curator + library (+ optional trend/live) packs. See
+  `architecture/engine-node-family-design.md`.
 
 ### Utility modules
 - **Holding fund (shipped D-023):** represents a deterministic capital source on the canvas
@@ -152,8 +168,11 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   results, static formula catalog. Exists so users can audit exactly which numbers drive fund
   pipelines and executions. Seeded engines wire `holding_fund → math → fund_router` fund routes.
   D-028: additional Math modules may be created and deleted; each may `data_feed`-attach to
-  multiple consumer modules (never joins an ENGINE group). See `architecture/number-handling.md`
-  and `ui-ux/canvas-engine-group-design.md`.
+  multiple consumer modules (never joins an ENGINE group).
+  **Math types (D-042):** `company_hub`, `fund_path`, `desk_execution`, `trend_signal`,
+  `research_metric`, `analyzer_reconcile`, `simulator_sandbox`, `session_calendar` — stored in
+  `config.mathType`; dedicated tools provision with the type matching the owner. See
+  `architecture/number-handling.md` and `architecture/engine-node-family-design.md`.
 
 ## 4. Funds model
 

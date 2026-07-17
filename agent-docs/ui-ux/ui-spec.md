@@ -66,10 +66,17 @@
   members; exit is the same overall deadline. Inspector/module PATCH supports **Restore
   engine topic** (`restoreEngineTopic`). Delete engine: modal offers **cascade** (remove
   members + links) vs **ungroup** (keep modules, clear membership).
-- **Math tools (D-028 / D-033):** additional Math modules may be created from the palette and
+- **Math tools (D-028 / D-033 / D-042):** additional Math modules may be created from the palette and
   deleted; each may `data_feed`-attach to allowed consumer types. Dedicated Math tools render as
   compact nodes with **data handles on top** (owner connection) and **fund handles left→right**.
-  Fund routes never attach to LLM / model-bearing nodes — capital terminates at Math.
+  **Typed Math** (`company_hub`, `fund_path`, `desk_execution`, `trend_signal`, `research_metric`,
+  `analyzer_reconcile`, `simulator_sandbox`, `session_calendar`) selects allowed op families via
+  `config.mathType`. Fund routes never attach to LLM / model-bearing nodes — capital terminates at Math.
+- **Node process detail (D-042):** module detail modal maps owned v1 process layers (observe +
+  bounded tune). Stage adjacency is not rewirable; levers are shared with LLM analysis. Spec:
+  `architecture/engine-node-family-design.md`. Execution ENGINE specialties share the full spine;
+  research ENGINE specialties seed curator/library packs (`research_*` templates). Librarian is a
+  first-class palette module type.
 - **Edge routing (implemented D-023):** stored and newly created edges use React Flow
   `type: 'smoothstep'`; connection drag preview uses `ConnectionLineType.SmoothStep`. This yields
   rounded right-angle routing with column spacing as the primary collision control. **Not**

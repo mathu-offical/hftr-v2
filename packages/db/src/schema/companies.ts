@@ -97,6 +97,7 @@ export const modules = pgTable(
     type: text('type', {
       enum: [
         'research',
+        'librarian',
         'library',
         'live_api',
         'trend',

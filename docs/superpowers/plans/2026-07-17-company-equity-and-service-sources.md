@@ -96,7 +96,7 @@ Expected: PASS.
 
 **Files:**
 
-- Create: `packages/db/migrations/0018_company_equity_service_bindings.sql`
+- Create: `packages/db/migrations/0022_company_equity_service_bindings.sql`
 - Modify: `packages/db/migrations/meta/_journal.json`
 - Modify: `packages/db/src/schema/companies.ts`
 - Modify: `packages/db/src/schema/brokers.ts`

@@ -4,11 +4,16 @@ import {
   missingModuleSetupFields,
   MODULE_CONFIG_SCHEMAS,
   UpdateModuleInput,
+  type LinkKind,
   type ModuleType,
 } from '@hftr/contracts';
 import { moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
-import { createSystemClock, ensureResearchCadenceSchedule } from '@hftr/engine';
+import {
+  activationGraphBlockers,
+  createSystemClock,
+  ensureResearchCadenceSchedule,
+} from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import {
   refreshGeneratedModuleNames,
@@ -51,9 +56,37 @@ export async function PATCH(req: Request, ctx: Ctx) {
           ? 'pending_operator_value_ref'
           : existing.targetExitRef,
     };
+    const targetStatus = input.status ?? existing.status;
     const missingSetup = missingModuleSetupFields(existing.type, proposedSetup);
-    if ((input.status ?? existing.status) === 'active' && missingSetup.length > 0) {
+    if (targetStatus === 'active' && missingSetup.length > 0) {
       throw new ApiError(422, `module_setup_incomplete:${missingSetup.join(',')}`);
+    }
+
+    if (targetStatus === 'active') {
+      const incidentLinks = await db
+        .select({
+          fromModuleId: moduleLinks.fromModuleId,
+          toModuleId: moduleLinks.toModuleId,
+          linkKind: moduleLinks.linkKind,
+        })
+        .from(moduleLinks)
+        .where(
+          and(
+            eq(moduleLinks.companyId, companyId),
+            or(eq(moduleLinks.fromModuleId, moduleId), eq(moduleLinks.toModuleId, moduleId)),
+          ),
+        );
+      const graphBlockers = activationGraphBlockers(
+        { id: moduleId, type: existing.type as ModuleType },
+        incidentLinks.map((row) => ({
+          fromModuleId: row.fromModuleId,
+          toModuleId: row.toModuleId,
+          linkKind: row.linkKind as LinkKind,
+        })),
+      );
+      if (graphBlockers.length > 0) {
+        throw new ApiError(422, 'module_graph_incomplete', { reasons: [...graphBlockers] });
+      }
     }
 
     const patch: Record<string, unknown> = { updatedAt: new Date() };

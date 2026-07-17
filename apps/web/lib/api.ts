@@ -45,7 +45,7 @@ export function errorResponse(err: unknown): NextResponse {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
   if (err instanceof ApiError) {
-    return NextResponse.json({ error: err.code }, { status: err.status });
+    return NextResponse.json({ error: err.code, ...(err.body ?? {}) }, { status: err.status });
   }
   console.error('unhandled api error', err);
   return NextResponse.json({ error: 'internal_error' }, { status: 500 });
@@ -55,6 +55,7 @@ export class ApiError extends Error {
   constructor(
     public readonly status: number,
     public readonly code: string,
+    public readonly body?: Record<string, unknown>,
   ) {
     super(code);
     this.name = 'ApiError';

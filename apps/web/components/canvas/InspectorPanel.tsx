@@ -6,8 +6,12 @@ import { api, RequestError } from '@/lib/client';
 import type { ModuleNameUpdate } from '@/lib/module-generated-name';
 import {
   DisplayConfigForm,
+  LibrarianConfigForm,
+  LibraryConfigForm,
+  MathConfigForm,
   ResearchConfigForm,
   TradingConfigForm,
+  TrendConfigForm,
   TrendScanForm,
   WatchlistForm,
 } from './ModuleControls';
@@ -30,6 +34,7 @@ export function InspectorPanel(props: {
   onUpdated: (id: string, patch: ModulePatch) => void;
   onDeleted: (id: string, renamedModules?: readonly ModuleNameUpdate[]) => void;
   onClose: () => void;
+  onOpenProcess?: () => void;
 }) {
   const { module: mod } = props;
   const [name, setName] = useState(mod.name);
@@ -135,7 +140,22 @@ export function InspectorPanel(props: {
         body: { status },
       });
       props.onUpdated(mod.id, { status });
-    } catch {
+      setError(null);
+    } catch (err) {
+      if (err instanceof RequestError && err.code === 'module_graph_incomplete') {
+        const reasons = Array.isArray(err.details?.reasons)
+          ? (err.details.reasons as string[])
+          : [];
+        setError(
+          reasons[0] ??
+            'Module graph is incomplete — add required inbound links before activating.',
+        );
+        return;
+      }
+      if (err instanceof RequestError && err.code.startsWith('module_setup_incomplete')) {
+        setError('Module setup is incomplete — fill required fields before activating.');
+        return;
+      }
       setError('Status change failed.');
     }
   }
@@ -235,6 +255,16 @@ export function InspectorPanel(props: {
         </div>
       </div>
 
+      {props.onOpenProcess && (
+        <button
+          type="button"
+          onClick={props.onOpenProcess}
+          className="w-full rounded-md border border-[var(--color-line)] px-3 py-2 text-xs text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+        >
+          Process
+        </button>
+      )}
+
       {mod.type === 'trading' && (
         <>
           <TradingConfigForm companyId={props.companyId} moduleId={mod.id} />
@@ -249,6 +279,7 @@ export function InspectorPanel(props: {
 
       {mod.type === 'trend' && (
         <>
+          <TrendConfigForm companyId={props.companyId} moduleId={mod.id} />
           <TrendScanForm
             companyId={props.companyId}
             moduleId={mod.id}
@@ -266,6 +297,16 @@ export function InspectorPanel(props: {
         <ResearchConfigForm companyId={props.companyId} moduleId={mod.id} />
       )}
 
+      {mod.type === 'librarian' && (
+        <LibrarianConfigForm companyId={props.companyId} moduleId={mod.id} />
+      )}
+
+      {mod.type === 'library' && (
+        <LibraryConfigForm companyId={props.companyId} moduleId={mod.id} />
+      )}
+
+      {mod.type === 'math' && <MathConfigForm companyId={props.companyId} moduleId={mod.id} />}
+
       {(mod.type === 'holding_fund' || mod.type === 'fund_router') && (
         <p className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] p-2 text-xs leading-relaxed text-[var(--color-ink-faint)]">
           Visible paper topology only. This module does not move funds yet; future transfers must
@@ -276,8 +317,8 @@ export function InspectorPanel(props: {
 
       {isMath ? (
         <p className="text-xs leading-relaxed text-[var(--color-ink-faint)]">
-          The Math module audits every number and timestamp in this company. It is created with the
-          company and cannot be deleted.
+          The company Math hub audits every number and timestamp. It is created with the company and
+          cannot be deleted.
         </p>
       ) : (
         <button

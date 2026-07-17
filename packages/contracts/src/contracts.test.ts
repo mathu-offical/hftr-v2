@@ -6,7 +6,7 @@ import { HandoffEnvelope } from './foundation';
 import { allowedLinkKinds, MODULE_CONFIG_SCHEMAS, ModuleType } from './modules';
 import { ValueRefHandle, CalcRequest } from './numeric';
 import { ActionInstruction } from './pipeline';
-import { COMPANY_TEMPLATES } from './templates';
+import { COMPANY_TEMPLATES, ENGINE_TEMPLATES } from './templates';
 
 describe('env manifest', () => {
   it('matches .env.example exactly', () => {
@@ -96,6 +96,35 @@ describe('company templates', () => {
       for (const l of template.links) {
         expect(template.modules[l.fromIndex]).toBeDefined();
         expect(template.modules[l.toIndex]).toBeDefined();
+      }
+    }
+  });
+});
+
+describe('engine templates', () => {
+  it('available engines have valid configs, legal links, and resolvable inputs', () => {
+    for (const engine of ENGINE_TEMPLATES) {
+      if (!engine.available) {
+        expect(engine.unavailableReason, engine.id).toBeTruthy();
+        continue;
+      }
+      expect(engine.modules.length, engine.id).toBeGreaterThan(0);
+      for (const m of engine.modules) {
+        const result = MODULE_CONFIG_SCHEMAS[m.type].safeParse(m.config);
+        expect(result.success, `${engine.id}/${m.name}`).toBe(true);
+      }
+      for (const l of engine.links) {
+        const from = engine.modules[l.fromIndex];
+        const to = engine.modules[l.toIndex];
+        expect(from, `${engine.id} link from`).toBeDefined();
+        expect(to, `${engine.id} link to`).toBeDefined();
+        expect(
+          allowedLinkKinds(from!.type, to!.type),
+          `${engine.id}: ${from!.type}->${to!.type}`,
+        ).toContain(l.linkKind);
+      }
+      for (const input of engine.inputs) {
+        expect(engine.modules[input.target.moduleIndex], `${engine.id}/${input.key}`).toBeDefined();
       }
     }
   });

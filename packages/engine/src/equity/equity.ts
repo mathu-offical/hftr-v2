@@ -48,7 +48,21 @@ export type CompanyEquityResult =
       missingSymbols: string[];
     };
 
+function unavailable(reason: string, missingSymbols: string[] = []): CompanyEquityResult {
+  return { status: 'unavailable', reason, missingSymbols };
+}
+
+function isFiniteNonNegative(n: number): boolean {
+  return Number.isFinite(n) && n >= 0;
+}
+
+function isPositiveFinite(n: number): boolean {
+  return Number.isFinite(n) && n > 0;
+}
+
+/** Fresh only when capturedAtMs is in [nowMs - ttlMs, nowMs] (no future marks). */
 function isFresh(mark: EquityMarkCandidate, nowMs: number, ttlMs: number): boolean {
+  if (mark.capturedAtMs > nowMs) return false;
   return nowMs - mark.capturedAtMs <= ttlMs;
 }
 
@@ -64,6 +78,7 @@ function deterministicMedian(values: readonly bigint[]): bigint {
   return (sorted[mid - 1]! + sorted[mid]!) / 2n;
 }
 
+/** Dedupe by sourceId keeping newest capturedAtMs; tie-break keeps lexicographically smaller sourceId. */
 function dedupeMarksBySourceId(
   marks: readonly EquityMarkCandidate[],
 ): EquityMarkCandidate[] {
@@ -77,6 +92,32 @@ function dedupeMarksBySourceId(
   return [...bySource.values()].sort((a, b) =>
     a.sourceId < b.sourceId ? -1 : a.sourceId > b.sourceId ? 1 : 0,
   );
+}
+
+/**
+ * Among deduped marks, pick newest capturedAtMs; on tie, lexicographically smallest sourceId.
+ */
+function pickNewestMark(
+  marks: readonly EquityMarkCandidate[],
+): EquityMarkCandidate | null {
+  const deduped = dedupeMarksBySourceId(marks);
+  if (deduped.length === 0) return null;
+
+  let best = deduped[0]!;
+  for (let i = 1; i < deduped.length; i++) {
+    const candidate = deduped[i]!;
+    if (candidate.capturedAtMs > best.capturedAtMs) {
+      best = candidate;
+      continue;
+    }
+    if (
+      candidate.capturedAtMs === best.capturedAtMs &&
+      candidate.sourceId < best.sourceId
+    ) {
+      best = candidate;
+    }
+  }
+  return best;
 }
 
 interface ResolvedPositionMark {
@@ -94,20 +135,45 @@ function resolvePositionMark(
     (candidate) => candidate.symbol === position.symbol && isFresh(candidate, nowMs, ttlMs),
   );
 
-  if (position.connectionId) {
-    const brokerMark = freshForSymbol.find(
-      (candidate) =>
-        candidate.kind === 'broker_market_value' &&
-        candidate.connectionId === position.connectionId,
+  const brokerBacked = position.connectionId !== undefined;
+
+  if (brokerBacked) {
+    const brokerMark = pickNewestMark(
+      freshForSymbol.filter(
+        (candidate) =>
+          candidate.kind === 'broker_market_value' &&
+          candidate.connectionId === position.connectionId,
+      ),
     );
     if (brokerMark) {
       return { valueCents: brokerMark.valueCents, usedSourceIds: [brokerMark.sourceId] };
     }
+
+    if (position.venue) {
+      const venueMark = pickNewestMark(
+        freshForSymbol.filter(
+          (candidate) =>
+            candidate.kind === 'venue_quote' && candidate.venue === position.venue,
+        ),
+      );
+      if (venueMark) {
+        return {
+          valueCents: position.qty * venueMark.valueCents,
+          usedSourceIds: [venueMark.sourceId],
+        };
+      }
+    }
+
+    // Broker-backed positions never fall back to paper_quote median.
+    return null;
   }
 
   if (position.venue) {
-    const venueMark = freshForSymbol.find(
-      (candidate) => candidate.kind === 'venue_quote' && candidate.venue === position.venue,
+    const venueMark = pickNewestMark(
+      freshForSymbol.filter(
+        (candidate) =>
+          candidate.kind === 'venue_quote' && candidate.venue === position.venue,
+      ),
     );
     if (venueMark) {
       return {
@@ -134,13 +200,29 @@ function resolvePositionMark(
 export function calculateCompanyEquity(input: CalculateCompanyEquityInput): CompanyEquityResult {
   const { cash, positions, marks, nowMs, ttlMs } = input;
 
+  if (!isFiniteNonNegative(nowMs) || !isPositiveFinite(ttlMs)) {
+    return unavailable('invalid_timing');
+  }
+
+  for (const candidate of marks) {
+    if (!isFiniteNonNegative(candidate.capturedAtMs)) {
+      return unavailable('invalid_timing');
+    }
+  }
+
   if (cash.cashCents < 0n) {
-    return { status: 'unavailable', reason: 'negative_cash', missingSymbols: [] };
+    return unavailable('negative_cash');
   }
 
   for (const candidate of marks) {
     if (candidate.valueCents < 0n) {
-      return { status: 'unavailable', reason: 'negative_mark', missingSymbols: [] };
+      return unavailable('negative_mark');
+    }
+  }
+
+  for (const row of positions) {
+    if (row.qty < 0n) {
+      return unavailable('negative_position_qty');
     }
   }
 
@@ -162,11 +244,7 @@ export function calculateCompanyEquity(input: CalculateCompanyEquityInput): Comp
   }
 
   if (missingSymbols.length > 0) {
-    return {
-      status: 'unavailable',
-      reason: 'missing_fresh_marks',
-      missingSymbols: [...missingSymbols].sort(),
-    };
+    return unavailable('missing_fresh_marks', [...missingSymbols].sort());
   }
 
   const usedSourceIds = [...usedSourceIdSet].sort();

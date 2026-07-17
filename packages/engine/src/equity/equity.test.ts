@@ -374,4 +374,324 @@ describe('calculateCompanyEquity', () => {
       missingSymbols: [],
     });
   });
+
+  it('never falls back to paper median for broker-backed positions', () => {
+    const result = calculateCompanyEquity({
+      cash: cash(0n),
+      positions: [position('AAPL', 10n, { venue: 'NASDAQ', connectionId: 'broker-1' })],
+      marks: [
+        mark({
+          sourceId: 'paper-a',
+          symbol: 'AAPL',
+          kind: 'paper_quote',
+          valueCents: 12_000n,
+          capturedAtMs: freshCapturedAt(),
+        }),
+        mark({
+          sourceId: 'paper-b',
+          symbol: 'AAPL',
+          kind: 'paper_quote',
+          valueCents: 14_000n,
+          capturedAtMs: freshCapturedAt(),
+        }),
+      ],
+      nowMs: NOW_MS,
+      ttlMs: TTL_MS,
+    });
+
+    expect(result).toEqual({
+      status: 'unavailable',
+      reason: 'missing_fresh_marks',
+      missingSymbols: ['AAPL'],
+    });
+  });
+
+  it('allows broker-backed positions to use matching venue quote without paper fallback', () => {
+    const result = calculateCompanyEquity({
+      cash: cash(0n),
+      positions: [position('AAPL', 10n, { venue: 'NASDAQ', connectionId: 'broker-1' })],
+      marks: [
+        mark({
+          sourceId: 'venue-nasdaq',
+          symbol: 'AAPL',
+          venue: 'NASDAQ',
+          kind: 'venue_quote',
+          valueCents: 15_000n,
+          capturedAtMs: freshCapturedAt(),
+        }),
+        mark({
+          sourceId: 'paper-a',
+          symbol: 'AAPL',
+          kind: 'paper_quote',
+          valueCents: 99_000n,
+          capturedAtMs: freshCapturedAt(),
+        }),
+      ],
+      nowMs: NOW_MS,
+      ttlMs: TTL_MS,
+    });
+
+    expect(result).toEqual({
+      status: 'fresh',
+      equityCents: 150_000n,
+      positionValueCents: 150_000n,
+      usedSourceIds: ['venue-nasdaq'],
+    });
+  });
+
+  it('treats future capturedAtMs as not fresh', () => {
+    const result = calculateCompanyEquity({
+      cash: cash(0n),
+      positions: [position('AAPL', 10n, { venue: 'NASDAQ' })],
+      marks: [
+        mark({
+          sourceId: 'venue-nasdaq',
+          symbol: 'AAPL',
+          venue: 'NASDAQ',
+          kind: 'venue_quote',
+          valueCents: 15_000n,
+          capturedAtMs: NOW_MS + 1,
+        }),
+      ],
+      nowMs: NOW_MS,
+      ttlMs: TTL_MS,
+    });
+
+    expect(result).toEqual({
+      status: 'unavailable',
+      reason: 'missing_fresh_marks',
+      missingSymbols: ['AAPL'],
+    });
+  });
+
+  it('rejects malformed timing inputs with stable reason', () => {
+    const base = {
+      cash: cash(0n),
+      positions: [] as EquityConfirmedPosition[],
+      marks: [] as EquityMarkCandidate[],
+    };
+
+    expect(
+      calculateCompanyEquity({ ...base, nowMs: Number.NaN, ttlMs: TTL_MS }),
+    ).toEqual({
+      status: 'unavailable',
+      reason: 'invalid_timing',
+      missingSymbols: [],
+    });
+
+    expect(
+      calculateCompanyEquity({ ...base, nowMs: -1, ttlMs: TTL_MS }),
+    ).toEqual({
+      status: 'unavailable',
+      reason: 'invalid_timing',
+      missingSymbols: [],
+    });
+
+    expect(
+      calculateCompanyEquity({ ...base, nowMs: NOW_MS, ttlMs: 0 }),
+    ).toEqual({
+      status: 'unavailable',
+      reason: 'invalid_timing',
+      missingSymbols: [],
+    });
+
+    expect(
+      calculateCompanyEquity({ ...base, nowMs: NOW_MS, ttlMs: Number.POSITIVE_INFINITY }),
+    ).toEqual({
+      status: 'unavailable',
+      reason: 'invalid_timing',
+      missingSymbols: [],
+    });
+
+    expect(
+      calculateCompanyEquity({
+        cash: cash(0n),
+        positions: [position('AAPL', 1n, { venue: 'NASDAQ' })],
+        marks: [
+          mark({
+            sourceId: 'venue-nasdaq',
+            symbol: 'AAPL',
+            venue: 'NASDAQ',
+            kind: 'venue_quote',
+            valueCents: 15_000n,
+            capturedAtMs: Number.NaN,
+          }),
+        ],
+        nowMs: NOW_MS,
+        ttlMs: TTL_MS,
+      }),
+    ).toEqual({
+      status: 'unavailable',
+      reason: 'invalid_timing',
+      missingSymbols: [],
+    });
+
+    expect(
+      calculateCompanyEquity({
+        cash: cash(0n),
+        positions: [position('AAPL', 1n, { venue: 'NASDAQ' })],
+        marks: [
+          mark({
+            sourceId: 'venue-nasdaq',
+            symbol: 'AAPL',
+            venue: 'NASDAQ',
+            kind: 'venue_quote',
+            valueCents: 15_000n,
+            capturedAtMs: -1,
+          }),
+        ],
+        nowMs: NOW_MS,
+        ttlMs: TTL_MS,
+      }),
+    ).toEqual({
+      status: 'unavailable',
+      reason: 'invalid_timing',
+      missingSymbols: [],
+    });
+  });
+
+  it('rejects negative position quantity', () => {
+    const result = calculateCompanyEquity({
+      cash: cash(50_000n),
+      positions: [position('AAPL', -1n, { venue: 'NASDAQ' })],
+      marks: [],
+      nowMs: NOW_MS,
+      ttlMs: TTL_MS,
+    });
+
+    expect(result).toEqual({
+      status: 'unavailable',
+      reason: 'negative_position_qty',
+      missingSymbols: [],
+    });
+  });
+
+  it('chooses newest broker mark deterministically regardless of input order', () => {
+    const older = mark({
+      sourceId: 'broker-a',
+      symbol: 'AAPL',
+      connectionId: 'broker-1',
+      kind: 'broker_market_value',
+      valueCents: 100_000n,
+      capturedAtMs: freshCapturedAt() - 2_000,
+    });
+    const newer = mark({
+      sourceId: 'broker-b',
+      symbol: 'AAPL',
+      connectionId: 'broker-1',
+      kind: 'broker_market_value',
+      valueCents: 200_000n,
+      capturedAtMs: freshCapturedAt(),
+    });
+    const input = {
+      cash: cash(0n),
+      positions: [position('AAPL', 10n, { connectionId: 'broker-1' })],
+      nowMs: NOW_MS,
+      ttlMs: TTL_MS,
+    };
+
+    expect(
+      calculateCompanyEquity({ ...input, marks: [older, newer] }),
+    ).toEqual({
+      status: 'fresh',
+      equityCents: 200_000n,
+      positionValueCents: 200_000n,
+      usedSourceIds: ['broker-b'],
+    });
+
+    expect(
+      calculateCompanyEquity({ ...input, marks: [newer, older] }),
+    ).toEqual({
+      status: 'fresh',
+      equityCents: 200_000n,
+      positionValueCents: 200_000n,
+      usedSourceIds: ['broker-b'],
+    });
+  });
+
+  it('tie-breaks equal capturedAtMs broker marks by sourceId lexicographically', () => {
+    const markZ = mark({
+      sourceId: 'broker-z',
+      symbol: 'AAPL',
+      connectionId: 'broker-1',
+      kind: 'broker_market_value',
+      valueCents: 111_000n,
+      capturedAtMs: freshCapturedAt(),
+    });
+    const markA = mark({
+      sourceId: 'broker-a',
+      symbol: 'AAPL',
+      connectionId: 'broker-1',
+      kind: 'broker_market_value',
+      valueCents: 222_000n,
+      capturedAtMs: freshCapturedAt(),
+    });
+    const input = {
+      cash: cash(0n),
+      positions: [position('AAPL', 10n, { connectionId: 'broker-1' })],
+      nowMs: NOW_MS,
+      ttlMs: TTL_MS,
+    };
+
+    expect(
+      calculateCompanyEquity({ ...input, marks: [markZ, markA] }),
+    ).toEqual({
+      status: 'fresh',
+      equityCents: 222_000n,
+      positionValueCents: 222_000n,
+      usedSourceIds: ['broker-a'],
+    });
+
+    expect(
+      calculateCompanyEquity({ ...input, marks: [markA, markZ] }),
+    ).toEqual({
+      status: 'fresh',
+      equityCents: 222_000n,
+      positionValueCents: 222_000n,
+      usedSourceIds: ['broker-a'],
+    });
+  });
+
+  it('chooses newest venue mark deterministically regardless of input order', () => {
+    const older = mark({
+      sourceId: 'venue-old',
+      symbol: 'AAPL',
+      venue: 'NASDAQ',
+      kind: 'venue_quote',
+      valueCents: 10_000n,
+      capturedAtMs: freshCapturedAt() - 2_000,
+    });
+    const newer = mark({
+      sourceId: 'venue-new',
+      symbol: 'AAPL',
+      venue: 'NASDAQ',
+      kind: 'venue_quote',
+      valueCents: 20_000n,
+      capturedAtMs: freshCapturedAt(),
+    });
+    const input = {
+      cash: cash(0n),
+      positions: [position('AAPL', 10n, { venue: 'NASDAQ' })],
+      nowMs: NOW_MS,
+      ttlMs: TTL_MS,
+    };
+
+    expect(
+      calculateCompanyEquity({ ...input, marks: [older, newer] }),
+    ).toEqual({
+      status: 'fresh',
+      equityCents: 200_000n,
+      positionValueCents: 200_000n,
+      usedSourceIds: ['venue-new'],
+    });
+
+    expect(
+      calculateCompanyEquity({ ...input, marks: [newer, older] }),
+    ).toEqual({
+      status: 'fresh',
+      equityCents: 200_000n,
+      positionValueCents: 200_000n,
+      usedSourceIds: ['venue-new'],
+    });
+  });
 });

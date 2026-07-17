@@ -50,13 +50,13 @@ plan live gates pass.
 | ARCH-001 | `blank` template — operator builds minimal graph manually | Only Math auto-provisioned; no orphan link kinds; draft until setup complete | Canvas node count; `LINK_RULES` validation on edge create | partial | `templates.ts`; palette |
 | ARCH-002 | `day_trading_starter` full topology | 10 smoothstep edges; holding_fund→math→fund_router→trading fund-route; policy/analyzer present | Playwright node/edge counts; `company-workspace.spec.ts` | yes | D-023; D-024 |
 | ARCH-003 | `trend_research_lab` — no trading node | Research→library→trend only; no compile/dispatch jobs materialize | Module list; absent trading type | partial | `templates.ts` |
-| ARCH-004 | Multi-engine: base lab + insert `engine_day_trading` from store | Merged graph validates; duplicate Math not created; new nodes draft until setup | Module PATCH responses; required-field chips | partial | `ENGINE_TEMPLATES` |
+| ARCH-004 | Multi-engine: base lab + insert `engine_day_trading` from store | Second `engine_instances` row; members stamped `engine_instance_id`; no duplicate Math; master topic cascades to new members; member override blocks cascade; `restoreEngineTopic` clears override; delete **ungroup** preserves modules, **cascade** removes members | `GET/POST .../engines`; `PATCH` engine + module; grouped canvas parent (when wired); required-field chips | partial | D-028; `ENGINE_TEMPLATES`; `canvas-engine-group-design.md` |
 | ARCH-005 | Broken graph: trading node with no inbound data feed | Module stays `draft`; promote/active transition blocked; text-visible reason | Module status + chip copy | partial | D-024 draft gating |
 | ARCH-006 | Invalid graph: disallowed edge kind (e.g. trading→research data_feed) | Edge create rejected at API/contracts layer | 400 + Zod error | partial | `modules.ts` LINK_RULES |
 | ARCH-007 | Invalid graph: cycle in directive edges | Validator rejects or marks non-executable (policy TBD) | Validation record | no | OQ — cycle policy |
 | ARCH-008 | `holding_fund → math → fund_router → trading` fund route | Topology stored; fund movement **not** executed in M1 | Edge kinds `fund_route`; no ledger transfer rows | partial | D-023 honesty |
 | ARCH-009 | Missing policy module on otherwise valid day-trading graph | Verification stage fails closed or module blocked from active | `blocked` executable state (future) | no | product-spec §policies |
-| ARCH-010 | Math module delete attempted | Rejected — Math is non-deletable per product | API 403/409 | partial | product-spec Math |
+| ARCH-010 | Math tool module delete | Additional Math modules (not company seed) deletable; seed Math may remain until operator deletes | `DELETE .../modules/:id` 200; inspector delete enabled for tool Math | partial | D-028 Math tools |
 | ARCH-011 | Analyzer without trading attachment | Analyzer may exist but produces no execution traces | Empty `action_traces` for analyzer-only | no | M2 pipeline |
 | ARCH-012 | Live API module with empty instruments array | Feed manager no-ops; trend module sees stale/missing entitlement | Feed health status text-first | partial | module setup chips |
 

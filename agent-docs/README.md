@@ -29,6 +29,8 @@ implementation proceeds.
 | `architecture/broker-integration.md` | Broker adapter layer: Alpaca, Kalshi, Polymarket, crypto; funding UX |
 | `product/product-spec.md` | Companies, modules, funds, policies, assistant — full product behavior |
 | `ui-ux/ui-spec.md` | Canvas, panels, galaxy view, design system, visual standards |
+| `ui-ux/canvas-node-dashboard-design.md` | D-026 labeled ports + fixed dashboard card |
+| `ui-ux/canvas-engine-group-design.md` | D-028 ENGINE parent groups + Math tools |
 | `research/v1-carryover.md` | Everything ported from v1: contracts, bands, catalogs, guardrails |
 | `testing/README.md` | Testing doc index; `/paper-experiment` workflow map |
 | `testing/requirements-matrix.md` | REQ-ID → evidence matrix (paper intent-alignment program) |

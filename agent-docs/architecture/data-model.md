@@ -17,16 +17,25 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 - **companies** — clerk_user_id, name, philosophy_prompt, philosophy_profile jsonb (slideable
   axes → LeverSetting; D-025), llm_policy jsonb (privacy mode, tier model ids, profile;
   D-027), goals jsonb, reinvestment_policy jsonb, scoping_policies jsonb, mode `paper|live`,
-  seed_credits_cents (paper), broker_connection_id nullable unique FK → broker_connections,
+  seed_credits_cents (paper),   broker_connection_id nullable unique FK → broker_connections,
+  live_armed_at timestamptz nullable, live_gate_evidence_id uuid nullable FK →
+  live_gate_evidence (D-029),
   auto_fund_policy jsonb (approval thresholds), archived_at.
+- **engine_instances** (D-028, migration `0014_engine_instances`) — company_id, template_id,
+  label, master_topic_sectors text[], canvas_bounds jsonb `{x,y,width,height}` nullable.
+  Member modules reference via `modules.engine_instance_id`; Math modules never join.
 - **modules** — company_id, type `research|library|live_api|trend|trading|policy|generator|
   simulator|analyzer|holding_fund|fund_router|math|display`, subtype (trading: `crypto|prediction|
   hft|day|long_term|custom`), name, config jsonb (schema per type), status
   `active|paused|error|draft`, legacy allocation_cents, topic_sectors text[],
-  capital_allocation_ref nullable, target_exit_ref nullable, canvas_position jsonb {x,y},
-  philosophy_override text. Migration `0008_blushing_kronos`.
-  Notes: `math` is auto-created per company, non-deletable, default name `Deterministic Math
-  Calculator` (D-008, D-023); `holding_fund` represents a deterministic capital source on the
+  topic_sectors_overridden boolean default false (D-028: true when member opts out of engine
+  master topic cascade), capital_allocation_ref nullable, target_exit_ref nullable,
+  canvas_position jsonb {x,y}, philosophy_override text,
+  engine_instance_id uuid nullable FK → engine_instances (`ON DELETE SET NULL`, D-028).
+  Migration `0008_blushing_kronos`.
+  Notes: `math` is auto-created per company (one seed module), default name `Deterministic Math
+  Calculator` (D-008, D-023); D-028 adds repeatable Math tool modules (multi-attach, deletable,
+  never `engine_instance_id`). `holding_fund` represents a deterministic capital source on the
   canvas (`HoldingFundModuleConfig`: `source`, `allocationPolicyRef`) — topology only in M1,
   no ledger transfers yet (D-023); `policy` nodes occupy the rightmost canvas column and bind
   policy envelopes to the trading modules linked into them (spec: "trading modules → trading
@@ -50,17 +59,19 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 
 ## Research & knowledge
 
-- **research_topics** — module_id, parent_topic_id nullable (tree), title, status, priority,
-  provenance (envelope ref).
+- **research_topics** — company_id, module_id, parent_topic_id nullable (tree), title, status,
+  priority, provenance. Implemented (migration `0012`).
 - **concepts** — company_id, origin_module_id, title, slug, body_md, summary,
   embedding vector nullable (pgvector, phase-gated), source_urls jsonb, confidence.
 - **concept_tags** — concept_id, tag (lower_snake_case); **tags** registry (tag, kind, color_hint).
 - **concept_links** — from_concept_id, to_concept_id, relation
   `supports|contradicts|causes|correlates|mentions|derived_from`, weight_band
-  `weak|typical|strong`, source_class. Implemented (migration `0010`); galaxy UI still M2.
+  `weak|typical|strong`, source_class. Implemented (migration `0010`); galaxy UI in M2.
   (concepts + concept_links + tags = the galaxy graph AND the Obsidian export source.)
-- **libraries** — company_id, name, topic_scope jsonb, master_library flag;
-  **library_concepts** join (library_id, concept_id, curation_status).
+- **libraries** — company_id, optional module_id, name, topic_scope text, master_library flag,
+  status. Implemented (migration `0012`).
+  **library_concepts** join (library_id, concept_id, curation_status
+  `proposed|accepted|rejected|archived`).
 - **evidence_packages** — v1 contract: class, symbols/sectors, digest, findings jsonb, expiry,
   legal_use_class `ALLOWED|RESTRICTED|REVIEW_REQUIRED`.
 
@@ -128,7 +139,11 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   divergence tags, feed_target jsonb (which trend/research module receives results).
 - **training_feedback** — bounded band/weight deltas only (mutation_class enforced), source run,
   applied_control_snapshot ref.
-- **control_snapshots** — company/module scope, WeightEnvelope + band positions, version, hash.
+- **control_snapshots** — company/module scope, philosophy profile + lever state + envelope
+  versions + content hash (D-029 `ControlSnapshot` contract).
+- **guardrail_evaluations** — APPEND-ONLY: package_id + `GuardrailEvaluation` jsonb.
+- **live_gate_evidence** — APPEND-ONLY: checklist evidence + `overall_pass`.
+- **operating_limit_evaluations** — APPEND-ONLY: `LimitsSnapshot` jsonb per evaluation.
 
 ## Numeric reference store (see number-handling.md)
 

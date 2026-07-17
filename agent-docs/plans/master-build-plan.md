@@ -50,8 +50,16 @@ Gate G0: deployed skeleton, auth round-trip in browser, migrations reproducible 
    provider operating budgets render separately.
 7. **D-026 canvas node dashboard:** labeled `LinkKind` ports, fixed-size always-visible setup
    fields with per-field Required/Set chips, explicit **Save setup**, chrome-click inspector with
-   restore-generated-name. **Implementation complete;** IronBee browser verification and focused
-   Playwright D-026 coverage in `company-workspace.spec.ts` pending.
+   restore-generated-name (`generated_name_base`, `name_customized`; API `generatedNameBase`,
+   `nameCustomized`, `restoreGeneratedName`). **Verified (2026-07-17):** migration
+   `0011_canvas_node_generated_names` after `0010`; typecheck/lint/test pass; focused Playwright
+   `canvas-node-dashboard.spec.ts` 1/1; IronBee handles/fields/inspector naming + clean console
+   (customize/restore via Playwright only).
+8. **D-028 ENGINE groups + Math tools:** migration `0014_engine_instances`; engines CRUD API;
+   master topic cascade + `restoreEngineTopic`; React Flow `EngineGroupNode` parent chrome;
+   delete modes `cascade` \| `ungroup`; Math repeatable multi-attach TOOL links (contracts +
+   `LINK_RULES`). **Partial:** canvas parent wiring, delete modal, inspector restore topic, and
+   ARCH-004 E2E not verified — see `ui-ux/canvas-engine-group-design.md`.
 
 **Gate G1 (local complete — remote CI evidence pending, D-022/D-023/D-024):** create company → compose
 module graph → queue processes a synthetic job → node activity reflects it → panels + assistant +
@@ -59,16 +67,12 @@ Playwright M1 flows green. Recorded evidence: migration `0008` applied; typechec
 complete two-spec Playwright; IronBee create/skip/inline setup/provider-budget pass with no new
 console errors. Remote CI e2e first run remains pending.
 
-**M2 in progress (D-027 service integration slice):** (1) OQ-8 resolved — user keys only;
-`@hftr/llm` invoke gateway with retention admission, NRA substitute, budgets, `llm_calls` /
-`llm_artifacts` ledger + hand-authored JSON schemas; (2) `concept_links` migrated;
-research.curate / research.strategic / tactical.expand / compile.select job chain with
-ModelGateway + deterministic fallbacks (quantity always calculator-owned); (3) Alpaca paper
-adapter + exclusive `broker_connections` + VERIFY reconcile that finalizes ledger/positions +
-`maintenance.broker_balances` snapshots; (4) operator UI: capital caps, provider health,
-tier cost/privacy labels, key/broker verify, Playwright `service-settings.spec.ts`. Remaining
-for G2: galaxy MVP, Obsidian export, library curation UI, live provider/Alpaca smoke with
-operator keys, scenario promotion of default model profiles.
+**M2 / G2 candidate (2026-07-17):** D-027 service integration plus research product surfaces:
+libraries / library_concepts / research_topics (migration `0012`); graph + Obsidian zip export;
+galaxy MVP (`react-force-graph-3d` + 2D fallback); schedule materializer + budget-queued claim
+semantics; Playwright `research-library.spec.ts`. Remaining for formal G2 sign-off: live
+provider/Alpaca smoke with operator keys, autonomous cadence soak on a real topic, and default
+model-profile promotion after paper scenario suite.
 
 ## M2 — Research stack (Claude+Mistral) + libraries + galaxy MVP + numeric core
 
@@ -91,21 +95,26 @@ library on a real topic within budget caps. Flow verified in browser; LLM ledger
 
 ## M3 — Trading loop on paper sim (the core)
 
+**Progress (2026-07-17):** Dynamic safety foundation (D-029) — limits/guardrails/live-gates
+contracts + tables (`0013`); `preDispatchGauntlet` wired; lever-resolver; fund-transfer
+approve/reject + Approvals tab; ValueRef lineage walk API + Values tab. Engine tests ~79
+(still below ≥294 v1 parity target). Live remains fail-closed until arming (M5).
+
 1. Port + harden engine: bands catalog, lever registries (strategic/tactical/execution),
    `enforceScopeStrict`, six-gate activation, executable states, guardrail packages, recovery
    ladders, deterministic dispatch, verification schemas — all from v1 carryover with contract
-   tests (target ≥ v1's 294 tests for this layer).
+   tests (target ≥ v1's 294 tests for this layer). **Partial.**
 2. Trend modules: Mistral trend emission + lead nomination from libraries + live-API fixtures;
    regime snapshots computed from real Alpaca bars (data module, read-only keys).
 3. Trading module (day-trading preset first): Mistral tree expansion → Groq compile →
-   paper_sim dispatch → traces/verification → ledger.
-4. **NRA pipeline integration:** lever resolver consumes band positions/calc plans only;
-   deterministic finalizer resolves refs → fixed-point numbers with venue precision tables;
-   `numeric_sanity_block` reason family wired into guardrails; Math module node + k/v browser +
-   lineage view + calc audit log UI.
+   paper_sim dispatch → traces/verification → ledger. **Deterministic path shipped.**
+4. **NRA pipeline integration:** lever resolver + pre-dispatch + lineage UI **partial**;
+   full finalizer ValueRef-only production path still maturing.
 5. Middle-bottom control panel v1 (lineage columns, watchlists + shared-access chips, approvals)
-   and right panel v1 (ledger, trace inspector with value-lineage links).
+   and right panel v1 (ledger, trace inspector with value-lineage links). **Approvals + lineage
+   partial.**
 6. Fund model v1: seed allocations, fund router (calc-op resolved amounts), approval inbox.
+   **Approval inbox shipped; router transfers partial.**
 Gate G3: full paper loop research→trade visible end-to-end on canvas + panels; every artifact
 schema-validated; live mode provably fail-closed; **numeric/temporal audit passes — an
 llm_calls scan of the demo run shows zero raw financial digits or authoritative datetimes in
@@ -114,22 +123,34 @@ its TIF/timeout values trace to clock/calendar-rooted refs**. Playwright flows 3
 
 ## M4 — Real brokers + billing + assistant edits
 
+**Progress (2026-07-17, non-billing slice):** `assistant_edits` + `simulation_runs` migration
+`0015`; proposal APIs (`rename_module`, `patch_module_config`, `add_watchlist_item`); Assistant
+dock proposal cards; Sims tab wired to GET/POST simulations. **Billing deferred (D-032).**
+Alpaca connect UX from prior milestones; Stripe/credit packs not started.
+
 1. Alpaca adapter (paper first): connect UX, encrypted credentials, handshake capabilities,
    dispatch + reconciliation on Alpaca paper; funding deep-link UX; balances on company header.
 2. Stripe: Clerk Billing tiers + one-click credit packs (embedded checkout, webhook credit
-   grants, meters in shell). Budget tiers enforced in admission.
-3. Assistant write-tools (hardened JSON edits, confirm cards, audit trail).
+   grants, meters in shell). Budget tiers enforced in admission. **Deferred.**
+3. Assistant write-tools (hardened JSON edits, confirm cards, audit trail). **Partial — proposals
+   ship; model write path still read-only assistant.**
 4. Simulator module: parallel paper runs + comparison UI + feed-results wiring. Analyzer v1.
+   **Partial — `simulation_runs` persistence + right panel list; execution handler deferred.**
 Gate G4: user can pay (test mode), connect Alpaca paper, trade the full loop on Alpaca sandbox,
 and drive setup via assistant. Playwright flows 2/4/5 green.
 
 ## M5 — Expansion: prediction markets, crypto preset, HFT/long-term presets, live gate
 
+**Progress (2026-07-17):** Live-gate APIs + `ModeSwitch` arming UI; `execution-context` /
+`resolveBrokerAdapter` live path behind arming; Kalshi demo stub; crypto engine remains gated
+until `sess-crypto-alpaca-24x7` session envelope seeds. HFT/long-term presets still unavailable.
+
 1. Kalshi adapter (demo env) + prediction trading module preset + probability-edge families.
+   **Partial — demo stub only.**
 2. Crypto preset (Alpaca crypto 24/7 sessions); HFT preset (throttle envelopes, swarm sizing);
-   long-term preset.
+   long-term preset. **Crypto gated on session catalog.**
 3. Live-gate checklist implementation (paper history thresholds, verification pass-rate,
-   explicit confirmations) + live Alpaca behind it. Compliance copy pass.
+   explicit confirmations) + live Alpaca behind it. Compliance copy pass. **Arming slice shipped.**
 4. Watcher escalation decision (OQ-2): measure Vercel drain latency during market hours; deploy
    dedicated worker if needed.
 Gate G5: at least two real venues trading paper/demo; live pathway gated and documented;
@@ -137,8 +158,12 @@ throttle presets enforced.
 
 ## M6 — Polish, hardening, deployment finalization
 
+**Progress (2026-07-17):** `maintenance.retention` counts 90d+ traces (no delete); dead-letter
+GET/retry API + bottom panel tab; `agent-docs/ops/runbook.md`. Perf/a11y pass not started.
+
 1. Perf pass (canvas 60fps, galaxy LOD ladder as needed), accessibility pass, empty/error states.
 2. Retention jobs (90d hot / 1y archive), dead-letter review UI, ops runbook in agent-docs.
+   **Partial — runbook + dead-letter UI; trace purge deferred.**
 3. Polymarket/Coinbase adapters as capacity allows. Time-scrubber galaxy phase-gate review.
 4. v1 replacement: point production domain at v2 per deployment notes.
 
@@ -162,4 +187,4 @@ throttle presets enforced.
   content import script from v1 catalogs only).
 - OQ-5: Polymarket key custody model (wallet management) before that adapter ships.
 - OQ-9: resolved D-024 — inline + Skip-to-draft; capital-bearing modules only; NRA refs.
-- OQ-10: assistant message retention/erasure policy.
+- OQ-10: resolved D-030 — 90d hot retention for assistant messages/edits; purge job pending.

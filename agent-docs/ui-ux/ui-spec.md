@@ -43,8 +43,20 @@
   holding fund) | trend | trading (incl. fund router) | policy. Edges = `module_links`, rendered
   as **rounded elbow** `smoothstep` paths (DevSpecs/ui-ux.spec.md §Connections), animated when
   data is flowing (projection of job activity), colored by link kind. Policy nodes (rightmost)
-  bind policy envelopes to the trading modules linked into them; the Math node is pinned in the
-  data column, non-deletable, named `Deterministic Math Calculator`.
+  bind policy envelopes to the trading modules linked into them. Company creation seeds one Math
+  module (`Deterministic Math Calculator`); D-028 adds repeatable Math **tools** multi-attachable
+  to consumers (see below).
+- **ENGINE groups (D-028 / `canvas-engine-group-design.md`):** insertable engine templates
+  persist as `engine_instances` with a dashed React Flow **parent** chrome (`EngineGroupNode`):
+  template label, inline **master topic/sector** editor, delete affordance. Member modules are
+  child nodes (`engine_instance_id`); Math is never a member. Master topic cascades to members
+  until `topic_sectors_overridden`; inspector/module PATCH supports **Restore engine topic**
+  (`restoreEngineTopic`). Delete engine: modal offers **cascade** (remove members + links) vs
+  **ungroup** (keep modules, clear membership). **Canvas wiring partial** — API/DB/component
+  shipped; parent rendering + delete modal + IronBee/E2E not verified.
+- **Math tools (D-028):** additional Math modules may be created from the palette and deleted;
+  each may `data_feed`-attach to allowed consumer types (`MATH_TOOL_CONSUMER_TYPES`). n8n-style
+  TOOL dock chrome on consumers is deferred; link rules and contracts are in place.
 - **Edge routing (implemented D-023):** stored and newly created edges use React Flow
   `type: 'smoothstep'`; connection drag preview uses `ConnectionLineType.SmoothStep`. This yields
   rounded right-angle routing with column spacing as the primary collision control. **Not**
@@ -74,14 +86,23 @@
 - Minimap + zoom controls bottom-right; fit-view on load; LOD: below zoom threshold, node bodies
   simplify to icon+status dot (perf + readability).
 - Empty state: company template picker rendered as ghost-nodes.
-- **Module store (D-023):** floating palette (top-left) with **Modules** (category-grouped singles
-  with function-specific default names) and **Engines** (insertable end-to-end templates from
-  `ENGINE_TEMPLATES`). Math is absent — auto-created per company.
+- **Module store (D-023, engines D-028):** floating palette (top-left) with **Modules**
+  (category-grouped singles with function-specific default names; Math repeatable as TOOL per
+  D-028) and **Engines** (insertable end-to-end templates from `ENGINE_TEMPLATES` → persisted
+  `engine_instances` group). Company creation still auto-seeds one Math module.
 - **Inline setup validation (D-024, refined D-026):** company and engine template forms render
   Required/Set chips plus topic/sector, trading-capital allocation (USD or percentage), and
   target-exit controls. Skip opens the draft graph. On the canvas, required controls are
   **always visible** on the fixed node body with validation chips/highlights inline on each
   field; the inspector is not suppressed for incomplete nodes.
+- **D-026 verified (2026-07-17):** migration `0011_canvas_node_generated_names`
+  (`generated_name_base`, `name_customized`); focused Playwright `canvas-node-dashboard.spec.ts`
+  (1 test: per-field chips, labeled ports, fixed card geometry on chrome-click, explicit **Save
+  setup**, rename + restore generated name); IronBee on seeded day-trading company confirmed
+  per-kind handles, always-visible fields, inspector Name + generated connection/base text, no new
+  console errors. Customize/restore verified in Playwright only — not in IronBee (pre-migration
+  sample). `company-workspace.spec.ts` D-026 assertions not exercised (run stopped on unrelated
+  LLM drawer expectation).
 - **Separate operating meter (D-024):** Company → LLM / operating shows provider credential source,
   call admission, and provider-cost counters for Anthropic/Mistral/Groq. Copy explicitly states
   that this meter is separate from module trading-capital allocation.
@@ -171,17 +192,24 @@ teardown.
 |---|---|
 | `companies.spec.ts` | Companies directory; template choices; day-template Required chips and Skip action |
 | `company-workspace.spec.ts` | skipped `day_trading_starter` setup → missing node chips → collapse info panel → complete trading setup inline through ValueRef route (type-scoped node under generated titles) → separate LLM/operating view → full seeded names + **10** `smoothstep` edges → panels/shortcuts/store → assistant persistence → archive cleanup |
+| `canvas-node-dashboard.spec.ts` | **D-026:** skip setup → always-visible trading fields + per-field Required/Set chips → labeled LinkKind handles → chrome-click inspector without geometry change → explicit **Save setup** → rename + restore generated name |
 | `service-settings.spec.ts` | user settings (six LLM providers + Brokers/Alpaca fields + verify affordance) → company operating tab (capital caps, provider health, LLM policy, broker bind, recent calls) → broker GET shape without real keys |
 | `paper-intent-alignment.spec.ts` | philosophy save/reload → live gate text → three-company min/typical/max trend→promote→compile→paper dispatch → company-scoped provenance/verification → right-panel fill → unsupported short block |
 
 **Verification status (2026-07-17, D-024 + paper-intent closeout):** migrations through
-`0011_canvas_node_generated_names` applied locally for E2E; typecheck and unit/contract tests
-pass for the paper/engine packages under test; Playwright **6/6** pass
-(`companies`, `company-workspace`, `paper-intent-alignment` ×2, `canvas-node-dashboard`,
-`service-settings`). IronBee verified Philosophy drawer axes + Save philosophy and
-text-first **Live trading (gated)**. Clerk test-account password remains unavailable; app-flow
-verification used the existing local dev-auth bypass. Unrelated concurrent package lint
-drift (e.g. adapters Prettier) may still exist outside this verification slice.
+`0008` applied locally for D-024 E2E; typecheck and unit/contract tests pass for the
+paper/engine packages under test; Playwright pass for `companies`, `paper-intent-alignment` ×2.
+IronBee verified Philosophy drawer axes + Save philosophy and text-first **Live trading
+(gated)**. Clerk test-account password remains unavailable; app-flow verification used the
+existing local dev-auth bypass.
+
+**D-026 verification (2026-07-17):** migration `0011_canvas_node_generated_names` applied
+locally after `0010`; `pnpm typecheck`/`lint`/`test` pass (7/7 packages; contracts 39, adapters
+20, secrets 5, llm 13, engine 44); focused Playwright `canvas-node-dashboard.spec.ts` **1/1**
+pass. IronBee on seeded day-trading company: per-kind handles, always-visible fields,
+chrome→inspector naming, no new console errors (customize/restore not exercised in IronBee).
+`company-workspace.spec.ts` not claimed for D-026 (run stopped before D-026 assertions on
+unrelated LLM drawer expectation).
 
 **Not yet covered by Playwright:** Clerk sign-up (flow 1 full), credits/Stripe, real-model and
 live-data variants of flow 3, broker connect (flow 4), assistant write proposals (flow 5), and

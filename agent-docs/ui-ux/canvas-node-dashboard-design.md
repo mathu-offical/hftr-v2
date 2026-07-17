@@ -1,6 +1,6 @@
 # Canvas node dashboard design (2026-07-17)
 
-**Status:** implemented; runtime verification pending  
+**Status:** implemented and verified (2026-07-17)  
 **Decision:** D-026 (logged in `dev-intent/decisions-log.md`)  
 **Supersedes (node chrome):** D-024 §(c) “expand selected node for setup / suppress inspector while incomplete”
 
@@ -63,7 +63,10 @@ Persisted `module_links.link_kind` remains authoritative; handle ids are present
 ### Math / special cases
 
 - Math keeps all ports it participates in via `LINK_RULES`; no fake ports.
-- Math remains non-deletable; name defaults to `Deterministic Math Calculator` and is not auto-rewritten from neighbors unless connections change and name is still “generated”.
+- Company creation seeds one Math module; D-028 allows additional repeatable Math **tools**
+  (multi-attach `data_feed` to consumers, deletable, never engine members). Name defaults to
+  `Deterministic Math Calculator`; not auto-rewritten from neighbors unless connections change
+  and name is still “generated”.
 
 ## Node anatomy (fixed card)
 
@@ -106,7 +109,8 @@ Persisted `module_links.link_kind` remains authoritative; handle ids are present
 
 ### Generated name
 
-While `nameSource === 'generated'` (new flag or convention: no `name_customized_at`):
+While persisted `modules.name_customized` is `false` (TypeScript/API
+`nameCustomized === false`):
 
 ```
 baseFunctionName(type, config?) + connectionSuffix(neighbors)
@@ -128,32 +132,54 @@ Base names reuse palette / template function-specific defaults (D-023). Connecti
 
 ### Persistence
 
-Prefer explicit column or config flag:
-
 - `modules.name` — current display string
-- `modules.name_customized` boolean (default false) — shipped in migration `0011_canvas_node_generated_names`
+- `modules.generated_name_base` — persisted function-specific base used to recompute generated names
+- `modules.name_customized` — controls whether connection changes may regenerate `modules.name`
+- Migration `0011_canvas_node_generated_names` backfills legacy `generated_name_base = name`,
+  marks every row existing at migration time `name_customized = true`, then applies
+  `DEFAULT false NOT NULL` for future rows. This preserves pre-D-026 operator names across graph
+  edits. Because original base provenance was not stored, **Restore generated name** on a legacy
+  row uses its migrated name as the base; new rows have full generated/custom behavior.
 - API: `generatedNameBase`, `nameCustomized` on module projections; `restoreGeneratedName` on module PATCH
 
 ## Implementation sketch
 
 | Area | Change |
 |------|--------|
-| `packages/contracts` | Port registry helpers from `LINK_RULES`; optional `nameCustomized`; name derivation pure functions + tests |
-| `packages/db` | Migration for `name_customized` if chosen |
+| `packages/contracts` | Port registry helpers from `LINK_RULES`; generated-name API fields; name derivation pure functions + tests |
+| `packages/db` | Migration `0011_canvas_node_generated_names` adds `generated_name_base` and `name_customized` |
 | `apps/web/.../types.ts` | Replace 4-handle `HANDLE_SPEC` with kind-labeled ports |
 | `ModuleNode.tsx` | Dashboard card; always-visible fields; labeled handles; no expand |
-| `CompanyCanvas.tsx` | Connection rules for new handle ids; pass neighbor names into node data; regenerate names on link CRUD |
+| `CompanyCanvas.tsx` | Connection rules for new handle ids; pass neighbor names into node data; regenerate names on link CRUD; restore a client-removed edge when server DELETE fails |
 | `InspectorPanel.tsx` | Restore generated name; keep advanced controls |
 | `ui-spec.md` | Rewrite node anatomy + D-024 inspector/setup wording |
 | e2e | Adjust skip-setup / inline-setup expectations: fields always visible; inspector not suppressed |
 
-## Verification plan
+## Verification evidence (2026-07-17)
 
-**Status:** focused Playwright assertions drafted in `apps/web/e2e/company-workspace.spec.ts`; IronBee browser pass pending.
+**Migration:** `0011_canvas_node_generated_names` applied locally after `0010` — columns
+`generated_name_base`, `name_customized`; API fields `generatedNameBase`, `nameCustomized`,
+`restoreGeneratedName` on module create/update projections. After the not-yet-committed migration
+was hardened, the already-migrated local rows were manually aligned with its conservative
+`name_customized = true` legacy backfill. Failed edge DELETE also restores the edge in client state
+if React Flow removed it before the server failure.
 
-1. Contract tests: port sets per type; handle-pair → link kind; name derivation + customize/restore.
-2. Playwright / IronBee: create company → skip setup → see per-field chips on nodes → edit topic on node → **Save setup** → chips turn Set → click chrome → inspector opens with restore-name → connect modules → generated name updates until customized.
-3. Console clean after flows.
+**Automated:** `pnpm typecheck` PASS (7/7 packages); `pnpm lint` PASS (7/7); `pnpm test` PASS
+(contracts 39, adapters 20, secrets 5, llm 13, engine 44; db/web no test files, exit 0).
+Focused Playwright `apps/web/e2e/canvas-node-dashboard.spec.ts` **1/1** pass (~5.5s): skip setup →
+per-field Required/Set chips on always-visible fields → labeled LinkKind handles → chrome-click
+inspector without card geometry change → explicit **Save setup** → rename + **Restore generated
+name**.
+
+**IronBee (seeded day-trading company):** ARIA confirmed per-kind labeled handles and
+always-visible setup fields; chrome-click opened inspector with exact Name label and generated
+connection/base text; full-page screenshot captured; console query after final flow returned no
+new error messages. Customize/restore **not** verified in IronBee (pre-migration sample blocked
+that path) — covered by focused Playwright above.
+
+**Not claimed:** `company-workspace.spec.ts` was attempted but stopped before D-026 assertions
+(unrelated concurrent LLM drawer expectation); neither pass nor fail recorded for D-026 in that
+spec.
 
 ## Open points resolved in this design
 
@@ -170,4 +196,4 @@ Prefer explicit column or config flag:
 - [x] No TBD placeholders for core behavior
 - [x] Conflicts with D-024 §(c) called out and superseded intentionally
 - [x] Scope limited to canvas node chrome + naming + port UX (not fund movement engine)
-- [x] Persistence choice for `name_customized` stated with preference
+- [x] Shipped generated-name persistence fields and migration stated explicitly

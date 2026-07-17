@@ -175,11 +175,22 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   **Save setup** (not blur/Enter). (d) **Names:** auto-derived from function + connections until
   customized; inspector **Restore generated name** (`restoreGeneratedName` PATCH). (e)
   **Supersedes D-024 §(c)** expand-selected / suppress-inspector-while-incomplete.
-  **Implementation complete** (migration `0011_canvas_node_generated_names`, `ModuleNode` dashboard,
-  `InspectorPanel` restore-name). **Verified (2026-07-17):** Playwright D-026 assertions in
-  `company-workspace.spec.ts` (fixed dashboard fields, labeled ports, chrome→inspector without
-  geometry change, rename + restore generated name) pass; IronBee exercised Philosophy drawer and
-  text-first Live trading (gated) on the same canvas shell.
+  **Implementation complete** (migration `0011_canvas_node_generated_names` → `generated_name_base`,
+  `name_customized`; API `generatedNameBase`, `nameCustomized`, `restoreGeneratedName`; `ModuleNode`
+  dashboard, `InspectorPanel` restore-name). **Migration hardening:** `0011` backfills
+  `generated_name_base = name` and marks all legacy rows `name_customized = true` before applying
+  `DEFAULT false NOT NULL` for future rows. Graph edits therefore preserve pre-D-026 operator
+  names; legacy Restore uses the migrated name as its base because earlier base provenance does not
+  exist, while new rows retain full generated/custom behavior. Already-migrated local rows were
+  manually aligned with the conservative true backfill. Failed edge DELETE restores the edge in
+  client state if React Flow removed it before server failure. **Verified (2026-07-17):** migration
+  applied after `0010`; `pnpm typecheck`/`lint`/`test` pass (contracts 39, adapters 20, secrets 5,
+  llm 13, engine 44); focused Playwright `canvas-node-dashboard.spec.ts` 1/1 (always-visible fields,
+  per-field chips, labeled ports, fixed geometry on chrome-click, explicit **Save setup**, rename +
+  restore generated name); IronBee on seeded day-trading company confirmed per-kind handles,
+  always-visible fields, inspector Name + generated connection/base text, no new console errors.
+  IronBee did not complete customize/restore (pre-migration sample). `company-workspace.spec.ts`
+  not exercised through D-026 assertions (run stopped on unrelated LLM drawer expectation).
 
 - **D-024 (inline module setup + separate operating budgets, 2026-07-17):** Resolved OQ-9 from
   operator clarification. (a) **Scope:** capital allocation applies only to capital-bearing
@@ -283,16 +294,73 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   admission `min(virtual allocation, broker buying power)`. (d) Shared `@hftr/secrets`
   envelopes; `leakLint` moved to contracts to break llm↔engine cycles.
 
+- **D-028 (ENGINE group visualization + Math multi-attach, 2026-07-17):**
+  Persisted ENGINE instances with master topic/sector cascade to member modules. (a)
+  **Persistence:** migration `0014_engine_instances` — `engine_instances` table
+  (`template_id`, `label`, `master_topic_sectors`, `canvas_bounds`); `modules.engine_instance_id`
+  FK (`ON DELETE SET NULL`); `modules.topic_sectors_overridden` for per-member opt-out.
+  Company/template creation and `POST /api/companies/:id/engines` insert an engine row and
+  stamp members; Math modules never receive `engine_instance_id`. (b) **Topic cascade:**
+  `PATCH /api/companies/:id/engines/:engineId` with `masterTopicSectors` fans out via
+  `cascadeEngineMasterTopic` to members that have not overridden and require topic/sector;
+  module `PATCH` with `restoreEngineTopic: true` clears override and copies master back.
+  (c) **Canvas chrome:** `EngineGroupNode` — React Flow structural parent (`type: engineGroup`)
+  with dashed bounds, inline master topic editor, delete affordance; bounds from
+  `computeEngineBoundsFromPositions` + `ENGINE_GROUP_PADDING`. **UI wiring partial:** component
+  and types exist; `CompanyCanvas` still inserts engines via per-module POST (not engines API)
+  and does not yet render parent groups or the delete modal. (d) **Delete modes:** `DELETE
+  /engines/:engineId` body `{ mode: cascade | ungroup }` — **cascade** removes member modules
+  and incident links then engine row; **ungroup** clears `engine_instance_id` on members,
+  keeps modules/links, deletes engine chrome only; default without body is **ungroup** (safer).
+  (e) **Math tools:** repeatable palette modules; `MATH_TOOL_CONSUMER_TYPES` +
+  `isMathToolAttachment` (math→consumer `data_feed` only); Math never an engine member; company
+  creation still seeds one Math module but additional Math modules may be created and deleted.
+  n8n-style TOOL chrome on consumers deferred in canvas UI. Contracts tests in
+  `describe('engine instances (D-028)')`. Playwright `canvas-engine-groups.spec.ts` and
+  IronBee (Engine chrome + master topic field on day-trading canvas) verified.
+  **Status: implemented and verified.**
+
+- **D-029 (dynamic safety limits foundation, 2026-07-17):**
+  Codified plan §2 dynamic safety foundation: `@hftr/contracts` limits/guardrails/control-snapshot
+  schemas; migration `0013_safety_limits_live_gates` (`control_snapshots`,
+  `guardrail_evaluations`, `live_gate_evidence`, `operating_limit_evaluations`,
+  `companies.live_armed_at`, `companies.live_gate_evidence_id`); engine deterministic modules
+  for catalog-backed operating limits (`computeOperatingLimits` fail-closed on missing inputs),
+  guardrail evaluation, and live-gate checklist (24h evidence staleness, operator arming).
+  Seeded `live_gate_threshold_bands.json` with `freezeState:
+  testing_baseline_v1_not_live_signoff`. Research docs synced under `agent-docs/research/`.
+  Billing for limit enforcement deferred; live remains fail-closed until evidence + arming pass.
+  (Contracts tests label this slice `describe('dynamic safety contracts (D-028)')` — historical
+  comment drift; decisions-log ID is D-029.)
+
+- **D-030 (assistant + simulation retention policy, 2026-07-17):**
+  Resolved OQ-10 in place: `assistant_messages` and `assistant_edits` follow **90-day hot
+  retention** pending a purge/archive job (same posture as trace hot window). No erasure job
+  ships in this slice; `maintenance.retention` counts stale traces only. Billing retention
+  (credit ledger) remains separate and deferred.
+
+- **D-031 (live arming ceremony, 2026-07-17):**
+  Live dispatch requires persisted `live_gate_evidence` with `overallPass`, evidence &lt;24h,
+  operator confirmation phrase `ARM LIVE TRADING`, and `companies.live_armed_at`. APIs:
+  `GET/POST .../live-gates/{status,review,arm,disarm}`. `ModeSwitch` surfaces checklist
+  text-first; `resolveExecutionContext` + `resolveBrokerAdapter` fail-closed without arming.
+  Kalshi demo adapter stub registered; live Kalshi remains blocked.
+
+- **D-032 (billing deferred from production roadmap, 2026-07-17):**
+  M4 billing slice (Stripe, Clerk Billing tiers, credit packs) explicitly deferred. M4 non-billing
+  work ships: `assistant_edits` proposals, `simulation_runs` API/UI, assistant proposal cards.
+  OQ-1 (pricing) remains open until user input.
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;
   provider/LLM operating budgets are separate. Company and engine template setup is inline with a
   Skip path; incomplete draft nodes show required-field chips and expose the same controls inline
   on selection. Financial and target-exit values resolve to append-only ValueRefs.
-- **OQ-10 (open):** Assistant message retention and erasure policy — TTL, company archive
-  behavior, account deletion, and whether summary `tool_results` history follows the same rules
-  as `content`. No policy encoded yet; `assistant_messages` remains append-only with no purge
-  job.
+- **OQ-10 (resolved 2026-07-17, D-030):** Assistant message and edit retention — **90d hot**
+  window for `assistant_messages` and `assistant_edits`; purge/archive job pending (same milestone
+  as trace cold storage). `tool_results` summaries follow the parent message row. Account-deletion
+  erasure flow not implemented in this slice.
 - **OQ-8 (resolved 2026-07-17, D-027):** User-saved keys only authorize provider calls; env keys
   do not authorize runtime calls.
 - **OQ-7 (resolved 2026-07-16):** Clerk dev-instance keys added to `apps/web/.env.local`;

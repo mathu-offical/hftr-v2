@@ -30,6 +30,12 @@ watches, steers, and approves through the canvas + three panels + the assistant.
   scope fields use `pending_operator_scope` and instruments start empty until operator setup.
   Company creation and later engine insertion use the same setup contract. Allocation and exit
   resolve through ValueRefs and temporal refs per `architecture/number-handling.md`.
+- **ENGINE groups (D-028):** each inserted engine persists as an `engine_instances` row with
+  `master_topic_sectors` that cascade to member modules (`engine_instance_id`) unless a member
+  overrides (`topic_sectors_overridden`). React Flow renders a structural parent group chrome
+  (not a module type). Delete offers cascade (remove members) or ungroup (keep modules). Math
+  modules are never engine members; they attach as repeatable multi-consumer TOOL links. Full
+  canvas grouping UX verification pending (API/DB/contracts implemented).
 
 ## 3. Modules (user-creatable, multi-instance)
 
@@ -98,12 +104,14 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   calculator (percentages of live balances are calc ops over ledger ValueRefs — never
   model-emitted numbers). **M1:** node + `fund_route` links are seeded for paper engines; actual
   transfer execution remains M3+.
-- **Math module (auto-created per company, non-deletable, named `Deterministic Math Calculator`):**
+- **Math module (auto-created per company, named `Deterministic Math Calculator`; D-028 tools):**
   the transparency window into the numeric reference architecture — live k/v value browser, value
   lineage graph (every number traceable to its live source), calculator operation log with sanity
   results, static formula catalog. Exists so users can audit exactly which numbers drive fund
   pipelines and executions. Seeded engines wire `holding_fund → math → fund_router` fund routes.
-  See `architecture/number-handling.md`.
+  D-028: additional Math modules may be created and deleted; each may `data_feed`-attach to
+  multiple consumer modules (never joins an ENGINE group). See `architecture/number-handling.md`
+  and `ui-ux/canvas-engine-group-design.md`.
 
 ## 4. Funds model
 

@@ -6,6 +6,7 @@ import { HandoffEnvelope } from './foundation';
 import { allowedLinkKinds, MODULE_CONFIG_SCHEMAS, ModuleType } from './modules';
 import { ValueRefHandle, CalcRequest } from './numeric';
 import { ActionInstruction } from './pipeline';
+import { COMPANY_TEMPLATES } from './templates';
 
 describe('env manifest', () => {
   it('matches .env.example exactly', () => {
@@ -71,10 +72,31 @@ describe('NRA typing', () => {
   it('parses a nested calc expression', () => {
     const req = {
       kind: 'expr',
-      expr: { op: 'mul', args: [{ op: 'ref', ref: 'nv_a' }, { op: 'ref', ref: 'nv_b' }] },
+      expr: {
+        op: 'mul',
+        args: [
+          { op: 'ref', ref: 'nv_a' },
+          { op: 'ref', ref: 'nv_b' },
+        ],
+      },
       outputKind: 'usd_cents',
       outputUnit: 'USD_cents',
     };
     expect(CalcRequest.safeParse(req).success).toBe(true);
+  });
+});
+
+describe('company templates', () => {
+  it('every template module config passes its module-type schema', () => {
+    for (const template of Object.values(COMPANY_TEMPLATES)) {
+      for (const m of template.modules) {
+        const result = MODULE_CONFIG_SCHEMAS[m.type].safeParse(m.config);
+        expect(result.success, `${template.id}/${m.name}`).toBe(true);
+      }
+      for (const l of template.links) {
+        expect(template.modules[l.fromIndex]).toBeDefined();
+        expect(template.modules[l.toIndex]).toBeDefined();
+      }
+    }
   });
 });

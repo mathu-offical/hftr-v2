@@ -18,6 +18,9 @@ From active sprint spec, choose the **smallest** incomplete deliverable that mov
 
 ## 4. Plan todos
 
+If deliverables split across independent tracks, decompose for parallel sub-agents first
+(`.cursor/rules/parallel-subagents.mdc`). All sub-agents: `composer-2.5`; never Grok.
+
 Example:
 - [ ] Zod contract in `packages/contracts`
 - [ ] Drizzle migration + scoping helper

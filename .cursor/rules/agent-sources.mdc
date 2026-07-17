@@ -9,7 +9,8 @@ Read sources in this priority order when resolving intent vs implementation:
 
 1. **Code** — ground truth for what runs today
 2. **v2 init spec** — `DevSpecs/hftr-v2.init.spec.md` (read-only)
-3. **v1 project** — `/Users/matt-mobile/MATT/web_dev/hftr/` (read-only)
+3. **v1 snapshot** — `agent-docs/research/v1-reference/` + `packages/db/src/seed/catalogs/`
+   (vendored into this repo; the external v1 workspace is historical only — never a dependency)
 4. **agent-docs/** — living truth; must stay synced with code
 5. **User chat** — implementation decisions → log in `dev-intent/decisions-log.md`
 
@@ -30,16 +31,17 @@ Read sources in this priority order when resolving intent vs implementation:
 | Tech decisions | `agent-docs/research/tech-decisions.md` (TD-nn) |
 | Decisions | `agent-docs/dev-intent/decisions-log.md` (D-nnn, OQ-n) |
 
-## v1 lookup (read-only)
+## v1 lookup (vendored snapshot, read-only)
 
-| Need | v1 path |
-|------|---------|
-| Contracts/types | `hftr/packages/contracts/src/` |
-| Pipeline nodes | `hftr/apps/hftr-web/src/lib/pipeline/` |
-| Band constants | `hftr/apps/hftr-web/src/lib/pipeline/nodes/bands.ts` |
-| Wiki concepts | `hftr/agent-docs/wiki/` |
-| Compliance baseline | `hftr/agent-docs/research/compliance-and-policy-operating-baseline.md` |
-| DevSpecs | `hftr/DevSpecs/` |
+| Need | In-repo path |
+|------|--------------|
+| Contracts/types | `agent-docs/research/v1-reference/code/contracts/` |
+| Pipeline nodes | `agent-docs/research/v1-reference/code/pipeline-nodes/` |
+| Band constants | `agent-docs/research/v1-reference/code/pipeline-nodes/bands.ts` |
+| Wiki concepts | `agent-docs/research/v1-reference/wiki/` |
+| Compliance baseline | `agent-docs/research/v1-reference/compliance-and-policy-operating-baseline.md` |
+| DevSpecs audit | `agent-docs/research/v1-reference/1-general.audit.md` |
+| Seed catalogs (JSON) | `packages/db/src/seed/catalogs/` |
 
 ## Cursor workspace
 

@@ -72,8 +72,17 @@ export type LeverLayer = z.infer<typeof LeverLayer>;
  * (number-handling.md §6).
  */
 export const LeverSetting = z.union([
-  z.object({ mode: z.literal('band'), bandId: z.string(), position: z.enum(['min', 'typical', 'max']) }),
-  z.object({ mode: z.literal('calc'), bandId: z.string(), calcOpName: z.string(), args: z.record(z.string()) }),
+  z.object({
+    mode: z.literal('band'),
+    bandId: z.string(),
+    position: z.enum(['min', 'typical', 'max']),
+  }),
+  z.object({
+    mode: z.literal('calc'),
+    bandId: z.string(),
+    calcOpName: z.string(),
+    args: z.record(z.string()),
+  }),
 ]);
 export type LeverSetting = z.infer<typeof LeverSetting>;
 
@@ -165,7 +174,12 @@ export const ActionTrace = z.object({
   mode: z.enum(['paper', 'live']),
   outcome: TraceOutcome,
   fills: z.array(
-    z.object({ qtyInt: z.string(), qtyScale: z.number().int(), priceCents: z.number().int(), atRef: z.string() }),
+    z.object({
+      qtyInt: z.string(),
+      qtyScale: z.number().int(),
+      priceCents: z.number().int(),
+      atRef: z.string(),
+    }),
   ),
   simulatorGapTags: z.array(z.string()).default([]),
   sessionLegalitySnapshot: z.record(z.unknown()),

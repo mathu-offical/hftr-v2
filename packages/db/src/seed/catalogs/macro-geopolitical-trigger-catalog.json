@@ -1,0 +1,717 @@
+{
+  "asOf": "2026-05-29",
+  "status": "in_progress",
+  "purpose": "Seeded macro, geopolitical, and regulatory trigger catalog used to gate strategy activation, repricing expectations, blackout logic, and event-impact graph edges.",
+  "specRefs": ["event-impact-graph-spec.md", "regime-and-market-state-spec.md"],
+  "querySurfaces": {
+    "moduleQueries": [
+      "trigger_summary",
+      "trigger_detail",
+      "sector_impact_lookup",
+      "strategy_blackout_review",
+      "research_routing_review",
+      "event_impact_path_lookup",
+      "playbook_lookup",
+      "second_order_sector_scan",
+      "control_surface_review"
+    ],
+    "progressiveAccessLevels": [
+      {
+        "level": "overview",
+        "returns": ["name", "summary", "class", "affectedSectors", "requiresBlackout"]
+      },
+      {
+        "level": "analyst",
+        "returns": [
+          "affectedSubsectors",
+          "amplifies",
+          "suppresses",
+          "leadPatternBias",
+          "verificationSignals"
+        ]
+      },
+      {
+        "level": "lineage",
+        "returns": [
+          "researchTracks",
+          "complianceNotes",
+          "freshnessWindowMin",
+          "runtimeControlSurface"
+        ]
+      }
+    ]
+  },
+  "runtimeControlSurface": {
+    "weightingDrivers": [
+      "trigger_freshness",
+      "sector_dispersion",
+      "volatility_regime",
+      "policy_severity",
+      "compliance_blackout_state"
+    ],
+    "boundedRangeFamilies": [
+      "blackout_window_band",
+      "reentry_delay_band",
+      "dispersion_decay_band",
+      "risk_off_amplification_band"
+    ],
+    "granularityByLayer": {
+      "research": "Trigger packages keep full event lineage, compliance notes, and cross-sector impact maps.",
+      "strategic": "Downstream layers receive blackout state, dominant sector impacts, and reentry posture only.",
+      "tactical": "Branch builders receive trigger-specific veto windows, decay hints, and sector or strategy suppression detail.",
+      "training_feedback": "Post-event review may retune decay and amplification bands, but only inside seeded policy ranges."
+    },
+    "policyRule": "Macro and geopolitical triggers may strongly suppress or delay activation, but final legality and guardrail checks remain deterministic and provider-free."
+  },
+  "triggers": [
+    {
+      "id": "macro-001",
+      "name": "fed_rate_decision",
+      "summary": "Major policy event that can temporarily invalidate ordinary intraday assumptions while repricing rates-sensitive sectors and factor leadership.",
+      "class": "macro_policy",
+      "freshnessWindowMin": 240,
+      "affectedSectors": [
+        "financials",
+        "technology",
+        "consumer_discretionary",
+        "real_estate",
+        "utilities"
+      ],
+      "affectedSubsectors": [
+        "banks",
+        "software_infrastructure",
+        "homebuilders",
+        "reit_data_centers",
+        "regulated_utility"
+      ],
+      "amplifies": ["opening_range_breakout", "gap_and_go", "liquidity_sweep_reversal"],
+      "suppresses": ["market_making", "vwap_reversion"],
+      "requiresBlackout": true,
+      "leadPatternBias": [
+        "macro_shock_blackout_then_reentry",
+        "rates_shock_blackout_then_delayed_reentry"
+      ],
+      "researchTracks": {
+        "adhoc": ["rate_surprise_lookup", "yield_curve_alignment_check", "fed_blackout_status"],
+        "longRunning": ["post_fed_dispersion_review", "rates_sensitive_sector_repricing_monitor"]
+      },
+      "complianceNotes": [
+        "preserve exact event timestamp and policy source",
+        "trace blackout insertion into tactical branches"
+      ],
+      "verificationSignals": [
+        "rate_move_surprise",
+        "index_volatility_state",
+        "sector_dispersion",
+        "yield_curve_shape_change"
+      ]
+    },
+    {
+      "id": "macro-002",
+      "name": "cpi_or_inflation_surprise",
+      "summary": "Data release that reprices rates, consumer expectations, and growth-duration leadership while often creating a defined post-release blackout window.",
+      "class": "macro_data_release",
+      "freshnessWindowMin": 180,
+      "affectedSectors": ["technology", "consumer_discretionary", "financials", "consumer_staples"],
+      "affectedSubsectors": ["semiconductors", "retail", "banks", "food_beverage"],
+      "amplifies": ["gap_and_go", "lead_lag_propagation"],
+      "suppresses": ["vwap_reversion", "pairs_stat_arb"],
+      "requiresBlackout": true,
+      "leadPatternBias": [
+        "macro_shock_blackout_then_reentry",
+        "consumer_breakout_to_pullback_reclaim"
+      ],
+      "researchTracks": {
+        "adhoc": ["inflation_surprise_lookup", "treasury_reprice_speed_check"],
+        "longRunning": [
+          "inflation_release_sector_rotation_review",
+          "post_cpi_reentry_timing_monitor"
+        ]
+      },
+      "complianceNotes": [
+        "blackout state must be visible in operator review and ActionTrace lineage"
+      ],
+      "verificationSignals": [
+        "treasury_reprice_speed",
+        "usd_move",
+        "index_gap_size",
+        "consumer_breadth_repricing"
+      ]
+    },
+    {
+      "id": "macro-003",
+      "name": "jobs_report_or_labor_shock",
+      "summary": "Labor-market surprise that alters rate expectations, cyclical leadership, and discretionary demand assumptions.",
+      "class": "macro_data_release",
+      "freshnessWindowMin": 180,
+      "affectedSectors": ["financials", "consumer_discretionary", "industrials"],
+      "affectedSubsectors": ["banks", "retail", "transportation_logistics"],
+      "amplifies": ["opening_range_breakout", "pullback_continuation"],
+      "suppresses": ["pairs_stat_arb", "vwap_reversion"],
+      "requiresBlackout": true,
+      "leadPatternBias": ["macro_shock_blackout_then_reentry", "sector_leader_to_sympathy"],
+      "researchTracks": {
+        "adhoc": ["labor_surprise_lookup", "cyclical_rotation_scan"],
+        "longRunning": [
+          "labor_release_followthrough_review",
+          "rates_and_cyclical_alignment_monitor"
+        ]
+      },
+      "complianceNotes": ["macro blackout timing should survive every branch compilation step"],
+      "verificationSignals": [
+        "yield_curve_reaction",
+        "breadth_state",
+        "sector_rotation_speed",
+        "employment_sensitive_factor_move"
+      ]
+    },
+    {
+      "id": "macro-004",
+      "name": "treasury_yield_shock",
+      "summary": "Fast multi-basis-point rate move outside scheduled releases that reprices long-duration equities, REITs, utilities, and financially sensitive groups.",
+      "class": "market_regime",
+      "freshnessWindowMin": 240,
+      "affectedSectors": ["technology", "real_estate", "utilities", "financials"],
+      "affectedSubsectors": [
+        "software_infrastructure",
+        "reit_data_centers",
+        "regulated_utility",
+        "brokers_exchanges"
+      ],
+      "amplifies": ["liquidity_sweep_reversal", "lead_lag_propagation"],
+      "suppresses": ["vwap_reversion", "market_making"],
+      "requiresBlackout": false,
+      "leadPatternBias": [
+        "rates_shock_blackout_then_delayed_reentry",
+        "rate_repricing_to_property_rotation"
+      ],
+      "researchTracks": {
+        "adhoc": ["yield_shock_lookup", "duration_factor_rotation_scan"],
+        "longRunning": ["yield_shock_decay_monitor", "duration_sensitive_sector_response_review"]
+      },
+      "complianceNotes": [
+        "ad hoc rate-shock events still require traceable policy overlays when they suppress activation"
+      ],
+      "verificationSignals": [
+        "ten_year_rate_delta",
+        "duration_factor_rotation",
+        "rate_sensitive_sector_dispersion"
+      ]
+    },
+    {
+      "id": "macro-005",
+      "name": "systemic_risk_or_credit_stress",
+      "summary": "Credit or funding stress that suppresses normal momentum assumptions, pushes defensive rotation, and can require hard risk-off routing.",
+      "class": "market_regime",
+      "freshnessWindowMin": 1440,
+      "affectedSectors": ["financials", "consumer_discretionary", "technology", "real_estate"],
+      "affectedSubsectors": ["banks", "retail", "semiconductors", "commercial_reit"],
+      "amplifies": ["liquidity_sweep_reversal", "extended_overnight_session_response"],
+      "suppresses": ["market_making", "pullback_continuation"],
+      "requiresBlackout": true,
+      "leadPatternBias": ["macro_shock_blackout_then_reentry", "credit_stress_dispersion"],
+      "researchTracks": {
+        "adhoc": ["credit_spread_lookup", "funding_stress_scan"],
+        "longRunning": ["stress_regime_reliability_review", "defensive_rotation_monitor"]
+      },
+      "complianceNotes": ["risk-off policy escalation must be traceable and operator-visible"],
+      "verificationSignals": [
+        "credit_spread_widening",
+        "volatility_index_spike",
+        "funding_stress_signal",
+        "defensive_sector_rotation"
+      ]
+    },
+    {
+      "id": "geo-001",
+      "name": "geopolitical_supply_disruption",
+      "summary": "Conflict, sanctions, or physical disruption that alters supply chains, shipping, commodity pricing, and sector-specific risk posture.",
+      "class": "geopolitical",
+      "freshnessWindowMin": 720,
+      "affectedSectors": ["energy", "industrials", "materials", "health_care"],
+      "affectedSubsectors": [
+        "exploration_production",
+        "aerospace_defense",
+        "metals_mining",
+        "biotech"
+      ],
+      "amplifies": ["gap_and_go", "earnings_guidance_drift"],
+      "suppresses": ["pairs_stat_arb", "market_making"],
+      "requiresBlackout": false,
+      "leadPatternBias": [
+        "policy_gap_to_supplier_sympathy",
+        "commodity_repricing_to_equity_sympathy"
+      ],
+      "researchTracks": {
+        "adhoc": ["headline_source_confirmation", "commodity_shock_lookup"],
+        "longRunning": ["supply_chain_impact_review", "conflict_regime_reliability_monitor"]
+      },
+      "complianceNotes": [
+        "official-source confirmation is required before sustained sector amplification"
+      ],
+      "verificationSignals": [
+        "commodity_shock",
+        "headline_confirmation_count",
+        "cross_asset_risk_move",
+        "shipping_route_disruption"
+      ]
+    },
+    {
+      "id": "geo-002",
+      "name": "tariff_or_trade_escalation",
+      "summary": "Trade-policy escalation that can quickly reprice exporters, import-sensitive names, industrials, materials, and select technology supply chains.",
+      "class": "geopolitical_policy",
+      "freshnessWindowMin": 1440,
+      "affectedSectors": ["industrials", "materials", "technology", "consumer_discretionary"],
+      "affectedSubsectors": ["machinery", "metals_mining", "semiconductors", "retail"],
+      "amplifies": ["gap_and_go", "lead_lag_propagation"],
+      "suppresses": ["pairs_stat_arb", "vwap_reversion"],
+      "requiresBlackout": false,
+      "leadPatternBias": ["commodity_repricing_to_equity_sympathy", "supply_chain_stack_mapping"],
+      "researchTracks": {
+        "adhoc": ["tariff_headline_lookup", "exporter_importer_dispersion_scan"],
+        "longRunning": ["trade_policy_impact_review", "supply_chain_repricing_monitor"]
+      },
+      "complianceNotes": [
+        "trace policy-source lineage and distinguish official action from market rumors"
+      ],
+      "verificationSignals": [
+        "official_source_confirmed",
+        "cross_border_supply_chain_impact",
+        "sector_gap_dispersion"
+      ]
+    },
+    {
+      "id": "geo-003",
+      "name": "export_control_or_semiconductor_restriction",
+      "summary": "Technology-specific policy shock that alters semiconductor, hardware, AI infrastructure, and supplier-chain assumptions.",
+      "class": "regulatory_geopolitical",
+      "freshnessWindowMin": 1440,
+      "affectedSectors": ["technology", "industrials"],
+      "affectedSubsectors": ["semiconductors", "ai_compute", "electrical_equipment"],
+      "amplifies": ["gap_and_go", "lead_lag_propagation", "earnings_guidance_drift"],
+      "suppresses": ["market_making", "pairs_stat_arb"],
+      "requiresBlackout": false,
+      "leadPatternBias": ["supply_chain_stack_mapping", "sector_leader_to_sympathy"],
+      "researchTracks": {
+        "adhoc": ["export_control_lookup", "supply_chain_map_refresh"],
+        "longRunning": ["policy_impact_decay_review", "semiconductor_restriction_repricing_monitor"]
+      },
+      "complianceNotes": [
+        "retain policy version, official source, and affected supply-chain mapping in lineage artifacts"
+      ],
+      "verificationSignals": [
+        "official_source_confirmed",
+        "semiconductor_gap_dispersion",
+        "supplier_readthrough"
+      ]
+    },
+    {
+      "id": "geo-004",
+      "name": "energy_shipping_disruption",
+      "summary": "Shipping-lane or transport disruption that quickly changes energy, industrial, and logistics assumptions through commodity and route-level stress.",
+      "class": "geopolitical",
+      "freshnessWindowMin": 720,
+      "affectedSectors": ["energy", "industrials", "materials"],
+      "affectedSubsectors": ["exploration_production", "transportation_logistics", "chemicals"],
+      "amplifies": ["gap_and_go", "liquidity_sweep_reversal"],
+      "suppresses": ["pairs_stat_arb"],
+      "requiresBlackout": false,
+      "leadPatternBias": ["commodity_gap_to_service_sympathy", "shipping_bottleneck_repricing"],
+      "researchTracks": {
+        "adhoc": ["shipping_lane_status_lookup", "fuel_cost_shock_scan"],
+        "longRunning": ["route_disruption_reliability_review", "transport_energy_sympathy_monitor"]
+      },
+      "complianceNotes": [
+        "geopolitical-source confirmation should remain attached to sector and guardrail overlays"
+      ],
+      "verificationSignals": [
+        "shipping_rate_spike",
+        "fuel_cost_shock",
+        "route_disruption_confirmation"
+      ]
+    },
+    {
+      "id": "geo-005",
+      "name": "cyber_infrastructure_incident",
+      "summary": "Cyber event that can reprice cybersecurity, cloud, telecom, utilities, and exchange infrastructure names while increasing operational risk posture.",
+      "class": "geopolitical_operational",
+      "freshnessWindowMin": 1440,
+      "affectedSectors": [
+        "technology",
+        "communication_services",
+        "utilities",
+        "crypto_equities_and_proxies"
+      ],
+      "affectedSubsectors": [
+        "cybersecurity",
+        "internet_platforms",
+        "grid_infrastructure",
+        "exchanges"
+      ],
+      "amplifies": ["gap_and_go", "earnings_guidance_drift"],
+      "suppresses": ["market_making", "extended_overnight_session_response"],
+      "requiresBlackout": false,
+      "leadPatternBias": ["headline_driven_repricing", "policy_headline_repricing"],
+      "researchTracks": {
+        "adhoc": ["incident_source_lookup", "operational_status_check"],
+        "longRunning": ["incident_decay_monitor", "cyber_theme_repricing_review"]
+      },
+      "complianceNotes": [
+        "event-source hierarchy and operational status confirmation are mandatory before sector bias is promoted"
+      ],
+      "verificationSignals": [
+        "official_incident_confirmation",
+        "service_status_disruption",
+        "cyber_theme_breadth"
+      ]
+    },
+    {
+      "id": "reg-001",
+      "name": "regulatory_sector_action",
+      "summary": "Sector-specific regulatory headline or enforcement action that changes legality, event risk, or expected repricing behavior.",
+      "class": "regulatory",
+      "freshnessWindowMin": 1440,
+      "affectedSectors": ["technology", "health_care", "crypto_equities_and_proxies", "utilities"],
+      "affectedSubsectors": ["internet_platforms", "biotech", "exchanges", "regulated_utility"],
+      "amplifies": ["earnings_guidance_drift", "liquidity_sweep_reversal"],
+      "suppresses": ["market_making"],
+      "requiresBlackout": false,
+      "leadPatternBias": [
+        "event_confirmation_to_delayed_drift",
+        "regulatory_shock_blackout_then_reprice"
+      ],
+      "researchTracks": {
+        "adhoc": ["official_regulatory_lookup", "affected_name_scan"],
+        "longRunning": ["regulatory_event_repricing_review", "sector_rule_change_monitor"]
+      },
+      "complianceNotes": [
+        "official-source confirmation and policy-version linkage are mandatory for promotion"
+      ],
+      "verificationSignals": [
+        "official_source_confirmed",
+        "sector_gap_dispersion",
+        "halt_risk_score",
+        "policy_version_change"
+      ]
+    },
+    {
+      "id": "reg-002",
+      "name": "crypto_regulatory_enforcement",
+      "summary": "Crypto-specific enforcement or policy action that changes exchange, stablecoin, or proxy-equity assumptions and may trigger immediate risk-off overlays.",
+      "class": "regulatory",
+      "freshnessWindowMin": 1440,
+      "affectedSectors": ["crypto_equities_and_proxies", "financials", "technology"],
+      "affectedSubsectors": ["exchanges", "stablecoin_infrastructure", "payments"],
+      "amplifies": ["gap_and_go", "liquidity_sweep_reversal"],
+      "suppresses": ["pairs_stat_arb", "extended_overnight_session_response"],
+      "requiresBlackout": false,
+      "leadPatternBias": [
+        "regulatory_shock_blackout_then_reprice",
+        "crypto_breakout_to_proxy_sympathy"
+      ],
+      "researchTracks": {
+        "adhoc": ["crypto_policy_lookup", "exchange_status_check", "benchmark_disconnect_scan"],
+        "longRunning": ["crypto_policy_regime_review", "proxy_beta_reliability_monitor"]
+      },
+      "complianceNotes": [
+        "crypto-sector policy events must always retain source lineage and operator-visible policy state"
+      ],
+      "verificationSignals": [
+        "official_source_confirmed",
+        "benchmark_alignment",
+        "policy_enforcement_scope"
+      ]
+    },
+    {
+      "id": "macro-006",
+      "name": "election_or_policy_rotation",
+      "summary": "Election, fiscal-policy, or budget rhetoric that can rotate leadership across defense, energy, financials, health care, and communication sectors.",
+      "class": "policy_regime",
+      "freshnessWindowMin": 2880,
+      "affectedSectors": [
+        "industrials",
+        "energy",
+        "financials",
+        "health_care",
+        "communication_services"
+      ],
+      "affectedSubsectors": [
+        "aerospace_defense",
+        "exploration_production",
+        "banks",
+        "managed_care",
+        "advertising_media"
+      ],
+      "amplifies": ["lead_lag_propagation", "pullback_continuation"],
+      "suppresses": ["pairs_stat_arb"],
+      "requiresBlackout": false,
+      "leadPatternBias": ["policy_gap_to_supplier_sympathy", "defensive_rotation_to_reversion"],
+      "researchTracks": {
+        "adhoc": ["policy_headline_lookup", "affected_sector_rotation_scan"],
+        "longRunning": ["policy_regime_reliability_review", "election_cycle_sector_monitor"]
+      },
+      "complianceNotes": ["keep campaign rhetoric separate from enacted policy in promotion logic"],
+      "verificationSignals": [
+        "official_policy_action",
+        "sector_rotation_breadth",
+        "headline_confirmation_count"
+      ]
+    },
+    {
+      "id": "reg-003",
+      "name": "market_structure_reform_milestone",
+      "summary": "Dated SEC Regulation NMS or FINRA margin compliance milestone (tick increment, access-fee cap, round-lot redefinition, odd-lot/BOLO dissemination, or intraday-margin effectiveness) that recalibrates seeded execution-cost and universe bands.",
+      "class": "regulatory",
+      "freshnessWindowMin": 10080,
+      "affectedSectors": ["financials", "technology", "all_equity_and_crypto_proxy_sectors"],
+      "affectedSubsectors": ["brokers_exchanges", "software_infrastructure", "semiconductors"],
+      "amplifies": ["market_making", "liquidity_sweep_reversal", "vwap_reversion"],
+      "suppresses": [],
+      "requiresBlackout": false,
+      "leadPatternBias": ["regulatory_shock_blackout_then_reprice"],
+      "researchTracks": {
+        "adhoc": ["reform_status_lookup", "effective_date_check", "access_fee_band_review"],
+        "longRunning": [
+          "compliance_date_recalibration_monitor",
+          "round_lot_universe_reparameterization_review"
+        ]
+      },
+      "complianceNotes": [
+        "reform milestones are date-gated inputs that recalibrate mutable cost and universe bands; immutable dispatch legality and verification are unchanged",
+        "preserve compliance-date history and statutory source lineage"
+      ],
+      "verificationSignals": [
+        "reform_effective_date_current",
+        "access_fee_cap_band_consistent",
+        "tick_increment_band_consistent",
+        "round_lot_definition_version_current"
+      ]
+    },
+    {
+      "id": "reg-004",
+      "name": "crypto_market_structure_legislation_milestone",
+      "summary": "Federal digital-asset legislative milestone (GENIUS Act stablecoin rulemaking or CLARITY Act SEC/CFTC jurisdiction progress) that shifts crypto-sector eligibility posture and classification contingencies.",
+      "class": "regulatory",
+      "freshnessWindowMin": 10080,
+      "affectedSectors": ["crypto_equities_and_proxies", "financials", "technology"],
+      "affectedSubsectors": ["exchanges", "stablecoin_infrastructure", "payments"],
+      "amplifies": ["gap_and_go", "lead_lag_propagation"],
+      "suppresses": ["extended_overnight_session_response"],
+      "requiresBlackout": false,
+      "leadPatternBias": [
+        "regulatory_shock_blackout_then_reprice",
+        "crypto_breakout_to_proxy_sympathy"
+      ],
+      "researchTracks": {
+        "adhoc": ["crypto_law_status_lookup", "jurisdiction_split_contingency_check"],
+        "longRunning": ["digital_asset_legislation_monitor", "crypto_eligibility_posture_review"]
+      },
+      "complianceNotes": [
+        "GENIUS Act treated as enacted law; CLARITY Act treated as pending until enacted, keeping a conservative crypto-eligibility default",
+        "retain statutory status and source lineage in policy events"
+      ],
+      "verificationSignals": [
+        "genius_act_treated_effective",
+        "clarity_act_status_current",
+        "policy_source_lineage_present"
+      ]
+    }
+  ],
+  "eventImpactEdges": [
+    {
+      "id": "eig-m-001",
+      "from": { "kind": "macro_trigger", "id": "macro-001" },
+      "to": { "kind": "research_topic", "id": "topic_fed_policy_repricing" },
+      "edgeType": "spawns_research_topic",
+      "transmissionOrder": 1,
+      "halfLifeMin": 240,
+      "playbookId": "playbook_fed_decision",
+      "summary": "Fed rate decision spawns rates-sensitive policy repricing research and sector rotation review"
+    },
+    {
+      "id": "eig-m-002",
+      "from": { "kind": "macro_trigger", "id": "macro-001" },
+      "to": { "kind": "sector", "id": "financials" },
+      "edgeType": "transmits_to_sector",
+      "transmissionOrder": 1,
+      "halfLifeMin": 240,
+      "summary": "First-order repricing in banks and rate-sensitive financials"
+    },
+    {
+      "id": "eig-m-003",
+      "from": { "kind": "macro_trigger", "id": "macro-001" },
+      "to": { "kind": "strategy_family", "id": "opening_range_breakout" },
+      "edgeType": "amplifies_family",
+      "transmissionOrder": 1,
+      "requiresConfirmation": true,
+      "summary": "Post-blackout opening drive families may amplify once dispersion normalizes"
+    },
+    {
+      "id": "eig-m-004",
+      "from": { "kind": "macro_trigger", "id": "macro-001" },
+      "to": { "kind": "strategy_family", "id": "vwap_reversion" },
+      "edgeType": "suppresses_family",
+      "untilBlackoutClears": true,
+      "summary": "Mean-reversion families suppressed during active fed blackout"
+    },
+    {
+      "id": "eig-m-005",
+      "from": { "kind": "macro_trigger", "id": "macro-002" },
+      "to": { "kind": "research_topic", "id": "topic_inflation_surprise_repricing" },
+      "edgeType": "spawns_research_topic",
+      "transmissionOrder": 1,
+      "halfLifeMin": 180,
+      "playbookId": "playbook_inflation_surprise",
+      "summary": "CPI or inflation surprise spawns cross-sector inflation repricing research"
+    },
+    {
+      "id": "eig-m-006",
+      "from": { "kind": "macro_trigger", "id": "macro-002" },
+      "to": { "kind": "trend_axis", "id": "trend_rates_sensitive_rotation" },
+      "edgeType": "biases_trend",
+      "direction": "amplify",
+      "transmissionOrder": 1,
+      "halfLifeMin": 180,
+      "summary": "Biases rates-sensitive sector rotation trend nomination"
+    },
+    {
+      "id": "eig-m-007",
+      "from": { "kind": "macro_trigger", "id": "macro-002" },
+      "to": { "kind": "sector", "id": "technology" },
+      "edgeType": "transmits_to_sector",
+      "transmissionOrder": 2,
+      "halfLifeMin": 120,
+      "summary": "Second-order growth-duration leadership shift after inflation surprise"
+    },
+    {
+      "id": "eig-m-008",
+      "from": { "kind": "macro_trigger", "id": "macro-003" },
+      "to": { "kind": "strategy_family", "id": "macro_relative_value_dispersion" },
+      "edgeType": "amplifies_family",
+      "transmissionOrder": 2,
+      "halfLifeMin": 180,
+      "summary": "Labor shock may amplify macro RV dispersion once correlation stabilizes"
+    },
+    {
+      "id": "eig-m-009",
+      "from": { "kind": "macro_trigger", "id": "macro-004" },
+      "to": { "kind": "trend_axis", "id": "trend_rates_sensitive_rotation" },
+      "edgeType": "biases_trend",
+      "direction": "amplify",
+      "transmissionOrder": 1,
+      "halfLifeMin": 240,
+      "summary": "Treasury yield shock biases duration-sensitive sector rotation trends"
+    },
+    {
+      "id": "eig-m-010",
+      "from": { "kind": "macro_trigger", "id": "macro-005" },
+      "to": { "kind": "trend_axis", "id": "trend_global_risk_off" },
+      "edgeType": "biases_trend",
+      "direction": "amplify",
+      "transmissionOrder": 1,
+      "halfLifeMin": 60,
+      "playbookId": "playbook_flash_stress",
+      "summary": "Systemic credit or funding stress elevates global risk-off trend axis"
+    },
+    {
+      "id": "eig-m-011",
+      "from": { "kind": "macro_trigger", "id": "geo-001" },
+      "to": { "kind": "sector", "id": "energy" },
+      "edgeType": "transmits_to_sector",
+      "transmissionOrder": 1,
+      "halfLifeMin": 720,
+      "summary": "Geopolitical supply disruption transmits first order to energy complex"
+    },
+    {
+      "id": "eig-m-012",
+      "from": { "kind": "macro_trigger", "id": "geo-001" },
+      "to": { "kind": "sector", "id": "industrials" },
+      "edgeType": "transmits_to_sector",
+      "transmissionOrder": 2,
+      "halfLifeMin": 720,
+      "summary": "Second-order industrial and defense sympathy after geopolitical supply disruption"
+    },
+    {
+      "id": "eig-m-013",
+      "from": { "kind": "macro_trigger", "id": "macro-006" },
+      "to": { "kind": "trend_axis", "id": "trend_policy_rotation" },
+      "edgeType": "biases_trend",
+      "direction": "amplify",
+      "transmissionOrder": 1,
+      "halfLifeMin": 2880,
+      "summary": "Election or fiscal rotation biases policy-themed trend research"
+    },
+    {
+      "id": "eig-m-014",
+      "from": { "kind": "macro_trigger", "id": "reg-003" },
+      "to": { "kind": "research_topic", "id": "topic_market_structure_reform_recalibration" },
+      "edgeType": "spawns_research_topic",
+      "transmissionOrder": 1,
+      "halfLifeMin": 10080,
+      "summary": "Reg NMS or margin reform milestones spawn band recalibration research"
+    },
+    {
+      "id": "eig-m-015",
+      "from": { "kind": "macro_trigger", "id": "macro-005" },
+      "to": { "kind": "strategy_family", "id": "infrastructure_stress_reversal" },
+      "edgeType": "amplifies_family",
+      "transmissionOrder": 1,
+      "playbookId": "playbook_infrastructure_outage",
+      "summary": "Systemic credit or funding stress amplifies infrastructure stress reclaim under risk-off playbook"
+    }
+  ],
+  "policyRules": {
+    "blackoutRule": "When requiresBlackout is true, tactical decomposition must insert no-trade or delayed-reentry branches around the event window.",
+    "freshnessRule": "Triggers older than freshnessWindowMin degrade confidence or become invalidating only if explicitly re-confirmed.",
+    "feedbackRule": "Nightly research updates trigger reliability scores and affected strategy weight adjustments.",
+    "immediateResearchRule": "Ad hoc requests are allowed for active triggers and must return current blackout, freshness, and sector-impact state without granting dispatch authority.",
+    "progressiveAccessRule": "Every trigger package should support overview, analyst, and lineage detail levels so operators and programmatic consumers can query without opening raw source files."
+  },
+  "diagram": {
+    "nodes": [
+      "trigger_ingest",
+      "freshness_check",
+      "sector_and_subsector_impact_mapping",
+      "strategy_bias_update",
+      "blackout_or_activation_decision",
+      "research_query_surface",
+      "tactical_blackout_insertion",
+      "feedback_refresh"
+    ],
+    "edges": [
+      { "from": "trigger_ingest", "to": "freshness_check", "label": "new trigger evidence" },
+      {
+        "from": "freshness_check",
+        "to": "sector_and_subsector_impact_mapping",
+        "label": "fresh eligible triggers"
+      },
+      {
+        "from": "sector_and_subsector_impact_mapping",
+        "to": "blackout_or_activation_decision",
+        "label": "sector and family impacts"
+      },
+      {
+        "from": "blackout_or_activation_decision",
+        "to": "strategy_bias_update",
+        "label": "bias or suppress"
+      },
+      {
+        "from": "blackout_or_activation_decision",
+        "to": "tactical_blackout_insertion",
+        "label": "blackout windows"
+      },
+      {
+        "from": "blackout_or_activation_decision",
+        "to": "research_query_surface",
+        "label": "ad hoc queryable state"
+      },
+      {
+        "from": "strategy_bias_update",
+        "to": "feedback_refresh",
+        "label": "reliability update inputs"
+      },
+      { "from": "feedback_refresh", "to": "freshness_check", "label": "nightly revalidation" }
+    ]
+  }
+}

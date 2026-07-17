@@ -4,9 +4,14 @@ These rules apply to any assistant or automation operating in the hftr-v2 worksp
 
 ## Canonical sources (READ-ONLY)
 
-- `DevSpecs/` (this repo) and the entire hftr v1 project
-  (`/Users/matt-mobile/MATT/web_dev/hftr/DevSpecs/`, `/Users/matt-mobile/MATT/web_dev/hftr/agent-docs/`,
-  and the v1 implementation) are read-only canonical references. Never edit them.
+- `DevSpecs/` (this repo) is a read-only canonical reference. Never edit it.
+- v1 material is **vendored into this repo**: reference snapshot at
+  `agent-docs/research/v1-reference/` (read-only) and seed catalogs at
+  `packages/db/src/seed/catalogs/` (canonical, editable with `catalog_version` bumps).
+- **Independence rule (D-015):** this repository must never depend on the external v1
+  workspace (`/Users/matt-mobile/MATT/web_dev/hftr/`) at build, seed, or runtime. If something
+  new is needed from v1, vendor it in and record the provenance in
+  `agent-docs/research/v1-carryover.md`. The external v1 project stays read-only history.
 - All build work must align with the combined intent of the v2 init spec AND the original v1
   project. Conflicts are resolved and recorded in `agent-docs/dev-intent/decisions-log.md`.
 
@@ -81,3 +86,13 @@ These rules apply to any assistant or automation operating in the hftr-v2 worksp
 - Agent rules, skills, workflows, and slash commands: `.cursor/README.md` (D-010).
 - Start substantial tasks with `session-start` skill; finish with `verify-change` skill.
 - Slash commands: `/continue-build`, `/curate-docs`, `/verify`.
+
+## Sub-agent orchestration
+
+- Decompose substantial multi-package or multi-domain work into **parallel sub-agents** when
+  tasks are independent. Only the parent agent spawns sub-agents.
+- **All Cursor sub-agents use `composer-2.5`.** Never use Grok (`cursor-grok-*`) for sub-agents.
+  (This is separate from the product's **Groq** execution-tier LLM provider.)
+- Sub-agent prompts must be high-granularity: absolute paths, explicit constraints, verification
+  steps, and structured return format. Parent re-verifies all sub-agent output (zero-trust).
+- Rule: `.cursor/rules/parallel-subagents.mdc`; skill: `.cursor/skills/parallel-orchestration/`.

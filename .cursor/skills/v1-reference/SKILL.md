@@ -3,28 +3,29 @@ name: v1-reference
 description: Looks up hftr v1 read-only sources to port contracts, bands, guardrails, pipeline concepts, and wiki knowledge into v2. Use when implementing engine, pipeline, verification, bands/levers, compliance, or any v1 carryover work.
 ---
 
-# v1 reference lookup (read-only)
+# v1 reference lookup (vendored snapshot, read-only)
 
-v1 root: `/Users/matt-mobile/MATT/web_dev/hftr/` — **never edit**.
+All v1 reference material is **vendored inside this repo** — the external v1 workspace is
+never a dependency. Snapshot root: `agent-docs/research/v1-reference/` (never edit; see its
+README). Seed catalogs: `packages/db/src/seed/catalogs/` (editable canonical copies).
 
-## Lookup table
+## Lookup table (paths relative to repo root)
 
-| Need | Primary v1 path |
-|------|-----------------|
-| Type contracts | `packages/contracts/src/` |
-| Pipeline implementation | `apps/hftr-web/src/lib/pipeline/` |
-| Band numeric constants | `apps/hftr-web/src/lib/pipeline/nodes/bands.ts` |
-| Lever registries | `apps/hftr-web/src/lib/pipeline/nodes/levers.ts` |
-| Dispatch/verification | `apps/hftr-web/src/lib/pipeline/nodes/dispatch*.ts`, `verify*.ts` |
-| Wiki: dispatch | `agent-docs/wiki/deterministic-dispatch.md` |
-| Wiki: compile tier | `agent-docs/wiki/execution-agent-compile.md` |
-| Wiki: guardrails | `agent-docs/wiki/guardrails.md` |
-| Wiki: activation gates | `agent-docs/wiki/activation-validation.md` |
-| Wiki: tier levers | `agent-docs/wiki/tier-lever-model.md` |
-| Band reference doc | `agent-docs/research/tier-lever-and-bounded-range-reference.md` |
-| Tool catalog | `agent-docs/research/academic-quant-tool-catalog.md`, `seeded-strategy-catalog.json` |
-| Compliance | `agent-docs/research/compliance-and-policy-operating-baseline.md` |
-| DevSpecs audit | `DevSpecs/1-general.audit.md` |
+| Need | Path |
+|------|------|
+| Type contracts | `agent-docs/research/v1-reference/code/contracts/` |
+| Pipeline implementation | `agent-docs/research/v1-reference/code/pipeline-nodes/` |
+| Band numeric constants | `agent-docs/research/v1-reference/code/pipeline-nodes/bands.ts` |
+| Lever registries | `agent-docs/research/v1-reference/code/pipeline-nodes/levers.ts` |
+| Wiki: dispatch | `agent-docs/research/v1-reference/wiki/deterministic-dispatch.md` |
+| Wiki: compile tier | `agent-docs/research/v1-reference/wiki/execution-agent-compile.md` |
+| Wiki: guardrails | `agent-docs/research/v1-reference/wiki/guardrails.md` |
+| Wiki: activation gates | `agent-docs/research/v1-reference/wiki/activation-validation.md` |
+| Wiki: tier levers | `agent-docs/research/v1-reference/wiki/tier-lever-model.md` |
+| Band reference doc | `agent-docs/research/v1-reference/tier-lever-and-bounded-range-reference.md` |
+| Tool catalog | `agent-docs/research/v1-reference/academic-quant-tool-catalog.md`, `packages/db/src/seed/catalogs/seeded-strategy-catalog.json` |
+| Compliance | `agent-docs/research/v1-reference/compliance-and-policy-operating-baseline.md` |
+| DevSpecs audit | `agent-docs/research/v1-reference/1-general.audit.md` |
 
 ## Port rules
 

@@ -48,7 +48,81 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   zero-trust verification, and IronBee browser verification are enforced via always-on rules.
   Index: `.cursor/README.md`.
 
+- **D-011 (scaffold implementation, 2026-07-16):** Full monorepo scaffolded and verified
+  (typecheck/lint/25 tests/next build green). Deviations from plan, all low-risk:
+  (a) `policy` and `math` added to the modules type enum — policy nodes are lightweight modules
+  binding policy envelopes, resolving the canvas "trading → trading policies" column against
+  the schema; (b) the numeric/temporal store + exchange_calendars schema and the calc/clock/
+  calendar/queue engine cores were pulled forward from M2 into the scaffold so contracts and
+  routes could be typed against them from day one; (c) LLM providers are implemented over plain
+  `fetch` (Anthropic Messages; Mistral/Groq OpenAI-compatible) instead of SDKs to keep the
+  dependency surface minimal; (d) contracts export raw TS (`./src/index.ts`) transpiled by
+  consumers rather than a tsup build step — simpler until an external consumer exists.
+  Remaining G0 items listed in `plans/m0-sprint-spec.md` §Scaffold status.
+
+- **D-012 (application build session, 2026-07-16):** Fresh Neon project `hftr-v2`
+  (bold-surf-86557348, per D-006) created via MCP; migrations applied; XNYS calendar seeded.
+  Dev-only auth bypass added (`DEV_AUTH_BYPASS=1`): active only when Clerk is unconfigured AND
+  NODE_ENV != production; production without Clerk keys fails closed. M1 canvas/CRUD/queue
+  spine implemented and verified against the running app (see m1-sprint-spec §Progress).
+  Clerk dashboard keys remain a user action (OQ-7).
+
+- **D-013 (sub-agent orchestration, 2026-07-16):** Cursor workspace rules require parallel
+  sub-agent delegation for independent multi-package/domain work. All Cursor sub-agents must
+  use `composer-2.5`; Grok models (`cursor-grok-*`) are forbidden for sub-agents. Sub-agent
+  prompts must be high-granularity (absolute paths, constraints, verification, return format).
+  Parent re-verifies all sub-agent output. Distinct from product Groq execution-tier LLM.
+  Rule: `.cursor/rules/parallel-subagents.mdc`.
+
+- **D-014 (paper dispatch spine, 2026-07-16):** The deterministic tail of the pipeline
+  (instruction → gauntlet → task → paper fill → trace → verification → ledger) was pulled
+  forward from M2 as an operator-initiated path (`OPERATOR_INPUT` authority): trading modules
+  expose a paper-trade form; the route enqueues `dispatch.paper_trade` on the DISPATCH queue
+  and drains inline for immediate UX. New tables: `action_instructions`, `deterministic_tasks`,
+  `action_traces` (append-only), `verification_records` (append-only), `ledger_entries`
+  (append-only; balance = seed + sum, never mutated). Quotes come from a deterministic
+  `synthetic_sim` source (per-symbol base + bounded per-minute walk), recorded as `live_feed`
+  ValueRefs with `sourceId: synthetic_sim:*` and honest `feedClass` labeling — swapped for
+  Alpaca IEX later with no downstream change. Company balance projection and an Activity right
+  rail (ledger + traces + verification chips) shipped with it. Trend/lead/decision-tree tables
+  still land with the LLM pipeline milestone.
+
+- **D-015 (v1 independence, 2026-07-16):** User directive — v2 must be fully independent of
+  the v1 workspace; anything v2 uses from v1 must live inside this repository. Executed:
+  (a) all nine seed-catalog JSONs vendored to `packages/db/src/seed/catalogs/` (canonical for
+  v2; edit in place with `catalog_version` bumps, never re-sync from v1); (b) reference
+  material vendored to `agent-docs/research/v1-reference/` (band + tool catalogs, compliance
+  baseline, DevSpecs audit, five wiki concept pages, v1 contracts + pipeline-node code
+  snapshots — reference only, excluded from builds); (c) `.cursor` rules/skills, `AGENTS.md`,
+  `agent-docs/README.md`, seed READMEs, and `v1-carryover.md` repointed to in-repo paths.
+  Verified: no package code, config, or script references the v1 workspace path; typecheck,
+  lint, tests, and build unaffected.
+
+- **D-016 (positions, catalogs-in-DB, trend scan, templates, info rail, 2026-07-16):**
+  Continued build session. (a) `positions` table maintained only by the dispatch layer at
+  fill time (average-cost basis, whole units, realized PnL accumulated on sells); paper v1
+  forbids shorting — sells over held quantity are blocked with `broker_policy_block`.
+  (b) The nine vendored catalog JSONs are now seeded into a generic `catalog_entries`
+  table (97 entries, `v1_snapshot_2026_07_16`); the strategy-family picker in the trading
+  inspector reads from `/api/catalogs/strategy_families`. (c) Deterministic `trend.scan`
+  handler (RESEARCH queue) computes quote drift over a lookback window, records it as a
+  bps ValueRef, and emits `trend_candidates` honestly labeled `deterministic_scan` — the
+  LLM tiers will later write `model_nominated` rows to the same table. (d) Company
+  templates (`blank`, `day_trading_starter`, `trend_research_lab`) in
+  `packages/contracts/src/templates.ts`; template module configs are contract-tested
+  against `MODULE_CONFIG_SCHEMAS`. (e) Canvas nodes poll a server-composed per-module
+  status projection (`GET .../canvas`, text-first). (f) The right rail is now a tabbed
+  info panel: Activity / Positions (mark-to-market vs synthetic quotes) / Trends /
+  Values (Math-module ValueRef audit with source + lineage). Verified end-to-end in the
+  browser with a real Clerk account: templated company creation, trend scan, buy 10 AAPL,
+  sell 4 (balance and position updated correctly), oversell blocked at the engine level.
+
 ## Open questions
+
+- **OQ-7 (resolved 2026-07-16):** Clerk dev-instance keys added to `apps/web/.env.local`;
+  the dev bypass self-deactivates (it requires Clerk to be unconfigured). Clerk-hosted
+  sign-up UI verified rendering; full automated sign-up E2E pending (Clerk bot protection
+  blocks scripted account creation — verify manually or with Clerk testing tokens).
 
 - **OQ-1 (open):** Credit pack pricing and subscription tier pricing — needs user input before M4.
 - **OQ-2 (open):** Criteria/timing for adding a dedicated always-on worker for market-hours

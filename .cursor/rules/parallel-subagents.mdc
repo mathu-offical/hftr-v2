@@ -1,0 +1,112 @@
+---
+description: Parallel sub-agent orchestration — delegate independent work, composer-2.5 only, never Grok
+alwaysApply: true
+---
+
+# Parallel sub-agent orchestration
+
+Decompose substantial work into **independent units** and delegate to parallel sub-agents via the
+**Task** tool. The parent orchestrates, verifies, and synthesizes; sub-agents execute focused slices.
+
+> **Only the parent agent spawns sub-agents.** Sub-agents must not spawn further sub-agents.
+
+## Model policy (mandatory)
+
+| Rule | Value |
+|------|-------|
+| **All sub-agents** | `composer-2.5` |
+| **Forbidden** | Any Grok model (`cursor-grok-*`, `grok`, etc.) — **never** |
+
+Do not substitute `composer-2.5-fast` or other models unless the user explicitly overrides.
+This applies to Cursor sub-agents only — **not** the product's Groq execution-tier LLM provider.
+
+Every Task invocation must set `model: "composer-2.5"`.
+
+## When to delegate in parallel
+
+Prefer parallel sub-agents when tasks are **independent** (no shared write dependency):
+
+- Multi-package work (`packages/contracts` + `packages/db` + `apps/web` in parallel)
+- Research/explore passes across v1 paths, agent-docs, and codebase
+- Independent test or verification passes per package
+- Doc curation + implementation in separate domains (after scope is split)
+
+**Do not** parallelize tasks where B depends on A's output (schema before migration, contracts
+before engine, etc.). Run dependent phases sequentially; parallelize **within** each phase.
+
+Launch multiple Task calls in **one message** when launching parallel work.
+
+## Sub-agent type selection
+
+| Type | Use when |
+|------|----------|
+| `explore` | Read-only codebase/docs search; mapping architecture |
+| `generalPurpose` | Focused implementation or multi-step slice with writes |
+| `shell` | Git, pnpm, migrations, CI commands |
+| `code-reviewer` | Post-implementation review of a diff |
+| `code-explorer` | Deep trace of one feature before parent plans |
+
+Pick the **narrowest** type that fits. Tighter scope → better results.
+
+## Sub-agent prompt requirements (mandatory)
+
+Every Task prompt must be **high-granularity and specific**. Include all of:
+
+1. **Goal** — one sentence, measurable done-state
+2. **Absolute paths** — every file to read or modify (`/Users/matt-mobile/MATT/web_dev/hftr-v2/...`)
+3. **Constraints** — safety invariants, package boundaries, read-only paths (DevSpecs/, v1/)
+4. **Do / do NOT** — explicit scope fence (`Do NOT edit packages/engine if task is UI-only`)
+5. **Verification steps** — tests to run, files to re-read, browser flows if UI
+6. **Return format** — bullet list: files changed, findings, blockers, unverified claims
+
+### Prompt template
+
+```
+Goal: [single measurable outcome]
+
+Read first (absolute paths):
+- /Users/matt-mobile/MATT/web_dev/hftr-v2/[...]
+
+Implement:
+- [specific change 1]
+- [specific change 2]
+
+Constraints:
+- [safety/architecture rules that apply]
+- Do NOT edit: DevSpecs/, /Users/matt-mobile/MATT/web_dev/hftr/
+
+Verify before returning:
+- [ ] [specific test or read-back]
+
+Return:
+- Files changed (with paths)
+- Summary of changes
+- Blockers or OQ-n candidates
+- Anything not verified
+```
+
+**Anti-patterns:** vague prompts ("fix the auth"), relative paths only, large pasted context
+instead of file paths, missing verification steps, missing return format.
+
+## Parent verification (zero-trust)
+
+Never trust sub-agent claims without re-checking:
+
+1. Re-read every file the sub-agent claims to have modified
+2. Confirm changes match the task spec and safety invariants
+3. Run tests or browser verification for observable behavior
+4. Cross-check conflicting sub-agent outputs before merging
+
+Failed sub-agents: retry once with a **smaller scope** and more explicit paths; escalate to
+parent if still failing.
+
+## hftr-v2 decomposition patterns
+
+| Pattern | Parallel example |
+|---------|------------------|
+| By package | contracts ∥ db schema ∥ API route (after contracts agreed) |
+| By layer | explore v1 carryover ∥ explore current apps/web |
+| By verification | vitest engine ∥ vitest contracts ∥ browser flow |
+| By docs | update data-model.md ∥ update product-spec.md (non-overlapping sections) |
+
+After parallel work: parent merges, resolves conflicts, updates agent-docs once (self-curation).

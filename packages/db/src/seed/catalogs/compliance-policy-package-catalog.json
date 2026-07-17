@@ -1,0 +1,450 @@
+{
+  "asOf": "2026-05-29",
+  "status": "in_progress",
+  "purpose": "First-class compliance policy package catalog used to keep launch boundaries, retention precedence, live-mode gates, and audit obligations independently queryable and upstream of deterministic dispatch.",
+  "querySurfaces": {
+    "moduleQueries": [
+      "policy_summary",
+      "package_detail",
+      "family_constraint_lookup",
+      "sector_constraint_lookup",
+      "retention_precedence_review",
+      "control_surface_review",
+      "reform_status_lookup"
+    ],
+    "progressiveAccessLevels": [
+      {
+        "level": "overview",
+        "returns": ["name", "class", "scope", "operatorPosture", "liveImpact"]
+      },
+      {
+        "level": "analyst",
+        "returns": [
+          "enforcementSurfaces",
+          "fallbackPaths",
+          "affectedStrategies",
+          "affectedSectors",
+          "verificationSignals"
+        ]
+      },
+      {
+        "level": "lineage",
+        "returns": [
+          "policyOwner",
+          "effectiveDate",
+          "retentionImplications",
+          "reviewCadence",
+          "runtimeControlSurface"
+        ]
+      }
+    ]
+  },
+  "runtimeControlSurface": {
+    "weightingDrivers": [
+      "policy_severity",
+      "live_mode_state",
+      "jurisdiction_scope",
+      "session_legality_risk",
+      "evidence_freshness"
+    ],
+    "boundedRangeFamilies": [
+      "unlock_threshold_band",
+      "retention_window_band",
+      "approval_scope_band",
+      "throttle_cap_band"
+    ],
+    "granularityByLayer": {
+      "research": "Compliance packages keep full policy scope, owner, retention precedence, and launch-boundary detail for audit and review.",
+      "strategic": "Upstream layers receive coarse operator posture, allowed scope, and major vetoes rather than full policy lineage.",
+      "tactical": "Branch builders receive strategy and session constraints, fallback posture, and approval requirements before decision trees are compiled.",
+      "execution_agent": "Only policy-safe control snapshots, active approval scope, and legality flags should remain before deterministic enforcement.",
+      "training_feedback": "Replay review may refresh confidence in package applicability and review cadence inside seeded bounds without mutating hard legality."
+    },
+    "policyRule": "Compliance packages can narrow eligibility, alter promotion posture, or require additional approval, but they cannot be bypassed by provider output or user preference."
+  },
+  "packages": [
+    {
+      "id": "cmp-001",
+      "name": "live_mode_unlock_and_approval_gate",
+      "class": "launch_boundary",
+      "scope": "live_mode_and_execution",
+      "operatorPosture": "fail_closed_until_all_gates_green",
+      "liveImpact": "live dispatch disabled unless connectivity, verification, parity, and recovery gates all pass",
+      "enforcementSurfaces": [
+        "broker_connectivity_health",
+        "verification_threshold_gate",
+        "parity_suite_gate",
+        "recovery_drill_gate",
+        "approval_scope_check"
+      ],
+      "fallbackPaths": [
+        "remain_in_paper_mode",
+        "downgrade_to_operator_review",
+        "block_live_submission"
+      ],
+      "affectedStrategies": ["all_live_routable_families"],
+      "affectedSectors": ["all_equity_and_crypto_proxy_sectors"],
+      "policyOwner": "compliance_plus_engine",
+      "effectiveDate": "2026-05-19",
+      "retentionImplications": [
+        "unlock_decisions_trace_logged_for_one_year_archive",
+        "approval_scope_changes_logged_with_policy_owner"
+      ],
+      "verificationSignals": [
+        "broker_health_green",
+        "deterministic_block_rate_stable",
+        "recovery_drill_pass",
+        "approval_scope_present"
+      ],
+      "reviewCadence": "before any live enablement and nightly thereafter"
+    },
+    {
+      "id": "cmp-002",
+      "name": "retention_precedence_and_legal_hold",
+      "class": "retention_and_override",
+      "scope": "trace_data_decision_records_and_policy_events",
+      "operatorPosture": "contract_defaults_superseded_by_holds_and_regulator_overrides",
+      "liveImpact": "retention policies cannot shorten broker or regulator minima and must remain auditable",
+      "enforcementSurfaces": [
+        "trace_archive_policy",
+        "legal_hold_override",
+        "regulator_request_override",
+        "policy_version_audit_log"
+      ],
+      "fallbackPaths": [
+        "extend_retention_window",
+        "freeze_deletion_workflows",
+        "escalate_to_policy_owner"
+      ],
+      "affectedStrategies": ["all_strategy_families_via_action_trace"],
+      "affectedSectors": ["all"],
+      "policyOwner": "compliance_plus_data",
+      "effectiveDate": "2026-05-19",
+      "retentionImplications": [
+        "90_day_hot_plus_one_year_archive_baseline",
+        "legal_hold_overrides_take_precedence",
+        "regulator_scope_changes_logged_as_policy_events"
+      ],
+      "verificationSignals": [
+        "retention_policy_version",
+        "legal_hold_state",
+        "archive_success_rate",
+        "override_trace_present"
+      ],
+      "reviewCadence": "quarterly and on regulator or broker policy changes"
+    },
+    {
+      "id": "cmp-003",
+      "name": "session_legality_and_order_form_governance",
+      "class": "session_and_order_legality",
+      "scope": "regular_extended_and_overnight_order_submission",
+      "operatorPosture": "session rules are always-on and non-bypassable",
+      "liveImpact": "incompatible order forms are blocked before deterministic dispatch regardless of upstream intent quality",
+      "enforcementSurfaces": [
+        "session_constraint_catalog",
+        "broker_policy_envelope_catalog",
+        "order_type_legality_check",
+        "time_in_force_policy_check"
+      ],
+      "fallbackPaths": [
+        "defer_to_legal_session",
+        "recompile_limit_only_order",
+        "reject_incompatible_instruction"
+      ],
+      "affectedStrategies": [
+        "gap_and_go",
+        "extended_overnight_session_response",
+        "earnings_guidance_drift",
+        "opening_range_breakout"
+      ],
+      "affectedSectors": [
+        "technology",
+        "energy",
+        "consumer_discretionary",
+        "crypto_equities_and_proxies"
+      ],
+      "policyOwner": "compliance_plus_engine",
+      "effectiveDate": "2026-05-19",
+      "retentionImplications": [
+        "session-rule rejection traces preserved for promotion review",
+        "session-override attempts logged as audit events"
+      ],
+      "verificationSignals": [
+        "order_type_legal",
+        "time_in_force_legal",
+        "extended_hours_flag_consistent",
+        "market_data_feed_compatible"
+      ],
+      "reviewCadence": "nightly plus broker-policy revisions"
+    },
+    {
+      "id": "cmp-004",
+      "name": "endpoint_throttle_and_override_governance",
+      "class": "transport_and_policy_cap",
+      "scope": "broker_trade_market_data_and_websocket_endpoints",
+      "operatorPosture": "user preferences bounded by hard platform caps",
+      "liveImpact": "throttle settings may narrow or widen behavior only inside approved envelope classes",
+      "enforcementSurfaces": [
+        "broker_policy_envelope_catalog",
+        "cooldown_window_enforcement",
+        "retry_budget_limits",
+        "circuit_breaker_activation"
+      ],
+      "fallbackPaths": [
+        "cooldown_and_requeue",
+        "degrade_optional_enrichment",
+        "operator_alert_for_manual_review"
+      ],
+      "affectedStrategies": [
+        "market_making",
+        "liquidity_sweep_reversal",
+        "extended_overnight_session_response"
+      ],
+      "affectedSectors": ["financials", "crypto_equities_and_proxies", "technology"],
+      "policyOwner": "platform_plus_compliance",
+      "effectiveDate": "2026-05-19",
+      "retentionImplications": [
+        "override_events_and_rollbacks_trace_logged",
+        "envelope_version_changes_preserved_for_audit"
+      ],
+      "verificationSignals": [
+        "policy_profile_version",
+        "cooldown_state_snapshot",
+        "retry_budget_remaining",
+        "circuit_breaker_clear"
+      ],
+      "reviewCadence": "weekly and on broker policy changes"
+    },
+    {
+      "id": "cmp-005",
+      "name": "action_trace_and_audit_lineage_obligation",
+      "class": "traceability_and_reporting",
+      "scope": "blocked_submitted_recovered_and_verified_actions",
+      "operatorPosture": "every critical action path must remain reconstructible",
+      "liveImpact": "missing lineage blocks promotion and can block live-mode expansion until fixed",
+      "enforcementSurfaces": [
+        "action_trace_payload",
+        "policy_id_binding",
+        "decision_context_linkage",
+        "immutable_outcome_record"
+      ],
+      "fallbackPaths": [
+        "quarantine_for_review",
+        "replay_before_promotion",
+        "block_live_enablement"
+      ],
+      "affectedStrategies": ["all_strategy_families"],
+      "affectedSectors": ["all"],
+      "policyOwner": "compliance_plus_platform",
+      "effectiveDate": "2026-05-19",
+      "retentionImplications": [
+        "trace_lineage_records_hot_and_archived",
+        "policy_and_control_ids_preserved_with_outcomes"
+      ],
+      "verificationSignals": [
+        "trace_payload_complete",
+        "policy_ids_present",
+        "outcome_record_immutable",
+        "recovery_paths_logged"
+      ],
+      "reviewCadence": "continuous monitoring and nightly audit refresh"
+    },
+    {
+      "id": "cmp-006",
+      "name": "jurisdiction_scope_and_launch_boundary",
+      "class": "jurisdiction_and_product_scope",
+      "scope": "launch_markets_broker_capabilities_and_operator_permissions",
+      "operatorPosture": "scope is explicit and narrower than theoretical platform capability",
+      "liveImpact": "out-of-scope instruments, accounts, or regulatory domains are blocked or paper-only",
+      "enforcementSurfaces": [
+        "broker_capability_profile",
+        "account_scope_check",
+        "jurisdiction_matrix",
+        "product_mode_gate"
+      ],
+      "fallbackPaths": [
+        "paper_only_downgrade",
+        "deny_out_of_scope_request",
+        "route_to_research_queue_for_policy_review"
+      ],
+      "affectedStrategies": [
+        "market_making",
+        "pairs_stat_arb",
+        "extended_overnight_session_response"
+      ],
+      "affectedSectors": ["crypto_equities_and_proxies", "financials", "health_care"],
+      "policyOwner": "compliance",
+      "effectiveDate": "2026-05-19",
+      "retentionImplications": [
+        "scope_change_decisions_preserved_with_effective_date",
+        "launch_boundary_reviews_linked_to_policy_versions"
+      ],
+      "verificationSignals": [
+        "jurisdiction_scope_match",
+        "broker_capability_match",
+        "account_permission_clear",
+        "launch_boundary_policy_current"
+      ],
+      "reviewCadence": "monthly and before any launch-boundary expansion"
+    },
+    {
+      "id": "cmp-007",
+      "name": "role_separation_and_account_access_posture",
+      "class": "access_and_approval",
+      "scope": "research_operators_policy_operators_and_execution_approvers",
+      "operatorPosture": "privilege separation required for sensitive actions",
+      "liveImpact": "insufficient approval scope blocks account changes, live enablement, and sensitive policy overrides",
+      "enforcementSurfaces": [
+        "role_binding",
+        "approval_scope_matrix",
+        "account_connect_permission_check",
+        "policy_override_authorization"
+      ],
+      "fallbackPaths": [
+        "request_approval_escalation",
+        "restrict_to_read_only",
+        "block_sensitive_change"
+      ],
+      "affectedStrategies": ["all_live_routable_families"],
+      "affectedSectors": ["all"],
+      "policyOwner": "security_plus_compliance",
+      "effectiveDate": "2026-05-19",
+      "retentionImplications": [
+        "approval_changes_logged_with_actor_and_scope",
+        "access_failures_preserved_for_incident_review"
+      ],
+      "verificationSignals": [
+        "role_scope_match",
+        "approval_binding_present",
+        "policy_override_authorized",
+        "account_connect_permission_valid"
+      ],
+      "reviewCadence": "monthly and on role-model changes"
+    },
+    {
+      "id": "cmp-008",
+      "name": "market_structure_reform_tracking_overlay",
+      "class": "regulatory_reform_tracking",
+      "scope": "execution_cost_bands_round_lot_universe_and_intraday_margin_posture",
+      "operatorPosture": "reform_dates_are_date_gated_inputs_legality_stays_immutable",
+      "liveImpact": "seeded cost, universe, and intraday-exposure bands recalibrate as each compliance date becomes effective; immutable dispatch legality and verification are unchanged",
+      "enforcementSurfaces": [
+        "reform_effective_date_register",
+        "execution_cost_band_recalibration",
+        "round_lot_universe_parameter_check",
+        "intraday_exposure_band_check",
+        "market_data_entitlement_truthfulness"
+      ],
+      "fallbackPaths": [
+        "hold_prior_band_until_effective_date",
+        "flag_stale_assumption_for_research_queue",
+        "operator_review_on_band_shift"
+      ],
+      "affectedStrategies": [
+        "market_making",
+        "liquidity_sweep_reversal",
+        "vwap_reversion",
+        "opening_range_breakout",
+        "all_live_routable_families"
+      ],
+      "affectedSectors": ["financials", "technology", "all_equity_and_crypto_proxy_sectors"],
+      "policyOwner": "compliance_plus_engine",
+      "effectiveDate": "2026-05-29",
+      "retentionImplications": [
+        "reform_effective_date_history_preserved_with_source_lineage",
+        "band_recalibration_decisions_trace_logged"
+      ],
+      "verificationSignals": [
+        "reform_effective_date_current",
+        "access_fee_cap_band_consistent",
+        "tick_increment_band_consistent",
+        "round_lot_definition_version_current",
+        "intraday_exposure_band_present"
+      ],
+      "reviewCadence": "nightly status reconfirm and on each SEC or FINRA compliance-date change",
+      "linkedResearch": ["market-structure-and-regulatory-reform-2026.md"]
+    },
+    {
+      "id": "cmp-009",
+      "name": "crypto_market_structure_contingency_overlay",
+      "class": "jurisdiction_and_product_scope",
+      "scope": "crypto_equities_and_proxies_eligibility_and_classification",
+      "operatorPosture": "conservative_default_until_clarity_act_enacted_genius_act_treated_as_effective_law",
+      "liveImpact": "crypto-sector eligibility and security-versus-commodity classification stay conservative while CLARITY Act is pending; stablecoin reserve and yield rules treated as enacted under the GENIUS Act",
+      "enforcementSurfaces": [
+        "statutory_status_register",
+        "sec_cftc_jurisdiction_contingency_map",
+        "stablecoin_reserve_yield_classifier",
+        "policy_source_lineage_check"
+      ],
+      "fallbackPaths": [
+        "paper_only_downgrade_for_contingent_scope",
+        "deny_out_of_scope_crypto_request",
+        "route_to_research_queue_for_policy_review"
+      ],
+      "affectedStrategies": [
+        "extended_overnight_session_response",
+        "lead_lag_propagation",
+        "pairs_stat_arb"
+      ],
+      "affectedSectors": ["crypto_equities_and_proxies"],
+      "policyOwner": "compliance",
+      "effectiveDate": "2026-05-29",
+      "retentionImplications": [
+        "statutory_status_changes_logged_as_policy_events",
+        "classification_decisions_preserved_with_source"
+      ],
+      "verificationSignals": [
+        "genius_act_treated_effective",
+        "clarity_act_status_current",
+        "stablecoin_rule_classification_present",
+        "policy_source_lineage_present"
+      ],
+      "reviewCadence": "monthly and on any digital-asset legislative milestone",
+      "linkedResearch": ["market-structure-and-regulatory-reform-2026.md"]
+    }
+  ],
+  "diagram": {
+    "nodes": [
+      "policy_package_selection",
+      "scope_and_owner_check",
+      "strategy_and_sector_constraint_overlay",
+      "approval_or_retention_precedence",
+      "operator_fallback_router",
+      "deterministic_legality_gate",
+      "trace_and_audit_lineage"
+    ],
+    "edges": [
+      {
+        "from": "policy_package_selection",
+        "to": "scope_and_owner_check",
+        "label": "active package"
+      },
+      {
+        "from": "scope_and_owner_check",
+        "to": "strategy_and_sector_constraint_overlay",
+        "label": "applies to"
+      },
+      {
+        "from": "strategy_and_sector_constraint_overlay",
+        "to": "approval_or_retention_precedence",
+        "label": "policy consequences"
+      },
+      {
+        "from": "approval_or_retention_precedence",
+        "to": "operator_fallback_router",
+        "label": "fallback or approval path"
+      },
+      {
+        "from": "operator_fallback_router",
+        "to": "deterministic_legality_gate",
+        "label": "policy-safe payload"
+      },
+      {
+        "from": "deterministic_legality_gate",
+        "to": "trace_and_audit_lineage",
+        "label": "action and policy record"
+      }
+    ]
+  }
+}

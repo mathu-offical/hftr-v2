@@ -4,6 +4,12 @@ Everything hftr v2 inherits from v1, with source paths. v1 files are READ-ONLY r
 Rule: carry **contracts and catalogs**, not tables and components. When v2 renames a concept,
 the mapping is recorded here.
 
+**Independence rule (2026-07-16, D-015):** everything v2 actually consumes has been vendored
+into this repository — seed catalogs live in `packages/db/src/seed/catalogs/`, and the numeric
+band + academic tool references live in `agent-docs/research/v1-reference/`. The v1 paths cited
+below document *provenance only*; no v2 build, seed, or runtime step reads from the v1
+workspace, and the repo works standalone.
+
 ## 1. Non-negotiable invariants (verbatim from v1)
 
 | Invariant | v1 source |
@@ -61,8 +67,8 @@ From `hftr/DevSpecs/1-general.audit.md` + `hftr/packages/contracts/src/`:
 
 ## 4. Bounded-range band catalog (seed values, port intact)
 
-From `hftr/agent-docs/research/tier-lever-and-bounded-range-reference.md` and
-`apps/hftr-web/src/lib/pipeline/nodes/bands.ts` (min / typical / max):
+Vendored to `agent-docs/research/v1-reference/tier-lever-and-bounded-range-reference.md`
+(provenance: v1 `tier-lever-and-bounded-range-reference.md` + `bands.ts`); min / typical / max:
 
 | Band | Values |
 |---|---|
@@ -92,8 +98,8 @@ Tier cadences: strategic pre-market / ~3h / trigger; tactical ≤30m; execution 
 
 ## 5. Tool & lever families (port to v2 registries)
 
-From `research/seeded-strategy-catalog.json#/deterministicToolCatalog` +
-`academic-quant-tool-catalog.md`:
+From `packages/db/src/seed/catalogs/seeded-strategy-catalog.json#/deterministicToolCatalog` +
+`agent-docs/research/v1-reference/academic-quant-tool-catalog.md` (both vendored):
 - 9 pipeline tools (seed_research_topics … retune_tree)
 - 13 strategic levers, 12 tactical levers, 13 execution levers
 - Executable-state transition tools, research/training loop tools, process-binding tools
@@ -103,7 +109,8 @@ From `research/seeded-strategy-catalog.json#/deterministicToolCatalog` +
 
 ## 6. Strategy, guardrail, recovery catalogs
 
-From `research/seeded-strategy-catalog.json` + `guardrail-recovery-package-catalog.json`:
+From the vendored `packages/db/src/seed/catalogs/seeded-strategy-catalog.json` +
+`guardrail-recovery-package-catalog.json`:
 - **Strategy tiers:** Tier A (MVP-activate): opening_range_breakout, gap_and_go,
   pullback_continuation, vwap_reversion, earnings_guidance_drift. Tier B (post-stability):
   volatility_compression_breakout, liquidity_sweep_reversal, lead_lag_propagation,
@@ -118,12 +125,14 @@ From `research/seeded-strategy-catalog.json` + `guardrail-recovery-package-catal
   `broker_policy_block`, `market_structure_block`, `capital_limit_block`,
   `verification_schema_block`, `recovery_exhausted_escalation`).
 
-## 7. Seed data catalogs to migrate (JSON, mostly as-is)
+## 7. Seed data catalogs (vendored — migration complete)
 
-`hftr/agent-docs/research/`: `broker-policy-envelope-catalog.json`,
-`session-constraint-catalog.json`, `compliance-policy-package-catalog.json`,
-`sector-behavior-seed-catalog.json`, `company-event-archetype-catalog.json`,
-`macro-geopolitical-trigger-catalog.json`, `trend-lead-pattern-library.json`.
+All nine catalog JSONs are now copied into `packages/db/src/seed/catalogs/` (see its README
+for the file-by-file map): broker policy envelopes, session constraints, compliance packages,
+sector behavior seeds, company event archetypes, macro/geopolitical triggers, trend-lead
+patterns, seeded strategies (incl. deterministic tool catalog + literature registry), and
+guardrail/recovery packages. The vendored copies are canonical for v2; edit them in place with
+`catalog_version` bumps rather than re-syncing from v1.
 Throttle presets carry too (e.g. `paper_balanced_general_v1`: trade 12/min, market-data 120/min,
 24 streaming symbols, backoff 500→8000ms).
 

@@ -67,8 +67,11 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   **tree_refinements** — tree_id, layer `strategic|tactical|execution`, lever deltas, envelope.
 - **executable_states** — tree_id unique, state `watch|wait|order|blocked|fallback`,
   instruction payloads per state, last_verified_pattern_ref.
-- **action_instructions** — tree_id, action_verb, order_spec jsonb (precision-safe),
-  guardrail refs, verification_schema_version, envelope.
+- **action_instructions** — tree_id (nullable until the LLM pipeline lands; operator-initiated
+  instructions carry `OPERATOR_INPUT` authority in the envelope instead), action_verb,
+  order_spec with ValueRef handles (quantity_ref, limit_price_ref, fill_timeout_ref),
+  guardrail refs, verification_schema_version, client_order_id unique, envelope.
+  Implemented 2026-07-16 (D-014) together with the four tables below.
 - **deterministic_tasks** — instruction_id, broker order payload, idempotency_key unique, status.
 - **action_traces** — IMMUTABLE append-only: task ref, venue, mode, fills, slippage, outcome,
   simulator-gap tags (paper), session_legality_snapshot, policy_envelope_version, provenance.
@@ -76,6 +79,17 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   field results, failure_code, recovery_protocol_id.
 - **ledger_entries** — company_id, module_id, kind `trade|fee|transfer|simulation`,
   amount, balance_after, trace ref. (Right panel's canonical feed.)
+- **positions** — (module_id, symbol) unique; qty bigint (whole units), avg_cost_cents,
+  realized_pnl_cents. Written ONLY by the dispatch layer at fill time; sells above held
+  quantity are blocked (`broker_policy_block` — no shorting in paper v1). Implemented
+  2026-07-16 (D-016).
+- **trend_candidates** — module-scoped candidates with direction, strength band, drift
+  ValueRef, and source_class `deterministic_scan|model_nominated` (the deterministic
+  `trend.scan` handler writes the former; LLM tiers will write the latter). D-016.
+- **catalog_entries** — generic seeded-catalog store: (catalog, entry_key) unique,
+  catalog_version, title, tier, payload jsonb. Seeded from
+  `packages/db/src/seed/catalogs/*.json` via `seed-catalogs.ts` (97 entries at
+  `v1_snapshot_2026_07_16`). D-016.
 
 ## Simulations & training
 

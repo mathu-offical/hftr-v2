@@ -18,15 +18,21 @@ const timestamps = {
 export const companies = pgTable(
   'companies',
   {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     clerkUserId: text('clerk_user_id').notNull(),
     name: text('name').notNull(),
     philosophyPrompt: text('philosophy_prompt').notNull(),
     goals: jsonb('goals').notNull().default({}),
     reinvestmentPolicy: jsonb('reinvestment_policy').notNull().default({}),
     scopingPolicies: jsonb('scoping_policies').notNull().default({}),
-    mode: text('mode', { enum: ['paper', 'live'] }).notNull().default('paper'),
-    seedCreditsCents: bigint('seed_credits_cents', { mode: 'bigint' }).notNull().default(0n),
+    mode: text('mode', { enum: ['paper', 'live'] })
+      .notNull()
+      .default('paper'),
+    seedCreditsCents: bigint('seed_credits_cents', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
     brokerConnectionId: uuid('broker_connection_id'),
     autoFundPolicy: jsonb('auto_fund_policy').notNull().default({}),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
@@ -38,7 +44,9 @@ export const companies = pgTable(
 export const modules = pgTable(
   'modules',
   {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     companyId: uuid('company_id')
       .notNull()
       .references(() => companies.id),
@@ -66,7 +74,9 @@ export const modules = pgTable(
     status: text('status', { enum: ['active', 'paused', 'error', 'draft'] })
       .notNull()
       .default('draft'),
-    allocationCents: bigint('allocation_cents', { mode: 'bigint' }).notNull().default(0n),
+    allocationCents: bigint('allocation_cents', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
     canvasPosition: jsonb('canvas_position').notNull().default({ x: 0, y: 0 }),
     philosophyOverride: text('philosophy_override'),
     ...timestamps,
@@ -77,7 +87,9 @@ export const modules = pgTable(
 export const moduleLinks = pgTable(
   'module_links',
   {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     companyId: uuid('company_id')
       .notNull()
       .references(() => companies.id),
@@ -102,7 +114,9 @@ export const moduleLinks = pgTable(
 export const fundTransfers = pgTable(
   'fund_transfers',
   {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     companyId: uuid('company_id')
       .notNull()
       .references(() => companies.id),

@@ -1,0 +1,2340 @@
+{
+  "asOf": "2026-05-29",
+  "status": "in_progress",
+  "purpose": "Seeded strategy family catalog for tactical decomposition, compound variant composition, verification, and knowledgebase coverage tracking.",
+  "querySurfaces": {
+    "moduleQueries": [
+      "family_summary",
+      "variant_detail",
+      "compound_strategy_lookup",
+      "trend_to_family_map",
+      "lead_to_variant_map",
+      "guardrail_review",
+      "control_surface_review"
+    ],
+    "progressiveAccessLevels": [
+      {
+        "level": "overview",
+        "returns": ["name", "summary", "class", "activationTier", "sessions", "knowledgeAxes"]
+      },
+      {
+        "level": "analyst",
+        "returns": [
+          "trendLeadBindings",
+          "subVariants",
+          "marketStructureChecks",
+          "complianceOverlays"
+        ]
+      },
+      {
+        "level": "lineage",
+        "returns": [
+          "researchSupport",
+          "compoundBindings",
+          "hardControls",
+          "recoveryBranches",
+          "verificationFields",
+          "runtimeControlSurface"
+        ]
+      }
+    ]
+  },
+  "runtimeControlSurface": {
+    "weightingDrivers": [
+      "trend_lead_alignment",
+      "sector_confirmation",
+      "macro_trigger_state",
+      "market_structure_quality",
+      "verification_reliability",
+      "session_and_broker_legality"
+    ],
+    "boundedRangeFamilies": [
+      "entry_confirmation_band",
+      "time_stop_band",
+      "retest_tolerance_band",
+      "volume_confirmation_band",
+      "blackout_cooldown_band",
+      "risk_per_trade_pct_band",
+      "portfolio_heat_pct_band",
+      "portfolio_vol_target_band",
+      "sector_concentration_pct_band",
+      "atr_stop_multiplier_band",
+      "rr_target_ladder",
+      "scale_out_fraction_band",
+      "trail_multiplier_band",
+      "reentry_band",
+      "pyramiding_band",
+      "participation_rate_band",
+      "limit_offset_bps_band",
+      "max_slippage_bps_band",
+      "fill_timeout_ms_band",
+      "cancel_replace_band",
+      "vol_shock_regime_band",
+      "pairs_spread_zscore_band",
+      "momentum_lookback_band",
+      "adverse_selection_bps_band",
+      "is_urgency_scalar_band",
+      "recovery_backoff_ms_band",
+      "flow_toxicity_vpin_band",
+      "regime_smoothing_half_life_band",
+      "order_flow_imbalance_cap_band"
+    ],
+    "tierLeverModel": {
+      "reference": "tier-lever-and-bounded-range-reference.md",
+      "strategic": {
+        "owns": "cross-symbol and portfolio structure, regime classification, trend nomination",
+        "levers": [
+          "risk_per_trade_pct_band",
+          "portfolio_heat_pct_band",
+          "portfolio_vol_target_band",
+          "sector_concentration_pct_band",
+          "max_concurrent_names_band",
+          "regime_router_thresholds",
+          "vol_shock_regime_band",
+          "regime_smoothing_half_life_band",
+          "correlation_health_band",
+          "pairs_spread_zscore_band",
+          "momentum_lookback_band"
+        ]
+      },
+      "tactical": {
+        "owns": "decision-tree shape for one lead: branches, entries, exits, invalidations, recovery ladders, allowed order classes",
+        "levers": [
+          "atr_stop_multiplier_band",
+          "rr_target_ladder",
+          "scale_out_fraction_band",
+          "trail_multiplier_band",
+          "invalidation_thresholds",
+          "time_stop_band",
+          "reentry_band",
+          "pyramiding_band",
+          "branch_order_class_set",
+          "momentum_lookback_band"
+        ]
+      },
+      "execution_compile": {
+        "owns": "order-shape parameters for one instruction",
+        "levers": [
+          "order_type_set",
+          "tif_set",
+          "participation_rate_band",
+          "limit_offset_bps_band",
+          "peg_mode",
+          "max_slippage_bps_band",
+          "fill_timeout_ms_band",
+          "cancel_replace_band",
+          "child_slice_band",
+          "iceberg_peak_ratio",
+          "adverse_selection_bps_band",
+          "is_urgency_scalar_band",
+          "recovery_backoff_ms_band"
+        ]
+      }
+    },
+    "boundedRangeFamilyDefinitions": {
+      "note": "Seeded research starting bands as min/typical/max. Mutable inside immutable caps; paper positions carry realism penalties. Canonical grounding and citations live in tier-lever-and-bounded-range-reference.md.",
+      "risk_per_trade_pct_band": { "min": 0.25, "typical": 0.75, "max": 2.0, "unit": "pct_equity" },
+      "portfolio_heat_pct_band": {
+        "min": 1.5,
+        "typical": 4.0,
+        "max": 8.0,
+        "unit": "pct_equity_open_risk"
+      },
+      "portfolio_vol_target_band": { "min": 8, "typical": 14, "max": 20, "unit": "pct_annualized" },
+      "sector_concentration_pct_band": {
+        "min": 15,
+        "typical": 30,
+        "max": 45,
+        "unit": "pct_gross_exposure"
+      },
+      "max_concurrent_names_band": { "min": 5, "typical": 15, "max": 40, "unit": "count" },
+      "vol_shock_regime_band": {
+        "min": 1.25,
+        "typical": 1.75,
+        "max": 3.0,
+        "unit": "x_median_realized_vol",
+        "literatureRef": "ang_bekaert_2002_regime_switching",
+        "note": "Bear/shock regime when rolling realized vol exceeds median × multiplier; tightens heat and sympathy gates"
+      },
+      "correlation_health_band": {
+        "min": 0.45,
+        "typical": 0.6,
+        "max": 0.75,
+        "unit": "rolling_correlation_floor",
+        "literatureRef": "engle_granger_1987_cointegration",
+        "note": "Sympathy/pairs require intact equilibrium; Johansen rank tests per johansen_1988_vecm"
+      },
+      "regime_router_thresholds": {
+        "hurst_trend": 0.55,
+        "hurst_revert": 0.45,
+        "adx_trend": 25,
+        "adx_range": 20,
+        "literatureRef": "mandelbrot_wallis_1969_hurst",
+        "note": "Hurst/ADX nomination bias; Hamilton/Ang–Bekaert for discrete regime overlays"
+      },
+      "pairs_spread_zscore_band": {
+        "min": 1.5,
+        "typical": 2.0,
+        "max": 3.0,
+        "unit": "sigma",
+        "literatureRef": "gatev_ggr_2006_pairs",
+        "note": "Entry when normalized spread diverges; exit on convergence (GGR distance-method analogue)"
+      },
+      "momentum_lookback_band": {
+        "min": 5,
+        "typical": 20,
+        "max": 120,
+        "unit": "bars_intraday_proxy",
+        "literatureRef": "jegadeesh_titman_1993_csmom",
+        "note": "Intraday-scaled formation window; academic 3–12 month horizon mapped to bar count per session profile"
+      },
+      "atr_stop_multiplier_band": {
+        "min": 1.5,
+        "typical": 2.25,
+        "max": 3.0,
+        "unit": "x_atr",
+        "lookback": "ATR(10..22)"
+      },
+      "rr_target_ladder": {
+        "tp1_r": 1.0,
+        "tp1_scale_pct": 50,
+        "tp2_r": 2.0,
+        "tp2_scale_pct": 25,
+        "tp3_r": 3.0,
+        "tp3_mode": "trail_or_take_remainder",
+        "breakeven_on_tp1": true
+      },
+      "scale_out_fraction_band": { "min": 25, "typical": 33, "max": 50, "unit": "pct_per_tranche" },
+      "trail_multiplier_band": {
+        "min": 1.5,
+        "typical": 2.5,
+        "max": 4.0,
+        "unit": "x_atr",
+        "lookback": "N=14..22",
+        "method": "chandelier"
+      },
+      "time_stop_band": {
+        "min_min": 10,
+        "typical_min": 60,
+        "max": "session_close",
+        "unit": "minutes"
+      },
+      "reentry_band": {
+        "max_reentry_count": { "min": 0, "typical": 1, "max": 3 },
+        "reentry_delay": "cooldown_bounded"
+      },
+      "pyramiding_band": {
+        "max_pyramid_levels": { "min": 1, "typical": 2, "max": 3 },
+        "add_trigger_atr": "1.5..2.0",
+        "add_size_decay": 0.75,
+        "default_tier_a": "disabled"
+      },
+      "participation_rate_band": {
+        "min": 3,
+        "typical": 8,
+        "max": 20,
+        "unit": "pct_of_volume",
+        "requires": "max_duration_cap",
+        "adv_routing": {
+          "lt_1pct_adv": "simple_limit",
+          "1_5pct_adv": "vwap",
+          "gt_5pct_adv": "pov_5_10"
+        }
+      },
+      "limit_offset_bps_band": {
+        "aggressive": { "min": 0, "typical": 2, "max": 8 },
+        "passive": { "min": -2, "typical": -5, "max": -15 },
+        "peg_mode": ["none", "midpoint", "primary"]
+      },
+      "max_slippage_bps_band": {
+        "liquid_regular": { "min": 5, "typical": 12, "max": 25 },
+        "mid_liquidity": { "min": 15, "typical": 30, "max": 60 },
+        "off_hours": "wider_than_mid"
+      },
+      "fill_timeout_ms_band": {
+        "liquid_intraday": { "min": 2000, "typical": 8000, "max": 30000 },
+        "off_hours": "longer",
+        "on_timeout": "verify_and_confirm_never_blind_resend"
+      },
+      "cancel_replace_band": {
+        "max_attempts": { "min": 1, "typical": 3, "max": 5 },
+        "backoff": "jittered",
+        "cooldown": "bounded"
+      },
+      "adverse_selection_bps_band": {
+        "min": 2,
+        "typical": 8,
+        "max": 25,
+        "unit": "bps_spread_cushion",
+        "literatureRef": "glosten_milgrom_1985_adverse_selection",
+        "note": "Extra limit offset cushion when informed-trading probability is elevated"
+      },
+      "is_urgency_scalar_band": {
+        "min": 0.2,
+        "typical": 1.0,
+        "max": 3.0,
+        "unit": "normalized_risk_aversion",
+        "literatureRef": "almgren_chriss_optimal_execution",
+        "note": "Higher scalar front-loads AC trajectory; lower scalar spreads participation"
+      },
+      "recovery_backoff_ms_band": {
+        "min": 500,
+        "typical": 2500,
+        "max": 15000,
+        "unit": "ms",
+        "literatureRef": "perold_1988_is",
+        "note": "Jittered cooldown between cancel/replace attempts; preserves queue priority where venue rules allow"
+      },
+      "iceberg_peak_ratio": {
+        "min": 5,
+        "typical": 10,
+        "max": 20,
+        "unit": "pct_of_parent_visible",
+        "fallback": "participation_paced_child_limits_if_unsupported"
+      },
+      "order_type_set": ["market", "limit", "stop", "stop_limit", "trailing_stop"],
+      "tif_set": ["DAY", "GTC", "IOC", "FOK", "OPG", "CLS"]
+    },
+    "granularityByLayer": {
+      "research": "Family, variant, compound, and lineage detail remain fully visible for package curation and conflict resolution.",
+      "strategic": "Only ranked family candidates, veto signals, and high-signal range seeds should flow downstream.",
+      "tactical": "Variant selection, branch construction, recovery ladders, and bounded range families expand into decision-tree detail.",
+      "execution_agent": "Only precision-safe field mappings, deterministic constraints, and control snapshots should remain.",
+      "training_feedback": "Replay outputs may adjust weights and bounded ranges, but only through traceable deltas inside seeded envelopes."
+    },
+    "policyRule": "Specific numeric strategy controls are seeded at runtime from current market data, stock-state evidence, and replay history, but they must remain inside pre-seeded tactics, bounded envelopes, and immutable guardrail contracts."
+  },
+  "linkedCatalogs": [
+    "trend-lead-pattern-library.json",
+    "guardrail-recovery-package-catalog.json",
+    "compliance-policy-package-catalog.json"
+  ],
+  "trendLeadPatterns": [
+    {
+      "id": "lead-001",
+      "name": "sector_leader_to_sympathy",
+      "summary": "A liquid sector leader moves first, then sympathy names and laggards become eligible once breadth and liquidity confirm.",
+      "inputs": ["sector_breadth", "leader_relative_volume", "correlation_health"],
+      "preferredFamilies": ["lead_lag_propagation", "pullback_continuation", "gap_and_go"],
+      "researchSupport": [
+        "sector_behavior_seed_catalog",
+        "subsector_correlation_review",
+        "intraday_breadth_scan"
+      ]
+    },
+    {
+      "id": "lead-002",
+      "name": "catalyst_cluster_readthrough",
+      "summary": "A catalyst in one or more names creates a readthrough basket across the same subsector or supply chain.",
+      "inputs": ["company_event_confirmation", "subsector_map", "earnings_cluster_calendar"],
+      "preferredFamilies": ["earnings_guidance_drift", "gap_and_go", "lead_lag_propagation"],
+      "researchSupport": [
+        "company_event_archetype_catalog",
+        "sector_sympathy_review",
+        "source_quality_validation"
+      ]
+    },
+    {
+      "id": "lead-003",
+      "name": "macro_shock_blackout_then_reentry",
+      "summary": "Macro releases suppress direct activation initially, then controlled reentry is allowed once dispersion and legality filters settle.",
+      "inputs": ["macro_trigger_state", "blackout_window", "dispersion_decay"],
+      "preferredFamilies": ["opening_range_breakout", "liquidity_sweep_reversal", "vwap_reversion"],
+      "researchSupport": [
+        "macro_geopolitical_trigger_catalog",
+        "session_constraint_catalog",
+        "compliance_baseline_review"
+      ]
+    },
+    {
+      "id": "lead-004",
+      "name": "liquidity_sweep_then_reclaim",
+      "summary": "Price sweeps a key level, reclaims it, and then either reverts or resumes depending on confirmation quality and breadth.",
+      "inputs": ["level_map", "reclaim_time", "tape_quality", "breadth_confirmation"],
+      "preferredFamilies": ["liquidity_sweep_reversal", "vwap_reversion", "pullback_continuation"],
+      "researchSupport": [
+        "execution_microstructure_review",
+        "reversal_failure_stats",
+        "quote_quality_monitor"
+      ]
+    },
+    {
+      "id": "lead-005",
+      "name": "overnight_discovery_to_regular_session_handoff",
+      "summary": "Overnight or extended-hours discovery sets the first thesis, then the regular session either validates, reprices, or rejects that thesis.",
+      "inputs": ["off_hours_liquidity", "session_router", "opening_cross_alignment"],
+      "preferredFamilies": [
+        "extended_overnight_session_response",
+        "gap_and_go",
+        "opening_range_breakout"
+      ],
+      "researchSupport": [
+        "session_constraint_catalog",
+        "broker_policy_envelope_catalog",
+        "off_hours_liquidity_review"
+      ]
+    }
+  ],
+  "families": [
+    {
+      "id": "strat-001",
+      "name": "opening_range_breakout",
+      "summary": "Uses opening auction and first-range structure to trade clean directional resolution when participation, spreads, and sector breadth confirm.",
+      "class": "opening_auction_and_opening_range",
+      "activationTier": "tier_a",
+      "horizon": "intraday",
+      "sessions": ["regular", "premarket_review"],
+      "regimeTags": ["trend_day_candidate", "high_relative_volume"],
+      "trendLeadBindings": {
+        "trendInputs": [
+          "opening_auction_imbalance",
+          "sector_opening_breadth",
+          "macro_release_aftershock"
+        ],
+        "leadSelectionPatterns": [
+          "opening_volume_leaderboard",
+          "clean_auction_transition",
+          "sector_leader_confirmation"
+        ],
+        "handoffExpectation": "Strategic layer nominates opening regime and leader set; tactical layer binds breakout, retest, and failure branches before execution compilation."
+      },
+      "dataDependencies": [
+        "intraday_bars",
+        "opening_auction_stats",
+        "relative_volume",
+        "news_filter"
+      ],
+      "verificationFields": ["or_high", "or_low", "breakout_side", "opening_volume_ratio"],
+      "hardControls": [
+        "volume_confirmation_floor",
+        "halt_exclusion_gate",
+        "max_failed_retest_count"
+      ],
+      "recoveryBranches": ["retest_entry", "failed_breakout_exit", "session_lockout_after_halt"],
+      "knowledgeAxes": ["sector_behavior", "liquidity_profile", "session_constraints"],
+      "complianceOverlays": [
+        "macro_release_blackout",
+        "session_legality_check",
+        "halt_notice_watch"
+      ],
+      "universeFilters": [
+        "liquid_common_stock_or_etf",
+        "opening_participation_present",
+        "spread_within_opening_band"
+      ],
+      "marketStructureChecks": [
+        "opening_auction_complete",
+        "regular_session_transition_confirmed",
+        "no_active_halt"
+      ],
+      "subVariants": [
+        {
+          "id": "strat-001-v1",
+          "name": "opening_drive_continuation",
+          "triggerProfile": "Immediate expansion after a clean opening range with strong sector breadth and no unresolved macro blackout.",
+          "leadPattern": "opening_leaderboard plus sector breadth confirmation",
+          "guardrailFocus": ["opening_spread_spike", "macro_aftershock_veto"],
+          "preferredResearch": ["opening_orderflow_snapshot", "sector_opening_breadth_check"]
+        },
+        {
+          "id": "strat-001-v2",
+          "name": "opening_range_retest_breakout",
+          "triggerProfile": "First breakout pulls back, holds, and re-accelerates once retest quality and volume confirmation are present.",
+          "leadPattern": "initial breakout followed by orderly pullback to range edge",
+          "guardrailFocus": ["failed_retest_limit", "volume_confirmation_floor"],
+          "preferredResearch": ["retest_failure_stats", "symbol_specific_opening_behavior"]
+        },
+        {
+          "id": "strat-001-v3",
+          "name": "opening_auction_absorption_breakout",
+          "triggerProfile": "The opening auction dislocates briefly, absorbs at the range edge, then resolves once spreads normalize and sector breadth stays supportive.",
+          "leadPattern": "auction imbalance absorption then range-edge expansion",
+          "guardrailFocus": ["auction_dislocation_persists", "spread_regime_not_normalized"],
+          "preferredResearch": ["opening_imbalance_decay_check", "auction_absorption_history"]
+        }
+      ],
+      "researchSupport": {
+        "adhoc": ["opening_regime_check", "leader_liquidity_scan", "macro_blackout_status"],
+        "longRunning": [
+          "opening_range_success_rate_review",
+          "sector_opening_breadth_reliability_monitor"
+        ]
+      },
+      "compoundBindings": [
+        {
+          "id": "cmp-bind-001a",
+          "compoundStrategy": "catalyst_gap_continuation_to_pullback_reclaim",
+          "role": "phase_2_breakout_confirmation",
+          "activateWhen": ["gap_backed_by_catalyst", "retest_holds_after_initial_break"],
+          "blockWhen": ["auction_dislocation_persists", "macro_blackout_reopens"]
+        },
+        {
+          "id": "cmp-bind-001b",
+          "compoundStrategy": "opening_drive_to_sector_sympathy_ladder",
+          "role": "phase_1_leader_break",
+          "activateWhen": ["opening breadth expanding", "leader remains above opening range"],
+          "blockWhen": ["sector breadth fragments", "opening spread regime unstable"]
+        }
+      ]
+    },
+    {
+      "id": "strat-002",
+      "name": "gap_and_go",
+      "summary": "Trades catalyst-backed or leadership-backed opening gaps that sustain through liquidity confirmation and early pullback quality.",
+      "class": "opening_auction_and_opening_range",
+      "activationTier": "tier_a",
+      "horizon": "intraday",
+      "sessions": ["premarket", "regular"],
+      "regimeTags": ["catalyst_gap", "momentum_expansion"],
+      "trendLeadBindings": {
+        "trendInputs": ["catalyst_confirmation", "premarket_volume", "sector_sympathy_state"],
+        "leadSelectionPatterns": [
+          "gap_leaderboard",
+          "float_and_volatility_profile",
+          "subsector_readthrough"
+        ],
+        "handoffExpectation": "Strategic layer identifies catalyst or leadership gap; tactical layer decomposes continuation, first-pullback, and failure branches."
+      },
+      "dataDependencies": ["premarket_bars", "gap_stats", "float_profile", "news_confirmation"],
+      "verificationFields": ["gap_pct", "premarket_volume_ratio", "first_pullback_depth_bps"],
+      "hardControls": [
+        "premarket_liquidity_minimum",
+        "float_volatility_guard",
+        "max_gap_fill_tolerance"
+      ],
+      "recoveryBranches": ["first_pullback_continuation", "gap_failure_exit"],
+      "knowledgeAxes": ["company_events", "sector_behavior", "session_constraints"],
+      "complianceOverlays": ["news_source_confirmation", "session_legality_check", "halt_watch"],
+      "universeFilters": [
+        "catalyst_backed_gap_name_or_high_liquidity_large_cap",
+        "premarket_volume_present",
+        "float_and_volatility_profile_eligible"
+      ],
+      "marketStructureChecks": [
+        "premarket_liquidity_confirmed",
+        "opening_cross_complete",
+        "no_unresolved_halt_or_news_lock"
+      ],
+      "subVariants": [
+        {
+          "id": "strat-002-v1",
+          "name": "small_float_gap_drive",
+          "triggerProfile": "Catalyst-backed small-float or thinner-float setup with explosive premarket expansion and strict guardrails.",
+          "leadPattern": "high relative volume and float-aware catalyst basket",
+          "guardrailFocus": ["float_volatility_guard", "halt_risk_ceiling"],
+          "preferredResearch": ["float_profile_lookup", "premarket_halt_history"]
+        },
+        {
+          "id": "strat-002-v2",
+          "name": "large_cap_catalyst_gap_continuation",
+          "triggerProfile": "Large-cap catalyst gap where liquidity is strong and sympathy propagation matters as much as raw gap size.",
+          "leadPattern": "mega-cap or high-liquidity catalyst leaders",
+          "guardrailFocus": ["gap_fill_tolerance", "sector_sympathy_confirmation"],
+          "preferredResearch": ["sector_leader_confirmation", "event_source_quality"]
+        },
+        {
+          "id": "strat-002-v3",
+          "name": "premarket_discovery_continuation",
+          "triggerProfile": "Premarket discovery establishes support and the regular session validates continuation rather than rejecting it.",
+          "leadPattern": "overnight_discovery_to_regular_session_handoff",
+          "guardrailFocus": ["session_transition_veto", "premarket_liquidity_floor"],
+          "preferredResearch": ["session_transition_history", "off_hours_spread_profile"]
+        }
+      ],
+      "researchSupport": {
+        "adhoc": ["catalyst_source_check", "premarket_liquidity_scan", "gap_leaderboard_refresh"],
+        "longRunning": ["gap_fill_probability_review", "catalyst_gap_reliability_by_sector"]
+      },
+      "compoundBindings": [
+        {
+          "id": "cmp-bind-002a",
+          "compoundStrategy": "catalyst_gap_continuation_to_pullback_reclaim",
+          "role": "phase_1_impulse",
+          "activateWhen": ["confirmed catalyst", "premarket liquidity present"],
+          "blockWhen": ["unconfirmed headline", "halt risk elevated"]
+        }
+      ]
+    },
+    {
+      "id": "strat-003",
+      "name": "pullback_continuation",
+      "summary": "Trades orderly pullbacks within an already-established directional move once sector, breadth, and structure remain aligned.",
+      "class": "intraday_trend_and_momentum",
+      "activationTier": "tier_a",
+      "horizon": "intraday",
+      "sessions": ["regular"],
+      "regimeTags": ["trend_established", "sector_confirmation"],
+      "trendLeadBindings": {
+        "trendInputs": ["established_intraday_trend", "sector_relative_strength", "breadth_state"],
+        "leadSelectionPatterns": [
+          "trend_leader_hold",
+          "sector_confirmation_pullback",
+          "clean_higher_low_sequence"
+        ],
+        "handoffExpectation": "Strategic layer identifies durable intraday leader set; tactical layer binds reclaim, continuation, and structure-failure branches."
+      },
+      "dataDependencies": ["intraday_structure", "sector_strength", "market_breadth"],
+      "verificationFields": ["pullback_depth_bps", "structure_state", "sector_strength_score"],
+      "hardControls": [
+        "structure_higher_low_requirement",
+        "sector_confirmation_gate",
+        "max_pullback_depth"
+      ],
+      "recoveryBranches": ["resume_trend", "structure_break_exit"],
+      "knowledgeAxes": ["sector_behavior", "macro", "liquidity_profile"],
+      "complianceOverlays": ["macro_blackout_check", "session_legality_check"],
+      "universeFilters": [
+        "liquid_common_stock_or_etf",
+        "spread_stable",
+        "sector_liquidity_confirmed"
+      ],
+      "marketStructureChecks": [
+        "trend_structure_confirmed",
+        "sector_and_breadth_aligned",
+        "no_macro_blackout"
+      ],
+      "subVariants": [
+        {
+          "id": "strat-003-v1",
+          "name": "first_pullback_to_vwap_hold",
+          "triggerProfile": "Trend impulse pauses into VWAP or first support and resumes as sector breadth remains firm.",
+          "leadPattern": "trend leader with orderly retrace to benchmark",
+          "guardrailFocus": ["max_pullback_depth", "trend_structure_break_veto"],
+          "preferredResearch": ["benchmark_hold_stats", "sector_breadth_refresh"]
+        },
+        {
+          "id": "strat-003-v2",
+          "name": "sector_confirmation_pullback",
+          "triggerProfile": "A leader pulls back while subsector breadth stays strong and sympathy names remain constructive.",
+          "leadPattern": "sector_leader_to_sympathy",
+          "guardrailFocus": ["breadth_decay_veto", "leader_failure_abort"],
+          "preferredResearch": ["subsector_dispersion_scan", "sympathy_confirmation_check"]
+        },
+        {
+          "id": "strat-003-v3",
+          "name": "trend_day_midcycle_reclaim",
+          "triggerProfile": "Late-morning or midday reclaim on a confirmed trend day after a shallow consolidation.",
+          "leadPattern": "trend-day regime with stable breadth",
+          "guardrailFocus": ["lunch_hour_liquidity_drop", "overextended_trend_veto"],
+          "preferredResearch": ["trend_day_regime_history", "time_of_day_followthrough_stats"]
+        }
+      ],
+      "researchSupport": {
+        "adhoc": ["sector_confirmation_check", "trend_structure_scan", "breadth_state_refresh"],
+        "longRunning": [
+          "pullback_depth_success_rate_review",
+          "sector_confirmation_reliability_by_regime"
+        ]
+      },
+      "compoundBindings": [
+        {
+          "id": "cmp-bind-003a",
+          "compoundStrategy": "catalyst_gap_continuation_to_pullback_reclaim",
+          "role": "phase_3_reclaim",
+          "activateWhen": ["gap impulse already validated", "support benchmark holds"],
+          "blockWhen": ["breadth rolls over", "macro blackout starts"]
+        }
+      ]
+    },
+    {
+      "id": "strat-004",
+      "name": "volatility_compression_breakout",
+      "summary": "Targets range-contraction names that are compressing for directional expansion once volume, breadth, and catalyst context align.",
+      "class": "intraday_trend_and_momentum",
+      "activationTier": "tier_b",
+      "horizon": "intraday",
+      "sessions": ["regular"],
+      "regimeTags": ["compression", "expansion_pending"],
+      "trendLeadBindings": {
+        "trendInputs": ["compression_regime", "volume_dry_up", "sector_leader_stability"],
+        "leadSelectionPatterns": [
+          "nr_pattern_scan",
+          "consolidating_leader_scan",
+          "sector_leader_confirmation"
+        ],
+        "handoffExpectation": "Strategic layer nominates compression baskets; tactical layer binds breakout, fakeout, and reentry branches."
+      },
+      "dataDependencies": ["range_contraction_stats", "intraday_bars", "volume_profile"],
+      "verificationFields": ["compression_width_bps", "breakout_level", "volume_ratio"],
+      "hardControls": [
+        "minimum_compression_duration",
+        "false_breakout_reentry_limit",
+        "volume_confirmation_floor"
+      ],
+      "recoveryBranches": ["breakout_followthrough", "failed_breakout_fade"],
+      "knowledgeAxes": ["liquidity_profile", "sector_behavior"],
+      "complianceOverlays": ["event_conflict_blackout", "session_legality_check"],
+      "universeFilters": [
+        "liquid_breakout_candidate",
+        "compression_not_caused_by_illiquidity",
+        "spread_stable"
+      ],
+      "marketStructureChecks": [
+        "compression_regime_confirmed",
+        "volume_expansion_ready",
+        "no_conflicting_event_blackout"
+      ],
+      "subVariants": [
+        {
+          "id": "strat-004-v1",
+          "name": "midday_nr_breakout",
+          "triggerProfile": "Midday narrow-range structure resolves with renewed volume and sector alignment.",
+          "leadPattern": "range_contraction plus stable breadth",
+          "guardrailFocus": ["false_breakout_limit", "volume_confirmation_floor"],
+          "preferredResearch": ["nr_breakout_stats", "time_of_day_volume_profile"]
+        },
+        {
+          "id": "strat-004-v2",
+          "name": "sector_leader_compression_break",
+          "triggerProfile": "A sector leader compresses after a prior move and breaks again, often re-igniting sympathy names.",
+          "leadPattern": "sector_leader_to_sympathy",
+          "guardrailFocus": ["leader_failure_abort", "breadth_decay_veto"],
+          "preferredResearch": ["sector_leader_followthrough_review", "subsector_dispersion_check"]
+        },
+        {
+          "id": "strat-004-v3",
+          "name": "closing_range_release",
+          "triggerProfile": "Late-session compression resolves near the close when trend-day continuation or positioning pressure builds.",
+          "leadPattern": "late-session leader consolidation",
+          "guardrailFocus": ["close-liquidity regime shift", "overnight_risk_veto"],
+          "preferredResearch": ["closing_auction_behavior", "time_of_day_breakout_stats"]
+        }
+      ],
+      "researchSupport": {
+        "adhoc": ["compression_scan", "volume_expansion_readiness_check"],
+        "longRunning": [
+          "compression_breakout_reliability_by_sector",
+          "failed_breakout_reentry_review"
+        ]
+      },
+      "compoundBindings": [
+        {
+          "id": "cmp-bind-004a",
+          "compoundStrategy": "sector_leader_breakout_to_sympathy_rotation",
+          "role": "phase_1_leader_release",
+          "activateWhen": ["sector leader compression present", "sympathy map intact"],
+          "blockWhen": ["breadth fragmented", "macro blackout active"]
+        }
+      ]
+    },
+    {
+      "id": "strat-005",
+      "name": "vwap_reversion",
+      "summary": "Fades short-horizon overextension back toward anchored intraday value when there is no strong catalyst-driven trend continuation.",
+      "class": "intraday_reversion_and_repricing",
+      "activationTier": "tier_a",
+      "horizon": "intraday",
+      "sessions": ["regular"],
+      "regimeTags": ["range_day", "extension_without_new_information"],
+      "trendLeadBindings": {
+        "trendInputs": ["range_day_state", "extension_without_catalyst", "breadth_mean_reverting"],
+        "leadSelectionPatterns": [
+          "value_distance_scan",
+          "overextension_without_news",
+          "index_etf_anchor_move"
+        ],
+        "handoffExpectation": "Strategic layer identifies mean-reverting regime; tactical layer binds entry, scale-out, and trend-abort branches."
+      },
+      "dataDependencies": ["intraday_bars", "vwap_stream", "trend_filter", "breadth_filter"],
+      "verificationFields": ["vwap_anchor_ts", "vwap_distance_bps", "reentry_count"],
+      "hardControls": ["trend_strength_veto", "benchmark_freshness_threshold", "max_reentry_count"],
+      "recoveryBranches": ["scale_out_to_vwap", "trend_day_abort"],
+      "knowledgeAxes": ["liquidity_profile", "macro", "session_constraints"],
+      "complianceOverlays": ["fresh_catalyst_veto", "session_legality_check"],
+      "universeFilters": [
+        "liquid_large_cap_or_etf",
+        "no_fresh_catalyst",
+        "spread_within_reversion_band"
+      ],
+      "marketStructureChecks": [
+        "range_or_overextension_confirmed",
+        "vwap_benchmark_fresh",
+        "trend_day_veto_clear"
+      ],
+      "subVariants": [
+        {
+          "id": "strat-005-v1",
+          "name": "single_name_extension_revert",
+          "triggerProfile": "Single-name move extends too far without new information and begins to mean revert toward anchored value.",
+          "leadPattern": "overextension_without_news",
+          "guardrailFocus": ["fresh_catalyst_veto", "trend_strength_veto"],
+          "preferredResearch": ["news_freshness_check", "intraday_overextension_stats"]
+        },
+        {
+          "id": "strat-005-v2",
+          "name": "index_etf_mean_revert",
+          "triggerProfile": "Index ETF or basket overextends intraday and broad mean reversion becomes more reliable than single-name idiosyncratic reversal.",
+          "leadPattern": "index_anchor_dislocation",
+          "guardrailFocus": ["macro_aftershock_veto", "breadth_trend_day_filter"],
+          "preferredResearch": ["etf_vwap_history", "breadth_mean_reversion_scan"]
+        },
+        {
+          "id": "strat-005-v3",
+          "name": "catalyst_fade_reversion",
+          "triggerProfile": "A catalyst move loses confirmation and reversion becomes more likely after the initial event response decays.",
+          "leadPattern": "event_failure_then_reprice",
+          "guardrailFocus": ["event_source_recheck", "secondary_disclosure_watch"],
+          "preferredResearch": ["event_confirmation_refresh", "post_headline_decay_review"]
+        }
+      ],
+      "researchSupport": {
+        "adhoc": ["freshness_check", "trend_day_veto_scan", "vwap_distance_lookup"],
+        "longRunning": ["mean_reversion_reliability_by_regime", "catalyst_fade_reversion_review"]
+      },
+      "compoundBindings": [
+        {
+          "id": "cmp-bind-005a",
+          "compoundStrategy": "macro_shock_blackout_then_delayed_reentry_reversion",
+          "role": "phase_2_delayed_repricing",
+          "activateWhen": ["macro blackout expired", "dispersion decaying"],
+          "blockWhen": ["fresh catalyst emerges", "trend day confirms"]
+        }
+      ]
+    },
+    {
+      "id": "strat-006",
+      "name": "liquidity_sweep_reversal",
+      "summary": "Captures reclaim-based reversals after a stop-run, failed level break, or opening flush once tape quality and breadth allow distinction from true continuation.",
+      "class": "intraday_reversion_and_repricing",
+      "activationTier": "tier_b",
+      "horizon": "intraday",
+      "sessions": ["regular", "extended"],
+      "regimeTags": ["stop_run", "failed_level_break"],
+      "trendLeadBindings": {
+        "trendInputs": ["key_level_map", "breadth_stabilization", "tape_quality"],
+        "leadSelectionPatterns": [
+          "failed_breakout_watch",
+          "opening_flush_reclaim",
+          "stop_run_cluster"
+        ],
+        "handoffExpectation": "Strategic layer identifies reversal-prone stress regime; tactical layer binds reclaim, continuation-abort, and scale-out branches."
+      },
+      "dataDependencies": ["tick_or_quote_events", "level_map", "tape_quality_signal"],
+      "verificationFields": ["sweep_level", "reclaim_time_ms", "confirmation_range_bps"],
+      "hardControls": [
+        "confirmation_candle_requirement",
+        "tape_quality_floor",
+        "max_chase_distance"
+      ],
+      "recoveryBranches": ["reclaim_entry", "continue_break_abort"],
+      "knowledgeAxes": ["liquidity_profile", "broker_policy_envelope"],
+      "complianceOverlays": ["spoofing_noise_veto", "session_legality_check"],
+      "universeFilters": [
+        "liquid_symbol_with_defined_levels",
+        "tape_quality_above_floor",
+        "spread_within_reversal_band"
+      ],
+      "marketStructureChecks": [
+        "sweep_and_reclaim_confirmed",
+        "confirmation_candle_present",
+        "no_spoofing_noise_veto"
+      ],
+      "subVariants": [
+        {
+          "id": "strat-006-v1",
+          "name": "failed_breakout_fade",
+          "triggerProfile": "Breakout fails quickly, reclaims prior range, and offers reversal entry once quality thresholds are met.",
+          "leadPattern": "failed_breakout_watch",
+          "guardrailFocus": ["confirmation_candle_requirement", "tape_quality_floor"],
+          "preferredResearch": ["failed_breakout_stats", "symbol_level_reversal_history"]
+        },
+        {
+          "id": "strat-006-v2",
+          "name": "opening_flush_reclaim",
+          "triggerProfile": "An early flush sweeps a key level and is reclaimed once the opening panic resolves.",
+          "leadPattern": "opening_flush_reclaim",
+          "guardrailFocus": ["opening_noise_veto", "macro_aftershock_filter"],
+          "preferredResearch": ["opening_flush_recovery_stats", "breadth_stabilization_check"]
+        },
+        {
+          "id": "strat-006-v3",
+          "name": "session_level_stop_run",
+          "triggerProfile": "Extended-hours or thin-liquidity stop run reverses once spread and reclaim quality are acceptable.",
+          "leadPattern": "session_specific_stop_run",
+          "guardrailFocus": ["spread_ceiling", "limit_only_policy_check"],
+          "preferredResearch": ["off_hours_stop_run_review", "session_policy_overlay_lookup"]
+        }
+      ],
+      "researchSupport": {
+        "adhoc": ["level_map_lookup", "tape_quality_check", "spread_state_refresh"],
+        "longRunning": ["reclaim_success_rate_review", "spoofing_noise_false_positive_monitor"]
+      },
+      "compoundBindings": [
+        {
+          "id": "cmp-bind-006a",
+          "compoundStrategy": "sweep_reclaim_to_vwap_reversion_failover",
+          "role": "phase_1_reclaim",
+          "activateWhen": ["level reclaim confirmed", "breadth stabilizes"],
+          "blockWhen": ["tape quality poor", "spread unstable"]
+        }
+      ]
+    },
+    {
+      "id": "strat-007",
+      "name": "market_making",
+      "summary": "Provides passive spread-capture and inventory-management templates for the most liquid names once quote realism and policy support are sufficient.",
+      "class": "quote_and_microstructure",
+      "activationTier": "tier_c",
+      "horizon": "continuous_short_horizon",
+      "sessions": ["regular", "extended"],
+      "regimeTags": ["two_sided_liquidity", "stable_spread"],
+      "trendLeadBindings": {
+        "trendInputs": ["spread_state_stable", "inventory_state", "micro_volatility"],
+        "leadSelectionPatterns": [
+          "top_tier_liquidity_scan",
+          "stable_quote_update_frequency",
+          "inventory_friendly_symbols"
+        ],
+        "handoffExpectation": "Strategic layer should only enable this family in explicitly supported liquid environments; tactical layer binds quote width, inventory skew, and retreat logic."
+      },
+      "dataDependencies": ["nbbo", "inventory_state", "micro_volatility"],
+      "verificationFields": ["quote_age_ms", "fill_side_balance", "spread_capture_bps"],
+      "hardControls": ["max_inventory_units", "quote_width_floor", "volatility_pause"],
+      "recoveryBranches": [
+        "inventory_skew_adjustment",
+        "adverse_selection_retreat",
+        "quote_cancel_all"
+      ],
+      "knowledgeAxes": ["liquidity_profile", "session_constraints", "broker_policy_envelope"],
+      "complianceOverlays": ["policy_support_check", "market_structure_realism_gate"],
+      "universeFilters": [
+        "top_tier_liquidity_only",
+        "stable_quote_update_frequency",
+        "broker_policy_supports_quote_management"
+      ],
+      "marketStructureChecks": [
+        "two_sided_market_present",
+        "spread_state_stable",
+        "volatility_pause_not_triggered"
+      ],
+      "subVariants": [
+        {
+          "id": "strat-007-v1",
+          "name": "passive_two_sided_quote",
+          "triggerProfile": "Standard two-sided quoting in stable spread conditions with tight inventory guardrails.",
+          "leadPattern": "top_tier_liquidity_scan",
+          "guardrailFocus": ["inventory_limit", "quote_width_floor"],
+          "preferredResearch": ["fill_balance_history", "quote_age_distribution"]
+        },
+        {
+          "id": "strat-007-v2",
+          "name": "spread_capture_dislocation",
+          "triggerProfile": "Temporary but orderly spread widening creates spread-capture opportunity without toxic-flow escalation.",
+          "leadPattern": "stable_dislocation_scan",
+          "guardrailFocus": ["volatility_pause", "adverse_selection_retreat"],
+          "preferredResearch": ["spread_dislocation_review", "toxic_flow_false_positive_monitor"]
+        },
+        {
+          "id": "strat-007-v3",
+          "name": "inventory_skew_defense",
+          "triggerProfile": "Inventory imbalance forces skew or retreat logic rather than pure spread-capture continuation.",
+          "leadPattern": "inventory_state_alert",
+          "guardrailFocus": ["max_inventory_units", "quote_cancel_all"],
+          "preferredResearch": ["inventory_skew_outcome_review", "latency_budget_validation"]
+        }
+      ],
+      "researchSupport": {
+        "adhoc": ["quote_state_check", "inventory_balance_status", "broker_policy_support_lookup"],
+        "longRunning": ["spread_capture_realism_review", "microstructure_replay_benchmarking"]
+      },
+      "compoundBindings": []
+    },
+    {
+      "id": "strat-008",
+      "name": "pairs_stat_arb",
+      "summary": "Mean-reversion or dispersion strategy for liquid correlated pairs or baskets when correlation, hedge model freshness, and event cleanliness are all acceptable.",
+      "class": "relative_value_and_spread",
+      "activationTier": "tier_c",
+      "horizon": "intraday_to_short_swing",
+      "sessions": ["regular"],
+      "regimeTags": ["stable_correlation", "mean_reversion_spread"],
+      "trendLeadBindings": {
+        "trendInputs": ["correlation_health", "spread_zscore", "event_cleanliness"],
+        "leadSelectionPatterns": [
+          "pair_dislocation_scan",
+          "basket_dispersion_review",
+          "event-hedged spread watch"
+        ],
+        "handoffExpectation": "Strategic layer identifies stable spread candidates; tactical layer binds entry, decay, and correlation-break branches."
+      },
+      "dataDependencies": ["pair_spread_series", "correlation_model", "event_calendar"],
+      "verificationFields": ["spread_zscore", "hedge_ratio", "divergence_decay"],
+      "hardControls": ["divergence_cap", "event_blackout_windows", "max_time_in_trade"],
+      "recoveryBranches": ["spread_normalization_exit", "correlation_break_abort"],
+      "knowledgeAxes": ["sector_behavior", "macro", "company_events"],
+      "complianceOverlays": ["short_and_borrow_check", "event_blackout_check"],
+      "universeFilters": [
+        "highly_liquid_correlated_pair_or_basket",
+        "short_and_borrow_compatibility_if_needed",
+        "no_active_idiosyncratic_event"
+      ],
+      "marketStructureChecks": [
+        "correlation_health_confirmed",
+        "hedge_model_fresh",
+        "event_blackout_clear"
+      ],
+      "subVariants": [
+        {
+          "id": "strat-008-v1",
+          "name": "intra_sector_pair_mean_revert",
+          "triggerProfile": "Two highly correlated names within a sector diverge temporarily without catalyst contamination.",
+          "leadPattern": "pair_dislocation_scan",
+          "guardrailFocus": ["correlation_break_abort", "event_blackout_windows"],
+          "preferredResearch": ["pair_correlation_review", "borrow_compatibility_check"]
+        },
+        {
+          "id": "strat-008-v2",
+          "name": "basket_dispersion_rebalance",
+          "triggerProfile": "Subsector or basket dispersion becomes large enough to fade relative outliers against a basket anchor.",
+          "leadPattern": "basket_dispersion_review",
+          "guardrailFocus": ["hedge_ratio_freshness", "basket_event_contamination_veto"],
+          "preferredResearch": ["dispersion_history_review", "basket_constituent_event_scan"]
+        },
+        {
+          "id": "strat-008-v3",
+          "name": "event_hedged_pair",
+          "triggerProfile": "One leg has an event but the other is chosen as hedge after explicit event-contamination controls are passed.",
+          "leadPattern": "event_hedged spread watch",
+          "guardrailFocus": ["event_blackout_windows", "borrow_and_hedge_policy_check"],
+          "preferredResearch": ["event_window_review", "hedge_leg_quality_check"]
+        }
+      ],
+      "researchSupport": {
+        "adhoc": ["correlation_health_lookup", "event_cleanliness_check", "borrow_status_check"],
+        "longRunning": ["pair_breakdown_review", "dispersion_rebalance_reliability_monitor"]
+      },
+      "compoundBindings": []
+    },
+    {
+      "id": "strat-009",
+      "name": "lead_lag_propagation",
+      "summary": "Trades sympathy or lagged response names after a verified leader impulse within the same sector, subsector, basket, or cross-asset theme.",
+      "class": "relative_value_and_spread",
+      "activationTier": "tier_b",
+      "horizon": "intraday",
+      "sessions": ["regular", "premarket"],
+      "regimeTags": ["leader_impulse", "correlated_sympathy"],
+      "trendLeadBindings": {
+        "trendInputs": ["leader_signal_stream", "correlation_table", "sector_map"],
+        "leadSelectionPatterns": [
+          "sector_leader_to_sympathy",
+          "index_constituent_rotation",
+          "cross_asset_beta_map"
+        ],
+        "handoffExpectation": "Strategic layer identifies a trusted leader and sympathy map; tactical layer binds lag window, confirmation, and leader-failure abort branches."
+      },
+      "dataDependencies": ["leader_signal_stream", "correlation_table", "sector_map"],
+      "verificationFields": ["leader_symbol", "lag_window_ms", "correlation_score"],
+      "hardControls": ["leader_confidence_floor", "lag_window_maximum", "broken_correlation_veto"],
+      "recoveryBranches": ["sympathy_followthrough", "leader_failure_abort"],
+      "knowledgeAxes": ["sector_behavior", "subsector_behavior", "macro"],
+      "complianceOverlays": ["correlation_stability_check", "session_legality_check"],
+      "universeFilters": [
+        "liquid_leader_and_laggard_symbols",
+        "sector_or_cross_asset_link_confirmed",
+        "spread_state_acceptable"
+      ],
+      "marketStructureChecks": [
+        "leader_impulse_confirmed",
+        "lag_window_not_stale",
+        "correlation_stability_confirmed"
+      ],
+      "subVariants": [
+        {
+          "id": "strat-009-v1",
+          "name": "sector_leader_sympathy",
+          "triggerProfile": "A liquid sector leader breaks or gaps and sympathy names begin repricing with a measurable lag.",
+          "leadPattern": "sector_leader_to_sympathy",
+          "guardrailFocus": ["broken_correlation_veto", "leader_failure_abort"],
+          "preferredResearch": ["sympathy_map_lookup", "subsector_correlation_check"]
+        },
+        {
+          "id": "strat-009-v2",
+          "name": "index_constituent_sympathy_rotation",
+          "triggerProfile": "A high-weight index constituent move propagates into correlated peers or suppliers after initial price discovery.",
+          "leadPattern": "index_constituent_rotation",
+          "guardrailFocus": ["index_shock_false_signal_filter", "lag_window_maximum"],
+          "preferredResearch": ["index_weight_map", "supply_chain_link_review"]
+        },
+        {
+          "id": "strat-009-v3",
+          "name": "cross_asset_beta_lag",
+          "triggerProfile": "A commodity, rates, or crypto benchmark impulse propagates into equity proxies with delay.",
+          "leadPattern": "cross_asset_beta_map",
+          "guardrailFocus": ["benchmark_disconnect_veto", "cross_asset_noise_filter"],
+          "preferredResearch": ["cross_asset_beta_review", "benchmark_alignment_lookup"]
+        }
+      ],
+      "researchSupport": {
+        "adhoc": ["leader_confirmation_check", "lag_window_lookup", "correlation_stability_scan"],
+        "longRunning": [
+          "sympathy_followthrough_reliability_by_sector",
+          "cross_asset_beta_decay_monitor"
+        ]
+      },
+      "compoundBindings": [
+        {
+          "id": "cmp-bind-009a",
+          "compoundStrategy": "sector_leader_breakout_to_sympathy_rotation",
+          "role": "phase_2_sympathy_expansion",
+          "activateWhen": ["leader breakout confirmed", "sympathy breadth increasing"],
+          "blockWhen": ["correlation unstable", "leader fails quickly"]
+        }
+      ]
+    },
+    {
+      "id": "strat-010",
+      "name": "earnings_guidance_drift",
+      "summary": "Trades post-event repricing and drift after confirmed earnings, guidance, or similarly high-quality company-event catalysts.",
+      "class": "event_and_news_overlay",
+      "activationTier": "tier_a",
+      "horizon": "intraday_to_overnight",
+      "sessions": ["premarket", "regular", "overnight_review"],
+      "regimeTags": ["confirmed_catalyst", "post_event_repricing"],
+      "trendLeadBindings": {
+        "trendInputs": [
+          "filing_confirmation",
+          "conference_call_context",
+          "sector_event_readthrough"
+        ],
+        "leadSelectionPatterns": [
+          "post_earnings_leaderboard",
+          "guidance_sympathy_basket",
+          "conference_call_repricing"
+        ],
+        "handoffExpectation": "Strategic layer establishes catalyst quality and readthrough map; tactical layer binds drift, failure, and post-call reversal branches."
+      },
+      "dataDependencies": [
+        "filings",
+        "earnings_calendar",
+        "news_confirmation",
+        "price_reaction_profile"
+      ],
+      "verificationFields": ["catalyst_type", "filing_confirmed", "event_window_min"],
+      "hardControls": [
+        "confirmed_source_requirement",
+        "event_window_timer",
+        "overnight_participation_policy"
+      ],
+      "recoveryBranches": ["drift_continuation", "conference_call_reversal_exit"],
+      "knowledgeAxes": ["company_events", "sector_behavior", "session_constraints"],
+      "complianceOverlays": [
+        "primary_source_confirmation",
+        "overnight_policy_check",
+        "secondary_disclosure_recheck"
+      ],
+      "universeFilters": [
+        "confirmed_event_name",
+        "liquidity_sufficient_for_event_window",
+        "session_rule_compatible"
+      ],
+      "marketStructureChecks": [
+        "primary_source_confirmed",
+        "event_window_active",
+        "conference_call_or_secondary_disclosure_rechecked"
+      ],
+      "subVariants": [
+        {
+          "id": "strat-010-v1",
+          "name": "post_earnings_drift_continuation",
+          "triggerProfile": "A confirmed earnings event reprices the name and drift continues through the first actionable session window.",
+          "leadPattern": "post_earnings_leaderboard",
+          "guardrailFocus": ["confirmed_source_requirement", "event_window_timer"],
+          "preferredResearch": ["filing_source_check", "post_earnings_drift_history"]
+        },
+        {
+          "id": "strat-010-v2",
+          "name": "guidance_sympathy_basket_rotation",
+          "triggerProfile": "Guidance change in a leader causes repricing across a linked subsector or supply-chain basket.",
+          "leadPattern": "catalyst_cluster_readthrough",
+          "guardrailFocus": ["sympathy_contamination_recheck", "secondary_disclosure_watch"],
+          "preferredResearch": [
+            "subsector_readthrough_lookup",
+            "guidance_basket_reliability_review"
+          ]
+        },
+        {
+          "id": "strat-010-v3",
+          "name": "post_call_repricing",
+          "triggerProfile": "Conference call or follow-up disclosure changes the initial event interpretation and produces a second trade window.",
+          "leadPattern": "conference_call_repricing",
+          "guardrailFocus": ["secondary_disclosure_recheck", "overnight_participation_policy"],
+          "preferredResearch": ["call_transcript_signal_check", "followup_disclosure_monitor"]
+        }
+      ],
+      "researchSupport": {
+        "adhoc": ["filing_confirmation_lookup", "event_window_status", "sector_readthrough_check"],
+        "longRunning": ["event_drift_reliability_by_subsector", "conference_call_reversal_review"]
+      },
+      "compoundBindings": [
+        {
+          "id": "cmp-bind-010a",
+          "compoundStrategy": "earnings_drift_to_afterhours_response",
+          "role": "phase_1_event_repricing",
+          "activateWhen": ["primary source confirmed", "event window active"],
+          "blockWhen": ["source unconfirmed", "overnight policy disallows"]
+        }
+      ]
+    },
+    {
+      "id": "strat-011",
+      "name": "extended_overnight_session_response",
+      "summary": "Trades short-horizon session-specific opportunities in extended or overnight hours while respecting thin-liquidity and order-type legality constraints.",
+      "class": "session_and_venue_specific",
+      "activationTier": "tier_b",
+      "horizon": "short_horizon_session_specific",
+      "sessions": ["extended", "overnight"],
+      "regimeTags": ["thin_liquidity", "session_constraint_dominant"],
+      "trendLeadBindings": {
+        "trendInputs": ["session_router", "off_hours_liquidity", "overnight_catalyst_context"],
+        "leadSelectionPatterns": [
+          "overnight_discovery_to_regular_session_handoff",
+          "off_hours_spread_watch",
+          "limit_only_opportunity_scan"
+        ],
+        "handoffExpectation": "Strategic layer sets session posture; tactical layer binds limit-reprice, defer, and regular-session handoff branches before execution compilation."
+      },
+      "dataDependencies": ["session_router", "spread_monitor", "order_type_policy"],
+      "verificationFields": ["session_type", "limit_price_distance_bps", "eligible_order_type"],
+      "hardControls": [
+        "limit_only_enforcement",
+        "spread_ceiling",
+        "session_specific_timeout_policy"
+      ],
+      "recoveryBranches": ["limit_reprice", "defer_to_regular_session"],
+      "knowledgeAxes": ["session_constraints", "broker_policy_envelope", "liquidity_profile"],
+      "complianceOverlays": ["order_type_legality_check", "off_hours_policy_enforcement"],
+      "universeFilters": [
+        "off_hours_liquidity_present",
+        "limit_order_only_compatible",
+        "spread_below_session_ceiling"
+      ],
+      "marketStructureChecks": [
+        "session_router_valid",
+        "overnight_policy_confirmed",
+        "cancel_replace_timeout_policy_active"
+      ],
+      "subVariants": [
+        {
+          "id": "strat-011-v1",
+          "name": "overnight_limit_reprice",
+          "triggerProfile": "Overnight thesis remains valid but requires measured limit repricing as spreads and venue state evolve.",
+          "leadPattern": "limit_only_opportunity_scan",
+          "guardrailFocus": ["limit_only_enforcement", "spread_ceiling"],
+          "preferredResearch": ["overnight_spread_profile", "session_policy_lookup"]
+        },
+        {
+          "id": "strat-011-v2",
+          "name": "extended_hours_discovery_continuation",
+          "triggerProfile": "Extended-hours move has enough liquidity and catalyst support to remain actionable before the regular open.",
+          "leadPattern": "overnight_discovery_to_regular_session_handoff",
+          "guardrailFocus": ["off_hours_liquidity_floor", "session_transition_recheck"],
+          "preferredResearch": ["off_hours_liquidity_review", "opening_cross_alignment_check"]
+        },
+        {
+          "id": "strat-011-v3",
+          "name": "regular_session_transition_handoff",
+          "triggerProfile": "An overnight or extended-hours thesis is carried into the regular session only if the opening cross validates it.",
+          "leadPattern": "session_transition_validation",
+          "guardrailFocus": ["opening_cross_complete", "defer_to_regular_session"],
+          "preferredResearch": ["session_handoff_history", "opening_cross_validation_lookup"]
+        }
+      ],
+      "researchSupport": {
+        "adhoc": ["session_router_check", "off_hours_liquidity_scan", "order_type_legality_lookup"],
+        "longRunning": ["off_hours_followthrough_review", "limit_reprice_reliability_monitor"]
+      },
+      "compoundBindings": [
+        {
+          "id": "cmp-bind-011a",
+          "compoundStrategy": "earnings_drift_to_afterhours_response",
+          "role": "phase_2_session_extension",
+          "activateWhen": ["event window still active", "off-hours liquidity acceptable"],
+          "blockWhen": ["spread above ceiling", "session policy disallows"]
+        }
+      ]
+    },
+    {
+      "id": "strat-012",
+      "name": "volatility_regime_overlay",
+      "summary": "Adjusts participation, heat, and family eligibility when realized-vol or implied-vol regime expands or compresses relative to the seeded portfolio vol target band.",
+      "class": "volatility_and_risk_overlay",
+      "activationTier": "tier_b",
+      "horizon": "intraday_to_short_swing",
+      "sessions": ["regular"],
+      "regimeTags": ["vol_expansion", "vol_compression", "risk_off_overlay"],
+      "trendLeadBindings": {
+        "trendInputs": ["realized_vol_regime", "portfolio_vol_target_band", "index_vol_state"],
+        "leadSelectionPatterns": ["vol_compression_breakout_precursor", "vol_expansion_risk_off"],
+        "handoffExpectation": "Strategic layer applies overlay weights to nominated families; tactical layer binds vol-scaled stops and participation caps before compile."
+      },
+      "dataDependencies": ["realized_vol_series", "atr_stream", "index_vol_proxy"],
+      "verificationFields": [
+        "vol_regime_state",
+        "portfolio_vol_vs_target",
+        "participation_cap_applied"
+      ],
+      "hardControls": [
+        "portfolio_vol_target_band",
+        "max_participation_under_expansion",
+        "risk_off_flat_mode"
+      ],
+      "recoveryBranches": ["de_risk_to_neutral", "resume_after_vol_normalization"],
+      "knowledgeAxes": ["liquidity_profile", "macro", "sector_behavior"],
+      "complianceOverlays": ["macro_blackout_check", "session_legality_check"],
+      "universeFilters": ["liquid_index_or_large_cap_proxy", "vol_estimate_fresh"],
+      "marketStructureChecks": ["vol_regime_classified", "heat_within_portfolio_band"],
+      "subVariants": [
+        {
+          "id": "strat-012-v1",
+          "name": "vol_compression_precursor",
+          "triggerProfile": "Vol compresses below target while breadth remains stable—raises compression-breakout family bias.",
+          "leadPattern": "multi_symbol_regime_alignment",
+          "guardrailFocus": ["false_breakout_limit", "vol_target_floor"],
+          "preferredResearch": ["compression_scan", "regime_snapshot_lookup"]
+        },
+        {
+          "id": "strat-012-v2",
+          "name": "vol_expansion_de_risk",
+          "triggerProfile": "Realized vol spikes above target—suppresses pyramiding and tightens heat bands.",
+          "leadPattern": "macro_shock_blackout_then_reentry",
+          "guardrailFocus": ["portfolio_heat_pct_band", "risk_off_flat_mode"],
+          "preferredResearch": ["vol_shock_decay_check", "blackout_status_lookup"]
+        }
+      ],
+      "researchSupport": {
+        "adhoc": ["vol_regime_lookup", "portfolio_heat_status"],
+        "longRunning": [
+          "vol_overlay_reliability_by_regime",
+          "participation_cap_effectiveness_monitor"
+        ]
+      },
+      "compoundBindings": []
+    },
+    {
+      "id": "strat-013",
+      "name": "macro_relative_value_dispersion",
+      "summary": "Fades macro-driven sector or factor dispersion when correlation health and event cleanliness support mean reversion across rates-sensitive baskets.",
+      "class": "relative_value_and_spread",
+      "activationTier": "tier_c",
+      "horizon": "intraday_to_short_swing",
+      "sessions": ["regular"],
+      "regimeTags": ["macro_dispersion", "factor_rotation"],
+      "trendLeadBindings": {
+        "trendInputs": ["sector_dispersion", "rates_factor_move", "correlation_health"],
+        "leadSelectionPatterns": [
+          "rates_shock_to_property_and_utility_rotation",
+          "macro_shock_blackout_then_reentry"
+        ],
+        "handoffExpectation": "Strategic layer identifies post-macro dispersion baskets; tactical layer binds entry, decay, and correlation-break exits."
+      },
+      "dataDependencies": ["sector_return_spreads", "rates_proxy", "correlation_model"],
+      "verificationFields": ["dispersion_zscore", "correlation_health", "macro_blackout_clear"],
+      "hardControls": ["correlation_health_band", "event_blackout_windows", "max_time_in_trade"],
+      "recoveryBranches": ["dispersion_normalization_exit", "correlation_break_abort"],
+      "knowledgeAxes": ["macro", "sector_behavior", "compliance_policy_packages"],
+      "complianceOverlays": ["macro_release_blackout", "event_blackout_check"],
+      "universeFilters": ["liquid_sector_etf_or_pair_basket", "macro_blackout_expired"],
+      "marketStructureChecks": ["dispersion_above_floor", "correlation_health_confirmed"],
+      "subVariants": [
+        {
+          "id": "strat-013-v1",
+          "name": "post_cpi_sector_dispersion_fade",
+          "triggerProfile": "After CPI blackout, sector gaps remain wide while index vol decays.",
+          "leadPattern": "macro_shock_blackout_then_reentry",
+          "guardrailFocus": ["macro_blackout_recheck", "dispersion_decay_band"],
+          "preferredResearch": ["post_cpi_dispersion_scan", "blackout_status_lookup"]
+        },
+        {
+          "id": "strat-013-v2",
+          "name": "rates_factor_pair_rv",
+          "triggerProfile": "Duration-sensitive pair diverges without idiosyncratic catalyst contamination.",
+          "leadPattern": "rates_shock_to_property_and_utility_rotation",
+          "guardrailFocus": ["correlation_break_abort", "hedge_ratio_freshness"],
+          "preferredResearch": ["duration_factor_dispersion_review", "pair_correlation_lookup"]
+        }
+      ],
+      "researchSupport": {
+        "adhoc": ["dispersion_scan", "macro_blackout_status", "correlation_health_lookup"],
+        "longRunning": ["macro_rv_reliability_monitor", "post_release_dispersion_decay_review"]
+      },
+      "compoundBindings": [
+        {
+          "id": "cmp-bind-013a",
+          "compoundStrategy": "macro_shock_blackout_then_delayed_reentry_reversion",
+          "role": "phase_2_dispersion_fade",
+          "activateWhen": ["blackout expired", "dispersion elevated", "correlation stable"],
+          "blockWhen": ["fresh macro trigger", "correlation_break"]
+        }
+      ]
+    },
+    {
+      "id": "strat-014",
+      "name": "systematic_momentum_burst",
+      "summary": "Captures short-horizon relative-strength bursts when volume acceleration, breadth, and regime classification align on momentum bias.",
+      "class": "intraday_trend_and_momentum",
+      "activationTier": "tier_b",
+      "horizon": "intraday",
+      "sessions": ["regular"],
+      "regimeTags": ["momentum_burst", "relative_strength_spike"],
+      "trendLeadBindings": {
+        "trendInputs": ["relative_volume_acceleration", "breadth_thrust", "regime_momentum"],
+        "leadSelectionPatterns": ["multi_symbol_regime_alignment", "sector_leader_to_sympathy"],
+        "handoffExpectation": "Strategic layer requires momentum regime consensus; tactical layer binds burst entry, quick scale-out, and failure abort."
+      },
+      "dataDependencies": ["intraday_returns", "relative_volume", "market_breadth"],
+      "verificationFields": ["rvol_ratio", "breadth_thrust_score", "burst_side"],
+      "hardControls": ["max_chase_distance", "time_stop_band", "breadth_decay_veto"],
+      "recoveryBranches": ["scale_out_on_thrust_decay", "momentum_failure_exit"],
+      "knowledgeAxes": ["sector_behavior", "liquidity_profile"],
+      "complianceOverlays": ["macro_blackout_check", "session_legality_check"],
+      "universeFilters": ["liquid_momentum_candidate", "spread_within_burst_band"],
+      "marketStructureChecks": ["momentum_regime_confirmed", "volume_acceleration_present"],
+      "subVariants": [
+        {
+          "id": "strat-014-v1",
+          "name": "breadth_thrust_continuation",
+          "triggerProfile": "Market-wide breadth thrust with sector leader follow-through.",
+          "leadPattern": "multi_symbol_regime_alignment",
+          "guardrailFocus": ["breadth_decay_veto", "max_chase_distance"],
+          "preferredResearch": ["breadth_thrust_lookup", "regime_snapshot_lookup"]
+        },
+        {
+          "id": "strat-014-v2",
+          "name": "single_name_rvol_burst",
+          "triggerProfile": "Isolated high relative-volume burst with sector confirmation.",
+          "leadPattern": "sector_leader_to_sympathy",
+          "guardrailFocus": ["float_volatility_guard", "time_stop_band"],
+          "preferredResearch": ["rvol_leaderboard_refresh", "sector_confirmation_check"]
+        }
+      ],
+      "researchSupport": {
+        "adhoc": ["rvol_scan", "breadth_state_refresh", "regime_classification_lookup"],
+        "longRunning": ["momentum_burst_decay_review", "breadth_thrust_followthrough_monitor"]
+      },
+      "compoundBindings": [
+        {
+          "id": "cmp-bind-014a",
+          "compoundStrategy": "opening_drive_to_sector_sympathy_ladder",
+          "role": "phase_2_burst_expansion",
+          "activateWhen": ["opening drive confirmed", "sympathy breadth rising"],
+          "blockWhen": ["leader fails", "regime flips to mean_reversion"]
+        }
+      ]
+    },
+    {
+      "id": "strat-015",
+      "name": "infrastructure_stress_reversal",
+      "summary": "Controlled reclaim or reversion after regulatory, credit, or venue-stress dislocations once official sources, halts, and tape quality confirm a stabilizing flush.",
+      "class": "intraday_reversion_and_repricing",
+      "activationTier": "tier_b",
+      "horizon": "intraday",
+      "sessions": ["regular", "extended"],
+      "regimeTags": ["stress_flush", "reclaim_after_dislocation"],
+      "trendLeadBindings": {
+        "trendInputs": ["stress_event_graph_edge", "halt_clearance", "reclaim_quality"],
+        "leadSelectionPatterns": [
+          "liquidity_sweep_then_reclaim",
+          "event_graph_transmission_active"
+        ],
+        "handoffExpectation": "Strategic layer requires active event-impact playbook; tactical layer binds reclaim entry, risk-off abort, and limit-only extended rules."
+      },
+      "dataDependencies": ["level_map", "halt_status", "tape_quality_signal", "event_impact_path"],
+      "verificationFields": ["stress_playbook_id", "reclaim_time_ms", "official_source_confirmed"],
+      "hardControls": [
+        "confirmation_candle_requirement",
+        "risk_off_abort",
+        "limit_only_extended_hours"
+      ],
+      "recoveryBranches": ["reclaim_entry", "stress_resume_abort", "defer_to_regular_session"],
+      "knowledgeAxes": ["liquidity_profile", "compliance_policy_packages", "session_constraints"],
+      "complianceOverlays": [
+        "official_source_confirmation",
+        "halt_notice_watch",
+        "session_legality_check"
+      ],
+      "universeFilters": ["liquid_stress_candidate", "event_graph_edge_fresh"],
+      "marketStructureChecks": [
+        "stress_playbook_active",
+        "reclaim_confirmed",
+        "risk_off_not_escalating"
+      ],
+      "subVariants": [
+        {
+          "id": "strat-015-v1",
+          "name": "regulatory_shock_reclaim",
+          "triggerProfile": "Regulatory action gaps a name; reclaim after official-source and halt clearance.",
+          "leadPattern": "event_graph_transmission_active",
+          "guardrailFocus": ["official_source_confirmation", "risk_off_abort"],
+          "preferredResearch": ["event_impact_path_lookup", "halt_status_check"]
+        },
+        {
+          "id": "strat-015-v2",
+          "name": "credit_stress_flush_reversal",
+          "triggerProfile": "Systemic stress flush with defensive rotation stabilizing.",
+          "leadPattern": "macro_shock_blackout_then_reentry",
+          "guardrailFocus": ["credit_stress_unresolved_veto", "tape_quality_floor"],
+          "preferredResearch": ["credit_spread_lookup", "defensive_rotation_check"]
+        }
+      ],
+      "researchSupport": {
+        "adhoc": ["event_impact_path_lookup", "playbook_lookup", "reclaim_quality_check"],
+        "longRunning": ["stress_reclaim_success_rate_review", "playbook_outcome_monitor"]
+      },
+      "compoundBindings": [
+        {
+          "id": "cmp-bind-015a",
+          "compoundStrategy": "sweep_reclaim_to_vwap_reversion_failover",
+          "role": "phase_2_failover",
+          "activateWhen": ["reclaim followthrough weak", "range regime intact"],
+          "blockWhen": ["trend day confirms", "fresh stress edge"]
+        }
+      ]
+    }
+  ],
+  "compoundStrategies": [
+    {
+      "id": "comp-001",
+      "name": "catalyst_gap_continuation_to_pullback_reclaim",
+      "summary": "Begins with a catalyst-backed gap, validates the first impulse, then hands off to a pullback continuation branch if the retest holds.",
+      "phases": ["catalyst_confirmation", "gap_impulse", "retest_hold", "trend_resume_or_abort"],
+      "familyStack": ["gap_and_go", "opening_range_breakout", "pullback_continuation"],
+      "trendRequirements": [
+        "confirmed catalyst",
+        "sector sympathy present",
+        "macro blackout inactive"
+      ],
+      "leadRequirements": ["gap leaderboard membership", "premarket liquidity present"],
+      "guardrailPackages": ["event_conflict_blackout", "retest_failure_exit"],
+      "researchModes": {
+        "adhoc": ["catalyst_source_check", "premarket_liquidity_scan", "retest_quality_lookup"],
+        "longRunning": [
+          "gap_to_reclaim_conversion_review",
+          "sector_specific_gap_reliability_monitor"
+        ]
+      }
+    },
+    {
+      "id": "comp-002",
+      "name": "sector_leader_breakout_to_sympathy_rotation",
+      "summary": "A sector leader breaks out first, then sympathy names are traded through lead-lag propagation or pullback continuation as breadth expands.",
+      "phases": [
+        "leader_breakout",
+        "sympathy_map_validation",
+        "laggard_activation",
+        "breadth_decay_abort"
+      ],
+      "familyStack": [
+        "volatility_compression_breakout",
+        "lead_lag_propagation",
+        "pullback_continuation"
+      ],
+      "trendRequirements": ["sector breadth expanding", "leader reliability high"],
+      "leadRequirements": ["leader and laggard map present", "correlation stable"],
+      "guardrailPackages": ["leader_failure_abort", "broken_correlation_veto"],
+      "researchModes": {
+        "adhoc": ["leader_confirmation_check", "sympathy_map_lookup"],
+        "longRunning": ["sympathy_followthrough_monitor", "subsector_correlation_decay_review"]
+      }
+    },
+    {
+      "id": "comp-003",
+      "name": "macro_shock_blackout_then_delayed_reentry_reversion",
+      "summary": "Direct activation is suppressed during the macro shock window, then delayed reentry looks for mean reversion or reclaim once dispersion normalizes.",
+      "phases": ["macro_blackout", "dispersion_monitor", "delayed_reentry", "reversion_or_abort"],
+      "familyStack": ["opening_range_breakout", "liquidity_sweep_reversal", "vwap_reversion"],
+      "trendRequirements": ["requiresBlackout trigger active", "dispersion decays after event"],
+      "leadRequirements": ["liquid symbols with stable spreads", "breadth stabilizes"],
+      "guardrailPackages": ["macro_release_blackout", "dispersion_decay_recheck"],
+      "researchModes": {
+        "adhoc": ["blackout_status_lookup", "dispersion_scan", "spread_state_check"],
+        "longRunning": ["post_macro_reentry_review", "shock_decay_timing_monitor"]
+      }
+    },
+    {
+      "id": "comp-004",
+      "name": "earnings_drift_to_afterhours_response",
+      "summary": "Earnings drift remains actionable through extended or overnight windows only when catalyst freshness and session legality stay intact.",
+      "phases": [
+        "event_confirmation",
+        "drift_window",
+        "off_hours_extension",
+        "regular_session_handoff_or_abort"
+      ],
+      "familyStack": ["earnings_guidance_drift", "extended_overnight_session_response"],
+      "trendRequirements": ["confirmed source", "event window active"],
+      "leadRequirements": ["liquidity sufficient for event window", "off-hours policy compatible"],
+      "guardrailPackages": ["secondary_disclosure_recheck", "session_legality_check"],
+      "researchModes": {
+        "adhoc": ["filing_confirmation_lookup", "off_hours_liquidity_scan"],
+        "longRunning": ["event_drift_extension_review", "session_handoff_reliability_monitor"]
+      }
+    },
+    {
+      "id": "comp-005",
+      "name": "sweep_reclaim_to_vwap_reversion_failover",
+      "summary": "A reclaim-based reversal is attempted first; if followthrough is weak, the branch falls back to a controlled reversion-to-value exit logic.",
+      "phases": ["sweep_detected", "reclaim_entry", "followthrough_check", "vwap_failover"],
+      "familyStack": ["liquidity_sweep_reversal", "vwap_reversion"],
+      "trendRequirements": ["range or overextension regime", "no fresh catalyst conflict"],
+      "leadRequirements": ["defined level map", "acceptable tape quality"],
+      "guardrailPackages": ["tape_quality_floor", "trend_strength_veto"],
+      "researchModes": {
+        "adhoc": ["level_map_lookup", "fresh_catalyst_check"],
+        "longRunning": ["reclaim_failover_review", "reversal_vs_reversion_outcome_monitor"]
+      }
+    },
+    {
+      "id": "comp-006",
+      "name": "opening_drive_to_sector_sympathy_ladder",
+      "summary": "An opening leader resolves cleanly, then sympathy names rotate through lead-lag propagation and pullback continuation as breadth broadens across the sector.",
+      "phases": [
+        "opening_leader_resolution",
+        "sympathy_map_confirmation",
+        "secondary_name_activation",
+        "leader_failure_abort"
+      ],
+      "familyStack": ["opening_range_breakout", "lead_lag_propagation", "pullback_continuation"],
+      "trendRequirements": [
+        "opening breadth expanding",
+        "leader relative volume high",
+        "macro blackout inactive"
+      ],
+      "leadRequirements": ["sympathy map present", "correlation stable during first drive"],
+      "guardrailPackages": ["leader_failure_abort", "opening_spread_spike", "breadth_decay_veto"],
+      "researchModes": {
+        "adhoc": ["opening_leaderboard_refresh", "sympathy_map_lookup", "breadth_regime_check"],
+        "longRunning": [
+          "opening_to_sympathy_conversion_review",
+          "sector_open_followthrough_monitor"
+        ]
+      }
+    }
+  ],
+  "decisionTreeBranchTaxonomy": {
+    "purpose": "Canonical branch shapes the tactical tier instantiates when decomposing a lead into a decision tree. Every leaf must carry an invalidation distinct from its hard stop and a recovery-ladder ref.",
+    "branchTypes": [
+      {
+        "id": "branch-entry-primary",
+        "role": "primary_entry",
+        "levers": ["entry_confirmation_band", "atr_stop_multiplier_band", "branch_order_class_set"],
+        "invalidation": ["confirmation_fails", "spread_regime_not_normalized"]
+      },
+      {
+        "id": "branch-entry-retest",
+        "role": "retest_entry",
+        "levers": ["retest_tolerance_band", "volume_confirmation_band"],
+        "invalidation": ["failed_retest_count_exceeded", "structure_break"]
+      },
+      {
+        "id": "branch-scale-in",
+        "role": "pyramiding_add",
+        "levers": ["pyramiding_band"],
+        "invalidation": ["add_trigger_not_met", "trend_structure_break"],
+        "defaultTierA": "disabled"
+      },
+      {
+        "id": "branch-target-ladder",
+        "role": "scaled_exit",
+        "levers": ["rr_target_ladder", "scale_out_fraction_band"],
+        "invalidation": ["benchmark_freshness_expired"]
+      },
+      {
+        "id": "branch-trail",
+        "role": "trailing_exit",
+        "levers": ["trail_multiplier_band"],
+        "invalidation": ["regular_session_only_for_trailing_stop"]
+      },
+      {
+        "id": "branch-invalidation",
+        "role": "thesis_invalidation_exit",
+        "levers": ["invalidation_thresholds", "max_pullback_depth", "leader_failure_abort"],
+        "invalidation": ["fires_before_hard_stop"]
+      },
+      {
+        "id": "branch-time-stop",
+        "role": "time_based_exit",
+        "levers": ["time_stop_band"],
+        "invalidation": ["max_holding_reached"]
+      },
+      {
+        "id": "branch-reentry",
+        "role": "controlled_reentry",
+        "levers": ["reentry_band", "blackout_cooldown_band"],
+        "invalidation": ["blackout_active", "shock_regime_active"]
+      },
+      {
+        "id": "branch-recovery",
+        "role": "recovery_handoff",
+        "levers": ["cancel_replace_band", "max_slippage_bps_band", "fill_timeout_ms_band"],
+        "invalidation": ["escalation_threshold_reached"]
+      }
+    ],
+    "constructionRules": [
+      "tactical tier must emit at least primary entry, scaled exit, thesis invalidation, time stop, and recovery branches before compile admission",
+      "each branch declares the order classes it may compile into; execution tier may only narrow that set",
+      "branch weights are mutable inside seeded envelopes; branch existence requirements are not"
+    ]
+  },
+  "recoveryLadderTemplates": [
+    {
+      "id": "rec-001",
+      "name": "phased_slippage_resolution",
+      "appliesTo": ["all_execution_sensitive_families"],
+      "phases": ["observe", "constrain", "reprice", "cancel_replace", "escalate_or_abort"],
+      "triggers": [
+        "max_slippage_bps_band breach",
+        "fill_timeout_ms_band elapsed",
+        "partial_fill_drift"
+      ],
+      "boundedLevers": [
+        "max_slippage_bps_band",
+        "fill_timeout_ms_band",
+        "cancel_replace_band",
+        "limit_offset_bps_band"
+      ],
+      "rule": "on timeout, verify-and-confirm before any resend; blind resend is prohibited"
+    },
+    {
+      "id": "rec-002",
+      "name": "breakout_failure_recovery",
+      "appliesTo": ["opening_range_breakout", "gap_and_go", "volatility_compression_breakout"],
+      "phases": [
+        "failed_break_detected",
+        "retest_attempt",
+        "reclaim_or_fade",
+        "session_lockout_if_repeated"
+      ],
+      "boundedLevers": ["retest_tolerance_band", "volume_confirmation_band", "reentry_band"],
+      "rule": "max_failed_retest_count caps re-entries; halt or macro-aftershock vetoes force lockout"
+    },
+    {
+      "id": "rec-003",
+      "name": "reversion_trend_day_abort",
+      "appliesTo": ["vwap_reversion", "liquidity_sweep_reversal"],
+      "phases": ["entry", "scale_out_to_value", "trend_strength_recheck", "trend_day_abort"],
+      "boundedLevers": ["rr_target_ladder", "scale_out_fraction_band", "reentry_band"],
+      "rule": "trend_strength_veto and benchmark_freshness_threshold force abort over re-entry"
+    },
+    {
+      "id": "rec-004",
+      "name": "event_catalyst_recovery",
+      "appliesTo": ["earnings_guidance_drift", "extended_overnight_session_response"],
+      "phases": [
+        "event_confirm",
+        "drift_window",
+        "secondary_disclosure_recheck",
+        "off_hours_handoff_or_exit"
+      ],
+      "boundedLevers": ["time_stop_band", "blackout_cooldown_band", "fill_timeout_ms_band"],
+      "rule": "secondary disclosure conflict or overnight policy disallow forces controlled exit, not re-add"
+    },
+    {
+      "id": "rec-005",
+      "name": "sympathy_leader_failure_recovery",
+      "appliesTo": ["lead_lag_propagation", "pullback_continuation"],
+      "phases": ["leader_confirm", "sympathy_entry", "correlation_recheck", "leader_failure_abort"],
+      "boundedLevers": ["correlation_health_band", "reentry_band"],
+      "rule": "broken correlation or leader failure aborts the stack; no laggard re-add after abort"
+    },
+    {
+      "id": "rec-006",
+      "name": "implementation_shortfall_trajectory_recovery",
+      "appliesTo": ["all_execution_sensitive_families"],
+      "phases": [
+        "schedule_deviation_detected",
+        "reprice_toward_ac_trajectory",
+        "participation_throttle",
+        "cancel_replace_ladder",
+        "escalate_or_abort"
+      ],
+      "triggers": [
+        "is_urgency_scalar_band breach vs arrival",
+        "participation_rate_band stuck",
+        "recovery_backoff_ms_band elapsed"
+      ],
+      "boundedLevers": [
+        "is_urgency_scalar_band",
+        "participation_rate_band",
+        "max_slippage_bps_band",
+        "recovery_backoff_ms_band",
+        "cancel_replace_band"
+      ],
+      "rule": "Re-align child slices toward Almgren–Chriss efficient-frontier trajectory before escalating; Perold IS measured against arrival price"
+    }
+  ],
+  "deterministicToolCatalog": {
+    "asOf": "2026-05-29",
+    "reference": "academic-quant-tool-catalog.md",
+    "purpose": "Flexible index of deterministic pipeline tools, tier-scoped lever tools, and executable-state transitions the model-bearing tiers may invoke inside seeded envelopes.",
+    "literatureRegistry": {
+      "almgren_chriss_optimal_execution": {
+        "citation": "Almgren, R., & Chriss, N. (2000). Optimal execution of portfolio transactions. Journal of Risk, 3(2), 5–39.",
+        "doi": "10.21314/JOR.2001.041",
+        "topics": ["optimal_execution", "implementation_shortfall", "market_impact"]
+      },
+      "bertsimas_lo_1998": {
+        "citation": "Bertsimas, D., & Lo, A. W. (1998). Optimal control of execution costs. Journal of Financial Markets, 1(1), 1–50.",
+        "topics": ["optimal_execution", "dynamic_programming"]
+      },
+      "perold_1988_is": {
+        "citation": "Perold, A. F. (1988). The implementation shortfall approach to trading. Journal of Portfolio Management, 14(4), 4–17.",
+        "topics": ["implementation_shortfall", "transaction_cost_analysis"]
+      },
+      "moskowitz_ooi_pedersen_2012_tsmom": {
+        "citation": "Moskowitz, T. J., Ooi, Y. H., & Pedersen, L. H. (2012). Time series momentum. Journal of Financial Economics, 104(2), 228–250.",
+        "doi": "10.1016/j.jfineco.2011.11.003",
+        "topics": ["momentum", "time_series"]
+      },
+      "jegadeesh_titman_1993_csmom": {
+        "citation": "Jegadeesh, N., & Titman, S. (1993). Returns to buying winners and selling losers. Journal of Finance, 48(1), 65–91.",
+        "doi": "10.1111/j.1540-6261.1993.tb04702.x",
+        "topics": ["momentum", "cross_sectional"]
+      },
+      "asness_moskowitz_pedersen_2013": {
+        "citation": "Asness, C., Moskowitz, T. J., & Pedersen, L. H. (2013). Value and momentum everywhere. Journal of Finance, 68(3), 929–985.",
+        "topics": ["momentum", "factor_premia"]
+      },
+      "hamilton_1989_regime_switching": {
+        "citation": "Hamilton, J. D. (1989). A new approach to the economic analysis of nonstationary time series and the business cycle. Econometrica, 57(2), 357–384.",
+        "doi": "10.2307/1912510",
+        "topics": ["regime_switching", "markov"]
+      },
+      "ang_bekaert_2002_regime_switching": {
+        "citation": "Ang, A., & Bekaert, G. (2002). International asset allocation with regime shifts. Review of Financial Studies, 15(4), 1137–1187.",
+        "doi": "10.1093/rfs/15.4.1137",
+        "topics": ["regime_switching", "bear_market", "correlation_breakdown"]
+      },
+      "engle_granger_johansen_cointegration": {
+        "citation": "Engle, R. F., & Granger, C. W. J. (1987); Johansen, S. (1988). Cointegration and VECM rank tests.",
+        "topics": ["cointegration", "pairs", "mean_reversion"]
+      },
+      "gatev_ggr_2006_pairs": {
+        "citation": "Gatev, E., Goetzmann, W. N., & Rouwenhorst, K. G. (2006). Pairs trading: Performance of a relative-value arbitrage rule. Review of Financial Studies, 19(3), 797–827.",
+        "doi": "10.1093/rfs/hhj020",
+        "topics": ["pairs_trading", "distance_method"]
+      },
+      "cointegration_mean_reversion": {
+        "citation": "Engle–Granger (1987) and Johansen (1988) OU spread mean reversion on cointegrated residuals.",
+        "topics": ["mean_reversion", "cointegration"]
+      },
+      "kyle_1985_microstructure": {
+        "citation": "Kyle, A. S. (1985). Continuous auctions and insider trading. Econometrica, 53(6), 1315–1335.",
+        "topics": ["market_microstructure", "price_impact", "kyle_lambda"]
+      },
+      "glosten_milgrom_1985_adverse_selection": {
+        "citation": "Glosten, L. R., & Milgrom, P. R. (1985). Bid, ask and transaction prices in a specialist market. Journal of Financial Economics, 14(1), 71–100.",
+        "doi": "10.1016/0304-405X(85)90044-3",
+        "topics": ["adverse_selection", "bid_ask_spread"]
+      },
+      "cartea_jaimungal_penalva_2015": {
+        "citation": "Cartea, Á., Jaimungal, S., & Penalva, J. (2015). Algorithmic and High-Frequency Trading. Cambridge University Press.",
+        "topics": ["algorithmic_trading", "microstructure"]
+      },
+      "pov_vwap_twap_is": {
+        "citation": "Practitioner execution benchmarks (VWAP, TWAP, POV) framed by Almgren–Chriss IS minimization.",
+        "topics": ["execution_benchmarks"]
+      },
+      "implementation_shortfall": {
+        "citation": "Perold (1988) IS metric; Almgren–Chriss (2000) optimal trajectory.",
+        "topics": ["implementation_shortfall"]
+      },
+      "kelly_1956_criterion": {
+        "citation": "Kelly, J. L. (1956). A new interpretation of information rate. Bell System Technical Journal, 35(4), 917–926.",
+        "topics": ["position_sizing", "growth_optimal"]
+      },
+      "moreira_muir_2017_vol_managed": {
+        "citation": "Moreira, L., & Muir, T. (2017). Volatility-managed portfolios. Journal of Financial Economics, 124(1), 22–54.",
+        "doi": "10.1016/j.jfineco.2017.05.012",
+        "topics": ["volatility_targeting", "position_sizing"]
+      },
+      "grinold_kahn_2000_active_risk": {
+        "citation": "Grinold, R. C., & Kahn, R. N. (2000). Active Portfolio Management (2nd ed.). McGraw-Hill.",
+        "topics": ["risk_budgeting", "portfolio_heat"]
+      },
+      "guidolin_timmermann_2007_regime": {
+        "citation": "Guidolin, M., & Timmermann, A. (2007). Asset allocation under multivariate regime switching. Journal of Economic Dynamics and Control, 31(11), 3503–3544.",
+        "doi": "10.1016/j.jedc.2006.09.002",
+        "topics": ["regime_switching", "multivariate"]
+      },
+      "obizhaeva_wang_2013_optimal_trading": {
+        "citation": "Obizhaeva, A. A., & Wang, J. (2013). Optimal trading strategy and supply/demand dynamics. Review of Financial Studies, 26(8), 3184–3220.",
+        "doi": "10.1093/rfs/hht018",
+        "topics": ["optimal_execution", "limit_order_book"]
+      },
+      "gatheral_2010_market_impact": {
+        "citation": "Gatheral, J. (2010). No-dynamic-arbitrage and market impact. Quantitative Finance, 10(7), 749–759.",
+        "doi": "10.1080/14697688.2010.502111",
+        "topics": ["market_impact", "square_root_law"]
+      },
+      "almgren_et_al_2005_impact": {
+        "citation": "Almgren, R., Thum, C., Hauptmann, E., & Li, H. (2005). Direct estimation of equity market impact. Risk, July 2005, 58–62.",
+        "topics": ["market_impact", "square_root_law"]
+      },
+      "roll_1984_effective_spread": {
+        "citation": "Roll, R. (1984). A simple implicit measure of the effective bid-ask spread in an efficient market. Journal of Finance, 39(4), 1127–1139.",
+        "doi": "10.1111/j.1540-6261.1984.tb03897.x",
+        "topics": ["bid_ask_spread", "microstructure"]
+      },
+      "hasbrouck_1991_information_share": {
+        "citation": "Hasbrouck, J. (1991). Measuring the information content of stock trades. Journal of Finance, 46(1), 179–207.",
+        "doi": "10.1111/j.1540-6261.1991.tb03743.x",
+        "topics": ["microstructure", "price_discovery"]
+      },
+      "amihud_2002_illiquidity": {
+        "citation": "Amihud, Y. (2002). Illiquidity and stock returns: cross-section and time-series effects. Journal of Financial Markets, 5(1), 31–56.",
+        "doi": "10.1016/S0304-405X(02)00065-6",
+        "topics": ["illiquidity", "microstructure"]
+      },
+      "krauss_2017_pairs_review": {
+        "citation": "Krauss, C. (2017). Statistical arbitrage pairs trading strategies: Review and outlook. Journal of Economic Surveys, 31(2), 513–545.",
+        "doi": "10.1111/joes.12153",
+        "topics": ["pairs_trading", "statistical_arbitrage", "distance_method", "cointegration"]
+      },
+      "avellaneda_lee_2010_stat_arb": {
+        "citation": "Avellaneda, M., & Lee, J.-H. (2010). Statistical arbitrage in the US equities market. Quantitative Finance, 10(7), 761–782.",
+        "doi": "10.1080/14697680903124632",
+        "topics": ["statistical_arbitrage", "mean_reversion", "pairs_trading"]
+      },
+      "lo_mackinlay_1988_variance_ratio": {
+        "citation": "Lo, A. W., & MacKinlay, A. C. (1988). Stock market prices do not follow random walks: Evidence from a simple specification test. Review of Financial Studies, 1(1), 41–66.",
+        "doi": "10.1093/rfs/1.1.41",
+        "topics": ["mean_reversion", "random_walk_test", "regime_prior"]
+      },
+      "mandelbrot_wallis_1969_hurst": {
+        "citation": "Mandelbrot, B. B., & Wallis, J. R. (1969). Robust R/S analysis of long run serial correlation. Proceedings of the 37th Session of the ISI, 59–104.",
+        "topics": ["hurst_exponent", "persistence", "regime_detection"]
+      },
+      "back_baruch_2004_kyle_gm": {
+        "citation": "Back, K., & Baruch, S. (2004). Information in securities markets: Kyle meets Glosten and Milgrom. Econometrica, 72(2), 433–465.",
+        "topics": ["market_microstructure", "adverse_selection", "price_impact"]
+      },
+      "easley_ohara_1992_price_adjustment": {
+        "citation": "Easley, D., & O'Hara, M. (1992). Time and the process of security price adjustment. Journal of Finance, 47(2), 577–604.",
+        "topics": ["informed_trading", "adverse_selection", "microstructure"]
+      },
+      "easley_lopez_prado_ohara_2012_vpin": {
+        "citation": "Easley, D., López de Prado, M. M., & O'Hara, M. (2012). Flow toxicity and liquidity in a high-frequency world. Review of Financial Studies, 25(5), 1457–1493.",
+        "doi": "10.1093/rfs/hhs053",
+        "topics": ["order_flow_toxicity", "vpin", "microstructure"]
+      },
+      "engle_granger_1987_cointegration": {
+        "citation": "Engle, R. F., & Granger, C. W. J. (1987). Co-integration and error correction. Econometrica, 55(2), 251–276.",
+        "topics": ["cointegration", "pairs", "mean_reversion"]
+      },
+      "johansen_1988_vecm": {
+        "citation": "Johansen, S. (1988). Statistical analysis of cointegration vectors. Journal of Economic Dynamics and Control, 12(2–3), 231–254.",
+        "topics": ["cointegration", "vecm", "pairs"]
+      }
+    },
+    "pipelineTools": [
+      {
+        "id": "seed_research_topics",
+        "nodeKind": "root",
+        "produces": "research_topic",
+        "tierScope": "pipeline"
+      },
+      {
+        "id": "decompose_topic",
+        "nodeKind": "research_topic",
+        "produces": "research_topic",
+        "tierScope": "pipeline"
+      },
+      {
+        "id": "emit_trends",
+        "nodeKind": "research_topic",
+        "produces": "trend",
+        "tierScope": "pipeline",
+        "literatureRef": "moskowitz_ooi_pedersen_2012_tsmom"
+      },
+      {
+        "id": "nominate_leads",
+        "nodeKind": "trend",
+        "produces": "lead",
+        "tierScope": "pipeline",
+        "bandRefs": ["correlation_health_band", "pairs_spread_zscore_band"],
+        "literatureRef": "gatev_ggr_2006_pairs"
+      },
+      {
+        "id": "expand_tree",
+        "nodeKind": "lead",
+        "produces": "tree",
+        "tierScope": "pipeline",
+        "uses": ["decisionTreeBranchTaxonomy"]
+      },
+      {
+        "id": "compile_instruction",
+        "nodeKind": "tree",
+        "produces": "compile",
+        "tierScope": "pipeline",
+        "literatureRef": "almgren_chriss_optimal_execution"
+      },
+      {
+        "id": "dispatch_instruction",
+        "nodeKind": "compile",
+        "produces": "dispatch",
+        "tierScope": "pipeline"
+      },
+      {
+        "id": "submit_and_verify",
+        "nodeKind": "dispatch",
+        "produces": null,
+        "tierScope": "pipeline",
+        "modelFree": true,
+        "literatureRef": "perold_1988_is"
+      },
+      {
+        "id": "retune_tree",
+        "nodeKind": "loop_refine",
+        "produces": "compile",
+        "tierScope": "pipeline",
+        "uses": ["recoveryLadderTemplates"],
+        "literatureRef": "perold_1988_is"
+      }
+    ],
+    "leverToolsByScope": {
+      "strategic": [
+        {
+          "id": "set_risk_per_trade_pct",
+          "bandRef": "risk_per_trade_pct_band",
+          "literatureRef": "kelly_1956_criterion"
+        },
+        {
+          "id": "set_portfolio_heat_pct",
+          "bandRef": "portfolio_heat_pct_band",
+          "literatureRef": "grinold_kahn_2000_active_risk"
+        },
+        {
+          "id": "set_portfolio_vol_target",
+          "bandRef": "portfolio_vol_target_band",
+          "literatureRef": "moreira_muir_2017_vol_managed"
+        },
+        { "id": "set_sector_concentration_pct", "bandRef": "sector_concentration_pct_band" },
+        { "id": "set_max_concurrent_names", "bandRef": "max_concurrent_names_band" },
+        {
+          "id": "set_regime_router_thresholds",
+          "bandRef": "regime_router_thresholds",
+          "literatureRef": "mandelbrot_wallis_1969_hurst",
+          "note": "Hurst/ADX thresholds; Hamilton/Guidolin overlays via run_regime_switch_calibration"
+        },
+        {
+          "id": "set_realized_vol_shock_threshold",
+          "bandRef": "vol_shock_regime_band",
+          "literatureRef": "ang_bekaert_2002_regime_switching"
+        },
+        {
+          "id": "set_correlation_health_floor",
+          "bandRef": "correlation_health_band",
+          "literatureRef": "engle_granger_johansen_cointegration"
+        },
+        {
+          "id": "set_pairs_spread_zscore_gate",
+          "bandRef": "pairs_spread_zscore_band",
+          "literatureRef": "gatev_ggr_2006_pairs"
+        },
+        {
+          "id": "screen_pairs_by_normalized_distance",
+          "literatureRef": "krauss_2017_pairs_review",
+          "uses": ["correlation_health_band"],
+          "note": "GGR distance pre-screen; cointegration mandatory per engle_granger_1987_cointegration"
+        },
+        { "id": "nominate_momentum_bias", "literatureRef": "moskowitz_ooi_pedersen_2012_tsmom" },
+        {
+          "id": "nominate_cross_sectional_momentum_bias",
+          "literatureRef": "jegadeesh_titman_1993_csmom"
+        },
+        { "id": "nominate_mean_reversion_bias", "literatureRef": "avellaneda_lee_2010_stat_arb" }
+      ],
+      "tactical": [
+        {
+          "id": "set_atr_stop_multiplier",
+          "bandRef": "atr_stop_multiplier_band",
+          "literatureRef": "gatheral_2010_market_impact"
+        },
+        { "id": "set_rr_target_ladder", "bandRef": "rr_target_ladder" },
+        { "id": "set_scale_out_fraction", "bandRef": "scale_out_fraction_band" },
+        { "id": "set_trail_multiplier", "bandRef": "trail_multiplier_band" },
+        { "id": "set_time_stop", "bandRef": "time_stop_band" },
+        { "id": "set_reentry_policy", "bandRef": "reentry_band" },
+        { "id": "set_pyramiding_policy", "bandRef": "pyramiding_band" },
+        { "id": "set_invalidation_thresholds", "bandRef": "invalidation_thresholds" },
+        {
+          "id": "declare_branch_order_classes",
+          "bandRef": "branch_order_class_set",
+          "uses": ["decisionTreeBranchTaxonomy"]
+        },
+        {
+          "id": "set_momentum_formation_window",
+          "bandRef": "momentum_lookback_band",
+          "literatureRef": "jegadeesh_titman_1993_csmom"
+        },
+        { "id": "attach_recovery_ladder", "uses": ["recoveryLadderTemplates"] },
+        {
+          "id": "advance_recovery_ladder_phase",
+          "uses": ["recoveryLadderTemplates"],
+          "literatureRef": "perold_1988_is"
+        }
+      ],
+      "execution": [
+        {
+          "id": "set_order_type",
+          "bandRef": "order_type_set",
+          "literatureRef": "obizhaeva_wang_2013_optimal_trading"
+        },
+        {
+          "id": "set_time_in_force",
+          "bandRef": "tif_set",
+          "literatureRef": "cartea_jaimungal_penalva_2015"
+        },
+        {
+          "id": "set_participation_rate",
+          "bandRef": "participation_rate_band",
+          "literatureRef": "gatheral_2010_market_impact"
+        },
+        {
+          "id": "select_execution_benchmark",
+          "options": ["vwap", "twap", "implementation_shortfall", "simple_limit"],
+          "literatureRef": "pov_vwap_twap_is"
+        },
+        {
+          "id": "set_limit_offset_bps",
+          "bandRef": "limit_offset_bps_band",
+          "literatureRef": "roll_1984_effective_spread"
+        },
+        {
+          "id": "set_max_slippage_bps",
+          "bandRef": "max_slippage_bps_band",
+          "literatureRef": "implementation_shortfall"
+        },
+        {
+          "id": "set_fill_timeout_ms",
+          "bandRef": "fill_timeout_ms_band",
+          "literatureRef": "amihud_2002_illiquidity"
+        },
+        {
+          "id": "set_cancel_replace_policy",
+          "bandRef": "cancel_replace_band",
+          "literatureRef": "obizhaeva_wang_2013_optimal_trading"
+        },
+        {
+          "id": "set_adverse_selection_guard_bps",
+          "bandRef": "adverse_selection_bps_band",
+          "literatureRef": "easley_ohara_1992_price_adjustment",
+          "note": "Glosten–Milgrom spread cushion; VPIN-style toxicity proxy per easley_lopez_prado_ohara_2012_vpin"
+        },
+        {
+          "id": "set_is_urgency_scalar",
+          "bandRef": "is_urgency_scalar_band",
+          "literatureRef": "almgren_chriss_optimal_execution"
+        },
+        {
+          "id": "set_recovery_backoff_ms",
+          "bandRef": "recovery_backoff_ms_band",
+          "literatureRef": "perold_1988_is"
+        },
+        {
+          "id": "apply_square_root_impact_budget",
+          "bandRef": "participation_rate_band",
+          "literatureRef": "almgren_et_al_2005_impact"
+        },
+        {
+          "id": "set_iceberg_peak_ratio",
+          "bandRef": "iceberg_peak_ratio",
+          "literatureRef": "obizhaeva_wang_2013_optimal_trading"
+        }
+      ]
+    },
+    "executableStateTransitions": [
+      { "id": "emit_tree_shaped_watch", "toStatus": "watch", "event": "tree_shaped" },
+      { "id": "emit_await_entry_wait", "toStatus": "wait", "event": "tree_shaped_or_post_fill" },
+      { "id": "emit_compile_ready_order", "toStatus": "order", "event": "compile_ready" },
+      { "id": "emit_compile_blocked", "toStatus": "blocked", "event": "compile_blocked" },
+      {
+        "id": "emit_verification_fallback",
+        "toStatus": "fallback",
+        "event": "verification_outcome",
+        "uses": ["lastVerifiedPatternRef"]
+      },
+      {
+        "id": "emit_recovery_ladder_active",
+        "toStatus": "watch",
+        "event": "recovery_ladder_attached",
+        "uses": ["recoveryLadderTemplates"]
+      },
+      {
+        "id": "emit_slippage_observe_wait",
+        "toStatus": "wait",
+        "event": "slippage_observe_phase",
+        "literatureRef": "perold_1988_is"
+      },
+      {
+        "id": "refresh_last_verified_pattern",
+        "sideEffect": "lastVerifiedPatternRef",
+        "event": "verification_filled"
+      }
+    ],
+    "researchAndTrainingTools": [
+      { "id": "run_adhoc_research_query", "scope": "research" },
+      { "id": "run_long_running_research_track", "scope": "research" },
+      { "id": "run_paper_training_replay", "scope": "training" },
+      {
+        "id": "apply_control_snapshot_delta",
+        "scope": "training",
+        "uses": ["runtimeControlSurface"]
+      },
+      {
+        "id": "run_regime_switch_calibration",
+        "scope": "research",
+        "literatureRef": "hamilton_1989_regime_switching"
+      },
+      {
+        "id": "run_pairs_cointegration_screen",
+        "scope": "research",
+        "literatureRef": "engle_granger_johansen_cointegration"
+      },
+      {
+        "id": "run_krauss_pairs_taxonomy_review",
+        "scope": "research",
+        "literatureRef": "krauss_2017_pairs_review"
+      }
+    ],
+    "processBindingTools": [
+      {
+        "id": "bind_routing_pattern_shape",
+        "module": "apps/hftr-web/src/lib/pipeline/nodes/patterns.ts",
+        "feeds": ["routing_pattern fanout", "NODE_TOOLSETS", "verification loop caps"],
+        "tierEffect": "Fixes which pipeline tool ids run per NodeKind for the LLM-selected pattern"
+      },
+      {
+        "id": "classify_regime_snapshot_for_nomination",
+        "module": "apps/hftr-web/src/lib/pipeline/nodes/engine.ts",
+        "feeds": ["nominate_leads family ordering"],
+        "literatureRef": "mandelbrot_wallis_1969_hurst",
+        "tierEffect": "Strategic nomination bias only"
+      },
+      {
+        "id": "expand_tree_from_lead",
+        "module": "apps/hftr-web/src/lib/pipeline/nodes/engine.ts",
+        "pipelineTool": "expand_tree",
+        "feeds": ["decisionTreeBranchTaxonomy"],
+        "tierEffect": "Materializes tactical tree branches for lever attachment"
+      },
+      {
+        "id": "compile_instruction_from_tree",
+        "module": "apps/hftr-web/src/lib/pipeline/nodes/engine.ts",
+        "pipelineTool": "compile_instruction",
+        "literatureRef": "almgren_chriss_optimal_execution",
+        "tierEffect": "Maps execution-tier bands to compiled instruction ref"
+      },
+      {
+        "id": "execute_tier_retune_pass",
+        "module": "apps/hftr-web/src/lib/pipeline/nodes/retune.ts",
+        "feeds": [
+          "executeTierRefresh",
+          "persistTreeRefinement",
+          "syncExecutableStateAfterTierRetune"
+        ],
+        "tierEffect": "Repositions levers on same tree; may enqueue retune_tree"
+      },
+      {
+        "id": "apply_scoped_lever_batch",
+        "module": "apps/hftr-web/src/lib/pipeline/nodes/levers.ts",
+        "feeds": ["LEVER_REGISTRY", "bands.ts envelopes"],
+        "tierEffect": "Fail-closed lever application for LLM-proposed deltas"
+      },
+      {
+        "id": "emit_executable_state_transition",
+        "module": "apps/hftr-web/src/lib/pipeline/nodes/executable-state.ts",
+        "feeds": ["watch", "wait", "order", "blocked", "fallback"],
+        "tierEffect": "Operator-visible status without bypassing verification"
+      }
+    ],
+    "implementationHandoff": "../architecture/trading-engine-implementation-spec.md"
+  },
+  "diagram": {
+    "stages": [
+      "trend_and_lead_pattern_scan",
+      "strategy_family_selection",
+      "variant_binding",
+      "compound_path_selection",
+      "broker_and_session_compatibility_overlay",
+      "instruction_compilation",
+      "deterministic_dispatch",
+      "verification",
+      "feedback_refresh"
+    ],
+    "contextInputs": [
+      "regime_and_market_state_spec",
+      "event_impact_graph_spec",
+      "trend_lead_pattern_library",
+      "sector_behavior_seed_catalog",
+      "macro_geopolitical_trigger_catalog",
+      "company_event_archetype_catalog",
+      "compliance_policy_package_catalog",
+      "guardrail_recovery_package_catalog",
+      "broker_policy_envelope_catalog",
+      "session_constraint_catalog"
+    ],
+    "nodes": [
+      "context_catalogs",
+      "trend_and_lead_pattern_scan",
+      "strategy_family_selection",
+      "variant_binding",
+      "compound_path_selection",
+      "broker_and_session_compatibility_overlay",
+      "instruction_compilation",
+      "deterministic_dispatch",
+      "verification",
+      "feedback_refresh"
+    ],
+    "edges": [
+      {
+        "from": "context_catalogs",
+        "to": "trend_and_lead_pattern_scan",
+        "label": "bias, suppress, invalidate"
+      },
+      {
+        "from": "trend_and_lead_pattern_scan",
+        "to": "strategy_family_selection",
+        "label": "eligible families"
+      },
+      {
+        "from": "strategy_family_selection",
+        "to": "variant_binding",
+        "label": "sub-variant choice"
+      },
+      { "from": "variant_binding", "to": "compound_path_selection", "label": "compound roles" },
+      {
+        "from": "context_catalogs",
+        "to": "broker_and_session_compatibility_overlay",
+        "label": "policy and legality overlays"
+      },
+      {
+        "from": "compound_path_selection",
+        "to": "broker_and_session_compatibility_overlay",
+        "label": "branch validation"
+      },
+      {
+        "from": "broker_and_session_compatibility_overlay",
+        "to": "instruction_compilation",
+        "label": "compatible trees only"
+      },
+      {
+        "from": "instruction_compilation",
+        "to": "deterministic_dispatch",
+        "label": "compiled instructions"
+      },
+      { "from": "deterministic_dispatch", "to": "verification", "label": "action outcomes" },
+      { "from": "verification", "to": "feedback_refresh", "label": "trace + evidence" },
+      {
+        "from": "feedback_refresh",
+        "to": "context_catalogs",
+        "label": "weights + reliability refresh"
+      }
+    ],
+    "contracts": {
+      "mutable": ["weights", "bounded_ranges", "rank_preferences"],
+      "immutable": ["guardrails", "verification_schemas", "dispatch_legality_rules"]
+    }
+  }
+}

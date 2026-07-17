@@ -1,0 +1,604 @@
+{
+  "asOf": "2026-05-29",
+  "status": "in_progress",
+  "purpose": "First-class trend and lead pattern library used to map market-state evidence into strategy-family nomination, variant routing, and compound handoff sequencing.",
+  "querySurfaces": {
+    "moduleQueries": [
+      "pattern_summary",
+      "pattern_detail",
+      "family_binding_lookup",
+      "sector_binding_lookup",
+      "compound_handoff_review",
+      "control_surface_review"
+    ],
+    "progressiveAccessLevels": [
+      {
+        "level": "overview",
+        "returns": ["name", "class", "summary", "preferredFamilies", "sectorBindings"]
+      },
+      {
+        "level": "analyst",
+        "returns": [
+          "inputs",
+          "confirmationSignals",
+          "suppressWhen",
+          "preferredCompounds",
+          "researchSupport"
+        ]
+      },
+      {
+        "level": "lineage",
+        "returns": ["linkedKnowledge", "queryExamples", "reviewCadence", "runtimeControlSurface"]
+      }
+    ]
+  },
+  "runtimeControlSurface": {
+    "weightingDrivers": [
+      "lead_signal_quality",
+      "sector_confirmation",
+      "event_alignment",
+      "breadth_stability",
+      "session_and_broker_legality"
+    ],
+    "boundedRangeFamilies": [
+      "leader_lag_window_band",
+      "confirmation_depth_band",
+      "followthrough_decay_band",
+      "reentry_delay_band"
+    ],
+    "boundedRangeFamilyDefinitions": {
+      "note": "Seeded research starting bands as min/typical/max. Full grounding and citations live in tier-lever-and-bounded-range-reference.md.",
+      "leader_lag_window_band": {
+        "min_ms": 2000,
+        "typical_ms": 15000,
+        "max_ms": 120000,
+        "unit": "ms",
+        "rule": "stale lag window suppresses sympathy entry"
+      },
+      "confirmation_depth_band": {
+        "min": 1,
+        "typical": 2,
+        "max": 3,
+        "unit": "confirmation_bars_or_signals"
+      },
+      "followthrough_decay_band": {
+        "min_min": 5,
+        "typical_min": 30,
+        "max_min": 120,
+        "unit": "minutes",
+        "rule": "decay beyond band invalidates pattern freshness"
+      },
+      "reentry_delay_band": { "min_min": 1, "typical_min": 10, "max_min": 60, "unit": "minutes" }
+    },
+    "regimeRouterThresholds": {
+      "reference": "tier-lever-and-bounded-range-reference.md",
+      "hurst_trend": 0.55,
+      "hurst_revert": 0.45,
+      "adx_trend": 25,
+      "adx_range": 20,
+      "correlation_health_floor": { "min": 0.45, "typical": 0.6, "max": 0.75 },
+      "rule": "patterns nominate momentum, mean-reversion, or risk-off bias from regime classification; thresholds bias nomination only and never soften legality or guardrails"
+    },
+    "granularityByLayer": {
+      "research": "Pattern packages keep sector bindings, compound handoff logic, suppress conditions, and evidence cadence for curation and audit review.",
+      "strategic": "Downstream layers receive ranked trend and lead candidates, family fit, and major veto state rather than full lineage detail.",
+      "tactical": "Branch builders receive pattern-specific confirmation logic, lag windows, and recovery-sensitive variant hints.",
+      "training_feedback": "Replay review may recalibrate pattern reliability and lag windows inside seeded envelopes without mutating legality or guardrail contracts."
+    },
+    "policyRule": "Trend and lead patterns may nominate families and compound handoffs upstream, but they cannot soften deterministic legality, verification, or guardrail enforcement."
+  },
+  "patterns": [
+    {
+      "id": "lead-001",
+      "name": "sector_leader_to_sympathy",
+      "class": "sector_breadth_and_leadership",
+      "summary": "A liquid sector leader resolves first, then sympathy names become eligible as breadth and correlation confirm.",
+      "inputs": ["sector_breadth", "leader_relative_volume", "correlation_health"],
+      "confirmationSignals": [
+        "leader_hold_above_breakout",
+        "sympathy_breadth_expands",
+        "spread_state_stable"
+      ],
+      "suppressWhen": ["breadth_fragments", "correlation_breaks", "macro_blackout_active"],
+      "preferredFamilies": ["lead_lag_propagation", "pullback_continuation", "gap_and_go"],
+      "preferredCompounds": [
+        "sector_leader_breakout_to_sympathy_rotation",
+        "opening_drive_to_sector_sympathy_ladder"
+      ],
+      "sectorBindings": ["technology", "communication_services", "industrials", "financials"],
+      "researchSupport": {
+        "adhoc": [
+          "sector_leaderboard_refresh",
+          "subsector_correlation_lookup",
+          "breadth_state_check"
+        ],
+        "longRunning": ["sympathy_followthrough_monitor", "leadership_rotation_decay_review"]
+      },
+      "linkedKnowledge": {
+        "sectorCatalog": "sector-behavior-seed-catalog.json",
+        "strategyCatalog": "seeded-strategy-catalog.json",
+        "contextCatalogs": [
+          "macro-geopolitical-trigger-catalog.json",
+          "company-event-archetype-catalog.json"
+        ]
+      },
+      "reviewCadence": "nightly plus event-driven on leadership shocks",
+      "queryExamples": [
+        "Which strategy families fit the active sector-leader-to-sympathy pattern?",
+        "What suppresses sympathy activation when breadth is weakening?"
+      ]
+    },
+    {
+      "id": "lead-002",
+      "name": "catalyst_cluster_readthrough",
+      "class": "event_and_supply_chain_readthrough",
+      "summary": "A confirmed catalyst in one or more leaders propagates through the same subsector, supplier chain, or adjacent peer basket.",
+      "inputs": ["company_event_confirmation", "subsector_map", "earnings_cluster_calendar"],
+      "confirmationSignals": [
+        "primary_source_confirmed",
+        "peer_basket_repricing",
+        "liquidity_present"
+      ],
+      "suppressWhen": [
+        "source_unconfirmed",
+        "secondary_disclosure_conflict",
+        "event_blackout_active"
+      ],
+      "preferredFamilies": ["earnings_guidance_drift", "gap_and_go", "lead_lag_propagation"],
+      "preferredCompounds": [
+        "catalyst_gap_continuation_to_pullback_reclaim",
+        "earnings_drift_to_afterhours_response"
+      ],
+      "sectorBindings": ["technology", "consumer_discretionary", "health_care", "industrials"],
+      "researchSupport": {
+        "adhoc": ["filing_confirmation_lookup", "supplier_map_refresh", "cluster_event_scan"],
+        "longRunning": ["earnings_cluster_reliability_review", "supplier_readthrough_decay_monitor"]
+      },
+      "linkedKnowledge": {
+        "sectorCatalog": "sector-behavior-seed-catalog.json",
+        "strategyCatalog": "seeded-strategy-catalog.json",
+        "contextCatalogs": [
+          "company-event-archetype-catalog.json",
+          "compliance-policy-package-catalog.json"
+        ]
+      },
+      "reviewCadence": "intraday around event windows and nightly for reliability refresh",
+      "queryExamples": [
+        "Which sectors currently support catalyst-cluster readthrough?",
+        "Which compounds are compatible with the active catalyst cluster?"
+      ]
+    },
+    {
+      "id": "lead-003",
+      "name": "macro_shock_blackout_then_reentry",
+      "class": "macro_repricing_and_reentry",
+      "summary": "Macro releases suppress direct activation initially, then controlled reentry becomes eligible once dispersion and legality settle.",
+      "inputs": ["macro_trigger_state", "blackout_window", "dispersion_decay"],
+      "confirmationSignals": ["blackout_expired", "spread_regime_normalized", "breadth_stabilizes"],
+      "suppressWhen": [
+        "macro_trigger_refreshes",
+        "dispersion_remains_elevated",
+        "session_legality_conflict"
+      ],
+      "preferredFamilies": ["opening_range_breakout", "liquidity_sweep_reversal", "vwap_reversion"],
+      "preferredCompounds": ["macro_shock_blackout_then_delayed_reentry_reversion"],
+      "sectorBindings": [
+        "financials",
+        "technology",
+        "consumer_discretionary",
+        "real_estate",
+        "utilities"
+      ],
+      "researchSupport": {
+        "adhoc": ["blackout_status_lookup", "dispersion_decay_scan", "session_legality_check"],
+        "longRunning": ["post_macro_reentry_review", "blackout_duration_reliability_monitor"]
+      },
+      "linkedKnowledge": {
+        "sectorCatalog": "sector-behavior-seed-catalog.json",
+        "strategyCatalog": "seeded-strategy-catalog.json",
+        "contextCatalogs": [
+          "macro-geopolitical-trigger-catalog.json",
+          "guardrail-recovery-package-catalog.json",
+          "session-constraint-catalog.json"
+        ]
+      },
+      "reviewCadence": "every scheduled macro event plus nightly replay review",
+      "queryExamples": [
+        "Which families are eligible after the current macro blackout expires?",
+        "Which guardrail package governs macro reentry right now?"
+      ]
+    },
+    {
+      "id": "lead-004",
+      "name": "liquidity_sweep_then_reclaim",
+      "class": "microstructure_and_level_recovery",
+      "summary": "Price sweeps a key level, reclaims it, and then either reverts or resumes depending on tape quality and breadth.",
+      "inputs": ["level_map", "reclaim_time", "tape_quality", "breadth_confirmation"],
+      "confirmationSignals": [
+        "reclaim_holds",
+        "tape_quality_above_floor",
+        "spread_compression_after_sweep"
+      ],
+      "suppressWhen": ["spoofing_noise_veto", "spread_state_unstable", "fresh_catalyst_conflict"],
+      "preferredFamilies": ["liquidity_sweep_reversal", "vwap_reversion", "pullback_continuation"],
+      "preferredCompounds": ["sweep_reclaim_to_vwap_reversion_failover"],
+      "sectorBindings": ["financials", "energy", "technology", "crypto_equities_and_proxies"],
+      "researchSupport": {
+        "adhoc": ["level_map_lookup", "tape_quality_refresh", "spoofing_noise_check"],
+        "longRunning": ["reclaim_success_rate_review", "reversal_vs_reversion_monitor"]
+      },
+      "linkedKnowledge": {
+        "sectorCatalog": "sector-behavior-seed-catalog.json",
+        "strategyCatalog": "seeded-strategy-catalog.json",
+        "contextCatalogs": [
+          "guardrail-recovery-package-catalog.json",
+          "execution-microstructure-and-order-quality.md"
+        ]
+      },
+      "reviewCadence": "intraday by regime and nightly by level class",
+      "queryExamples": [
+        "Which recovery ladders fit the current reclaim pattern?",
+        "What suppresses reclaim entries during thin liquidity?"
+      ]
+    },
+    {
+      "id": "lead-005",
+      "name": "overnight_discovery_to_regular_session_handoff",
+      "class": "session_transition_and_discovery",
+      "summary": "Overnight or extended-hours discovery sets the first thesis, then the regular session validates, reprices, or rejects it.",
+      "inputs": ["off_hours_liquidity", "session_router", "opening_cross_alignment"],
+      "confirmationSignals": [
+        "opening_cross_confirms",
+        "off_hours_spread_within_band",
+        "session_policy_compatible"
+      ],
+      "suppressWhen": [
+        "session_transition_veto",
+        "spread_above_ceiling",
+        "overnight_policy_conflict"
+      ],
+      "preferredFamilies": [
+        "extended_overnight_session_response",
+        "gap_and_go",
+        "opening_range_breakout"
+      ],
+      "preferredCompounds": [
+        "earnings_drift_to_afterhours_response",
+        "opening_drive_to_sector_sympathy_ladder"
+      ],
+      "sectorBindings": [
+        "technology",
+        "energy",
+        "consumer_discretionary",
+        "crypto_equities_and_proxies"
+      ],
+      "researchSupport": {
+        "adhoc": [
+          "session_router_check",
+          "opening_cross_alignment_lookup",
+          "off_hours_liquidity_scan"
+        ],
+        "longRunning": ["session_handoff_reliability_monitor", "off_hours_followthrough_review"]
+      },
+      "linkedKnowledge": {
+        "sectorCatalog": "sector-behavior-seed-catalog.json",
+        "strategyCatalog": "seeded-strategy-catalog.json",
+        "contextCatalogs": [
+          "session-constraint-catalog.json",
+          "broker-policy-envelope-catalog.json",
+          "guardrail-recovery-package-catalog.json"
+        ]
+      },
+      "reviewCadence": "every off-hours session transition and nightly by session class",
+      "queryExamples": [
+        "Which strategies remain eligible into the regular-session handoff?",
+        "Which session constraints currently suppress off-hours discovery followthrough?"
+      ]
+    },
+    {
+      "id": "lead-006",
+      "name": "defensive_rotation_then_quality_breakout",
+      "class": "defensive_regime_rotation",
+      "summary": "Capital rotates into defensive-quality names first, then cleaner breakouts emerge in lower-beta sectors once stress stabilizes.",
+      "inputs": ["defensive_breadth", "risk_off_intensity", "yield_alignment"],
+      "confirmationSignals": [
+        "defensive_relative_strength",
+        "headline_stress_decays",
+        "leadership_concentrates_in_quality_names"
+      ],
+      "suppressWhen": [
+        "risk_on_reacceleration",
+        "macro_shock_refresh",
+        "low_beta_false_breakout_cluster"
+      ],
+      "preferredFamilies": ["pullback_continuation", "vwap_reversion", "earnings_guidance_drift"],
+      "preferredCompounds": ["defensive_rotation_to_mean_reversion"],
+      "sectorBindings": ["consumer_staples", "utilities", "health_care"],
+      "researchSupport": {
+        "adhoc": ["defensive_rotation_check", "yield_alignment_lookup", "headline_decay_review"],
+        "longRunning": [
+          "defensive_regime_reliability_review",
+          "quality_breakout_followthrough_monitor"
+        ]
+      },
+      "linkedKnowledge": {
+        "sectorCatalog": "sector-behavior-seed-catalog.json",
+        "strategyCatalog": "seeded-strategy-catalog.json",
+        "contextCatalogs": [
+          "macro-geopolitical-trigger-catalog.json",
+          "guardrail-recovery-package-catalog.json"
+        ]
+      },
+      "reviewCadence": "intraday during stress regimes and weekly by sector family",
+      "queryExamples": [
+        "Which defensive sectors fit quality-breakout routing now?",
+        "What invalidates the current defensive rotation pattern?"
+      ]
+    },
+    {
+      "id": "lead-007",
+      "name": "policy_gap_to_supplier_sympathy",
+      "class": "policy_and_supply_chain_repricing",
+      "summary": "A policy or geopolitical headline gaps a leader, then suppliers, customers, or adjacent beneficiaries reprice with lagged sympathy.",
+      "inputs": ["policy_source_confirmation", "supply_chain_map", "leader_gap_quality"],
+      "confirmationSignals": [
+        "official_source_confirmed",
+        "supplier_basket_breadth_expands",
+        "policy_scope_understood"
+      ],
+      "suppressWhen": ["rumor_only", "policy_scope_conflict", "supply_chain_mapping_stale"],
+      "preferredFamilies": ["gap_and_go", "lead_lag_propagation", "pullback_continuation"],
+      "preferredCompounds": ["policy_gap_to_supplier_sympathy"],
+      "sectorBindings": ["industrials", "technology", "materials", "energy"],
+      "researchSupport": {
+        "adhoc": ["policy_source_lookup", "supply_chain_map_refresh", "beneficiary_scan"],
+        "longRunning": ["policy_repricing_decay_review", "supplier_sympathy_reliability_monitor"]
+      },
+      "linkedKnowledge": {
+        "sectorCatalog": "sector-behavior-seed-catalog.json",
+        "strategyCatalog": "seeded-strategy-catalog.json",
+        "contextCatalogs": [
+          "macro-geopolitical-trigger-catalog.json",
+          "compliance-policy-package-catalog.json"
+        ]
+      },
+      "reviewCadence": "event-driven on policy actions and nightly on active themes",
+      "queryExamples": [
+        "Which supplier chains are compatible with the active policy gap?",
+        "Which strategies best fit the current policy-sympathy pattern?"
+      ]
+    },
+    {
+      "id": "lead-008",
+      "name": "crypto_regulatory_shock_then_proxy_repricing",
+      "class": "crypto_policy_and_proxy_rotation",
+      "summary": "A crypto-specific enforcement or policy event shocks direct infrastructure names first, then proxy equities and settlement names reprice with delay.",
+      "inputs": ["crypto_policy_state", "benchmark_alignment", "exchange_status"],
+      "confirmationSignals": [
+        "official_policy_scope_confirmed",
+        "proxy_beta_alignment",
+        "exchange_or_payment_liquidity_present"
+      ],
+      "suppressWhen": [
+        "benchmark_disconnect",
+        "exchange_outage_active",
+        "regulatory_scope_unclear"
+      ],
+      "preferredFamilies": [
+        "gap_and_go",
+        "lead_lag_propagation",
+        "extended_overnight_session_response"
+      ],
+      "preferredCompounds": [
+        "regulatory_shock_blackout_then_reprice",
+        "crypto_breakout_to_proxy_sympathy"
+      ],
+      "sectorBindings": ["crypto_equities_and_proxies", "financials", "technology"],
+      "researchSupport": {
+        "adhoc": ["crypto_policy_lookup", "proxy_beta_scan", "exchange_status_check"],
+        "longRunning": ["crypto_policy_regime_review", "proxy_repricing_reliability_monitor"]
+      },
+      "linkedKnowledge": {
+        "sectorCatalog": "sector-behavior-seed-catalog.json",
+        "strategyCatalog": "seeded-strategy-catalog.json",
+        "contextCatalogs": [
+          "macro-geopolitical-trigger-catalog.json",
+          "compliance-policy-package-catalog.json",
+          "guardrail-recovery-package-catalog.json"
+        ]
+      },
+      "reviewCadence": "event-driven on enforcement actions and nightly by proxy basket",
+      "queryExamples": [
+        "Which proxy equities fit the active crypto regulatory shock?",
+        "Which guardrail package is suppressing overnight crypto-proxy routing?"
+      ]
+    },
+    {
+      "id": "lead-009",
+      "name": "rates_shock_to_property_and_utility_rotation",
+      "class": "rates_sensitive_cross_sector_rotation",
+      "summary": "A sharp rate move reprices REITs and utilities first, then adjacent quality or infrastructure pockets rotate as duration sensitivity gets re-ranked.",
+      "inputs": ["treasury_move", "duration_factor_rotation", "sector_dispersion"],
+      "confirmationSignals": [
+        "rate_move_persists",
+        "rate_sensitive_dispersion_visible",
+        "defensive_rotation_stable"
+      ],
+      "suppressWhen": [
+        "rates_retrace_immediately",
+        "macro_blackout_active",
+        "credit_stress_unresolved"
+      ],
+      "preferredFamilies": ["pullback_continuation", "vwap_reversion", "lead_lag_propagation"],
+      "preferredCompounds": [
+        "rate_repricing_to_property_rotation",
+        "defensive_rotation_to_reversion"
+      ],
+      "sectorBindings": ["real_estate", "utilities", "financials"],
+      "researchSupport": {
+        "adhoc": [
+          "rate_alignment_lookup",
+          "property_type_dispersion_scan",
+          "utility_rotation_check"
+        ],
+        "longRunning": ["rate_sensitive_repricing_review", "duration_rotation_reliability_monitor"]
+      },
+      "linkedKnowledge": {
+        "sectorCatalog": "sector-behavior-seed-catalog.json",
+        "strategyCatalog": "seeded-strategy-catalog.json",
+        "contextCatalogs": [
+          "macro-geopolitical-trigger-catalog.json",
+          "session-constraint-catalog.json"
+        ]
+      },
+      "reviewCadence": "intraday around rates shocks and nightly by factor regime",
+      "queryExamples": [
+        "Which rate-sensitive sectors fit the current rotation pattern?",
+        "What invalidates property-and-utility rotation after a rates shock?"
+      ]
+    },
+    {
+      "id": "lead-010",
+      "name": "multi_symbol_regime_alignment",
+      "class": "regime_and_breadth_confirmation",
+      "summary": "Index proxies and sector leaders share the same Hurst/ADX-derived regime classification before momentum or compression families receive strategic boost.",
+      "inputs": [
+        "index_proxy_regime",
+        "sector_leader_regime",
+        "breadth_summary",
+        "regime_snapshot_id"
+      ],
+      "confirmationSignals": [
+        "consensus_classification_stable",
+        "disagreement_false",
+        "correlation_health_above_floor"
+      ],
+      "suppressWhen": [
+        "regime_disagreement_unresolved",
+        "macro_blackout_active",
+        "risk_off_classification"
+      ],
+      "preferredFamilies": [
+        "systematic_momentum_burst",
+        "volatility_regime_overlay",
+        "pullback_continuation",
+        "volatility_compression_breakout"
+      ],
+      "preferredCompounds": [
+        "opening_drive_to_sector_sympathy_ladder",
+        "sector_leader_breakout_to_sympathy_rotation"
+      ],
+      "sectorBindings": ["technology", "financials", "consumer_discretionary", "industrials"],
+      "researchSupport": {
+        "adhoc": ["regime_snapshot_lookup", "breadth_state_check", "index_proxy_regime_scan"],
+        "longRunning": [
+          "multi_symbol_regime_consensus_monitor",
+          "regime_disagreement_outcome_review"
+        ]
+      },
+      "linkedKnowledge": {
+        "sectorCatalog": "sector-behavior-seed-catalog.json",
+        "strategyCatalog": "seeded-strategy-catalog.json",
+        "contextCatalogs": [
+          "regime-and-market-state-spec.md",
+          "macro-geopolitical-trigger-catalog.json"
+        ]
+      },
+      "reviewCadence": "intraday on regime flips and nightly on threshold package versions",
+      "queryExamples": [
+        "Do index and sector leaders agree on the current regime?",
+        "Which families are boosted under aligned momentum regime?"
+      ]
+    },
+    {
+      "id": "lead-011",
+      "name": "event_graph_transmission_active",
+      "class": "event_impact_transmission",
+      "summary": "A confirmed first-order event-impact edge from macro or company catalogs is within half-life and biases trend nomination or tactical blackout posture.",
+      "inputs": ["event_impact_edge_id", "transmission_order", "half_life_min", "playbook_id"],
+      "confirmationSignals": [
+        "edge_fresh",
+        "primary_or_official_source_confirmed",
+        "playbook_id_present"
+      ],
+      "suppressWhen": [
+        "edge_expired",
+        "second_order_only_without_leader_confirm",
+        "compliance_source_conflict"
+      ],
+      "preferredFamilies": [
+        "infrastructure_stress_reversal",
+        "earnings_guidance_drift",
+        "macro_relative_value_dispersion",
+        "gap_and_go"
+      ],
+      "preferredCompounds": [
+        "macro_shock_blackout_then_delayed_reentry_reversion",
+        "earnings_drift_to_afterhours_response"
+      ],
+      "sectorBindings": ["financials", "technology", "energy", "industrials", "health_care"],
+      "researchSupport": {
+        "adhoc": ["event_impact_path_lookup", "playbook_lookup", "blackout_status_lookup"],
+        "longRunning": [
+          "event_graph_half_life_calibration_review",
+          "playbook_followthrough_monitor"
+        ]
+      },
+      "linkedKnowledge": {
+        "sectorCatalog": "sector-behavior-seed-catalog.json",
+        "strategyCatalog": "seeded-strategy-catalog.json",
+        "contextCatalogs": [
+          "event-impact-graph-spec.md",
+          "macro-geopolitical-trigger-catalog.json",
+          "company-event-archetype-catalog.json"
+        ]
+      },
+      "reviewCadence": "event-driven on graph edge activation and nightly on half-life bands",
+      "queryExamples": [
+        "Which playbooks are active for the current macro trigger?",
+        "What second-order sector impacts are still within half-life?"
+      ]
+    }
+  ],
+  "diagram": {
+    "nodes": [
+      "market_state_inputs",
+      "pattern_candidate_router",
+      "sector_binding_check",
+      "family_fit_scoring",
+      "compound_handoff_router",
+      "guardrail_and_policy_overlay",
+      "tactical_branch_binding",
+      "feedback_refresh"
+    ],
+    "edges": [
+      {
+        "from": "market_state_inputs",
+        "to": "pattern_candidate_router",
+        "label": "trend and lead evidence"
+      },
+      {
+        "from": "pattern_candidate_router",
+        "to": "sector_binding_check",
+        "label": "candidate patterns"
+      },
+      { "from": "sector_binding_check", "to": "family_fit_scoring", "label": "eligible sectors" },
+      { "from": "family_fit_scoring", "to": "compound_handoff_router", "label": "family fit" },
+      {
+        "from": "compound_handoff_router",
+        "to": "guardrail_and_policy_overlay",
+        "label": "compound roles"
+      },
+      {
+        "from": "guardrail_and_policy_overlay",
+        "to": "tactical_branch_binding",
+        "label": "policy-safe routing"
+      },
+      {
+        "from": "feedback_refresh",
+        "to": "pattern_candidate_router",
+        "label": "reliability refresh"
+      }
+    ]
+  }
+}

@@ -141,7 +141,13 @@ export const CreateCompanyInput = z.object({
   mode: TradingMode.default('paper'),
   seedCreditsCents: z.number().int().min(0).max(100_000_000_00).default(0),
   template: z
-    .enum(['blank', 'day_trading_starter', 'crypto_starter', 'prediction_starter', 'research_first'])
+    .enum([
+      'blank',
+      'day_trading_starter',
+      'crypto_starter',
+      'prediction_starter',
+      'research_first',
+    ])
     .default('blank'),
 });
 export type CreateCompanyInput = z.infer<typeof CreateCompanyInput>;

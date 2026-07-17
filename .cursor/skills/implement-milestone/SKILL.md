@@ -13,6 +13,9 @@ description: Implements a focused slice of the hftr-v2 master build plan with mi
 
 ## 2. Plan (brief)
 
+If the slice spans independent packages or domains, invoke `parallel-orchestration` skill and
+delegate via Task tool (`model: "composer-2.5"`, never Grok). Parent verifies and merges.
+
 Create mental/written checklist:
 - [ ] Contracts/schemas (`packages/contracts`)
 - [ ] DB migration if needed (`packages/db`)

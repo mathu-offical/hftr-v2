@@ -7,5 +7,7 @@
 			"path": "../hftr"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"ironbeeDevTools.platform.node.enable": true
+	}
 }

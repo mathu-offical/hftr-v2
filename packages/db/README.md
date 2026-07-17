@@ -17,15 +17,15 @@ sync in the same change.
 
 ## Layout
 
-| File | Contents |
-|---|---|
-| `src/schema/identity.ts` | users_profile, platform_credits, credit_ledger, subscriptions |
-| `src/schema/companies.ts` | companies, modules, module_links, fund_transfers |
-| `src/schema/orchestration.ts` | jobs, job_schedules, llm_calls, llm_budgets |
-| `src/schema/numeric.ts` | numeric_values, calc_operations, exchange_calendars |
-| `src/client.ts` | Neon serverless drizzle client factory |
-| `src/scoping.ts` | ownership-scoped accessors used by all API handlers |
-| `src/seed/` | seed scripts for v1 catalogs + company templates |
+| File                          | Contents                                                      |
+| ----------------------------- | ------------------------------------------------------------- |
+| `src/schema/identity.ts`      | users_profile, platform_credits, credit_ledger, subscriptions |
+| `src/schema/companies.ts`     | companies, modules, module_links, fund_transfers              |
+| `src/schema/orchestration.ts` | jobs, job_schedules, llm_calls, llm_budgets                   |
+| `src/schema/numeric.ts`       | numeric_values, calc_operations, exchange_calendars           |
+| `src/client.ts`               | Neon serverless drizzle client factory                        |
+| `src/scoping.ts`              | ownership-scoped accessors used by all API handlers           |
+| `src/seed/`                   | seed scripts + vendored catalogs (`src/seed/catalogs/`)       |
 
 Later milestones add: research/knowledge, pipeline (trends→traces), simulations, assistant
 tables (see data-model.md for the full target schema).

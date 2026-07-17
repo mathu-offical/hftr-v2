@@ -1,0 +1,1761 @@
+{
+  "asOf": "2026-05-19",
+  "status": "in_progress",
+  "purpose": "Seeded sector and subsector context catalog used to amplify, suppress, or invalidate strategy family selection, lead ranking, and research routing.",
+  "querySurfaces": {
+    "moduleQueries": [
+      "sector_summary",
+      "subsector_detail",
+      "lead_bias_scan",
+      "cross_sector_sympathy_map",
+      "risk_and_compliance_review",
+      "control_surface_review"
+    ],
+    "progressiveAccessLevels": [
+      {
+        "level": "overview",
+        "returns": ["sector", "summary", "liquidityClass", "strategyBias", "verificationSignals"]
+      },
+      {
+        "level": "analyst",
+        "returns": ["subsectorProfiles", "trendVectors", "leadGatheringPatterns", "linkedKnowledge"]
+      },
+      {
+        "level": "lineage",
+        "returns": [
+          "baselineKnowledge",
+          "researchTracks",
+          "complianceConsiderations",
+          "guardrailFocus",
+          "queryExamples",
+          "runtimeControlSurface"
+        ]
+      }
+    ]
+  },
+  "runtimeControlSurface": {
+    "weightingDrivers": [
+      "sector_relative_strength",
+      "subsector_dispersion",
+      "macro_alignment",
+      "event_density",
+      "liquidity_state"
+    ],
+    "boundedRangeFamilies": [
+      "sector_bias_band",
+      "sympathy_expansion_band",
+      "blackout_decay_band",
+      "liquidity_tolerance_band"
+    ],
+    "granularityByLayer": {
+      "research": "Sector packages retain subsector lineage, linked catalysts, and cross-sector sympathy maps.",
+      "strategic": "Downstream layers receive sector bias strength, veto signals, and high-level subsector leadership only.",
+      "tactical": "Strategy bias overlays, invalidate conditions, and sector-specific range hints expand into branch planning.",
+      "training_feedback": "Replay loops may refresh sector reliability and bias strength, but only inside seeded envelope limits."
+    },
+    "policyRule": "Sector packages bias ranking and threshold selection upstream, but they never replace deterministic legality or guardrail checks at dispatch time."
+  },
+  "sectors": [
+    {
+      "id": "sec-001",
+      "sector": "technology",
+      "summary": "Leadership-heavy sector with rapid theme rotation across AI compute, semiconductors, and software infrastructure; often drives index-level momentum and cross-sector sympathy.",
+      "subsectors": ["semiconductors", "software_infrastructure", "ai_compute", "cybersecurity"],
+      "subsectorProfiles": [
+        {
+          "id": "sub-001a",
+          "name": "semiconductors",
+          "behaviorProfile": "High beta, inventory-cycle-sensitive subsector that often becomes the first mover for broader growth risk appetite.",
+          "trendDrivers": ["ai_capex_cycle", "export_controls", "inventory_rebuild"],
+          "leadPatterns": [
+            "leader_laggard_dispersion",
+            "supply_chain_readthrough",
+            "earnings_cluster_sympathy"
+          ],
+          "preferredStrategies": [
+            "gap_and_go",
+            "lead_lag_propagation",
+            "volatility_compression_breakout",
+            "sector_leader_confirmation_breakout"
+          ],
+          "guardrailFocus": [
+            "headline_conflict_resolution",
+            "gap_exhaustion_watch",
+            "export_control_blackout"
+          ]
+        },
+        {
+          "id": "sub-001b",
+          "name": "software_infrastructure",
+          "behaviorProfile": "Theme-driven software cohort that tends to trend cleanly when broad growth multiples expand and enterprise demand narratives stay intact.",
+          "trendDrivers": ["cloud_spend_revision", "enterprise_guidance", "ai_product_adoption"],
+          "leadPatterns": [
+            "multiple_expansion_breadth",
+            "post_earnings_drift",
+            "sector_etf_breakout_confirmation"
+          ],
+          "preferredStrategies": [
+            "pullback_continuation",
+            "earnings_guidance_drift",
+            "vwap_reversion"
+          ],
+          "guardrailFocus": [
+            "multiple_compression_shock",
+            "earnings_cluster_conflict",
+            "macro_risk_off_veto"
+          ]
+        },
+        {
+          "id": "sub-001c",
+          "name": "ai_compute",
+          "behaviorProfile": "Narrative-dense subgroup where capex announcements and supply-chain constraints can create strong sympathy waves and crowded momentum behavior.",
+          "trendDrivers": [
+            "hyperscaler_capex",
+            "model_release_cycle",
+            "power_and_cooling_constraints"
+          ],
+          "leadPatterns": [
+            "infrastructure_stack_mapping",
+            "leader_to_component_sympathy",
+            "news_pulse_gap_followthrough"
+          ],
+          "preferredStrategies": ["gap_and_go", "lead_lag_propagation", "pullback_continuation"],
+          "guardrailFocus": [
+            "theme_overcrowding",
+            "single_supplier_dependency",
+            "headline_spoof_risk"
+          ]
+        },
+        {
+          "id": "sub-001d",
+          "name": "cybersecurity",
+          "behaviorProfile": "Defensive-growth software pocket that reacts to breach headlines, federal-security spend, and platform-consolidation narratives with cleaner readthrough than broad software beta.",
+          "trendDrivers": [
+            "breach_disclosures",
+            "federal_security_spend",
+            "platform_consolidation"
+          ],
+          "leadPatterns": [
+            "incident_response_repricing",
+            "platform_suite_readthrough",
+            "government_spend_momentum"
+          ],
+          "preferredStrategies": [
+            "earnings_guidance_drift",
+            "pullback_continuation",
+            "lead_lag_propagation"
+          ],
+          "guardrailFocus": [
+            "headline_source_validation",
+            "breach_followup_recheck",
+            "macro_risk_off_veto"
+          ]
+        }
+      ],
+      "liquidityClass": "high_to_variable",
+      "macroSensitivity": ["rates", "usd", "growth_risk_appetite"],
+      "eventDrivers": ["earnings_guidance", "product_launches", "regulatory_ai_policy"],
+      "trendVectors": [
+        "ai_infrastructure_buildout",
+        "semicap_spend_rotation",
+        "software_multiple_repricing"
+      ],
+      "leadGatheringPatterns": [
+        "index_leader_to_subsector_sympathy",
+        "supply_chain_stack_mapping",
+        "earnings_cluster_readthrough"
+      ],
+      "baselineKnowledge": {
+        "marketStructureConsiderations": [
+          "watch opening auction breadth in top mega-caps",
+          "separate liquid leaders from thin thematic laggards",
+          "treat ETF-led reversals as sector-wide veto signals"
+        ],
+        "guardrailFocus": [
+          "earnings_blackout enforcement",
+          "macro surprise cooldown",
+          "theme-overcrowding de-risking"
+        ],
+        "complianceConsiderations": [
+          "respect exchange halts on headline-sensitive AI names",
+          "trace policy version when export-control headlines modify sector eligibility"
+        ],
+        "researchTracks": {
+          "adhoc": [
+            "semiconductor_export_headline_check",
+            "mega_cap_leadership_scan",
+            "ai_capex_readthrough_lookup"
+          ],
+          "longRunning": [
+            "quarterly_supply_chain_regime_refresh",
+            "earnings_cluster_reliability_review",
+            "subsector_correlation_decay_monitor"
+          ]
+        }
+      },
+      "strategyBias": {
+        "amplify": [
+          "gap_and_go",
+          "lead_lag_propagation",
+          "volatility_compression_breakout",
+          "pullback_continuation"
+        ],
+        "suppress": ["market_making"],
+        "invalidateWhen": [
+          "broad_index_correlation_break",
+          "earnings_blackout_active",
+          "export_control_shock_unresolved"
+        ],
+        "compoundBias": [
+          "catalyst_gap_continuation_to_pullback_reclaim",
+          "sector_leader_breakout_to_sympathy_rotation"
+        ]
+      },
+      "verificationSignals": [
+        "sector_relative_strength",
+        "leader_breadth",
+        "volume_concentration",
+        "subsector_dispersion"
+      ],
+      "linkedKnowledge": {
+        "macroTriggers": [
+          "fed_rate_decision",
+          "cpi_or_inflation_surprise",
+          "export_control_or_semiconductor_restriction"
+        ],
+        "strategyFamilies": [
+          "gap_and_go",
+          "lead_lag_propagation",
+          "pullback_continuation",
+          "volatility_compression_breakout"
+        ],
+        "companyEventArchetypes": ["earnings_release", "guidance_revision", "product_launch"],
+        "guardrailPackages": ["event_conflict_blackout", "volatility_regime_pause"]
+      },
+      "progressiveAccess": {
+        "overviewQuery": "sector_summary:technology",
+        "analystQuery": "subsector_detail:technology/*",
+        "leadScanQuery": "lead_bias_scan:technology",
+        "riskReviewQuery": "risk_review:technology"
+      },
+      "queryExamples": [
+        "Which subsector leaders are driving technology breadth right now?",
+        "Show suppress and invalidate conditions for technology momentum setups."
+      ]
+    },
+    {
+      "id": "sec-002",
+      "sector": "communication_services",
+      "summary": "Blend of internet platforms, media, and telecom where ad demand, engagement trends, and policy headlines can rotate leadership quickly.",
+      "subsectors": ["internet_platforms", "advertising_media", "telecom"],
+      "subsectorProfiles": [
+        {
+          "id": "sub-002a",
+          "name": "internet_platforms",
+          "behaviorProfile": "Liquid large-cap group that can behave like growth tech while still carrying ad-cycle and regulatory-event sensitivity.",
+          "trendDrivers": ["ad_spend_revision", "engagement_metrics", "ai_feature_monetization"],
+          "leadPatterns": [
+            "mega_cap_leadership",
+            "earnings_drift_followthrough",
+            "cross_platform_sympathy"
+          ],
+          "preferredStrategies": [
+            "pullback_continuation",
+            "earnings_guidance_drift",
+            "lead_lag_propagation"
+          ],
+          "guardrailFocus": ["antitrust_headline_blackout", "guidance_conflict_filter"]
+        },
+        {
+          "id": "sub-002b",
+          "name": "advertising_media",
+          "behaviorProfile": "Narrative-sensitive cohort with stronger reaction to ad spend, consumer data, and campaign cycles than to pure infrastructure signals.",
+          "trendDrivers": [
+            "brand_spend_cycle",
+            "streaming_subscriber_updates",
+            "event_driven_viewership"
+          ],
+          "leadPatterns": [
+            "campaign_cycle_rotation",
+            "subscriber_readthrough",
+            "earnings_cluster_dispersion"
+          ],
+          "preferredStrategies": ["gap_and_go", "vwap_reversion", "earnings_guidance_drift"],
+          "guardrailFocus": ["headline_decay_monitor", "thin-followthrough_veto"]
+        },
+        {
+          "id": "sub-002c",
+          "name": "telecom",
+          "behaviorProfile": "Lower-beta communications subgroup shaped by spectrum policy, network-upgrade capex, and defensive cash-flow rotation rather than pure growth narratives.",
+          "trendDrivers": ["spectrum_policy", "network_upgrade_cycle", "defensive_yield_rotation"],
+          "leadPatterns": [
+            "capex_vendor_readthrough",
+            "defensive_relative_strength",
+            "subscriber_stability_repricing"
+          ],
+          "preferredStrategies": [
+            "pullback_continuation",
+            "vwap_reversion",
+            "earnings_guidance_drift"
+          ],
+          "guardrailFocus": [
+            "policy_headline_confirmation",
+            "low_beta_false_breakout_veto",
+            "mixed_sector_classification_check"
+          ]
+        }
+      ],
+      "liquidityClass": "high_to_medium",
+      "macroSensitivity": ["consumer_confidence", "growth_risk_appetite", "rates"],
+      "eventDrivers": ["ad_spend_updates", "subscriber_reports", "regulatory_actions"],
+      "trendVectors": [
+        "platform_monetization_rotation",
+        "telecom_defensive_rotation",
+        "streaming_repricing"
+      ],
+      "leadGatheringPatterns": [
+        "mega_cap_platform_leadership",
+        "ad_cycle_readthrough",
+        "subscriber_surprise_sympathy"
+      ],
+      "baselineKnowledge": {
+        "marketStructureConsiderations": [
+          "distinguish telecom defensiveness from platform momentum",
+          "use large-cap breadth as primary regime signal"
+        ],
+        "guardrailFocus": ["antitrust_event blackouts", "post-earnings narrative fade checks"],
+        "complianceConsiderations": [
+          "trace event-source confirmation when regulatory hearings alter sector posture"
+        ],
+        "researchTracks": {
+          "adhoc": ["platform_engagement_check", "telecom_defensive_rotation_scan"],
+          "longRunning": ["ad_spend_regime_monitor", "policy_headline_impact_review"]
+        }
+      },
+      "strategyBias": {
+        "amplify": ["pullback_continuation", "earnings_guidance_drift", "lead_lag_propagation"],
+        "suppress": ["market_making"],
+        "invalidateWhen": ["regulatory_hearing_blackout", "ad_spend_shock_conflict"],
+        "compoundBias": ["platform_breakout_to_sympathy_rotation"]
+      },
+      "verificationSignals": [
+        "xlc_relative_strength",
+        "internet_platform_breadth",
+        "headline_source_quality"
+      ],
+      "linkedKnowledge": {
+        "macroTriggers": ["cpi_or_inflation_surprise", "election_or_policy_rotation"],
+        "strategyFamilies": [
+          "pullback_continuation",
+          "earnings_guidance_drift",
+          "lead_lag_propagation"
+        ],
+        "companyEventArchetypes": ["earnings_release", "user_metric_update", "regulatory_action"],
+        "guardrailPackages": ["headline_conflict_blackout", "post_event_recheck"]
+      },
+      "progressiveAccess": {
+        "overviewQuery": "sector_summary:communication_services",
+        "analystQuery": "subsector_detail:communication_services/*",
+        "leadScanQuery": "lead_bias_scan:communication_services",
+        "riskReviewQuery": "risk_review:communication_services"
+      },
+      "queryExamples": [
+        "Show platform names with sector-leader breakout potential.",
+        "What regulatory triggers currently suppress communication-services setups?"
+      ]
+    },
+    {
+      "id": "sec-003",
+      "sector": "consumer_discretionary",
+      "summary": "Consumer-cyclicals sector where demand, rates, and event seasonality drive large performance splits between retailers, autos, travel, and housing-related groups.",
+      "subsectors": ["retail", "autos", "travel_leisure", "homebuilders"],
+      "subsectorProfiles": [
+        {
+          "id": "sub-003a",
+          "name": "retail",
+          "behaviorProfile": "Catalyst-heavy subsector that reacts sharply to sales, margin, and inventory commentary, especially around seasonal windows.",
+          "trendDrivers": [
+            "consumer_spend_updates",
+            "inventory_positioning",
+            "holiday_or_back_to_school_window"
+          ],
+          "leadPatterns": [
+            "same_store_sales_readthrough",
+            "discount_vs_premium_rotation",
+            "earnings_cluster_dispersion"
+          ],
+          "preferredStrategies": [
+            "earnings_guidance_drift",
+            "pullback_continuation",
+            "vwap_reversion"
+          ],
+          "guardrailFocus": ["seasonality_conflict_check", "inventory_clearance_noise_filter"]
+        },
+        {
+          "id": "sub-003b",
+          "name": "autos",
+          "behaviorProfile": "Rate-sensitive group with strong reaction to financing conditions, production updates, and EV adoption narrative shifts.",
+          "trendDrivers": ["financing_rate_shift", "production_guidance", "ev_pricing_cycle"],
+          "leadPatterns": [
+            "supplier_readthrough",
+            "delivery_update_gaps",
+            "credit_sensitivity_rotation"
+          ],
+          "preferredStrategies": ["gap_and_go", "lead_lag_propagation", "pullback_continuation"],
+          "guardrailFocus": ["delivery_release_blackout", "macro_risk_off_veto"]
+        },
+        {
+          "id": "sub-003c",
+          "name": "travel_leisure",
+          "behaviorProfile": "Experience-heavy cyclical pocket where booking trends, fuel costs, and discretionary-demand swings drive fast leadership turnover.",
+          "trendDrivers": ["booking_velocity", "fuel_cost_direction", "consumer_spend_momentum"],
+          "leadPatterns": [
+            "travel_demand_readthrough",
+            "fare_or_room_rate_repricing",
+            "destination_theme_rotation"
+          ],
+          "preferredStrategies": ["gap_and_go", "pullback_continuation", "earnings_guidance_drift"],
+          "guardrailFocus": [
+            "macro_data_conflict_filter",
+            "fuel_shock_veto",
+            "event_calendar_congestion"
+          ]
+        },
+        {
+          "id": "sub-003d",
+          "name": "homebuilders",
+          "behaviorProfile": "Rates-sensitive housing cohort that reacts sharply to mortgage moves, order trends, and land or financing commentary.",
+          "trendDrivers": ["mortgage_rate_direction", "new_home_demand", "land_and_input_costs"],
+          "leadPatterns": [
+            "rates_to_housing_readthrough",
+            "housing_data_gap_followthrough",
+            "builder_supplier_sympathy"
+          ],
+          "preferredStrategies": [
+            "opening_range_breakout",
+            "pullback_continuation",
+            "lead_lag_propagation"
+          ],
+          "guardrailFocus": [
+            "macro_release_blackout",
+            "rates_shock_recheck",
+            "thin_followthrough_after_data"
+          ]
+        }
+      ],
+      "liquidityClass": "medium_to_high",
+      "macroSensitivity": ["consumer_confidence", "rates", "employment"],
+      "eventDrivers": ["sales_updates", "guidance_changes", "seasonality"],
+      "trendVectors": [
+        "consumer_spend_rotation",
+        "ev_adoption_dispersion",
+        "travel_reopening_momentum"
+      ],
+      "leadGatheringPatterns": [
+        "consumer_data_readthrough",
+        "subsector_relative_strength_split",
+        "holiday_season_positioning"
+      ],
+      "baselineKnowledge": {
+        "marketStructureConsiderations": [
+          "split basket between high-beta growth retail and defensive discounters",
+          "watch rate-sensitive opening reactions"
+        ],
+        "guardrailFocus": ["macro release cool-downs", "seasonality mismatch vetoes"],
+        "complianceConsiderations": [
+          "preserve event timestamps when sales updates alter sector posture"
+        ],
+        "researchTracks": {
+          "adhoc": ["consumer_data_alignment_scan", "retail_earnings_readthrough_lookup"],
+          "longRunning": ["seasonality_effect_review", "subsector_financing_sensitivity_monitor"]
+        }
+      },
+      "strategyBias": {
+        "amplify": [
+          "pullback_continuation",
+          "vwap_reversion",
+          "lead_lag_propagation",
+          "earnings_guidance_drift"
+        ],
+        "suppress": ["extended_overnight_session_response"],
+        "invalidateWhen": ["consumer_data_shock", "broad_discretionary_breadth_failure"],
+        "compoundBias": ["consumer_breakout_to_pullback_reclaim"]
+      },
+      "verificationSignals": [
+        "xly_breadth",
+        "consumer_data_alignment",
+        "relative_volume",
+        "subsector_rotation_speed"
+      ],
+      "linkedKnowledge": {
+        "macroTriggers": [
+          "cpi_or_inflation_surprise",
+          "jobs_report_or_labor_shock",
+          "election_or_policy_rotation"
+        ],
+        "strategyFamilies": [
+          "pullback_continuation",
+          "vwap_reversion",
+          "lead_lag_propagation",
+          "earnings_guidance_drift"
+        ],
+        "companyEventArchetypes": ["earnings_release", "sales_update", "guidance_revision"],
+        "guardrailPackages": ["consumer_data_blackout", "seasonality_mismatch_veto"]
+      },
+      "progressiveAccess": {
+        "overviewQuery": "sector_summary:consumer_discretionary",
+        "analystQuery": "subsector_detail:consumer_discretionary/*",
+        "leadScanQuery": "lead_bias_scan:consumer_discretionary",
+        "riskReviewQuery": "risk_review:consumer_discretionary"
+      },
+      "queryExamples": [
+        "Which discretionary subsectors are aligned with current consumer data?",
+        "Show invalidate conditions for discretionary trend setups."
+      ]
+    },
+    {
+      "id": "sec-004",
+      "sector": "consumer_staples",
+      "summary": "Defensive sector used more for relative-strength rotation, slow trend confirmation, and risk-off basket interpretation than for headline momentum alone.",
+      "subsectors": ["food_beverage", "household_personal_care", "discount_retail"],
+      "subsectorProfiles": [
+        {
+          "id": "sub-004a",
+          "name": "food_beverage",
+          "behaviorProfile": "Steadier defensive group with slower but cleaner reaction to input-cost shifts and pricing power narratives.",
+          "trendDrivers": ["input_cost_trend", "pricing_power_guidance", "defensive_rotation"],
+          "leadPatterns": ["stability_breakout", "defensive_breadth_expansion"],
+          "preferredStrategies": ["pullback_continuation", "vwap_reversion"],
+          "guardrailFocus": ["false_breakout_on_low_beta_names", "macro_shock_overreaction_filter"]
+        },
+        {
+          "id": "sub-004b",
+          "name": "discount_retail",
+          "behaviorProfile": "Defensive consumer pocket that can trade with both staples and discretionary depending on stress regime and value-seeking behavior.",
+          "trendDrivers": ["consumer_trade_down", "traffic_updates", "inventory_flow"],
+          "leadPatterns": ["stress_regime_leadership", "defensive_sympathy_rotation"],
+          "preferredStrategies": ["earnings_guidance_drift", "pullback_continuation"],
+          "guardrailFocus": ["mixed-sector classification_conflict", "earnings_cluster_recheck"]
+        },
+        {
+          "id": "sub-004c",
+          "name": "household_personal_care",
+          "behaviorProfile": "Steady cash-flow subgroup driven by pricing power, shelf-share trends, and input-cost normalization rather than sharp event beta.",
+          "trendDrivers": [
+            "pricing_power_stability",
+            "commodity_input_relief",
+            "consumer_loyalty_trends"
+          ],
+          "leadPatterns": [
+            "margin_defense_readthrough",
+            "stability_breakout",
+            "defensive_pair_rotation"
+          ],
+          "preferredStrategies": [
+            "pullback_continuation",
+            "vwap_reversion",
+            "earnings_guidance_drift"
+          ],
+          "guardrailFocus": [
+            "low_volatility_false_signal",
+            "pricing_headline_recheck",
+            "defensive_rotation_failure"
+          ]
+        }
+      ],
+      "liquidityClass": "medium_to_high",
+      "macroSensitivity": ["defensive_rotation", "input_costs", "consumer_stress"],
+      "eventDrivers": ["pricing_updates", "cost_guidance", "defensive_regime_shift"],
+      "trendVectors": ["risk_off_rotation", "pricing_power_divergence", "consumer_trade_down"],
+      "leadGatheringPatterns": [
+        "defensive_breadth_check",
+        "relative_strength_vs_discretionary",
+        "pricing_power_readthrough"
+      ],
+      "baselineKnowledge": {
+        "marketStructureConsiderations": [
+          "lower-beta names need confirmation from breadth not single-name gaps",
+          "use sector ETF leadership as gating signal"
+        ],
+        "guardrailFocus": ["avoid forced momentum assumptions on low-volatility names"],
+        "complianceConsiderations": [
+          "document mixed staples-discretionary classification assumptions for audit review"
+        ],
+        "researchTracks": {
+          "adhoc": ["defensive_rotation_lookup", "pricing_power_signal_check"],
+          "longRunning": ["cost_pass_through_monitor", "defensive_regime_reliability_review"]
+        }
+      },
+      "strategyBias": {
+        "amplify": ["pullback_continuation", "vwap_reversion", "earnings_guidance_drift"],
+        "suppress": ["gap_and_go", "market_making"],
+        "invalidateWhen": ["risk_on_regime_reacceleration", "defensive_rotation_failure"],
+        "compoundBias": ["defensive_rotation_to_mean_reversion"]
+      },
+      "verificationSignals": ["xlp_relative_strength", "defensive_breadth", "input_cost_alignment"],
+      "linkedKnowledge": {
+        "macroTriggers": ["cpi_or_inflation_surprise", "systemic_risk_or_credit_stress"],
+        "strategyFamilies": ["pullback_continuation", "vwap_reversion", "earnings_guidance_drift"],
+        "companyEventArchetypes": ["earnings_release", "pricing_update"],
+        "guardrailPackages": ["defensive_rotation_confirm", "low_beta_false_breakout_veto"]
+      },
+      "progressiveAccess": {
+        "overviewQuery": "sector_summary:consumer_staples",
+        "analystQuery": "subsector_detail:consumer_staples/*",
+        "leadScanQuery": "lead_bias_scan:consumer_staples",
+        "riskReviewQuery": "risk_review:consumer_staples"
+      },
+      "queryExamples": [
+        "Show staples names leading current defensive rotation.",
+        "What conditions suppress staples breakout strategies?"
+      ]
+    },
+    {
+      "id": "sec-005",
+      "sector": "financials",
+      "summary": "Rates- and credit-sensitive sector where banks, brokers, payments, and insurers can diverge sharply depending on curve shape and stress regime.",
+      "subsectors": ["banks", "brokers_exchanges", "payments", "insurance"],
+      "subsectorProfiles": [
+        {
+          "id": "sub-005a",
+          "name": "banks",
+          "behaviorProfile": "Balance-sheet and deposit-sensitive cohort tightly linked to yield-curve, funding, and credit-stress narratives.",
+          "trendDrivers": ["yield_curve_move", "deposit_trend", "credit_stress_signal"],
+          "leadPatterns": [
+            "regional_vs_money_center_split",
+            "fed_day_dispersion",
+            "credit_shock_rotation"
+          ],
+          "preferredStrategies": [
+            "opening_range_breakout",
+            "pullback_continuation",
+            "liquidity_sweep_reversal"
+          ],
+          "guardrailFocus": ["fed_blackout_enforcement", "funding_stress_pause"]
+        },
+        {
+          "id": "sub-005b",
+          "name": "brokers_exchanges",
+          "behaviorProfile": "Capital-markets subgroup that responds more directly to volume, volatility, and issuance conditions than to deposit risk.",
+          "trendDrivers": ["volume_regime", "issuance_cycle", "volatility_backdrop"],
+          "leadPatterns": ["volatility_leverage_sympathy", "exchange_volume_readthrough"],
+          "preferredStrategies": [
+            "pullback_continuation",
+            "pairs_stat_arb",
+            "lead_lag_propagation"
+          ],
+          "guardrailFocus": ["volatility_shock_recheck", "event_blackout_for_broker_specific_news"]
+        },
+        {
+          "id": "sub-005c",
+          "name": "payments",
+          "behaviorProfile": "Transaction-volume and consumer-spend-sensitive subgroup that often bridges financials and discretionary behavior through volume and take-rate commentary.",
+          "trendDrivers": [
+            "payment_volume_growth",
+            "cross_border_spend",
+            "fintech_margin_guidance"
+          ],
+          "leadPatterns": [
+            "consumer_spend_readthrough",
+            "network_to_merchant_sympathy",
+            "earnings_cluster_dispersion"
+          ],
+          "preferredStrategies": [
+            "pullback_continuation",
+            "earnings_guidance_drift",
+            "lead_lag_propagation"
+          ],
+          "guardrailFocus": [
+            "consumer_data_conflict",
+            "regulatory_fee_headline_check",
+            "multiple_compression_veto"
+          ]
+        },
+        {
+          "id": "sub-005d",
+          "name": "insurance",
+          "behaviorProfile": "Cash-flow and reserve-quality subgroup driven by rate backdrop, catastrophe risk, and underwriting commentary more than short-term beta.",
+          "trendDrivers": ["yield_curve_support", "catastrophe_loss_cycle", "pricing_hardening"],
+          "leadPatterns": [
+            "reserve_quality_repricing",
+            "catastrophe_peer_rotation",
+            "defensive_financial_strength"
+          ],
+          "preferredStrategies": [
+            "pullback_continuation",
+            "vwap_reversion",
+            "earnings_guidance_drift"
+          ],
+          "guardrailFocus": [
+            "catastrophe_event_blackout",
+            "reserve_headline_recheck",
+            "illiquidity_in_smaller_underwriters"
+          ]
+        }
+      ],
+      "liquidityClass": "high",
+      "macroSensitivity": ["rates", "yield_curve", "credit_stress"],
+      "eventDrivers": ["fed_events", "bank_earnings", "regulatory_actions"],
+      "trendVectors": [
+        "steepener_vs_flattener_rotation",
+        "regional_bank_stress",
+        "capital_markets_activity"
+      ],
+      "leadGatheringPatterns": [
+        "curve_reaction_mapping",
+        "regional_vs_large_bank_dispersion",
+        "volume_regime_readthrough"
+      ],
+      "baselineKnowledge": {
+        "marketStructureConsiderations": [
+          "separate regional-bank stress from broad financial strength",
+          "treat macro release windows as hard routing overlays"
+        ],
+        "guardrailFocus": ["fed decision blackouts", "credit-stress circuit breakers"],
+        "complianceConsiderations": [
+          "preserve policy provenance when rates events override default financial-sector eligibility"
+        ],
+        "researchTracks": {
+          "adhoc": ["yield_curve_alignment_check", "regional_bank_stress_scan"],
+          "longRunning": [
+            "curve_regime_reliability_monitor",
+            "credit_stress_sector_response_review"
+          ]
+        }
+      },
+      "strategyBias": {
+        "amplify": [
+          "opening_range_breakout",
+          "pairs_stat_arb",
+          "pullback_continuation",
+          "liquidity_sweep_reversal"
+        ],
+        "suppress": ["extended_overnight_session_response"],
+        "invalidateWhen": [
+          "fed_decision_blackout",
+          "regional_bank_stress_spike",
+          "funding_stress_unresolved"
+        ],
+        "compoundBias": ["rates_shock_blackout_then_delayed_reentry"]
+      },
+      "verificationSignals": [
+        "xlf_relative_strength",
+        "rate_move_alignment",
+        "regional_bank_divergence",
+        "credit_spread_trend"
+      ],
+      "linkedKnowledge": {
+        "macroTriggers": [
+          "fed_rate_decision",
+          "jobs_report_or_labor_shock",
+          "systemic_risk_or_credit_stress"
+        ],
+        "strategyFamilies": [
+          "opening_range_breakout",
+          "pairs_stat_arb",
+          "pullback_continuation",
+          "liquidity_sweep_reversal"
+        ],
+        "companyEventArchetypes": ["earnings_release", "regulatory_action"],
+        "guardrailPackages": ["fed_blackout_window", "credit_stress_pause"]
+      },
+      "progressiveAccess": {
+        "overviewQuery": "sector_summary:financials",
+        "analystQuery": "subsector_detail:financials/*",
+        "leadScanQuery": "lead_bias_scan:financials",
+        "riskReviewQuery": "risk_review:financials"
+      },
+      "queryExamples": [
+        "Which financial subsectors are aligned with current curve movement?",
+        "Show financial-sector invalidate conditions tied to credit stress."
+      ]
+    },
+    {
+      "id": "sec-006",
+      "sector": "health_care",
+      "summary": "Mixed defensive and event-driven sector where biotech, pharma, devices, and managed care require different catalyst and halt-risk handling.",
+      "subsectors": ["biotech", "pharma", "medical_devices", "managed_care"],
+      "subsectorProfiles": [
+        {
+          "id": "sub-006a",
+          "name": "biotech",
+          "behaviorProfile": "Binary-event-heavy pocket where trial, FDA, and funding events dominate price behavior and halt risk is elevated.",
+          "trendDrivers": ["trial_data", "fda_calendar", "funding_or_mna_activity"],
+          "leadPatterns": [
+            "binary_event_gap",
+            "peer_sympathy_on_trial_readthrough",
+            "basket_repricing_after_fda_decision"
+          ],
+          "preferredStrategies": [
+            "earnings_guidance_drift",
+            "opening_range_breakout",
+            "liquidity_sweep_reversal"
+          ],
+          "guardrailFocus": [
+            "binary_event_blackout",
+            "halt_risk_ceiling",
+            "source_confirmation_requirement"
+          ]
+        },
+        {
+          "id": "sub-006b",
+          "name": "medical_devices",
+          "behaviorProfile": "Higher-quality trending group that often trades with procedure volumes, hospital spending, and idiosyncratic earnings commentary.",
+          "trendDrivers": ["procedure_volume_guidance", "hospital_capex", "margin_revision"],
+          "leadPatterns": ["defensive_growth_rotation", "earnings_cluster_readthrough"],
+          "preferredStrategies": ["pullback_continuation", "earnings_guidance_drift"],
+          "guardrailFocus": ["regulatory_headline_check", "post_event_retest_requirement"]
+        },
+        {
+          "id": "sub-006c",
+          "name": "pharma",
+          "behaviorProfile": "Large-cap defensive-growth subgroup shaped by drug-launch cadence, pipeline updates, and patent or pricing-policy narratives.",
+          "trendDrivers": ["pipeline_milestones", "pricing_policy", "launch_uptake_data"],
+          "leadPatterns": [
+            "pipeline_readthrough",
+            "patent_cliff_repricing",
+            "defensive_quality_rotation"
+          ],
+          "preferredStrategies": [
+            "pullback_continuation",
+            "earnings_guidance_drift",
+            "lead_lag_propagation"
+          ],
+          "guardrailFocus": [
+            "headline_source_confirmation",
+            "regulatory_calendar_blackout",
+            "pricing_policy_shock"
+          ]
+        },
+        {
+          "id": "sub-006d",
+          "name": "managed_care",
+          "behaviorProfile": "Policy-sensitive insurance and care-delivery pocket where reimbursement shifts and utilization trends drive rotational moves.",
+          "trendDrivers": ["reimbursement_policy", "medical_cost_ratio", "enrollment_trends"],
+          "leadPatterns": ["policy_repricing", "cost_trend_rotation", "peer_guidance_readthrough"],
+          "preferredStrategies": [
+            "pullback_continuation",
+            "vwap_reversion",
+            "earnings_guidance_drift"
+          ],
+          "guardrailFocus": [
+            "policy_source_validation",
+            "headline_conflict_blackout",
+            "defensive_regime_misclassification"
+          ]
+        }
+      ],
+      "liquidityClass": "variable",
+      "macroSensitivity": ["regulatory_risk", "trial_data", "defensive_rotation"],
+      "eventDrivers": ["fda_decisions", "trial_results", "mna_activity"],
+      "trendVectors": [
+        "innovation_cycle",
+        "defensive_quality_rotation",
+        "managed_care_policy_repricing"
+      ],
+      "leadGatheringPatterns": [
+        "trial_calendar_mapping",
+        "fda_event_basket_watch",
+        "quality_healthcare_relative_strength"
+      ],
+      "baselineKnowledge": {
+        "marketStructureConsiderations": [
+          "split binary-event biotech from durable defensive healthcare",
+          "apply halt-risk scoring before momentum eligibility"
+        ],
+        "guardrailFocus": ["binary event blackouts", "event-source hierarchy enforcement"],
+        "complianceConsiderations": [
+          "retain source and timestamp lineage for all health-care regulatory signals"
+        ],
+        "researchTracks": {
+          "adhoc": ["fda_calendar_lookup", "trial_result_source_check"],
+          "longRunning": ["biotech_halt_risk_review", "managed_care_policy_impact_monitor"]
+        }
+      },
+      "strategyBias": {
+        "amplify": ["earnings_guidance_drift", "opening_range_breakout", "pullback_continuation"],
+        "suppress": ["market_making"],
+        "invalidateWhen": ["binary_event_unconfirmed", "halt_risk_elevated"],
+        "compoundBias": ["event_confirmation_to_delayed_drift"]
+      },
+      "verificationSignals": [
+        "event_confirmation",
+        "halt_risk_score",
+        "defensive_sector_rotation",
+        "source_quality_score"
+      ],
+      "linkedKnowledge": {
+        "macroTriggers": ["regulatory_sector_action", "systemic_risk_or_credit_stress"],
+        "strategyFamilies": [
+          "earnings_guidance_drift",
+          "opening_range_breakout",
+          "pullback_continuation"
+        ],
+        "companyEventArchetypes": ["trial_result", "fda_decision", "mna_announcement"],
+        "guardrailPackages": ["binary_event_blackout", "halt_risk_pause"]
+      },
+      "progressiveAccess": {
+        "overviewQuery": "sector_summary:health_care",
+        "analystQuery": "subsector_detail:health_care/*",
+        "leadScanQuery": "lead_bias_scan:health_care",
+        "riskReviewQuery": "risk_review:health_care"
+      },
+      "queryExamples": [
+        "Show health-care setups suppressed by current halt-risk scoring.",
+        "Which healthcare subsectors are trading as defensive quality rather than event beta?"
+      ]
+    },
+    {
+      "id": "sec-007",
+      "sector": "industrials",
+      "summary": "Cyclical sector with strong macro and geopolitical sensitivity through aerospace, defense, transport, machinery, and electrical infrastructure names.",
+      "subsectors": [
+        "aerospace_defense",
+        "transportation_logistics",
+        "machinery",
+        "electrical_equipment"
+      ],
+      "subsectorProfiles": [
+        {
+          "id": "sub-007a",
+          "name": "aerospace_defense",
+          "behaviorProfile": "Longer-duration policy and contract-driven group that reacts to defense budgets, geopolitical events, and supply-chain constraints.",
+          "trendDrivers": [
+            "defense_budget_cycle",
+            "geopolitical_conflict",
+            "aircraft_delivery_updates"
+          ],
+          "leadPatterns": [
+            "conflict_sympathy_rotation",
+            "supplier_chain_readthrough",
+            "order_book_repricing"
+          ],
+          "preferredStrategies": ["gap_and_go", "pullback_continuation", "lead_lag_propagation"],
+          "guardrailFocus": ["headline_source_validation", "policy_cycle_overreaction_filter"]
+        },
+        {
+          "id": "sub-007b",
+          "name": "transportation_logistics",
+          "behaviorProfile": "Economic-barometer group tied to freight, travel, shipping, and margin conditions with strong sensitivity to fuel and demand trends.",
+          "trendDrivers": ["freight_demand", "fuel_costs", "travel_volume"],
+          "leadPatterns": [
+            "shipping_bottleneck_repricing",
+            "airline_demand_readthrough",
+            "rail_freight_rotation"
+          ],
+          "preferredStrategies": [
+            "pullback_continuation",
+            "vwap_reversion",
+            "lead_lag_propagation"
+          ],
+          "guardrailFocus": ["commodity_cost_shock_veto", "macro_data_conflict_filter"]
+        },
+        {
+          "id": "sub-007c",
+          "name": "machinery",
+          "behaviorProfile": "Capex-driven industrial pocket that reflects order-book momentum, dealer inventory, and global-manufacturing sentiment.",
+          "trendDrivers": ["order_backlog_trend", "dealer_inventory_cycle", "global_pmi_direction"],
+          "leadPatterns": [
+            "capex_budget_readthrough",
+            "supplier_chain_dispersion",
+            "factory_activity_rotation"
+          ],
+          "preferredStrategies": [
+            "pullback_continuation",
+            "lead_lag_propagation",
+            "earnings_guidance_drift"
+          ],
+          "guardrailFocus": [
+            "macro_data_conflict_filter",
+            "export_policy_recheck",
+            "slow_liquidity_in_smaller_names"
+          ]
+        },
+        {
+          "id": "sub-007d",
+          "name": "electrical_equipment",
+          "behaviorProfile": "Infrastructure-sensitive subgroup tied to grid modernization, factory automation, and power-demand investment cycles.",
+          "trendDrivers": ["grid_spend_cycle", "automation_capex", "power_demand_infrastructure"],
+          "leadPatterns": [
+            "capex_theme_rotation",
+            "utility_to_equipment_readthrough",
+            "project_award_repricing"
+          ],
+          "preferredStrategies": ["gap_and_go", "pullback_continuation", "lead_lag_propagation"],
+          "guardrailFocus": [
+            "project_award_source_validation",
+            "policy_delay_recheck",
+            "theme_overcrowding"
+          ]
+        }
+      ],
+      "liquidityClass": "medium_to_high",
+      "macroSensitivity": ["global_growth", "capex", "commodity_costs"],
+      "eventDrivers": ["defense_policy", "shipping_disruption", "industrial_guidance"],
+      "trendVectors": [
+        "reindustrialization",
+        "defense_spend_rotation",
+        "transportation_demand_split"
+      ],
+      "leadGatheringPatterns": [
+        "supply_chain_bottleneck_mapping",
+        "policy_to_supplier_readthrough",
+        "freight_cycle_dispersion"
+      ],
+      "baselineKnowledge": {
+        "marketStructureConsiderations": [
+          "separate defense policy momentum from pure cyclical industrial demand",
+          "use shipping and fuel overlays for transport names"
+        ],
+        "guardrailFocus": ["geopolitical headline confirmation", "commodity-cost shock pauses"],
+        "complianceConsiderations": [
+          "retain source lineage for sanctions or defense-policy headlines that alter eligibility"
+        ],
+        "researchTracks": {
+          "adhoc": ["shipping_disruption_lookup", "defense_budget_readthrough_scan"],
+          "longRunning": [
+            "industrial_order_cycle_monitor",
+            "transportation_margin_sensitivity_review"
+          ]
+        }
+      },
+      "strategyBias": {
+        "amplify": [
+          "gap_and_go",
+          "pullback_continuation",
+          "lead_lag_propagation",
+          "earnings_guidance_drift"
+        ],
+        "suppress": ["market_making"],
+        "invalidateWhen": ["headline_conflict_unresolved", "global_growth_regime_break"],
+        "compoundBias": ["policy_gap_to_supplier_sympathy"]
+      },
+      "verificationSignals": [
+        "xli_relative_strength",
+        "order_book_sentiment",
+        "fuel_or_freight_alignment",
+        "headline_confirmation_count"
+      ],
+      "linkedKnowledge": {
+        "macroTriggers": [
+          "jobs_report_or_labor_shock",
+          "geopolitical_supply_disruption",
+          "tariff_or_trade_escalation"
+        ],
+        "strategyFamilies": [
+          "gap_and_go",
+          "pullback_continuation",
+          "lead_lag_propagation",
+          "earnings_guidance_drift"
+        ],
+        "companyEventArchetypes": ["guidance_revision", "contract_award", "shipping_disruption"],
+        "guardrailPackages": ["policy_source_confirmation", "commodity_cost_pause"]
+      },
+      "progressiveAccess": {
+        "overviewQuery": "sector_summary:industrials",
+        "analystQuery": "subsector_detail:industrials/*",
+        "leadScanQuery": "lead_bias_scan:industrials",
+        "riskReviewQuery": "risk_review:industrials"
+      },
+      "queryExamples": [
+        "Which industrial subsectors benefit from current defense-policy headlines?",
+        "Show industrial setups invalidated by conflicting freight and fuel signals."
+      ]
+    },
+    {
+      "id": "sec-008",
+      "sector": "energy",
+      "summary": "Commodity-linked sector where crude, gas, shipping, and geopolitical disruptions can dominate price behavior and create fast regime changes.",
+      "subsectors": ["integrated_oil", "exploration_production", "oilfield_services", "renewables"],
+      "subsectorProfiles": [
+        {
+          "id": "sub-008a",
+          "name": "exploration_production",
+          "behaviorProfile": "High beta energy pocket with direct sensitivity to commodity futures and geopolitical supply risk.",
+          "trendDrivers": ["crude_curve_shape", "inventory_reports", "supply_disruption"],
+          "leadPatterns": [
+            "commodity_beta_momentum",
+            "inventory_report_gap_followthrough",
+            "regional_supply_sympathy"
+          ],
+          "preferredStrategies": [
+            "gap_and_go",
+            "liquidity_sweep_reversal",
+            "earnings_guidance_drift"
+          ],
+          "guardrailFocus": ["commodity_whipsaw_pause", "headline_conflict_resolution"]
+        },
+        {
+          "id": "sub-008b",
+          "name": "oilfield_services",
+          "behaviorProfile": "Second-derivative subgroup tied to capex expectations and service pricing rather than spot commodity alone.",
+          "trendDrivers": [
+            "producer_capex_guidance",
+            "rig_count_direction",
+            "service_margin_updates"
+          ],
+          "leadPatterns": ["producer_to_service_readthrough", "earnings_cluster_dispersion"],
+          "preferredStrategies": ["lead_lag_propagation", "pullback_continuation"],
+          "guardrailFocus": ["commodity_trend_break_veto", "headline_decay_recheck"]
+        },
+        {
+          "id": "sub-008c",
+          "name": "integrated_oil",
+          "behaviorProfile": "Cash-rich mega-cap energy subgroup where capital-return policy, refining margins, and commodity stability matter as much as raw beta.",
+          "trendDrivers": [
+            "crack_spread_direction",
+            "capital_return_policy",
+            "major_supply_balance"
+          ],
+          "leadPatterns": [
+            "majors_defensive_rotation",
+            "refining_margin_readthrough",
+            "integrated_to_service_sympathy"
+          ],
+          "preferredStrategies": [
+            "pullback_continuation",
+            "earnings_guidance_drift",
+            "lead_lag_propagation"
+          ],
+          "guardrailFocus": [
+            "headline_freshness_recheck",
+            "commodity_disconnect_veto",
+            "refining_margin_whipsaw"
+          ]
+        },
+        {
+          "id": "sub-008d",
+          "name": "renewables",
+          "behaviorProfile": "Policy- and rate-sensitive clean-energy subgroup that trades on subsidy frameworks, financing costs, and grid-demand themes.",
+          "trendDrivers": [
+            "policy_subsidy_changes",
+            "project_financing_cost",
+            "grid_decarbonization_spend"
+          ],
+          "leadPatterns": [
+            "policy_theme_repricing",
+            "yield_sensitivity_rotation",
+            "project_pipeline_readthrough"
+          ],
+          "preferredStrategies": ["gap_and_go", "pullback_continuation", "lead_lag_propagation"],
+          "guardrailFocus": [
+            "policy_source_confirmation",
+            "rate_shock_veto",
+            "thin_followthrough_filter"
+          ]
+        }
+      ],
+      "liquidityClass": "medium_to_high",
+      "macroSensitivity": ["crude", "geopolitical_supply_risk", "usd"],
+      "eventDrivers": ["opec_headlines", "inventory_reports", "geopolitical_disruption"],
+      "trendVectors": ["commodity_shock", "supply_disruption_pricing", "capex_cycle_rotation"],
+      "leadGatheringPatterns": [
+        "commodity_to_equity_beta_mapping",
+        "inventory_report_readthrough",
+        "producer_to_service_sympathy"
+      ],
+      "baselineKnowledge": {
+        "marketStructureConsiderations": [
+          "futures moves can pre-lead equity opens",
+          "headline freshness matters more than stale commodity direction"
+        ],
+        "guardrailFocus": ["commodity whipsaw circuit breaker", "headline source verification"],
+        "complianceConsiderations": [
+          "preserve geopolitical source lineage and recheck official confirmations before activation"
+        ],
+        "researchTracks": {
+          "adhoc": ["inventory_report_alignment_lookup", "commodity_beta_scan"],
+          "longRunning": ["opec_policy_reliability_review", "commodity_to_equity_lag_monitor"]
+        }
+      },
+      "strategyBias": {
+        "amplify": [
+          "gap_and_go",
+          "earnings_guidance_drift",
+          "liquidity_sweep_reversal",
+          "lead_lag_propagation"
+        ],
+        "suppress": ["pairs_stat_arb"],
+        "invalidateWhen": ["commodity_whipsaw_extreme", "headline_conflict_unresolved"],
+        "compoundBias": ["commodity_gap_to_service_sympathy"]
+      },
+      "verificationSignals": [
+        "xle_alignment",
+        "commodity_beta",
+        "headline_freshness",
+        "inventory_surprise_alignment"
+      ],
+      "linkedKnowledge": {
+        "macroTriggers": [
+          "geopolitical_supply_disruption",
+          "energy_shipping_disruption",
+          "tariff_or_trade_escalation"
+        ],
+        "strategyFamilies": [
+          "gap_and_go",
+          "earnings_guidance_drift",
+          "liquidity_sweep_reversal",
+          "lead_lag_propagation"
+        ],
+        "companyEventArchetypes": ["inventory_report", "guidance_revision"],
+        "guardrailPackages": ["commodity_whipsaw_pause", "headline_conflict_blackout"]
+      },
+      "progressiveAccess": {
+        "overviewQuery": "sector_summary:energy",
+        "analystQuery": "subsector_detail:energy/*",
+        "leadScanQuery": "lead_bias_scan:energy",
+        "riskReviewQuery": "risk_review:energy"
+      },
+      "queryExamples": [
+        "Which energy names are aligned with current commodity beta?",
+        "Show energy invalidate conditions tied to unresolved supply headlines."
+      ]
+    },
+    {
+      "id": "sec-009",
+      "sector": "materials",
+      "summary": "Materials sector with strong sensitivity to metals, chemicals, agricultural inputs, and global industrial demand signals.",
+      "subsectors": ["metals_mining", "chemicals", "packaging"],
+      "subsectorProfiles": [
+        {
+          "id": "sub-009a",
+          "name": "metals_mining",
+          "behaviorProfile": "Commodity-sensitive pocket driven by base metals, precious metals, and global industrial demand or supply shifts.",
+          "trendDrivers": ["metal_price_trend", "china_demand_signal", "supply_outage"],
+          "leadPatterns": ["commodity_readthrough", "export_or_tariff_rotation"],
+          "preferredStrategies": ["gap_and_go", "lead_lag_propagation", "pullback_continuation"],
+          "guardrailFocus": ["commodity_volatility_pause", "policy_headline_conflict"]
+        },
+        {
+          "id": "sub-009b",
+          "name": "chemicals",
+          "behaviorProfile": "Margin- and feedstock-sensitive subgroup that often moves on energy, industrial demand, and pricing-spread dynamics.",
+          "trendDrivers": ["feedstock_cost_shift", "industrial_demand", "pricing_spread_change"],
+          "leadPatterns": ["margin_cycle_readthrough", "input_cost_dispersion"],
+          "preferredStrategies": ["pullback_continuation", "earnings_guidance_drift"],
+          "guardrailFocus": ["input_cost_shock_veto", "slow_liquidity_filter"]
+        },
+        {
+          "id": "sub-009c",
+          "name": "packaging",
+          "behaviorProfile": "Steadier industrial-materials pocket influenced by consumer demand mix, freight costs, and contract repricing rather than raw commodity spikes alone.",
+          "trendDrivers": [
+            "containerboard_pricing",
+            "consumer_demand_mix",
+            "freight_cost_direction"
+          ],
+          "leadPatterns": [
+            "input_cost_pass_through",
+            "consumer_supply_chain_readthrough",
+            "margin_stability_rotation"
+          ],
+          "preferredStrategies": [
+            "pullback_continuation",
+            "vwap_reversion",
+            "earnings_guidance_drift"
+          ],
+          "guardrailFocus": [
+            "slow_liquidity_filter",
+            "input_cost_headline_recheck",
+            "low_beta_false_breakout_veto"
+          ]
+        }
+      ],
+      "liquidityClass": "medium",
+      "macroSensitivity": ["global_growth", "commodity_prices", "usd"],
+      "eventDrivers": ["commodity_supply_moves", "tariff_headlines", "industrial_guidance"],
+      "trendVectors": [
+        "commodity_chain_repricing",
+        "china_demand_rotation",
+        "pricing_spread_normalization"
+      ],
+      "leadGatheringPatterns": [
+        "commodity_to_equity_readthrough",
+        "input_cost_dispersion_scan",
+        "industrial_demand_confirmation"
+      ],
+      "baselineKnowledge": {
+        "marketStructureConsiderations": [
+          "liquidity is less uniform than tech or financials",
+          "commodity futures can front-run equity reactions"
+        ],
+        "guardrailFocus": ["commodity volatility pauses", "thin-liquidity vetoes"],
+        "complianceConsiderations": [
+          "maintain source lineage for tariff and trade-policy overlays"
+        ],
+        "researchTracks": {
+          "adhoc": ["metal_price_alignment_lookup", "chemical_margin_signal_scan"],
+          "longRunning": ["commodity_chain_lag_review", "trade_policy_impact_monitor"]
+        }
+      },
+      "strategyBias": {
+        "amplify": ["gap_and_go", "lead_lag_propagation", "pullback_continuation"],
+        "suppress": ["market_making", "extended_overnight_session_response"],
+        "invalidateWhen": ["commodity_trend_disconnect", "trade_policy_conflict_unresolved"],
+        "compoundBias": ["commodity_repricing_to_equity_sympathy"]
+      },
+      "verificationSignals": [
+        "xlb_relative_strength",
+        "commodity_alignment",
+        "trade_policy_freshness"
+      ],
+      "linkedKnowledge": {
+        "macroTriggers": ["tariff_or_trade_escalation", "geopolitical_supply_disruption"],
+        "strategyFamilies": ["gap_and_go", "lead_lag_propagation", "pullback_continuation"],
+        "companyEventArchetypes": ["guidance_revision", "supply_disruption"],
+        "guardrailPackages": ["commodity_disconnect_veto", "policy_freshness_recheck"]
+      },
+      "progressiveAccess": {
+        "overviewQuery": "sector_summary:materials",
+        "analystQuery": "subsector_detail:materials/*",
+        "leadScanQuery": "lead_bias_scan:materials",
+        "riskReviewQuery": "risk_review:materials"
+      },
+      "queryExamples": [
+        "Which materials subsectors are aligned with current metal-price momentum?",
+        "Show suppress conditions for materials setups under trade-policy conflict."
+      ]
+    },
+    {
+      "id": "sec-010",
+      "sector": "utilities",
+      "summary": "Lower-beta sector used for defensive rotation, rate sensitivity, and grid or power-infrastructure themes rather than pure momentum leadership.",
+      "subsectors": ["regulated_utility", "power_generation", "grid_infrastructure"],
+      "subsectorProfiles": [
+        {
+          "id": "sub-010a",
+          "name": "regulated_utility",
+          "behaviorProfile": "Defensive income-heavy group most sensitive to rates, policy, and storm or outage headlines.",
+          "trendDrivers": ["rates", "defensive_rotation", "weather_or_outage_events"],
+          "leadPatterns": ["yield_defensive_rotation", "storm_event_repricing"],
+          "preferredStrategies": ["pullback_continuation", "vwap_reversion"],
+          "guardrailFocus": ["low_beta_false_breakout_veto", "headline_source_validation"]
+        },
+        {
+          "id": "sub-010b",
+          "name": "grid_infrastructure",
+          "behaviorProfile": "Infrastructure buildout subgroup that can trade more like industrial growth when power demand narratives strengthen.",
+          "trendDrivers": [
+            "grid_modernization_spend",
+            "data_center_power_demand",
+            "regulatory_capex_approval"
+          ],
+          "leadPatterns": ["infrastructure_theme_rotation", "capex_readthrough"],
+          "preferredStrategies": ["pullback_continuation", "earnings_guidance_drift"],
+          "guardrailFocus": ["policy_approval_blackout", "theme_overextension_filter"]
+        },
+        {
+          "id": "sub-010c",
+          "name": "power_generation",
+          "behaviorProfile": "Power-market subgroup that reacts to load forecasts, fuel spreads, and capacity updates more quickly than regulated utility rate cases.",
+          "trendDrivers": [
+            "power_price_curve",
+            "capacity_auction_results",
+            "weather_demand_forecast"
+          ],
+          "leadPatterns": [
+            "heat_wave_repricing",
+            "fuel_spread_rotation",
+            "capacity_shortage_readthrough"
+          ],
+          "preferredStrategies": ["gap_and_go", "pullback_continuation", "vwap_reversion"],
+          "guardrailFocus": [
+            "weather_headline_recheck",
+            "commodity_cost_shock_veto",
+            "policy_approval_conflict"
+          ]
+        }
+      ],
+      "liquidityClass": "medium",
+      "macroSensitivity": ["rates", "defensive_rotation", "power_demand"],
+      "eventDrivers": ["regulatory_decisions", "weather_events", "capex_guidance"],
+      "trendVectors": [
+        "yield_defensive_rotation",
+        "power_infrastructure_buildout",
+        "storm_repricing"
+      ],
+      "leadGatheringPatterns": ["defensive_rotation_confirmation", "capex_theme_readthrough"],
+      "baselineKnowledge": {
+        "marketStructureConsiderations": [
+          "do not overfit momentum assumptions to low-volatility names",
+          "grid-infrastructure subgroup may trade differently from regulated utilities"
+        ],
+        "guardrailFocus": ["policy-approval confirmation", "low-beta breakout veto"],
+        "complianceConsiderations": [
+          "retain source lineage for regulatory approval or rate-case updates"
+        ],
+        "researchTracks": {
+          "adhoc": ["rate_sensitivity_lookup", "storm_or_outage_headline_check"],
+          "longRunning": ["grid_capex_theme_monitor", "defensive_regime_reliability_review"]
+        }
+      },
+      "strategyBias": {
+        "amplify": ["pullback_continuation", "vwap_reversion", "earnings_guidance_drift"],
+        "suppress": ["gap_and_go", "market_making"],
+        "invalidateWhen": ["risk_on_rotation_resumes", "policy_approval_uncertain"],
+        "compoundBias": ["defensive_rotation_to_reversion"]
+      },
+      "verificationSignals": [
+        "xlu_relative_strength",
+        "yield_alignment",
+        "power_demand_theme_confirmation"
+      ],
+      "linkedKnowledge": {
+        "macroTriggers": ["fed_rate_decision", "systemic_risk_or_credit_stress"],
+        "strategyFamilies": ["pullback_continuation", "vwap_reversion", "earnings_guidance_drift"],
+        "companyEventArchetypes": ["regulatory_action", "guidance_revision"],
+        "guardrailPackages": ["policy_source_confirmation", "low_beta_false_breakout_veto"]
+      },
+      "progressiveAccess": {
+        "overviewQuery": "sector_summary:utilities",
+        "analystQuery": "subsector_detail:utilities/*",
+        "leadScanQuery": "lead_bias_scan:utilities",
+        "riskReviewQuery": "risk_review:utilities"
+      },
+      "queryExamples": [
+        "Which utility names are aligned with current defensive rotation?",
+        "Show utility-related regulatory signals that suppress activation."
+      ]
+    },
+    {
+      "id": "sec-011",
+      "sector": "real_estate",
+      "summary": "Rate-sensitive sector where REITs and property exposure behave differently depending on financing costs, occupancy themes, and property-type leadership.",
+      "subsectors": ["reit_data_centers", "residential_reit", "commercial_reit"],
+      "subsectorProfiles": [
+        {
+          "id": "sub-011a",
+          "name": "reit_data_centers",
+          "behaviorProfile": "Growth-oriented REIT group with overlap to AI infrastructure and power-demand narratives rather than pure yield sensitivity.",
+          "trendDrivers": ["data_center_demand", "power_capacity", "cloud_or_ai_capex"],
+          "leadPatterns": ["ai_infrastructure_readthrough", "utility_grid_sympathy"],
+          "preferredStrategies": [
+            "pullback_continuation",
+            "lead_lag_propagation",
+            "earnings_guidance_drift"
+          ],
+          "guardrailFocus": ["theme_overlap_double_counting", "rate_shock_recheck"]
+        },
+        {
+          "id": "sub-011b",
+          "name": "commercial_reit",
+          "behaviorProfile": "Higher-friction property group tied to financing conditions, occupancy trends, and macro stress rather than immediate growth themes.",
+          "trendDrivers": ["financing_cost", "occupancy_signal", "credit_conditions"],
+          "leadPatterns": ["credit_stress_dispersion", "property_type_rotation"],
+          "preferredStrategies": ["vwap_reversion", "pullback_continuation"],
+          "guardrailFocus": ["credit_stress_pause", "headline_conflict_filter"]
+        },
+        {
+          "id": "sub-011c",
+          "name": "residential_reit",
+          "behaviorProfile": "Housing-linked REIT pocket driven by rent trends, turnover, and regional affordability rather than office-style credit stress alone.",
+          "trendDrivers": [
+            "rent_growth_direction",
+            "occupancy_stability",
+            "housing_affordability_shift"
+          ],
+          "leadPatterns": [
+            "housing_supply_readthrough",
+            "sunbelt_vs_coastal_rotation",
+            "rates_to_residential_repricing"
+          ],
+          "preferredStrategies": [
+            "pullback_continuation",
+            "vwap_reversion",
+            "earnings_guidance_drift"
+          ],
+          "guardrailFocus": [
+            "rate_shock_recheck",
+            "regional_policy_headline_check",
+            "thin_followthrough_after_macro"
+          ]
+        }
+      ],
+      "liquidityClass": "medium",
+      "macroSensitivity": ["rates", "credit_conditions", "property_cycle"],
+      "eventDrivers": ["occupancy_updates", "financing_shifts", "cap_rate_narratives"],
+      "trendVectors": [
+        "yield_rotation",
+        "data_center_growth_overlap",
+        "credit-sensitive_reit_dispersion"
+      ],
+      "leadGatheringPatterns": [
+        "rate_sensitivity_mapping",
+        "property_type_relative_strength",
+        "credit_stress_dispersion"
+      ],
+      "baselineKnowledge": {
+        "marketStructureConsiderations": [
+          "separate data-center REIT behavior from office or commercial stress narratives",
+          "use rate and credit overlays together"
+        ],
+        "guardrailFocus": ["credit-stress pauses", "theme-overlap de-duplication"],
+        "complianceConsiderations": [
+          "keep financing and credit-source lineage for auditable sector overrides"
+        ],
+        "researchTracks": {
+          "adhoc": ["reit_property_type_scan", "credit_condition_alignment_lookup"],
+          "longRunning": ["property_type_rotation_monitor", "rate_and_credit_sensitivity_review"]
+        }
+      },
+      "strategyBias": {
+        "amplify": ["pullback_continuation", "vwap_reversion", "lead_lag_propagation"],
+        "suppress": ["gap_and_go", "market_making"],
+        "invalidateWhen": ["credit_stress_unresolved", "rate_shock_conflict"],
+        "compoundBias": ["rate_repricing_to_property_rotation"]
+      },
+      "verificationSignals": [
+        "xlre_relative_strength",
+        "rate_alignment",
+        "credit_condition_signal"
+      ],
+      "linkedKnowledge": {
+        "macroTriggers": ["fed_rate_decision", "systemic_risk_or_credit_stress"],
+        "strategyFamilies": ["pullback_continuation", "vwap_reversion", "lead_lag_propagation"],
+        "companyEventArchetypes": ["guidance_revision", "capital_raise"],
+        "guardrailPackages": ["credit_stress_pause", "theme_overlap_filter"]
+      },
+      "progressiveAccess": {
+        "overviewQuery": "sector_summary:real_estate",
+        "analystQuery": "subsector_detail:real_estate/*",
+        "leadScanQuery": "lead_bias_scan:real_estate",
+        "riskReviewQuery": "risk_review:real_estate"
+      },
+      "queryExamples": [
+        "Which REIT subsectors are aligned with current rate direction?",
+        "Show real-estate setups blocked by credit-stress conditions."
+      ]
+    },
+    {
+      "id": "sec-012",
+      "sector": "crypto_equities_and_proxies",
+      "summary": "Cross-asset sector linking miners, exchanges, and crypto-beta equities to digital-asset price regimes, liquidity conditions, and regulatory headlines.",
+      "subsectors": ["miners", "exchanges", "crypto_beta_equities", "stablecoin_infrastructure"],
+      "subsectorProfiles": [
+        {
+          "id": "sub-012a",
+          "name": "miners",
+          "behaviorProfile": "High beta equity proxies to crypto spot and hash-price economics, often moving ahead of smaller beta names during strong crypto trends.",
+          "trendDrivers": ["btc_trend", "hash_price", "power_costs"],
+          "leadPatterns": [
+            "btc_beta_leadership",
+            "miner_sympathy_rotation",
+            "after_hours_proxy_momentum"
+          ],
+          "preferredStrategies": [
+            "gap_and_go",
+            "lead_lag_propagation",
+            "extended_overnight_session_response"
+          ],
+          "guardrailFocus": ["benchmark_disconnect_pause", "after_hours_spread_ceiling"]
+        },
+        {
+          "id": "sub-012b",
+          "name": "exchanges",
+          "behaviorProfile": "Higher-quality crypto infrastructure names that react to volume, policy, and market-structure headlines more than to pure token beta alone.",
+          "trendDrivers": ["trading_volume", "regulatory_enforcement", "product_launches"],
+          "leadPatterns": ["crypto_volume_readthrough", "policy_headline_repricing"],
+          "preferredStrategies": [
+            "earnings_guidance_drift",
+            "pullback_continuation",
+            "lead_lag_propagation"
+          ],
+          "guardrailFocus": ["policy_headline_confirmation", "exchange_outage_blackout"]
+        },
+        {
+          "id": "sub-012c",
+          "name": "crypto_beta_equities",
+          "behaviorProfile": "Non-exchange equity proxies whose price action tracks broad digital-asset risk appetite, leverage conditions, and thematic spillover more than direct blockchain fundamentals.",
+          "trendDrivers": [
+            "benchmark_beta_regime",
+            "risk_appetite_shift",
+            "thematic_equity_rotation"
+          ],
+          "leadPatterns": [
+            "benchmark_to_proxy_spillover",
+            "overnight_beta_gap_followthrough",
+            "sector_leader_to_proxy_sympathy"
+          ],
+          "preferredStrategies": [
+            "gap_and_go",
+            "lead_lag_propagation",
+            "extended_overnight_session_response"
+          ],
+          "guardrailFocus": [
+            "benchmark_disconnect_veto",
+            "off_hours_spread_ceiling",
+            "headline_noise_filter"
+          ]
+        },
+        {
+          "id": "sub-012d",
+          "name": "stablecoin_infrastructure",
+          "behaviorProfile": "Policy-sensitive fintech and settlement subgroup tied to reserve transparency, payments rails, and enforcement posture more than raw token beta.",
+          "trendDrivers": [
+            "reserve_transparency_updates",
+            "payments_rail_adoption",
+            "stablecoin_policy_changes"
+          ],
+          "leadPatterns": [
+            "policy_to_fintech_readthrough",
+            "volume_settlement_repricing",
+            "regulatory_scope_rotation"
+          ],
+          "preferredStrategies": [
+            "earnings_guidance_drift",
+            "pullback_continuation",
+            "lead_lag_propagation"
+          ],
+          "guardrailFocus": [
+            "policy_source_quality",
+            "regulatory_enforcement_blackout",
+            "cross_sector_classification_check"
+          ]
+        }
+      ],
+      "liquidityClass": "variable_high_volatility",
+      "macroSensitivity": ["btc_eth_trend", "usd_liquidity", "risk_appetite"],
+      "eventDrivers": ["crypto_price_impulse", "regulatory_headlines", "exchange_news"],
+      "trendVectors": ["crypto_beta_leadership", "regulatory_repricing", "off_hours_participation"],
+      "leadGatheringPatterns": [
+        "benchmark_to_proxy_beta_mapping",
+        "volume_regime_check",
+        "regulatory_headline_watch"
+      ],
+      "baselineKnowledge": {
+        "marketStructureConsiderations": [
+          "after-hours and overnight conditions matter more than for standard equities",
+          "digital-asset benchmark confirmation is required for most proxy trades"
+        ],
+        "guardrailFocus": [
+          "benchmark disconnect veto",
+          "exchange outage blackouts",
+          "off-hours spread ceilings"
+        ],
+        "complianceConsiderations": [
+          "preserve regulatory-source lineage and policy versions for all crypto-sector overrides"
+        ],
+        "researchTracks": {
+          "adhoc": [
+            "crypto_proxy_beta_scan",
+            "regulatory_headline_lookup",
+            "exchange_status_check"
+          ],
+          "longRunning": [
+            "benchmark_to_proxy_correlation_monitor",
+            "policy_enforcement_regime_review",
+            "off_hours_liquidity_reliability_review"
+          ]
+        }
+      },
+      "strategyBias": {
+        "amplify": [
+          "gap_and_go",
+          "lead_lag_propagation",
+          "extended_overnight_session_response",
+          "earnings_guidance_drift"
+        ],
+        "suppress": ["pairs_stat_arb"],
+        "invalidateWhen": [
+          "crypto_benchmark_disconnect",
+          "exchange_halt_or_outage",
+          "regulatory_enforcement_blackout"
+        ],
+        "compoundBias": [
+          "crypto_breakout_to_proxy_sympathy",
+          "regulatory_shock_blackout_then_reprice"
+        ]
+      },
+      "verificationSignals": [
+        "crypto_proxy_beta",
+        "benchmark_alignment",
+        "after_hours_spread_state",
+        "policy_source_quality"
+      ],
+      "linkedKnowledge": {
+        "macroTriggers": [
+          "crypto_regulatory_enforcement",
+          "systemic_risk_or_credit_stress",
+          "cpi_or_inflation_surprise"
+        ],
+        "strategyFamilies": [
+          "gap_and_go",
+          "lead_lag_propagation",
+          "extended_overnight_session_response",
+          "earnings_guidance_drift"
+        ],
+        "companyEventArchetypes": ["regulatory_action", "exchange_incident", "earnings_release"],
+        "guardrailPackages": ["benchmark_disconnect_veto", "exchange_outage_blackout"]
+      },
+      "progressiveAccess": {
+        "overviewQuery": "sector_summary:crypto_equities_and_proxies",
+        "analystQuery": "subsector_detail:crypto_equities_and_proxies/*",
+        "leadScanQuery": "lead_bias_scan:crypto_equities_and_proxies",
+        "riskReviewQuery": "risk_review:crypto_equities_and_proxies"
+      },
+      "queryExamples": [
+        "Which crypto proxies are aligned with current benchmark beta?",
+        "Show crypto-sector suppress or invalidate conditions tied to regulatory enforcement."
+      ]
+    }
+  ],
+  "diagram": {
+    "flow": [
+      "macro_and_event_context",
+      "sector_and_subsector_state_scoring",
+      "strategy_family_and_variant_bias",
+      "lead_bias_scan",
+      "tactical_template_selection",
+      "verification_and_feedback_refresh"
+    ],
+    "nodes": [
+      "macro_geopolitical_context",
+      "company_event_archetypes",
+      "research_query_queue",
+      "sector_state_scoring",
+      "subsector_profile_router",
+      "strategy_family_bias",
+      "lead_bias_scan",
+      "tactical_template_selection",
+      "verification_and_feedback_refresh"
+    ],
+    "edges": [
+      {
+        "from": "macro_geopolitical_context",
+        "to": "sector_state_scoring",
+        "label": "regime overlays"
+      },
+      {
+        "from": "company_event_archetypes",
+        "to": "sector_state_scoring",
+        "label": "catalyst overlays"
+      },
+      {
+        "from": "research_query_queue",
+        "to": "subsector_profile_router",
+        "label": "ad hoc research lookups"
+      },
+      { "from": "sector_state_scoring", "to": "subsector_profile_router", "label": "sector score" },
+      {
+        "from": "subsector_profile_router",
+        "to": "strategy_family_bias",
+        "label": "first-class sector packages"
+      },
+      {
+        "from": "strategy_family_bias",
+        "to": "lead_bias_scan",
+        "label": "amplify suppress invalidate"
+      },
+      {
+        "from": "lead_bias_scan",
+        "to": "tactical_template_selection",
+        "label": "eligible leads and variants"
+      },
+      {
+        "from": "verification_and_feedback_refresh",
+        "to": "sector_state_scoring",
+        "label": "reliability refresh"
+      }
+    ]
+  }
+}

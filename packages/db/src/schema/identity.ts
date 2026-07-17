@@ -7,7 +7,9 @@ const timestamps = {
 };
 
 export const usersProfile = pgTable('users_profile', {
-  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  id: uuid('id')
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   clerkUserId: text('clerk_user_id').notNull().unique(),
   displayPrefs: jsonb('display_prefs').notNull().default({}),
   defaultCompanyId: uuid('default_company_id'),
@@ -15,9 +17,13 @@ export const usersProfile = pgTable('users_profile', {
 });
 
 export const platformCredits = pgTable('platform_credits', {
-  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  id: uuid('id')
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   clerkUserId: text('clerk_user_id').notNull().unique(),
-  balanceCents: bigint('balance_cents', { mode: 'bigint' }).notNull().default(0n),
+  balanceCents: bigint('balance_cents', { mode: 'bigint' })
+    .notNull()
+    .default(sql`0`),
   ...timestamps,
 });
 
@@ -25,7 +31,9 @@ export const platformCredits = pgTable('platform_credits', {
 export const creditLedger = pgTable(
   'credit_ledger',
   {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     clerkUserId: text('clerk_user_id').notNull(),
     deltaCents: bigint('delta_cents', { mode: 'bigint' }).notNull(),
     reason: text('reason', {
@@ -39,7 +47,9 @@ export const creditLedger = pgTable(
 );
 
 export const subscriptions = pgTable('subscriptions', {
-  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  id: uuid('id')
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   clerkUserId: text('clerk_user_id').notNull().unique(),
   plan: text('plan').notNull().default('free'),
   status: text('status').notNull().default('active'),

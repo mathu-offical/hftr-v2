@@ -1,0 +1,367 @@
+{
+  "asOf": "2026-05-29",
+  "status": "in_progress",
+  "purpose": "Seeded catalyst and company-event archetype catalog used to bias strategy activation, blackout handling, background curation prioritization, and event-impact graph edges.",
+  "specRefs": ["event-impact-graph-spec.md", "regime-and-market-state-spec.md"],
+  "querySurfaces": {
+    "moduleQueries": [
+      "event_summary",
+      "archetype_detail",
+      "strategy_impact_lookup",
+      "blackout_review",
+      "source_priority_review",
+      "event_impact_path_lookup",
+      "playbook_lookup",
+      "control_surface_review"
+    ],
+    "progressiveAccessLevels": [
+      {
+        "level": "overview",
+        "returns": [
+          "name",
+          "class",
+          "freshnessWindowMin",
+          "backgroundCurationPriority",
+          "requiresBlackout"
+        ]
+      },
+      {
+        "level": "analyst",
+        "returns": [
+          "sourcePriority",
+          "amplifies",
+          "suppresses",
+          "verificationSignals",
+          "invalidatesWhen"
+        ]
+      },
+      {
+        "level": "lineage",
+        "returns": ["reentryMode", "policyRules", "runtimeControlSurface"]
+      }
+    ]
+  },
+  "runtimeControlSurface": {
+    "weightingDrivers": [
+      "event_freshness",
+      "primary_source_quality",
+      "market_response_quality",
+      "sector_sympathy_quality",
+      "halt_and_spread_state"
+    ],
+    "boundedRangeFamilies": [
+      "event_window_band",
+      "reentry_confirmation_band",
+      "source_decay_band",
+      "post_halt_stability_band"
+    ],
+    "granularityByLayer": {
+      "research": "Event packages keep full source hierarchy, invalidation logic, blackout posture, and reentry semantics for promotion and audit review.",
+      "strategic": "Downstream layers receive catalyst quality, blackout posture, and dominant strategy-impact shape rather than full event lineage.",
+      "tactical": "Branch builders receive event-window timing, suppression detail, source requirements, and reentry posture needed for decision-tree construction.",
+      "training_feedback": "Replay loops may refresh event reliability and decay timing inside seeded archetype envelopes without mutating legality rules."
+    },
+    "policyRule": "Company-event archetypes may amplify, suppress, or blackout strategy paths upstream, but final legality and guardrail enforcement remain deterministic and provider-free."
+  },
+  "archetypes": [
+    {
+      "id": "evt-001",
+      "name": "scheduled_earnings_release",
+      "class": "earnings",
+      "freshnessWindowMin": 1440,
+      "backgroundCurationPriority": "high",
+      "sourcePriority": ["company_ir", "exchange_calendar", "primary_transcript"],
+      "amplifies": ["earnings_guidance_drift", "gap_and_go", "opening_range_breakout"],
+      "suppresses": ["market_making", "pairs_stat_arb"],
+      "requiresBlackout": true,
+      "reentryMode": "post_release_confirmation_only",
+      "verificationSignals": [
+        "primary_source_confirmed",
+        "calendar_match",
+        "relative_volume_spike",
+        "post_release_spread_normalization"
+      ],
+      "invalidatesWhen": [
+        "release_time_uncertain",
+        "trading_halt_active",
+        "headline_conflict_unresolved"
+      ]
+    },
+    {
+      "id": "evt-002",
+      "name": "forward_guidance_change",
+      "class": "guidance",
+      "freshnessWindowMin": 2880,
+      "backgroundCurationPriority": "high",
+      "sourcePriority": ["company_ir", "sec_filing", "press_release"],
+      "amplifies": ["earnings_guidance_drift", "pullback_continuation", "gap_and_go"],
+      "suppresses": ["market_making"],
+      "requiresBlackout": false,
+      "reentryMode": "confirmation_window_required",
+      "verificationSignals": [
+        "guidance_delta_direction",
+        "estimate_revision_alignment",
+        "volume_confirmation",
+        "sector_sympathy_confirmation"
+      ],
+      "invalidatesWhen": ["secondary_source_only", "guidance_scope_ambiguous"]
+    },
+    {
+      "id": "evt-003",
+      "name": "material_sec_filing_or_disclosure",
+      "class": "filing",
+      "freshnessWindowMin": 4320,
+      "backgroundCurationPriority": "medium_high",
+      "sourcePriority": ["sec_filing", "company_ir"],
+      "amplifies": ["earnings_guidance_drift", "liquidity_sweep_reversal"],
+      "suppresses": ["market_making"],
+      "requiresBlackout": false,
+      "reentryMode": "materiality_scored_confirmation",
+      "verificationSignals": [
+        "filing_materiality_score",
+        "8k_or_equivalent_confirmed",
+        "follow_on_volume",
+        "management_commentary_present"
+      ],
+      "invalidatesWhen": ["filing_not_material", "stale_filing_without_new_price_response"]
+    },
+    {
+      "id": "evt-004",
+      "name": "regulatory_or_legal_action",
+      "class": "regulatory",
+      "freshnessWindowMin": 4320,
+      "backgroundCurationPriority": "high",
+      "sourcePriority": ["official_regulator_release", "court_filing", "company_ir"],
+      "amplifies": ["gap_and_go", "liquidity_sweep_reversal"],
+      "suppresses": ["pairs_stat_arb", "market_making"],
+      "requiresBlackout": true,
+      "reentryMode": "official_source_and_halt_state_confirmed",
+      "verificationSignals": [
+        "official_source_confirmed",
+        "halt_status_clear",
+        "sector_regulatory_sympathy",
+        "spread_regime_check"
+      ],
+      "invalidatesWhen": ["rumor_only", "jurisdiction_scope_unknown"]
+    },
+    {
+      "id": "evt-005",
+      "name": "product_launch_or_platform_event",
+      "class": "product",
+      "freshnessWindowMin": 2880,
+      "backgroundCurationPriority": "medium",
+      "sourcePriority": ["company_ir", "launch_event_stream", "official_blog"],
+      "amplifies": ["gap_and_go", "lead_lag_propagation", "pullback_continuation"],
+      "suppresses": ["market_making"],
+      "requiresBlackout": false,
+      "reentryMode": "market_response_confirmation",
+      "verificationSignals": [
+        "launch_confirmed",
+        "peer_sympathy_move",
+        "relative_strength",
+        "volume_concentration"
+      ],
+      "invalidatesWhen": ["launch_delay", "marketing_only_without_operational_delta"]
+    },
+    {
+      "id": "evt-006",
+      "name": "merger_acquisition_or_strategic_transaction",
+      "class": "strategic_transaction",
+      "freshnessWindowMin": 7200,
+      "backgroundCurationPriority": "high",
+      "sourcePriority": ["company_ir", "sec_filing", "exchange_notice"],
+      "amplifies": ["gap_and_go", "liquidity_sweep_reversal"],
+      "suppresses": ["market_making", "pullback_continuation"],
+      "requiresBlackout": true,
+      "reentryMode": "deal_terms_and_halt_state_confirmed",
+      "verificationSignals": [
+        "definitive_terms_confirmed",
+        "cash_stock_mix_known",
+        "deal_spread_state",
+        "halt_or_resume_status"
+      ],
+      "invalidatesWhen": ["talks_only", "deal_terms_missing", "cross_market_conflict"]
+    },
+    {
+      "id": "evt-007",
+      "name": "management_transition_or_key_personnel_change",
+      "class": "management_change",
+      "freshnessWindowMin": 4320,
+      "backgroundCurationPriority": "medium",
+      "sourcePriority": ["company_ir", "sec_filing"],
+      "amplifies": ["liquidity_sweep_reversal", "pullback_continuation"],
+      "suppresses": ["market_making"],
+      "requiresBlackout": false,
+      "reentryMode": "leadership_materiality_scored",
+      "verificationSignals": [
+        "executive_role_materiality",
+        "succession_plan_present",
+        "post_announcement_volume",
+        "analyst_reaction_dispersion"
+      ],
+      "invalidatesWhen": ["routine_board_refresh_only", "role_non_material"]
+    }
+  ],
+  "eventImpactEdges": [
+    {
+      "id": "eig-e-001",
+      "from": { "kind": "company_event", "id": "evt-001" },
+      "to": { "kind": "research_topic", "id": "topic_earnings_cluster_review" },
+      "edgeType": "spawns_research_topic",
+      "transmissionOrder": 1,
+      "halfLifeMin": 1440,
+      "playbookId": "playbook_earnings_cluster",
+      "summary": "Scheduled earnings spawns cluster readthrough and drift research"
+    },
+    {
+      "id": "eig-e-002",
+      "from": { "kind": "company_event", "id": "evt-001" },
+      "to": { "kind": "strategy_family", "id": "earnings_guidance_drift" },
+      "edgeType": "amplifies_family",
+      "transmissionOrder": 1,
+      "requiresConfirmation": true,
+      "summary": "Confirmed earnings amplifies drift family after blackout"
+    },
+    {
+      "id": "eig-e-003",
+      "from": { "kind": "company_event", "id": "evt-002" },
+      "to": { "kind": "trend_axis", "id": "trend_guidance_sympathy_basket" },
+      "edgeType": "biases_trend",
+      "direction": "amplify",
+      "transmissionOrder": 1,
+      "halfLifeMin": 2880,
+      "summary": "Guidance change biases subsector sympathy basket trends"
+    },
+    {
+      "id": "eig-e-004",
+      "from": { "kind": "company_event", "id": "evt-002" },
+      "to": { "kind": "sector", "id": "technology" },
+      "edgeType": "transmits_to_sector",
+      "transmissionOrder": 2,
+      "halfLifeMin": 720,
+      "summary": "Second-order peer repricing in linked technology subsectors"
+    },
+    {
+      "id": "eig-e-005",
+      "from": { "kind": "company_event", "id": "evt-003" },
+      "to": { "kind": "strategy_family", "id": "gap_and_go" },
+      "edgeType": "amplifies_family",
+      "transmissionOrder": 1,
+      "requiresConfirmation": true,
+      "summary": "Material filing may amplify gap-and-go after source confirm"
+    },
+    {
+      "id": "eig-e-006",
+      "from": { "kind": "company_event", "id": "evt-004" },
+      "to": { "kind": "strategy_family", "id": "infrastructure_stress_reversal" },
+      "edgeType": "amplifies_family",
+      "transmissionOrder": 1,
+      "playbookId": "playbook_regulatory_shock_reclaim",
+      "summary": "Regulatory or legal action amplifies stress-reclaim family after official-source and halt checks"
+    },
+    {
+      "id": "eig-e-007",
+      "from": { "kind": "company_event", "id": "evt-004" },
+      "to": { "kind": "trend_axis", "id": "trend_global_risk_off" },
+      "edgeType": "biases_trend",
+      "direction": "amplify",
+      "transmissionOrder": 1,
+      "halfLifeMin": 120,
+      "summary": "Regulatory shock with blackout elevates short-horizon risk-off trend bias"
+    },
+    {
+      "id": "eig-e-008",
+      "from": { "kind": "company_event", "id": "evt-005" },
+      "to": { "kind": "research_topic", "id": "topic_product_launch_sympathy" },
+      "edgeType": "spawns_research_topic",
+      "transmissionOrder": 1,
+      "halfLifeMin": 2880,
+      "summary": "Product launch spawns peer sympathy and launch-followthrough research"
+    },
+    {
+      "id": "eig-e-009",
+      "from": { "kind": "company_event", "id": "evt-005" },
+      "to": { "kind": "strategy_family", "id": "gap_and_go" },
+      "edgeType": "amplifies_family",
+      "transmissionOrder": 1,
+      "requiresConfirmation": true,
+      "summary": "Confirmed product launch may amplify gap-and-go when volume concentrates"
+    }
+  ],
+  "policyRules": {
+    "sourceRule": "Primary-source confirmation is required before company-event context can activate a strategy family or clear a blackout.",
+    "freshnessRule": "Archetypes lose bias weight after freshnessWindowMin unless refreshed by new primary-source evidence or verified market response.",
+    "blackoutRule": "When requiresBlackout is true, tactical decomposition must insert no-trade, delayed-entry, or confirmation-only branches until the blackout clears.",
+    "curationRule": "Background curation may refresh reliability scores and evidence packages, but it cannot create direct execution authority."
+  },
+  "diagram": {
+    "flow": [
+      "event_ingest",
+      "primary_source_confirmation",
+      "materiality_scoring",
+      "blackout_or_bias_decision",
+      "strategy_family_bias_update",
+      "nightly_reliability_refresh"
+    ],
+    "nodes": [
+      "research_query_queue",
+      "event_ingest",
+      "temporal_dump_capture",
+      "primary_source_confirmation",
+      "materiality_scoring",
+      "blackout_or_bias_decision",
+      "strategy_family_bias_update",
+      "knowledge_library_promotion",
+      "background_curation_refresh",
+      "nightly_reliability_refresh"
+    ],
+    "edges": [
+      {
+        "from": "research_query_queue",
+        "to": "event_ingest",
+        "label": "targeted company research"
+      },
+      {
+        "from": "event_ingest",
+        "to": "temporal_dump_capture",
+        "label": "timing-aware raw evidence"
+      },
+      { "from": "event_ingest", "to": "primary_source_confirmation", "label": "candidate events" },
+      {
+        "from": "primary_source_confirmation",
+        "to": "materiality_scoring",
+        "label": "confirmed events"
+      },
+      {
+        "from": "materiality_scoring",
+        "to": "blackout_or_bias_decision",
+        "label": "event significance"
+      },
+      {
+        "from": "blackout_or_bias_decision",
+        "to": "strategy_family_bias_update",
+        "label": "amplify suppress invalidate"
+      },
+      {
+        "from": "temporal_dump_capture",
+        "to": "knowledge_library_promotion",
+        "label": "lineage-preserved evidence"
+      },
+      {
+        "from": "strategy_family_bias_update",
+        "to": "knowledge_library_promotion",
+        "label": "promotable catalog deltas"
+      },
+      {
+        "from": "knowledge_library_promotion",
+        "to": "background_curation_refresh",
+        "label": "overnight consolidation inputs"
+      },
+      {
+        "from": "background_curation_refresh",
+        "to": "nightly_reliability_refresh",
+        "label": "curated revalidation"
+      }
+    ]
+  }
+}

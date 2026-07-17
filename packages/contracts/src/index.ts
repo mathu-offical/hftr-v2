@@ -5,3 +5,4 @@ export * from './pipeline';
 export * from './broker';
 export * from './llm';
 export * from './env';
+export * from './templates';

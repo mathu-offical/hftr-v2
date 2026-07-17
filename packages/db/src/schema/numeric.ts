@@ -74,7 +74,9 @@ export const numericValues = pgTable(
 export const calcOperations = pgTable(
   'calc_operations',
   {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     opKind: text('op_kind', { enum: ['static', 'expr'] }).notNull(),
     opName: text('op_name').notNull(), // static op name or serialized expr digest
     formulaVersion: text('formula_version').notNull(),
@@ -95,7 +97,9 @@ export const calcOperations = pgTable(
 export const exchangeCalendars = pgTable(
   'exchange_calendars',
   {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     venue: text('venue').notNull(),
     sessionDate: date('session_date').notNull(),
     timezone: text('timezone').notNull(),

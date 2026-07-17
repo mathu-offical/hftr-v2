@@ -65,7 +65,10 @@ export async function claimJobs(db: Db, clock: Clock, opts: ClaimOptions): Promi
       updated_at = ${now.toISOString()}
     WHERE id IN (
       SELECT id FROM jobs
-      WHERE queue_class = ANY(${opts.queueClasses})
+      WHERE queue_class IN (${sql.join(
+        opts.queueClasses.map((c) => sql`${c}`),
+        sql`, `,
+      )})
         AND run_after <= ${now.toISOString()}
         AND (
           status = 'pending'
@@ -83,7 +86,12 @@ export async function claimJobs(db: Db, clock: Clock, opts: ClaimOptions): Promi
 export async function completeJob(db: Db, clock: Clock, jobId: string): Promise<void> {
   await db
     .update(jobs)
-    .set({ status: 'completed', lockedBy: null, lockedUntil: null, updatedAt: new Date(clock.nowMs()) })
+    .set({
+      status: 'completed',
+      lockedBy: null,
+      lockedUntil: null,
+      updatedAt: new Date(clock.nowMs()),
+    })
     .where(eq(jobs.id, jobId));
 }
 
@@ -97,7 +105,13 @@ export async function failJob(db: Db, clock: Clock, job: ClaimedJob, error: stri
     .update(jobs)
     .set(
       isDead
-        ? { status: 'dead', lastError: error, lockedBy: null, lockedUntil: null, updatedAt: new Date(clock.nowMs()) }
+        ? {
+            status: 'dead',
+            lastError: error,
+            lockedBy: null,
+            lockedUntil: null,
+            updatedAt: new Date(clock.nowMs()),
+          }
         : {
             status: 'pending',
             lastError: error,

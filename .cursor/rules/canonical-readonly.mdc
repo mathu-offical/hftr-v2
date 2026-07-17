@@ -8,9 +8,16 @@ alwaysApply: true
 **Never edit:**
 
 - `DevSpecs/` in this repo (`hftr-v2.init.spec.md`)
-- `/Users/matt-mobile/MATT/web_dev/hftr/DevSpecs/`
-- `/Users/matt-mobile/MATT/web_dev/hftr/agent-docs/`
-- Any file under the v1 implementation used as reference
+- `agent-docs/research/v1-reference/` — the vendored v1 snapshot in this repo
+- The external v1 workspace (`/Users/matt-mobile/MATT/web_dev/hftr/`) — history only
+
+## Independence rule (D-015)
+
+v2 must never depend on the external v1 workspace at build, seed, or runtime. Everything v2
+consumes from v1 is vendored in-repo: reference snapshot at `agent-docs/research/v1-reference/`
+(read-only) and seed catalogs at `packages/db/src/seed/catalogs/` (canonical for v2; edit with
+`catalog_version` bumps). If new v1 material is needed, vendor it in and record provenance in
+`agent-docs/research/v1-carryover.md`.
 
 ## Build alignment rule
 

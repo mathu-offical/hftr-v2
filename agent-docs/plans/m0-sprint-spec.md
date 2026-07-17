@@ -4,6 +4,26 @@ Concrete, ordered tasks for milestone M0 from `master-build-plan.md`. Each task 
 outputs so an implementation session can execute without re-planning. Versions below are
 "latest stable at install time" — record actual pinned versions here once installed.
 
+## Scaffold status (2026-07-16)
+
+Implemented and verified (`pnpm typecheck && pnpm lint && pnpm test` green; 25 tests;
+`next build` succeeds). Pinned: typescript 5.9.3, turbo 2.10.5, next 15.x, react 19.1,
+zod 3.x, drizzle-orm 0.44.x, drizzle-kit 0.31.x, @clerk/nextjs 6.x, @neondatabase/serverless 1.x,
+tailwindcss 4.1.x, vitest 3.2.7, prettier 3.9.5.
+
+- **Done:** monorepo (T0.1), Clerk middleware + shell (T0.2 minus `ensureProfile()`),
+  drizzle schema for 001–003 domains **plus** the numeric/temporal store + exchange_calendars
+  (pulled forward from M2), scoping helpers, contracts seed incl. `ENVIRONMENT_REQUIREMENTS`
+  test (T0.4), `/api/health`, `vercel.json` cron (T0.5 partial), design tokens v0 (T0.6 partial).
+- **Beyond M0 scope, already working:** queue (enqueue/claim/drain/backoff/sweep), clock +
+  calendar services, calc core (fixed-point, unit algebra, expr evaluator, sanity gauntlet,
+  leak linter), `callSchema` LLM wrapper, paper-sim adapter, hardened companies/modules/links
+  API routes (see `apps/web/README.md` for the hardening contract).
+- **Still open for G0:** migrations generated + applied against a real Neon DB,
+  `ensureProfile()` upsert, GitHub Actions CI, Vercel project link, shadcn/ui init,
+  the `Date.now()` ban lint rule (clock discipline currently by convention + review),
+  scoped-import lint test, Playwright flow 0.
+
 ## T0.1 — Monorepo scaffold
 
 - `pnpm init` at repo root; `pnpm-workspace.yaml` with `apps/*`, `packages/*` (ONLY real

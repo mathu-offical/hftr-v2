@@ -11,9 +11,18 @@ export type EnvRequirement = {
 
 export const ENVIRONMENT_REQUIREMENTS: readonly EnvRequirement[] = [
   { name: 'DATABASE_URL', requiredIn: ['dev', 'preview', 'prod'], consumer: '@hftr/db' },
-  { name: 'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY', requiredIn: ['dev', 'preview', 'prod'], consumer: 'apps/web' },
+  {
+    name: 'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY',
+    requiredIn: ['dev', 'preview', 'prod'],
+    consumer: 'apps/web',
+  },
   { name: 'CLERK_SECRET_KEY', requiredIn: ['dev', 'preview', 'prod'], consumer: 'apps/web' },
-  { name: 'CRON_SECRET', requiredIn: ['preview', 'prod'], consumer: 'apps/web (queue drain, cron)' },
+  { name: 'DEV_AUTH_BYPASS', requiredIn: [], consumer: 'apps/web (dev-only auth bypass)' },
+  {
+    name: 'CRON_SECRET',
+    requiredIn: ['preview', 'prod'],
+    consumer: 'apps/web (queue drain, cron)',
+  },
   { name: 'ANTHROPIC_API_KEY', requiredIn: [], consumer: '@hftr/llm (strategic tier)' },
   { name: 'MISTRAL_API_KEY', requiredIn: [], consumer: '@hftr/llm (tactical/assistant tiers)' },
   { name: 'GROQ_API_KEY', requiredIn: [], consumer: '@hftr/llm (execution tier)' },
@@ -24,5 +33,9 @@ export const ENVIRONMENT_REQUIREMENTS: readonly EnvRequirement[] = [
   { name: 'STRIPE_WEBHOOK_SECRET', requiredIn: [], consumer: 'apps/web (billing, M4)' },
   { name: 'ALPACA_PAPER_KEY', requiredIn: [], consumer: '@hftr/adapters (CI smoke tests)' },
   { name: 'ALPACA_PAPER_SECRET', requiredIn: [], consumer: '@hftr/adapters (CI smoke tests)' },
-  { name: 'CREDENTIALS_ENCRYPTION_KEY', requiredIn: ['preview', 'prod'], consumer: 'apps/web (broker credentials at rest)' },
+  {
+    name: 'CREDENTIALS_ENCRYPTION_KEY',
+    requiredIn: ['preview', 'prod'],
+    consumer: 'apps/web (broker credentials at rest)',
+  },
 ] as const;

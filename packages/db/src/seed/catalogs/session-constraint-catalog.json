@@ -1,0 +1,240 @@
+{
+  "asOf": "2026-05-19",
+  "status": "in_progress",
+  "purpose": "Seeded session constraint catalog used to enforce order-type legality, routing, and data-feed compatibility across regular, extended, and overnight equity sessions.",
+  "querySurfaces": {
+    "moduleQueries": [
+      "session_summary",
+      "legality_matrix_lookup",
+      "feed_compatibility_review",
+      "order_type_policy_lookup",
+      "lifecycle_reconcile_review",
+      "control_surface_review"
+    ],
+    "progressiveAccessLevels": [
+      {
+        "level": "overview",
+        "returns": [
+          "name",
+          "hoursEt",
+          "assetClass",
+          "extendedHoursFlagRequired",
+          "buyingPowerCheckBasis"
+        ]
+      },
+      {
+        "level": "analyst",
+        "returns": [
+          "orderTypeMatrix",
+          "assetEligibility",
+          "marketDataFeeds",
+          "specialRules",
+          "verificationSignals"
+        ]
+      },
+      {
+        "level": "lineage",
+        "returns": ["crossSessionRules", "runtimeControlSurface"]
+      }
+    ]
+  },
+  "runtimeControlSurface": {
+    "weightingDrivers": [
+      "session_clock_state",
+      "asset_eligibility",
+      "feed_availability",
+      "spread_and_liquidity_state",
+      "broker_policy_compatibility"
+    ],
+    "boundedRangeFamilies": [
+      "session_spread_ceiling_band",
+      "order_legality_band",
+      "feed_freshness_band",
+      "reconcile_timeout_band"
+    ],
+    "granularityByLayer": {
+      "research": "Session packages keep the full legality matrix, feed choices, lifecycle caveats, and cross-session rules for audit and policy verification.",
+      "strategic": "Upstream layers receive coarse session posture, asset-class eligibility, and major routing vetoes instead of full order-type matrices.",
+      "tactical": "Branch builders receive session-specific legality, feed, and queue-or-dispatch rules needed to construct compatible decision trees.",
+      "execution_agent": "Only the active session legality snapshot, feed selection, and route-compatible order fields should remain before deterministic enforcement.",
+      "training_feedback": "Replay review may recalibrate session-specific timing and feed assumptions inside seeded bounds without mutating hard legality rules."
+    },
+    "policyRule": "Session packages decide legality and routing compatibility upstream, but final order-form enforcement and broker legality checks remain deterministic at dispatch time."
+  },
+  "sessions": [
+    {
+      "id": "sess-001",
+      "name": "regular_equities",
+      "assetClass": "us_equities",
+      "hoursEt": "09:30-16:00",
+      "days": "monday-friday",
+      "orderTypeMatrix": {
+        "market": ["gtc", "day", "ioc", "fok", "opg", "cls"],
+        "limit": ["gtc", "day", "ioc", "fok", "opg", "cls"],
+        "stop": ["gtc", "day"],
+        "stop_limit": ["gtc", "day"]
+      },
+      "extendedHoursFlagRequired": false,
+      "buyingPowerCheckBasis": "far_side_of_nbbo",
+      "specialRules": [
+        "opening_and_closing_auction_time_in_force_rules_apply_to_opg_and_cls",
+        "trailing_stop_triggers_only_during_regular_market_hours",
+        "accepted_state_is_uncommon_during_active_regular_session_and_should_reconcile_quickly"
+      ],
+      "verificationSignals": [
+        "session_clock",
+        "order.type",
+        "order.time_in_force",
+        "auction_window_validity",
+        "broker_market_clock_state"
+      ]
+    },
+    {
+      "id": "sess-002",
+      "name": "pre_market_equities",
+      "assetClass": "us_equities",
+      "hoursEt": "04:00-09:30",
+      "days": "monday-friday",
+      "orderTypeMatrix": {
+        "limit": ["gtc", "day"]
+      },
+      "extendedHoursFlagRequired": true,
+      "buyingPowerCheckBasis": "midpoint_of_inside_market",
+      "specialRules": [
+        "only_limit_orders_with_day_or_gtc_are_extended_hours_eligible",
+        "orders_without_extended_hours_eligibility_queue_for_next_regular_session",
+        "fractional_extended_hours_sequences_must_not_create_net_short_state"
+      ],
+      "verificationSignals": [
+        "order.extended_hours",
+        "order.type",
+        "order.time_in_force",
+        "session_router_state",
+        "inside_market_midpoint"
+      ]
+    },
+    {
+      "id": "sess-003",
+      "name": "after_hours_equities",
+      "assetClass": "us_equities",
+      "hoursEt": "16:00-20:00",
+      "days": "monday-friday",
+      "orderTypeMatrix": {
+        "limit": ["gtc", "day"]
+      },
+      "extendedHoursFlagRequired": true,
+      "buyingPowerCheckBasis": "midpoint_of_inside_market",
+      "specialRules": [
+        "only_limit_orders_with_day_or_gtc_are_extended_hours_eligible",
+        "orders_not_marked_extended_hours_queue_for_next_trading_day",
+        "spread_and_liquidity_instability_should_bias_toward_no_trade_or_confirmation_only_paths"
+      ],
+      "verificationSignals": [
+        "order.extended_hours",
+        "order.type",
+        "order.time_in_force",
+        "session_router_state",
+        "spread_state"
+      ]
+    },
+    {
+      "id": "sess-004",
+      "name": "overnight_equities",
+      "assetClass": "us_equities_nms_only",
+      "hoursEt": "20:00-04:00",
+      "days": "sunday_evening_to_friday_morning",
+      "orderTypeMatrix": {
+        "limit": ["gtc", "day"]
+      },
+      "extendedHoursFlagRequired": true,
+      "buyingPowerCheckBasis": "midpoint_of_inside_market",
+      "assetEligibility": ["overnight_tradable_true", "overnight_halted_false"],
+      "marketDataFeeds": {
+        "freePlan": [
+          "overnight_latest_bars",
+          "overnight_indicative_quotes",
+          "overnight_delayed_trades",
+          "boats_historical_delayed"
+        ],
+        "paidPlan": [
+          "boats_realtime_quotes",
+          "boats_realtime_trades",
+          "boats_snapshots",
+          "boats_historical"
+        ]
+      },
+      "specialRules": [
+        "day_orders_remain_active_through_pre_market_regular_and_after_hours_until_20_00_et_if_unfilled",
+        "gtc_orders_expire_90_days_after_submission_unless_canceled_or_ended_by_corporate_action",
+        "day_trading_buying_power_does_not_apply_in_overnight_session_and_margin_checks_must_follow_overnight_rules",
+        "trades_between_20_00_and_23_59_et_are_assigned_next_trade_date_while_trades_between_00_00_and_04_00_et_are_assigned_current_trade_date",
+        "corporate_actions_or_pending_news_may_leave_orders_accepted_but_pending_until_the_next_eligible_session"
+      ],
+      "verificationSignals": [
+        "asset.overnight_tradable",
+        "asset.overnight_halted",
+        "order.extended_hours",
+        "order.type",
+        "order.time_in_force",
+        "selected_market_data_feed",
+        "trade_date_assignment"
+      ]
+    }
+  ],
+  "crossSessionRules": {
+    "extendedHoursOrderRule": "For equity extended-hours routing, only limit orders with time_in_force day or gtc are eligible and extended_hours must be true.",
+    "advancedOrderRule": "Bracket, OCO, and OTO workflows are not extended-hours eligible and must route only through compatible regular-session paths.",
+    "trailingStopRule": "Trailing stop orders do not trigger outside regular market hours even if they persist across sessions.",
+    "agedOrderRule": "GTC orders are subject to aged-order cancellation after 90 days and remain pending_cancel until the venue confirms cancellation.",
+    "lifecycleRule": "Accepted status is common outside active routing windows and must be reconciled via trade_updates and REST polling before any retry decision.",
+    "ipoRule": "IPO symbols require limit-only entry before first exchange trade and must read the asset ipo attribute before dispatch."
+  },
+  "diagram": {
+    "flow": [
+      "session_clock_eval",
+      "asset_eligibility_eval",
+      "order_type_and_tif_legality_check",
+      "broker_policy_overlay",
+      "market_data_feed_selection",
+      "dispatch_or_queue_decision",
+      "lifecycle_reconcile"
+    ],
+    "nodes": [
+      "session_clock_eval",
+      "asset_eligibility_eval",
+      "order_type_and_tif_legality_check",
+      "broker_policy_overlay",
+      "market_data_feed_selection",
+      "dispatch_or_queue_decision",
+      "lifecycle_reconcile"
+    ],
+    "edges": [
+      { "from": "session_clock_eval", "to": "asset_eligibility_eval", "label": "active session" },
+      {
+        "from": "asset_eligibility_eval",
+        "to": "order_type_and_tif_legality_check",
+        "label": "eligible asset scope"
+      },
+      {
+        "from": "order_type_and_tif_legality_check",
+        "to": "broker_policy_overlay",
+        "label": "legal order forms"
+      },
+      {
+        "from": "broker_policy_overlay",
+        "to": "market_data_feed_selection",
+        "label": "policy-compatible routing"
+      },
+      {
+        "from": "market_data_feed_selection",
+        "to": "dispatch_or_queue_decision",
+        "label": "feed-aware route"
+      },
+      {
+        "from": "dispatch_or_queue_decision",
+        "to": "lifecycle_reconcile",
+        "label": "accepted, queued, or dispatched states"
+      }
+    ]
+  }
+}

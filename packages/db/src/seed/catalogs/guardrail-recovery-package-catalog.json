@@ -1,0 +1,371 @@
+{
+  "asOf": "2026-05-19",
+  "status": "in_progress",
+  "purpose": "First-class guardrail and recovery package catalog used to keep deterministic failure semantics, recovery ladders, and escalation paths independently queryable instead of buried in strategy prose.",
+  "querySurfaces": {
+    "moduleQueries": [
+      "guardrail_summary",
+      "package_detail",
+      "family_binding_lookup",
+      "recovery_ladder_review",
+      "failure_code_lookup",
+      "control_surface_review"
+    ],
+    "progressiveAccessLevels": [
+      {
+        "level": "overview",
+        "returns": ["name", "class", "primaryTriggers", "boundStrategies", "deterministicOutcome"]
+      },
+      {
+        "level": "analyst",
+        "returns": [
+          "failureCodes",
+          "recoveryLadder",
+          "boundSectors",
+          "escalationPath",
+          "verificationSignals"
+        ]
+      },
+      {
+        "level": "lineage",
+        "returns": [
+          "operatorVisibility",
+          "reviewCadence",
+          "linkedKnowledge",
+          "runtimeControlSurface"
+        ]
+      }
+    ]
+  },
+  "runtimeControlSurface": {
+    "weightingDrivers": [
+      "failure_density",
+      "liquidity_stress",
+      "session_legality_state",
+      "correlation_stability",
+      "policy_severity"
+    ],
+    "boundedRangeFamilies": [
+      "cooldown_window_band",
+      "reprice_distance_band",
+      "reentry_delay_band",
+      "inventory_retreat_band"
+    ],
+    "granularityByLayer": {
+      "research": "Guardrail packages keep full failure-code lineage, recovery order, and sector or strategy bindings for audit and promotion review.",
+      "strategic": "Upstream layers receive active veto state and recovery posture without the full operational ladder.",
+      "tactical": "Branch builders receive concrete recovery ladders, abort conditions, and cooldown posture before instruction compilation.",
+      "execution_agent": "Only deterministic failure codes, active guardrail snapshots, and recovery-safe field constraints should remain before dispatch.",
+      "training_feedback": "Replay review may recalibrate cooldowns and reprice envelopes inside seeded bounds, but failure semantics and hard blocks remain immutable."
+    },
+    "policyRule": "Guardrail packages can block, defer, downgrade, or reroute execution, but they may never be bypassed by provider output or discretionary interpretation below tier 3."
+  },
+  "packages": [
+    {
+      "id": "grd-001",
+      "name": "event_conflict_blackout",
+      "class": "catalyst_conflict_guardrail",
+      "primaryTriggers": [
+        "unconfirmed_event_cluster",
+        "secondary_disclosure_conflict",
+        "headline_scope_unclear"
+      ],
+      "failureCodes": ["EVT_BLACKOUT_ACTIVE", "EVT_SOURCE_UNCONFIRMED", "EVT_CONFLICT_UNRESOLVED"],
+      "recoveryLadder": [
+        "halt_new_entries",
+        "refresh_primary_source",
+        "wait_for_confirmation_window",
+        "allow_reentry_only_if_event_quality_recovers"
+      ],
+      "boundStrategies": ["gap_and_go", "earnings_guidance_drift", "opening_range_breakout"],
+      "boundSectors": [
+        "technology",
+        "consumer_discretionary",
+        "health_care",
+        "crypto_equities_and_proxies"
+      ],
+      "deterministicOutcome": "blackout_then_delayed_reentry_only",
+      "escalationPath": "research_queue_confirmation_then_operator_visible_block",
+      "verificationSignals": [
+        "primary_source_confirmed",
+        "event_window_active",
+        "secondary_disclosure_rechecked"
+      ],
+      "operatorVisibility": ["block_reason", "source_status", "reentry_eligibility"],
+      "reviewCadence": "intraday on active event windows and nightly for reliability refresh",
+      "linkedKnowledge": [
+        "company-event-archetype-catalog.json",
+        "compliance-policy-package-catalog.json"
+      ]
+    },
+    {
+      "id": "grd-002",
+      "name": "macro_blackout_and_delayed_reentry",
+      "class": "macro_and_policy_guardrail",
+      "primaryTriggers": [
+        "requires_blackout_macro_trigger",
+        "dispersion_above_band",
+        "macro_followthrough_unstable"
+      ],
+      "failureCodes": ["MACRO_BLACKOUT_ACTIVE", "MACRO_REENTRY_NOT_READY", "DISPERSION_TOO_HIGH"],
+      "recoveryLadder": [
+        "insert_no_trade_window",
+        "monitor_dispersion_decay",
+        "require_spread_normalization",
+        "reopen_reentry_with_reduced_envelope"
+      ],
+      "boundStrategies": ["opening_range_breakout", "vwap_reversion", "liquidity_sweep_reversal"],
+      "boundSectors": ["financials", "technology", "real_estate", "utilities"],
+      "deterministicOutcome": "defer_then_reprice_inside_bounded_reentry_window",
+      "escalationPath": "macro_policy_overlay_then_tactical_recompile",
+      "verificationSignals": [
+        "blackout_window_elapsed",
+        "dispersion_decay_confirmed",
+        "session_legality_clear"
+      ],
+      "operatorVisibility": ["macro_blackout_state", "reentry_countdown", "dispersion_status"],
+      "reviewCadence": "every scheduled macro event and nightly thereafter",
+      "linkedKnowledge": [
+        "macro-geopolitical-trigger-catalog.json",
+        "compliance-policy-package-catalog.json"
+      ]
+    },
+    {
+      "id": "grd-003",
+      "name": "liquidity_pause_and_defer",
+      "class": "liquidity_and_spread_guardrail",
+      "primaryTriggers": [
+        "spread_above_ceiling",
+        "quote_freshness_stale",
+        "off_hours_liquidity_absent"
+      ],
+      "failureCodes": ["LIQUIDITY_TOO_THIN", "SPREAD_CEILING_BREACH", "QUOTE_FRESHNESS_INVALID"],
+      "recoveryLadder": [
+        "pause_new_entries",
+        "refresh_market_data",
+        "defer_to_better_session_or_symbol",
+        "resume_only_if_liquidity_recovers"
+      ],
+      "boundStrategies": [
+        "extended_overnight_session_response",
+        "market_making",
+        "liquidity_sweep_reversal"
+      ],
+      "boundSectors": ["materials", "utilities", "crypto_equities_and_proxies", "consumer_staples"],
+      "deterministicOutcome": "defer_or_reject_until_liquidity_returns",
+      "escalationPath": "session_overlay_then_operator_alert_if_persistent",
+      "verificationSignals": ["spread_within_band", "quote_age_ms_valid", "depth_snapshot_present"],
+      "operatorVisibility": ["spread_state", "quote_age", "next_review_time"],
+      "reviewCadence": "continuous intraday and session-transition review",
+      "linkedKnowledge": ["session-constraint-catalog.json", "broker-policy-envelope-catalog.json"]
+    },
+    {
+      "id": "grd-004",
+      "name": "cancel_replace_and_reprice",
+      "class": "order_workflow_recovery",
+      "primaryTriggers": ["limit_order_stale", "partial_fill_stall", "session_spread_shift"],
+      "failureCodes": ["ORDER_STALE_REPRICE", "PARTIAL_FILL_TIMEOUT", "SESSION_PRICE_DRIFT"],
+      "recoveryLadder": [
+        "cancel_open_child_order",
+        "recompute_price_inside_bounded_band",
+        "replace_with_new_client_order_id_lineage",
+        "abort_if_retry_budget_exhausted"
+      ],
+      "boundStrategies": [
+        "extended_overnight_session_response",
+        "opening_range_breakout",
+        "earnings_guidance_drift"
+      ],
+      "boundSectors": ["technology", "energy", "crypto_equities_and_proxies"],
+      "deterministicOutcome": "bounded_cancel_replace_then_abort_if_not_filled",
+      "escalationPath": "broker_policy_envelope_retry_path_then_fail_closed",
+      "verificationSignals": [
+        "replace_budget_remaining",
+        "new_limit_price_valid",
+        "client_order_id_lineage_intact"
+      ],
+      "operatorVisibility": ["retry_count", "current_limit_band", "replacement_status"],
+      "reviewCadence": "continuous for active limit-order workflows",
+      "linkedKnowledge": ["broker-policy-envelope-catalog.json", "session-constraint-catalog.json"]
+    },
+    {
+      "id": "grd-005",
+      "name": "correlation_break_abort",
+      "class": "relative_value_and_sympathy_guardrail",
+      "primaryTriggers": [
+        "leader_failure",
+        "correlation_stability_broken",
+        "spread_zscore_no_longer_valid"
+      ],
+      "failureCodes": ["CORRELATION_BREAK", "LEADER_FAILURE_ABORT", "SPREAD_MODEL_INVALID"],
+      "recoveryLadder": [
+        "abort_sympathy_or_pair_entry",
+        "refresh_correlation_model",
+        "rebuild_map_before_new_activation"
+      ],
+      "boundStrategies": ["lead_lag_propagation", "pairs_stat_arb", "pullback_continuation"],
+      "boundSectors": ["technology", "financials", "industrials", "real_estate"],
+      "deterministicOutcome": "abort_and_require_new_leader_or_model_confirmation",
+      "escalationPath": "correlation_refresh_then_tactical_rebind",
+      "verificationSignals": [
+        "correlation_score_above_floor",
+        "leader_still_valid",
+        "spread_model_fresh"
+      ],
+      "operatorVisibility": ["correlation_score", "leader_status", "model_freshness"],
+      "reviewCadence": "intraday per active spread or sympathy map",
+      "linkedKnowledge": ["trend-lead-pattern-library.json", "sector-behavior-seed-catalog.json"]
+    },
+    {
+      "id": "grd-006",
+      "name": "inventory_skew_retreat",
+      "class": "inventory_and_adverse_selection_guardrail",
+      "primaryTriggers": ["inventory_limit_hit", "fill_side_imbalance", "adverse_selection_signal"],
+      "failureCodes": ["INVENTORY_LIMIT", "FILL_IMBALANCE", "ADVERSE_SELECTION_RISK"],
+      "recoveryLadder": [
+        "widen_quotes_or_pull_one_side",
+        "reduce_inventory",
+        "pause_market_making_if_stress_persists"
+      ],
+      "boundStrategies": ["market_making"],
+      "boundSectors": ["financials", "technology", "energy"],
+      "deterministicOutcome": "de_risk_inventory_before_any_new_quote_cycle",
+      "escalationPath": "inventory_retreat_then_quote_cancel_all_if_needed",
+      "verificationSignals": [
+        "inventory_units_within_band",
+        "quote_width_floor_valid",
+        "fill_side_balance_stable"
+      ],
+      "operatorVisibility": ["inventory_state", "skew_direction", "retreat_status"],
+      "reviewCadence": "continuous during market-making eligibility windows",
+      "linkedKnowledge": [
+        "execution-microstructure-and-order-quality.md",
+        "broker-policy-envelope-catalog.json"
+      ]
+    },
+    {
+      "id": "grd-007",
+      "name": "session_legality_defer",
+      "class": "session_and_order_form_guardrail",
+      "primaryTriggers": [
+        "order_type_illegal_for_session",
+        "asset_not_session_eligible",
+        "market_data_feed_incompatible"
+      ],
+      "failureCodes": [
+        "SESSION_ILLEGAL_ORDER_FORM",
+        "SESSION_ASSET_INELIGIBLE",
+        "SESSION_FEED_INCOMPATIBLE"
+      ],
+      "recoveryLadder": [
+        "defer_to_legal_session",
+        "recompile_limit_only_variant",
+        "abort_if_no_legal_route_exists"
+      ],
+      "boundStrategies": [
+        "extended_overnight_session_response",
+        "gap_and_go",
+        "opening_range_breakout",
+        "earnings_guidance_drift"
+      ],
+      "boundSectors": [
+        "technology",
+        "energy",
+        "crypto_equities_and_proxies",
+        "consumer_discretionary"
+      ],
+      "deterministicOutcome": "queue_or_abort_until_session_constraints_clear",
+      "escalationPath": "session_router_then_operator_visible_legality_block",
+      "verificationSignals": [
+        "session_router_valid",
+        "asset_eligible",
+        "order_form_legal",
+        "market_data_feed_available"
+      ],
+      "operatorVisibility": ["session_type", "legal_order_forms", "next_eligible_window"],
+      "reviewCadence": "session-transition driven and nightly policy refresh",
+      "linkedKnowledge": [
+        "session-constraint-catalog.json",
+        "compliance-policy-package-catalog.json"
+      ]
+    },
+    {
+      "id": "grd-008",
+      "name": "account_connect_fail_closed",
+      "class": "account_and_live_mode_guardrail",
+      "primaryTriggers": [
+        "broker_connectivity_failed",
+        "account_scope_invalid",
+        "approval_scope_missing"
+      ],
+      "failureCodes": [
+        "ACCOUNT_CONNECT_FAIL_CLOSED",
+        "ACCOUNT_SCOPE_INVALID",
+        "APPROVAL_SCOPE_MISSING"
+      ],
+      "recoveryLadder": [
+        "block_live_submission",
+        "refresh_account_health",
+        "remain_in_paper_mode_until_revalidated"
+      ],
+      "boundStrategies": ["all_live_routable_families"],
+      "boundSectors": ["all"],
+      "deterministicOutcome": "fail_closed_and_restrict_to_paper_or_read_only",
+      "escalationPath": "security_and_compliance_review_before_live_reenable",
+      "verificationSignals": [
+        "account_connect_health_green",
+        "approval_scope_present",
+        "policy_owner_clear"
+      ],
+      "operatorVisibility": ["account_health", "approval_scope", "live_mode_status"],
+      "reviewCadence": "continuous for live mode and daily for account health review",
+      "linkedKnowledge": [
+        "compliance-policy-package-catalog.json",
+        "broker-policy-envelope-catalog.json"
+      ]
+    }
+  ],
+  "diagram": {
+    "nodes": [
+      "guardrail_package_selection",
+      "trigger_and_failure_code_eval",
+      "strategy_or_sector_binding_check",
+      "recovery_ladder_router",
+      "operator_visibility_and_trace",
+      "deterministic_dispatch_gate",
+      "feedback_refresh"
+    ],
+    "edges": [
+      {
+        "from": "guardrail_package_selection",
+        "to": "trigger_and_failure_code_eval",
+        "label": "active package"
+      },
+      {
+        "from": "trigger_and_failure_code_eval",
+        "to": "strategy_or_sector_binding_check",
+        "label": "failure state"
+      },
+      {
+        "from": "strategy_or_sector_binding_check",
+        "to": "recovery_ladder_router",
+        "label": "bound recovery"
+      },
+      {
+        "from": "recovery_ladder_router",
+        "to": "operator_visibility_and_trace",
+        "label": "visible outcome"
+      },
+      {
+        "from": "operator_visibility_and_trace",
+        "to": "deterministic_dispatch_gate",
+        "label": "safe or blocked path"
+      },
+      {
+        "from": "feedback_refresh",
+        "to": "guardrail_package_selection",
+        "label": "reliability refresh"
+      }
+    ]
+  }
+}

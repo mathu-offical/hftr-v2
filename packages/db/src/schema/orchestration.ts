@@ -37,7 +37,9 @@ const QUEUE_CLASSES = [
 export const jobs = pgTable(
   'jobs',
   {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     queueClass: text('queue_class', { enum: QUEUE_CLASSES }).notNull(),
     kind: text('kind').notNull(), // handler key, e.g. "maintenance.sweep"
     priority: integer('priority').notNull().default(10),
@@ -67,7 +69,9 @@ export const jobs = pgTable(
 export const jobSchedules = pgTable(
   'job_schedules',
   {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     name: text('name').notNull(),
     cronExpr: text('cron_expr').notNull(),
     queueClass: text('queue_class', { enum: QUEUE_CLASSES }).notNull(),
@@ -85,7 +89,9 @@ export const jobSchedules = pgTable(
 export const llmCalls = pgTable(
   'llm_calls',
   {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     provider: text('provider', { enum: ['anthropic', 'mistral', 'groq'] }).notNull(),
     model: text('model').notNull(),
     tier: text('tier', { enum: ['strategic', 'tactical', 'execution', 'assistant'] }).notNull(),
@@ -107,7 +113,9 @@ export const llmCalls = pgTable(
 export const llmBudgets = pgTable(
   'llm_budgets',
   {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     scope: text('scope', { enum: ['user', 'company', 'module'] }).notNull(),
     scopeId: text('scope_id').notNull(),
     provider: text('provider', { enum: ['anthropic', 'mistral', 'groq'] }).notNull(),

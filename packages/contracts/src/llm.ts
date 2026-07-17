@@ -38,7 +38,9 @@ export type LlmCallRequest = z.infer<typeof LlmCallRequest>;
 export const LlmCallOutcome = z.object({
   ok: z.boolean(),
   output: z.unknown().nullable(),
-  failure: z.enum(['schema_validation_failed', 'numeric_leak', 'provider_error', 'budget_exceeded']).nullable(),
+  failure: z
+    .enum(['schema_validation_failed', 'numeric_leak', 'provider_error', 'budget_exceeded'])
+    .nullable(),
   provider: LlmProvider,
   model: z.string(),
   tokensIn: z.number().int().nonnegative(),

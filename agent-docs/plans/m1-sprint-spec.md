@@ -2,6 +2,25 @@
 
 Execution-level detail for milestone M1. Depends on G0 passing.
 
+## Progress (2026-07-16)
+
+Verified in the running app (browser-driven: company created through the UI, canvas rendered,
+modules added from palette, node rename/status via inspector, `library → trend` data_feed edge
+created, invalid link 422, math delete 422, noop job enqueued → drained → completed):
+
+- **T1.1 partial:** create-company form (name/philosophy/seed, paper-only) on `/companies`;
+  auto Math module; archive via API. Wizard steps/templates/switcher still open.
+- **T1.2 partial:** React Flow canvas at `/companies/[companyId]` — type-tinted `ModuleNode`,
+  palette add, drag-persisted positions, LINK_RULES-validated edges (client + server), pinned
+  non-deletable Math node, inspector panel (rename/status/delete). Uses `useNodesState` (v12
+  requires measured dims to round-trip — deriving nodes per-render leaves them hidden).
+  Column snap, LOD, minimap, edge delete still open.
+- **T1.3 queue spine:** live — drain endpoint verified end-to-end against Neon; queue stats
+  chip in the top bar. Schedules/materializer still open.
+- **Infra:** Neon project `hftr-v2` (bold-surf-86557348) created + migrated + XNYS calendar
+  seeded (2026–27); GitHub Actions CI added; dev auth bypass (`DEV_AUTH_BYPASS=1`, inactive in
+  production or once Clerk keys are set). Clerk keys still needed for real auth (user action).
+
 ## T1.1 — Company CRUD + wizard
 
 - Server actions: `createCompany`, `updateCompany`, `archiveCompany` (Zod-validated,
@@ -86,3 +105,39 @@ Execution-level detail for milestone M1. Depends on G0 passing.
 - [ ] Assistant answers module-status questions using read tools only
 - [ ] Playwright flow 1 (sign-up → company → canvas) green
 - [ ] agent-docs updated (progress, deviations, any new OQs)
+
+## Pulled forward from M2 (2026-07-16)
+
+The operator-initiated paper dispatch spine shipped early (decision D-014): `dispatch.paper_trade`
+DISPATCH-queue handler, deterministic engine path
+(`packages/engine/src/dispatch/paper-trade.ts`), synthetic quote source, pipeline tables
+(instructions/tasks/traces/verifications/ledger), trade route
+(`POST /api/companies/:id/modules/:mid/trade`), activity projection
+(`GET /api/companies/:id/activity`), link `DELETE`, edge deletion on canvas, paper-trade form in
+the inspector, and the Activity right rail. Verified end-to-end against the live server + Neon:
+enqueue → drain → filled task → passing verification (quantity, fill deviation ≤ 50 bps, limit
+respected) → ledger debit with correct derived balance. All checks green (typecheck, lint, tests,
+production build).
+
+## Session 2026-07-16 (continued build, decision D-016)
+
+- **T1.4 node status projections shipped:** `GET /api/companies/:id/canvas` composes a text-first
+  status line per module (job counts, last trade outcome, last trend); canvas polls every 5s and
+  nodes show a pulse dot while jobs are active.
+- **Positions:** `positions` table + engine bookkeeping (avg cost, realized PnL, no-shorting
+  gauntlet with `broker_policy_block`); `GET .../positions` marks to market against the quote
+  source. Unit-tested pure math (`nextAverageCost`, `realizedOnSell`).
+- **Catalogs in DB:** `catalog_entries` seeded from the vendored JSONs
+  (`pnpm --filter @hftr/db exec tsx src/seed/seed-catalogs.ts`, 97 entries); trading inspector
+  strategy-family picker reads `/api/catalogs/strategy_families` and persists through the
+  schema-validated module PATCH.
+- **Trend scan:** deterministic `trend.scan` RESEARCH handler → `trend_candidates`
+  (`deterministic_scan` source class) + drift ValueRefs; "Scan now" control on trend modules.
+- **Templates:** `blank` / `day_trading_starter` / `trend_research_lab` in contracts; picker in
+  the create-company form; configs contract-tested against `MODULE_CONFIG_SCHEMAS`.
+- **Info rail:** right panel now tabbed — Activity / Positions / Trends / Values (Math ValueRef
+  audit: value, unit, kind, source class, source id, capture time).
+- **Verified in browser with a real Clerk test account:** sign-up, templated company creation,
+  activate modules, scan (4 candidates), buy 10 AAPL, sell 4 (balance $10,000 → $8,545.50 →
+  $9,125.14; position 10 → 6 with realized PnL); oversell blocked at engine. All checks green.
+- Remaining M1 gate items: panel keyboard routes, read-only assistant, Playwright flows.

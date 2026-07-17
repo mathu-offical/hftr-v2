@@ -16,6 +16,7 @@ Run at the beginning of every substantial task (implementation, architecture, UI
 - [ ] Scan dev-intent/decisions-log.md for recent D-nnn / open OQ-n
 - [ ] If porting from v1: read research/v1-carryover.md + invoke v1-reference skill
 - [ ] Confirm safety invariants still apply to this task (hftr-safety-invariants rule)
+- [ ] If multi-package/domain: plan parallel sub-agents (`parallel-orchestration` skill, composer-2.5 only)
 ```
 
 ## Milestone alignment

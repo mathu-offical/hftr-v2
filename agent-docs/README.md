@@ -7,11 +7,13 @@ implementation proceeds.
 ## Canonical references (read-only)
 
 - `../DevSpecs/hftr-v2.init.spec.md` — the v2 initializing spec. Never edit.
-- `/Users/matt-mobile/MATT/web_dev/hftr/DevSpecs/` — v1 original intent. Never edit.
-- `/Users/matt-mobile/MATT/web_dev/hftr/agent-docs/` — v1 curated docs (contracts, catalogs,
-  bounded ranges, guardrails). Never edit. Treat as the richest source of carried-forward detail.
-- `/Users/matt-mobile/MATT/web_dev/hftr/` implementation — reference-only prototype; do not copy
-  blindly (its DB types are stale, LLM/broker layers are stubs).
+- `research/v1-reference/` — vendored v1 snapshot (bands, wiki concepts, compliance baseline,
+  contract/pipeline code reference). Never edit; see its README.
+- `../packages/db/src/seed/catalogs/` — vendored v1 seed catalogs (canonical for v2; edit with
+  `catalog_version` bumps).
+- **This repository is fully independent of the v1 workspace** — no build, seed, or runtime
+  step reads from `/Users/matt-mobile/MATT/web_dev/hftr/`. The external v1 project is
+  historical provenance only (D-015); do not reintroduce cross-workspace references.
 
 ## Directory map
 
@@ -30,6 +32,13 @@ implementation proceeds.
 | `research/v1-carryover.md` | Everything ported from v1: contracts, bands, catalogs, guardrails |
 | `research/tech-decisions.md` | Justified technology choices with alternatives considered |
 | `dev-intent/decisions-log.md` | Dated log of user decisions and clarifications |
+
+## Implementation status
+
+The monorepo is scaffolded and verified (2026-07-16): six workspaces (`apps/web`,
+`packages/contracts|db|engine|llm|adapters`), typecheck/lint/tests green, `next build` passing.
+Each workspace README documents its architecture and major functions; the root `README.md` maps
+the layout. Current progress + remaining G0 items: `plans/m0-sprint-spec.md` §Scaffold status.
 
 ## Curation contract
 
@@ -66,4 +75,4 @@ They extend — do not replace — this directory and `AGENTS.md`.
 | `/verify` | Zero-trust verification before finishing |
 
 Key skills: `session-start`, `agent-docs-curate`, `v1-reference`, `implement-milestone`,
-`verify-change`, `pipeline-engine` (under `.cursor/skills/`).
+`verify-change`, `pipeline-engine`, `parallel-orchestration` (under `.cursor/skills/`).

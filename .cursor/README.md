@@ -9,7 +9,7 @@ Cursor-native agent layer for hftr v2. **Does not replace** `AGENTS.md`, `DevSpe
 |-------|------|------|
 | Master rules | `AGENTS.md` | Project-wide constraints (auto-loaded) |
 | v2 init spec | `DevSpecs/hftr-v2.init.spec.md` | Canonical v2 user spec — **read-only** |
-| v1 reference | `/Users/matt-mobile/MATT/web_dev/hftr/` | Canonical v1 intent + contracts — **read-only** |
+| v1 reference | `agent-docs/research/v1-reference/` + `packages/db/src/seed/catalogs/` | Vendored v1 snapshot — **read-only** (external v1 workspace is history only, never a dependency) |
 | Living docs | `agent-docs/` | Research, decisions, plans, architecture truth — **self-curate** |
 | Cursor rules | `.cursor/rules/` | Always-on and file-scoped rules (`.mdc`) |
 | Cursor skills | `.cursor/skills/` | Task-specific agent skills (`SKILL.md`) |
@@ -38,6 +38,7 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `self-curation.mdc` | Always apply — agent-docs mandatory update contract |
 | `hftr-safety-invariants.mdc` | Always apply — trading/LLM pipeline safety |
 | `zero-trust-verification.mdc` | Always apply — verify before claiming done |
+| `parallel-subagents.mdc` | Always apply — parallel delegation, composer-2.5, never Grok |
 | `architecture-monorepo.mdc` | `packages/**`, `apps/**` |
 | `typescript-standards.mdc` | `**/*.{ts,tsx}` |
 | `ui-ux-standards.mdc` | `**/*.{tsx,css}` |
@@ -54,6 +55,7 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `implement-milestone` | Build a master-plan slice |
 | `verify-change` | Zero-trust verification before finishing |
 | `pipeline-engine` | Engine, dispatch, verification, bands/levers work |
+| `parallel-orchestration` | Multi-package/domain parallel sub-agent delegation |
 
 ## Cursor workflows
 

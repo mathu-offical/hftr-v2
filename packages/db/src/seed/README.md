@@ -1,12 +1,18 @@
 # Seeds
 
-Seed scripts load the v1 catalogs (strategy families, guardrail packages, recovery ladders,
-session constraints, broker policy envelopes, sector seeds, event archetypes, macro triggers)
-from `../../hftr` JSON sources into versioned rows (`catalog_version`, `literature_refs`).
+Seed scripts load the vendored catalogs in `./catalogs/` (strategy families, guardrail
+packages, recovery ladders, session constraints, broker policy envelopes, sector seeds,
+event archetypes, macro triggers, trend-lead patterns) into versioned rows
+(`catalog_version`, `literature_refs`). The catalogs were snapshotted from v1 into this
+repo — v2 has no dependency on the v1 workspace.
 
-Planned scripts (M0 T0.4 / M2):
-- `seed-catalogs.ts` — parse v1 JSON → validate against @hftr/contracts → upsert by catalog key.
-- `seed-calendar.ts` — populate `exchange_calendars` for XNYS/XNAS current + next year.
-- `seed-templates.ts` — company templates (day_trading_starter, crypto_starter, …).
+Scripts:
 
-Run with `pnpm --filter @hftr/db exec tsx src/seed/<script>.ts` once written.
+- `seed-calendar.ts` — populates `exchange_calendars` for XNYS current + next year (done).
+- `verify-trade-setup.ts` — seeds a dev company + active trading module and enqueues a
+  `dispatch.paper_trade` job for loop verification (done).
+- `seed-catalogs.ts` (M2) — parse `./catalogs/*.json` → validate against @hftr/contracts →
+  upsert by catalog key.
+- `seed-templates.ts` (M1) — company templates (day_trading_starter, crypto_starter, …).
+
+Run with `pnpm --filter @hftr/db exec tsx src/seed/<script>.ts`.

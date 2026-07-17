@@ -1,0 +1,378 @@
+{
+  "asOf": "2026-05-19",
+  "status": "in_progress",
+  "purpose": "Seeded broker policy envelope catalog used to bind user-configurable broker behavior inside deterministic platform guard bands.",
+  "querySurfaces": {
+    "moduleQueries": [
+      "envelope_summary",
+      "throttle_profile_lookup",
+      "session_compatibility_review",
+      "failure_handling_review",
+      "trace_requirements",
+      "control_surface_review"
+    ],
+    "progressiveAccessLevels": [
+      {
+        "level": "overview",
+        "returns": ["name", "modes", "routingScope", "orderWorkflowCompatibility"]
+      },
+      {
+        "level": "analyst",
+        "returns": [
+          "throttleProfile",
+          "timeoutProfile",
+          "failureHandling",
+          "platformGuardrails",
+          "verificationSignals"
+        ]
+      },
+      {
+        "level": "lineage",
+        "returns": ["fieldContracts", "policyRules", "runtimeControlSurface"]
+      }
+    ]
+  },
+  "runtimeControlSurface": {
+    "weightingDrivers": [
+      "broker_mode",
+      "routing_scope_complexity",
+      "transport_health_state",
+      "session_compatibility",
+      "policy_profile_version"
+    ],
+    "boundedRangeFamilies": [
+      "trade_budget_band",
+      "market_data_budget_band",
+      "reconnect_backoff_band",
+      "cooldown_window_band",
+      "burst_cap_band"
+    ],
+    "granularityByLayer": {
+      "research": "Broker envelopes keep full throttle semantics, timeout classes, failure handling, and trace requirements for policy verification and audit review.",
+      "strategic": "Upstream layers receive broker-mode posture, coarse envelope compatibility, and major vetoes rather than raw transport budgets.",
+      "tactical": "Branch builders receive envelope-specific workflow compatibility, cooldown posture, and transport-failure semantics before instruction compilation.",
+      "execution_agent": "Only the active envelope snapshot, legality constraints, and precision-safe broker compatibility fields should remain before deterministic dispatch.",
+      "training_feedback": "Replay and paper-mode review may recalibrate active envelope usage inside seeded policy classes, but platform guard bands stay immutable."
+    },
+    "policyRule": "Users may tune broker behavior only inside the active envelope; platform hard caps, trace requirements, and deterministic reconciliation rules remain non-bypassable."
+  },
+  "fieldContracts": [
+    {
+      "field": "tradeRequestBudgetPerMin",
+      "meaning": "Max trading-endpoint request budget under the active broker envelope.",
+      "freezeState": "testing_baseline_v1_not_live_signoff"
+    },
+    {
+      "field": "marketDataRequestBudgetPerMin",
+      "meaning": "Max market-data request budget under the active broker envelope.",
+      "freezeState": "testing_baseline_v1_not_live_signoff"
+    },
+    {
+      "field": "streamingSymbolBudget",
+      "meaning": "Max concurrent realtime symbol budget under the active broker envelope.",
+      "freezeState": "testing_baseline_v1_not_live_signoff"
+    },
+    {
+      "field": "wsReconnectMaxAttempts",
+      "meaning": "Bounded number of reconnect attempts before circuit-breaker escalation.",
+      "freezeState": "testing_baseline_v1_not_live_signoff"
+    },
+    {
+      "field": "wsReconnectBackoffMs",
+      "meaning": "Reconnect pacing model, implemented as jittered exponential backoff.",
+      "freezeState": "testing_baseline_v1_not_live_signoff"
+    },
+    {
+      "field": "cooldownWindowMs",
+      "meaning": "Deterministic cooldown window after repeated broker or transport failures.",
+      "freezeState": "testing_baseline_v1_not_live_signoff"
+    },
+    {
+      "field": "burstCap",
+      "meaning": "Short-window request burst cap enforced ahead of sustained minute budgets.",
+      "freezeState": "testing_baseline_v1_not_live_signoff"
+    },
+    {
+      "field": "policyProfileVersion",
+      "meaning": "Versioned policy identifier required in all action traces and replay logs.",
+      "freezeState": "required"
+    }
+  ],
+  "testingBaselineDefaults": {
+    "paper_balanced_general_v1": {
+      "tradeRequestBudgetPerMin": 12,
+      "marketDataRequestBudgetPerMin": 120,
+      "streamingSymbolBudget": 24,
+      "wsReconnectMaxAttempts": 6,
+      "wsReconnectInitialBackoffMs": 500,
+      "wsReconnectMaxBackoffMs": 8000,
+      "wsReconnectJitterModel": "full_jitter",
+      "cooldownWindowMs": 60000,
+      "burstCap": 3,
+      "sourceDocs": [
+        "seeded-testing-baseline-defaults.md",
+        "endpoint-throttling-and-policy-controls.md"
+      ]
+    },
+    "live_conservative_guarded_v1": {
+      "tradeRequestBudgetPerMin": 6,
+      "marketDataRequestBudgetPerMin": 90,
+      "streamingSymbolBudget": 24,
+      "wsReconnectMaxAttempts": 5,
+      "wsReconnectInitialBackoffMs": 1000,
+      "wsReconnectMaxBackoffMs": 15000,
+      "wsReconnectJitterModel": "full_jitter",
+      "cooldownWindowMs": 180000,
+      "burstCap": 2,
+      "sourceDocs": [
+        "seeded-testing-baseline-defaults.md",
+        "endpoint-throttling-and-policy-controls.md"
+      ]
+    },
+    "extended_hours_limit_only_v1": {
+      "tradeRequestBudgetPerMin": 4,
+      "marketDataRequestBudgetPerMin": 60,
+      "streamingSymbolBudget": 12,
+      "wsReconnectMaxAttempts": 5,
+      "wsReconnectInitialBackoffMs": 1000,
+      "wsReconnectMaxBackoffMs": 15000,
+      "wsReconnectJitterModel": "full_jitter",
+      "cooldownWindowMs": 120000,
+      "burstCap": 2,
+      "sourceDocs": [
+        "seeded-testing-baseline-defaults.md",
+        "endpoint-throttling-and-policy-controls.md"
+      ]
+    },
+    "overnight_limit_only_v1": {
+      "tradeRequestBudgetPerMin": 3,
+      "marketDataRequestBudgetPerMin": 40,
+      "streamingSymbolBudget": 8,
+      "wsReconnectMaxAttempts": 5,
+      "wsReconnectInitialBackoffMs": 1000,
+      "wsReconnectMaxBackoffMs": 15000,
+      "wsReconnectJitterModel": "full_jitter",
+      "cooldownWindowMs": 180000,
+      "burstCap": 1,
+      "sourceDocs": [
+        "seeded-testing-baseline-defaults.md",
+        "endpoint-throttling-and-policy-controls.md"
+      ]
+    }
+  },
+  "envelopes": [
+    {
+      "id": "bpe-001",
+      "name": "paper_balanced_general",
+      "testingBaselineRef": "paper_balanced_general_v1",
+      "modes": ["paper"],
+      "routingScope": ["regular_equities", "pre_market_equities", "after_hours_equities"],
+      "orderWorkflowCompatibility": ["single_order", "bracket", "oco", "oto", "trailing_stop"],
+      "throttleProfile": {
+        "tradeRequestBudgetPerMin": "balanced",
+        "marketDataRequestBudgetPerMin": "research_friendly",
+        "streamingSymbolBudget": "basic_plan_headroom",
+        "wsReconnectMaxAttempts": "bounded_standard",
+        "wsReconnectBackoffMs": "jittered_exponential_standard",
+        "cooldownWindowMs": "short",
+        "burstCap": "moderate"
+      },
+      "timeoutProfile": {
+        "orderSubmission": "standard",
+        "orderStateReconcile": "standard",
+        "cancelReplace": "standard"
+      },
+      "failureHandling": [
+        "treat_submission_timeout_as_indeterminate_until_broker_state_confirms_terminal_status",
+        "prefer_trade_updates_stream_for_primary_order_state",
+        "use_rest_reconciliation_after_socket_loss"
+      ],
+      "platformGuardrails": [
+        "hard_caps_are_non_bypassable",
+        "policy_version_must_be_trace_logged",
+        "sandbox_flexibility_cannot_bypass_verification_contracts"
+      ],
+      "verificationSignals": [
+        "policy_profile_version",
+        "throttle_state_snapshot",
+        "socket_authorization_state",
+        "listening_ack_state",
+        "circuit_breaker_state"
+      ]
+    },
+    {
+      "id": "bpe-002",
+      "name": "live_conservative_guarded",
+      "testingBaselineRef": "live_conservative_guarded_v1",
+      "modes": ["live"],
+      "routingScope": ["regular_equities"],
+      "orderWorkflowCompatibility": ["single_order", "bracket", "oco", "oto"],
+      "throttleProfile": {
+        "tradeRequestBudgetPerMin": "conservative",
+        "marketDataRequestBudgetPerMin": "balanced",
+        "streamingSymbolBudget": "basic_plan_headroom",
+        "wsReconnectMaxAttempts": "strict_bounded",
+        "wsReconnectBackoffMs": "jittered_exponential_strict",
+        "cooldownWindowMs": "elevated",
+        "burstCap": "low"
+      },
+      "timeoutProfile": {
+        "orderSubmission": "strict",
+        "orderStateReconcile": "strict",
+        "cancelReplace": "strict"
+      },
+      "failureHandling": [
+        "fail_closed_after_bounded_transport_recovery_attempts",
+        "manual_review_path_required_after_repeated_rejections_or_disconnects",
+        "no_blind_resend_after_http_timeout"
+      ],
+      "platformGuardrails": [
+        "live_unlock_requires_gate_pass",
+        "policy_override_requires_audit_entry",
+        "replay_logs_must_include_policy_version_and_throttle_snapshot"
+      ],
+      "verificationSignals": [
+        "live_gate_status",
+        "policy_profile_version",
+        "approval_scope",
+        "broker_connectivity_health",
+        "cooldown_state"
+      ]
+    },
+    {
+      "id": "bpe-003",
+      "name": "extended_hours_limit_only",
+      "testingBaselineRef": "extended_hours_limit_only_v1",
+      "modes": ["paper", "live"],
+      "routingScope": ["pre_market_equities", "after_hours_equities"],
+      "orderWorkflowCompatibility": ["single_limit_order_only"],
+      "throttleProfile": {
+        "tradeRequestBudgetPerMin": "conservative",
+        "marketDataRequestBudgetPerMin": "balanced",
+        "streamingSymbolBudget": "off_hours_tight",
+        "wsReconnectMaxAttempts": "bounded_standard",
+        "wsReconnectBackoffMs": "jittered_exponential_standard",
+        "cooldownWindowMs": "short",
+        "burstCap": "low"
+      },
+      "sessionConstraints": [
+        "extended_hours_flag_true_required",
+        "limit_orders_only",
+        "time_in_force_limited_to_day_or_gtc",
+        "advanced_multi_leg_orders_disabled"
+      ],
+      "failureHandling": [
+        "queue_non_extended_hours_orders_for_next_eligible_session",
+        "escalate_spread_or_liquidity_instability_to_no_trade"
+      ],
+      "platformGuardrails": [
+        "session_legality_checked_before_dispatch",
+        "spread_state_must_be_trace_logged_for_extended_hours_submissions"
+      ],
+      "verificationSignals": [
+        "order.extended_hours",
+        "order.type",
+        "order.time_in_force",
+        "session_router_state",
+        "spread_state"
+      ]
+    },
+    {
+      "id": "bpe-004",
+      "name": "overnight_limit_only",
+      "testingBaselineRef": "overnight_limit_only_v1",
+      "modes": ["paper", "live"],
+      "routingScope": ["overnight_equities"],
+      "orderWorkflowCompatibility": ["single_limit_order_only"],
+      "throttleProfile": {
+        "tradeRequestBudgetPerMin": "conservative",
+        "marketDataRequestBudgetPerMin": "overnight_feed_aware",
+        "streamingSymbolBudget": "overnight_focus_only",
+        "wsReconnectMaxAttempts": "bounded_standard",
+        "wsReconnectBackoffMs": "jittered_exponential_standard",
+        "cooldownWindowMs": "short",
+        "burstCap": "low"
+      },
+      "sessionConstraints": [
+        "asset_must_be_overnight_tradable",
+        "asset_must_not_be_overnight_halted",
+        "limit_orders_only",
+        "time_in_force_limited_to_day_or_gtc",
+        "overnight_feed_selection_required"
+      ],
+      "failureHandling": [
+        "hold_indeterminate_orders_until_broker_state_or_next_session_confirms_outcome",
+        "escalate_corporate_action_or_halt_status_to_no_trade"
+      ],
+      "platformGuardrails": [
+        "dtdp_or_buying_power_constraints_must_be_checked_against_overnight_rules",
+        "trade_date_assignment_awareness_required_in_trace"
+      ],
+      "verificationSignals": [
+        "asset.overnight_tradable",
+        "asset.overnight_halted",
+        "selected_market_data_feed",
+        "policy_profile_version",
+        "session_router_state"
+      ]
+    }
+  ],
+  "policyRules": {
+    "layeringRule": "Users may tune broker behavior only inside the active envelope; platform enforcement remains non-bypassable.",
+    "traceRule": "Policy profile version and throttle snapshot are mandatory ActionTrace-compatible fields for all broker-bound actions.",
+    "timeoutRule": "Order submission timeouts are indeterminate states and must never be blindly resent before broker reconciliation.",
+    "transportRule": "WebSocket authorization, listening acknowledgement, and in-stream error conditions feed deterministic reconnect and cooldown decisions."
+  },
+  "diagram": {
+    "flow": [
+      "user_policy_selection",
+      "broker_policy_envelope",
+      "platform_guard_band_enforcement",
+      "session_policy_overlay",
+      "broker_request_dispatch",
+      "socket_or_rest_state_reconcile",
+      "trace_and_audit_log"
+    ],
+    "nodes": [
+      "user_policy_selection",
+      "broker_policy_envelope",
+      "platform_guard_band_enforcement",
+      "session_policy_overlay",
+      "broker_request_dispatch",
+      "socket_or_rest_state_reconcile",
+      "trace_and_audit_log"
+    ],
+    "edges": [
+      {
+        "from": "user_policy_selection",
+        "to": "broker_policy_envelope",
+        "label": "selected profile"
+      },
+      {
+        "from": "broker_policy_envelope",
+        "to": "platform_guard_band_enforcement",
+        "label": "bounded preferences"
+      },
+      {
+        "from": "platform_guard_band_enforcement",
+        "to": "session_policy_overlay",
+        "label": "hard caps + cooldowns"
+      },
+      {
+        "from": "session_policy_overlay",
+        "to": "broker_request_dispatch",
+        "label": "session-compatible requests"
+      },
+      {
+        "from": "broker_request_dispatch",
+        "to": "socket_or_rest_state_reconcile",
+        "label": "broker outcomes"
+      },
+      {
+        "from": "socket_or_rest_state_reconcile",
+        "to": "trace_and_audit_log",
+        "label": "policy-safe state snapshots"
+      }
+    ]
+  }
+}

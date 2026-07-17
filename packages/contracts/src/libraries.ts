@@ -93,6 +93,18 @@ export const ResearchGraphNode = z.object({
   tags: z.array(z.string()),
   sourceClass: z.enum(['deterministic_placeholder', 'model_generated', 'operator']),
   status: z.string(),
+  /** Opaque source handle (evidence/catalog/operator) when known. */
+  sourceRef: z.string().nullable().optional(),
+  /** Research run lineage when concept was synthesized from the bus (D-039). */
+  researchRunId: z.string().uuid().nullable().optional(),
+  /**
+   * Text-first library admission label when joined to library_concepts.
+   * Absent when the concept is not yet in any library.
+   */
+  curationStatus: z
+    .enum(['proposed', 'accepted', 'auto_admitted', 'rejected', 'archived'])
+    .nullable()
+    .optional(),
 });
 export type ResearchGraphNode = z.infer<typeof ResearchGraphNode>;
 

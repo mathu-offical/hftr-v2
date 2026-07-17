@@ -38,3 +38,23 @@ body {
   color: var(--color-ink-dim);
   background: var(--color-surface-1);
 }
+
+/* ── Company canvas (React Flow) ─────────────────────────────────────────────
+   Handle affordance + active-edge treatment. Edges rest at strokeWidth 1.5
+   with LINK_COLORS strokes (set inline); `animated` uses the built-in dashed
+   flow. Keep it subtle: dark theme, minimal glow. */
+.react-flow__handle.hftr-handle {
+  transition:
+    scale 120ms ease,
+    box-shadow 120ms ease;
+}
+
+/* `scale` (not transform) so React Flow's positioning translate is preserved. */
+.react-flow__handle.hftr-handle:hover {
+  scale: 1.5;
+  box-shadow: 0 0 0 2px var(--color-surface-0);
+}
+
+.react-flow__edge.hftr-edge-active path.react-flow__edge-path {
+  filter: drop-shadow(0 0 3px var(--color-accent-soft));
+}

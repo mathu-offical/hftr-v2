@@ -2,9 +2,15 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { getDb, NotFoundError, scoping } from '@hftr/db';
-import { ActivityPanel } from '@/components/ActivityPanel';
 import { CompanyCanvas } from '@/components/canvas/CompanyCanvas';
+import { BottomPanel } from '@/components/panels/BottomPanel';
+import { LeftPanel } from '@/components/panels/LeftPanel';
+import { RightPanel } from '@/components/panels/RightPanel';
 import { QueueStatsChip } from '@/components/QueueStatsChip';
+import { CompanySwitcher } from '@/components/shell/CompanySwitcher';
+import { ExecutionTicker } from '@/components/shell/ExecutionTicker';
+import { ModeSwitch } from '@/components/shell/ModeSwitch';
+import { TopDrawer } from '@/components/shell/TopDrawer';
 import { UserMenu } from '@/components/UserMenu';
 import { getAuthUserId } from '@/lib/auth';
 
@@ -37,41 +43,71 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
 
   return (
     <div className="flex h-screen flex-col">
-      <header className="flex items-center justify-between border-b border-[var(--color-line)] bg-[var(--color-surface-1)] px-4 py-2.5">
-        <div className="flex items-center gap-4">
+      <header className="relative flex items-center justify-between border-b border-[var(--color-line)] bg-[var(--color-surface-1)] px-4 py-2">
+        <div className="flex shrink-0 items-center gap-2">
           <Link
             href="/companies"
             className="font-mono text-xs tracking-widest text-[var(--color-ink-dim)] hover:text-[var(--color-ink)]"
           >
             hftr
           </Link>
-          <span className="text-sm font-medium">{company.name}</span>
-          <span className="status-chip">{company.mode}</span>
+          <CompanySwitcher companyId={companyId} companyName={company.name} />
+          <TopDrawer
+            companyId={companyId}
+            companyName={company.name}
+            philosophy={company.philosophyPrompt}
+            seedCreditsCents={company.seedCreditsCents.toString()}
+            createdAt={company.createdAt.toISOString()}
+          />
         </div>
-        <div className="flex items-center gap-3">
+        <ExecutionTicker companyId={companyId} />
+        <div className="flex shrink-0 items-center gap-3">
+          <ModeSwitch mode={company.mode} />
           <QueueStatsChip />
           <UserMenu />
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <CompanyCanvas
-          companyId={companyId}
-          initialModules={moduleRows.map((m) => ({
+        <LeftPanel
+          modules={moduleRows.map((m) => ({
             id: m.id,
-            type: m.type,
             name: m.name,
+            type: m.type,
             status: m.status,
-            position: (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number },
+            config: (m.config ?? {}) as Record<string, unknown>,
           }))}
-          initialLinks={linkRows.map((l) => ({
-            id: l.id,
+          links={linkRows.map((l) => ({
             fromModuleId: l.fromModuleId,
             toModuleId: l.toModuleId,
             linkKind: l.linkKind,
           }))}
         />
-        <ActivityPanel companyId={companyId} />
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <CompanyCanvas
+            companyId={companyId}
+            initialModules={moduleRows.map((m) => ({
+              id: m.id,
+              type: m.type,
+              name: m.name,
+              status: m.status,
+              position: (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number },
+            }))}
+            initialLinks={linkRows.map((l) => ({
+              id: l.id,
+              fromModuleId: l.fromModuleId,
+              toModuleId: l.toModuleId,
+              linkKind: l.linkKind,
+            }))}
+          />
+          <BottomPanel
+            companyId={companyId}
+            modules={moduleRows.map((m) => ({ id: m.id, name: m.name, type: m.type }))}
+          />
+        </div>
+
+        <RightPanel companyId={companyId} />
       </div>
     </div>
   );

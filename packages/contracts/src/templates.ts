@@ -18,8 +18,9 @@ export interface TemplateModule {
 }
 
 export interface TemplateLink {
-  fromIndex: number; // index into modules[]
-  toIndex: number;
+  /** Numeric indices address template modules; `math` addresses the company built-in. */
+  fromIndex: number | 'math';
+  toIndex: number | 'math';
   linkKind: 'data_feed' | 'directive' | 'verification' | 'fund_route';
 }
 
@@ -27,6 +28,7 @@ export interface CompanyTemplate {
   id: CompanyTemplateId;
   label: string;
   description: string;
+  mathPosition?: { x: number; y: number };
   modules: TemplateModule[];
   links: TemplateLink[];
 }
@@ -66,49 +68,95 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     label: 'Day trading engine',
     category: 'day_trading',
     description:
-      'Feed → trend scanner → day desk → analyzer verification loop. Paper venue, end to end.',
+      'Research + evidence + market/runtime data → trend → paper execution, with deterministic funds and policy verification.',
     available: true,
     modules: [
       {
+        type: 'research',
+        name: 'Market Regime Research',
+        config: { topicScope: 'pending_operator_scope', curiosity: 'balanced' },
+        position: { x: 40, y: 420 },
+      },
+      {
+        type: 'library',
+        name: 'Strategy Evidence Library',
+        config: { topicScope: 'pending_operator_scope', masterLibrary: false },
+        position: { x: 300, y: 420 },
+      },
+      {
         type: 'live_api',
-        name: 'Engine Feed',
+        name: 'Paper Market & Runtime Feed',
         config: {
           venue: 'paper_sim',
-          instruments: ['AAPL', 'MSFT', 'NVDA', 'TSLA'],
+          instruments: [],
           feedClass: 'synthetic_sim',
           pollSeconds: 60,
         },
-        position: { x: 80, y: 420 },
+        position: { x: 300, y: 580 },
       },
       {
         type: 'trend',
-        name: 'Engine Scanner',
-        config: { focus: 'large-cap momentum', maxActiveTrends: 10, cadenceMinutes: 30 },
-        position: { x: 360, y: 420 },
+        name: 'Market Trend Scanner',
+        config: { focus: 'pending_operator_scope', maxActiveTrends: 10, cadenceMinutes: 30 },
+        position: { x: 560, y: 500 },
       },
       {
         type: 'trading',
-        name: 'Engine Day Desk',
+        name: 'Paper Day-Trade Execution',
         config: {
           subtype: 'day',
           strategyFamilies: ['strat-001'],
           exitTimelineDays: 1,
           cadenceMinutes: 5,
         },
-        position: { x: 640, y: 420 },
+        position: { x: 820, y: 500 },
+      },
+      {
+        type: 'holding_fund',
+        name: 'Paper Seed Holding Fund',
+        config: {
+          source: 'company_seed',
+          allocationPolicyRef: 'paper_balanced_general_v1',
+        },
+        position: { x: 300, y: 740 },
+      },
+      {
+        type: 'fund_router',
+        name: 'Deterministic Fund Router',
+        config: {
+          policyEnvelopeRef: 'paper_balanced_general_v1',
+          approvalMode: 'manual',
+          targetModuleIds: [],
+        },
+        position: { x: 820, y: 740 },
       },
       {
         type: 'analyzer',
-        name: 'Engine Analyzer',
+        name: 'Transaction Execution Monitor',
         config: {},
-        position: { x: 360, y: 560 },
+        position: { x: 1080, y: 500 },
+      },
+      {
+        type: 'policy',
+        name: 'Paper Trading Policy',
+        config: {
+          policyEnvelopeRef: 'paper_balanced_general_v1',
+          notes: 'Fail-closed paper policy verification.',
+        },
+        position: { x: 1080, y: 660 },
       },
     ],
     links: [
       { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
-      { fromIndex: 1, toIndex: 2, linkKind: 'directive' },
-      { fromIndex: 2, toIndex: 3, linkKind: 'verification' },
-      { fromIndex: 3, toIndex: 1, linkKind: 'verification' },
+      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 4, linkKind: 'directive' },
+      { fromIndex: 5, toIndex: 'math', linkKind: 'fund_route' },
+      { fromIndex: 'math', toIndex: 6, linkKind: 'fund_route' },
+      { fromIndex: 6, toIndex: 4, linkKind: 'fund_route' },
+      { fromIndex: 4, toIndex: 7, linkKind: 'verification' },
+      { fromIndex: 7, toIndex: 8, linkKind: 'verification' },
+      { fromIndex: 4, toIndex: 8, linkKind: 'directive' },
     ],
     inputs: [
       {
@@ -116,7 +164,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         label: 'Sector focus',
         kind: 'text',
         placeholder: 'e.g. large-cap tech momentum',
-        target: { moduleIndex: 1, configKey: 'focus' },
+        target: { moduleIndex: 3, configKey: 'focus' },
       },
       {
         // Multiple inputs targeting the same configKey are joined with ' — '.
@@ -124,7 +172,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         label: 'Trading philosophy',
         kind: 'select',
         options: ['momentum continuation', 'mean reversion', 'breakout capture'],
-        target: { moduleIndex: 1, configKey: 'focus' },
+        target: { moduleIndex: 3, configKey: 'focus' },
       },
     ],
   },
@@ -137,20 +185,20 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     modules: [
       {
         type: 'research',
-        name: 'Engine Research',
-        config: { topicScope: 'sector research', curiosity: 'balanced' },
+        name: 'Scoped Market Research',
+        config: { topicScope: 'pending_operator_scope', curiosity: 'balanced' },
         position: { x: 80, y: 560 },
       },
       {
         type: 'library',
-        name: 'Engine Library',
-        config: { topicScope: 'sector research' },
+        name: 'Research Evidence Library',
+        config: { topicScope: 'pending_operator_scope' },
         position: { x: 360, y: 700 },
       },
       {
         type: 'trend',
-        name: 'Engine Trend Watch',
-        config: { focus: 'sector trends', maxActiveTrends: 10, cadenceMinutes: 120 },
+        name: 'Scoped Trend Scanner',
+        config: { focus: 'pending_operator_scope', maxActiveTrends: 10, cadenceMinutes: 120 },
         position: { x: 640, y: 560 },
       },
     ],
@@ -214,28 +262,42 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
   day_trading_starter: {
     id: 'day_trading_starter',
     label: 'Day trading starter',
-    description: 'Live data feeding a trend scanner that informs a paper day-trading desk.',
+    description:
+      'Full paper engine: research, evidence, market/runtime data, trend, execution, deterministic funds, and policy verification.',
+    mathPosition: { x: 540, y: 500 },
     modules: [
       {
+        type: 'research',
+        name: 'Market Regime Research',
+        config: { topicScope: 'pending_operator_scope', curiosity: 'balanced' },
+        position: { x: 20, y: 180 },
+      },
+      {
+        type: 'library',
+        name: 'Strategy Evidence Library',
+        config: { topicScope: 'pending_operator_scope', masterLibrary: false },
+        position: { x: 280, y: 120 },
+      },
+      {
         type: 'live_api',
-        name: 'Market Feed',
+        name: 'Paper Market & Runtime Feed',
         config: {
           venue: 'paper_sim',
-          instruments: ['AAPL', 'MSFT', 'NVDA', 'TSLA'],
+          instruments: [],
           feedClass: 'synthetic_sim',
           pollSeconds: 60,
         },
-        position: { x: 80, y: 240 },
+        position: { x: 280, y: 300 },
       },
       {
         type: 'trend',
-        name: 'Trend Scanner',
-        config: { focus: 'large-cap tech momentum', maxActiveTrends: 10, cadenceMinutes: 30 },
-        position: { x: 360, y: 240 },
+        name: 'Market Trend Scanner',
+        config: { focus: 'pending_operator_scope', maxActiveTrends: 10, cadenceMinutes: 30 },
+        position: { x: 540, y: 210 },
       },
       {
         type: 'trading',
-        name: 'Day Desk',
+        name: 'Paper Day-Trade Execution',
         config: {
           subtype: 'day',
           // strat-001 = opening_range_breakout in the seeded strategy catalog.
@@ -243,12 +305,54 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
           exitTimelineDays: 1,
           cadenceMinutes: 5,
         },
-        position: { x: 640, y: 240 },
+        position: { x: 800, y: 210 },
+      },
+      {
+        type: 'holding_fund',
+        name: 'Paper Seed Holding Fund',
+        config: {
+          source: 'company_seed',
+          allocationPolicyRef: 'paper_balanced_general_v1',
+        },
+        position: { x: 280, y: 500 },
+      },
+      {
+        type: 'fund_router',
+        name: 'Deterministic Fund Router',
+        config: {
+          policyEnvelopeRef: 'paper_balanced_general_v1',
+          approvalMode: 'manual',
+          targetModuleIds: [],
+        },
+        position: { x: 800, y: 500 },
+      },
+      {
+        type: 'analyzer',
+        name: 'Transaction Execution Monitor',
+        config: {},
+        position: { x: 1060, y: 210 },
+      },
+      {
+        type: 'policy',
+        name: 'Paper Trading Policy',
+        config: {
+          policyEnvelopeRef: 'paper_balanced_general_v1',
+          notes: 'Fail-closed paper policy verification.',
+        },
+        position: { x: 1060, y: 390 },
       },
     ],
     links: [
       { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
-      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 4, linkKind: 'directive' },
+      { fromIndex: 5, toIndex: 'math', linkKind: 'fund_route' },
+      { fromIndex: 'math', toIndex: 6, linkKind: 'fund_route' },
+      { fromIndex: 6, toIndex: 4, linkKind: 'fund_route' },
+      { fromIndex: 4, toIndex: 7, linkKind: 'verification' },
+      { fromIndex: 7, toIndex: 8, linkKind: 'verification' },
+      { fromIndex: 4, toIndex: 8, linkKind: 'directive' },
     ],
   },
   trend_research_lab: {
@@ -258,17 +362,26 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
     modules: [
       {
         type: 'research',
-        name: 'Sector Research',
-        config: { topicScope: 'semiconductors and AI infrastructure', curiosity: 'balanced' },
-        position: { x: 80, y: 240 },
+        name: 'Scoped Market Research',
+        config: { topicScope: 'pending_operator_scope', curiosity: 'balanced' },
+        position: { x: 20, y: 240 },
+      },
+      {
+        type: 'library',
+        name: 'Research Evidence Library',
+        config: { topicScope: 'pending_operator_scope', masterLibrary: false },
+        position: { x: 280, y: 240 },
       },
       {
         type: 'trend',
-        name: 'Trend Scanner',
-        config: { focus: 'semiconductor supply chain', maxActiveTrends: 10, cadenceMinutes: 120 },
-        position: { x: 360, y: 240 },
+        name: 'Scoped Trend Scanner',
+        config: { focus: 'pending_operator_scope', maxActiveTrends: 10, cadenceMinutes: 120 },
+        position: { x: 540, y: 240 },
       },
     ],
-    links: [{ fromIndex: 0, toIndex: 1, linkKind: 'data_feed' }],
+    links: [
+      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+    ],
   },
 };

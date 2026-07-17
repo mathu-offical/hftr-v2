@@ -1,6 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import {
+  AssistantGetResponse,
+  AssistantMessage,
+  AssistantPostInput,
+  AssistantPostResponse,
+  AssistantReadTool,
+  AssistantToolResultSummary,
+  normalizeAssistantToolResultsFromDb,
+  parseAssistantToolResultsForPersistence,
+} from './assistant';
 import { ENVIRONMENT_REQUIREMENTS } from './env';
 import { HandoffEnvelope } from './foundation';
 import { allowedLinkKinds, MODULE_CONFIG_SCHEMAS, ModuleType } from './modules';
@@ -94,8 +104,15 @@ describe('company templates', () => {
         expect(result.success, `${template.id}/${m.name}`).toBe(true);
       }
       for (const l of template.links) {
-        expect(template.modules[l.fromIndex]).toBeDefined();
-        expect(template.modules[l.toIndex]).toBeDefined();
+        const from =
+          l.fromIndex === 'math' ? ({ type: 'math' } as const) : template.modules[l.fromIndex];
+        const to = l.toIndex === 'math' ? ({ type: 'math' } as const) : template.modules[l.toIndex];
+        expect(from, `${template.id} link from`).toBeDefined();
+        expect(to, `${template.id} link to`).toBeDefined();
+        expect(
+          allowedLinkKinds(from!.type, to!.type),
+          `${template.id}: ${from!.type}->${to!.type}`,
+        ).toContain(l.linkKind);
       }
     }
   });
@@ -114,8 +131,9 @@ describe('engine templates', () => {
         expect(result.success, `${engine.id}/${m.name}`).toBe(true);
       }
       for (const l of engine.links) {
-        const from = engine.modules[l.fromIndex];
-        const to = engine.modules[l.toIndex];
+        const from =
+          l.fromIndex === 'math' ? ({ type: 'math' } as const) : engine.modules[l.fromIndex];
+        const to = l.toIndex === 'math' ? ({ type: 'math' } as const) : engine.modules[l.toIndex];
         expect(from, `${engine.id} link from`).toBeDefined();
         expect(to, `${engine.id} link to`).toBeDefined();
         expect(
@@ -127,5 +145,98 @@ describe('engine templates', () => {
         expect(engine.modules[input.target.moduleIndex], `${engine.id}/${input.key}`).toBeDefined();
       }
     }
+  });
+});
+
+describe('assistant contracts', () => {
+  const messageId = '00000000-0000-4000-8000-000000000001';
+  const createdAt = '2026-07-17T12:00:00.000Z';
+
+  it('parses POST input bounds', () => {
+    expect(AssistantPostInput.safeParse({ message: 'hi' }).success).toBe(true);
+    expect(AssistantPostInput.safeParse({ message: '' }).success).toBe(false);
+    expect(AssistantPostInput.safeParse({ message: 'x'.repeat(2001) }).success).toBe(false);
+  });
+
+  it('accepts ok and failed summary cards', () => {
+    expect(
+      AssistantToolResultSummary.parse({
+        tool: 'queue_status',
+        summary: 'No pending or active jobs for this company',
+        status: 'ok',
+      }),
+    ).toMatchObject({ status: 'ok' });
+
+    expect(
+      AssistantToolResultSummary.parse({
+        tool: 'positions',
+        summary: 'Lookup failed for positions. Try again or rephrase.',
+        status: 'failed',
+      }),
+    ).toMatchObject({ status: 'failed' });
+  });
+
+  it('rejects detailed data fields on persistence parse', () => {
+    expect(() =>
+      parseAssistantToolResultsForPersistence([
+        {
+          tool: 'company_summary',
+          summary: 'Acme · paper · 3 modules',
+          data: { seedCreditsCents: '10000' },
+        },
+      ]),
+    ).toThrow();
+
+    expect(
+      AssistantToolResultSummary.safeParse({
+        tool: 'trends',
+        summary: '2 trend candidates',
+        extra: 'unexpected',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('strips legacy detailed data when normalizing from db', () => {
+    const normalized = normalizeAssistantToolResultsFromDb([
+      {
+        tool: 'queue_status',
+        summary: '0 pending · 0 active jobs',
+        data: { stats: [{ status: 'pending', count: 0 }] },
+      },
+    ]);
+    expect(normalized).toEqual([
+      { tool: 'queue_status', summary: '0 pending · 0 active jobs', status: 'ok' },
+    ]);
+    expect(normalized?.[0]).not.toHaveProperty('data');
+  });
+
+  it('round-trips GET and POST responses with summary cards only', () => {
+    const card = {
+      tool: 'capabilities' as const,
+      summary: 'company summary, module status, recent executions',
+      status: 'ok' as const,
+    };
+    const message = {
+      id: messageId,
+      role: 'assistant' as const,
+      content: 'Read-only lookup via queue status: none.',
+      toolResults: [card],
+      createdAt,
+    };
+    expect(AssistantMessage.parse(message)).toEqual(message);
+
+    const getResponse = AssistantGetResponse.parse({ messages: [message] });
+    expect(getResponse.messages).toHaveLength(1);
+
+    const postResponse = AssistantPostResponse.parse({
+      userMessage: { ...message, id: '00000000-0000-4000-8000-000000000002', role: 'user' },
+      assistantMessage: message,
+    });
+    expect(postResponse.assistantMessage.toolResults?.[0]?.tool).toBe('capabilities');
+  });
+
+  it('enumerates all read tools including capabilities', () => {
+    expect(AssistantReadTool.options).toContain('capabilities');
+    expect(AssistantReadTool.options).toContain('queue_status');
   });
 });

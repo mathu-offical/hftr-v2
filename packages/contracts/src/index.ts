@@ -6,3 +6,4 @@ export * from './broker';
 export * from './llm';
 export * from './env';
 export * from './templates';
+export * from './assistant';

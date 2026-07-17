@@ -16,6 +16,7 @@ export const ModuleType = z.enum([
   'generator',
   'simulator',
   'analyzer',
+  'holding_fund',
   'fund_router',
   'math',
   'display',
@@ -45,12 +46,16 @@ export const LINK_RULES: Readonly<Record<string, readonly LinkKind[]>> = {
   'trend->simulator': ['directive'],
   'trading->policy': ['directive'],
   'trading->fund_router': ['fund_route'],
+  'holding_fund->math': ['fund_route'],
+  'holding_fund->fund_router': ['fund_route'],
+  'math->fund_router': ['fund_route'],
   'fund_router->trading': ['fund_route'],
   'simulator->trend': ['verification'],
   'simulator->research': ['verification'],
   'analyzer->trend': ['verification', 'data_feed'],
   'analyzer->research': ['verification', 'data_feed'],
   'trading->analyzer': ['verification'],
+  'analyzer->policy': ['verification'],
   'math->trading': ['data_feed'],
   'math->trend': ['data_feed'],
   'trading->display': ['data_feed'],
@@ -71,6 +76,7 @@ export const MODULE_COLUMN: Record<ModuleType, number> = {
   live_api: 1,
   math: 1,
   analyzer: 1,
+  holding_fund: 1,
   trend: 2,
   trading: 3,
   simulator: 3,
@@ -134,6 +140,17 @@ export const DisplayModuleConfig = z.object({
 });
 export type DisplayModuleConfig = z.infer<typeof DisplayModuleConfig>;
 
+export const HoldingFundModuleConfig = z.object({
+  source: z.enum(['company_seed', 'company_pool', 'reserve', 'broker_balance']),
+  allocationPolicyRef: z.string().default('paper_balanced_general_v1'),
+});
+
+export const FundRouterModuleConfig = z.object({
+  policyEnvelopeRef: z.string().default('paper_balanced_general_v1'),
+  approvalMode: z.enum(['manual', 'policy']).default('manual'),
+  targetModuleIds: z.array(z.string().uuid()).default([]),
+});
+
 export const GenericModuleConfig = z.object({}).passthrough();
 
 export const MODULE_CONFIG_SCHEMAS: Record<ModuleType, z.ZodTypeAny> = {
@@ -146,7 +163,8 @@ export const MODULE_CONFIG_SCHEMAS: Record<ModuleType, z.ZodTypeAny> = {
   generator: GenericModuleConfig,
   simulator: GenericModuleConfig,
   analyzer: GenericModuleConfig,
-  fund_router: GenericModuleConfig,
+  holding_fund: HoldingFundModuleConfig,
+  fund_router: FundRouterModuleConfig,
   math: z.object({}).strict(), // math module carries no user config
   display: DisplayModuleConfig,
 };

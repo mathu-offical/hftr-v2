@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import {
+  DisplayModuleConfig,
+  FundRouterModuleConfig,
+  ResearchModuleConfig,
+  type ModuleType,
+} from '@hftr/contracts';
 import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
 import { ApiError, withAuth } from '@/lib/api';
@@ -76,7 +82,7 @@ export async function POST(_req: Request, ctx: Ctx) {
         name: module.name,
         generatedNameBase: module.generatedNameBase,
         nameCustomized: module.nameCustomized,
-        config: module.config,
+        config: copyModuleConfig(module.type, module.config, moduleIdMap),
         configSchemaVersion: module.configSchemaVersion,
         // Copied companies require an explicit operator review before running.
         status: module.type === 'math' ? 'active' : 'draft',
@@ -135,4 +141,57 @@ function requireMappedId(
   const id = ids.get(sourceId);
   if (!id) throw new ApiError(500, errorCode);
   return id;
+}
+
+/**
+ * Remove company-bound ids and remap topology-local ids. Unknown/generic
+ * configs are preserved, while every declared relational field is handled
+ * explicitly so a copy cannot reach back into the source company.
+ */
+function copyModuleConfig(
+  type: ModuleType,
+  config: unknown,
+  moduleIdMap: ReadonlyMap<string, string>,
+): unknown {
+  switch (type) {
+    case 'research': {
+      const parsed = ResearchModuleConfig.parse(config);
+      return { ...parsed, targetLibraryIds: [] };
+    }
+    case 'display': {
+      const parsed = DisplayModuleConfig.parse(config);
+      return {
+        ...parsed,
+        sourceModuleIds: parsed.sourceModuleIds.flatMap((id) => {
+          const mapped = moduleIdMap.get(id);
+          return mapped ? [mapped] : [];
+        }),
+      };
+    }
+    case 'fund_router': {
+      const parsed = FundRouterModuleConfig.parse(config);
+      return {
+        ...parsed,
+        targetModuleIds: parsed.targetModuleIds.flatMap((id) => {
+          const mapped = moduleIdMap.get(id);
+          return mapped ? [mapped] : [];
+        }),
+      };
+    }
+    case 'library':
+    case 'live_api':
+    case 'trend':
+    case 'trading':
+    case 'policy':
+    case 'generator':
+    case 'simulator':
+    case 'analyzer':
+    case 'holding_fund':
+    case 'math':
+      return config;
+    default: {
+      const _exhaustive: never = type;
+      return _exhaustive;
+    }
+  }
 }

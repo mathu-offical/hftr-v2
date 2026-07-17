@@ -52,6 +52,38 @@ test.describe('Companies directory', () => {
     const companyId = companyUrl.split('/').pop()!;
     createdCompanyIds.push(companyId);
 
+    // Seed a company-bound library id into research config. Duplication must
+    // scrub it rather than letting the copy write back into the source library.
+    const sourceResponse = await request.get(`/api/companies/${companyId}`);
+    expect(sourceResponse.ok()).toBeTruthy();
+    const source = (await sourceResponse.json()) as {
+      modules: Array<{ id: string; type: string; config: Record<string, unknown> }>;
+    };
+    const researchModule = source.modules.find((module) => module.type === 'research');
+    expect(researchModule).toBeDefined();
+    const libraryResponse = await request.post(`/api/companies/${companyId}/libraries`, {
+      data: {
+        name: `E2E duplicate boundary ${Date.now()}`,
+        topicScope: 'duplication boundary',
+        masterLibrary: false,
+        moduleId: researchModule!.id,
+      },
+    });
+    expect(libraryResponse.ok()).toBeTruthy();
+    const { library } = (await libraryResponse.json()) as { library: { id: string } };
+    const researchPatch = await request.patch(
+      `/api/companies/${companyId}/modules/${researchModule!.id}`,
+      {
+        data: {
+          config: {
+            ...researchModule!.config,
+            targetLibraryIds: [library.id],
+          },
+        },
+      },
+    );
+    expect(researchPatch.ok()).toBeTruthy();
+
     await page.goto('/companies');
     const card = page.locator('[data-testid="company-card"]').filter({ hasText: name });
     await expect(card).toBeVisible();
@@ -106,6 +138,7 @@ test.describe('Companies directory', () => {
         allocationCents: string;
         capitalAllocationRef: string | null;
         targetExitRef: string | null;
+        config: Record<string, unknown>;
       }>;
     };
     expect(duplicate.company).toMatchObject({
@@ -126,6 +159,9 @@ test.describe('Companies directory', () => {
       expect(module.capitalAllocationRef).toBeNull();
       expect(module.targetExitRef).toBeNull();
     }
+    expect(
+      duplicate.modules.find((module) => module.type === 'research')?.config.targetLibraryIds,
+    ).toEqual([]);
 
     await expect(copyCard).toHaveAttribute('data-mode', 'paper');
 

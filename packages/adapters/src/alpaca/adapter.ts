@@ -61,6 +61,8 @@ export interface AlpacaAdapterOptions {
   mode: 'paper' | 'live';
   nowMs: () => number;
   client?: AlpacaClient;
+  /** Set true only after live-gate arming passes in resolveBrokerAdapter. */
+  allowLive?: boolean;
 }
 
 function parseDecimalQty(qty: string): { qtyInt: string; qtyScale: number } {
@@ -119,7 +121,7 @@ function mapOrderSnapshot(order: AlpacaOrder, atMs: number): BrokerOrderSnapshot
 }
 
 export function createAlpacaAdapter(opts: AlpacaAdapterOptions): BrokerAdapter {
-  if (opts.mode === 'live') {
+  if (opts.mode === 'live' && !opts.allowLive) {
     throw new Error('live_gate_blocked');
   }
 

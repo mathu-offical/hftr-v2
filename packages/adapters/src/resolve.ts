@@ -5,11 +5,24 @@ import type {
   BrokerMode,
   ConnectionStatus,
   CredentialVenue,
+  KalshiCredentials,
   QuoteSnapshot,
 } from '@hftr/contracts';
-import { AlpacaCredentials as AlpacaCredentialsSchema } from '@hftr/contracts';
-import { createAlpacaPaperAdapter } from './alpaca/adapter';
+import {
+  AlpacaCredentials as AlpacaCredentialsSchema,
+  isLiveDispatchAllowed,
+  KalshiCredentials as KalshiCredentialsSchema,
+  type LiveGateEvidence,
+} from '@hftr/contracts';
+import { createAlpacaAdapter } from './alpaca/adapter';
+import { createKalshiDemoAdapter } from './kalshi/adapter';
 import { createPaperSimAdapter, type PaperSimOptions } from './paper-sim';
+
+export interface LiveArmingContext {
+  armedAtMs: number | null;
+  evidence: LiveGateEvidence | null;
+  nowMs: number;
+}
 
 export interface BrokerConnectionResolveInput {
   venue: CredentialVenue;
@@ -17,6 +30,8 @@ export interface BrokerConnectionResolveInput {
   status: ConnectionStatus;
   /** Plaintext credentials JSON already parsed by the caller. */
   credentials: unknown;
+  /** Kalshi demo flag from stored credentials when venue is kalshi. */
+  demoMode?: boolean;
 }
 
 export interface ResolveBrokerAdapterOptions {
@@ -24,6 +39,8 @@ export interface ResolveBrokerAdapterOptions {
   nowMs: () => number;
   /** Required when falling back to paper_sim. */
   paperSim: Pick<PaperSimOptions, 'getQuote' | 'startingCashCents' | 'slippageBps'>;
+  /** Required when resolving a live broker connection. */
+  liveArming?: LiveArmingContext;
 }
 
 export class BrokerResolveError extends Error {
@@ -53,7 +70,15 @@ export function resolveBrokerAdapter(opts: ResolveBrokerAdapterOptions): BrokerA
   }
 
   if (opts.connection.mode === 'live') {
-    throw new BrokerResolveError('live_gate_blocked');
+    if (
+      !isLiveDispatchAllowed(
+        opts.liveArming?.evidence ?? null,
+        opts.liveArming?.nowMs ?? opts.nowMs(),
+        opts.liveArming?.armedAtMs,
+      )
+    ) {
+      throw new BrokerResolveError('live_gate_blocked');
+    }
   }
 
   if (opts.connection.status !== 'connected') {
@@ -63,13 +88,25 @@ export function resolveBrokerAdapter(opts: ResolveBrokerAdapterOptions): BrokerA
   switch (opts.connection.venue) {
     case 'alpaca': {
       const creds: AlpacaCredentials = AlpacaCredentialsSchema.parse(opts.connection.credentials);
-      return createAlpacaPaperAdapter({
+      return createAlpacaAdapter({
         keyId: creds.keyId,
         secret: creds.secret,
+        mode: opts.connection.mode,
         nowMs: opts.nowMs,
+        allowLive: opts.connection.mode === 'live',
       });
     }
-    case 'kalshi':
+    case 'kalshi': {
+      const creds: KalshiCredentials = KalshiCredentialsSchema.parse(opts.connection.credentials);
+      const demoMode = opts.connection.demoMode ?? creds.demoMode ?? true;
+      if (opts.connection.mode === 'live' || !demoMode) {
+        throw new BrokerResolveError('live_gate_blocked');
+      }
+      return createKalshiDemoAdapter({
+        nowMs: opts.nowMs,
+        demoMode: true,
+      });
+    }
     case 'polymarket':
     case 'coinbase':
       throw new BrokerResolveError('unsupported_venue');

@@ -69,4 +69,44 @@ describe('resolveBrokerAdapter', () => {
       }),
     ).toThrow('live_gate_blocked');
   });
+
+  it('returns kalshi demo adapter for connected paper kalshi', () => {
+    const adapter = resolveBrokerAdapter({
+      connection: {
+        venue: 'kalshi',
+        mode: 'paper',
+        status: 'connected',
+        credentials: {
+          apiKeyId: 'kalshi-demo-key-01',
+          privateKeyPem:
+            '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7\n-----END PRIVATE KEY-----',
+          demoMode: true,
+        },
+      },
+      nowMs: () => T0,
+      paperSim: { getQuote: quote, startingCashCents: 0 },
+    });
+    expect(adapter.venue).toBe('kalshi');
+    expect(adapter.mode).toBe('paper');
+  });
+
+  it('rejects live kalshi connections', () => {
+    expect(() =>
+      resolveBrokerAdapter({
+        connection: {
+          venue: 'kalshi',
+          mode: 'live',
+          status: 'connected',
+          credentials: {
+            apiKeyId: 'kalshi-demo-key-01',
+            privateKeyPem:
+              '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7\n-----END PRIVATE KEY-----',
+            demoMode: true,
+          },
+        },
+        nowMs: () => T0,
+        paperSim: { getQuote: quote, startingCashCents: 0 },
+      }),
+    ).toThrow('live_gate_blocked');
+  });
 });

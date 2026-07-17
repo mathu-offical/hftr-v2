@@ -13,4 +13,12 @@ export {
   BrokerResolveError,
   type BrokerConnectionResolveInput,
   type ResolveBrokerAdapterOptions,
+  type LiveArmingContext,
 } from './resolve';
+export {
+  createKalshiDemoAdapter,
+  assertKalshiDemoOnly,
+  KALSHI_DEMO_STARTING_CASH_CENTS,
+  KALSHI_DEMO_SYNTHETIC_MID_CENTS,
+  type KalshiDemoAdapterOptions,
+} from './kalshi/adapter';

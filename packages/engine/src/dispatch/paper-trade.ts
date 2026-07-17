@@ -101,7 +101,7 @@ export async function executePaperTrade(
     unit: 'USD_cents',
     scale: 0,
     valueInt: BigInt(quote.lastCents ?? 0),
-    sourceClass: 'live_feed',
+    sourceClass: 'synthetic_sim',
     sourceId: `synthetic_sim:${quote.symbol}`,
     ttlMs: QUOTE_TTL_MS,
     companyId: req.companyId,
@@ -393,6 +393,12 @@ async function writeTrace(
       fills,
       sessionLegalitySnapshot: sessionSnapshot,
       policyEnvelopeVersion: POLICY_ENVELOPE_VERSION,
+      simulatorGapTags: [
+        'synthetic_quote',
+        'inline_fill_model',
+        'no_venue_latency',
+        'no_partial_fills',
+      ],
       failureCode,
     })
     .returning({ id: actionTraces.id });
@@ -420,6 +426,7 @@ async function blocked(
       fills: [],
       sessionLegalitySnapshot: sessionSnapshot,
       policyEnvelopeVersion: POLICY_ENVELOPE_VERSION,
+      simulatorGapTags: ['synthetic_quote', 'pre_dispatch_block'],
       failureCode,
     })
     .returning({ id: actionTraces.id });

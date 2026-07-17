@@ -26,6 +26,8 @@ export interface CompileTreeInput {
 export interface CompileContext {
   balanceCents: bigint;
   priceCents: number;
+  /** From philosophy risk_appetite → sizing BPS (default 100 = 1%). */
+  sizingBasisBps?: number;
 }
 
 export interface CompiledInstructionFields {
@@ -45,8 +47,14 @@ export const MAX_QTY = 100;
 /** Sizing basis: 1% of company balance per entry. */
 export const SIZING_BASIS_BPS = 100;
 
-export function computeQuantity(balanceCents: bigint, priceCents: number): number {
-  const budgetCents = Number(balanceCents) * (SIZING_BASIS_BPS / 10_000);
+export function computeQuantity(
+  balanceCents: bigint,
+  priceCents: number,
+  sizingBasisBps: number = SIZING_BASIS_BPS,
+): number {
+  const bps =
+    Number.isFinite(sizingBasisBps) && sizingBasisBps > 0 ? sizingBasisBps : SIZING_BASIS_BPS;
+  const budgetCents = Number(balanceCents) * (bps / 10_000);
   const raw = Math.floor(budgetCents / priceCents);
   return Math.min(MAX_QTY, Math.max(MIN_QTY, raw));
 }
@@ -79,7 +87,7 @@ export function compileInstruction(tree: CompileTreeInput, ctx: CompileContext):
       symbol: tree.symbol,
       orderType: 'market',
       timeInForce: 'day',
-      quantity: computeQuantity(ctx.balanceCents, ctx.priceCents),
+      quantity: computeQuantity(ctx.balanceCents, ctx.priceCents, ctx.sizingBasisBps),
     },
   };
 }

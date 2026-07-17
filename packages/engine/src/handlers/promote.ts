@@ -8,6 +8,7 @@ import {
   compileEvents,
   decisionTrees,
   leadPackages,
+  moduleLinks,
   modules,
   trendCandidates,
 } from '@hftr/db/schema';
@@ -19,6 +20,7 @@ import { getCompanyBalanceCents } from '../dispatch/paper-trade';
 import { getSyntheticQuote } from '../dispatch/quotes';
 import { compileInstruction } from '../pipeline/compile';
 import { DEFAULT_FRESHNESS_WINDOW_MS, evaluateGates, gatesPass } from '../pipeline/gates';
+import { resolvePhilosophyControl } from '../pipeline/philosophy-control';
 import { buildDecisionTree } from '../pipeline/tree';
 import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
@@ -30,11 +32,9 @@ const PromotePayload = z.object({
   targetModuleId: z.string().uuid().optional(),
 });
 
-const POLICY_ENVELOPE_VERSION = 'paper_balanced_general_v1';
 const VERIFICATION_SCHEMA_VERSION = 'trade_verify_v1';
-/** Deterministic placeholder for the strategic-tier family assignment. */
-const STRATEGY_FAMILY = 'trend_following_v1';
 const QUOTE_TTL_MS = 90_000;
+const STRICT_FRESHNESS_WINDOW_MS = 12 * 60 * 60 * 1000;
 
 /**
  * Lead promotion spine (RESEARCH queue): trend candidate → six-gate admission
@@ -75,9 +75,44 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
   if (!company || !trendModule) return;
 
   const moduleConfig = (trendModule.config ?? {}) as { instruments?: string[] };
+  const dispatchModuleId = payload.targetModuleId ?? payload.moduleId;
+
+  // Resolve philosophy profile + linked trading/policy module config.
+  const companyModules = await db
+    .select()
+    .from(modules)
+    .where(eq(modules.companyId, payload.companyId));
+  const tradingModule =
+    companyModules.find((m) => m.id === dispatchModuleId && m.type === 'trading') ??
+    companyModules.find((m) => m.type === 'trading');
+  const tradingConfig = (tradingModule?.config ?? {}) as { strategyFamilies?: string[] };
+  const strategyFamily =
+    Array.isArray(tradingConfig.strategyFamilies) && tradingConfig.strategyFamilies[0]
+      ? tradingConfig.strategyFamilies[0]
+      : null;
+
+  const policyLinks = await db
+    .select()
+    .from(moduleLinks)
+    .where(
+      and(eq(moduleLinks.companyId, payload.companyId), eq(moduleLinks.linkKind, 'verification')),
+    );
+  const policyModuleIds = new Set(policyLinks.flatMap((l) => [l.fromModuleId, l.toModuleId]));
+  const policyModule = companyModules.find((m) => m.type === 'policy' && policyModuleIds.has(m.id));
+  const policyConfig = (policyModule?.config ?? {}) as { policyEnvelopeRef?: string };
+
+  const control = resolvePhilosophyControl({
+    philosophyProfile: company.philosophyProfile,
+    policyEnvelopeRef: policyConfig.policyEnvelopeRef ?? null,
+    strategyFamily,
+  });
 
   // ── 1. Six-gate admission ──────────────────────────────────────────────────
   const session = await getSession(db, 'XNYS', venueDate(clock.nowMs(), 'America/New_York'));
+  const freshnessWindowMs =
+    control.freshnessWindow === 'strict_12h'
+      ? STRICT_FRESHNESS_WINDOW_MS
+      : DEFAULT_FRESHNESS_WINDOW_MS;
   const gates = evaluateGates({
     symbol: trend.symbol,
     direction: trend.direction,
@@ -86,15 +121,19 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     sessionPhase: sessionPhase(session, clock.nowMs()),
     mode: company.mode,
     instruments: Array.isArray(moduleConfig.instruments) ? moduleConfig.instruments : null,
-    freshnessWindowMs: DEFAULT_FRESHNESS_WINDOW_MS,
+    freshnessWindowMs,
   });
   const admitted = gatesPass(gates);
 
   const controlSnapshot = {
-    policyEnvelopeVersion: POLICY_ENVELOPE_VERSION,
-    sizingBasis: 'one_percent_of_balance',
-    freshnessWindow: 'default_24h',
-    sourceClass: 'deterministic_placeholder',
+    policyEnvelopeVersion: control.policyEnvelopeVersion,
+    sizingBasis: control.sizingBasis,
+    sizingBasisBps: control.sizingBasisBps,
+    freshnessWindow: control.freshnessWindow,
+    philosophyAxes: control.philosophyProfile.axes,
+    strategyFamily: control.strategyFamily,
+    philosophyPromptPresent: company.philosophyPrompt.length > 0,
+    sourceClass: control.sourceClass,
   };
 
   const leadRows = await db
@@ -106,7 +145,7 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
       trendId: trend.id,
       symbol: trend.symbol,
       direction: trend.direction,
-      strategyFamily: STRATEGY_FAMILY,
+      strategyFamily: control.strategyFamily,
       status: admitted ? 'admitted' : 'rejected',
       gates,
       controlSnapshot,
@@ -128,6 +167,7 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
       status: 'draft',
       branches: built.branches,
       recoveryLadder: built.recoveryLadder,
+      leverState: control.leverState,
       sourceClass: built.sourceClass,
     })
     .returning({ id: decisionTrees.id });
@@ -143,10 +183,8 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
       branches: built.branches,
       recoveryLadder: built.recoveryLadder,
     },
-    { balanceCents, priceCents },
+    { balanceCents, priceCents, sizingBasisBps: control.sizingBasisBps },
   );
-
-  const dispatchModuleId = payload.targetModuleId ?? payload.moduleId;
 
   if (outcome.result === 'blocked') {
     await db.insert(compileEvents).values({
@@ -180,7 +218,7 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     scale: 0,
     valueInt: BigInt(outcome.instruction.quantity),
     sourceClass: 'derived',
-    sourceId: `compile_placeholder:sizing:${leadId}`,
+    sourceId: `compile_placeholder:sizing:${leadId}:bps_${control.sizingBasisBps}`,
     ttlMs: 10 * 60_000,
     sanity: { minInt: '1', maxInt: '100', maxAgeMs: null, mustBePositive: true },
     companyId: payload.companyId,
@@ -203,7 +241,7 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     unit: 'USD_cents',
     scale: 0,
     valueInt: BigInt(priceCents),
-    sourceClass: 'live_feed',
+    sourceClass: 'synthetic_sim',
     sourceId: `synthetic_sim:${quote.symbol}`,
     ttlMs: QUOTE_TTL_MS,
     companyId: payload.companyId,

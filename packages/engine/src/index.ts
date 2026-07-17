@@ -60,6 +60,17 @@ export {
   type CompileTreeInput,
   type CompiledInstructionFields,
 } from './pipeline/compile';
+export {
+  enforceScope,
+  enforceScopeStrict,
+  enforceAllLayers,
+  knownBandIds,
+} from './pipeline/levers';
+export {
+  resolvePhilosophyControl,
+  type PhilosophyControlSnapshot,
+  type ResolvePhilosophyControlInput,
+} from './pipeline/philosophy-control';
 
 // Calendar
 export {

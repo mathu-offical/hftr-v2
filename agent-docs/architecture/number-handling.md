@@ -187,13 +187,33 @@ reason families) and are visible text-first in UI.
 
 ## 8. Math module (user-facing surface)
 
-A per-company utility module node (auto-created, non-deletable) exposing the NRA:
+A per-company utility module node (auto-created, non-deletable, named **Deterministic Math
+Calculator**) exposing the NRA:
 - Node status: calc ops/min, sanity blocks count, stale-value warnings.
 - Expanded view + panel: live k/v browser (search by kind/source/module), value lineage graph
   (ref → parents → source), calc operation log with formula, inputs, outputs, sanity results,
   static-op catalog reference.
 - It is the transparency window into "what numbers the system is using and where each came
   from" — directly supporting funds-pipeline trust.
+- Seeded paper engines wire `holding_fund → math → fund_router` fund-route links on the canvas.
+  **Topology only in M1** — actual fund movement through holding fund/router remains M3+.
+
+## 8b. Per-module allocation and target exit (canonical intent, not yet implemented)
+
+`DevSpecs/dev-notebook.md` §COMPANY CREATION requires every module to eventually carry:
+- a funds allocation (fixed amount or percentage), and
+- an operator-selected topic/sector focus (preset plus custom entry), and
+- a target exit date/time.
+The same setup contract applies when an operator inserts another trading engine. Templates seed
+construction/logic only; they do not seed topics, sectors, or instrument universes.
+
+**NRA constraints (OQ-9):**
+- Fixed amounts and percentages must resolve to **ValueRefs** (operator input or calc-derived from
+  ledger refs) — never model-emitted numbers.
+- Target exit dates/times must resolve to **temporal refs** (`timestamp_ms`, `session_date`, or
+  calendar-derived schedule refs) — never authoritative datetimes in model output paths.
+- Whether “funds” means trading capital only or separate operating/LLM budgets by module type,
+  and whether setup is inline or a required post-create step, remain unresolved (OQ-9).
 
 ## 9. Build integration
 

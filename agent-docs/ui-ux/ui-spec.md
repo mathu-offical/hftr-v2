@@ -32,10 +32,17 @@
 
 ## 3. Canvas (React Flow)
 
-- Modules as nodes, laid out left→right by column: research | data (libraries, live APIs, math) |
-  trend | trading | policy. Edges = `module_links`, animated when data is flowing (projection of
-  job activity), colored by link kind. Policy nodes (rightmost) bind policy envelopes to the
-  trading modules linked into them; the Math node is pinned in the data column, non-deletable.
+- Modules as nodes, laid out left→right by column: research | data (libraries, live APIs, math,
+  holding fund) | trend | trading (incl. fund router) | policy. Edges = `module_links`, rendered
+  as **rounded elbow** `smoothstep` paths (DevSpecs/ui-ux.spec.md §Connections), animated when
+  data is flowing (projection of job activity), colored by link kind. Policy nodes (rightmost)
+  bind policy envelopes to the trading modules linked into them; the Math node is pinned in the
+  data column, non-deletable, named `Deterministic Math Calculator`.
+- **Edge routing (implemented D-023):** stored and newly created edges use React Flow
+  `type: 'smoothstep'`; connection drag preview uses `ConnectionLineType.SmoothStep`. This yields
+  rounded right-angle routing with column spacing as the primary collision control. **Not**
+  arbitrary obstacle avoidance — advanced ELK/pathfinding that routes around nodes is deferred.
+  Canonical intent: edges "should generally be structured to avoid nodes."
 - **Node anatomy (simplified view):** icon + name + type chip, status line (text-first:
   `active · 3 jobs`, `blocked: session_legality`, `watch · 2 leads`), key metric (per type:
   concepts count / feed freshness / active trends / module PnL + allocation), activity sprite
@@ -46,6 +53,15 @@
 - Minimap + zoom controls bottom-right; fit-view on load; LOD: below zoom threshold, node bodies
   simplify to icon+status dot (perf + readability).
 - Empty state: company template picker rendered as ghost-nodes.
+- **Module store (D-023):** floating palette (top-left) with **Modules** (category-grouped singles
+  with function-specific default names) and **Engines** (insertable end-to-end templates from
+  `ENGINE_TEMPLATES`). Math is absent — auto-created per company.
+- **Seeded `day_trading_starter` topology (paper-safe, D-023):** ten nodes —
+  `Market Regime Research` → `Strategy Evidence Library` + `Paper Market & Runtime Feed` →
+  `Market Trend Scanner` → `Paper Day-Trade Execution`, plus `Paper Seed Holding Fund` →
+  `Deterministic Math Calculator` → `Deterministic Fund Router` → trading desk, with
+  `Transaction Execution Monitor` and `Paper Trading Policy` verification links. Ten
+  `smoothstep` edges. `trend_research_lab` seeds research → library → trend only.
 - Performance rules (mandatory): memoized custom nodes/edges, nodeTypes defined at module scope,
   Zustand + `useShallow` selectors, no components subscribing to whole nodes/edges arrays.
 
@@ -91,11 +107,13 @@ editable fields.
 
 ## 5. Assistant surface
 
-**M1 (shipped, D-022):** docked pill bottom-right of canvas → expands to a chat column overlay.
-`AssistantDock` loads/sends via `GET/POST /api/companies/:companyId/assistant`. History is
-append-only `assistant_messages` in Postgres (company + user scoped). Responses are
-**deterministic read-only lookups** — six regex-routed intents, **no model calls**. Chrome:
-"Read-only · no model calls". `Esc` closes the dock.
+**M1 (shipped D-022; hardened D-023):** docked pill bottom-right of canvas → expands to a chat
+column overlay. `AssistantDock` loads/sends via `GET/POST /api/companies/:companyId/assistant`.
+History is append-only `assistant_messages` in Postgres (company + user scoped). Responses are
+**deterministic read-only lookups** — six regex-routed intents, **no model calls**. Persisted
+`tool_results` are summary cards (`tool`, `summary`, `status`); capabilities and failed lookups
+render as explicit cards. Rate limit: 20 user messages/min/company. Chrome: "Read-only · no model
+calls". `Esc` closes the dock. Retention/erasure policy unresolved (OQ-10).
 
 **Later milestones:** messages may carry structured edit-proposal cards (diff-style: field,
 old → new) with Confirm/Reject; applied edits link to `assistant_edits` audit entries (M4).
@@ -113,14 +131,20 @@ Mistral conversational chat lands with the research/assistant LLM budget work (M
 
 ## 7. Key flows (must be Playwright-covered)
 
-**M1 coverage (shipped 2026-07-17, D-022):** `apps/web/e2e/` runs against a local Next dev
-server on port 3001 with `DEV_AUTH_BYPASS=1` and Clerk keys cleared (`playwright.config.ts`).
-Fixtures archive test companies via `DELETE /api/companies/:id` on teardown.
+**M1 coverage (shipped 2026-07-17, D-022; expanded topology D-023):** `apps/web/e2e/` runs
+against a local Next dev server on port 3001 with `DEV_AUTH_BYPASS=1` and Clerk keys cleared
+(`playwright.config.ts`). Fixtures archive test companies via `DELETE /api/companies/:id` on
+teardown.
 
 | Spec | What it exercises |
 |---|---|
 | `companies.spec.ts` | Companies directory; create form exposes Blank / Day trading starter / Trend research lab templates |
-| `company-workspace.spec.ts` | `day_trading_starter` create → canvas template nodes → panel expand/collapse buttons → keyboard `[` `]` `` ` `` → module store → read-only assistant (`queue status` POST + reload persistence) → archive cleanup |
+| `company-workspace.spec.ts` | `day_trading_starter` create → full seeded engine node names (incl. `Deterministic Math Calculator`, holding fund, fund router, policy/analyzer) → **10** `smoothstep` edges → panel expand/collapse → keyboard `[` `]` `` ` `` → module store Modules/Engines tabs → read-only assistant (`queue status` + capabilities card + reload persistence) → archive cleanup |
+
+**Verification status (2026-07-17, D-023):** local typecheck, lint, unit tests, production build,
+and the final complete two-spec Playwright suite pass after the expanded topology landed.
+Migration `0007_left_firestar` local apply is unconfirmed; IronBee DevTools unavailable — no
+IronBee verification claimed.
 
 **Not yet covered by M1 Playwright:** Clerk sign-up (flow 1 full), credits/Stripe, full pipeline
 hop (flow 3), broker connect (flow 4), assistant write proposals (flow 5), live-gate block

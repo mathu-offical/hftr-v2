@@ -18,12 +18,16 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   scoping_policies jsonb, mode `paper|live`, seed_credits_cents (paper), broker_connection_id
   nullable, auto_fund_policy jsonb (approval thresholds), archived_at.
 - **modules** — company_id, type `research|library|live_api|trend|trading|policy|generator|
-  simulator|analyzer|fund_router|math`, subtype (trading: `crypto|prediction|hft|day|
-  long_term|custom`), name, config jsonb (schema per type), status `active|paused|error|draft`,
-  allocation_cents, canvas_position jsonb {x,y}, philosophy_override text.
-  Notes: `math` is auto-created per company and non-deletable (D-008); `policy` nodes occupy the
-  rightmost canvas column and bind policy envelopes to the trading modules linked into them
-  (spec: "trading modules → trading policies").
+  simulator|analyzer|holding_fund|fund_router|math|display`, subtype (trading: `crypto|prediction|
+  hft|day|long_term|custom`), name, config jsonb (schema per type), status
+  `active|paused|error|draft`, allocation_cents, canvas_position jsonb {x,y},
+  philosophy_override text.
+  Notes: `math` is auto-created per company, non-deletable, default name `Deterministic Math
+  Calculator` (D-008, D-023); `holding_fund` represents a deterministic capital source on the
+  canvas (`HoldingFundModuleConfig`: `source`, `allocationPolicyRef`) — topology only in M1,
+  no ledger transfers yet (D-023); `policy` nodes occupy the rightmost canvas column and bind
+  policy envelopes to the trading modules linked into them (spec: "trading modules → trading
+  policies").
 - **module_links** — company_id, from_module_id, to_module_id, link_kind
   `data_feed|directive|verification|fund_route`, config jsonb. (These are the canvas edges.)
 - **fund_transfers** — company_id, from (module|company_pool|reserve), to, amount_cents,
@@ -149,12 +153,17 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 
 ## Assistant
 
-- **assistant_messages** — APPEND-ONLY company + user-scoped chat log (M1, D-022). Columns:
-  `company_id`, `clerk_user_id`, `role` (`user|assistant|system`), `content`, `tool_results`
-  jsonb (structured lookup cards), `created_at`. Indexed on `(company_id, created_at)`. No
-  UPDATE/DELETE in app code. `GET/POST /api/companies/:companyId/assistant` returns newest 100
-  in chronological order. M1 path is deterministic regex intent routing to six read lookups —
-  **no LLM tier calls**; financial figures in payloads are server projections, not model output.
+- **assistant_messages** — APPEND-ONLY company + user-scoped chat log (M1, D-022; hardened
+  D-023). Columns: `company_id`, `clerk_user_id`, `role` (`user|assistant|system` — DB CHECK
+  constraint), `content`, `tool_results` jsonb (summary cards: `tool`, `summary`, `status`
+  only; validated by `AssistantToolResults` in contracts), `created_at`. Indexes:
+  `(company_id, created_at)` and `(company_id, clerk_user_id, created_at)` (migration
+  `0007_left_firestar`). No UPDATE/DELETE in app code. `GET/POST
+  /api/companies/:companyId/assistant` returns newest 100 in chronological order. POST admission:
+  20 user messages per company per rolling minute. User + assistant rows insert in one multi-row
+  `INSERT` (Neon HTTP driver lacks interactive transactions). M1 path is deterministic regex
+  intent routing to six read lookups — **no LLM tier calls**. Retention/erasure policy
+  unresolved (OQ-10).
 - **assistant_sessions** — not implemented in M1; session grouping deferred until Mistral chat
   ships (M2+). Company + user scoping on messages is sufficient for M1 history.
 - **assistant_edits** — audit of every mutation the assistant performed: tool name, JSON patch,

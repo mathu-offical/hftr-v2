@@ -166,6 +166,39 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   POST `/trends` records operator_input ValueRef for drift. LLM call path still reads
   env keys only until user-key injection lands (follow-up).
 
+- **D-023 (canonical DevSpecs sync: engines, holding fund, elbows, assistant hardening,
+  2026-07-17):** Aligned implementation and agent-docs with `DevSpecs/dev-notebook.md`
+  (2026-07-17) and `DevSpecs/ui-ux.spec.md` §Connections. (a) **Company creation &
+  templates:** create flow exposes discrete company templates (`blank`, `day_trading_starter`,
+  `trend_research_lab`); module store adds insertable `ENGINE_TEMPLATES` (day-trading and
+  trend-research engines available; crypto/prediction/HFT gated with honest reasons). Templates
+  seed construction/logic only: scope fields use `pending_operator_scope` and instruments are
+  empty rather than silently seeding topics/sectors. Per-module allocation amount/percentage,
+  topic/sector preset-plus-custom, and target exit date/time — for creation and later engine
+  insertion — are **canonical requirements** but **not yet wired** (OQ-9). (b)
+  **Function-specific names:** all seeded template
+  nodes and palette `defaultName` values describe actual function (e.g. `Market Regime Research`,
+  `Paper Seed Holding Fund`, company Math `Deterministic Math Calculator`). (c) **Paper-safe
+  seeded engine topology:** `day_trading_starter` and `engine_day_trading` seed
+  research → evidence library + paper market/runtime feed → trend → paper execution, with
+  `holding_fund → math → fund_router → trading` fund-route links and analyzer/policy
+  verification (`Transaction Execution Monitor`, `Paper Trading Policy`); `trend_research_lab`
+  seeds research → library → trend only. Fund/router nodes are **canvas topology only** —
+  deterministic fund movement is not implemented in this slice. (d) **`holding_fund` module
+  type:** added to contracts, DB enum, palette, LINK_RULES (`holding_fund→math|fund_router`),
+  and `HoldingFundModuleConfig` (`source`, `allocationPolicyRef`). (e) **Canvas edges:**
+  stored/created edges use React Flow `smoothstep` with `ConnectionLineType.SmoothStep` preview;
+  rounded right-angle routing with column spacing — **not** true arbitrary obstacle avoidance;
+  ELK/pathfinding deferred. (f) **Assistant hardening:** shared Zod contracts
+  (`packages/contracts/src/assistant.ts`); `tool_results` persists **summary cards only**
+  (`tool`, `summary`, `status`); failed lookups emit explicit cards + server logging; 20 user
+  messages/min/company admission cap; Neon HTTP lacks interactive transactions — user +
+  assistant rows inserted atomically via one multi-row `INSERT`; migration `0007_left_firestar`
+  adds composite index `(company_id, clerk_user_id, created_at)` and `role` CHECK. Assistant
+  retention/erasure policy unresolved (OQ-10). Verified locally: typecheck, lint, unit tests,
+  production build, and the final expanded-topology Playwright M1 suite pass. Migration `0007`
+  local apply and IronBee verification are not claimed.
+
 - **D-022 (M1 assistant, panel persistence, Playwright, gate honesty, 2026-07-17):**
   Closed the remaining M1 shell gaps with honest labeling. (a) **Assistant:** append-only
   `assistant_messages` (company + `clerk_user_id` scoped); `AssistantDock` + assistant API with
@@ -185,6 +218,18 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 
 ## Open questions
 
+- **OQ-9 (open):** Per-module company/engine setup semantics — the create wizard and later
+  engine insertion must collect allocation (fixed amount or percentage), topic/sector
+  preset-plus-custom, and target exit date/time for each seeded module. Clarify whether funds
+  mean trading capital only for capital-bearing modules or separate operating/LLM budgets for
+  research/data/policy modules, and whether setup is inline or a required post-create step.
+  Fixed amounts/percentages must resolve to ValueRefs and target exit dates to temporal refs per
+  the Numeric/Temporal Reference Architecture — never encode raw authoritative numbers/times
+  into model paths. Canonical intent: `DevSpecs/dev-notebook.md` §COMPANY CREATION.
+- **OQ-10 (open):** Assistant message retention and erasure policy — TTL, company archive
+  behavior, account deletion, and whether summary `tool_results` history follows the same rules
+  as `content`. No policy encoded yet; `assistant_messages` remains append-only with no purge
+  job.
 - **OQ-8 (open):** When user-saved LLM keys exist, should they override env keys, or
   should env remain the deployment default with user keys as optional personal overrides?
 - **OQ-7 (resolved 2026-07-16):** Clerk dev-instance keys added to `apps/web/.env.local`;

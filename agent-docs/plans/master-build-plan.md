@@ -29,21 +29,37 @@ Gate G0: deployed skeleton, auth round-trip in browser, migrations reproducible 
 3. Node anatomy v1 (status lines from queue projections); three docked panels with spec tabs,
    keyboard toggles (`[`, `]`, `` ` ``), Esc collapse, and per-company `localStorage` open/tab/
    filter persistence.
-4. **M1 assistant (deterministic, no model):** docked chat UI + append-only
-   `assistant_messages` history; regex intent routing to six read-only lookups
-   (`company_summary`, `module_status`, `recent_executions`, `positions`, `trends`,
-   `queue_status`). Mistral chat, write tools, and proposal cards remain M2/M4 (D-022).
+4. **M1 assistant (deterministic, no model; hardened D-023):** docked chat UI + append-only
+   `assistant_messages` history; shared Zod contracts (`packages/contracts/src/assistant.ts`);
+   summary-only `tool_results`; failed lookup cards + server logging; 20 user messages/min/company
+   cap; atomic multi-row insert (Neon HTTP has no interactive transaction); migration `0007`
+   composite index + role CHECK. Regex intent routing to six read-only lookups. Mistral chat,
+   write tools, and proposal cards remain M2/M4 (D-022). Retention/erasure unresolved (OQ-10).
 5. **Playwright (M1 subset):** `apps/web/e2e/` with `DEV_AUTH_BYPASS=1` dev server on port
-   3001; companies template form + `day_trading_starter` workspace flow (canvas, panels,
-   shortcuts, module store, assistant persistence); fixture archives test companies on teardown.
-   Optional CI `e2e` job against service Postgres.
+   3001; companies template form + `day_trading_starter` workspace flow (full seeded engine
+   node names, 10 `smoothstep` edges, panels, shortcuts, module store Modules/Engines, assistant
+   persistence + capabilities card); fixture archives test companies on teardown. Optional CI
+   `e2e` job against service Postgres.
+6. **D-023 canvas/templates:** `holding_fund` module type; expanded paper-safe
+   `day_trading_starter` / `engine_day_trading` topology (research → evidence + runtime feed →
+   trend → execution; holding fund → Math → fund router; transaction monitor + trading policy);
+   function-specific palette/template names; `smoothstep` rounded-elbow edges (not full obstacle
+   routing — ELK/pathfinding deferred). Fund/router nodes are topology only — no ledger transfers.
+   Per-module allocation/exit at create remains OQ-9.
 
-**Gate G1 (candidate — pending external verification, D-022):** create company → compose module
-graph → queue processes a synthetic job → node activity reflects it → panels + assistant +
+**Gate G1 (candidate — pending external verification, D-022/D-023):** create company → compose
+module graph → queue processes a synthetic job → node activity reflects it → panels + assistant +
 Playwright M1 flows green. Recorded local evidence: typecheck, lint, unit tests, and the complete
-two-spec Playwright suite pass after assistant race/intent fixes. The new CI e2e job has not run
-remotely; IronBee browser MCP was unavailable — do not claim IronBee verification. Formal G1
-sign-off waits on those external checks.
+two-spec Playwright suite pass (including expanded-topology assertions) before docs curation.
+**Parent-pending:** final E2E rerun after all D-023 code landed; migration `0007_left_firestar`
+local apply; remote CI e2e first run; IronBee browser MCP unavailable — do not claim IronBee
+verification. Formal G1 sign-off waits on those external checks.
+
+**M2 not started.** Next dependency slices before real provider calls (do not mark M2 done until
+verified): (1) LLM call boundary + key precedence (OQ-8) with `llm_calls` admission wired;
+(2) research graph contracts + `concept_links`; (3) NRA substitution pass + static/temporal ops +
+leak-lint gates — then replace deterministic research placeholder. Do not call providers before
+these gates pass.
 
 ## M2 — Research stack (Claude+Mistral) + libraries + galaxy MVP + numeric core
 
@@ -132,3 +148,6 @@ throttle presets enforced.
 - OQ-4: v1 database reuse for read-only research import (currently: fresh DB, optional one-time
   content import script from v1 catalogs only).
 - OQ-5: Polymarket key custody model (wallet management) before that adapter ships.
+- OQ-9: per-module allocation + target exit timing at company creation vs post-create (NRA
+  ValueRef/temporal ref resolution).
+- OQ-10: assistant message retention/erasure policy.

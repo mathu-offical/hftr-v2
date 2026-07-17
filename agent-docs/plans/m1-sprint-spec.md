@@ -43,7 +43,9 @@ created, invalid link 422, math delete 422, noop job enqueued → drained → co
 - Position persistence: drag-end → debounced server action updating `modules.canvas_position`.
 - Edge creation: connection handles validated against a `LINK_RULES` matrix in contracts
   (e.g. `library → trend: data_feed` allowed; `trading → research: verification` allowed;
-  invalid combinations rejected with toast reason). Edge deletion with confirm.
+  invalid combinations rejected with toast reason). Edge deletion with confirm. Stored/created
+  edges use React Flow `smoothstep` (rounded elbows, D-023); connection preview matches.
+  True obstacle avoidance (ELK/pathfinding) deferred.
 - Column snapping: nodes softly snap to their type column (research | data | trend | trading |
   policy) on drop; free vertical placement.
 - Auto-created Math module node (D-008) rendered pinned in the data column; delete disabled.
@@ -96,17 +98,35 @@ created, invalid link 422, math delete 422, noop job enqueued → drained → co
 - Bottom-right `AssistantDock` pill → chat column overlay (`apps/web/components/assistant/`).
 - **Persistence:** append-only `assistant_messages` table — `(company_id, clerk_user_id, role,
   content, tool_results jsonb)`; GET returns newest 100 chronological; no `assistant_sessions`
-  table in M1 (deferred).
+  table in M1 (deferred). Migration `0007_left_firestar`: composite
+  `(company_id, clerk_user_id, created_at)` index + `role` CHECK (local apply unconfirmed).
+- **Contracts (D-023):** `packages/contracts/src/assistant.ts` — summary-only `tool_results`
+  (`tool`, `summary`, `status`); `capabilities` tool for unmatched intents; strict parse on write.
 - **No model calls in M1 (D-022):** POST classifies user text with regex intent rules and runs
   deterministic read lookups only — **not** Mistral/`packages/llm`. UI labels the surface
   "Read-only · no model calls".
 - **Six lookup intents:** `company_summary`, `module_status`, `recent_executions`, `positions`,
-  `trends`, `queue_status`. Unmatched intents return a capabilities card listing supported
-  topics. Financial figures in tool payloads are server-sourced fixed-point strings from DB/
-  engine projections — the assistant path does not invoke any LLM and therefore does not emit
-  raw model numbers.
+  `trends`, `queue_status`. Unmatched intents return a capabilities card. Failed lookups emit
+  explicit failed cards + server logging.
+- **Admission (D-023):** 20 user messages per company per rolling minute (DB-backed).
+- **Atomic exchange (D-023):** Neon HTTP lacks interactive transactions — user + assistant rows
+  insert in one multi-row `INSERT` after lookup completes.
 - **Later milestones:** Mistral orchestration chat (M2+), write tools + confirm proposal cards
-  (`assistant_edits` audit, M4 per llm-pipeline.md §7).
+  (`assistant_edits` audit, M4 per llm-pipeline.md §7). Retention/erasure OQ-10.
+
+## T1.7 — D-023 hardening + canonical seeded-engine refinement
+
+- Assistant boundary: shared strict contracts; summary-only cards; explicit failure cards;
+  20 user messages/min/company admission; atomic paired insert; composite history index + role
+  CHECK in `0007_left_firestar`. Retention remains OQ-10.
+- Seeded day engine: function-specific names and paper-safe research/data/trend/trading topology,
+  plus `holding_fund → Deterministic Math Calculator → fund_router → trading` and
+  analyzer/policy verification. Fund nodes are visible topology only.
+- Templates seed no topic/sector or instrument universe (`pending_operator_scope`, empty
+  instruments). Full per-module allocation/scope/target-exit setup for company creation and later
+  engine insertion remains OQ-9.
+- Canvas links and connection preview use rounded `smoothstep` elbows; true arbitrary-node
+  obstacle routing remains deferred.
 
 ## Gate G1 checklist
 
@@ -126,15 +146,18 @@ awaiting final CI/local rerun; **open** = not yet met.
 - [x] **done** Assistant answers read-only lookup questions (deterministic intents; Playwright
       covers `queue status` + reload persistence)
 - [x] **candidate** Playwright M1 flows green: `companies.spec.ts` (template form) +
-      `company-workspace.spec.ts` (canvas, panels, shortcuts, module store, assistant) under
-      `DEV_AUTH_BYPASS=1`; complete local suite passed — **not** full Clerk sign-up flow 1;
-      remote CI e2e job first run pending
-- [x] **done** agent-docs updated (this session, D-022)
+      `company-workspace.spec.ts` (full `day_trading_starter` seeded engine: 10 function-specific
+      node names, 10 `smoothstep` edges, panels, shortcuts, module store Modules/Engines,
+      assistant + capabilities card) under `DEV_AUTH_BYPASS=1`; complete local suite passed before
+      D-023 docs — **not** full Clerk sign-up flow 1; **parent-pending:** final expanded-topology
+      E2E rerun; remote CI e2e job first run pending
+- [x] **done** agent-docs updated (D-022, D-023)
 
-**G1 gate verdict (2026-07-17):** implementation **complete as a gate candidate**; formal G1
-sign-off **pending** the remote CI e2e run and zero-trust IronBee browser pass. Local typecheck,
-lint, unit tests, and the complete two-spec Playwright suite pass. IronBee DevTools was
-unavailable — no IronBee verification claimed.
+**G1 gate verdict (2026-07-17, updated D-023):** implementation **complete as a gate
+candidate**; formal G1 sign-off **pending** parent final expanded-topology E2E rerun, migration
+`0007_left_firestar` local apply confirmation, remote CI e2e run, and zero-trust IronBee browser
+pass. Local typecheck, lint, unit tests, and the complete two-spec Playwright suite pass before
+docs curation. IronBee DevTools was unavailable — no IronBee verification claimed.
 
 ## Pulled forward from M2 (2026-07-16)
 
@@ -164,7 +187,10 @@ production build).
 - **Trend scan:** deterministic `trend.scan` RESEARCH handler → `trend_candidates`
   (`deterministic_scan` source class) + drift ValueRefs; "Scan now" control on trend modules.
 - **Templates:** `blank` / `day_trading_starter` / `trend_research_lab` in contracts; picker in
-  the create-company form; configs contract-tested against `MODULE_CONFIG_SCHEMAS`.
+  the create-company form; configs contract-tested against `MODULE_CONFIG_SCHEMAS`. D-023:
+  `day_trading_starter` expanded to full paper engine topology with `holding_fund`, fund router,
+  analyzer/policy verification, and function-specific names; Math auto-named `Deterministic Math
+  Calculator`. Insertable `ENGINE_TEMPLATES` in module store (Engines tab).
 - **Info rail:** right panel now tabbed — Activity / Positions / Trends / Values (Math ValueRef
   audit: value, unit, kind, source class, source id, capture time).
 - **Verified in browser with a real Clerk test account:** sign-up, templated company creation,
@@ -224,3 +250,32 @@ production build).
   IronBee browser MCP unavailable (not claimed).
 - **Still open for later milestones:** Mistral assistant chat, write proposal cards, full Clerk
   sign-up Playwright flow 1, IronBee zero-trust browser pass, formal G1 sign-off.
+
+## Session 2026-07-17 (canonical DevSpecs sync, decision D-023)
+
+- **Expanded paper-safe engine topology:** `day_trading_starter` and insertable `engine_day_trading`
+  seed research → evidence library + paper market/runtime feed → trend → paper execution, with
+  `holding_fund → Deterministic Math Calculator → fund_router → trading` fund routes and
+  analyzer/policy verification nodes. `trend_research_lab` / `engine_trend_research` seed
+  research → library → trend only. All default names are function-specific.
+- **`holding_fund` module type:** contracts enum + `HoldingFundModuleConfig`, DB enum, palette
+  category "Funds & controls", LINK_RULES for `holding_fund→math|fund_router`. Topology only —
+  no deterministic fund movement implemented.
+- **Canvas edges:** stored/created edges `type: 'smoothstep'`; connection preview
+  `ConnectionLineType.SmoothStep`. Rounded right-angle routing — not arbitrary obstacle avoidance
+  (ELK/pathfinding deferred per DevSpecs intent).
+- **Module store engines tab:** `ENGINE_TEMPLATES` with sector/philosophy inputs for available
+  engines; crypto/prediction/HFT listed unavailable with honest reasons.
+- **Assistant hardening:** `packages/contracts/src/assistant.ts` (summary-only `tool_results`,
+  `capabilities` tool, normalization helpers); route rate limit 20 user msgs/min/company; failed
+  lookup cards + `console.error` logging; atomic two-row `INSERT`; migration `0007_left_firestar`
+  (composite `(company_id, clerk_user_id, created_at)` index + `role` CHECK) — **generated, local
+  apply not yet confirmed**.
+- **Playwright:** `company-workspace.spec.ts` asserts all ten seeded node names, 10 smoothstep
+  edges, module store Modules/Engines tabs, assistant capabilities card on unmatched intent.
+- **Canonical requirements not yet implemented:** per-module allocation (amount/percentage) and
+  target exit date/time at company creation (OQ-9); assistant retention/erasure (OQ-10).
+- **Verification:** typecheck, lint, unit tests, and Playwright M1 suite pass locally before docs;
+  final expanded-topology E2E rerun parent-pending; IronBee unavailable.
+- **M2 readiness (not started):** key precedence/call boundary (OQ-8), `concept_links`, NRA
+  substitution — see `master-build-plan.md` §M2 preamble.

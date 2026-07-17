@@ -15,13 +15,32 @@ watches, steers, and approves through the canvas + three panels + the assistant.
 - Company policies bound everything downstream: risk bands, session allowances, approval
   thresholds for fund movements, LLM budget tier.
 - A user can own many companies; each company is one canvas.
-- Company creation wizard: name+philosophy → seed → mode → starter template (pre-linked module
-  graph per template: "Day trading starter", "Crypto starter", "Prediction markets starter",
-  "Research-first", "Blank").
+- **Company creation (canonical 2026-07-17, `DevSpecs/dev-notebook.md`):** must offer discrete
+  options for seed modules/engines; each module eventually needs a funds allocation (fixed
+  amount or percentage), a topic/sector focus (dropdown + custom entry), and a target exit
+  date/time. Adding new trading engines should require the same operator-entered info as company
+  creation. Do not seed topics/sectors — seed construction and logic only.
+- **Implemented today (D-023):** create form picks one of three company templates (`blank`,
+  `day_trading_starter`, `trend_research_lab`). The module store additionally exposes insertable
+  end-to-end `ENGINE_TEMPLATES` (day-trading and trend-research available; crypto/prediction/HFT
+  listed with honest gating reasons). Templates seed no topic, sector, or instrument universe:
+  scope fields use `pending_operator_scope` and instruments start empty. Engine insertion can
+  collect scope today, but it does **not** yet enforce the complete common per-module setup.
+- **Deferred (OQ-9):** both company creation and later engine insertion must collect per-module
+  allocation amount/percentage, topic/sector preset-plus-custom, and target exit date/time.
+  Allocation and exit values must resolve through ValueRefs and temporal refs per
+  `architecture/number-handling.md`.
 
 ## 3. Modules (user-creatable, multi-instance)
 
 Canvas ordering left→right: research → data (libraries + live APIs) → trend → trading → policies.
+
+**Default seeded trading engines (canonical 2026-07-17):** paper-safe topology follows
+research modules → data modules (evidence/history library + live/runtime feed) → trend modules →
+trading module, with fund source (`holding_fund`) → Math module → fund router feeding the trading
+desk and policy verification modules (`analyzer` transaction monitor + `policy` trading policy).
+All default node names describe actual function. Fund/router nodes are **visible topology only** in
+M1 — deterministic fund movement is not implemented by this slice (D-023).
 
 ### Research modules (model-bearing, curious)
 - Autonomous agents building tagged concept databases; opportunistic source-seeking (scoped web
@@ -65,6 +84,9 @@ Canvas ordering left→right: research → data (libraries + live APIs) → tren
 - Custom type via Module generator.
 
 ### Utility modules
+- **Holding fund (shipped D-023):** represents a deterministic capital source on the canvas
+  (`company_seed`, `company_pool`, `reserve`, or `broker_balance` config). Linked via
+  `fund_route` edges to Math and fund router. **Topology only** — no ledger transfers yet.
 - **Module generator:** conversational/spec-driven creation of any module type (assistant
   tool-calls under the hood; outputs a draft module the user confirms).
 - **Simulator:** parallel paper runs of a trading module config; results comparable side-by-side;
@@ -74,11 +96,13 @@ Canvas ordering left→right: research → data (libraries + live APIs) → tren
 - **Fund router:** percentage/amount rules moving funds between modules/reserve; user approval
   required unless auto-policy set; every movement hits the ledger. Amounts resolve through the
   calculator (percentages of live balances are calc ops over ledger ValueRefs — never
-  model-emitted numbers).
-- **Math module (auto-created per company, non-deletable):** the transparency window into the
-  numeric reference architecture — live k/v value browser, value lineage graph (every number
-  traceable to its live source), calculator operation log with sanity results, static formula
-  catalog. Exists so users can audit exactly which numbers drive fund pipelines and executions.
+  model-emitted numbers). **M1:** node + `fund_route` links are seeded for paper engines; actual
+  transfer execution remains M3+.
+- **Math module (auto-created per company, non-deletable, named `Deterministic Math Calculator`):**
+  the transparency window into the numeric reference architecture — live k/v value browser, value
+  lineage graph (every number traceable to its live source), calculator operation log with sanity
+  results, static formula catalog. Exists so users can audit exactly which numbers drive fund
+  pipelines and executions. Seeded engines wire `holding_fund → math → fund_router` fund routes.
   See `architecture/number-handling.md`.
 
 ## 4. Funds model
@@ -93,15 +117,17 @@ Canvas ordering left→right: research → data (libraries + live APIs) → tren
 
 ## 5. Built-in assistant
 
-**M1 interim (shipped, D-022):** docked bottom-right chat pill on the company canvas. Messages
-persist in append-only `assistant_messages` scoped to `(company_id, clerk_user_id)`. The M1
-path is **deliberately deterministic and read-only** — regex intent routing to six server
-lookups (`company_summary`, `module_status`, `recent_executions`, `positions`, `trends`,
-`queue_status`) with **no model calls**. UI copy states "Read-only · no model calls". Financial
-figures in responses are server-sourced projections (fixed-point strings from DB/engine), not
-LLM output. Unmatched questions return a capabilities card. The empty state tells operators
-that messages are persisted and not to paste credentials; API keys remain confined to the
-encrypted user-settings store.
+**M1 interim (shipped, D-022; hardened D-023):** docked bottom-right chat pill on the company
+canvas. Messages persist in append-only `assistant_messages` scoped to `(company_id,
+clerk_user_id)`. The M1 path is **deliberately deterministic and read-only** — regex intent
+routing to six server lookups (`company_summary`, `module_status`, `recent_executions`,
+`positions`, `trends`, `queue_status`) with **no model calls**. Shared Zod contracts in
+`packages/contracts/src/assistant.ts`. Persisted `tool_results` are **summary cards only**
+(`tool`, `summary`, `status`); detailed lookup payloads are not stored. Failed lookups return
+explicit failed cards and are logged server-side. Admission: 20 user messages per company per
+rolling minute. User + assistant rows insert in one multi-row SQL statement (Neon HTTP has no
+interactive transaction). UI copy states "Read-only · no model calls". Unmatched questions return
+a capabilities card. Retention/erasure policy unresolved (OQ-10).
 
 **Target (M2+ chat, M4 writes):**
 - Mistral-run conversational chat, always aware of the currently viewed company; panel-docked

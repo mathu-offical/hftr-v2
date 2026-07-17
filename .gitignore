@@ -8,6 +8,7 @@ dist/
 build/
 .turbo/
 out/
+*.tsbuildinfo
 
 # Environment & secrets
 .env

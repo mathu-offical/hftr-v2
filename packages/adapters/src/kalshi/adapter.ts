@@ -8,6 +8,8 @@ import type {
   QuoteSnapshot,
   SubmitResult,
 } from '@hftr/contracts';
+import { createKalshiClient, dollarsToCents, type KalshiClient } from './client';
+import { mapTaskToKalshiOrder } from './map-order';
 
 /** Demo simulation starting balance — not a real Kalshi account. */
 export const KALSHI_DEMO_STARTING_CASH_CENTS = 1_000_000;
@@ -17,21 +19,40 @@ export const KALSHI_DEMO_SYNTHETIC_MID_CENTS = 50;
 
 export interface KalshiDemoAdapterOptions {
   nowMs: () => number;
-  /** When true, simulates demo API; live mode always fails closed. */
+  /** When true, allows paper/demo paths; live mode always fails closed. */
   demoMode: boolean;
+  /** Force in-memory simulation even when credentials are present. */
+  simulationOnly?: boolean;
+  /** Demo API key id — when set with privateKeyPem, uses real Kalshi demo HTTP. */
+  apiKeyId?: string;
+  privateKeyPem?: string;
+  client?: KalshiClient;
   /** In-memory demo cash; defaults to $10,000. */
   startingCashCents?: number;
+  fetchImpl?: typeof fetch;
 }
 
 /**
- * Kalshi demo adapter — in-memory paper simulation only. Does not call the
- * real Kalshi API. Live trading is always blocked until live-gate arming and a
- * production adapter ship.
+ * Kalshi demo adapter — prefers the real Kalshi demo API when credentials are
+ * present; falls back to in-memory simulation otherwise. Live is always blocked.
  */
 export function createKalshiDemoAdapter(opts: KalshiDemoAdapterOptions): BrokerAdapter {
   if (!opts.demoMode) {
     throw new Error('kalshi_live_not_supported');
   }
+
+  const useHttp = !opts.simulationOnly && Boolean(opts.apiKeyId && opts.privateKeyPem);
+
+  const client = useHttp
+    ? (opts.client ??
+      createKalshiClient({
+        apiKeyId: opts.apiKeyId!,
+        privateKeyPem: opts.privateKeyPem!,
+        demoMode: true,
+        nowMs: opts.nowMs,
+        ...(opts.fetchImpl ? { fetchImpl: opts.fetchImpl } : {}),
+      }))
+    : null;
 
   let cashCents = opts.startingCashCents ?? KALSHI_DEMO_STARTING_CASH_CENTS;
   const fills: FillRecord[] = [];
@@ -45,7 +66,7 @@ export function createKalshiDemoAdapter(opts: KalshiDemoAdapterOptions): BrokerA
       askCents: mid + 1,
       lastCents: mid,
       asOfIso: new Date(opts.nowMs()).toISOString(),
-      feedClass: 'kalshi_demo_simulation',
+      feedClass: client ? 'kalshi_demo' : 'kalshi_demo_simulation',
     };
   }
 
@@ -78,19 +99,47 @@ export function createKalshiDemoAdapter(opts: KalshiDemoAdapterOptions): BrokerA
     },
 
     async verifyConnection(): Promise<ConnectionStatus> {
-      return 'connected';
+      if (!client) return 'connected';
+      try {
+        const ok = await client.verifyConnection();
+        return ok ? 'connected' : 'error';
+      } catch {
+        return 'error';
+      }
     },
 
     async getBalances(): Promise<BalanceSnapshot> {
+      if (!client) {
+        return {
+          cashCents,
+          buyingPowerCents: cashCents,
+          asOfIso: new Date(opts.nowMs()).toISOString(),
+        };
+      }
+      const bal = await client.getBalance();
+      const asOfMs = bal.updated_ts > 1e12 ? bal.updated_ts : bal.updated_ts * 1000;
       return {
-        cashCents,
-        buyingPowerCents: cashCents,
-        asOfIso: new Date(opts.nowMs()).toISOString(),
+        cashCents: bal.balance,
+        buyingPowerCents: bal.balance,
+        asOfIso: new Date(asOfMs).toISOString(),
       };
     },
 
     async getQuote(symbol: string): Promise<QuoteSnapshot> {
-      return syntheticQuote(symbol);
+      if (!client) return syntheticQuote(symbol);
+      try {
+        const { market } = await client.getMarket(symbol);
+        return {
+          symbol,
+          bidCents: dollarsToCents(market.yes_bid_dollars),
+          askCents: dollarsToCents(market.yes_ask_dollars),
+          lastCents: dollarsToCents(market.last_price_dollars),
+          asOfIso: new Date(opts.nowMs()).toISOString(),
+          feedClass: 'kalshi_demo',
+        };
+      } catch {
+        return syntheticQuote(symbol);
+      }
     },
 
     async submitOrder(task: DeterministicActionTask): Promise<SubmitResult> {
@@ -113,6 +162,24 @@ export function createKalshiDemoAdapter(opts: KalshiDemoAdapterOptions): BrokerA
             venueOrderId: null,
             rejectReason: `unsupported_action_verb:${String(_exhaustive)}`,
           };
+        }
+      }
+
+      if (client) {
+        const body = mapTaskToKalshiOrder(task, task.clientOrderId ?? task.idempotencyKey);
+        if (!body) {
+          return { accepted: false, venueOrderId: null, rejectReason: 'unsupported_order_type' };
+        }
+        try {
+          const order = await client.placeOrder(body);
+          return {
+            accepted: true,
+            venueOrderId: order.order_id,
+            rejectReason: null,
+            clientOrderId: order.client_order_id ?? task.clientOrderId ?? task.idempotencyKey,
+          };
+        } catch {
+          return { accepted: false, venueOrderId: null, rejectReason: 'kalshi_order_rejected' };
         }
       }
 
@@ -156,10 +223,14 @@ export function createKalshiDemoAdapter(opts: KalshiDemoAdapterOptions): BrokerA
     },
 
     async cancelOrder(venueOrderId: string): Promise<SubmitResult> {
+      if (client) {
+        return { accepted: false, venueOrderId, rejectReason: 'cancel_not_implemented' };
+      }
       return { accepted: false, venueOrderId, rejectReason: 'already_filled' };
     },
 
     async getFills(sinceIso: string): Promise<FillRecord[]> {
+      if (client) return [];
       return fills.filter((f) => f.atIso >= sinceIso);
     },
   };

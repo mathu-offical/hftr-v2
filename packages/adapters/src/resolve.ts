@@ -105,6 +105,8 @@ export function resolveBrokerAdapter(opts: ResolveBrokerAdapterOptions): BrokerA
       return createKalshiDemoAdapter({
         nowMs: opts.nowMs,
         demoMode: true,
+        apiKeyId: creds.apiKeyId,
+        privateKeyPem: creds.privateKeyPem,
       });
     }
     case 'polymarket':

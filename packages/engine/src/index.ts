@@ -36,6 +36,7 @@ export {
   scheduleWindowKey,
 } from './schedules/materialize';
 export { attachConceptsToLibraries } from './libraries/attach';
+export { attachConceptsToTopic } from './libraries/topic-attach';
 export {
   loadCompanyLinkGraph,
   neighborIds,

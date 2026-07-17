@@ -1,16 +1,14 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { ResearchModuleConfig } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
-import { libraries, libraryConcepts, modules } from '@hftr/db/schema';
-import {
-  loadCompanyLinkGraph,
-  resolveOutboundLibraryModules,
-} from '../graph/module-links';
+import { concepts, libraries, libraryConcepts, modules } from '@hftr/db/schema';
+import { loadCompanyLinkGraph, resolveOutboundLibraryModules } from '../graph/module-links';
 
 /**
  * Attach newly persisted concepts to target libraries.
  * Preference order: research→library canvas data_feed edges → config
  * targetLibraryIds → company master library.
+ * Sets `primary_library_id` to the first target when unset (D-040 nests).
  */
 export async function attachConceptsToLibraries(opts: {
   db: Db;
@@ -20,15 +18,15 @@ export async function attachConceptsToLibraries(opts: {
   now: Date;
   curationStatus?: 'proposed' | 'accepted' | 'auto_admitted' | 'rejected' | 'archived';
   researchRunId?: string | null;
-}): Promise<void> {
-  if (opts.conceptIds.length === 0) return;
+}): Promise<string[]> {
+  if (opts.conceptIds.length === 0) return [];
 
   const [mod] = await opts.db
     .select({ config: modules.config })
     .from(modules)
     .where(and(eq(modules.id, opts.moduleId), eq(modules.companyId, opts.companyId)))
     .limit(1);
-  if (!mod) return;
+  if (!mod) return [];
 
   const targetLibraryIds = await resolveAttachLibraryIds(
     opts.db,
@@ -36,7 +34,9 @@ export async function attachConceptsToLibraries(opts: {
     opts.moduleId,
     mod.config,
   );
-  if (targetLibraryIds.length === 0) return;
+  if (targetLibraryIds.length === 0) return [];
+
+  const primaryLibraryId = targetLibraryIds[0]!;
 
   for (const libraryId of targetLibraryIds) {
     for (const conceptId of opts.conceptIds) {
@@ -58,6 +58,22 @@ export async function attachConceptsToLibraries(opts: {
         });
     }
   }
+
+  await opts.db
+    .update(concepts)
+    .set({
+      primaryLibraryId,
+      updatedAt: opts.now,
+    })
+    .where(
+      and(
+        eq(concepts.companyId, opts.companyId),
+        inArray(concepts.id, opts.conceptIds),
+        isNull(concepts.primaryLibraryId),
+      ),
+    );
+
+  return targetLibraryIds;
 }
 
 async function resolveAttachLibraryIds(

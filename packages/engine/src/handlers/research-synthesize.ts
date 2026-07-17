@@ -9,10 +9,7 @@ import {
   upsertResearchResult,
   upsertResearchRun,
 } from '../research/run-state';
-import {
-  buildDeterministicBatchFromEvidence,
-  runResearchSynthesis,
-} from '../research/synthesis';
+import { buildDeterministicBatchFromEvidence, runResearchSynthesis } from '../research/synthesis';
 import { enqueue } from '../queue/queue';
 import { venueDate } from '../calendar/calendar';
 import { estimateLlmJobCost } from '../queue/llm-cost-estimate';
@@ -37,9 +34,7 @@ registerHandler('research.synthesize', async ({ db, clock, job, modelGateway }) 
 
   const topicScope = payload.topicScope ?? request.topicScope;
   const evidenceRows = await listEvidenceForRequest(db, payload.requestId);
-  const evidencePackages = evidenceRows.map((row) =>
-    EvidencePackage.parse(row.package ?? row),
-  );
+  const evidencePackages = evidenceRows.map((row) => EvidencePackage.parse(row.package ?? row));
 
   let batch =
     modelGateway && process.env.HFTR_LLM_MODE !== 'deterministic'
@@ -79,6 +74,7 @@ registerHandler('research.synthesize', async ({ db, clock, job, modelGateway }) 
     researchRunId: runId,
     sourceClass: synthesizedViaModel ? 'model_generated' : 'deterministic_placeholder',
     curationStatus: 'proposed',
+    topicId: request.topicId ?? null,
   });
 
   await upsertResearchRun(db, {

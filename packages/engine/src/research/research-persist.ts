@@ -1,9 +1,9 @@
-import { and, eq } from 'drizzle-orm';
-import type { ConceptBatch } from '@hftr/contracts';
+import { eq } from 'drizzle-orm';
+import type { ConceptBatch, CurationStatus } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { conceptLinks, concepts } from '@hftr/db/schema';
-import type { CurationStatus } from '@hftr/contracts';
 import { attachConceptsToLibraries } from '../libraries/attach';
+import { attachConceptsToTopic } from '../libraries/topic-attach';
 
 export interface PersistConceptBatchOptions {
   db: Db;
@@ -14,6 +14,8 @@ export interface PersistConceptBatchOptions {
   researchRunId?: string | null;
   sourceClass?: 'deterministic_placeholder' | 'model_generated' | 'operator';
   curationStatus?: CurationStatus;
+  /** When set, membership + reference telemetry attach to this topic (D-040). */
+  topicId?: string | null;
 }
 
 export async function persistConceptBatch(opts: PersistConceptBatchOptions): Promise<string[]> {
@@ -96,6 +98,16 @@ export async function persistConceptBatch(opts: PersistConceptBatchOptions): Pro
     ...(opts.curationStatus !== undefined ? { curationStatus: opts.curationStatus } : {}),
     ...(opts.researchRunId !== undefined ? { researchRunId: opts.researchRunId } : {}),
   });
+
+  if (opts.topicId) {
+    await attachConceptsToTopic({
+      db: opts.db,
+      companyId: opts.companyId,
+      topicId: opts.topicId,
+      conceptIds: persistedIds,
+      now: opts.now,
+    });
+  }
 
   return persistedIds;
 }

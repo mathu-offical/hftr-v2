@@ -17,20 +17,29 @@ export { drainQueues, type DrainResult } from './queue/drain';
 
 // Handlers (importing registers built-ins)
 export { registerHandler, getHandler, registeredKinds } from './handlers/registry';
-export type { ModelGateway, ResearchSynthesizeInput } from './handlers/model-gateway';
+export type {
+  ModelGateway,
+  ResearchSynthesizeInput,
+  TreeExpandInput,
+  CompileSelectionInput,
+} from './handlers/model-gateway';
 import './handlers/maintenance';
 import './handlers/dispatch';
 import './handlers/trend';
 import './handlers/promote';
+import './handlers/tactical';
+import './handlers/compile-select';
 import './handlers/research';
-import './handlers/reconcile';
 import './handlers/reconcile';
 
 // Dispatch
 export {
   executePaperTrade,
+  finalizeRecoveredVenueFill,
+  buildFillVerificationFields,
   type PaperTradeRequest,
   type PaperTradeResult,
+  type FinalizeRecoveredVenueFillArgs,
 } from './dispatch/paper-trade';
 export { getCompanyBalanceCents } from './dispatch/balances';
 export {
@@ -67,6 +76,8 @@ export {
   type CompileTreeInput,
   type CompiledInstructionFields,
 } from './pipeline/compile';
+export { mergeCompileSelection, modelBlockReasonToCompile } from './pipeline/compile-selection';
+export { treeFromModelOutput, type ModelBuiltDecisionTree } from './pipeline/tree-expand';
 export {
   enforceScope,
   enforceScopeStrict,

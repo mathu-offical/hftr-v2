@@ -1,6 +1,14 @@
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { deterministicTasks, dispatchReconciliationEvents } from '@hftr/db/schema';
+import { DeterministicActionTask } from '@hftr/contracts';
+import {
+  actionInstructions,
+  deterministicTasks,
+  dispatchReconciliationEvents,
+} from '@hftr/db/schema';
+import { getSession, sessionPhase, venueDate } from '../calendar/calendar';
+import { record } from '../calc/store';
+import { finalizeRecoveredVenueFill } from '../dispatch/paper-trade';
 import { resolveExecutionContext } from '../dispatch/execution-context';
 import { registerHandler } from './registry';
 
@@ -12,10 +20,11 @@ const ReconcilePayload = z.object({
   connectionId: z.string().uuid().nullable(),
 });
 
+const QUOTE_TTL_MS = 90_000;
+
 /**
- * VERIFY handler: poll venue order state after ambiguous submit and record
- * reconciliation evidence. Does not mutate positions until a terminal fill
- * is confirmed — that path is completed by a follow-up dispatch job.
+ * VERIFY handler: poll venue order state after ambiguous submit, finalize fills
+ * into ledger/positions, and record reconciliation evidence.
  */
 registerHandler('verify.reconcile_order', async ({ db, clock, job }) => {
   const payload = ReconcilePayload.parse(job.payload);
@@ -60,14 +69,71 @@ registerHandler('verify.reconcile_order', async ({ db, clock, job }) => {
   }
 
   if (orderSnap.status === 'filled' && orderSnap.avgFillPriceCents != null) {
-    await db
-      .update(deterministicTasks)
-      .set({
-        status: 'filled',
-        venueOrderId: orderSnap.venueOrderId,
-        updatedAt: new Date(clock.nowMs()),
-      })
-      .where(eq(deterministicTasks.id, payload.taskId));
+    const task = DeterministicActionTask.parse(taskRow.payload);
+    if (task.actionVerb !== 'buy' && task.actionVerb !== 'sell') {
+      return;
+    }
+
+    const instructionRows = await db
+      .select()
+      .from(actionInstructions)
+      .where(eq(actionInstructions.id, taskRow.instructionId))
+      .limit(1);
+    const instruction = instructionRows[0];
+    if (!instruction) {
+      return;
+    }
+
+    let quote;
+    try {
+      quote = await adapter.getQuote(task.symbol);
+    } catch {
+      return;
+    }
+
+    const quoteRef = await record(db, clock, {
+      kind: 'price',
+      unit: 'USD_cents',
+      scale: 0,
+      valueInt: BigInt(quote.lastCents ?? quote.askCents ?? orderSnap.avgFillPriceCents),
+      sourceClass: 'broker_state',
+      sourceId: `${execCtx.venue}:quote:${quote.symbol}`,
+      ttlMs: QUOTE_TTL_MS,
+      companyId: payload.companyId,
+      moduleId: payload.moduleId,
+    });
+
+    const session = await getSession(db, 'XNYS', venueDate(clock.nowMs(), 'America/New_York'));
+    const phase = sessionPhase(session, clock.nowMs());
+    const sessionSnapshot = {
+      venueCalendar: 'XNYS',
+      phase,
+      checkedAtRef: quoteRef,
+      enforced: execCtx.venue !== 'paper_sim',
+    };
+
+    const quantity = Number(task.quantityInt);
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      return;
+    }
+
+    await finalizeRecoveredVenueFill(db, clock, {
+      companyId: payload.companyId,
+      moduleId: payload.moduleId,
+      taskId: payload.taskId,
+      instructionId: taskRow.instructionId,
+      symbol: task.symbol,
+      actionVerb: task.actionVerb,
+      quantity,
+      fillPriceCents: orderSnap.avgFillPriceCents,
+      venueOrderId: orderSnap.venueOrderId,
+      quote,
+      quoteRef,
+      sessionSnapshot,
+      venue: execCtx.venue,
+      limitPriceCents: task.limitPriceCents,
+      quantityInt: task.quantityInt,
+    });
 
     await db.insert(dispatchReconciliationEvents).values({
       companyId: payload.companyId,

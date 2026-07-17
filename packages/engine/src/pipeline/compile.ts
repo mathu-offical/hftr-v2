@@ -33,8 +33,8 @@ export interface CompileContext {
 export interface CompiledInstructionFields {
   actionVerb: 'buy';
   symbol: string;
-  orderType: 'market';
-  timeInForce: 'day';
+  orderType: 'market' | 'limit';
+  timeInForce: 'day' | 'gtc' | 'ioc';
   quantity: number;
 }
 

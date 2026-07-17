@@ -1,8 +1,14 @@
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { ConceptBatch } from '@hftr/contracts';
+import type { Db } from '@hftr/db';
 import { companies, conceptLinks, concepts, modules } from '@hftr/db/schema';
+import type { Clock } from '../clock';
+import { venueDate } from '../calendar/calendar';
+import { enqueue } from '../queue/queue';
+import type { ClaimedJob } from '../queue/queue';
 import { curateDeterministic, loadCatalogHints } from './research-deterministic';
+import type { ModelGateway } from './model-gateway';
 import { registerHandler } from './registry';
 
 const CuratePayload = z.object({
@@ -10,6 +16,56 @@ const CuratePayload = z.object({
   moduleId: z.string().uuid(),
   topicScope: z.string().max(200).default(''),
 });
+
+const StrategicPayload = CuratePayload;
+
+async function runResearchSynthesis(ctx: {
+  db: Db;
+  clock: Clock;
+  job: ClaimedJob;
+  modelGateway: ModelGateway;
+  payload: z.infer<typeof CuratePayload>;
+}): Promise<ConceptBatch | null> {
+  const [company] = await ctx.db
+    .select({
+      philosophyPrompt: companies.philosophyPrompt,
+      philosophyProfile: companies.philosophyProfile,
+    })
+    .from(companies)
+    .where(eq(companies.id, ctx.payload.companyId))
+    .limit(1);
+  const [mod] = await ctx.db
+    .select({ topicSectors: modules.topicSectors })
+    .from(modules)
+    .where(and(eq(modules.id, ctx.payload.moduleId), eq(modules.companyId, ctx.payload.companyId)))
+    .limit(1);
+
+  const existing = await ctx.db
+    .select({ title: concepts.title })
+    .from(concepts)
+    .where(and(eq(concepts.moduleId, ctx.payload.moduleId), eq(concepts.status, 'active')))
+    .limit(40);
+
+  const catalogHints = await loadCatalogHints({ db: ctx.db, topicScope: ctx.payload.topicScope });
+  const philosophyAxes =
+    company?.philosophyProfile && typeof company.philosophyProfile === 'object'
+      ? Object.keys(company.philosophyProfile as Record<string, unknown>).slice(0, 16)
+      : [];
+
+  const result = await ctx.modelGateway.synthesizeResearch({
+    companyId: ctx.payload.companyId,
+    moduleId: ctx.payload.moduleId,
+    jobId: ctx.job.id,
+    topicScope: ctx.payload.topicScope,
+    topicSectors: mod?.topicSectors ?? [],
+    philosophyAxes,
+    catalogHints,
+    existingConceptTitles: existing.map((r) => r.title),
+  });
+
+  if (!result.ok) return null;
+  return result.batch;
+}
 
 /**
  * RESEARCH queue: prefers injected ModelGateway strategic synthesis when
@@ -21,51 +77,32 @@ registerHandler('research.curate', async ({ db, clock, job, modelGateway }) => {
   const now = new Date(clock.nowMs());
 
   if (modelGateway && process.env.HFTR_LLM_MODE !== 'deterministic') {
-    const [company] = await db
-      .select({
-        philosophyPrompt: companies.philosophyPrompt,
-        philosophyProfile: companies.philosophyProfile,
-      })
-      .from(companies)
-      .where(eq(companies.id, payload.companyId))
-      .limit(1);
-    const [mod] = await db
-      .select({ topicSectors: modules.topicSectors })
-      .from(modules)
-      .where(and(eq(modules.id, payload.moduleId), eq(modules.companyId, payload.companyId)))
-      .limit(1);
-
-    const existing = await db
-      .select({ title: concepts.title })
-      .from(concepts)
-      .where(and(eq(concepts.moduleId, payload.moduleId), eq(concepts.status, 'active')))
-      .limit(40);
-
-    const catalogHints = await loadCatalogHints({ db, topicScope: payload.topicScope });
-    const philosophyAxes =
-      company?.philosophyProfile && typeof company.philosophyProfile === 'object'
-        ? Object.keys(company.philosophyProfile as Record<string, unknown>).slice(0, 16)
-        : [];
-
-    const result = await modelGateway.synthesizeResearch({
-      companyId: payload.companyId,
-      moduleId: payload.moduleId,
-      jobId: job.id,
-      topicScope: payload.topicScope,
-      topicSectors: mod?.topicSectors ?? [],
-      philosophyAxes,
-      catalogHints,
-      existingConceptTitles: existing.map((r) => r.title),
-    });
-
-    if (result.ok) {
+    const batch = await runResearchSynthesis({ db, clock, job, modelGateway, payload });
+    if (batch) {
       await persistConceptBatch({
         db,
         companyId: payload.companyId,
         moduleId: payload.moduleId,
-        batch: result.batch,
+        batch,
         now,
       });
+
+      if (batch.escalateToStrategic) {
+        const day = venueDate(clock.nowMs(), 'America/New_York');
+        await enqueue(db, clock, {
+          queueClass: 'STRATEGIC',
+          kind: 'research.strategic',
+          payload: {
+            companyId: payload.companyId,
+            moduleId: payload.moduleId,
+            topicScope: payload.topicScope,
+          },
+          idempotencyKey: `strategic-research-${payload.moduleId}-${payload.topicScope}-${day}`,
+          priority: 'NORMAL',
+          companyId: payload.companyId,
+          moduleId: payload.moduleId,
+        });
+      }
       return;
     }
   }
@@ -79,8 +116,48 @@ registerHandler('research.curate', async ({ db, clock, job, modelGateway }) => {
   });
 });
 
+/**
+ * STRATEGIC queue: re-run strategic synthesis (gateway tier is already strategic).
+ * Idempotent per module/topic/day via enqueue key from research.curate or tactical.
+ */
+registerHandler('research.strategic', async ({ db, clock, job, modelGateway }) => {
+  const payload = StrategicPayload.parse(job.payload);
+  const now = new Date(clock.nowMs());
+
+  if (!modelGateway || process.env.HFTR_LLM_MODE === 'deterministic') {
+    await curateDeterministic({
+      db,
+      companyId: payload.companyId,
+      moduleId: payload.moduleId,
+      topicScope: payload.topicScope,
+      now,
+    });
+    return;
+  }
+
+  const batch = await runResearchSynthesis({ db, clock, job, modelGateway, payload });
+  if (batch) {
+    await persistConceptBatch({
+      db,
+      companyId: payload.companyId,
+      moduleId: payload.moduleId,
+      batch,
+      now,
+    });
+    return;
+  }
+
+  await curateDeterministic({
+    db,
+    companyId: payload.companyId,
+    moduleId: payload.moduleId,
+    topicScope: payload.topicScope,
+    now,
+  });
+});
+
 async function persistConceptBatch(opts: {
-  db: import('@hftr/db').Db;
+  db: Db;
   companyId: string;
   moduleId: string;
   batch: ConceptBatch;
@@ -117,7 +194,6 @@ async function persistConceptBatch(opts: {
     if (row) titleToId.set(row.title, row.id);
   }
 
-  // Reload titles that may already exist from prior runs for link resolution.
   if (opts.batch.links.length > 0) {
     const all = await opts.db
       .select({ id: concepts.id, title: concepts.title })

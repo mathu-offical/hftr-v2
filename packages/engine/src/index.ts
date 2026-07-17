@@ -72,6 +72,15 @@ export {
 } from './dispatch/execution-context';
 export { getSyntheticQuote } from './dispatch/quotes';
 export { applyFill, getPosition, type PositionRow } from './dispatch/positions';
+export {
+  calculateCompanyEquity,
+  type CalculateCompanyEquityInput,
+  type CompanyEquityResult,
+  type EquityCashInput,
+  type EquityConfirmedPosition,
+  type EquityMarkCandidate,
+  type EquityMarkKind,
+} from './equity/equity';
 
 // Calc / NRA
 export * as calcStore from './calc/store';

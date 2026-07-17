@@ -29,6 +29,15 @@ export const UpsertAlpacaConnectionInput = z.object({
 });
 export type UpsertAlpacaConnectionInput = z.infer<typeof UpsertAlpacaConnectionInput>;
 
+export const UpsertKalshiConnectionInput = z.object({
+  apiKeyId: z.string().min(8).max(200),
+  privateKeyPem: z.string().min(32).max(8000),
+  /** Demo API only — live Kalshi is fail-closed until the live gate ships. */
+  mode: z.literal('paper').default('paper'),
+  demoMode: z.literal(true).default(true),
+});
+export type UpsertKalshiConnectionInput = z.infer<typeof UpsertKalshiConnectionInput>;
+
 export const BrokerConnectionSummary = z.object({
   id: z.string().uuid(),
   venue: CredentialVenue,

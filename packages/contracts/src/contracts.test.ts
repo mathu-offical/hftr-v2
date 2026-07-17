@@ -63,6 +63,12 @@ import {
   withDefaultEngineSetup,
 } from './engines';
 import { COMPANY_TEMPLATES, ENGINE_TEMPLATES } from './templates';
+import {
+  LAYOUT_COLUMN_STEP,
+  layoutCanvas,
+  rankEngineMembers,
+  reflowEngineAtOrigin,
+} from './canvas-layout';
 
 describe('env manifest', () => {
   it('matches .env.example exactly', () => {
@@ -297,7 +303,11 @@ describe('module inline setup', () => {
     expect(drafts[2]?.allocationValue).toBe('3333.33');
     expect(drafts[3]?.allocationValue).toBe('3333.33');
     expect(drafts[1]?.targetExitLocal).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
-    const skipped = withDefaultEngineSetup(undefined, 1_000_000, Date.parse('2026-07-17T12:00:00.000Z'));
+    const skipped = withDefaultEngineSetup(
+      undefined,
+      1_000_000,
+      Date.parse('2026-07-17T12:00:00.000Z'),
+    );
     expect(skipped.capitalAllocation).toEqual({ mode: 'amount', value: '10000.00' });
     expect(skipped.targetExitAt).toBe('2026-07-24T12:00:00.000Z');
   });
@@ -716,5 +726,93 @@ describe('Libraries and research graph (M2)', () => {
       tags: ['chips'],
     });
     expect(graph.nodes).toHaveLength(1);
+  });
+});
+
+describe('canvas layout (D-033)', () => {
+  const engineId = '00000000-0000-4000-8000-00000000e001';
+  const mkModule = (id: string, type: ModuleType = 'research') => ({
+    id,
+    type,
+    engineInstanceId: engineId,
+    position: { x: 0, y: 0 },
+  });
+
+  it('ranks members downstream from their producers', () => {
+    const a = '00000000-0000-4000-8000-0000000000a1';
+    const b = '00000000-0000-4000-8000-0000000000a2';
+    const c = '00000000-0000-4000-8000-0000000000a3';
+    const modulesById = new Map([a, b, c].map((id) => [id, mkModule(id)]));
+    const ranked = rankEngineMembers([a, b, c], modulesById, [
+      { fromModuleId: a, toModuleId: b, linkKind: 'data_feed' },
+      { fromModuleId: b, toModuleId: c, linkKind: 'data_feed' },
+    ]);
+    const rankOf = (id: string) => ranked.find((r) => r.id === id)!.rank;
+    expect(rankOf(a)).toBe(0);
+    expect(rankOf(b)).toBe(1);
+    expect(rankOf(c)).toBe(2);
+  });
+
+  it('aligns producers with their specific consumers (barycenter crossing reduction)', () => {
+    // p (id a1) → y (id b2); q (id a2) → x (id b1). Pure id ordering would place
+    // x above y and cross the edges. Connection-aware ordering must instead put
+    // each producer in the same row as the consumer it feeds.
+    const p = '00000000-0000-4000-8000-0000000000a1';
+    const q = '00000000-0000-4000-8000-0000000000a2';
+    const x = '00000000-0000-4000-8000-0000000000b1';
+    const y = '00000000-0000-4000-8000-0000000000b2';
+    const modulesById = new Map([p, q, x, y].map((id) => [id, mkModule(id)]));
+    const ranked = rankEngineMembers([p, q, x, y], modulesById, [
+      { fromModuleId: p, toModuleId: y, linkKind: 'data_feed' },
+      { fromModuleId: q, toModuleId: x, linkKind: 'data_feed' },
+    ]);
+    const orderOf = (id: string) => ranked.find((r) => r.id === id)!.order;
+    expect(orderOf(p)).toBe(orderOf(y));
+    expect(orderOf(q)).toBe(orderOf(x));
+    // The edges do not cross: y (fed by the top producer p) sits above x.
+    expect(orderOf(y)).toBeLessThan(orderOf(x));
+  });
+
+  it('reflows an engine preserving its origin with connection-safe spacing', () => {
+    const a = '00000000-0000-4000-8000-0000000000c1';
+    const b = '00000000-0000-4000-8000-0000000000c2';
+    const modules = [mkModule(a), mkModule(b)];
+    const result = reflowEngineAtOrigin(
+      { id: engineId, memberModuleIds: [a, b] },
+      modules,
+      [{ fromModuleId: a, toModuleId: b, linkKind: 'data_feed' }],
+      { x: 500, y: 300 },
+      ENGINE_GROUP_PADDING,
+    );
+    const bounds = result.engines[0]!.canvasBounds;
+    expect(bounds.x).toBe(500);
+    expect(bounds.y).toBe(300);
+    const posA = result.modules.find((m) => m.id === a)!.canvasPosition;
+    const posB = result.modules.find((m) => m.id === b)!.canvasPosition;
+    // Downstream node sits one full column to the right.
+    expect(posB.x - posA.x).toBe(LAYOUT_COLUMN_STEP);
+  });
+
+  it('lays out multiple engines side by side without overlap', () => {
+    const a = '00000000-0000-4000-8000-0000000000d1';
+    const b = '00000000-0000-4000-8000-0000000000d2';
+    const engineTwo = '00000000-0000-4000-8000-00000000e002';
+    const modules = [
+      { ...mkModule(a), engineInstanceId: engineId },
+      { ...mkModule(b), engineInstanceId: engineTwo },
+    ];
+    const result = layoutCanvas(
+      [
+        { id: engineId, memberModuleIds: [a] },
+        { id: engineTwo, memberModuleIds: [b] },
+      ],
+      modules,
+      [],
+      ENGINE_GROUP_PADDING,
+    );
+    const [first, second] = result.engines;
+    expect(second!.canvasBounds.x).toBeGreaterThanOrEqual(
+      first!.canvasBounds.x + first!.canvasBounds.width,
+    );
   });
 });

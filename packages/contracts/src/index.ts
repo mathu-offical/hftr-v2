@@ -14,6 +14,7 @@ export * from './libraries';
 export * from './env';
 export * from './templates';
 export * from './engines';
+export * from './canvas-layout';
 export * from './assistant';
 export * from './assistant-edits';
 export * from './simulations';

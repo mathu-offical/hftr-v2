@@ -262,9 +262,7 @@ export function defaultMemberSetupDrafts(
   ).length;
   const envelope = defaultEngineCapitalEnvelope(seedCreditsCents);
   const splits =
-    capitalCount > 0
-      ? splitAllocationValues(envelope.mode, envelope.value, capitalCount)
-      : [];
+    capitalCount > 0 ? splitAllocationValues(envelope.mode, envelope.value, capitalCount) : [];
   const exitLocal = defaultTargetExitLocal(nowMs);
   let capitalIndex = 0;
   return moduleTypes.map((type) => {

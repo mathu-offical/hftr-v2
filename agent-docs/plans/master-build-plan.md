@@ -26,11 +26,24 @@ Gate G0: deployed skeleton, auth round-trip in browser, migrations reproducible 
    drag-persist positions, link creation with kind validation.
 2. Custom Postgres queue: jobs table, claim/lease/retry/dead-letter, drain route + cron tick,
    lease sweep, `queue/stats`. Handler registry in `packages/engine`.
-3. Node anatomy v1 (status lines from queue projections); three panels shell (slide mechanics,
-   routes, persistence) with placeholder content.
-4. Assistant shell (chat UI + session storage; echo/read-only tools).
-Gate G1: create company → compose module graph → queue processes a synthetic job → node
-activity reflects it. Playwright flow 1 green.
+3. Node anatomy v1 (status lines from queue projections); three docked panels with spec tabs,
+   keyboard toggles (`[`, `]`, `` ` ``), Esc collapse, and per-company `localStorage` open/tab/
+   filter persistence.
+4. **M1 assistant (deterministic, no model):** docked chat UI + append-only
+   `assistant_messages` history; regex intent routing to six read-only lookups
+   (`company_summary`, `module_status`, `recent_executions`, `positions`, `trends`,
+   `queue_status`). Mistral chat, write tools, and proposal cards remain M2/M4 (D-022).
+5. **Playwright (M1 subset):** `apps/web/e2e/` with `DEV_AUTH_BYPASS=1` dev server on port
+   3001; companies template form + `day_trading_starter` workspace flow (canvas, panels,
+   shortcuts, module store, assistant persistence); fixture archives test companies on teardown.
+   Optional CI `e2e` job against service Postgres.
+
+**Gate G1 (candidate — pending external verification, D-022):** create company → compose module
+graph → queue processes a synthetic job → node activity reflects it → panels + assistant +
+Playwright M1 flows green. Recorded local evidence: typecheck, lint, unit tests, and the complete
+two-spec Playwright suite pass after assistant race/intent fixes. The new CI e2e job has not run
+remotely; IronBee browser MCP was unavailable — do not claim IronBee verification. Formal G1
+sign-off waits on those external checks.
 
 ## M2 — Research stack (Claude+Mistral) + libraries + galaxy MVP + numeric core
 

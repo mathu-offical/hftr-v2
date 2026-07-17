@@ -166,6 +166,23 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   POST `/trends` records operator_input ValueRef for drift. LLM call path still reads
   env keys only until user-key injection lands (follow-up).
 
+- **D-022 (M1 assistant, panel persistence, Playwright, gate honesty, 2026-07-17):**
+  Closed the remaining M1 shell gaps with honest labeling. (a) **Assistant:** append-only
+  `assistant_messages` (company + `clerk_user_id` scoped); `AssistantDock` + assistant API with
+  six deterministic read-only lookup intents (`company_summary`, `module_status`,
+  `recent_executions`, `positions`, `trends`, `queue_status`) via regex classification —
+  **no Mistral/Groq/model calls** in M1; UI states "Read-only · no model calls". Mistral chat,
+  write tools, and `assistant_edits` proposal cards remain M2/M4. No `assistant_sessions` table
+  yet. (b) **Panels:** keyboard `[` / `]` / `` ` `` toggles and Esc collapse; per-company
+  `localStorage` persistence for open state, tab, and bottom module filter. (c) **Playwright:**
+  `apps/web/e2e/` (`companies.spec.ts`, `company-workspace.spec.ts`, fixtures with archive
+  cleanup), `playwright.config.ts` (port 3001, `DEV_AUTH_BYPASS=1`); vitest excludes `e2e/**`;
+  CI `e2e` job. (d) **G1 gate status:** implementation treated as a **gate candidate**, not
+  formally signed off — typecheck, lint, unit tests, and the complete two-spec Playwright suite
+  pass locally after assistant race/intent fixes. The new CI e2e job has not run remotely yet;
+  IronBee browser MCP was unavailable, so **no IronBee verification is claimed**. Formal G1
+  sign-off waits on those two external verification surfaces.
+
 ## Open questions
 
 - **OQ-8 (open):** When user-saved LLM keys exist, should they override env keys, or

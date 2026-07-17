@@ -79,34 +79,62 @@ created, invalid link 422, math delete 422, noop job enqueued → drained → co
 
 ## T1.5 — Panels shell
 
-- Three `Panel` primitives (left/bottom/right) with spring slide-in, 8% canvas peek strip,
-  Esc + peek-click close, focus trap, route-driven state
-  (`/c/:id/research`, `/c/:id/control`, `/c/:id/execution`), open-state persisted per company.
-- M1 content: left = module list + create-module form (typed config forms per module type,
-  Zod-shared with server); bottom = placeholder columns scaffold; right = placeholder ledger
-  table bound to empty state.
-- Keyboard: `[`, `]`, `` ` `` toggles.
+- Three docked panel primitives (`LeftPanel`, `BottomPanel`, `RightPanel`) with spec tabs and
+  collapse-to-strip chrome (full slide-over deep-link routes remain roadmap).
+- **Keyboard (shipped 2026-07-17, D-022):** `[` toggles left, `]` toggles right, `` ` ``
+  toggles bottom; `Esc` collapses the focused panel (bottom defers to `TraceTimeline` when
+  open). Shortcuts are suppressed while focus is in an editable field.
+- **Per-company persistence (shipped):** `localStorage` keys
+  `hftr:{companyId}:panel:{left|bottom|right}` store open state, active tab, and (bottom only)
+  module filter; restored on next visit to that company.
+- M1 content: left = Research/Data sources + create forms + concepts browser; bottom =
+  Trends/Scenario engine/Watch lists/Decisions+traces; right = Verify/Executions/Ledger/Sims/
+  Values projections.
 
-## T1.6 — Assistant shell (read-only)
+## T1.6 — Assistant shell (read-only, deterministic)
 
-- Bottom-right pill → chat column; `assistant_sessions`/`assistant_messages` persistence;
-  streaming Mistral chat (`packages/llm` minimal client) with READ-ONLY tools:
-  `get_company_overview`, `list_modules`, `get_module_status`, `get_queue_stats`.
-  No write tools until M4 (write-tool hardening spec in llm-pipeline.md §7).
-- This is deliberately ahead of the LLM budget system (M2); interim: hard per-user daily
-  message cap in `llm_budgets` seeded manually.
+- Bottom-right `AssistantDock` pill → chat column overlay (`apps/web/components/assistant/`).
+- **Persistence:** append-only `assistant_messages` table — `(company_id, clerk_user_id, role,
+  content, tool_results jsonb)`; GET returns newest 100 chronological; no `assistant_sessions`
+  table in M1 (deferred).
+- **No model calls in M1 (D-022):** POST classifies user text with regex intent rules and runs
+  deterministic read lookups only — **not** Mistral/`packages/llm`. UI labels the surface
+  "Read-only · no model calls".
+- **Six lookup intents:** `company_summary`, `module_status`, `recent_executions`, `positions`,
+  `trends`, `queue_status`. Unmatched intents return a capabilities card listing supported
+  topics. Financial figures in tool payloads are server-sourced fixed-point strings from DB/
+  engine projections — the assistant path does not invoke any LLM and therefore does not emit
+  raw model numbers.
+- **Later milestones:** Mistral orchestration chat (M2+), write tools + confirm proposal cards
+  (`assistant_edits` audit, M4 per llm-pipeline.md §7).
 
 ## Gate G1 checklist
 
-- [ ] Create company from template → canvas renders template graph with Math node pinned
-- [ ] Add/link/move/delete modules; positions + links survive reload; invalid links rejected
-- [ ] Enqueue synthetic `noop_echo` via a module's "trigger" action → drain processes it →
-      node status line reflects active→idle transition in browser
-- [ ] Queue tests green incl. contention + lease recovery; `queue/stats` accurate
-- [ ] Panels open/close via routes + keyboard; state persists
-- [ ] Assistant answers module-status questions using read tools only
-- [ ] Playwright flow 1 (sign-up → company → canvas) green
-- [ ] agent-docs updated (progress, deviations, any new OQs)
+Status key: **done** = verified in running app or Playwright; **candidate** = implemented,
+awaiting final CI/local rerun; **open** = not yet met.
+
+- [x] **done** Create company from template → canvas renders template graph with Math node pinned
+      (browser-verified earlier; Playwright `company-workspace` covers `day_trading_starter`)
+- [x] **done** Add/link/move/delete modules; positions + links survive reload; invalid links
+      rejected (browser-verified 2026-07-16; not fully Playwright-covered)
+- [x] **done** Enqueue synthetic `noop_echo` → drain → node status reflects active→idle
+      (browser-verified 2026-07-16)
+- [x] **done** Queue tests green incl. contention + lease recovery; `queue/stats` accurate
+      (full unit suite passed after the e2e/vitest script split)
+- [x] **done** Panels open/close via buttons + keyboard (`[`, `]`, `` ` ``, Esc); open/tab/filter
+      state persists per company in `localStorage` (Playwright `company-workspace`)
+- [x] **done** Assistant answers read-only lookup questions (deterministic intents; Playwright
+      covers `queue status` + reload persistence)
+- [x] **candidate** Playwright M1 flows green: `companies.spec.ts` (template form) +
+      `company-workspace.spec.ts` (canvas, panels, shortcuts, module store, assistant) under
+      `DEV_AUTH_BYPASS=1`; complete local suite passed — **not** full Clerk sign-up flow 1;
+      remote CI e2e job first run pending
+- [x] **done** agent-docs updated (this session, D-022)
+
+**G1 gate verdict (2026-07-17):** implementation **complete as a gate candidate**; formal G1
+sign-off **pending** the remote CI e2e run and zero-trust IronBee browser pass. Local typecheck,
+lint, unit tests, and the complete two-spec Playwright suite pass. IronBee DevTools was
+unavailable — no IronBee verification claimed.
 
 ## Pulled forward from M2 (2026-07-16)
 
@@ -142,7 +170,8 @@ production build).
 - **Verified in browser with a real Clerk test account:** sign-up, templated company creation,
   activate modules, scan (4 candidates), buy 10 AAPL, sell 4 (balance $10,000 → $8,545.50 →
   $9,125.14; position 10 → 6 with realized PnL); oversell blocked at engine. All checks green.
-- Remaining M1 gate items: panel keyboard routes, read-only assistant, Playwright flows.
+- Remaining M1 gate items at that session (later shipped in D-022): panel keyboard routes,
+  read-only assistant, Playwright flows.
 
 ## Session 2026-07-17 (shell + spec panels, decision D-019)
 
@@ -160,7 +189,8 @@ production build).
   scoped to trading/trend modules, inspector add-form, bottom-panel view.
 - **New read APIs:** `/executions`, `/verifications`, `/simulations` (placeholder), all
   ownership-scoped. Verified in the browser end-to-end; typecheck/lint/tests/build green.
-- Remaining gate items unchanged: panel keyboard routes, read-only assistant, Playwright flows.
+- Remaining gate items at that session (later shipped in D-022): panel keyboard routes,
+  read-only assistant, Playwright flows.
 
 ## Session 2026-07-17 (pipeline spine + settings + display, decision D-021)
 
@@ -175,5 +205,22 @@ production build).
   (`user_api_keys`, migration `0005_smiling_kid_colt`).
 - **Display nodes:** new `display` module type (table/list/ledger/chart/graph) in
   contracts, palette, inspector config form.
-- Remaining: wire saved user keys into `@hftr/llm` call path; galaxy view; assistant;
-  Playwright; keyboard panel routes.
+- Remaining at that point: wire saved user keys into `@hftr/llm` call path; galaxy view;
+  assistant; Playwright; keyboard panel routes (all addressed in D-022 session below).
+
+## Session 2026-07-17 (assistant, panel persistence, Playwright, decision D-022)
+
+- **Deterministic read-only assistant shipped:** `assistant_messages` migration +
+  `GET/POST /api/companies/:companyId/assistant` + `AssistantDock`. Six regex-routed lookup
+  intents; no Mistral/Groq calls; honest "no model calls" chrome. History survives reload.
+- **Panel keyboard + persistence shipped:** `[` / `]` / `` ` `` toggles and Esc collapse on all
+  three panels; per-company `localStorage` for open state, tab, and bottom module filter.
+- **Playwright infrastructure:** `@playwright/test` in `apps/web`, `playwright.config.ts` (port
+  3001, `DEV_AUTH_BYPASS=1`, Clerk keys cleared), `e2e/fixtures.ts` (company archive on
+  teardown), `companies.spec.ts`, `company-workspace.spec.ts`. Vitest excludes `e2e/**`.
+  Optional CI `e2e` job applies migrations to service Postgres then runs `test:e2e`.
+- **Verification recorded:** typecheck, lint, unit tests, and the complete two-spec Playwright
+  suite pass locally after assistant race/intent fixes. Remote CI e2e first run pending;
+  IronBee browser MCP unavailable (not claimed).
+- **Still open for later milestones:** Mistral assistant chat, write proposal cards, full Clerk
+  sign-up Playwright flow 1, IronBee zero-trust browser pass, formal G1 sign-off.

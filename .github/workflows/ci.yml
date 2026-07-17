@@ -32,6 +32,50 @@ jobs:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ''
           CLERK_SECRET_KEY: ''
 
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+        ports:
+          - 5432:5432
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations against empty Postgres
+        run: |
+          for f in packages/db/migrations/*.sql; do
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @hftr/web exec playwright install --with-deps chromium
+
+      - name: Run Playwright E2E
+        run: pnpm --filter @hftr/web test:e2e
+        env:
+          CI: true
+          DEV_AUTH_BYPASS: '1'
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ''
+          CLERK_SECRET_KEY: ''
+
   migrations:
     runs-on: ubuntu-latest
     services:

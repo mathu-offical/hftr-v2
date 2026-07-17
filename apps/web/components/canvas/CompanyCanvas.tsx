@@ -21,7 +21,7 @@ import { api, RequestError } from '@/lib/client';
 import { InspectorPanel } from './InspectorPanel';
 import { ModuleNode, type ModuleFlowNode } from './ModuleNode';
 import { Palette } from './Palette';
-import { LINK_COLORS, type CanvasLink, type CanvasModule } from './types';
+import { edgeKindForHandles, LINK_COLORS, type CanvasLink, type CanvasModule } from './types';
 
 const nodeTypes = { module: ModuleNode };
 
@@ -40,11 +40,16 @@ function toEdge(l: CanvasLink): Edge {
     id: l.id,
     source: l.fromModuleId,
     target: l.toModuleId,
+    // Stored links carry no handle info (handles are presentation-only for
+    // now); rehydrate them onto the handles their kind implies, defaulting to
+    // the data plane (data-out → data-in).
+    sourceHandle: l.linkKind === 'verification' ? 'tools-out' : 'data-out',
+    targetHandle: l.linkKind === 'directive' ? 'control-in' : 'data-in',
     label: l.linkKind.replace('_', ' '),
     style: { stroke: LINK_COLORS[l.linkKind], strokeWidth: 1.5 },
     labelStyle: { fill: 'var(--color-ink-faint)', fontSize: 10 },
     labelBgStyle: { fill: 'var(--color-surface-0)' },
-    animated: l.linkKind === 'data_feed',
+    animated: false, // resting by default; activity animates it (poll effect)
   };
 }
 
@@ -85,6 +90,14 @@ export function CompanyCanvas(props: {
               : n;
           }),
         );
+        // Edges animate while either endpoint module is actively working.
+        const active = new Set(projections.filter((p) => p.activeJobs > 0).map((p) => p.moduleId));
+        setEdges((current) =>
+          current.map((e) => {
+            const animated = active.has(e.source) || active.has(e.target);
+            return animated === Boolean(e.animated) ? e : { ...e, animated };
+          }),
+        );
       } catch {
         // transient; next poll retries
       }
@@ -95,7 +108,7 @@ export function CompanyCanvas(props: {
       stopped = true;
       clearInterval(interval);
     };
-  }, [props.companyId, setNodes]);
+  }, [props.companyId, setNodes, setEdges]);
 
   function flash(message: string) {
     setNotice(message);
@@ -124,13 +137,20 @@ export function CompanyCanvas(props: {
       const to = nodes.find((n) => n.id === connection.target);
       if (!from || !to) return;
 
+      const linkKind = edgeKindForHandles(
+        connection.sourceHandle,
+        connection.targetHandle,
+        from.data.moduleType,
+        to.data.moduleType,
+      );
       const allowed = allowedLinkKinds(from.data.moduleType, to.data.moduleType);
-      const linkKind = allowed[0];
-      if (!linkKind) {
+      if (!linkKind || !allowed.includes(linkKind)) {
         flash(`${from.data.moduleType} → ${to.data.moduleType} is not a valid connection.`);
         return;
       }
       try {
+        // Handles are presentation-only for now: the persisted link keeps the
+        // (fromModuleId, toModuleId, linkKind) shape.
         const { link } = await api<{ link: CanvasLink }>(
           `/api/companies/${props.companyId}/links`,
           {

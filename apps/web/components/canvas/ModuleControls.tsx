@@ -65,6 +65,74 @@ export function TrendScanForm(props: { companyId: string; moduleId: string; disa
   );
 }
 
+export function WatchlistForm(props: { companyId: string; moduleId: string }) {
+  const [symbol, setSymbol] = useState('');
+  const [bias, setBias] = useState<'long' | 'short' | 'neutral'>('neutral');
+  const [note, setNote] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function add() {
+    const sym = symbol.trim().toUpperCase();
+    if (!sym) {
+      setMessage('Enter a symbol.');
+      return;
+    }
+    try {
+      await api(`/api/companies/${props.companyId}/watchlists`, {
+        method: 'POST',
+        body: { moduleId: props.moduleId, symbol: sym, bias, note },
+      });
+      setSymbol('');
+      setNote('');
+      setMessage(`${sym} added to watch list.`);
+      window.dispatchEvent(new Event(ACTIVITY_REFRESH_EVENT));
+    } catch {
+      setMessage('Could not add to watch list.');
+    }
+  }
+
+  return (
+    <div className="space-y-2 border-t border-[var(--color-line)] pt-4">
+      <span className="text-xs text-[var(--color-ink-dim)]">Watch list</span>
+      <div className="flex gap-1.5">
+        <input
+          value={symbol}
+          onChange={(e) => setSymbol(e.target.value)}
+          maxLength={12}
+          placeholder="Symbol"
+          aria-label="Watch symbol"
+          className="w-full min-w-0 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-sm uppercase outline-none focus:border-[var(--color-accent)]"
+        />
+        <select
+          value={bias}
+          onChange={(e) => setBias(e.target.value as typeof bias)}
+          aria-label="Bias"
+          className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none"
+        >
+          <option value="neutral">neutral</option>
+          <option value="long">long</option>
+          <option value="short">short</option>
+        </select>
+      </div>
+      <input
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        maxLength={500}
+        placeholder="Note (optional)"
+        aria-label="Watch note"
+        className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--color-accent)]"
+      />
+      <button
+        onClick={add}
+        className="w-full rounded-md border border-[var(--color-line)] px-3 py-1.5 text-sm text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+      >
+        Add to watch list
+      </button>
+      {message && <p className="text-xs text-[var(--color-ink-dim)]">{message}</p>}
+    </div>
+  );
+}
+
 interface CatalogEntry {
   entryKey: string;
   title: string;

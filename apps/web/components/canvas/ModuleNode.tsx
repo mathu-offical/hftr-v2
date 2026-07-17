@@ -1,8 +1,8 @@
 'use client';
 
-import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
+import { Handle, type NodeProps, type Node } from '@xyflow/react';
 import type { ModuleStatus, ModuleType } from '@hftr/contracts';
-import { MODULE_VISUALS } from './types';
+import { HANDLE_SPEC, MODULE_VISUALS, type HandleGroup } from './types';
 
 export type ModuleNodeData = {
   name: string;
@@ -15,8 +15,15 @@ export type ModuleNodeData = {
 
 export type ModuleFlowNode = Node<ModuleNodeData, 'module'>;
 
+const HANDLE_GROUPS: HandleGroup[] = ['dataIn', 'dataOut', 'controlIn', 'toolsOut'];
+
+/** Math is tool-access oriented; its data-plane handles read as secondary. */
+const MATH_DEEMPHASIZED: ReadonlySet<HandleGroup> = new Set(['dataIn', 'dataOut']);
+
 /**
  * Canvas node: type-tinted card with text-first status (never color alone).
+ * Handles follow the ui-spec node model — left data in, right data out,
+ * top control in, bottom tools out — colored by the type they accept.
  */
 export function ModuleNode({ data, selected }: NodeProps<ModuleFlowNode>) {
   const visual = MODULE_VISUALS[data.moduleType];
@@ -28,7 +35,26 @@ export function ModuleNode({ data, selected }: NodeProps<ModuleFlowNode>) {
         boxShadow: selected ? `0 0 0 1px ${visual.hue}` : undefined,
       }}
     >
-      <Handle type="target" position={Position.Left} className="!bg-[var(--color-ink-faint)]" />
+      {HANDLE_GROUPS.map((group) => {
+        const spec = HANDLE_SPEC[group];
+        const deemphasized = data.moduleType === 'math' && MATH_DEEMPHASIZED.has(group);
+        return (
+          <Handle
+            key={spec.id}
+            id={spec.id}
+            type={spec.type}
+            position={spec.position}
+            className="hftr-handle"
+            style={{
+              width: 8,
+              height: 8,
+              background: spec.color,
+              border: '1px solid var(--color-surface-0)',
+              opacity: deemphasized ? 0.35 : 1,
+            }}
+          />
+        );
+      })}
       <div className="mb-1 flex items-center gap-2">
         <span className="h-2 w-2 rounded-full" style={{ background: visual.hue }} />
         <span className="text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
@@ -45,7 +71,6 @@ export function ModuleNode({ data, selected }: NodeProps<ModuleFlowNode>) {
         )}
         <span>{data.statusText ?? data.status}</span>
       </div>
-      <Handle type="source" position={Position.Right} className="!bg-[var(--color-ink-faint)]" />
     </div>
   );
 }

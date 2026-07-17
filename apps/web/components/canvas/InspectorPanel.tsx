@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { ModuleStatus } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
-import { TradingConfigForm, TrendScanForm } from './ModuleControls';
+import { TradingConfigForm, TrendScanForm, WatchlistForm } from './ModuleControls';
 import { PaperTradeForm } from './PaperTradeForm';
 import { MODULE_VISUALS, type CanvasModule } from './types';
 
@@ -71,7 +71,7 @@ export function InspectorPanel(props: {
   }
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col gap-5 border-l border-[var(--color-line)] bg-[var(--color-surface-1)] p-4">
+    <aside className="flex min-h-0 w-72 shrink-0 flex-col gap-5 overflow-y-auto border-l border-[var(--color-line)] bg-[var(--color-surface-1)] p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full" style={{ background: visual.hue }} />
@@ -128,15 +128,19 @@ export function InspectorPanel(props: {
             moduleId={mod.id}
             disabled={mod.status !== 'active'}
           />
+          <WatchlistForm companyId={props.companyId} moduleId={mod.id} />
         </>
       )}
 
       {mod.type === 'trend' && (
-        <TrendScanForm
-          companyId={props.companyId}
-          moduleId={mod.id}
-          disabled={mod.status !== 'active'}
-        />
+        <>
+          <TrendScanForm
+            companyId={props.companyId}
+            moduleId={mod.id}
+            disabled={mod.status !== 'active'}
+          />
+          <WatchlistForm companyId={props.companyId} moduleId={mod.id} />
+        </>
       )}
 
       {isMath ? (

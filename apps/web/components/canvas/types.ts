@@ -1,3 +1,4 @@
+import { Position } from '@xyflow/react';
 import type { LinkKind, ModuleStatus, ModuleType } from '@hftr/contracts';
 
 export interface CanvasModule {
@@ -36,3 +37,51 @@ export const LINK_COLORS: Record<LinkKind, string> = {
   verification: '#9ece6a',
   fund_route: '#73daca',
 };
+
+export type HandleGroup = 'dataIn' | 'dataOut' | 'controlIn' | 'toolsOut';
+
+export type HandleId = 'data-in' | 'data-out' | 'control-in' | 'tools-out';
+
+/**
+ * Node connection points (ui-spec node model): left = data/context input,
+ * right = data output, top = system control input, bottom = tools/module
+ * access. Handle color signals the type it accepts.
+ */
+export const HANDLE_SPEC: Record<
+  HandleGroup,
+  { id: HandleId; type: 'source' | 'target'; position: Position; color: string }
+> = {
+  dataIn: { id: 'data-in', type: 'target', position: Position.Left, color: '#7aa2f7' },
+  dataOut: { id: 'data-out', type: 'source', position: Position.Right, color: '#7aa2f7' },
+  controlIn: { id: 'control-in', type: 'target', position: Position.Top, color: '#e0af68' },
+  toolsOut: { id: 'tools-out', type: 'source', position: Position.Bottom, color: '#bb9af7' },
+};
+
+/**
+ * Deterministic handle-pair → link-kind mapping:
+ * - data-out → data-in   = data_feed (fund_route instead when either endpoint
+ *   is a fund_router — fund routing rides the data path between fund-ish modules)
+ * - data-out → control-in = directive (output driving another module's control)
+ * - tools-out → data-in   = verification (tool/module access feeding evidence)
+ * Any other pair has no kind and the connection is rejected.
+ */
+export function edgeKindForHandles(
+  sourceHandle: string | null | undefined,
+  targetHandle: string | null | undefined,
+  sourceType: ModuleType,
+  targetType: ModuleType,
+): LinkKind | null {
+  const pair = `${sourceHandle ?? 'data-out'}->${targetHandle ?? 'data-in'}`;
+  switch (pair) {
+    case 'data-out->data-in':
+      return sourceType === 'fund_router' || targetType === 'fund_router'
+        ? 'fund_route'
+        : 'data_feed';
+    case 'data-out->control-in':
+      return 'directive';
+    case 'tools-out->data-in':
+      return 'verification';
+    default:
+      return null;
+  }
+}

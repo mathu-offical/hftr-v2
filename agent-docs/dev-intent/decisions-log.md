@@ -356,20 +356,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   OQ-1 (pricing) remains open until user input.
 
 - **D-033 (scoped canvas Reflow + dedicated Math tools, 2026-07-17):**
-  Approved design; implementation pending. (a) **Scoped layout actions:** each ENGINE header gets
-  a Reflow button that restores persisted members, returns Math tools to owners, lays out the
-  internal pipeline with connection-safe gutters, and recomputes bounds. The main canvas Reflow
-  first repairs child/group and owner/tool placement, reflows engines, then arranges all engines
-  and ungrouped top-level envelopes in one horizontal line. Ordinary drag remains freeform.
-  (b) **Required Math ownership:** `research`, `trend`, `trading`, `simulator`, `analyzer`, and
-  `generator` receive one dedicated persisted Math module by default; a Math module has one
-  optional owner but may retain additional D-028 attachments. (c) **Required topology:** every
-  owner has `owner → Math` and `Math → owner` data-feed edges. Financial paths to a model-bearing
-  consumer must traverse its Math tool (`source/router → Math → owner`) with no direct bypass.
-  (d) **Presentation:** dedicated Math renders as one compact bottom-docked tool node with its own
-  labeled handles and measured owner/tool envelope; it is visually contained when its owner is in
-  an ENGINE but remains outside `engine_instance_id` domain membership. Canonical design:
-  `ui-ux/canvas-layout-and-dedicated-math-design.md`.
+  Partial ship (2026-07-17). (a) **Scoped layout actions — implemented:** `packages/contracts/src/canvas-layout.ts`
+  pure helpers; `PATCH /api/companies/:id/canvas/layout` batch persist; each ENGINE header **Reflow**
+  + canvas **Reflow canvas** button; connection-safe template positions + `ENGINE_GROUP_PADDING`
+  (112/112/120/160). Trackpad **scroll pans** (`panOnScroll` + `PanOnScrollMode.Free`) and
+  **pinch zooms** (`zoomOnPinch`, `zoomOnScroll={false}`). Verified: contracts 54/54; IronBee
+  Reflow canvas + engine Reflow visible; layout PATCH 200. (b–d) **Dedicated Math ownership /
+  compact MathToolNode / fund-path-through-Math — still pending** (design unchanged).
 
 - **D-034 (subtle confirmed-field validation, 2026-07-17):**
   Implemented and verified (2026-07-17). Missing setup fields keep their explicit warning border
@@ -402,8 +395,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Member capital draft inputs still do not hydrate from ValueRefs (pre-existing ModuleNode gap);
   engine chrome is the operator-visible source of truth for envelope amounts.
   Company create + module-store insert prefill default envelope splits for included capital
-  nodes (`defaultMemberSetupDrafts` / `withDefaultEngineCapital`); extra engines at create use
-  `cascadeEngineSetup` instead of stamping the full envelope onto every member.
+  nodes (`defaultMemberSetupDrafts` / `withDefaultEngineSetup`); extra engines at create use
+  `cascadeEngineSetup` instead of stamping the full envelope onto every member. Skip-setup
+  create/insert still cascades capital+exit defaults server-side (topic remains operator-required).
   **Status: implemented and verified.**
 
 - **D-036 (auto-disarm + drain latency, 2026-07-17):**

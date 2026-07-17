@@ -33,8 +33,9 @@ test.describe('Companies directory', () => {
     await page.getByRole('button', { name: /Day trading starter/ }).click();
     await expect(page.getByRole('heading', { name: 'Template setup' })).toBeVisible();
     await expect(page.getByTestId('template-module-setup-0')).toBeVisible();
-    await expect(page.getByText(/Required · Capital allocation/).first()).toBeVisible();
+    // Topic stays operator-required; capital/exit are prefilled defaults (D-035).
     await expect(page.getByText(/Required · Topic \/ sector/).first()).toBeVisible();
+    await expect(page.getByLabel('Confirmed: Capital allocation').first()).toBeVisible();
 
     const allocationMode = page.getByLabel('Capital allocation mode').first();
     const allocationValue = page.getByLabel('Capital allocation value').first();
@@ -53,11 +54,11 @@ test.describe('Companies directory', () => {
 
     await page.getByLabel('Add module').selectOption('research');
     await expect(page.getByTestId('extra-seed-module')).toBeVisible();
-    await page.getByLabel('Add engine').selectOption('engine_trend_research');
+    await page.getByLabel('Add engine').selectOption('engine_day_trading');
     await expect(page.getByTestId('extra-seed-engine')).toBeVisible();
-    await expect(page.getByTestId('extra-seed-engine').getByLabel('Capital allocation value')).toHaveValue(
-      '10000.00',
-    );
+    await expect(
+      page.getByTestId('extra-seed-engine').getByLabel('Capital allocation value'),
+    ).toHaveValue('10000.00');
 
     await expect(page.getByRole('button', { name: 'Skip setup & open canvas' })).toBeVisible();
   });

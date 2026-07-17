@@ -6,12 +6,11 @@ import {
   computeEngineBoundsFromPositions,
   CreateCompanyInput,
   DEFAULT_PHILOSOPHY_PROFILE,
-  defaultEngineCapitalEnvelope,
   listResolvedEngineTemplates,
   MODULE_CONFIG_SCHEMAS,
-  withDefaultEngineCapital,
+  requiredModuleSetupFields,
+  withDefaultEngineSetup,
   type ModuleSetupInput,
-  type ModuleType,
 } from '@hftr/contracts';
 import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
@@ -160,21 +159,24 @@ export async function POST(req: Request) {
             ? 'engine_trend_research'
             : input.template;
       const capitalConfigured = anyCapitalSetup(template.modules.length, input);
-      const capitalEnvelope = capitalConfigured
-        ? (input.templateSetup?.capitalAllocation ??
-          defaultEngineCapitalEnvelope(Number(input.seedCreditsCents)))
-        : undefined;
-      const engineSetup: ModuleSetupInput | undefined = capitalConfigured
-        ? {
-            topicSectors: masterTopicSectors,
-            capitalAllocation: capitalEnvelope,
-            ...exitFields,
-          }
-        : masterTopicSectors.length > 0 || exitFields.targetExitAt
-          ? {
-              topicSectors: masterTopicSectors,
-              ...exitFields,
-            }
+      const hasCapitalBearing = template.modules.some((module) =>
+        requiredModuleSetupFields(module.type).includes('capital_allocation'),
+      );
+      const hasExitBearing = template.modules.some((module) =>
+        requiredModuleSetupFields(module.type).includes('target_exit'),
+      );
+      // Always seed engine chrome with capital/exit defaults when the template
+      // includes capital-bearing members — even on "Skip setup" (D-035).
+      const engineSetup: ModuleSetupInput | undefined =
+        hasCapitalBearing || hasExitBearing || masterTopicSectors.length > 0
+          ? withDefaultEngineSetup(
+              {
+                topicSectors: masterTopicSectors,
+                capitalAllocation: input.templateSetup?.capitalAllocation,
+                ...exitFields,
+              },
+              Number(input.seedCreditsCents),
+            )
           : undefined;
       const setupSnapshot = engineSetupSnapshotFromInput(engineSetup);
       const [engineRow] = await db
@@ -251,6 +253,15 @@ export async function POST(req: Request) {
         if (Object.keys(setupPatch).length > 0) {
           await db.update(modules).set(setupPatch).where(eq(modules.id, createdModule.id));
         }
+      }
+      // When the operator skipped or left capital blank, cascade the envelope
+      // as an equal split (and overall exit) onto included members.
+      if (engineSetup && (!capitalConfigured || !exitFields.targetExitAt)) {
+        await cascadeEngineSetup(db, company.id, engineRow.id, {
+          capitalAllocation: capitalConfigured ? undefined : engineSetup.capitalAllocation,
+          targetExitAt: exitFields.targetExitAt ? undefined : engineSetup.targetExitAt,
+          timezone: exitFields.timezone ?? engineSetup.timezone,
+        });
       }
       if (template.links.length > 0) {
         await db.insert(moduleLinks).values(
@@ -364,7 +375,7 @@ export async function POST(req: Request) {
       }));
       const canvasBounds = computeEngineBoundsFromPositions(absolutePositions);
       const masterTopicSectors = seed.setup?.topicSectors ?? [];
-      const engineSetup = withDefaultEngineCapital(seed.setup, Number(input.seedCreditsCents));
+      const engineSetup = withDefaultEngineSetup(seed.setup, Number(input.seedCreditsCents));
       const setupSnapshot = engineSetupSnapshotFromInput(engineSetup);
 
       const [engineRow] = await db
@@ -381,20 +392,18 @@ export async function POST(req: Request) {
         .returning({ id: engineInstances.id });
       if (!engineRow) throw new ApiError(500, 'engine_instance_create_failed');
 
-      if (engineSetup) {
-        const engineRefs = await recordEngineSetupRefs(
-          db,
-          clock,
-          company.id,
-          engineRow.id,
-          engineSetup,
-        );
-        if (Object.keys(engineRefs).length > 0) {
-          await db
-            .update(engineInstances)
-            .set({ ...engineRefs, updatedAt: new Date() })
-            .where(eq(engineInstances.id, engineRow.id));
-        }
+      const engineRefs = await recordEngineSetupRefs(
+        db,
+        clock,
+        company.id,
+        engineRow.id,
+        engineSetup,
+      );
+      if (Object.keys(engineRefs).length > 0) {
+        await db
+          .update(engineInstances)
+          .set({ ...engineRefs, updatedAt: new Date() })
+          .where(eq(engineInstances.id, engineRow.id));
       }
 
       const parsedConfigs = configs.map((config, index) =>
@@ -425,9 +434,7 @@ export async function POST(req: Request) {
         maxTemplateY = Math.max(maxTemplateY, position.y);
       }
 
-      if (engineSetup) {
-        await cascadeEngineSetup(db, company.id, engineRow.id, engineSetup);
-      }
+      await cascadeEngineSetup(db, company.id, engineRow.id, engineSetup);
 
       if (engine.links.length > 0) {
         await db.insert(moduleLinks).values(

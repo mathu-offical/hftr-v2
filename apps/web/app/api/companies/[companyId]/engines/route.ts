@@ -5,7 +5,7 @@ import {
   InsertEngineInput,
   listResolvedEngineTemplates,
   MODULE_CONFIG_SCHEMAS,
-  withDefaultEngineCapital,
+  withDefaultEngineSetup,
   type ModuleType,
 } from '@hftr/contracts';
 import { loadSessionConstraints } from '@hftr/engine';
@@ -27,10 +27,7 @@ type Ctx = { params: Promise<{ companyId: string }> };
 
 const MAX_MODULES_PER_COMPANY = 60;
 
-function serializeEngine(
-  row: typeof engineInstances.$inferSelect,
-  memberModuleIds: string[],
-) {
+function serializeEngine(row: typeof engineInstances.$inferSelect, memberModuleIds: string[]) {
   return {
     id: row.id,
     companyId: row.companyId,
@@ -115,7 +112,7 @@ export async function POST(req: Request, ctx: Ctx) {
     }));
     const canvasBounds = computeEngineBoundsFromPositions(absolutePositions);
     const masterTopicSectors = input.setup?.topicSectors ?? [];
-    const setup = withDefaultEngineCapital(input.setup);
+    const setup = withDefaultEngineSetup(input.setup);
     const setupSnapshot = engineSetupSnapshotFromInput(setup);
     const templateInputs = input.inputs ?? {};
 
@@ -198,9 +195,7 @@ export async function POST(req: Request, ctx: Ctx) {
     const memberIds = new Set(created.map((m) => m.id));
     return {
       engine: serializeEngine(persistedEngine, [...memberIds]),
-      modules: refreshedModules.filter(
-        (m) => memberIds.has(m.id) || m.id === mathModule?.id,
-      ),
+      modules: refreshedModules.filter((m) => memberIds.has(m.id) || m.id === mathModule?.id),
       links: createdLinks,
     };
   });

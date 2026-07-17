@@ -50,7 +50,10 @@ function defaultEngineDraft(seedCreditsCents: number): ModuleSetupDraft {
   };
 }
 
-function defaultStandaloneModuleDraft(type: ModuleType, seedCreditsCents: number): ModuleSetupDraft {
+function defaultStandaloneModuleDraft(
+  type: ModuleType,
+  seedCreditsCents: number,
+): ModuleSetupDraft {
   const required = new Set(requiredModuleSetupFields(type));
   if (required.size === 0) return { ...EMPTY_MODULE_SETUP_DRAFT };
   const envelope = defaultEngineCapitalEnvelope(seedCreditsCents);

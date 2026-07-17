@@ -241,25 +241,25 @@ export function Palette(props: {
             )}
             {!enginesLoading &&
               engineTemplates.map((engine) => (
-              <button
-                key={engine.id}
-                disabled={!engine.available}
-                onClick={() => setConfiguring(engine)}
-                className="w-full rounded-lg border border-[var(--color-line)] px-2.5 py-2 text-left hover:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-[var(--color-ink)]">{engine.label}</span>
-                  {!engine.available && (
-                    <span className="text-[9px] uppercase tracking-wide text-[var(--color-warn)]">
-                      soon
-                    </span>
-                  )}
-                </div>
-                <p className="mt-0.5 text-[10px] leading-snug text-[var(--color-ink-faint)]">
-                  {engine.available ? engine.description : engine.unavailableReason}
-                </p>
-              </button>
-            ))}
+                <button
+                  key={engine.id}
+                  disabled={!engine.available}
+                  onClick={() => setConfiguring(engine)}
+                  className="w-full rounded-lg border border-[var(--color-line)] px-2.5 py-2 text-left hover:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-[var(--color-ink)]">{engine.label}</span>
+                    {!engine.available && (
+                      <span className="text-[9px] uppercase tracking-wide text-[var(--color-warn)]">
+                        soon
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-[10px] leading-snug text-[var(--color-ink-faint)]">
+                    {engine.available ? engine.description : engine.unavailableReason}
+                  </p>
+                </button>
+              ))}
           </div>
         )}
 

@@ -39,8 +39,9 @@ watches, steers, and approves through the canvas + three panels + the assistant.
   one week ahead (D-035 cascade). Operators can **add multiple extra modules and engines** during
   create, each with inline setup. Missing fields validate in place with per-field **Required ·
   label** chips and warning borders; confirmed fields use neutral borders and subtle in-field
-  green checks. **Skip setup & open canvas** creates draft nodes with visible missing-field chips
-  and inline node controls.
+  green checks. **Skip setup & open canvas** still applies default capital envelope equal-splits
+  and overall exit to capital-bearing members; topic/sector stays operator-required and shows
+  missing-field chips with inline node controls until filled.
 - The create form picks one of three company templates (`blank`,
   `day_trading_starter`, `trend_research_lab`). The module store additionally exposes insertable
   end-to-end `ENGINE_TEMPLATES` (day-trading and trend-research available; crypto/prediction/HFT

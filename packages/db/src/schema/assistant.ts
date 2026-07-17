@@ -28,3 +28,28 @@ export const assistantMessages = pgTable(
     check('assistant_messages_role_check', sql`${t.role} in ('user', 'assistant', 'system')`),
   ],
 );
+
+/** Append-only audit of assistant-proposed mutations (confirm applies once; row never deleted). */
+export const assistantEdits = pgTable(
+  'assistant_edits',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id),
+    clerkUserId: text('clerk_user_id').notNull(),
+    tool: text('tool').notNull(),
+    proposal: jsonb('proposal').notNull(),
+    status: text('status', { enum: ['pending', 'confirmed', 'rejected'] })
+      .notNull()
+      .default('pending'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('assistant_edits_company_status_idx').on(t.companyId, t.status, t.createdAt),
+    check('assistant_edits_status_check', sql`${t.status} in ('pending', 'confirmed', 'rejected')`),
+  ],
+);

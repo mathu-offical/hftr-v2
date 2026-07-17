@@ -1,4 +1,4 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { Db } from './client';
 import { companies, engineInstances, moduleLinks, modules } from './schema/companies';
 
@@ -20,6 +20,38 @@ export async function listCompanies(db: Db, clerkUserId: string) {
     .select()
     .from(companies)
     .where(and(eq(companies.clerkUserId, clerkUserId), isNull(companies.archivedAt)));
+}
+
+/** Directory projection: companies plus engine labels for the companies list UI. */
+export async function listCompaniesDirectory(db: Db, clerkUserId: string) {
+  const rows = await listCompanies(db, clerkUserId);
+  if (rows.length === 0) {
+    return [] as Array<
+      (typeof rows)[number] & { engines: Array<{ id: string; label: string; templateId: string }> }
+    >;
+  }
+  const companyIds = rows.map((row) => row.id);
+  const engineRows = await db
+    .select({
+      id: engineInstances.id,
+      companyId: engineInstances.companyId,
+      label: engineInstances.label,
+      templateId: engineInstances.templateId,
+    })
+    .from(engineInstances)
+    .where(inArray(engineInstances.companyId, companyIds));
+
+  const byCompany = new Map<string, Array<{ id: string; label: string; templateId: string }>>();
+  for (const engine of engineRows) {
+    const list = byCompany.get(engine.companyId) ?? [];
+    list.push({ id: engine.id, label: engine.label, templateId: engine.templateId });
+    byCompany.set(engine.companyId, list);
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    engines: byCompany.get(row.id) ?? [],
+  }));
 }
 
 /** Returns the company or throws NotFoundError. Base check for all child access. */

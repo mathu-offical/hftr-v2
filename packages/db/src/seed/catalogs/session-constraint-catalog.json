@@ -138,6 +138,34 @@
       ]
     },
     {
+      "id": "sess-crypto-alpaca-24x7",
+      "name": "alpaca_crypto_24x7",
+      "assetClass": "crypto",
+      "hoursEt": "00:00-24:00",
+      "days": "every_day",
+      "orderTypeMatrix": {
+        "market": ["gtc", "day", "ioc"],
+        "limit": ["gtc", "day", "ioc"]
+      },
+      "extendedHoursFlagRequired": false,
+      "buyingPowerCheckBasis": "far_side_of_nbbo",
+      "marketDataFeeds": {
+        "alpaca": ["crypto_latest_quotes", "crypto_latest_bars"]
+      },
+      "specialRules": [
+        "crypto_trades_continuously_on_alpaca_without_equity_session_breaks",
+        "paper_crypto_preset_unlocks_with_this_session_envelope_only",
+        "live_crypto_dispatch_still_requires_explicit_live_gate_arming"
+      ],
+      "verificationSignals": [
+        "session_clock",
+        "order.type",
+        "order.time_in_force",
+        "broker_market_clock_state",
+        "live_gate_armed"
+      ]
+    },
+    {
       "id": "sess-004",
       "name": "overnight_equities",
       "assetClass": "us_equities_nms_only",

@@ -12,7 +12,7 @@ import { sql } from 'drizzle-orm';
 import { getDb } from '../client';
 import { catalogEntries } from '../schema/research';
 
-const CATALOG_VERSION = 'v1_snapshot_2026_07_16';
+const CATALOG_VERSION = 'v1_snapshot_2026_07_17';
 const DIR = join(dirname(fileURLToPath(import.meta.url)), 'catalogs');
 
 interface SourceCollection {

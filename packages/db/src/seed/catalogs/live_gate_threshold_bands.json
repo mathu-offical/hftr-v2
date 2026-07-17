@@ -1,0 +1,43 @@
+{
+  "asOf": "2026-07-17",
+  "status": "research_baseline",
+  "purpose": "Seeded live-gate threshold bands for paper maturity, verification pass rate, daily loss caps, and participation rate. Research starting points only — NOT live-trading approval.",
+  "catalogVersion": "testing_baseline_v1_not_live_signoff",
+  "freezeState": "testing_baseline_v1_not_live_signoff",
+  "boundedRangeFamilies": {
+    "paper_maturity": {
+      "min": 14,
+      "typical": 30,
+      "max": 90,
+      "unit": "calendar_days",
+      "meaning": "Minimum paper trading calendar days before live gate may pass"
+    },
+    "verification_pass_rate": {
+      "min": 0.85,
+      "typical": 0.92,
+      "max": 0.98,
+      "unit": "ratio_0_1",
+      "meaning": "Minimum verification pass rate on paper action traces"
+    },
+    "daily_loss_bps": {
+      "min": 50,
+      "typical": 100,
+      "max": 200,
+      "unit": "bps_of_equity",
+      "meaning": "Daily realized loss cap as basis points of equity"
+    },
+    "participation_rate": {
+      "min": 3,
+      "typical": 8,
+      "max": 20,
+      "unit": "pct",
+      "meaning": "Almgren-Chriss style participation rate band for live gate posture review"
+    }
+  },
+  "literatureRefs": [
+    "moreira_muir_2017_vol_managed",
+    "almgren_chriss_2000_optimal_execution",
+    "industry_drawdown_brake_practice"
+  ],
+  "policyRule": "Bands inform checklist thresholds and operating-limit envelopes. Live arming still requires fresh evidence, operator confirmation, and immutable guardrail packages."
+}

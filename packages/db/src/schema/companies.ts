@@ -42,9 +42,8 @@ export const companies = pgTable(
     /** Exclusive bind: unique so one broker connection serves at most one company. */
     brokerConnectionId: uuid('broker_connection_id').references(() => brokerConnections.id),
     autoFundPolicy: jsonb('auto_fund_policy').notNull().default({}),
-    /** When set, operator has armed live after passing live-gate evidence (D-031). */
+    /** Set when operator explicitly arms live trading after gate pass (fail-closed until set). */
     liveArmedAt: timestamp('live_armed_at', { withTimezone: true }),
-    /** Latest append-only live_gate_evidence row used for arming. */
     liveGateEvidenceId: uuid('live_gate_evidence_id'),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     ...timestamps,

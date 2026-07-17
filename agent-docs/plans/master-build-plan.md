@@ -104,10 +104,14 @@ on a real topic, and default model-profile promotion after paper scenario suite.
    gauntlet. Property-based tests (fast-check) on unit algebra, fixed-point ops, and
    DST-transition temporal ops.
 2. Research pipeline: topics → Claude synthesis → concepts/tags/links; library curation;
-   research module config UI; left panel Research tab (topics tree, concept browser, markdown).
-3. Galaxy view MVP (react-force-graph-3d) with hover/click/search/tag filters; 2D fallback.
-4. Obsidian export (md + frontmatter + wikilinks, zip per library).
+   research module config UI; left panel Research tab (**topics list primary**, concept
+   browser); hybrid topic articles (D-040).
+3. Galaxy + Article research overlay (D-040): `react-force-graph-3d` with hard nested library
+   circles, topic focus (dim + animated path), rotating tag layer, Article tab; 2D fallback
+   (TD-09). MVP graph exists; D-040 layout/article/telemetry **specified**.
+4. Obsidian export (md + frontmatter + wikilinks, zip per library; topic article notes D-040).
 5. Mistral orchestration step with `escalate_to_strategic` policy.
+6. Concept/topic query + reference telemetry for librarian/retrieval optimization (D-040).
 Gate G2: a research module autonomously builds a browsable, exportable, galaxy-rendered
 library on a real topic within budget caps. Flow verified in browser; LLM ledger accurate.
 

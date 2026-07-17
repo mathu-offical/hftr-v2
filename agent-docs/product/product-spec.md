@@ -78,16 +78,32 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   company-wide sweep, research cadence schedule.
 - Output: evidence packages → validated concepts + tags + typed links (galaxy graph); library
   curation as `auto_admitted` or `proposed` per admission mode.
-- Progress view: topics tree, recent concepts, evidence list, validation scores, coverage stats,
-  next planned inquiries.
+- **Topics (D-040):** agent-created organizations that compose multiple concepts from company
+  data, seeded knowledgebases, and external gather. Topics are not galaxy nodes; they own
+  ordered concept memberships and a **hybrid article** (semantic synopsis with inline links +
+  expandable member concept sections). Research and librarian curation must keep saved
+  research in system-usable, operator-viewable form (graph + article + library membership).
+- **Usage telemetry (D-040):** topics and concepts track `query_count` / `last_queried_at` and
+  `reference_count` / `last_referenced_at` for retrieval ranking, librarian prioritization,
+  cadence, and visual weight — not display-only.
+- Progress / UI: left-panel topics list → main overlay **Galaxy | Article** tabs; nested
+  library galaxy; topic focus (dim + animated path). See
+  `ui-ux/research-galaxy-topic-view-design.md`.
+
+### Librarian modules (model-bearing, company-scoped)
+- Query existing library resources; curate and sanity/relevance-check them; assign relevance
+  scores across metrics; may create/reorganize libraries and update topic memberships /
+  synopses so the knowledge graph stays coherent for operators and downstream promote/
+  evidence_fit paths (aligns with DevSpecs research-library philosophy; D-040).
 
 ### Data modules
 - **Libraries:** curated knowledge bases hydrated by research modules; per-company, shareable
   across modules; scoped by topic but cross-referenced (all libraries are subsets of the master
   library graph). Curation statuses include `proposed`, `accepted`, `auto_admitted`, `rejected`,
-  `archived`. Views: browse/tag/search, graph view, markdown preview.
+  `archived`. Views: browse/tag/search, **hard-nested galaxy nests** (D-040), markdown preview /
+  hybrid topic articles.
   **Export: Obsidian-optimized folder of .md files** (frontmatter: tags, links as wikilinks,
-  provenance) — zip download per library or whole company.
+  provenance; topic articles as linked notes) — zip download per library or whole company.
 - **Live APIs:** deterministic feed managers (Alpaca data, Kalshi books, future venues).
   Config: instruments, feed class (labeled entitlement), polling/stream mode, throttle preset.
   They hydrate ACTUAL numbers into the pipeline — no LLM connectors for market data ever.

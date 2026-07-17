@@ -28,7 +28,8 @@ implementation proceeds.
 | `architecture/number-handling.md` | Numeric + temporal reference architecture: ValueRef store, calculator, clock/calendar authority, leak linting, Math module |
 | `architecture/broker-integration.md` | Broker adapter layer: Alpaca, Kalshi, Polymarket, crypto; funding UX |
 | `product/product-spec.md` | Companies, modules, funds, policies, assistant — full product behavior |
-| `ui-ux/ui-spec.md` | Canvas, panels, galaxy view, design system, visual standards |
+| `ui-ux/ui-spec.md` | Canvas, panels, galaxy + article research view, design system, visual standards |
+| `ui-ux/research-galaxy-topic-view-design.md` | D-040 topics, nested library galaxy, hybrid wiki articles, usage telemetry |
 | `ui-ux/canvas-node-dashboard-design.md` | D-026 labeled ports + fixed dashboard card |
 | `ui-ux/canvas-engine-group-design.md` | D-028 ENGINE parent groups + Math tools |
 | `ui-ux/canvas-layout-and-dedicated-math-design.md` | D-033 scoped Reflow + dedicated Math ownership and routing |

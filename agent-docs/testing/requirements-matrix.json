@@ -3,11 +3,13 @@
   "generatedAt": "2026-07-17",
   "program": "hftr-v2 paper intent-alignment",
   "summary": {
-    "total": 166,
+    "total": 170,
     "byStatus": {
       "implemented": 111,
       "stub": 11,
-      "deferred": 44
+      "deferred": 43,
+      "partial": 1,
+      "specified": 4
     },
     "docDriftFlags": ["REQ-FND-002", "REQ-SAF-003", "REQ-TST-006"]
   },
@@ -1432,8 +1434,8 @@
       "id": "REQ-RES-001",
       "title": "Galaxy 3D concept graph (react-force-graph-3d)",
       "source": "agent-docs/ui-ux/ui-spec.md \u00a76",
-      "status": "deferred",
-      "evidence": ["D-007 decision", "TD-09"],
+      "status": "partial",
+      "evidence": ["MVP GalaxyView + TD-09", "D-040 nested nests / topic focus / tag layer specified"],
       "scenarios": ["M2 G2 gate"],
       "venues": ["platform"],
       "philosophyAxes": ["research_quality"],
@@ -1444,7 +1446,7 @@
       "title": "Obsidian zip export per library",
       "source": "agent-docs/product/product-spec.md \u00a73",
       "status": "deferred",
-      "evidence": ["master-build-plan M2 \u00a74"],
+      "evidence": ["master-build-plan M2 \u00a74", "D-040 adds topic article notes"],
       "scenarios": ["export download"],
       "venues": ["platform"],
       "philosophyAxes": ["research_quality"],
@@ -1488,11 +1490,55 @@
       "title": "Scoped web research (Brave optional)",
       "source": "agent-docs/product/product-spec.md \u00a73 Research",
       "status": "deferred",
-      "evidence": ["research module config spec"],
+      "evidence": ["research module config spec", "D-039 bus partial"],
       "scenarios": ["M2 autonomous research"],
       "venues": ["platform"],
       "philosophyAxes": ["research_quality"],
       "safetyClass": "compliance"
+    },
+    {
+      "id": "REQ-RES-007",
+      "title": "Topics as agent organizations + left-panel nav",
+      "source": "agent-docs/ui-ux/research-galaxy-topic-view-design.md",
+      "status": "specified",
+      "evidence": ["D-040", "topic_concepts join pending"],
+      "scenarios": ["M2 research overlay"],
+      "venues": ["platform"],
+      "philosophyAxes": ["research_quality"],
+      "safetyClass": "operational"
+    },
+    {
+      "id": "REQ-RES-008",
+      "title": "Hard nested library galaxy + topic focus (dim+path)",
+      "source": "agent-docs/ui-ux/ui-spec.md \u00a76",
+      "status": "specified",
+      "evidence": ["D-040", "GalaxyView MVP lacks nests/focus"],
+      "scenarios": ["M2 G2"],
+      "venues": ["platform"],
+      "philosophyAxes": ["research_quality"],
+      "safetyClass": "informational"
+    },
+    {
+      "id": "REQ-RES-009",
+      "title": "Hybrid topic Article tab (synopsis + concept sections)",
+      "source": "agent-docs/ui-ux/research-galaxy-topic-view-design.md \u00a75",
+      "status": "specified",
+      "evidence": ["D-040", "synopsis_md pending"],
+      "scenarios": ["M2 research overlay"],
+      "venues": ["platform"],
+      "philosophyAxes": ["research_quality"],
+      "safetyClass": "operational"
+    },
+    {
+      "id": "REQ-RES-010",
+      "title": "Concept/topic query + reference telemetry",
+      "source": "agent-docs/architecture/data-model.md",
+      "status": "specified",
+      "evidence": ["D-040 counters / optional access events"],
+      "scenarios": ["M2+ librarian ranking"],
+      "venues": ["platform"],
+      "philosophyAxes": ["research_quality"],
+      "safetyClass": "operational"
     },
     {
       "id": "REQ-CAT-001",

@@ -2,7 +2,7 @@
 
 **Program:** paper intent-alignment  
 **Generated:** 2026-07-17  
-**Total rows:** 166
+**Total rows:** 170
 
 ## Status summary
 
@@ -11,7 +11,9 @@
 | implemented | 111 |
 | stub | 11 |
 | doc-only | 0 |
-| deferred | 44 |
+| deferred | 43 |
+| partial | 1 |
+| specified | 4 |
 
 ## Doc-drift flags
 
@@ -29,7 +31,7 @@ Additional drift (not in JSON flag list):
 
 | Column | Values |
 |---|---|
-| status | `implemented` = shipped & evidenced; `stub` = honest placeholder; `doc-only` = spec only; `deferred` = M2–M6 or future |
+| status | `implemented` = shipped & evidenced; `stub` = honest placeholder; `doc-only` = spec only; `deferred` = M2–M6 or future; `partial` / `specified` = in progress or design-locked |
 | venues | Trading/runtime venue or `platform` for app-wide |
 | philosophy_axes | Co-equal product objectives (v1 compliance baseline) |
 | safety_class | Review priority for paper→live promotion |
@@ -242,16 +244,20 @@ Additional drift (not in JSON flag list):
 | REQ-AST-005 | Mistral conversational assistant chat | agent-docs/product/product-spec.md §5 Target | **deferred** | master-build-plan M2 | M2+ chat | platform | operator_transparency | operational |
 | REQ-AST-006 | Write tools + assistant_edits audit (M4) | agent-docs/architecture/llm-pipeline.md §7 | **deferred** | assistant_edits schema; Playwright flow 5 | proposal cards | platform | compliance_posture, risk_controls | safety_critical |
 
-## Research & galaxy (M2) (6)
+## Research & galaxy (M2) (10)
 
 | REQ-ID | Title | Source | Status | Evidence | Scenarios | Venues | Axes | Safety |
 |---|---|---|---|---|---|---|---|---|
-| REQ-RES-001 | Galaxy 3D concept graph (react-force-graph-3d) | agent-docs/ui-ux/ui-spec.md §6 | **deferred** | D-007 decision; TD-09 | M2 G2 gate | platform | research_quality | informational |
-| REQ-RES-002 | Obsidian zip export per library | agent-docs/product/product-spec.md §3 | **deferred** | master-build-plan M2 §4 | export download | platform | research_quality | operational |
+| REQ-RES-001 | Galaxy 3D concept graph (react-force-graph-3d) | agent-docs/ui-ux/ui-spec.md §6 | **partial** | MVP GalaxyView + TD-09; D-040 nested nests / topic focus / tag layer specified | M2 G2 gate | platform | research_quality | informational |
+| REQ-RES-002 | Obsidian zip export per library | agent-docs/product/product-spec.md §3 | **deferred** | master-build-plan M2 §4; D-040 adds topic article notes | export download | platform | research_quality | operational |
 | REQ-RES-003 | concept_links typed galaxy edges | agent-docs/architecture/data-model.md | **deferred** | concept_links in schema; no UI/API yet | M2 graph API | platform | research_quality | operational |
 | REQ-RES-004 | Library curation UI + management | agent-docs/ui-ux/ui-spec.md §4 LEFT | **deferred** | libraries schema; left panel partial | M2 research tab | platform | research_quality | operational |
 | REQ-RES-005 | pgvector concept embeddings | agent-docs/architecture/data-model.md | **deferred** | embedding column nullable phase-gated | M2+ search | platform | research_quality | informational |
-| REQ-RES-006 | Scoped web research (Brave optional) | agent-docs/product/product-spec.md §3 Research | **deferred** | research module config spec | M2 autonomous research | platform | research_quality | compliance |
+| REQ-RES-006 | Scoped web research (Brave optional) | agent-docs/product/product-spec.md §3 Research | **deferred** | research module config spec; D-039 bus partial | M2 autonomous research | platform | research_quality | compliance |
+| REQ-RES-007 | Topics as agent organizations + left-panel nav | agent-docs/ui-ux/research-galaxy-topic-view-design.md | **specified** | D-040; topic_concepts join pending | M2 research overlay | platform | research_quality | operational |
+| REQ-RES-008 | Hard nested library galaxy + topic focus (dim+path) | agent-docs/ui-ux/ui-spec.md §6 | **specified** | D-040; GalaxyView MVP lacks nests/focus | M2 G2 | platform | research_quality | informational |
+| REQ-RES-009 | Hybrid topic Article tab (synopsis + concept sections) | agent-docs/ui-ux/research-galaxy-topic-view-design.md §5 | **specified** | D-040; synopsis_md pending | M2 research overlay | platform | research_quality | operational |
+| REQ-RES-010 | Concept/topic query + reference telemetry | agent-docs/architecture/data-model.md | **specified** | D-040 counters / optional access events | M2+ librarian ranking | platform | research_quality | operational |
 
 ## Seed catalogs (8)
 

@@ -75,6 +75,19 @@ canvas):
 
 Module-to-module edges on the canvas are real data-flow contracts (which library feeds which
 trend module, which trend module directs which trading module), stored as `module_links`.
+**D-041 (implemented):** the engine loads the company link graph
+(`packages/engine/src/graph/module-links.ts`) so edges drive pipeline behavior — not UI-only:
+
+| Edge | Pipeline consumer |
+|---|---|
+| `research→library` `data_feed` | Admit/attach targets; library gather source |
+| `library→trend` `data_feed` | Promote `evidence_fit` scoped to linked libraries |
+| `live_api→trend` `data_feed` | Trend scan symbols (plus module config) |
+| `research→library→trend` path | Module-auto `research.curate` from trend scan/promote |
+| `trend→trading` `directive` | Default promote / tactical `targetModuleId` |
+| `trading→policy` `directive` | Philosophy/policy envelope binding on promote |
+| `analyzer/simulator→research` `verification`/`data_feed` | Direct linked research auto-curate |
+| `fund_route` | Topology only until fund-transfer graph walker (REQ-DEF-001) |
 
 Inter-module fund mechanics: allocation requests to company pool and profit borrowing between
 modules require user approval unless the company policy sets auto-approve (with bounded caps).
@@ -85,7 +98,8 @@ Carried v1 spine, re-scoped per module:
 
 ```
 company philosophy + module config
-  → research modules (Claude): topics → tagged concepts → libraries
+  → research modules (Claude): topics (organizations) → tagged concepts → libraries
+    → librarian: relevance / membership / hybrid article curation (D-040)
   → trend modules (Mistral): trends → leads (+ six-gate activation validation)
   → trading module tactical (Mistral): DecisionTree expansion (lever geometry)
   → trading module execution (Groq): compile → ActionInstruction
@@ -93,6 +107,9 @@ company philosophy + module config
   → analyzer/training feedback: bounded band/weight retunes only
 ```
 
+Research operator surface (D-040): left-panel topics; main overlay Galaxy (concepts/tags in
+hard library nests; topic focus dim+path) | Article (hybrid synopsis + concept sections).
+Usage counters on topics/concepts feed retrieval ranking and visual weight.
 Cadences (defaults, per-module configurable within policy bounds): strategic pre-market/3h/
 trigger; tactical ≤30m; execution ≤5m; deterministic watchers continuous while market open.
 Users can manually trigger any tier from the module's expanded view.
@@ -104,7 +121,8 @@ Route handlers under `apps/web/app/api/`, all Clerk-authenticated + Zod-validate
 - `companies` CRUD, `companies/:id/canvas` (graph), `companies/:id/policies`
 - `modules` CRUD, `modules/:id/config`, `modules/:id/trigger` (manual tier trigger)
 - `modules/:id/links` (graph edges), `funds/transfers` (fund router + approvals)
-- `research/concepts`, `research/graph` (galaxy data), `libraries/:id/export` (md/Obsidian zip)
+- `research/concepts`, `research/topics` (D-040 membership + synopsis), `research/graph`
+  (galaxy data + library nest metadata), `libraries/:id/export` (md/Obsidian zip)
 - `trends`, `leads`, `watchlists`, `decision-trees/:id`
 - `dispatch/tasks`, `traces`, `traces/:id`, `ledger` (right panel)
 - `simulations`, `simulations/:id/results`

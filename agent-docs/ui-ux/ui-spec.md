@@ -22,8 +22,9 @@
   Trading profile, Settings, Philosophy tabs) → executions ticker tape (`ExecutionTicker`,
   marquee of recent fills/blocks with amounts, pauses on hover) → paper/live master switch
   (`ModeSwitch`, live gated with an explanation popover — fails closed until the broker
-  milestone) → queue chip → **User settings** modal (`UserSettingsLauncher`: six LLM
-  providers + Anthropic ZDR attestation + Alpaca paper connect/verify — D-027) → Clerk
+  milestone) → queue chip → **User settings** modal (`UserSettingsLauncher`: tabs **LLM
+  providers** | **Research** | **Brokers** — six LLM providers + Anthropic ZDR attestation,
+  research gather keys, Alpaca paper connect/verify — D-027) → Clerk
   user button. TopDrawer LLM/operating tab: **trading capital caps** (virtual / broker buying
   power / effective min when bound, else paper sim), provider budgets + **provider health**
   strip (credential configured + last failure from recent calls), company `llm_policy` with tier
@@ -36,8 +37,10 @@
   (Verify · Executions · Ledger · Sims · Values) expand into panels; the canvas keeps the
   remaining space. The earlier "full slide-over" model is deferred; current panels are
   docked flex children so canvas context is never fully hidden.
-- **Companies directory (`/companies`):** card grid with paper (cyan) / live (red) text-first
-  mode badges, included engine labels, link into the company canvas, and a ⋯ menu for rename,
+- **Companies directory (`/companies`):** header shell includes the same **User settings**
+  launcher next to the user menu (LLM / Research / Brokers) so credentials are reachable
+  before opening a company. Card grid with paper (cyan) / live (red) text-first
+  mode badges, listed engine labels, link into the company canvas, and a ⋯ menu for rename,
   duplicate (always a zero-capital paper copy of topology with non-Math modules reset to draft),
   and archive/delete (fail-closed: leaves directory, stops schedules, clears live/broker bind;
   traces kept).
@@ -152,17 +155,21 @@ editable fields.
 
 ### LEFT — Research + Data + Trends
 - Tabs: **Research** | **Data sources** | (contextual third tab when opened from a trend module).
-- Research tab: module progress (topics tree, coverage), concept browser (search/tag filter),
-  wikis/documentation view (rendered markdown), **galaxy view toggle** (full-panel 3D graph,
-  see §6), library management + Obsidian export buttons.
+- Research tab (**D-040**): **topics list first** (agent-created organizations; tree when nested).
+  Each row shows title, status, concept count, coverage, and text-first **queried /
+  referenced** usage. Selecting a topic opens the Research overlay on the main content area,
+  focuses that topic’s concept trace in the galaxy, and loads its hybrid article. Secondary:
+  concept browser (search/tag filter), module progress, library management + Obsidian export.
+- Research overlay (main content, layered over canvas): tabs **Galaxy** | **Article** (see §6).
+  Shared chrome: search, tag chips, library scope, zoom, clear-topic-focus.
 - Research module cards (D-039): **admission mode** select (auto-admit vs require approval),
   manual query / Curate now / company sweep, multi-poll **run status** (phase · evidence ·
   concepts · validation · admission applied), **validation gate scores** after a run, and an
   evidence list. On terminal run phase, evidence + concepts + galaxy reload.
 - Libraries: curation filters (all / proposed / accepted / …) plus **Approve all proposed** /
   **Reject all proposed** bulk actions when any concepts are proposed.
-- Galaxy concept detail: text-first **library admission**, **evidence ref**, and **research run**
-  provenance when present on the graph node.
+- Galaxy concept detail: text-first **library admission**, **evidence ref**, **research run**
+  provenance, and **usage** (query/reference counts) when present on the graph node.
 - Data sources tab: connected live APIs with freshness/entitlement labels, create-new-source
   flow, library list with curation status.
 
@@ -198,15 +205,44 @@ calls". `Esc` closes the dock. Retention/erasure policy unresolved (OQ-10).
 old → new) with Confirm/Reject; applied edits link to `assistant_edits` audit entries (M4).
 Mistral conversational chat lands with the research/assistant LLM budget work (M2+).
 
-## 6. Galaxy view (MVP, signature feature)
+## 6. Galaxy + Article research view (signature feature, D-040)
 
-- `react-force-graph-3d`: concepts as glowing nodes (size = degree/importance, color = dominant
-  tag group), typed links, tag-cluster nebulae (cluster hulls or filament links), background
-  starfield + bloom for the "galaxy" feel.
-- Interactions: orbit/zoom, hover label, click → concept card (side overlay with body markdown,
-  tags, linked concepts, provenance), search-focus fly-to, tag filter chips, time scrubber
-  (concept creation over time) phase-gated.
-- Performance ladder documented in tech-decisions TD-09; 2D fallback toggle.
+Full design: `ui-ux/research-galaxy-topic-view-design.md`.
+
+### Objects
+- **Topics** — agent-created organizations (research + librarian curation). They group many
+  concepts from company DBs, seeded knowledge, and external gather. **Not** galaxy nodes.
+- **Galaxy nodes** — concepts (primary) and tags (secondary / color / filter). Typed
+  `concept_links` remain edges.
+- **Libraries** — hard nested sub-circles inside the company galaxy (stable when scope shrinks).
+
+### Galaxy tab
+- `react-force-graph-3d` (2D fallback per TD-09): concepts as nodes (size blends degree +
+  reference-band; color = dominant tag), typed links, background starfield + bloom.
+- **Hard nested library hulls** (default): each library is a bounded nest; primary membership
+  keeps concepts inside; cross-library edges may cross boundaries. Master library = company
+  outer nest.
+- **Rotating info-tag layer** over the graph (subtle orbit of tag chips; static under
+  `prefers-reduced-motion`); chips double as filters.
+- **Topic focus** (left-panel select): dim non-member concepts/edges; draw darker, subtly
+  animated path/hull for the topic trace; camera fly-to / fit members. Clear focus restores
+  brightness without destroying nests.
+- Filters / zoom / library multi-select re-scope visible nests and nodes; layout reorganizes
+  from UI selection state (session-stable positions preferred).
+- Click concept → detail card (body markdown, tags, libraries, provenance, usage counters).
+- Time scrubber (concept creation over time) remains phase-gated.
+
+### Article tab
+- Hybrid wiki for the selected topic: **agent synopsis** (semantic markdown with inline links
+  to concepts / libraries / evidence / related topics) + **expandable ordered concept
+  sections** from membership. Curation keeps article and graph coherent; all saved research
+  must be system-usable and operator-viewable.
+- Inline links navigate in-app (concept card, galaxy focus, related topic, run provenance).
+- Usage badges: queried / referenced / last queried (text-first).
+
+### Performance
+- Ladder in TD-09; >200 concepts force 2D; LOD may hide tag orbit / simplify hulls when
+  zoomed out.
 
 ## 7. Key flows (must be Playwright-covered)
 

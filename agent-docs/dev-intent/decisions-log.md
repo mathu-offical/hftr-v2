@@ -436,6 +436,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   status + validation, galaxy provenance fields, library bulk approve/reject); browser verified
   2026-07-17 on sample company.**
 
+- **D-041 (canvas module_links drive pipeline data flow, 2026-07-17):**
+  Canvas edges are authoritative for research/trend/promote data transfer: graph resolver in
+  `packages/engine/src/graph/module-links.ts`; multi-hop `research→library→trend` for
+  module-auto curate; `trend→trading` directive for promote target; inbound `library→trend` /
+  `live_api→trend` for evidence scope and scan symbols; `research→library` for admit targets
+  and library gather EvidencePackages. `fund_route` remains topology-only (D-023 / REQ-DEF-001).
+  **Status: implemented; unit tests on graph helpers + library gather normalize.**
+
 - **D-036 (auto-disarm + drain latency, 2026-07-17):**
   `autoDisarmCompany` clears `live_armed_at` and `live_gate_evidence_id` on broker verify
   failure, stale evidence while armed (`live-gates/status`), and `resolveExecutionContext` block.
@@ -447,6 +455,17 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `privacy_cost` → `strict_compile` when verificationPassRate ≥ 0.85, leakCleanWindow, paperTradeCount
   ≥ 5, intentAlignmentScore ≥ 0.7. Evaluator in `packages/engine/src/llm-profile/promotion.ts`;
   automation hook not wired — thresholds are research baseline pending soak data.
+
+- **D-040 (research topics + nested galaxy + hybrid articles + usage telemetry, 2026-07-17):**
+  Research agents create **topics** as organizations of multiple concepts (company DBs,
+  seeded knowledge, external gather) — topics are **not** galaxy nodes; nodes remain concepts
+  and tags. UI: left-panel topics list; main Research overlay tabs **Galaxy | Article**;
+  hard nested library circles; topic focus = dim unrelated + darker subtly animated path/hull
+  + fly-to; rotating info-tag layer; hybrid article = agent synopsis with semantic inline
+  links + ordered concept sections (research/librarian curation). Topics/concepts track
+  query and reference counts for system optimization and visual weight. Spec:
+  `ui-ux/research-galaxy-topic-view-design.md`; mirrored in `ui-spec.md` §4/§6,
+  `product-spec.md`, `data-model.md`. **Status: specified; implementation not started.**
 
 ## Open questions
 

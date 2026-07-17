@@ -112,8 +112,10 @@ Order of integration (per-adapter detail in `architecture/broker-integration.md`
 - Scale plan: research libraries start small (hundreds of concepts); if we exceed ~2–3k visible
   nodes, adopt the documented escalation path — cluster-collapse LOD, InstancedMesh custom
   rendering, Web Worker layout (graphier/galaxy-nodes patterns studied as references).
-- 2D fallback (`react-force-graph-2d`, same API) for low-power devices and the left-panel
-  embedded view.
+- 2D fallback (`react-force-graph-2d`, same API) for low-power devices and large graphs (>200).
+- **D-040 layout contract:** hard nested library hulls (force constraints / radial bounds),
+  topic focus overlays (dim + animated path), rotating tag chip layer, Article tab sibling —
+  see `ui-ux/research-galaxy-topic-view-design.md`. Library nests remain in 2D fallback.
 
 ## TD-10 — Styling & design system
 

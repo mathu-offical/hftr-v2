@@ -44,7 +44,8 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   policy envelopes to the trading modules linked into them (spec: "trading modules → trading
   policies").
 - **module_links** — company_id, from_module_id, to_module_id, link_kind
-  `data_feed|directive|verification|fund_route`, config jsonb. (These are the canvas edges.)
+  `data_feed|directive|verification|fund_route`, config jsonb. Canvas edges are loaded by
+  `loadCompanyLinkGraph` and consumed by research/trend/promote (D-041) — not visual-only.
 - **fund_transfers** — company_id, from (module|company_pool|reserve), to, amount_cents,
   status `requested|approved|auto_approved|rejected|settled`, requested_by
   `user|module|policy`, approved_at, trace ref.
@@ -63,9 +64,17 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 ## Research & knowledge
 
 - **research_topics** — company_id, module_id, parent_topic_id nullable (tree), title, status,
-  priority, provenance. Implemented (migration `0012`).
+  priority, provenance. Implemented (migration `0012`). **D-040 (specified):** add
+  `synopsis_md` (hybrid article agent synopsis), usage counters
+  (`query_count`, `last_queried_at`, `reference_count`, `last_referenced_at`). Topics are
+  agent organizations — not galaxy nodes.
+- **topic_concepts** — **D-040 (specified):** join `(topic_id, concept_id, sort_order, role?)`
+  unique `(topic_id, concept_id)`; defines topic membership / galaxy focus subgraph and
+  Article tab section order.
 - **concepts** — company_id, origin_module_id, title, slug, body_md, summary,
   embedding vector nullable (pgvector, phase-gated), source_urls jsonb, confidence.
+  **D-040 (specified):** same usage counter columns as topics (system query + research
+  reference telemetry for optimization and visual weight).
 - **concept_tags** — concept_id, tag (lower_snake_case); **tags** registry (tag, kind, color_hint).
 - **concept_links** — from_concept_id, to_concept_id, relation
   `supports|contradicts|causes|correlates|mentions|derived_from`, weight_band
@@ -74,9 +83,15 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 - **libraries** — company_id, optional module_id, name, topic_scope text, master_library flag,
   status. Implemented (migration `0012`).
   **library_concepts** join (library_id, concept_id, curation_status
-  `proposed|accepted|rejected|archived`).
+  `proposed|accepted|auto_admitted|rejected|archived`). **D-040:** primary library membership
+  drives hard nested galaxy nests; secondary memberships are badges, not duplicate nodes.
+- **knowledge_access_events** — **D-040 (optional/specified):** append-only access log
+  `(company_id, entity_kind topic|concept, entity_id, access_kind query|reference, actor, created_at)`
+  when denormalized counters are insufficient under contention.
 - **evidence_packages** — v1 contract: class, symbols/sectors, digest, findings jsonb, expiry,
   legal_use_class `ALLOWED|RESTRICTED|REVIEW_REQUIRED`.
+
+UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
 
 ## Trends → trades (v1 spine, per-module scoping)
 

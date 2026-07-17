@@ -62,6 +62,15 @@ export const CurateLibraryConceptInput = z.object({
 });
 export type CurateLibraryConceptInput = z.infer<typeof CurateLibraryConceptInput>;
 
+/** Query / reference telemetry for topics and concepts (D-040). */
+export const KnowledgeUsage = z.object({
+  queryCount: z.number().int().nonnegative().default(0),
+  lastQueriedAt: z.string().nullable().default(null),
+  referenceCount: z.number().int().nonnegative().default(0),
+  lastReferencedAt: z.string().nullable().default(null),
+});
+export type KnowledgeUsage = z.infer<typeof KnowledgeUsage>;
+
 export const ResearchTopic = z.object({
   id: z.string().uuid(),
   companyId: z.string().uuid(),
@@ -71,6 +80,13 @@ export const ResearchTopic = z.object({
   status: z.enum(['active', 'archived', 'deferred']).default('active'),
   priority: z.enum(['low', 'normal', 'high']).default('normal'),
   provenance: z.string().max(200).nullable().default(null),
+  /** Hybrid article agent synopsis (markdown with inline wikilinks). */
+  synopsisMd: z.string().default(''),
+  conceptCount: z.number().int().nonnegative().optional(),
+  queryCount: z.number().int().nonnegative().default(0),
+  lastQueriedAt: z.string().nullable().default(null),
+  referenceCount: z.number().int().nonnegative().default(0),
+  lastReferencedAt: z.string().nullable().default(null),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -82,8 +98,56 @@ export const CreateResearchTopicInput = z.object({
   title: z.string().min(1).max(200),
   priority: z.enum(['low', 'normal', 'high']).default('normal'),
   provenance: z.string().max(200).nullable().optional(),
+  synopsisMd: z.string().max(50_000).optional(),
 });
 export type CreateResearchTopicInput = z.infer<typeof CreateResearchTopicInput>;
+
+export const PatchResearchTopicInput = z.object({
+  title: z.string().min(1).max(200).optional(),
+  parentTopicId: z.string().uuid().nullable().optional(),
+  status: z.enum(['active', 'archived', 'deferred']).optional(),
+  priority: z.enum(['low', 'normal', 'high']).optional(),
+  provenance: z.string().max(200).nullable().optional(),
+  synopsisMd: z.string().max(50_000).optional(),
+});
+export type PatchResearchTopicInput = z.infer<typeof PatchResearchTopicInput>;
+
+/** Ordered concept membership inside a topic (D-040). */
+export const TopicConcept = z.object({
+  id: z.string().uuid(),
+  topicId: z.string().uuid(),
+  conceptId: z.string().uuid(),
+  sortOrder: z.number().int().nonnegative().default(0),
+  role: z.string().max(80).nullable().default(null),
+  title: z.string().optional(),
+  body: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  curationStatus: CurationStatus.nullable().optional(),
+  primaryLibraryId: z.string().uuid().nullable().optional(),
+  queryCount: z.number().int().nonnegative().optional(),
+  referenceCount: z.number().int().nonnegative().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type TopicConcept = z.infer<typeof TopicConcept>;
+
+export const PutTopicConceptsInput = z.object({
+  concepts: z
+    .array(
+      z.object({
+        conceptId: z.string().uuid(),
+        sortOrder: z.number().int().nonnegative().optional(),
+        role: z.string().max(80).nullable().optional(),
+      }),
+    )
+    .max(500),
+});
+export type PutTopicConceptsInput = z.infer<typeof PutTopicConceptsInput>;
+
+export const ResearchTopicDetail = ResearchTopic.extend({
+  memberships: z.array(TopicConcept).default([]),
+});
+export type ResearchTopicDetail = z.infer<typeof ResearchTopicDetail>;
 
 export const ResearchGraphNode = z.object({
   id: z.string().uuid(),
@@ -105,6 +169,14 @@ export const ResearchGraphNode = z.object({
     .enum(['proposed', 'accepted', 'auto_admitted', 'rejected', 'archived'])
     .nullable()
     .optional(),
+  /** Primary library nest for hard nested galaxy layout (D-040). */
+  primaryLibraryId: z.string().uuid().nullable().optional(),
+  /** Secondary library memberships (badges; not duplicate nodes). */
+  secondaryLibraryIds: z.array(z.string().uuid()).optional(),
+  queryCount: z.number().int().nonnegative().optional(),
+  referenceCount: z.number().int().nonnegative().optional(),
+  lastQueriedAt: z.string().nullable().optional(),
+  lastReferencedAt: z.string().nullable().optional(),
 });
 export type ResearchGraphNode = z.infer<typeof ResearchGraphNode>;
 
@@ -118,10 +190,21 @@ export const ResearchGraphLink = z.object({
 });
 export type ResearchGraphLink = z.infer<typeof ResearchGraphLink>;
 
+/** Library nest metadata for hard nested galaxy layout (D-040). */
+export const ResearchGraphLibraryNest = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  masterLibrary: z.boolean(),
+  topicScope: z.string().default(''),
+  conceptCount: z.number().int().nonnegative().default(0),
+});
+export type ResearchGraphLibraryNest = z.infer<typeof ResearchGraphLibraryNest>;
+
 export const ResearchGraphResponse = z.object({
   nodes: z.array(ResearchGraphNode),
   links: z.array(ResearchGraphLink),
   tags: z.array(z.string()),
+  libraries: z.array(ResearchGraphLibraryNest).default([]),
 });
 export type ResearchGraphResponse = z.infer<typeof ResearchGraphResponse>;
 

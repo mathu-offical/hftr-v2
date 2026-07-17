@@ -768,12 +768,56 @@ describe('Libraries and research graph (M2)', () => {
           tags: ['chips'],
           sourceClass: 'deterministic_placeholder',
           status: 'active',
+          primaryLibraryId: '33333333-3333-3333-3333-333333333333',
+          queryCount: 1,
+          referenceCount: 2,
         },
       ],
       links: [],
       tags: ['chips'],
+      libraries: [
+        {
+          id: '33333333-3333-3333-3333-333333333333',
+          name: 'Master',
+          masterLibrary: true,
+          topicScope: '',
+          conceptCount: 1,
+        },
+      ],
     });
     expect(graph.nodes).toHaveLength(1);
+    expect(graph.libraries).toHaveLength(1);
+
+    const { PutTopicConceptsInput, PatchResearchTopicInput, ResearchTopicDetail } =
+      await import('./libraries');
+    expect(
+      PutTopicConceptsInput.parse({
+        concepts: [{ conceptId: '11111111-1111-1111-1111-111111111111', sortOrder: 0 }],
+      }).concepts,
+    ).toHaveLength(1);
+    expect(
+      PatchResearchTopicInput.parse({ synopsisMd: '## Overview\nSee [[Supply]].' }).synopsisMd,
+    ).toContain('Supply');
+    expect(
+      ResearchTopicDetail.parse({
+        id: '44444444-4444-4444-4444-444444444444',
+        companyId: '55555555-5555-5555-5555-555555555555',
+        moduleId: '22222222-2222-2222-2222-222222222222',
+        parentTopicId: null,
+        title: 'Chips supply',
+        status: 'active',
+        priority: 'normal',
+        provenance: null,
+        synopsisMd: 'Overview',
+        queryCount: 0,
+        lastQueriedAt: null,
+        referenceCount: 0,
+        lastReferencedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        memberships: [],
+      }).synopsisMd,
+    ).toBe('Overview');
   });
 });
 
@@ -899,9 +943,7 @@ describe('canvas layout (D-033)', () => {
     expect(mathPos.y).toBe(ownerPos.y + owner.height + CANVAS_LAYOUT.mathAttachmentGap);
     const bounds = result.engines[0]!.canvasBounds;
     // Group chrome must cover the Math dock, not only the owner card.
-    expect(bounds.y + bounds.height).toBeGreaterThan(
-      mathPos.y + CANVAS_LAYOUT.mathToolHeight,
-    );
+    expect(bounds.y + bounds.height).toBeGreaterThan(mathPos.y + CANVAS_LAYOUT.mathToolHeight);
   });
 
   it('uses owner/tool envelopes for vertical row spacing', () => {

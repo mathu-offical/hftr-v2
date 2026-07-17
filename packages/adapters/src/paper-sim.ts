@@ -81,6 +81,28 @@ export function createPaperSimAdapter(opts: PaperSimOptions): BrokerAdapter {
     },
 
     async submitOrder(task: DeterministicActionTask): Promise<SubmitResult> {
+      switch (task.actionVerb) {
+        case 'buy':
+        case 'sell':
+          break;
+        case 'cancel':
+        case 'replace':
+        case 'close_position':
+          return {
+            accepted: false,
+            venueOrderId: null,
+            rejectReason: 'unsupported_action_verb',
+          };
+        default: {
+          const _exhaustive: never = task.actionVerb;
+          return {
+            accepted: false,
+            venueOrderId: null,
+            rejectReason: `unsupported_action_verb:${String(_exhaustive)}`,
+          };
+        }
+      }
+
       const quote = opts.getQuote(task.symbol);
       if (!quote) {
         return { accepted: false, venueOrderId: null, rejectReason: 'no_quote' };

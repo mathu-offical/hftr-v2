@@ -73,6 +73,24 @@ describe('paper-sim adapter', () => {
     expect(result.rejectReason).toBe('insufficient_funds');
   });
 
+  it('fails closed when a non-order action reaches order submission', async () => {
+    const adapter = createPaperSimAdapter({
+      nowMs: () => T0,
+      getQuote: quote,
+      startingCashCents: 1_000_000,
+    });
+
+    const result = await adapter.submitOrder(task({ actionVerb: 'cancel' }));
+
+    expect(result).toMatchObject({
+      accepted: false,
+      venueOrderId: null,
+      rejectReason: 'unsupported_action_verb',
+    });
+    expect(await adapter.getFills(new Date(T0 - 1000).toISOString())).toHaveLength(0);
+    expect((await adapter.getBalances()).cashCents).toBe(1_000_000);
+  });
+
   it('is deterministic for identical inputs', async () => {
     const run = async () => {
       const adapter = createPaperSimAdapter({

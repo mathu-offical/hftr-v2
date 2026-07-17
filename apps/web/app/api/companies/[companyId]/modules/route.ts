@@ -1,11 +1,12 @@
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { CreateModuleInput, MODULE_CONFIG_SCHEMAS } from '@hftr/contracts';
+import { CreateModuleInput, MODULE_CONFIG_SCHEMAS, moduleRequiresMath } from '@hftr/contracts';
 import { libraries, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
 import { createSystemClock } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import { recordModuleSetup } from '@/lib/module-setup';
+import { provisionDedicatedMathTools } from '@/lib/math-provision';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +32,8 @@ export async function POST(req: Request, ctx: Ctx) {
     // D-028: Math is repeatable and multi-attachable (n8n-style tools).
 
     const existing = await scoping.listModules(db, clerkUserId, companyId);
-    if (existing.length >= MAX_MODULES_PER_COMPANY) {
+    const requiredSlots = moduleRequiresMath(input.type) ? 2 : 1;
+    if (existing.length + requiredSlots > MAX_MODULES_PER_COMPANY) {
       throw new ApiError(422, 'module_limit_reached');
     }
 
@@ -99,6 +101,15 @@ export async function POST(req: Request, ctx: Ctx) {
         .onConflictDoNothing({ target: [libraries.companyId, libraries.name] });
     }
 
-    return { module: resultModule };
+    const dedicatedMath = await provisionDedicatedMathTools(db, companyId, [
+      {
+        id: resultModule.id,
+        type: resultModule.type,
+        name: resultModule.name,
+        position: resultModule.canvasPosition as { x: number; y: number },
+      },
+    ]);
+
+    return { module: resultModule, dedicatedMath };
   });
 }

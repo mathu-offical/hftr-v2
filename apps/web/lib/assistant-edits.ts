@@ -4,6 +4,7 @@ import {
   allowedLinkKinds,
   AssistantEditProposal,
   MODULE_CONFIG_SCHEMAS,
+  moduleRequiresMath,
   ModuleType,
   PolicyModuleConfig,
   type ModuleType as ModuleTypeT,
@@ -15,6 +16,7 @@ import { createSystemClock, enqueue, estimateLlmJobCost } from '@hftr/engine';
 import { ApiError } from '@/lib/api';
 import { recordModuleSetup } from '@/lib/module-setup';
 import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
+import { provisionDedicatedMathTools } from '@/lib/math-provision';
 
 const MAX_MODULES_PER_COMPANY = 60;
 
@@ -53,7 +55,8 @@ export async function applyAssistantEdit(
   switch (proposal.tool) {
     case 'create_module': {
       const existing = await scoping.listModules(db, clerkUserId, companyId);
-      if (existing.length >= MAX_MODULES_PER_COMPANY) {
+      const requiredSlots = moduleRequiresMath(proposal.type) ? 2 : 1;
+      if (existing.length + requiredSlots > MAX_MODULES_PER_COMPANY) {
         throw new ApiError(422, 'module_limit_reached');
       }
       const config = MODULE_CONFIG_SCHEMAS[proposal.type as ModuleTypeT].parse(
@@ -102,6 +105,14 @@ export async function applyAssistantEdit(
           })
           .onConflictDoNothing({ target: [libraries.companyId, libraries.name] });
       }
+      await provisionDedicatedMathTools(db, companyId, [
+        {
+          id: module.id,
+          type: module.type,
+          name: module.name,
+          position: module.canvasPosition as { x: number; y: number },
+        },
+      ]);
       return;
     }
     case 'update_module_config':
@@ -125,6 +136,20 @@ export async function applyAssistantEdit(
       const allowed = allowedLinkKinds(ModuleType.parse(from.type), ModuleType.parse(to.type));
       if (!allowed.includes(proposal.linkKind)) {
         throw new ApiError(422, 'link_kind_not_allowed');
+      }
+      if (
+        proposal.linkKind === 'fund_route' &&
+        from.type === 'fund_router' &&
+        to.type === 'trading'
+      ) {
+        const companyModules = await scoping.listModules(db, clerkUserId, companyId);
+        if (
+          companyModules.some(
+            (module) => module.type === 'math' && module.toolOwnerModuleId === to.id,
+          )
+        ) {
+          throw new ApiError(422, 'fund_route_must_traverse_owner_math');
+        }
       }
       const inserted = await db
         .insert(moduleLinks)

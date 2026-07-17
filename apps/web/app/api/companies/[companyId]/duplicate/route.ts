@@ -97,6 +97,13 @@ export async function POST(_req: Request, ctx: Ctx) {
         engineInstanceId: module.engineInstanceId
           ? requireMappedId(engineIdMap, module.engineInstanceId, 'engine_duplicate_unresolved')
           : null,
+        toolOwnerModuleId: module.toolOwnerModuleId
+          ? requireMappedId(
+              moduleIdMap,
+              module.toolOwnerModuleId,
+              'math_owner_duplicate_unresolved',
+            )
+          : null,
       }),
     );
 

@@ -5,6 +5,7 @@ import {
   InsertEngineInput,
   listResolvedEngineTemplates,
   MODULE_CONFIG_SCHEMAS,
+  moduleRequiresMath,
   withDefaultEngineSetup,
   type ModuleType,
 } from '@hftr/contracts';
@@ -19,6 +20,7 @@ import {
   recordEngineSetupRefs,
 } from '@/lib/engine-setup-cascade';
 import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
+import { provisionDedicatedMathTools } from '@/lib/math-provision';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,7 +85,10 @@ export async function POST(req: Request, ctx: Ctx) {
     }
 
     const existing = await scoping.listModules(db, clerkUserId, companyId);
-    if (existing.length + engine.modules.length > MAX_MODULES_PER_COMPANY) {
+    const dedicatedMathCount = engine.modules.filter((module) =>
+      moduleRequiresMath(module.type),
+    ).length;
+    if (existing.length + engine.modules.length + dedicatedMathCount > MAX_MODULES_PER_COMPANY) {
       throw new ApiError(422, 'module_limit_reached');
     }
 
@@ -168,26 +173,66 @@ export async function POST(req: Request, ctx: Ctx) {
       await cascadeEngineSetup(db, companyId, engineRow.id, setup);
     }
 
+    const dedicatedMath = await provisionDedicatedMathTools(
+      db,
+      companyId,
+      created.map((row, index) => ({
+        id: row.id,
+        type: row.type,
+        name: row.name,
+        position: absolutePositions[index]!,
+      })),
+    );
+    const dedicatedMathByOwner = new Map(
+      dedicatedMath.map((tool) => [tool.ownerModuleId, tool.id]),
+    );
+
     const createdLinks = [];
+    createdLinks.push(...dedicatedMath.flatMap((tool) => tool.links));
     if (engine.links.length > 0) {
-      const linkValues = engine.links.map((l) => {
+      const linkValues = engine.links.flatMap((l) => {
         const fromModuleId = l.fromIndex === 'math' ? mathModule!.id : created[l.fromIndex]?.id;
         const toModuleId = l.toIndex === 'math' ? mathModule!.id : created[l.toIndex]?.id;
         if (!fromModuleId || !toModuleId) {
           throw new ApiError(500, 'engine_link_unresolved');
         }
-        return {
-          companyId,
-          fromModuleId,
-          toModuleId,
-          linkKind: l.linkKind,
-        };
+        const fromType = l.fromIndex === 'math' ? 'math' : engine.modules[l.fromIndex]?.type;
+        const toType = l.toIndex === 'math' ? 'math' : engine.modules[l.toIndex]?.type;
+        const ownerMathId =
+          l.linkKind === 'fund_route' && fromType === 'fund_router' && toType === 'trading'
+            ? dedicatedMathByOwner.get(toModuleId)
+            : null;
+        if (ownerMathId) {
+          return [
+            {
+              companyId,
+              fromModuleId,
+              toModuleId: ownerMathId,
+              linkKind: 'fund_route' as const,
+            },
+            {
+              companyId,
+              fromModuleId: ownerMathId,
+              toModuleId,
+              linkKind: 'fund_route' as const,
+            },
+          ];
+        }
+        return [
+          {
+            companyId,
+            fromModuleId,
+            toModuleId,
+            linkKind: l.linkKind,
+          },
+        ];
       });
       const insertedLinks = await db.insert(moduleLinks).values(linkValues).returning();
       createdLinks.push(...insertedLinks);
       await refreshGeneratedModuleNames(db, companyId, [
         ...(mathModule ? [mathModule.id] : []),
         ...created.map((row) => row.id),
+        ...dedicatedMath.map((tool) => tool.id),
       ]);
     }
 
@@ -195,7 +240,9 @@ export async function POST(req: Request, ctx: Ctx) {
     const memberIds = new Set(created.map((m) => m.id));
     return {
       engine: serializeEngine(persistedEngine, [...memberIds]),
-      modules: refreshedModules.filter((m) => memberIds.has(m.id) || m.id === mathModule?.id),
+      modules: refreshedModules.filter(
+        (m) => memberIds.has(m.id) || dedicatedMath.some((tool) => tool.id === m.id),
+      ),
       links: createdLinks,
     };
   });

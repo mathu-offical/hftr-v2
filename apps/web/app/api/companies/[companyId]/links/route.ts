@@ -36,6 +36,15 @@ export async function POST(req: Request, ctx: Ctx) {
     if (!allowed.includes(input.linkKind)) {
       throw new ApiError(422, 'link_kind_not_allowed');
     }
+    if (input.linkKind === 'fund_route' && from.type === 'fund_router' && to.type === 'trading') {
+      const companyModules = await scoping.listModules(db, clerkUserId, companyId);
+      const dedicatedMath = companyModules.find(
+        (module) => module.type === 'math' && module.toolOwnerModuleId === to.id,
+      );
+      if (dedicatedMath) {
+        throw new ApiError(422, 'fund_route_must_traverse_owner_math');
+      }
+    }
 
     const inserted = await db
       .insert(moduleLinks)

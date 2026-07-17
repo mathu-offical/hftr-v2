@@ -8,6 +8,7 @@ import {
   DEFAULT_PHILOSOPHY_PROFILE,
   listResolvedEngineTemplates,
   MODULE_CONFIG_SCHEMAS,
+  moduleRequiresMath,
   requiredModuleSetupFields,
   withDefaultEngineSetup,
   type ModuleSetupInput,
@@ -23,6 +24,7 @@ import {
 } from '@/lib/engine-setup-cascade';
 import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
 import { recordModuleSetup } from '@/lib/module-setup';
+import { provisionDedicatedMathTools } from '@/lib/math-provision';
 
 export const dynamic = 'force-dynamic';
 
@@ -229,6 +231,20 @@ export async function POST(req: Request) {
       for (const row of created) {
         createdModuleIds.push(row.id);
       }
+      const dedicatedMath = await provisionDedicatedMathTools(
+        db,
+        company.id,
+        created.map((row, index) => ({
+          id: row.id,
+          type: template.modules[index]!.type,
+          name: template.modules[index]!.name,
+          position: template.modules[index]!.position,
+        })),
+      );
+      for (const tool of dedicatedMath) createdModuleIds.push(tool.id);
+      const dedicatedMathByOwner = new Map(
+        dedicatedMath.map((tool) => [tool.ownerModuleId, tool.id]),
+      );
       for (const module of template.modules) {
         maxTemplateX = Math.max(maxTemplateX, module.position.x);
         maxTemplateY = Math.max(maxTemplateY, module.position.y);
@@ -265,18 +281,42 @@ export async function POST(req: Request) {
       }
       if (template.links.length > 0) {
         await db.insert(moduleLinks).values(
-          template.links.map((l) => {
+          template.links.flatMap((l) => {
             const fromModuleId = l.fromIndex === 'math' ? mathModule.id : created[l.fromIndex]?.id;
             const toModuleId = l.toIndex === 'math' ? mathModule.id : created[l.toIndex]?.id;
             if (!fromModuleId || !toModuleId) {
               throw new ApiError(500, 'template_link_unresolved');
             }
-            return {
-              companyId: company.id,
-              fromModuleId,
-              toModuleId,
-              linkKind: l.linkKind,
-            };
+            const fromType = l.fromIndex === 'math' ? 'math' : template.modules[l.fromIndex]?.type;
+            const toType = l.toIndex === 'math' ? 'math' : template.modules[l.toIndex]?.type;
+            const ownerMathId =
+              l.linkKind === 'fund_route' && fromType === 'fund_router' && toType === 'trading'
+                ? dedicatedMathByOwner.get(toModuleId)
+                : null;
+            if (ownerMathId) {
+              return [
+                {
+                  companyId: company.id,
+                  fromModuleId,
+                  toModuleId: ownerMathId,
+                  linkKind: 'fund_route' as const,
+                },
+                {
+                  companyId: company.id,
+                  fromModuleId: ownerMathId,
+                  toModuleId,
+                  linkKind: 'fund_route' as const,
+                },
+              ];
+            }
+            return [
+              {
+                companyId: company.id,
+                fromModuleId,
+                toModuleId,
+                linkKind: l.linkKind,
+              },
+            ];
           }),
         );
       }
@@ -287,12 +327,18 @@ export async function POST(req: Request) {
     const projectedCount =
       1 +
       template.modules.length +
+      template.modules.filter((module) => moduleRequiresMath(module.type)).length +
       extraModules.length +
+      extraModules.filter((module) => moduleRequiresMath(module.type)).length +
       extraEngines.reduce((sum, engine) => {
         const resolved = listResolvedEngineTemplates(new Set(loadSessionConstraints().keys())).find(
           (item) => item.id === engine.templateId,
         );
-        return sum + (resolved?.modules.length ?? 0);
+        return (
+          sum +
+          (resolved?.modules.length ?? 0) +
+          (resolved?.modules.filter((module) => moduleRequiresMath(module.type)).length ?? 0)
+        );
       }, 0);
     if (projectedCount > MAX_MODULES_PER_COMPANY) {
       throw new ApiError(422, 'module_limit_reached');
@@ -325,6 +371,15 @@ export async function POST(req: Request) {
         .returning({ id: modules.id });
       if (!createdModule) throw new ApiError(500, 'extra_module_create_failed');
       createdModuleIds.push(createdModule.id);
+      const extraMath = await provisionDedicatedMathTools(db, company.id, [
+        {
+          id: createdModule.id,
+          type: extra.type,
+          name: extra.name,
+          position,
+        },
+      ]);
+      for (const tool of extraMath) createdModuleIds.push(tool.id);
       maxTemplateX = Math.max(maxTemplateX, position.x);
       maxTemplateY = Math.max(maxTemplateY, position.y);
 
@@ -429,6 +484,20 @@ export async function POST(req: Request) {
       for (const row of created) {
         createdModuleIds.push(row.id);
       }
+      const dedicatedMath = await provisionDedicatedMathTools(
+        db,
+        company.id,
+        created.map((row, index) => ({
+          id: row.id,
+          type: engine.modules[index]!.type,
+          name: engine.modules[index]!.name,
+          position: absolutePositions[index]!,
+        })),
+      );
+      for (const tool of dedicatedMath) createdModuleIds.push(tool.id);
+      const dedicatedMathByOwner = new Map(
+        dedicatedMath.map((tool) => [tool.ownerModuleId, tool.id]),
+      );
       for (const position of absolutePositions) {
         maxTemplateX = Math.max(maxTemplateX, position.x);
         maxTemplateY = Math.max(maxTemplateY, position.y);
@@ -438,18 +507,42 @@ export async function POST(req: Request) {
 
       if (engine.links.length > 0) {
         await db.insert(moduleLinks).values(
-          engine.links.map((l) => {
+          engine.links.flatMap((l) => {
             const fromModuleId = l.fromIndex === 'math' ? mathModule.id : created[l.fromIndex]?.id;
             const toModuleId = l.toIndex === 'math' ? mathModule.id : created[l.toIndex]?.id;
             if (!fromModuleId || !toModuleId) {
               throw new ApiError(500, 'engine_link_unresolved');
             }
-            return {
-              companyId: company.id,
-              fromModuleId,
-              toModuleId,
-              linkKind: l.linkKind,
-            };
+            const fromType = l.fromIndex === 'math' ? 'math' : engine.modules[l.fromIndex]?.type;
+            const toType = l.toIndex === 'math' ? 'math' : engine.modules[l.toIndex]?.type;
+            const ownerMathId =
+              l.linkKind === 'fund_route' && fromType === 'fund_router' && toType === 'trading'
+                ? dedicatedMathByOwner.get(toModuleId)
+                : null;
+            if (ownerMathId) {
+              return [
+                {
+                  companyId: company.id,
+                  fromModuleId,
+                  toModuleId: ownerMathId,
+                  linkKind: 'fund_route' as const,
+                },
+                {
+                  companyId: company.id,
+                  fromModuleId: ownerMathId,
+                  toModuleId,
+                  linkKind: 'fund_route' as const,
+                },
+              ];
+            }
+            return [
+              {
+                companyId: company.id,
+                fromModuleId,
+                toModuleId,
+                linkKind: l.linkKind,
+              },
+            ];
           }),
         );
       }

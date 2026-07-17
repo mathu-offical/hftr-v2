@@ -6,6 +6,7 @@ import { scoping } from '@hftr/db';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import { cascadeEngineMasterTopic } from '@/lib/engine-topic-cascade';
 import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
+import { cleanupDedicatedMathForOwner } from '@/lib/math-provision';
 
 export const dynamic = 'force-dynamic';
 
@@ -126,6 +127,10 @@ export async function DELETE(req: Request, ctx: Ctx) {
           ),
         ),
       ];
+
+      for (const memberId of memberIds) {
+        await cleanupDedicatedMathForOwner(db, companyId, memberId);
+      }
 
       await db
         .delete(moduleLinks)

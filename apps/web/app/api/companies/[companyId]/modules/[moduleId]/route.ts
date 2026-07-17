@@ -15,6 +15,7 @@ import {
   restoreGeneratedModuleName,
 } from '@/lib/module-generated-name';
 import { recordModuleSetup } from '@/lib/module-setup';
+import { cleanupDedicatedMathForOwner } from '@/lib/math-provision';
 
 export const dynamic = 'force-dynamic';
 
@@ -171,6 +172,10 @@ export async function DELETE(_req: Request, ctx: Ctx) {
         ),
       ),
     ];
+
+    if (existing.type !== 'math') {
+      await cleanupDedicatedMathForOwner(db, companyId, moduleId);
+    }
 
     // Remove edges first, then the node.
     await db

@@ -13,9 +13,23 @@ import {
 } from './assistant';
 import { ENVIRONMENT_REQUIREMENTS } from './env';
 import { HandoffEnvelope } from './foundation';
-import { allowedLinkKinds, MODULE_CONFIG_SCHEMAS, ModuleType } from './modules';
+import {
+  allowedLinkKinds,
+  CapitalAllocationInput,
+  missingModuleSetupFields,
+  MODULE_CONFIG_SCHEMAS,
+  ModuleType,
+  requiredModuleSetupFields,
+} from './modules';
 import { ValueRefHandle, CalcRequest } from './numeric';
 import { ActionInstruction } from './pipeline';
+import {
+  DEFAULT_PHILOSOPHY_PROFILE,
+  normalizePhilosophyProfile,
+  philosophyProfileToLeverState,
+  PhilosophyProfile,
+  RISK_APPETITE_SIZING_BPS,
+} from './philosophy';
 import { COMPANY_TEMPLATES, ENGINE_TEMPLATES } from './templates';
 
 describe('env manifest', () => {
@@ -64,6 +78,43 @@ describe('link rules', () => {
     for (const type of ModuleType.options) {
       expect(MODULE_CONFIG_SCHEMAS[type]).toBeDefined();
     }
+  });
+});
+
+describe('module inline setup', () => {
+  it('requires capital and exit only for capital-bearing nodes', () => {
+    expect(requiredModuleSetupFields('trading')).toEqual([
+      'capital_allocation',
+      'target_exit',
+      'topic_sector',
+    ]);
+    expect(requiredModuleSetupFields('holding_fund')).toEqual([
+      'capital_allocation',
+      'target_exit',
+    ]);
+    expect(requiredModuleSetupFields('math')).toEqual([]);
+  });
+
+  it('derives missing setup fields without raw numeric values', () => {
+    expect(
+      missingModuleSetupFields('trading', {
+        topicSectors: [],
+        capitalAllocationRef: null,
+        targetExitRef: 'nv_exit',
+      }),
+    ).toEqual(['capital_allocation', 'topic_sector']);
+  });
+
+  it('validates fixed and percentage allocation strings', () => {
+    expect(CapitalAllocationInput.safeParse({ mode: 'amount', value: '1250.50' }).success).toBe(
+      true,
+    );
+    expect(CapitalAllocationInput.safeParse({ mode: 'percentage', value: '25.125' }).success).toBe(
+      true,
+    );
+    expect(CapitalAllocationInput.safeParse({ mode: 'percentage', value: '100.01' }).success).toBe(
+      false,
+    );
   });
 });
 
@@ -238,5 +289,16 @@ describe('assistant contracts', () => {
   it('enumerates all read tools including capabilities', () => {
     expect(AssistantReadTool.options).toContain('capabilities');
     expect(AssistantReadTool.options).toContain('queue_status');
+  });
+});
+
+describe('PhilosophyProfile', () => {
+  it('round-trips the default profile and maps to lever band settings', () => {
+    const profile = PhilosophyProfile.parse(DEFAULT_PHILOSOPHY_PROFILE);
+    expect(profile.version).toBe(1);
+    expect(RISK_APPETITE_SIZING_BPS.typical).toBe(75);
+    const levers = philosophyProfileToLeverState(profile);
+    expect(levers.risk_per_trade_pct_band?.mode).toBe('band');
+    expect(normalizePhilosophyProfile(null).axes.risk_appetite).toBe('typical');
   });
 });

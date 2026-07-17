@@ -37,6 +37,8 @@ export const TEMPORAL_KINDS: ReadonlySet<NumericKind> = new Set([
 
 export const ValueSourceClass = z.enum([
   'live_feed',
+  /** Deterministic paper quote simulator — never claim as live_feed. */
+  'synthetic_sim',
   'broker_state',
   'ledger',
   'derived',

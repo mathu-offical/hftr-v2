@@ -89,6 +89,89 @@ export const MODULE_COLUMN: Record<ModuleType, number> = {
 export const CanvasPosition = z.object({ x: z.number(), y: z.number() });
 export type CanvasPosition = z.infer<typeof CanvasPosition>;
 
+// ── Common inline setup + validation ────────────────────────────────────────
+
+export const ModuleSetupField = z.enum(['capital_allocation', 'topic_sector', 'target_exit']);
+export type ModuleSetupField = z.infer<typeof ModuleSetupField>;
+
+export const CAPITAL_BEARING_MODULE_TYPES: ReadonlySet<ModuleType> = new Set([
+  'trading',
+  'holding_fund',
+  'fund_router',
+]);
+
+const TOPIC_SCOPED_MODULE_TYPES: ReadonlySet<ModuleType> = new Set([
+  'research',
+  'library',
+  'live_api',
+  'trend',
+  'trading',
+  'simulator',
+  'analyzer',
+]);
+
+export function requiredModuleSetupFields(type: ModuleType): readonly ModuleSetupField[] {
+  const fields: ModuleSetupField[] = [];
+  if (CAPITAL_BEARING_MODULE_TYPES.has(type)) fields.push('capital_allocation', 'target_exit');
+  if (TOPIC_SCOPED_MODULE_TYPES.has(type)) fields.push('topic_sector');
+  return fields;
+}
+
+const AmountDecimalInput = z
+  .string()
+  .trim()
+  .regex(/^\d{1,12}(?:\.\d{1,2})?$/);
+const PercentageDecimalInput = z
+  .string()
+  .trim()
+  .regex(/^\d{1,3}(?:\.\d{1,4})?$/)
+  .refine((value) => {
+    const [whole = '0', fraction = ''] = value.split('.');
+    const wholeInt = BigInt(whole);
+    return wholeInt < 100n || (wholeInt === 100n && /^0*$/.test(fraction));
+  }, 'Percentage must be between 0 and 100');
+
+export const CapitalAllocationInput = z.discriminatedUnion('mode', [
+  z.object({ mode: z.literal('amount'), value: AmountDecimalInput }),
+  z.object({ mode: z.literal('percentage'), value: PercentageDecimalInput }),
+]);
+export type CapitalAllocationInput = z.infer<typeof CapitalAllocationInput>;
+
+/** Raw operator input; API converts financial/time fields to append-only ValueRefs. */
+export const ModuleSetupInput = z.object({
+  topicSectors: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+  capitalAllocation: CapitalAllocationInput.optional(),
+  targetExitAt: z.string().datetime({ offset: true }).optional(),
+  timezone: z.string().min(1).max(100).optional(),
+});
+export type ModuleSetupInput = z.infer<typeof ModuleSetupInput>;
+
+export interface ModuleSetupState {
+  topicSectors: readonly string[];
+  capitalAllocationRef: string | null;
+  targetExitRef: string | null;
+}
+
+export function missingModuleSetupFields(
+  type: ModuleType,
+  state: ModuleSetupState,
+): ModuleSetupField[] {
+  return requiredModuleSetupFields(type).filter((field) => {
+    switch (field) {
+      case 'capital_allocation':
+        return !state.capitalAllocationRef;
+      case 'topic_sector':
+        return state.topicSectors.length === 0;
+      case 'target_exit':
+        return !state.targetExitRef;
+      default: {
+        const _exhaustive: never = field;
+        return _exhaustive;
+      }
+    }
+  });
+}
+
 // ── Per-type config schemas (jsonb `modules.config`) ────────────────────────
 
 export const ResearchModuleConfig = z.object({
@@ -176,14 +259,24 @@ export const CreateCompanyInput = z.object({
   philosophyPrompt: z.string().min(1).max(4000),
   mode: TradingMode.default('paper'),
   seedCreditsCents: z.number().int().min(0).max(100_000_000_00).default(0),
+  templateSetup: ModuleSetupInput.optional(),
   // Template selection is composed in the route from CompanyTemplateId
   // (templates.ts) — the single source of truth for available templates.
 });
 export type CreateCompanyInput = z.infer<typeof CreateCompanyInput>;
 
+// PhilosophyProfile imported lazily via index re-export consumers; keep shape
+// inline here to avoid circular imports with philosophy.ts → pipeline.
 export const UpdateCompanyInput = z.object({
   name: z.string().min(1).max(80).optional(),
   philosophyPrompt: z.string().min(1).max(4000).optional(),
+  /** Structured slideable philosophy axes (see philosophy.ts). */
+  philosophyProfile: z
+    .object({
+      version: z.literal(1),
+      axes: z.record(z.string(), z.enum(['min', 'typical', 'max'])),
+    })
+    .optional(),
 });
 export type UpdateCompanyInput = z.infer<typeof UpdateCompanyInput>;
 
@@ -192,6 +285,7 @@ export const CreateModuleInput = z.object({
   name: z.string().min(1).max(80),
   config: z.unknown(),
   canvasPosition: CanvasPosition.optional(),
+  setup: ModuleSetupInput.optional(),
 });
 export type CreateModuleInput = z.infer<typeof CreateModuleInput>;
 
@@ -200,6 +294,7 @@ export const UpdateModuleInput = z.object({
   config: z.unknown().optional(),
   status: ModuleStatus.optional(),
   canvasPosition: CanvasPosition.optional(),
+  setup: ModuleSetupInput.optional(),
 });
 export type UpdateModuleInput = z.infer<typeof UpdateModuleInput>;
 

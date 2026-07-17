@@ -62,6 +62,11 @@ export {
   type GraphModule,
   type GraphLinkKind,
 } from './graph/module-links';
+export {
+  activationGraphBlockers,
+  type ActivationGraphLink,
+  type ActivationGraphModule,
+} from './graph/activation-graph-blockers';
 
 // Handlers (importing registers built-ins)
 export { registerHandler, getHandler, registeredKinds } from './handlers/registry';

@@ -10,8 +10,8 @@ import { MODULE_VISUALS, type CanvasModule } from './types';
 const STATUS_OPTIONS: ModuleStatus[] = ['draft', 'active', 'paused'];
 
 /**
- * Right-hand inspector for the selected module: rename, status, delete.
- * Config editing deepens with M1 panel work; the essentials live here now.
+ * Floating inspector card for the selected module (layered over the canvas,
+ * top-right): rename, status, per-type controls, delete.
  */
 export function InspectorPanel(props: {
   companyId: string;
@@ -71,7 +71,7 @@ export function InspectorPanel(props: {
   }
 
   return (
-    <aside className="flex min-h-0 w-72 shrink-0 flex-col gap-5 overflow-y-auto border-l border-[var(--color-line)] bg-[var(--color-surface-1)] p-4">
+    <aside className="absolute right-4 top-4 z-20 flex max-h-[calc(100%-2rem)] w-72 flex-col gap-5 overflow-y-auto rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)]/95 p-4 shadow-2xl backdrop-blur">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full" style={{ background: visual.hue }} />

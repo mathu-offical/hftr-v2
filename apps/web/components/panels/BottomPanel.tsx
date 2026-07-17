@@ -1,8 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { api } from '@/lib/client';
-import { dollars, toneFor } from './format';
+import { api, RequestError } from '@/lib/client';
+import { ACTIVITY_REFRESH_EVENT } from '../canvas/PaperTradeForm';
+import { dollars, GATE_KEYS, gateLabel, gateTone, toneFor } from './format';
+import { TraceTimeline } from './TraceTimeline';
 
 type Tab = 'trends' | 'scenarios' | 'watchlists' | 'decisions';
 const TABS: { id: Tab; label: string }[] = [
@@ -61,9 +63,41 @@ interface WatchlistRow {
   updatedAt: string;
 }
 
+interface GateRow {
+  gate: string;
+  result: 'pass' | 'fail' | 'suppressed';
+  evidence: string;
+}
+
+interface LeadRow {
+  id: string;
+  moduleId: string;
+  targetModuleId: string | null;
+  trendId: string;
+  symbol: string;
+  direction: 'up' | 'down' | 'flat';
+  strategyFamily: string;
+  status: 'pending' | 'admitted' | 'rejected' | 'decomposed' | 'expired';
+  gates: GateRow[];
+  createdAt: string;
+}
+
+interface TreeRow {
+  id: string;
+  leadId: string;
+  moduleId: string;
+  symbol: string;
+  status: 'draft' | 'compile_ready' | 'compile_blocked' | 'dispatched' | 'invalidated';
+  branches: unknown[];
+  recoveryLadder: unknown;
+  sourceClass: string;
+  createdAt: string;
+}
+
 /**
- * Bottom panel (ui-ux spec): tabbed views over trends, the scenario engine
- * (trend → trade decomposition), watch lists, and decision traces — each
+ * Bottom panel (ui-ux spec): tabbed views over trends (with candidate
+ * promotion), the scenario engine (lead → gate strip → tree decomposition),
+ * watch lists, and decision traces with per-row trace timelines — each
  * filterable by module. Collapsible to a slim strip.
  */
 export function BottomPanel(props: { companyId: string; modules: ModuleOption[] }) {
@@ -74,6 +108,9 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
   const [executions, setExecutions] = useState<ExecutionRow[]>([]);
   const [verifications, setVerifications] = useState<VerificationRow[]>([]);
   const [watchlists, setWatchlists] = useState<WatchlistRow[]>([]);
+  const [leads, setLeads] = useState<LeadRow[]>([]);
+  const [trees, setTrees] = useState<TreeRow[]>([]);
+  const [openTraceId, setOpenTraceId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const base = `/api/companies/${props.companyId}`;
@@ -82,11 +119,15 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
       api<{ executions: ExecutionRow[] }>(`${base}/executions`),
       api<{ verifications: VerificationRow[] }>(`${base}/verifications`),
       api<{ items: WatchlistRow[] }>(`${base}/watchlists`),
+      api<{ leads: LeadRow[] }>(`${base}/leads`),
+      api<{ trees: TreeRow[] }>(`${base}/trees`),
     ]);
     if (results[0].status === 'fulfilled') setTrends(results[0].value.trends);
     if (results[1].status === 'fulfilled') setExecutions(results[1].value.executions);
     if (results[2].status === 'fulfilled') setVerifications(results[2].value.verifications);
     if (results[3].status === 'fulfilled') setWatchlists(results[3].value.items);
+    if (results[4].status === 'fulfilled') setLeads(results[4].value.leads);
+    if (results[5].status === 'fulfilled') setTrees(results[5].value.trees);
   }, [props.companyId]);
 
   useEffect(() => {
@@ -107,6 +148,7 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
     return (
       <button
         onClick={() => setOpen(true)}
+        aria-label="Expand bottom panel"
         className="flex w-full items-center justify-center gap-2 border-t border-[var(--color-line)] bg-[var(--color-surface-1)] py-1 text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
       >
         Trends · Scenarios · Watch lists · Decisions ▲
@@ -158,26 +200,21 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2 text-sm">
         {tab === 'trends' && (
-          <Table
-            head={['Symbol', 'Direction', 'Strength', 'Source', 'Module', 'Scanned']}
-            rows={byModule(trends).map((t) => [
-              <span key="s" className="font-mono">
-                {t.symbol}
-              </span>,
-              <span key="d" className="capitalize" style={{ color: toneFor(t.direction) }}>
-                {t.direction}
-              </span>,
-              t.strengthBand,
-              t.sourceClass === 'deterministic_scan' ? 'scan' : 'model',
-              moduleName(t.moduleId),
-              new Date(t.scannedAt).toLocaleTimeString(),
-            ])}
-            empty="No trend candidates. Run a scan from a trend module."
+          <TrendsView
+            companyId={props.companyId}
+            trends={byModule(trends)}
+            moduleName={moduleName}
+            onRefetch={load}
           />
         )}
 
         {tab === 'scenarios' && (
-          <ScenarioView trends={byModule(trends)} executions={executions} moduleName={moduleName} />
+          <ScenarioView
+            leads={byModule(leads)}
+            trees={trees}
+            executions={executions}
+            moduleName={moduleName}
+          />
         )}
 
         {tab === 'watchlists' && (
@@ -217,13 +254,25 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
             head={['Outcome', 'Detail', 'Amount', 'Verification', 'Module', 'Time']}
             rows={byModule(executions).map((e) => {
               const v = verifications.find((x) => x.traceId === e.id);
+              const openTrace = () => setOpenTraceId(e.id);
               return [
-                <span key="o" className="capitalize" style={{ color: toneFor(e.outcome) }}>
+                <button
+                  key="o"
+                  onClick={openTrace}
+                  aria-label={`Open decision trace for execution ${e.id}`}
+                  className="capitalize underline decoration-dotted underline-offset-2 hover:text-[var(--color-ink)]"
+                  style={{ color: toneFor(e.outcome) }}
+                >
                   {e.outcome}
-                </span>,
-                <span key="d" className="block max-w-72 truncate">
+                </button>,
+                <button
+                  key="d"
+                  onClick={openTrace}
+                  aria-label={`Open decision trace for execution ${e.id}`}
+                  className="block max-w-72 truncate text-left hover:text-[var(--color-ink)]"
+                >
                   {e.description ?? e.failureCode ?? `${e.venue} · ${e.mode}`}
-                </span>,
+                </button>,
                 e.amountCents ? (
                   <span key="a" className="font-mono">
                     {dollars(e.amountCents)}
@@ -247,6 +296,14 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
           />
         )}
       </div>
+
+      {openTraceId && (
+        <TraceTimeline
+          companyId={props.companyId}
+          traceId={openTraceId}
+          onClose={() => setOpenTraceId(null)}
+        />
+      )}
     </section>
   );
 }
@@ -281,40 +338,215 @@ function Table(props: { head: string[]; rows: React.ReactNode[][]; empty: string
   );
 }
 
+/** Trends table with per-row promotion of candidate trends into leads. */
+function TrendsView(props: {
+  companyId: string;
+  trends: TrendRow[];
+  moduleName: (id: string) => string;
+  onRefetch: () => Promise<void>;
+}) {
+  const [promotingId, setPromotingId] = useState<string | null>(null);
+  const [promoted, setPromoted] = useState<Record<string, string>>({});
+
+  async function promote(trend: TrendRow) {
+    setPromotingId(trend.id);
+    try {
+      await api(`/api/companies/${props.companyId}/modules/${trend.moduleId}/promote`, {
+        method: 'POST',
+        body: { trendId: trend.id },
+      });
+      setPromoted((prev) => ({ ...prev, [trend.id]: 'promoted' }));
+      window.dispatchEvent(new Event(ACTIVITY_REFRESH_EVENT));
+      await props.onRefetch();
+    } catch (err) {
+      setPromoted((prev) => ({
+        ...prev,
+        [trend.id]:
+          err instanceof RequestError && err.status === 404
+            ? 'promotion unavailable'
+            : 'promotion failed',
+      }));
+    } finally {
+      setPromotingId(null);
+    }
+  }
+
+  return (
+    <Table
+      head={['Symbol', 'Direction', 'Strength', 'Source', 'Module', 'Scanned', 'Action']}
+      rows={props.trends.map((t) => [
+        <span key="s" className="font-mono">
+          {t.symbol}
+        </span>,
+        <span key="d" className="capitalize" style={{ color: toneFor(t.direction) }}>
+          {t.direction}
+        </span>,
+        t.strengthBand,
+        t.sourceClass === 'deterministic_scan' ? 'scan' : 'model',
+        props.moduleName(t.moduleId),
+        new Date(t.scannedAt).toLocaleTimeString(),
+        promoted[t.id] ? (
+          <span
+            key="p"
+            style={{
+              color: promoted[t.id] === 'promoted' ? 'var(--color-ok)' : 'var(--color-warn)',
+            }}
+          >
+            {promoted[t.id]}
+          </span>
+        ) : t.status === 'candidate' ? (
+          <button
+            key="p"
+            onClick={() => promote(t)}
+            disabled={promotingId !== null}
+            aria-label={`Promote trend ${t.symbol} to a lead`}
+            className="rounded-md border border-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+          >
+            {promotingId === t.id ? 'Promoting…' : 'Promote'}
+          </button>
+        ) : (
+          <span key="p" className="text-[var(--color-ink-faint)]">
+            {t.status}
+          </span>
+        ),
+      ])}
+      empty="No trend candidates. Run a scan from a trend module."
+    />
+  );
+}
+
+const LEAD_STATUS_TONE: Record<LeadRow['status'], string> = {
+  pending: 'var(--color-ink-dim)',
+  admitted: 'var(--color-ok)',
+  rejected: 'var(--color-block)',
+  decomposed: 'var(--color-accent)',
+  expired: 'var(--color-ink-faint)',
+};
+
+const TREE_STATUS_TONE: Record<TreeRow['status'], string> = {
+  draft: 'var(--color-ink-dim)',
+  compile_ready: 'var(--color-ok)',
+  compile_blocked: 'var(--color-block)',
+  dispatched: 'var(--color-accent)',
+  invalidated: 'var(--color-ink-faint)',
+};
+
 /**
- * Scenario engine: shows how trend candidates decompose into trade actions —
- * each trend is matched with executions on the same symbol. Simulated runs
- * join this view when the simulator module lands.
+ * Scenario engine: lead-driven decomposition. Each lead shows its six-gate
+ * admission strip, the decision tree it produced (matched by leadId), and
+ * related executions (description symbol match as fallback linkage).
  */
 function ScenarioView(props: {
-  trends: TrendRow[];
+  leads: LeadRow[];
+  trees: TreeRow[];
   executions: ExecutionRow[];
   moduleName: (id: string) => string;
 }) {
-  if (props.trends.length === 0) {
+  const [expandedGate, setExpandedGate] = useState<string | null>(null);
+
+  if (props.leads.length === 0) {
     return (
       <p className="py-3 text-xs text-[var(--color-ink-faint)]">
-        No scenarios yet — scenarios appear when trend candidates exist and trades reference them.
+        No scenarios yet — promote a candidate trend from the Trends tab to create a lead; admitted
+        leads decompose into decision trees here.
       </p>
     );
   }
+
+  const sorted = [...props.leads].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+
   return (
-    <ul className="space-y-2">
-      {props.trends.map((t) => {
-        const related = props.executions.filter((e) => (e.description ?? '').includes(t.symbol));
+    <ul className="space-y-2.5">
+      {sorted.map((lead) => {
+        const tree = props.trees.find((t) => t.leadId === lead.id);
+        const related = props.executions.filter((e) => (e.description ?? '').includes(lead.symbol));
+        // Order the delivered gates by the canonical six-gate layout.
+        const orderedGates = GATE_KEYS.map(
+          (key) => lead.gates.find((g) => gateLabel(g.gate) === key) ?? null,
+        );
         return (
-          <li key={t.id} className="rounded-lg border border-[var(--color-line)] p-2.5">
+          <li key={lead.id} className="rounded-lg border border-[var(--color-line)] p-2.5">
             <div className="flex items-center gap-2 text-xs">
-              <span className="font-mono font-medium">{t.symbol}</span>
-              <span className="capitalize" style={{ color: toneFor(t.direction) }}>
-                {t.direction} · {t.strengthBand}
+              <span className="font-mono font-medium">{lead.symbol}</span>
+              <span className="capitalize" style={{ color: toneFor(lead.direction) }}>
+                {lead.direction}
               </span>
-              <span className="text-[var(--color-ink-faint)]">
-                from {props.moduleName(t.moduleId)}
+              <span className="text-[var(--color-ink-dim)]">{lead.strategyFamily}</span>
+              <span
+                className="rounded-full border border-[var(--color-line)] px-1.5 py-0.5 text-[10px]"
+                style={{ color: LEAD_STATUS_TONE[lead.status] }}
+              >
+                {lead.status}
+              </span>
+              <span className="ml-auto text-[10px] text-[var(--color-ink-faint)]">
+                {props.moduleName(lead.moduleId)} · {new Date(lead.createdAt).toLocaleTimeString()}
               </span>
             </div>
+
+            <div className="mt-1.5 grid grid-cols-6 gap-1">
+              {orderedGates.map((gate, i) => {
+                const key = GATE_KEYS[i];
+                const cellId = `${lead.id}:${key}`;
+                if (!gate) {
+                  return (
+                    <div
+                      key={key}
+                      className="rounded border border-[var(--color-line)] px-1 py-0.5 text-center text-[9px] text-[var(--color-ink-faint)]"
+                      title={`${key} gate not evaluated`}
+                    >
+                      {key}
+                      <div>—</div>
+                    </div>
+                  );
+                }
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setExpandedGate(expandedGate === cellId ? null : cellId)}
+                    title={gate.evidence}
+                    aria-label={`Gate ${key}: ${gate.result}. Toggle evidence detail`}
+                    aria-expanded={expandedGate === cellId}
+                    className="rounded border border-[var(--color-line)] px-1 py-0.5 text-center text-[9px] hover:bg-[var(--color-surface-2)]"
+                    style={{ color: gateTone(gate.result) }}
+                  >
+                    {key}
+                    <div>{gate.result}</div>
+                  </button>
+                );
+              })}
+            </div>
+            {expandedGate?.startsWith(`${lead.id}:`) &&
+              (() => {
+                const key = expandedGate.split(':')[1];
+                const gate = lead.gates.find((g) => gateLabel(g.gate) === key);
+                return gate ? (
+                  <p className="mt-1 rounded bg-[var(--color-surface-0)] px-2 py-1 text-[10px] text-[var(--color-ink-dim)]">
+                    <span style={{ color: gateTone(gate.result) }}>
+                      {gate.gate} — {gate.result}:
+                    </span>{' '}
+                    {gate.evidence || 'no evidence recorded'}
+                  </p>
+                ) : null;
+              })()}
+
+            <div className="mt-1.5 text-[11px] text-[var(--color-ink-dim)]">
+              {tree ? (
+                <>
+                  tree{' '}
+                  <span style={{ color: TREE_STATUS_TONE[tree.status] }}>
+                    {tree.status.replace(/_/g, ' ')}
+                  </span>{' '}
+                  · {tree.branches.length} {tree.branches.length === 1 ? 'branch' : 'branches'}
+                </>
+              ) : (
+                <span className="text-[var(--color-ink-faint)]">no decision tree yet</span>
+              )}
+            </div>
+
             {related.length > 0 ? (
-              <ul className="mt-1.5 space-y-0.5 text-[11px] text-[var(--color-ink-dim)]">
+              <ul className="mt-1 space-y-0.5 text-[11px] text-[var(--color-ink-dim)]">
                 {related.slice(0, 5).map((e) => (
                   <li key={e.id} className="flex items-center gap-2">
                     <span className="capitalize" style={{ color: toneFor(e.outcome) }}>
@@ -327,7 +559,7 @@ function ScenarioView(props: {
               </ul>
             ) : (
               <p className="mt-1 text-[11px] text-[var(--color-ink-faint)]">
-                No trades against this trend yet.
+                No executions against this lead yet.
               </p>
             )}
           </li>

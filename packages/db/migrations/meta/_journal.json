@@ -29,6 +29,13 @@
       "when": 1784270212697,
       "tag": "0003_bitter_piledriver",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784272425146,
+      "tag": "0004_petite_hellfire_club",
+      "breakpoints": true
     }
   ]
 }

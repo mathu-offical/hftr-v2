@@ -28,3 +28,60 @@ export const OUTCOME_COLOR: Record<string, string> = {
 export function toneFor(key: string): string {
   return OUTCOME_COLOR[key] ?? 'var(--color-ink)';
 }
+
+/** Canonical six-gate display order for scenario gate strips. */
+export const GATE_KEYS = [
+  'regime',
+  'universe',
+  'session',
+  'broker',
+  'structure',
+  'evidence',
+] as const;
+
+/** Short display label for an admission gate name (e.g. "regime_filter" → "regime"). */
+export function gateLabel(gate: string): string {
+  const lower = gate.toLowerCase();
+  for (const key of GATE_KEYS) {
+    if (lower.includes(key)) return key;
+  }
+  return lower.replace(/[_-]+/g, ' ').slice(0, 12);
+}
+
+/** Tone for a gate result: pass ok, fail block, suppressed dim. */
+export function gateTone(result: string): string {
+  if (result === 'pass') return 'var(--color-ok)';
+  if (result === 'fail') return 'var(--color-block)';
+  return 'var(--color-ink-faint)';
+}
+
+/** First `max` characters of text with an ellipsis when truncated. */
+export function snippet(text: string, max = 140): string {
+  return text.length <= max ? text : `${text.slice(0, max).trimEnd()}…`;
+}
+
+/** Text-first provenance chip styling for concept/artifact source classes. */
+export function provenanceChip(sourceClass: string): { label: string; color: string } {
+  switch (sourceClass) {
+    case 'deterministic_placeholder':
+      return { label: 'placeholder', color: 'var(--color-warn)' };
+    case 'model_generated':
+      return { label: 'model', color: 'var(--color-accent)' };
+    case 'operator':
+      return { label: 'operator', color: 'var(--color-ink-dim)' };
+    default:
+      return { label: sourceClass.replace(/_/g, ' '), color: 'var(--color-ink-faint)' };
+  }
+}
+
+/** Tone for a trace-timeline stage status dot. */
+export function stageTone(status: string): string {
+  const lower = status.toLowerCase();
+  if (lower.includes('pass') || lower.includes('filled') || lower.includes('admitted')) {
+    return 'var(--color-ok)';
+  }
+  if (lower.includes('block') || lower.includes('fail') || lower.includes('reject')) {
+    return 'var(--color-block)';
+  }
+  return 'var(--color-ink-faint)';
+}

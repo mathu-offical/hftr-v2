@@ -20,6 +20,8 @@ export { registerHandler, getHandler, registeredKinds } from './handlers/registr
 import './handlers/maintenance';
 import './handlers/dispatch';
 import './handlers/trend';
+import './handlers/promote';
+import './handlers/research';
 
 // Dispatch
 export {
@@ -38,6 +40,26 @@ export * as fixed from './calc/fixed';
 export { describe as describeValue, type BandDefinition } from './calc/descriptors';
 export { leakLint, type LeakLintResult } from './calc/leak-lint';
 export { checkEnvelope, checkInput, type SanityCheckResult } from './calc/sanity';
+
+// Pipeline (pure lead→tree→compile logic; handlers wire the DB flow)
+export {
+  evaluateGates,
+  gatesPass,
+  DEFAULT_FRESHNESS_WINDOW_MS,
+  type GateEvidence,
+  type GateInput,
+  type GateName,
+} from './pipeline/gates';
+export { buildDecisionTree, type BuiltDecisionTree, type TreeLeadInput } from './pipeline/tree';
+export {
+  compileInstruction,
+  computeQuantity,
+  type CompileBlockReason,
+  type CompileContext,
+  type CompileOutcome,
+  type CompileTreeInput,
+  type CompiledInstructionFields,
+} from './pipeline/compile';
 
 // Calendar
 export {

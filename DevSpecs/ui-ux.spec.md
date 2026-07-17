@@ -6,6 +6,10 @@
 - info ticker tape with all recent executions
 - master switch between paper trading and real accounts
 
+### USER SETTINGS
+- modal triggered by button in top app shell
+- API key entry (peristed per user)
+
 ### TOP DRAWER
 
 - slides down from top app shell ribbon

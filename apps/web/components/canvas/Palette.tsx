@@ -30,43 +30,64 @@ const ADDABLE: Array<{ type: ModuleType; defaultConfig: unknown; hint: string }>
 ];
 
 /**
- * Left rail: add modules to the canvas. Math is absent by design — it is
- * auto-created with the company and non-deletable (D-008).
+ * Floating module store, layered over the canvas (top-left). Math is absent
+ * by design — it is auto-created with the company and non-deletable (D-008).
  */
 export function Palette(props: {
   onAdd: (type: ModuleType, name: string, config: unknown) => void;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        aria-label="Open module store"
+        className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-full border border-[var(--color-line)] bg-[var(--color-surface-1)]/90 px-3.5 py-2 text-xs text-[var(--color-ink-dim)] shadow-lg backdrop-blur hover:border-[var(--color-accent)] hover:text-[var(--color-ink)]"
+      >
+        <span className="text-[var(--color-accent)]">+</span>
+        Add module
+      </button>
+    );
+  }
 
   return (
-    <aside className="flex w-48 shrink-0 flex-col border-r border-[var(--color-line)] bg-[var(--color-surface-1)]">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="px-3 py-2 text-left text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)] hover:text-[var(--color-ink-dim)]"
-      >
-        Add module {open ? '−' : '+'}
-      </button>
-      {open && (
-        <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-3">
-          {ADDABLE.map(({ type, defaultConfig, hint }) => {
-            const visual = MODULE_VISUALS[type];
-            return (
-              <button
-                key={type}
-                onClick={() => props.onAdd(type, visual.label, defaultConfig)}
-                title={hint}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-[var(--color-ink-dim)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-ink)]"
-              >
+    <aside className="absolute left-4 top-4 z-20 flex max-h-[calc(100%-2rem)] w-56 flex-col overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)]/95 shadow-2xl backdrop-blur">
+      <div className="flex items-center justify-between border-b border-[var(--color-line)] px-3 py-2">
+        <span className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+          Module store
+        </span>
+        <button
+          onClick={() => setOpen(false)}
+          aria-label="Close module store"
+          className="text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+        >
+          ×
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2">
+        {ADDABLE.map(({ type, defaultConfig, hint }) => {
+          const visual = MODULE_VISUALS[type];
+          return (
+            <button
+              key={type}
+              onClick={() => props.onAdd(type, visual.label, defaultConfig)}
+              className="group flex w-full flex-col gap-0.5 rounded-lg px-2.5 py-1.5 text-left hover:bg-[var(--color-surface-2)]"
+            >
+              <span className="flex items-center gap-2 text-sm text-[var(--color-ink-dim)] group-hover:text-[var(--color-ink)]">
                 <span
                   className="h-2 w-2 shrink-0 rounded-full"
                   style={{ background: visual.hue }}
                 />
                 {visual.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
+              </span>
+              <span className="pl-4 text-[10px] leading-tight text-[var(--color-ink-faint)]">
+                {hint}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </aside>
   );
 }

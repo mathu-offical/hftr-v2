@@ -38,3 +38,26 @@ export {
   type KalshiClientOptions,
 } from './kalshi/client';
 export { mapTaskToKalshiOrder } from './kalshi/map-order';
+export {
+  redactDigitHeavyText,
+  digestEvidence,
+  normalizeToEvidencePackage,
+  type NormalizeEvidenceInput,
+} from './research/normalize';
+export { searchBrave, BraveSearchError, type SearchBraveOptions } from './research/brave-search';
+export {
+  searchSecFilings,
+  SecFilingsError,
+  type SearchSecFilingsOptions,
+} from './research/sec-filings';
+export {
+  fetchMarketNews,
+  MarketNewsError,
+  type FetchMarketNewsOptions,
+} from './research/market-news';
+export { filterSourceKinds } from './research/source-matrix';
+export {
+  gatherEvidencePackages,
+  type GatherEvidencePackagesOptions,
+  type GatherEvidenceError,
+} from './research/gather';

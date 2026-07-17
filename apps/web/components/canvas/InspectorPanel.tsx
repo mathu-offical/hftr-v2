@@ -140,17 +140,19 @@ export function InspectorPanel(props: {
         </button>
       </div>
 
-      <label className="block space-y-1.5">
-        <span className="text-xs text-[var(--color-ink-dim)]">Name</span>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={saveName}
-          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-          disabled={isMath}
-          maxLength={80}
-          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-60"
-        />
+      <div className="space-y-1.5">
+        <label className="block space-y-1.5">
+          <span className="text-xs text-[var(--color-ink-dim)]">Name</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={saveName}
+            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            disabled={isMath}
+            maxLength={80}
+            className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-60"
+          />
+        </label>
         <p className="text-[10px] text-[var(--color-ink-faint)]">
           {mod.nameCustomized ? (
             <>Custom name · base function label: {mod.generatedNameBase}</>
@@ -168,7 +170,7 @@ export function InspectorPanel(props: {
             {restoring ? 'Restoring…' : 'Restore generated name'}
           </button>
         )}
-      </label>
+      </div>
 
       <div className="space-y-1.5">
         <span className="text-xs text-[var(--color-ink-dim)]">Status</span>

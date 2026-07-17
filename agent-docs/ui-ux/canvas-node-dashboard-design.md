@@ -1,7 +1,7 @@
 # Canvas node dashboard design (2026-07-17)
 
-**Status:** awaiting operator review before implementation  
-**Decision:** D-026 (pending log entry on approval)  
+**Status:** implemented; runtime verification pending  
+**Decision:** D-026 (logged in `dev-intent/decisions-log.md`)  
 **Supersedes (node chrome):** D-024 §(c) “expand selected node for setup / suppress inspector while incomplete”
 
 ## Goal
@@ -89,8 +89,8 @@ Persisted `module_links.link_kind` remains authoritative; handle ids are present
 
 | Surface | Contents |
 |---------|----------|
-| **Node body** | Required setup fields for the type (`requiredModuleSetupFields`), plus compact status line. Immediate save on blur / Enter (same PATCH setup path as today). |
-| **Inspector** | Rename (+ restore generated name), status draft/active/paused, delete, type-specific advanced controls (trend scan, watchlist, paper trade, display config, etc.). |
+| **Node body** | Required setup fields for the type (`requiredModuleSetupFields`), plus compact status line. **Explicit Save setup** button commits via PATCH `{ setup: ModuleSetupInput }` (no auto-save on blur/Enter). |
+| **Inspector** | Rename (blur/Enter PATCH `{ name }`), **Restore generated name** (`PATCH { restoreGeneratedName: true }`), status draft/active/paused, delete, type-specific advanced controls (trend scan, watchlist, paper trade, display config, etc.). |
 
 **D-024 change:** incomplete nodes no longer suppress the inspector and no longer expand to host the full setup form — setup lives in the fixed body; inspector always available on select.
 
@@ -131,9 +131,8 @@ Base names reuse palette / template function-specific defaults (D-023). Connecti
 Prefer explicit column or config flag:
 
 - `modules.name` — current display string
-- `modules.name_customized` boolean (default false) **or** omit and treat “equals last generated snapshot” — prefer explicit boolean for restore UX.
-
-Migration if new column; otherwise encode in `config.nameCustomized` only if we must avoid schema churn (prefer DB column for query clarity).
+- `modules.name_customized` boolean (default false) — shipped in migration `0011_canvas_node_generated_names`
+- API: `generatedNameBase`, `nameCustomized` on module projections; `restoreGeneratedName` on module PATCH
 
 ## Implementation sketch
 
@@ -150,8 +149,10 @@ Migration if new column; otherwise encode in `config.nameCustomized` only if we 
 
 ## Verification plan
 
+**Status:** focused Playwright assertions drafted in `apps/web/e2e/company-workspace.spec.ts`; IronBee browser pass pending.
+
 1. Contract tests: port sets per type; handle-pair → link kind; name derivation + customize/restore.
-2. Playwright / IronBee: create company → skip setup → see per-field chips on nodes → edit topic on node → save → chip turns Set → click chrome → inspector opens with restore-name → connect modules → generated name updates until customized.
+2. Playwright / IronBee: create company → skip setup → see per-field chips on nodes → edit topic on node → **Save setup** → chips turn Set → click chrome → inspector opens with restore-name → connect modules → generated name updates until customized.
 3. Console clean after flows.
 
 ## Open points resolved in this design

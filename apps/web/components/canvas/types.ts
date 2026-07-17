@@ -18,6 +18,17 @@ export interface CanvasModule {
   capitalAllocationRef: string | null;
   targetExitRef: string | null;
   missingSetupFields: ModuleSetupField[];
+  engineInstanceId: string | null;
+  topicSectorsOverridden: boolean;
+}
+
+export interface CanvasEngineGroup {
+  id: string;
+  templateId: string;
+  label: string;
+  masterTopicSectors: string[];
+  canvasBounds: { x: number; y: number; width: number; height: number } | null;
+  memberModuleIds: string[];
 }
 
 export interface CanvasLink {

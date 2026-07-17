@@ -34,11 +34,12 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
   const { companyId } = parsed.data;
 
   const db = getDb();
-  let company, moduleRows, linkRows;
+  let company, moduleRows, linkRows, engineRows;
   try {
     company = await scoping.getOwnedCompany(db, userId, companyId);
     moduleRows = await scoping.listModules(db, userId, companyId);
     linkRows = await scoping.listLinks(db, userId, companyId);
+    engineRows = await scoping.listEngineInstances(db, userId, companyId);
   } catch (err) {
     if (err instanceof NotFoundError) notFound();
     throw err;
@@ -66,7 +67,7 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
         </div>
         <ExecutionTicker companyId={companyId} />
         <div className="flex shrink-0 items-center gap-3">
-          <ModeSwitch mode={company.mode} />
+          <ModeSwitch companyId={companyId} mode={company.mode} />
           <QueueStatsChip />
           <UserSettingsLauncher />
           <UserMenu />
@@ -108,6 +109,23 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
                 capitalAllocationRef: m.capitalAllocationRef,
                 targetExitRef: m.targetExitRef,
               }),
+              engineInstanceId: m.engineInstanceId,
+              topicSectorsOverridden: m.topicSectorsOverridden,
+            }))}
+            initialEngines={engineRows.map((e) => ({
+              id: e.id,
+              templateId: e.templateId,
+              label: e.label,
+              masterTopicSectors: e.masterTopicSectors,
+              canvasBounds: e.canvasBounds as {
+                x: number;
+                y: number;
+                width: number;
+                height: number;
+              } | null,
+              memberModuleIds: moduleRows
+                .filter((m) => m.engineInstanceId === e.id)
+                .map((m) => m.id),
             }))}
             initialLinks={linkRows.map((l) => ({
               id: l.id,

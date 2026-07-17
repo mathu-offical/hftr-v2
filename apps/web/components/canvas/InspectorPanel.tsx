@@ -6,6 +6,7 @@ import { api, RequestError } from '@/lib/client';
 import type { ModuleNameUpdate } from '@/lib/module-generated-name';
 import {
   DisplayConfigForm,
+  ResearchConfigForm,
   TradingConfigForm,
   TrendScanForm,
   WatchlistForm,
@@ -34,6 +35,7 @@ export function InspectorPanel(props: {
   const [name, setName] = useState(mod.name);
   const [error, setError] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
+  const [restoringTopic, setRestoringTopic] = useState(false);
   const visual = MODULE_VISUALS[mod.type];
   const isMath = mod.type === 'math';
 
@@ -91,6 +93,38 @@ export function InspectorPanel(props: {
       setError('Could not restore the generated name.');
     } finally {
       setRestoring(false);
+    }
+  }
+
+  async function restoreEngineTopic() {
+    if (!mod.engineInstanceId) return;
+    setRestoringTopic(true);
+    setError(null);
+    try {
+      const { module } = await api<{
+        module: {
+          topicSectors: string[];
+          capitalAllocationRef: string | null;
+          targetExitRef: string | null;
+          topicSectorsOverridden: boolean;
+        };
+      }>(`/api/companies/${props.companyId}/modules/${mod.id}`, {
+        method: 'PATCH',
+        body: { restoreEngineTopic: true },
+      });
+      window.dispatchEvent(
+        new CustomEvent('hftr:module-topic-restored', {
+          detail: {
+            moduleId: mod.id,
+            topicSectors: module.topicSectors,
+            topicSectorsOverridden: module.topicSectorsOverridden,
+          },
+        }),
+      );
+    } catch {
+      setError('Could not restore the engine topic.');
+    } finally {
+      setRestoringTopic(false);
     }
   }
 
@@ -170,6 +204,16 @@ export function InspectorPanel(props: {
             {restoring ? 'Restoring…' : 'Restore generated name'}
           </button>
         )}
+        {mod.engineInstanceId && mod.topicSectorsOverridden && (
+          <button
+            type="button"
+            disabled={restoringTopic}
+            onClick={() => void restoreEngineTopic()}
+            className="text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+          >
+            {restoringTopic ? 'Restoring…' : 'Use engine topic'}
+          </button>
+        )}
       </div>
 
       <div className="space-y-1.5">
@@ -216,6 +260,10 @@ export function InspectorPanel(props: {
 
       {mod.type === 'display' && (
         <DisplayConfigForm companyId={props.companyId} moduleId={mod.id} />
+      )}
+
+      {mod.type === 'research' && (
+        <ResearchConfigForm companyId={props.companyId} moduleId={mod.id} />
       )}
 
       {(mod.type === 'holding_fund' || mod.type === 'fund_router') && (

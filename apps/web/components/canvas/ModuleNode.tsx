@@ -36,6 +36,9 @@ export type ModuleNodeData = {
   capitalAllocationRef: string | null;
   targetExitRef: string | null;
   missingSetupFields: ModuleSetupField[];
+  engineInstanceId: string | null;
+  topicSectorsOverridden: boolean;
+  attachedMathTools?: { id: string; name: string }[];
 };
 
 export type ModuleFlowNode = Node<ModuleNodeData, 'module'>;
@@ -86,6 +89,8 @@ export const ModuleNode = memo(function ModuleNode({
   });
   const [setupError, setSetupError] = useState<string | null>(null);
   const [savingSetup, setSavingSetup] = useState(false);
+  const [restoringTopic, setRestoringTopic] = useState(false);
+  const [topicOverridden, setTopicOverridden] = useState(Boolean(data.topicSectorsOverridden));
   const missingSetup = missingModuleSetupFields(data.moduleType, setupState);
 
   useEffect(() => {
@@ -98,7 +103,14 @@ export const ModuleNode = memo(function ModuleNode({
       capitalAllocationRef: data.capitalAllocationRef,
       targetExitRef: data.targetExitRef,
     });
-  }, [data.capitalAllocationRef, data.targetExitRef, data.topicSectors, data.moduleType]);
+    setTopicOverridden(Boolean(data.topicSectorsOverridden));
+  }, [
+    data.capitalAllocationRef,
+    data.targetExitRef,
+    data.topicSectors,
+    data.topicSectorsOverridden,
+    data.moduleType,
+  ]);
 
   async function saveSetup() {
     setSavingSetup(true);
@@ -109,25 +121,87 @@ export const ModuleNode = memo(function ModuleNode({
           topicSectors: string[];
           capitalAllocationRef: string | null;
           targetExitRef: string | null;
+          topicSectorsOverridden: boolean;
+          engineInstanceId: string | null;
         };
       }>(`/api/companies/${data.companyId}/modules/${id}`, {
         method: 'PATCH',
         body: { setup: moduleSetupInputFromDraft(setupDraft, requiredSetupFields) },
       });
+      const overridden =
+        module.topicSectorsOverridden ||
+        (Boolean(data.engineInstanceId) && Boolean(setupDraft.topicSectors.trim()));
       setSetupState(module);
+      setTopicOverridden(overridden);
       setSetupDraft({
         ...EMPTY_MODULE_SETUP_DRAFT,
         topicSectors: module.topicSectors.join(', '),
       });
       window.dispatchEvent(
         new CustomEvent('hftr:module-setup-saved', {
-          detail: { moduleId: id, ...module },
+          detail: {
+            moduleId: id,
+            topicSectors: module.topicSectors,
+            capitalAllocationRef: module.capitalAllocationRef,
+            targetExitRef: module.targetExitRef,
+            topicSectorsOverridden: overridden,
+            engineInstanceId: module.engineInstanceId ?? data.engineInstanceId,
+          },
         }),
       );
     } catch {
       setSetupError('Setup could not be saved. Check the required values.');
     } finally {
       setSavingSetup(false);
+    }
+  }
+
+  async function restoreEngineTopic() {
+    if (!data.engineInstanceId) return;
+    setRestoringTopic(true);
+    setSetupError(null);
+    try {
+      const { module } = await api<{
+        module: {
+          topicSectors: string[];
+          capitalAllocationRef: string | null;
+          targetExitRef: string | null;
+          topicSectorsOverridden: boolean;
+        };
+      }>(`/api/companies/${data.companyId}/modules/${id}`, {
+        method: 'PATCH',
+        body: { restoreEngineTopic: true },
+      });
+      setSetupState(module);
+      setTopicOverridden(Boolean(module.topicSectorsOverridden));
+      setSetupDraft({
+        ...EMPTY_MODULE_SETUP_DRAFT,
+        topicSectors: module.topicSectors.join(', '),
+      });
+      window.dispatchEvent(
+        new CustomEvent('hftr:module-setup-saved', {
+          detail: {
+            moduleId: id,
+            topicSectors: module.topicSectors,
+            capitalAllocationRef: module.capitalAllocationRef,
+            targetExitRef: module.targetExitRef,
+            topicSectorsOverridden: module.topicSectorsOverridden,
+          },
+        }),
+      );
+      window.dispatchEvent(
+        new CustomEvent('hftr:module-topic-restored', {
+          detail: {
+            moduleId: id,
+            topicSectors: module.topicSectors,
+            topicSectorsOverridden: module.topicSectorsOverridden,
+          },
+        }),
+      );
+    } catch {
+      setSetupError('Could not restore the engine topic.');
+    } finally {
+      setRestoringTopic(false);
     }
   }
 
@@ -237,6 +311,16 @@ export const ModuleNode = memo(function ModuleNode({
 
         {requiredSetupFields.length > 0 && (
           <div className="nodrag nowheel mt-2 border-t border-[var(--color-line)] pt-2">
+            {data.engineInstanceId && topicOverridden && (
+              <button
+                type="button"
+                disabled={restoringTopic}
+                onClick={() => void restoreEngineTopic()}
+                className="mb-2 w-full rounded border border-[var(--color-accent)]/60 px-2 py-1 text-[10px] text-[var(--color-accent)] disabled:opacity-50"
+              >
+                {restoringTopic ? 'Restoring…' : 'Use engine topic'}
+              </button>
+            )}
             <ModuleSetupFields
               requiredFields={requiredSetupFields}
               missingFields={missingSetup}
@@ -258,6 +342,29 @@ export const ModuleNode = memo(function ModuleNode({
           </div>
         )}
       </div>
+
+      {(data.attachedMathTools?.length ?? 0) > 0 && (
+        <div className="nodrag mt-1.5 space-y-1">
+          {data.attachedMathTools!.map((tool) => (
+            <div
+              key={tool.id}
+              className="flex items-center gap-2 rounded-md border border-dashed border-[#bb9af7]/50 bg-[var(--color-surface-0)]/80 px-2.5 py-1.5"
+              style={{ width: CARD_WIDTH_PX }}
+            >
+              <span
+                className="h-1.5 w-1.5 shrink-0 rounded-full"
+                style={{ background: '#bb9af7' }}
+              />
+              <span className="text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+                Math tool
+              </span>
+              <span className="min-w-0 truncate text-[10px] text-[var(--color-ink-dim)]">
+                {tool.name}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 });

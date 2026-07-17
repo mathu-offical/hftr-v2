@@ -90,6 +90,12 @@ const ADDABLE: Array<{
     defaultConfig: { displayKind: 'table', title: 'Operations Table' },
     hint: 'Graphs, lists, tables, ledgers',
   },
+  {
+    type: 'math',
+    defaultName: 'Math Tool',
+    defaultConfig: {},
+    hint: 'Repeatable calculator; attach to many nodes (D-028)',
+  },
 ];
 
 /** Store categories (DevSpecs/dev-notebook.md: divide nodes by category). */
@@ -99,7 +105,7 @@ const CATEGORIES: Array<{ label: string; types: ModuleType[] }> = [
   { label: 'Signals', types: ['trend'] },
   { label: 'Trading', types: ['trading'] },
   { label: 'Funds & controls', types: ['holding_fund', 'fund_router', 'policy'] },
-  { label: 'Utilities', types: ['simulator', 'analyzer'] },
+  { label: 'Utilities', types: ['simulator', 'analyzer', 'math'] },
   { label: 'Display', types: ['display'] },
 ];
 
@@ -107,7 +113,7 @@ const CATEGORIES: Array<{ label: string; types: ModuleType[] }> = [
  * Floating module store, layered over the canvas (top-left). Two sections:
  * single modules grouped by category, and insertable end-to-end engine
  * templates that require user inputs before insertion (dev-notebook spec).
- * Math is absent by design — auto-created with the company (D-008).
+ * Company seeds one Math module; D-028 allows additional Math tools.
  */
 export function Palette(props: {
   onAdd: (type: ModuleType, name: string, config: unknown) => void;
@@ -325,6 +331,9 @@ function EngineConfigForm(props: {
           )}
         </label>
       ))}
+      <p className="text-[10px] leading-snug text-[var(--color-ink-faint)]">
+        Master topic/sector cascades to engine nodes (overridable).
+      </p>
       <ModuleSetupFields
         requiredFields={requiredSetupFields}
         missingFields={missingSetupFields}

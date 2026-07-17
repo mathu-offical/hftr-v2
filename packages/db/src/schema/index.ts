@@ -7,6 +7,7 @@ export * from './pipeline';
 export * from './knowledge';
 export * from './libraries';
 export * from './research';
+export * from './research-bus';
 export * from './watchlists';
 export * from './assistant';
 export * from './simulations';

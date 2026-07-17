@@ -87,3 +87,21 @@ export const userApiKeys = pgTable(
   },
   (t) => [uniqueIndex('user_api_keys_user_provider_unique').on(t.clerkUserId, t.provider)],
 );
+
+/** Per-user research gather API keys (AES-GCM ciphertext at rest). */
+export const userResearchKeys = pgTable(
+  'user_research_keys',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    clerkUserId: text('clerk_user_id').notNull(),
+    provider: text('provider', { enum: ['brave', 'market_news'] }).notNull(),
+    ciphertext: text('ciphertext').notNull(),
+    keyHint: text('key_hint').notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex('user_research_keys_user_provider_unique').on(t.clerkUserId, t.provider),
+  ],
+);

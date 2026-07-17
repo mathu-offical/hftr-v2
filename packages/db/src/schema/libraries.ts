@@ -47,10 +47,11 @@ export const libraryConcepts = pgTable(
       .notNull()
       .references(() => concepts.id),
     curationStatus: text('curation_status', {
-      enum: ['proposed', 'accepted', 'rejected', 'archived'],
+      enum: ['proposed', 'accepted', 'auto_admitted', 'rejected', 'archived'],
     })
       .notNull()
       .default('proposed'),
+    researchRunId: uuid('research_run_id'),
     ...timestamps,
   },
   (t) => [

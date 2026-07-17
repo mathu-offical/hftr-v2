@@ -134,6 +134,27 @@
       "when": 1784326000000,
       "tag": "0018_dedicated_math_ownership",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1784327000000,
+      "tag": "0019_research_bus",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1784328000000,
+      "tag": "0020_research_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1784329000000,
+      "tag": "0021_trend_artifact_refs",
+      "breakpoints": true
     }
   ]
 }

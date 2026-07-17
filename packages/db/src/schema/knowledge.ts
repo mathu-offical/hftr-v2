@@ -40,6 +40,7 @@ export const concepts = pgTable(
       .notNull()
       .default('deterministic_placeholder'),
     sourceRef: text('source_ref'),
+    researchRunId: uuid('research_run_id'),
     status: text('status', { enum: ['active', 'archived'] })
       .notNull()
       .default('active'),

@@ -100,6 +100,8 @@ export const trendCandidates = pgTable(
     status: text('status', { enum: ['candidate', 'promoted', 'expired'] })
       .notNull()
       .default('candidate'),
+    /** Opaque admitted library / evidence refs copied at promote (D-039). */
+    artifactRefs: jsonb('artifact_refs').notNull().default([]),
     scannedAt: timestamp('scanned_at', { withTimezone: true }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

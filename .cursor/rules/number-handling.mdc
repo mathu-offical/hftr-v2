@@ -39,3 +39,12 @@ Auto-created per company, non-deletable — k/v browser, lineage graph, calc aud
 
 When touching LLM prompts/schemas: run leak-lint tests. When touching calc: property-based
 tests on unit algebra and fixed-point ops.
+
+## Experiment close-out (provenance audit)
+
+At paper experiment close-out (see `paper-experiment` skill):
+
+- [ ] **feedClass honesty** — runtime feed metadata matches declared entitlement; no paper feed labeled as live
+- [ ] **ValueRef lineage** — trace financial readouts back to adapter, ledger, clock, or calculator; reject orphan handles
+- [ ] Leak lint clean for model outputs in the experiment window
+- [ ] Math module lineage graph matches trace inspector for sampled actions

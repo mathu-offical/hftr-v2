@@ -30,6 +30,16 @@ deterministic gates → dispatch → broker → verification
 - **Live is fail-closed** until explicit gates pass (`plans/master-build-plan.md`)
 - Never enable live-trading without documented gate criteria
 
+## Paper experiment runs
+
+Fail-closed abort if any of:
+
+- Company mode is not `paper` for the experiment cohort
+- Live broker adapter or live credentials used on the experiment dispatch path
+- Live gate bypassed or live master switch enabled without documented gate pass
+
+Use `.cursor/skills/paper-experiment/SKILL.md` and `agent-docs/research/paper-experimentation-protocol.md`.
+
 ## Numbers and time (D-008, D-009)
 
 - LLMs never read/write/transform raw financial numbers or authoritative dates/times/durations

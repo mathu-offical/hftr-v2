@@ -30,8 +30,21 @@ implementation proceeds.
 | `product/product-spec.md` | Companies, modules, funds, policies, assistant — full product behavior |
 | `ui-ux/ui-spec.md` | Canvas, panels, galaxy view, design system, visual standards |
 | `research/v1-carryover.md` | Everything ported from v1: contracts, bands, catalogs, guardrails |
+| `testing/README.md` | Testing doc index; `/paper-experiment` workflow map |
+| `testing/requirements-matrix.md` | REQ-ID → evidence matrix (paper intent-alignment program) |
+| `testing/requirements-matrix.json` | Machine-readable requirements export for CI/agents |
+| `testing/scenario-encyclopedia.md` | Deterministic scenario classes for alignment regression |
+| `testing/philosophy-axis-taxonomy.md` | Philosophy axes → catalog bands → `LeverSetting` |
+| `testing/intent-alignment-scoring.md` | Declared vs observed vector scoring for experiment close-out |
+| `research/paper-experimentation-protocol.md` | Paper-only cohort protocol: preflight, provenance, baselines, gates |
+| `research/trading-philosophy-guidance.md` | Multi-objective philosophy guidance (axes, prompts, experiment learnings) |
 | `research/tech-decisions.md` | Justified technology choices with alternatives considered |
 | `dev-intent/decisions-log.md` | Dated log of user decisions and clarifications |
+| `testing/scenario-encyclopedia.md` | Combinatorial intent-alignment scenarios (IDs, evidence, executable_today) |
+| `testing/philosophy-axis-taxonomy.md` | Slideable philosophy axes → band families → LeverSetting mapping |
+| `testing/intent-alignment-scoring.md` | D/C/O vectors, alignment score, drift report, scorecard template |
+| `research/paper-experimentation-protocol.md` | Canonical paper-only experiment template and preflight |
+| `research/trading-philosophy-guidance.md` | Multi-objective philosophy guidance (no guaranteed returns) |
 
 ## Implementation status
 
@@ -75,10 +88,11 @@ They extend — do not replace — this directory and `AGENTS.md`.
 | `/verify` | Verify, then invoke commit-message if dirty |
 | `/commit-session` | Chunked per-file Conventional Commits |
 | `/end-run` | Full end-of-run: verify → curate → commit |
+| `/paper-experiment` | Paper-only experimentation cohort workflow |
 
 **End-of-run sequence:** verify → curate → **invoke `commit-message` skill** (per-file
 bodies, chunked) → report (D-018, D-020). Push only when user asks.
 
 Key skills: `session-start`, `agent-docs-curate`, `v1-reference`, `implement-milestone`,
-`verify-change`, `pipeline-engine`, `parallel-orchestration`, `commit-message`
-(under `.cursor/skills/`).
+`verify-change`, `pipeline-engine`, `parallel-orchestration`, `paper-experiment`,
+`intent-alignment-audit`, `commit-message` (under `.cursor/skills/`).

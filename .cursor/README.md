@@ -58,6 +58,8 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `pipeline-engine` | Engine, dispatch, verification, bands/levers work |
 | `parallel-orchestration` | Multi-package/domain parallel sub-agent delegation |
 | `commit-message` | **MANDATORY end-of-run** — inventory files, chunk, per-file commit bodies |
+| `paper-experiment` | Paper-only cohort runs with preflight, provenance, intent audits |
+| `intent-alignment-audit` | Score declared vs observed vectors; hard fail on cap violations |
 
 ## Cursor workflows
 
@@ -69,6 +71,7 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `verify-and-ship.md` | Verify → curate → invoke commit-message → report |
 | `end-of-run.md` | **Mandatory** close: verify + chunked per-file commits |
 | `commit-session.md` | Alias of end-of-run commit phase |
+| `paper-experiment-run.md` | Paper cohort: session-start → paper-experiment → end-of-run |
 
 ## Slash commands
 
@@ -79,6 +82,7 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `/verify` | Verify, then invoke commit-message if dirty |
 | `/commit-session` | Chunked per-file Conventional Commits |
 | `/end-run` | Full end-of-run: verify → curate → commit |
+| `/paper-experiment` | Paper-only experimentation cohort workflow |
 
 ## Product goals (quick reference)
 

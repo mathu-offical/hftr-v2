@@ -28,6 +28,8 @@ Read sources in this priority order when resolving intent vs implementation:
 | Jobs/queue | `agent-docs/architecture/job-orchestration.md` |
 | Brokers | `agent-docs/architecture/broker-integration.md` |
 | v1 carryover | `agent-docs/research/v1-carryover.md` |
+| Paper experiments | `agent-docs/research/paper-experimentation-protocol.md` |
+| Intent alignment | `agent-docs/testing/intent-alignment-scoring.md` |
 | Tech decisions | `agent-docs/research/tech-decisions.md` (TD-nn) |
 | Decisions | `agent-docs/dev-intent/decisions-log.md` (D-nnn, OQ-n) |
 

@@ -1,0 +1,3231 @@
+{
+  "version": "1",
+  "generatedAt": "2026-07-17",
+  "program": "hftr-v2 paper intent-alignment",
+  "summary": {
+    "total": 160,
+    "byStatus": {
+      "implemented": 105,
+      "stub": 11,
+      "doc-only": 0,
+      "deferred": 44
+    },
+    "docDriftFlags": [
+      "REQ-FND-002",
+      "REQ-SAF-003",
+      "REQ-TST-006"
+    ]
+  },
+  "requirements": [
+    {
+      "id": "REQ-FND-001",
+      "title": "Monorepo scaffold (pnpm + turbo)",
+      "source": "agent-docs/plans/master-build-plan.md §M0",
+      "status": "implemented",
+      "evidence": [
+        "package.json",
+        "turbo.json",
+        "apps/web/",
+        "packages/{contracts,db,engine,adapters,llm}/"
+      ],
+      "scenarios": [
+        "pnpm typecheck",
+        "pnpm test"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-FND-002",
+      "title": "Clerk auth middleware and user bootstrap",
+      "source": "agent-docs/plans/master-build-plan.md §M0",
+      "status": "implemented",
+      "evidence": [
+        "apps/web/middleware.ts",
+        "apps/web/app/layout.tsx",
+        "packages/db/src/schema/identity.ts"
+      ],
+      "scenarios": [
+        "Clerk sign-in (manual)",
+        "DEV_AUTH_BYPASS E2E"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "safety_critical",
+      "notes": "E2E uses DEV_AUTH_BYPASS; Clerk sign-up flow not Playwright-covered (doc-drift vs ui-spec flow 1)."
+    },
+    {
+      "id": "REQ-FND-003",
+      "title": "Neon Postgres + Drizzle migrations",
+      "source": "agent-docs/architecture/data-model.md",
+      "status": "implemented",
+      "evidence": [
+        "packages/db/migrations/",
+        "packages/db/src/schema/"
+      ],
+      "scenarios": [
+        "migrations apply from zero"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-FND-004",
+      "title": "Health endpoint and deploy skeleton",
+      "source": "agent-docs/architecture/system-architecture.md §6",
+      "status": "implemented",
+      "evidence": [
+        "apps/web/app/api/health/route.ts"
+      ],
+      "scenarios": [
+        "GET /api/health"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-FND-005",
+      "title": "CI typecheck, lint, vitest",
+      "source": "agent-docs/plans/master-build-plan.md §M0",
+      "status": "implemented",
+      "evidence": [
+        ".github/workflows/",
+        "package.json scripts"
+      ],
+      "scenarios": [
+        "pnpm typecheck",
+        "pnpm lint",
+        "pnpm test"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-FND-006",
+      "title": "Contracts package with v1 carryover types",
+      "source": "packages/contracts/src/",
+      "status": "implemented",
+      "evidence": [
+        "packages/contracts/src/foundation.ts",
+        "packages/contracts/src/pipeline.ts",
+        "packages/contracts/src/contracts.test.ts"
+      ],
+      "scenarios": [
+        "packages/contracts vitest"
+      ],
+      "venues": [
+        "all"
+      ],
+      "philosophy_axes": [
+        "compliance_posture",
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-FND-007",
+      "title": "Ownership scoping on all API queries",
+      "source": "agent-docs/architecture/data-model.md §Integrity",
+      "status": "implemented",
+      "evidence": [
+        "packages/db/src/scoping.ts",
+        "apps/web/lib/api.ts"
+      ],
+      "scenarios": [
+        "scoping unit tests"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-FND-008",
+      "title": "ENV contract (.env.example ↔ contracts)",
+      "source": "packages/contracts/src/env.ts",
+      "status": "implemented",
+      "evidence": [
+        "packages/contracts/src/env.ts",
+        ".env.example"
+      ],
+      "scenarios": [
+        "env schema parse"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-FND-009",
+      "title": "Append-only audit tables (no UPDATE/DELETE)",
+      "source": "agent-docs/architecture/data-model.md",
+      "status": "implemented",
+      "evidence": [
+        "packages/db/src/schema/",
+        "action_traces",
+        "assistant_messages",
+        "credit_ledger"
+      ],
+      "scenarios": [
+        "schema review"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-FND-010",
+      "title": "Engine package pure (no Next/React imports)",
+      "source": "agent-docs/architecture/system-architecture.md §1",
+      "status": "implemented",
+      "evidence": [
+        "packages/engine/src/",
+        "packages/engine/package.json"
+      ],
+      "scenarios": [
+        "import boundary review"
+      ],
+      "venues": [
+        "all"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-CMP-001",
+      "title": "Company list and create API",
+      "source": "apps/web/app/api/companies/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "apps/web/app/api/companies/route.ts",
+        "packages/contracts/src/modules.ts CreateCompanyInput"
+      ],
+      "scenarios": [
+        "companies.spec.ts",
+        "POST /api/companies"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-CMP-002",
+      "title": "Company templates (blank, day_trading_starter, trend_research_lab)",
+      "source": "agent-docs/product/product-spec.md §2",
+      "status": "implemented",
+      "evidence": [
+        "packages/contracts/src/templates.ts",
+        "apps/web/components/CreateCompanyForm.tsx"
+      ],
+      "scenarios": [
+        "companies.spec.ts template buttons"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-CMP-003",
+      "title": "Company creation wizard UI",
+      "source": "agent-docs/ui-ux/ui-spec.md §3",
+      "status": "implemented",
+      "evidence": [
+        "apps/web/components/CreateCompanyForm.tsx",
+        "apps/web/app/companies/page.tsx"
+      ],
+      "scenarios": [
+        "companies.spec.ts"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-CMP-004",
+      "title": "Template setup Required/Set validation chips",
+      "source": "agent-docs/product/product-spec.md §2 (D-024)",
+      "status": "implemented",
+      "evidence": [
+        "apps/web/components/canvas/ModuleSetupFields.tsx",
+        "apps/web/lib/module-setup.ts"
+      ],
+      "scenarios": [
+        "companies.spec.ts Required chips",
+        "company-workspace.spec.ts inline save"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency",
+        "risk_controls"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-CMP-005",
+      "title": "Skip setup opens draft canvas with missing chips",
+      "source": "agent-docs/product/product-spec.md §2",
+      "status": "implemented",
+      "evidence": [
+        "apps/web/components/CreateCompanyForm.tsx",
+        "company-workspace.spec.ts"
+      ],
+      "scenarios": [
+        "company-workspace.spec.ts Skip flow"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-CMP-006",
+      "title": "Company philosophy, goals, policies fields",
+      "source": "agent-docs/product/product-spec.md §2",
+      "status": "implemented",
+      "evidence": [
+        "packages/db/src/schema/companies.ts",
+        "CreateCompanyInput"
+      ],
+      "scenarios": [
+        "company create form"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-CMP-007",
+      "title": "Paper/live mode per company",
+      "source": "agent-docs/product/product-spec.md §2",
+      "status": "implemented",
+      "evidence": [
+        "companies.mode column",
+        "apps/web/components/shell/ModeSwitch.tsx"
+      ],
+      "scenarios": [
+        "company-workspace paper chip"
+      ],
+      "venues": [
+        "paper_sim",
+        "alpaca"
+      ],
+      "philosophy_axes": [
+        "compliance_posture",
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical",
+      "notes": "Live switch UI present; live dispatch deferred (REQ-BRK-006)."
+    },
+    {
+      "id": "REQ-CMP-008",
+      "title": "Company GET/PATCH/DELETE (archive)",
+      "source": "apps/web/app/api/companies/[companyId]/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "apps/web/app/api/companies/[companyId]/route.ts",
+        "apps/web/e2e/fixtures.ts archiveCompany"
+      ],
+      "scenarios": [
+        "E2E teardown archive"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-CMP-009",
+      "title": "Per-module capital allocation via ValueRef",
+      "source": "agent-docs/architecture/number-handling.md",
+      "status": "implemented",
+      "evidence": [
+        "modules.capital_allocation_ref",
+        "apps/web/lib/module-setup.ts",
+        "migration 0008"
+      ],
+      "scenarios": [
+        "company-workspace trading node setup"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "risk_controls",
+        "operator_transparency"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-CMP-010",
+      "title": "Target exit temporal ref at module setup",
+      "source": "agent-docs/architecture/number-handling.md §4c",
+      "status": "implemented",
+      "evidence": [
+        "modules.target_exit_ref",
+        "ModuleSetupFields.tsx"
+      ],
+      "scenarios": [
+        "company-workspace target exit fill"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-MDL-001",
+      "title": "Module list/create API",
+      "source": "apps/web/app/api/companies/[companyId]/modules/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "modules/route.ts",
+        "MODULE_CONFIG_SCHEMAS"
+      ],
+      "scenarios": [
+        "module store insert"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-MDL-002",
+      "title": "Module GET/PATCH/DELETE",
+      "source": "apps/web/app/api/companies/[companyId]/modules/[moduleId]/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "modules/[moduleId]/route.ts"
+      ],
+      "scenarios": [
+        "PATCH setup save"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-MDL-003",
+      "title": "Module links CRUD (canvas edges)",
+      "source": "apps/web/app/api/companies/[companyId]/links/",
+      "status": "implemented",
+      "evidence": [
+        "links/route.ts",
+        "links/[linkId]/route.ts",
+        "module_links schema"
+      ],
+      "scenarios": [
+        "canvas edge count assertion"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-MDL-004",
+      "title": "holding_fund module type (topology)",
+      "source": "agent-docs/product/product-spec.md §3",
+      "status": "implemented",
+      "evidence": [
+        "packages/contracts/src/modules.ts",
+        "day_trading_starter template"
+      ],
+      "scenarios": [
+        "company-workspace Paper Seed Holding Fund node"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "financial",
+      "notes": "Topology only — no ledger transfers (REQ-DEF-001)."
+    },
+    {
+      "id": "REQ-MDL-005",
+      "title": "fund_router module type (topology)",
+      "source": "agent-docs/product/product-spec.md §3",
+      "status": "implemented",
+      "evidence": [
+        "templates.ts",
+        "Deterministic Fund Router node"
+      ],
+      "scenarios": [
+        "company-workspace 10-edge topology"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "financial",
+      "notes": "Transfer execution deferred M3+."
+    },
+    {
+      "id": "REQ-MDL-006",
+      "title": "Math module auto-created non-deletable",
+      "source": "agent-docs/architecture/data-model.md",
+      "status": "implemented",
+      "evidence": [
+        "companies POST seeds math",
+        "ModuleNode.tsx"
+      ],
+      "scenarios": [
+        "Deterministic Math Calculator visible"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-MDL-007",
+      "title": "day_trading_starter 10-node engine topology",
+      "source": "agent-docs/ui-ux/ui-spec.md §3",
+      "status": "implemented",
+      "evidence": [
+        "packages/contracts/src/templates.ts",
+        "company-workspace.spec.ts"
+      ],
+      "scenarios": [
+        "10 smoothstep edges",
+        "all node names"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome",
+        "execution_quality"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-MDL-008",
+      "title": "trend_research_lab template (research→library→trend)",
+      "source": "packages/contracts/src/templates.ts",
+      "status": "implemented",
+      "evidence": [
+        "templates.ts COMPANY_TEMPLATES"
+      ],
+      "scenarios": [
+        "companies.spec.ts Trend research lab button"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "research_quality"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-MDL-009",
+      "title": "ENGINE_TEMPLATES with honest gating",
+      "source": "packages/contracts/src/templates.ts",
+      "status": "implemented",
+      "evidence": [
+        "templates.ts ENGINE_TEMPLATES",
+        "Palette.tsx"
+      ],
+      "scenarios": [
+        "module store Engines tab"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-MDL-010",
+      "title": "Canvas GET projection API",
+      "source": "apps/web/app/api/companies/[companyId]/canvas/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "canvas/route.ts",
+        "CompanyCanvas.tsx"
+      ],
+      "scenarios": [
+        "canvas render on load"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-MDL-011",
+      "title": "Policy nodes bind envelopes to trading modules",
+      "source": "agent-docs/architecture/system-architecture.md §3",
+      "status": "stub",
+      "evidence": [
+        "policy module type in schema",
+        "Paper Trading Policy link in template"
+      ],
+      "scenarios": [
+        "topology visible"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "compliance_posture",
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical",
+      "notes": "Envelope binding UI/runtime enforcement partial; full policy activation M3."
+    },
+    {
+      "id": "REQ-MDL-012",
+      "title": "Trading presets (crypto, prediction, HFT, long-term)",
+      "source": "agent-docs/product/product-spec.md §3",
+      "status": "deferred",
+      "evidence": [
+        "templates.ts unavailableReason fields"
+      ],
+      "scenarios": [
+        "M5 preset delivery"
+      ],
+      "venues": [
+        "alpaca",
+        "kalshi"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-CNV-001",
+      "title": "React Flow canvas with custom nodes",
+      "source": "agent-docs/ui-ux/ui-spec.md §3",
+      "status": "implemented",
+      "evidence": [
+        "apps/web/components/canvas/CompanyCanvas.tsx",
+        "ModuleNode.tsx"
+      ],
+      "scenarios": [
+        "company-workspace canvas visible"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-CNV-002",
+      "title": "smoothstep rounded-elbow edges",
+      "source": "agent-docs/ui-ux/ui-spec.md §3 (D-023)",
+      "status": "implemented",
+      "evidence": [
+        "CompanyCanvas.tsx ConnectionLineType.SmoothStep",
+        "company-workspace 10 edges"
+      ],
+      "scenarios": [
+        ".react-flow__edge-smoothstep count"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-CNV-003",
+      "title": "Text-first node status lines",
+      "source": "agent-docs/ui-ux/ui-spec.md §3",
+      "status": "implemented",
+      "evidence": [
+        "ModuleNode.tsx status rendering"
+      ],
+      "scenarios": [
+        "visual inspection"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "compliance"
+    },
+    {
+      "id": "REQ-CNV-004",
+      "title": "Module store palette (Modules + Engines)",
+      "source": "agent-docs/ui-ux/ui-spec.md §3",
+      "status": "implemented",
+      "evidence": [
+        "apps/web/components/canvas/Palette.tsx"
+      ],
+      "scenarios": [
+        "company-workspace module store"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-CNV-005",
+      "title": "Minimap and zoom controls",
+      "source": "agent-docs/ui-ux/ui-spec.md §3",
+      "status": "implemented",
+      "evidence": [
+        "CompanyCanvas.tsx ReactFlow controls"
+      ],
+      "scenarios": [
+        "manual canvas pan/zoom"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "informational"
+    },
+    {
+      "id": "REQ-CNV-006",
+      "title": "Expanded in-canvas node detail view",
+      "source": "agent-docs/ui-ux/ui-spec.md §3",
+      "status": "stub",
+      "evidence": [
+        "ModuleNode selection + setup fields"
+      ],
+      "scenarios": [
+        "partial: inline setup on select"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational",
+      "notes": "Full 2× growth card with mini-log not shipped; inline setup covers subset."
+    },
+    {
+      "id": "REQ-CNV-007",
+      "title": "Edge animation during job activity",
+      "source": "agent-docs/ui-ux/ui-spec.md §3",
+      "status": "stub",
+      "evidence": [
+        "CompanyCanvas edge animated prop"
+      ],
+      "scenarios": [
+        "activity API projection"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "informational"
+    },
+    {
+      "id": "REQ-CNV-008",
+      "title": "Hybrid activity sprites in nodes",
+      "source": "agent-docs/ui-ux/ui-spec.md §1",
+      "status": "stub",
+      "evidence": [
+        "ModuleNode activity layer references"
+      ],
+      "scenarios": [
+        "queue projection hook"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "informational"
+    },
+    {
+      "id": "REQ-CNV-009",
+      "title": "ELK obstacle-avoiding edge routing",
+      "source": "agent-docs/ui-ux/ui-spec.md §3",
+      "status": "deferred",
+      "evidence": [
+        "ui-spec defers ELK/pathfinding"
+      ],
+      "scenarios": [
+        "M6 polish"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "informational"
+    },
+    {
+      "id": "REQ-CNV-010",
+      "title": "LOD simplification below zoom threshold",
+      "source": "agent-docs/ui-ux/ui-spec.md §3",
+      "status": "deferred",
+      "evidence": [
+        "ui-spec requirement only"
+      ],
+      "scenarios": [
+        "M6 perf pass"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "informational"
+    },
+    {
+      "id": "REQ-SHL-001",
+      "title": "Top ribbon layout (logo → switcher → drawer → ticker)",
+      "source": "agent-docs/ui-ux/ui-spec.md §2",
+      "status": "implemented",
+      "evidence": [
+        "apps/web/app/companies/[companyId]/page.tsx"
+      ],
+      "scenarios": [
+        "company-workspace ribbon"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-SHL-002",
+      "title": "Company switcher dropdown",
+      "source": "agent-docs/ui-ux/ui-spec.md §2",
+      "status": "implemented",
+      "evidence": [
+        "CompanySwitcher component"
+      ],
+      "scenarios": [
+        "Company ▾ button"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-SHL-003",
+      "title": "TopDrawer (Ledger, Trading profile, Settings, Philosophy)",
+      "source": "apps/web/components/shell/TopDrawer.tsx",
+      "status": "implemented",
+      "evidence": [
+        "TopDrawer.tsx"
+      ],
+      "scenarios": [
+        "LLM / operating tab"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-SHL-004",
+      "title": "ExecutionTicker marquee",
+      "source": "apps/web/components/shell/ExecutionTicker.tsx",
+      "status": "implemented",
+      "evidence": [
+        "ExecutionTicker.tsx",
+        "executions API"
+      ],
+      "scenarios": [
+        "ticker renders when fills exist"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "execution_quality"
+      ],
+      "safety_class": "informational"
+    },
+    {
+      "id": "REQ-SHL-005",
+      "title": "ModeSwitch with live gate popover",
+      "source": "apps/web/components/shell/ModeSwitch.tsx",
+      "status": "implemented",
+      "evidence": [
+        "ModeSwitch.tsx"
+      ],
+      "scenarios": [
+        "live blocked until broker milestone"
+      ],
+      "venues": [
+        "paper_sim",
+        "alpaca"
+      ],
+      "philosophy_axes": [
+        "compliance_posture",
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-SHL-006",
+      "title": "Queue status chip",
+      "source": "agent-docs/ui-ux/ui-spec.md §2",
+      "status": "implemented",
+      "evidence": [
+        "queue/stats route",
+        "shell queue chip"
+      ],
+      "scenarios": [
+        "GET /api/queue/stats"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-SHL-007",
+      "title": "User API key settings (Anthropic/Mistral/Groq)",
+      "source": "apps/web/app/api/settings/keys/",
+      "status": "implemented",
+      "evidence": [
+        "settings/keys/route.ts",
+        "userApiKeys schema"
+      ],
+      "scenarios": [
+        "UserSettingsLauncher modal"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational",
+      "notes": "Keys stored; not yet wired into live LLM job path (M2)."
+    },
+    {
+      "id": "REQ-SHL-008",
+      "title": "Separate LLM operating budget meter (D-024)",
+      "source": "apps/web/app/api/companies/[companyId]/llm-budgets/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "llm-budgets/route.ts",
+        "operating-budget.ts contracts"
+      ],
+      "scenarios": [
+        "company-workspace LLM / operating view"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency",
+        "risk_controls"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-PAN-001",
+      "title": "Left panel Research + Data sources tabs",
+      "source": "apps/web/components/panels/LeftPanel.tsx",
+      "status": "implemented",
+      "evidence": [
+        "LeftPanel.tsx"
+      ],
+      "scenarios": [
+        "company-workspace [ shortcut"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "research_quality"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-PAN-002",
+      "title": "Bottom panel Trends/Scenarios/Watchlists/Decisions",
+      "source": "apps/web/components/panels/BottomPanel.tsx",
+      "status": "implemented",
+      "evidence": [
+        "BottomPanel.tsx"
+      ],
+      "scenarios": [
+        "` shortcut toggle"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-PAN-003",
+      "title": "Right panel Verify/Executions/Ledger/Sims/Values",
+      "source": "apps/web/components/panels/RightPanel.tsx",
+      "status": "implemented",
+      "evidence": [
+        "RightPanel.tsx",
+        "Paper balance label"
+      ],
+      "scenarios": [
+        "] shortcut",
+        "ledger tab"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "execution_quality",
+        "operator_transparency"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-PAN-004",
+      "title": "Panel keyboard shortcuts ([, ], `)",
+      "source": "agent-docs/ui-ux/ui-spec.md §4",
+      "status": "implemented",
+      "evidence": [
+        "panel components key handlers"
+      ],
+      "scenarios": [
+        "company-workspace keyboard section"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-PAN-005",
+      "title": "Per-company panel localStorage persistence",
+      "source": "agent-docs/ui-ux/ui-spec.md §4",
+      "status": "implemented",
+      "evidence": [
+        "hftr:{companyId}:panel:{left|bottom|right} keys"
+      ],
+      "scenarios": [
+        "return visit state restore"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "informational"
+    },
+    {
+      "id": "REQ-PAN-006",
+      "title": "Trace timeline inspector modal",
+      "source": "apps/web/app/api/companies/[companyId]/traces/[traceId]/timeline/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "timeline/route.ts",
+        "TraceTimeline component"
+      ],
+      "scenarios": [
+        "trace row click"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "execution_quality",
+        "compliance_posture"
+      ],
+      "safety_class": "compliance"
+    },
+    {
+      "id": "REQ-PAN-007",
+      "title": "Watchlists CRUD in bottom panel",
+      "source": "apps/web/app/api/companies/[companyId]/watchlists/",
+      "status": "implemented",
+      "evidence": [
+        "watchlists/route.ts",
+        "watchlist_items schema"
+      ],
+      "scenarios": [
+        "watchlist API tests"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-PAN-008",
+      "title": "Middle-bottom lineage columns (Trends→Decisions)",
+      "source": "agent-docs/ui-ux/ui-spec.md §4",
+      "status": "deferred",
+      "evidence": [
+        "master-build-plan M3 §5"
+      ],
+      "scenarios": [
+        "M3 control panel v1"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency",
+        "strategy_outcome"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-API-001",
+      "title": "POST modules/:id/trade operator paper trade",
+      "source": "apps/web/app/api/companies/[companyId]/modules/[moduleId]/trade/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "trade/route.ts",
+        "dispatch.paper_trade handler"
+      ],
+      "scenarios": [
+        "manual trade enqueue+drain"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "execution_quality"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-API-002",
+      "title": "POST modules/:id/scan trend scan trigger",
+      "source": "apps/web/app/api/companies/[companyId]/modules/[moduleId]/scan/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "scan/route.ts",
+        "trend.scan handler"
+      ],
+      "scenarios": [
+        "trend.scan job"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-API-003",
+      "title": "POST modules/:id/promote lead promotion spine",
+      "source": "apps/web/app/api/companies/[companyId]/modules/[moduleId]/promote/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "promote/route.ts",
+        "trend.promote handler"
+      ],
+      "scenarios": [
+        "pipeline.test.ts promote path"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome",
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-API-004",
+      "title": "POST modules/:id/curate research curation",
+      "source": "apps/web/app/api/companies/[companyId]/modules/[moduleId]/curate/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "curate/route.ts",
+        "research.curate handler"
+      ],
+      "scenarios": [
+        "research.curate job"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "research_quality"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-API-005",
+      "title": "GET trends + POST create trend",
+      "source": "apps/web/app/api/companies/[companyId]/trends/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "trends/route.ts"
+      ],
+      "scenarios": [
+        "trends panel data"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-API-006",
+      "title": "GET leads projection",
+      "source": "apps/web/app/api/companies/[companyId]/leads/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "leads/route.ts",
+        "lead_packages table"
+      ],
+      "scenarios": [
+        "leads panel"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-API-007",
+      "title": "GET decision trees projection",
+      "source": "apps/web/app/api/companies/[companyId]/trees/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "trees/route.ts"
+      ],
+      "scenarios": [
+        "tree inspector"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-API-008",
+      "title": "GET executions feed",
+      "source": "apps/web/app/api/companies/[companyId]/executions/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "executions/route.ts"
+      ],
+      "scenarios": [
+        "ExecutionTicker",
+        "right panel"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "execution_quality"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-API-009",
+      "title": "GET verifications dashboard data",
+      "source": "apps/web/app/api/companies/[companyId]/verifications/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "verifications/route.ts"
+      ],
+      "scenarios": [
+        "verify tab"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "compliance"
+    },
+    {
+      "id": "REQ-API-010",
+      "title": "GET positions snapshot",
+      "source": "apps/web/app/api/companies/[companyId]/positions/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "positions/route.ts",
+        "dispatch/positions.ts"
+      ],
+      "scenarios": [
+        "dispatch.test.ts positions"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-API-011",
+      "title": "GET numeric values (k/v browser API)",
+      "source": "apps/web/app/api/companies/[companyId]/values/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "values/route.ts",
+        "numeric_values schema"
+      ],
+      "scenarios": [
+        "values tab API"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-API-012",
+      "title": "GET concepts (research)",
+      "source": "apps/web/app/api/companies/[companyId]/concepts/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "concepts/route.ts"
+      ],
+      "scenarios": [
+        "left panel concepts"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "research_quality"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-API-013",
+      "title": "GET activity projection for canvas",
+      "source": "apps/web/app/api/companies/[companyId]/activity/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "activity/route.ts"
+      ],
+      "scenarios": [
+        "node activity badges"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "informational"
+    },
+    {
+      "id": "REQ-API-014",
+      "title": "GET simulations list",
+      "source": "apps/web/app/api/companies/[companyId]/simulations/route.ts",
+      "status": "stub",
+      "evidence": [
+        "simulations/route.ts returns empty/stub"
+      ],
+      "scenarios": [
+        "sims tab placeholder"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome"
+      ],
+      "safety_class": "operational",
+      "notes": "Simulator module deferred M4."
+    },
+    {
+      "id": "REQ-API-015",
+      "title": "GET catalogs/:catalog seeded data",
+      "source": "apps/web/app/api/catalogs/[catalog]/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "catalogs route",
+        "catalog_entries"
+      ],
+      "scenarios": [
+        "catalog browser"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "research_quality"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-QUE-001",
+      "title": "Postgres SKIP LOCKED job queue",
+      "source": "agent-docs/architecture/job-orchestration.md §2",
+      "status": "implemented",
+      "evidence": [
+        "packages/engine/src/queue/queue.ts",
+        "jobs schema"
+      ],
+      "scenarios": [
+        "queue claim tests"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "execution_quality"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-QUE-002",
+      "title": "Handler registry by job kind",
+      "source": "packages/engine/src/handlers/registry.ts",
+      "status": "implemented",
+      "evidence": [
+        "registry.ts",
+        "registeredKinds()"
+      ],
+      "scenarios": [
+        "handler unit tests"
+      ],
+      "venues": [
+        "all"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-QUE-003",
+      "title": "POST /api/queue/drain time-boxed worker",
+      "source": "apps/web/app/api/queue/drain/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "queue/drain/route.ts",
+        "packages/engine/src/queue/drain.ts"
+      ],
+      "scenarios": [
+        "trade route drain"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "execution_quality"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-QUE-004",
+      "title": "GET /api/queue/stats HUD projection",
+      "source": "apps/web/app/api/queue/stats/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "queue/stats/route.ts"
+      ],
+      "scenarios": [
+        "assistant queue_status lookup"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-QUE-005",
+      "title": "LLM budget admission on job claim",
+      "source": "agent-docs/architecture/job-orchestration.md §2",
+      "status": "deferred",
+      "evidence": [
+        "job-orchestration.md join spec",
+        "llm_budgets table exists"
+      ],
+      "scenarios": [
+        "M2 admission wiring"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-QUE-006",
+      "title": "job_schedules cron materialization",
+      "source": "agent-docs/architecture/job-orchestration.md §3",
+      "status": "deferred",
+      "evidence": [
+        "job_schedules schema",
+        "maintenance.sweep stub"
+      ],
+      "scenarios": [
+        "M2 module cadences"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "execution_quality"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-PIP-001",
+      "title": "research.curate deterministic placeholder",
+      "source": "packages/engine/src/handlers/research.ts",
+      "status": "stub",
+      "evidence": [
+        "research.ts",
+        "sourceClass deterministic_placeholder"
+      ],
+      "scenarios": [
+        "curate API trigger"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "research_quality"
+      ],
+      "safety_class": "operational",
+      "notes": "Honest placeholder until M2 Claude synthesis."
+    },
+    {
+      "id": "REQ-PIP-002",
+      "title": "trend.scan deterministic drift candidates",
+      "source": "packages/engine/src/handlers/trend.ts",
+      "status": "implemented",
+      "evidence": [
+        "trend.ts",
+        "trend_candidates table",
+        "ValueRef drift"
+      ],
+      "scenarios": [
+        "scan API"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-PIP-003",
+      "title": "trend.promote full synthetic spine",
+      "source": "packages/engine/src/handlers/promote.ts",
+      "status": "implemented",
+      "evidence": [
+        "promote.ts",
+        "pipeline.test.ts"
+      ],
+      "scenarios": [
+        "promote→trade chain"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome",
+        "execution_quality"
+      ],
+      "safety_class": "safety_critical",
+      "notes": "Model tiers replaced by deterministic placeholders; schema-ready for M2/M3."
+    },
+    {
+      "id": "REQ-PIP-004",
+      "title": "Six-gate lead activation",
+      "source": "packages/engine/src/pipeline/gates.ts",
+      "status": "implemented",
+      "evidence": [
+        "gates.ts",
+        "lead_packages.activation"
+      ],
+      "scenarios": [
+        "pipeline.test.ts gates"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "risk_controls",
+        "compliance_posture"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-PIP-005",
+      "title": "Decision tree tactical decomposition",
+      "source": "packages/engine/src/pipeline/tree.ts",
+      "status": "stub",
+      "evidence": [
+        "tree.ts",
+        "decision_trees table"
+      ],
+      "scenarios": [
+        "pipeline.test.ts tree build"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome"
+      ],
+      "safety_class": "safety_critical",
+      "notes": "Deterministic placeholder; Mistral tree_expand deferred M3."
+    },
+    {
+      "id": "REQ-PIP-006",
+      "title": "Groq compile stage (deterministic stand-in)",
+      "source": "packages/engine/src/pipeline/compile.ts",
+      "status": "stub",
+      "evidence": [
+        "compile.ts",
+        "compile_events table"
+      ],
+      "scenarios": [
+        "pipeline.test.ts compile"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "execution_quality"
+      ],
+      "safety_class": "safety_critical",
+      "notes": "LAST model stage boundary preserved; real Groq call deferred M3."
+    },
+    {
+      "id": "REQ-PIP-007",
+      "title": "dispatch.paper_trade execution",
+      "source": "packages/engine/src/handlers/dispatch.ts",
+      "status": "implemented",
+      "evidence": [
+        "dispatch.ts",
+        "dispatch/paper-trade.ts",
+        "dispatch.test.ts"
+      ],
+      "scenarios": [
+        "trade API end-to-end"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "execution_quality"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-PIP-008",
+      "title": "paper_sim broker adapter",
+      "source": "packages/adapters/src/paper-sim.ts",
+      "status": "implemented",
+      "evidence": [
+        "paper-sim.ts",
+        "paper-sim.test.ts"
+      ],
+      "scenarios": [
+        "adapter unit tests"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "execution_quality"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-PIP-009",
+      "title": "Immutable action_traces audit rows",
+      "source": "packages/db/src/schema/",
+      "status": "implemented",
+      "evidence": [
+        "action_traces schema",
+        "paper-trade writes traces"
+      ],
+      "scenarios": [
+        "executions API",
+        "timeline route"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "compliance"
+    },
+    {
+      "id": "REQ-PIP-010",
+      "title": "verification_records pass/fail/blocked",
+      "source": "packages/engine/src/verification/",
+      "status": "implemented",
+      "evidence": [
+        "verification README",
+        "verifications API"
+      ],
+      "scenarios": [
+        "dispatch.test.ts verification"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "compliance"
+    },
+    {
+      "id": "REQ-PIP-011",
+      "title": "Positions and ledger at fill time",
+      "source": "packages/engine/src/dispatch/positions.ts",
+      "status": "implemented",
+      "evidence": [
+        "positions.ts",
+        "ledger_entries schema"
+      ],
+      "scenarios": [
+        "dispatch.test.ts",
+        "no shorting block"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-PIP-012",
+      "title": "Synthetic quote source for paper loop",
+      "source": "packages/engine/src/dispatch/quotes.ts",
+      "status": "implemented",
+      "evidence": [
+        "quotes.ts bounded random walk"
+      ],
+      "scenarios": [
+        "trend.scan drift"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "execution_quality"
+      ],
+      "safety_class": "operational",
+      "notes": "Replaced by Alpaca live_api feeds in M3 (REQ-DEF-006)."
+    },
+    {
+      "id": "REQ-NRA-001",
+      "title": "numeric_values append-only store",
+      "source": "agent-docs/architecture/number-handling.md §2",
+      "status": "implemented",
+      "evidence": [
+        "packages/db/src/schema/numeric.ts",
+        "packages/engine/src/calc/store.ts"
+      ],
+      "scenarios": [
+        "calc.test.ts record"
+      ],
+      "venues": [
+        "all"
+      ],
+      "philosophy_axes": [
+        "operator_transparency",
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-NRA-002",
+      "title": "calc_operations audit log",
+      "source": "agent-docs/architecture/number-handling.md §4",
+      "status": "implemented",
+      "evidence": [
+        "calc_operations schema",
+        "calc/evaluate.ts"
+      ],
+      "scenarios": [
+        "calc.test.ts audit rows"
+      ],
+      "venues": [
+        "all"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-NRA-003",
+      "title": "Calculator evaluate with unit algebra",
+      "source": "packages/engine/src/calc/",
+      "status": "implemented",
+      "evidence": [
+        "evaluate.ts",
+        "units.ts",
+        "calc.test.ts"
+      ],
+      "scenarios": [
+        "17 calc unit tests"
+      ],
+      "venues": [
+        "all"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-NRA-004",
+      "title": "Leak linter on model outputs",
+      "source": "packages/engine/src/calc/leak-lint.ts",
+      "status": "implemented",
+      "evidence": [
+        "leak-lint.ts",
+        "packages/llm/src/call.ts step 5"
+      ],
+      "scenarios": [
+        "leak lint unit tests"
+      ],
+      "venues": [
+        "all"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-NRA-005",
+      "title": "Injectable clock authority",
+      "source": "packages/engine/src/clock.ts",
+      "status": "implemented",
+      "evidence": [
+        "clock.ts",
+        "createSystemClock",
+        "createFixedClock"
+      ],
+      "scenarios": [
+        "handler tests frozen clock"
+      ],
+      "venues": [
+        "all"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-NRA-006",
+      "title": "Market calendar session service",
+      "source": "packages/engine/src/calendar/calendar.ts",
+      "status": "implemented",
+      "evidence": [
+        "calendar.ts",
+        "session-constraint-catalog.json"
+      ],
+      "scenarios": [
+        "gates.ts sessionPhase"
+      ],
+      "venues": [
+        "paper_sim",
+        "alpaca"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-NRA-007",
+      "title": "Math module UI k/v browser + lineage",
+      "source": "agent-docs/product/product-spec.md §3 Math",
+      "status": "stub",
+      "evidence": [
+        "values API",
+        "RightPanel Values tab"
+      ],
+      "scenarios": [
+        "ui-spec flow 7"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "financial",
+      "notes": "API exists; full lineage graph UI deferred M3 (flow 7 not Playwright-covered)."
+    },
+    {
+      "id": "REQ-NRA-008",
+      "title": "LLM numeric substitution pass before provider call",
+      "source": "agent-docs/architecture/llm-pipeline.md §3",
+      "status": "deferred",
+      "evidence": [
+        "llm-pipeline.md step 2",
+        "call.ts expects pre-substituted input"
+      ],
+      "scenarios": [
+        "M2 NRA integration gate"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-LLM-001",
+      "title": "callSchema provider wrapper",
+      "source": "packages/llm/src/call.ts",
+      "status": "stub",
+      "evidence": [
+        "call.ts implemented but no production job invokes it"
+      ],
+      "scenarios": [
+        "requires API keys + M2 jobs"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-LLM-002",
+      "title": "Claude strategic research_synthesize",
+      "source": "agent-docs/architecture/llm-pipeline.md §6",
+      "status": "deferred",
+      "evidence": [
+        "llm-pipeline tier table"
+      ],
+      "scenarios": [
+        "M2 G2 gate"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "research_quality"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-LLM-003",
+      "title": "Mistral tactical orchestration + trend_emit",
+      "source": "agent-docs/architecture/llm-pipeline.md §6",
+      "status": "deferred",
+      "evidence": [
+        "master-build-plan M2"
+      ],
+      "scenarios": [
+        "M2 research module"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-LLM-004",
+      "title": "Groq execution compile tier",
+      "source": "agent-docs/architecture/llm-pipeline.md §1",
+      "status": "deferred",
+      "evidence": [
+        "master-build-plan M3"
+      ],
+      "scenarios": [
+        "M3 trading loop"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "execution_quality"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-LLM-005",
+      "title": "llm_calls ledger persistence from jobs",
+      "source": "agent-docs/architecture/data-model.md",
+      "status": "deferred",
+      "evidence": [
+        "llm_calls schema",
+        "no handler writes yet"
+      ],
+      "scenarios": [
+        "M2 admission"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-LLM-006",
+      "title": "llm_budgets consumption + admission",
+      "source": "packages/contracts/src/operating-budget.ts",
+      "status": "stub",
+      "evidence": [
+        "llm-budgets API read",
+        "llm_budgets table"
+      ],
+      "scenarios": [
+        "M2 budget-queued UI"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-LLM-007",
+      "title": "Budget-queued jobs visible on canvas",
+      "source": "agent-docs/architecture/llm-pipeline.md §4",
+      "status": "deferred",
+      "evidence": [
+        "llm-pipeline.md"
+      ],
+      "scenarios": [
+        "M2 UI surfacing"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-LLM-008",
+      "title": "escalate_to_strategic Claude delegation",
+      "source": "agent-docs/architecture/llm-pipeline.md §6",
+      "status": "deferred",
+      "evidence": [
+        "llm-pipeline.md Claude policy"
+      ],
+      "scenarios": [
+        "M2 orchestration"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "research_quality",
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-BRK-001",
+      "title": "Alpaca adapter (paper then live)",
+      "source": "agent-docs/architecture/broker-integration.md §2",
+      "status": "deferred",
+      "evidence": [
+        "broker.ts Venue enum",
+        "env ALPACA_* placeholders"
+      ],
+      "scenarios": [
+        "M4 G4 gate",
+        "Playwright flow 4"
+      ],
+      "venues": [
+        "alpaca"
+      ],
+      "philosophy_axes": [
+        "execution_quality"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-BRK-002",
+      "title": "Kalshi prediction markets adapter",
+      "source": "agent-docs/architecture/broker-integration.md §2",
+      "status": "deferred",
+      "evidence": [
+        "master-build-plan M5"
+      ],
+      "scenarios": [
+        "M5 G5 gate"
+      ],
+      "venues": [
+        "kalshi"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-BRK-003",
+      "title": "Polymarket CLOB adapter",
+      "source": "agent-docs/architecture/broker-integration.md §2",
+      "status": "deferred",
+      "evidence": [
+        "OQ-5 key custody",
+        "M5/M6 plan"
+      ],
+      "scenarios": [
+        "M6 capacity"
+      ],
+      "venues": [
+        "polymarket"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-BRK-004",
+      "title": "Coinbase Advanced crypto adapter",
+      "source": "agent-docs/architecture/broker-integration.md §2",
+      "status": "deferred",
+      "evidence": [
+        "master-build-plan M6"
+      ],
+      "scenarios": [
+        "post-launch evaluation"
+      ],
+      "venues": [
+        "coinbase"
+      ],
+      "philosophy_axes": [
+        "execution_quality"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-BRK-005",
+      "title": "Broker connect UX + encrypted credentials",
+      "source": "agent-docs/architecture/broker-integration.md §3",
+      "status": "deferred",
+      "evidence": [
+        "broker_connections schema only"
+      ],
+      "scenarios": [
+        "M4 connect flow"
+      ],
+      "venues": [
+        "alpaca",
+        "kalshi"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-BRK-006",
+      "title": "Live gate checklist before live mode",
+      "source": "agent-docs/architecture/broker-integration.md §4",
+      "status": "deferred",
+      "evidence": [
+        "ModeSwitch popover",
+        "master-build-plan M5 §3"
+      ],
+      "scenarios": [
+        "Playwright flow 6"
+      ],
+      "venues": [
+        "alpaca"
+      ],
+      "philosophy_axes": [
+        "compliance_posture",
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-BRK-007",
+      "title": "Live Alpaca market data feeds in data modules",
+      "source": "agent-docs/product/product-spec.md §3 Data",
+      "status": "deferred",
+      "evidence": [
+        "live_api module type",
+        "quotes.ts synthetic only"
+      ],
+      "scenarios": [
+        "M3 trend module fixtures"
+      ],
+      "venues": [
+        "alpaca"
+      ],
+      "philosophy_axes": [
+        "execution_quality"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-BIL-001",
+      "title": "Stripe one-click credit packs",
+      "source": "agent-docs/product/product-spec.md §6",
+      "status": "deferred",
+      "evidence": [
+        "credit_ledger schema",
+        "STRIPE_* env vars"
+      ],
+      "scenarios": [
+        "Playwright flow 2"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-BIL-002",
+      "title": "Clerk Billing subscription tiers",
+      "source": "agent-docs/product/product-spec.md §6",
+      "status": "deferred",
+      "evidence": [
+        "subscriptions table",
+        "OQ-4 pricing"
+      ],
+      "scenarios": [
+        "M4 gate"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-BIL-003",
+      "title": "Platform credits seed paper companies",
+      "source": "agent-docs/product/product-spec.md §4",
+      "status": "deferred",
+      "evidence": [
+        "platform_credits schema"
+      ],
+      "scenarios": [
+        "paper seed purchase"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-BIL-004",
+      "title": "LLM usage metering debits credits",
+      "source": "agent-docs/architecture/data-model.md",
+      "status": "deferred",
+      "evidence": [
+        "credit_ledger reason llm_usage"
+      ],
+      "scenarios": [
+        "M2+M4 billing"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-AST-001",
+      "title": "M1 deterministic regex intent routing",
+      "source": "apps/web/app/api/companies/[companyId]/assistant/route.ts",
+      "status": "implemented",
+      "evidence": [
+        "assistant/route.ts",
+        "packages/contracts/src/assistant.ts"
+      ],
+      "scenarios": [
+        "company-workspace assistant"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-AST-002",
+      "title": "Six read-only lookup tools",
+      "source": "agent-docs/product/product-spec.md §5",
+      "status": "implemented",
+      "evidence": [
+        "assistant route lookup handlers"
+      ],
+      "scenarios": [
+        "queue status + capabilities cards"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-AST-003",
+      "title": "20 user messages/min/company rate limit",
+      "source": "agent-docs/architecture/data-model.md Assistant",
+      "status": "implemented",
+      "evidence": [
+        "assistant POST admission"
+      ],
+      "scenarios": [
+        "rate limit unit behavior"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-AST-004",
+      "title": "Append-only assistant_messages persistence",
+      "source": "packages/db/migrations/0007_left_firestar.sql",
+      "status": "implemented",
+      "evidence": [
+        "assistant_messages schema",
+        "reload persistence test"
+      ],
+      "scenarios": [
+        "company-workspace reload history"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "compliance",
+      "notes": "Retention/erasure policy unresolved OQ-10."
+    },
+    {
+      "id": "REQ-AST-005",
+      "title": "Mistral conversational assistant chat",
+      "source": "agent-docs/product/product-spec.md §5 Target",
+      "status": "deferred",
+      "evidence": [
+        "master-build-plan M2"
+      ],
+      "scenarios": [
+        "M2+ chat"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-AST-006",
+      "title": "Write tools + assistant_edits audit (M4)",
+      "source": "agent-docs/architecture/llm-pipeline.md §7",
+      "status": "deferred",
+      "evidence": [
+        "assistant_edits schema",
+        "Playwright flow 5"
+      ],
+      "scenarios": [
+        "proposal cards"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "compliance_posture",
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-RES-001",
+      "title": "Galaxy 3D concept graph (react-force-graph-3d)",
+      "source": "agent-docs/ui-ux/ui-spec.md §6",
+      "status": "deferred",
+      "evidence": [
+        "D-007 decision",
+        "TD-09"
+      ],
+      "scenarios": [
+        "M2 G2 gate"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "research_quality"
+      ],
+      "safety_class": "informational"
+    },
+    {
+      "id": "REQ-RES-002",
+      "title": "Obsidian zip export per library",
+      "source": "agent-docs/product/product-spec.md §3",
+      "status": "deferred",
+      "evidence": [
+        "master-build-plan M2 §4"
+      ],
+      "scenarios": [
+        "export download"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "research_quality"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-RES-003",
+      "title": "concept_links typed galaxy edges",
+      "source": "agent-docs/architecture/data-model.md",
+      "status": "deferred",
+      "evidence": [
+        "concept_links in schema",
+        "no UI/API yet"
+      ],
+      "scenarios": [
+        "M2 graph API"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "research_quality"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-RES-004",
+      "title": "Library curation UI + management",
+      "source": "agent-docs/ui-ux/ui-spec.md §4 LEFT",
+      "status": "deferred",
+      "evidence": [
+        "libraries schema",
+        "left panel partial"
+      ],
+      "scenarios": [
+        "M2 research tab"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "research_quality"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-RES-005",
+      "title": "pgvector concept embeddings",
+      "source": "agent-docs/architecture/data-model.md",
+      "status": "deferred",
+      "evidence": [
+        "embedding column nullable phase-gated"
+      ],
+      "scenarios": [
+        "M2+ search"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "research_quality"
+      ],
+      "safety_class": "informational"
+    },
+    {
+      "id": "REQ-RES-006",
+      "title": "Scoped web research (Brave optional)",
+      "source": "agent-docs/product/product-spec.md §3 Research",
+      "status": "deferred",
+      "evidence": [
+        "research module config spec"
+      ],
+      "scenarios": [
+        "M2 autonomous research"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "research_quality"
+      ],
+      "safety_class": "compliance"
+    },
+    {
+      "id": "REQ-CAT-001",
+      "title": "Vendored v1 JSON catalogs in-repo",
+      "source": "packages/db/src/seed/catalogs/",
+      "status": "implemented",
+      "evidence": [
+        "9 catalog JSON files",
+        "catalogs/README.md"
+      ],
+      "scenarios": [
+        "D-015 independence"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "research_quality"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-CAT-002",
+      "title": "seed-catalogs.ts upsert script",
+      "source": "packages/db/src/seed/seed-catalogs.ts",
+      "status": "implemented",
+      "evidence": [
+        "seed-catalogs.ts"
+      ],
+      "scenarios": [
+        "pnpm db seed catalogs"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-CAT-003",
+      "title": "catalog_entries generic store",
+      "source": "packages/db/src/schema/research.ts",
+      "status": "implemented",
+      "evidence": [
+        "catalog_entries table",
+        "97 entries per data-model"
+      ],
+      "scenarios": [
+        "GET /api/catalogs/:catalog"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "research_quality"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-CAT-004",
+      "title": "Strategy families catalog consumption",
+      "source": "packages/db/src/seed/catalogs/seeded-strategy-catalog.json",
+      "status": "implemented",
+      "evidence": [
+        "research.curate reads strategy_families"
+      ],
+      "scenarios": [
+        "curate job"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-CAT-005",
+      "title": "Guardrail + recovery package catalogs",
+      "source": "packages/db/src/seed/catalogs/guardrail-recovery-package-catalog.json",
+      "status": "implemented",
+      "evidence": [
+        "catalog seeded",
+        "pipeline gates reference versions"
+      ],
+      "scenarios": [
+        "gates policy envelope"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "risk_controls",
+        "compliance_posture"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-CAT-006",
+      "title": "Session constraint catalog for legality",
+      "source": "packages/db/src/seed/catalogs/session-constraint-catalog.json",
+      "status": "implemented",
+      "evidence": [
+        "calendar.ts",
+        "session-constraint-catalog.json"
+      ],
+      "scenarios": [
+        "gates session checks"
+      ],
+      "venues": [
+        "paper_sim",
+        "alpaca"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-CAT-007",
+      "title": "Broker policy envelope catalog",
+      "source": "packages/db/src/seed/catalogs/broker-policy-envelope-catalog.json",
+      "status": "implemented",
+      "evidence": [
+        "promote.ts POLICY_ENVELOPE_VERSION"
+      ],
+      "scenarios": [
+        "paper_balanced_general_v1"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-CAT-008",
+      "title": "Compliance policy package catalog",
+      "source": "packages/db/src/seed/catalogs/compliance-policy-package-catalog.json",
+      "status": "implemented",
+      "evidence": [
+        "catalog file seeded"
+      ],
+      "scenarios": [
+        "compliance copy baseline"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "compliance"
+    },
+    {
+      "id": "REQ-SAF-001",
+      "title": "Model-free dispatch and verification",
+      "source": "AGENTS.md Safety invariants",
+      "status": "implemented",
+      "evidence": [
+        "dispatch handlers",
+        "no llm in engine dispatch"
+      ],
+      "scenarios": [
+        "architecture review"
+      ],
+      "venues": [
+        "all"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-SAF-002",
+      "title": "Guardrail packages immutable at runtime",
+      "source": "AGENTS.md",
+      "status": "implemented",
+      "evidence": [
+        "seeded guardrail catalogs",
+        "training_feedback mutation_class"
+      ],
+      "scenarios": [
+        "contract tests"
+      ],
+      "venues": [
+        "all"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-SAF-003",
+      "title": "enforceScopeStrict fail-closed levers",
+      "source": "agent-docs/architecture/llm-pipeline.md §2",
+      "status": "deferred",
+      "evidence": [
+        "v1 carryover spec",
+        "M3 port target"
+      ],
+      "scenarios": [
+        "M3 ≥294 tests claim"
+      ],
+      "venues": [
+        "all"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical",
+      "notes": "doc-drift: master-build-plan cites ≥294 v1 tests; current engine+contracts ~57 vitest cases only."
+    },
+    {
+      "id": "REQ-SAF-004",
+      "title": "No guaranteed-returns language in product",
+      "source": "agent-docs/product/product-spec.md §8",
+      "status": "implemented",
+      "evidence": [
+        "compliance-policy catalog",
+        "ui copy review"
+      ],
+      "scenarios": [
+        "copy audit"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "compliance"
+    },
+    {
+      "id": "REQ-SAF-005",
+      "title": "Entitlement truthfulness on data feeds",
+      "source": "agent-docs/product/product-spec.md §8",
+      "status": "deferred",
+      "evidence": [
+        "live_api config spec",
+        "no live feeds yet"
+      ],
+      "scenarios": [
+        "M3 feed labels"
+      ],
+      "venues": [
+        "alpaca"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "compliance"
+    },
+    {
+      "id": "REQ-SAF-006",
+      "title": "Session legality matrix enforcement",
+      "source": "packages/engine/src/pipeline/gates.ts",
+      "status": "implemented",
+      "evidence": [
+        "gates.ts sessionPhase",
+        "session catalog"
+      ],
+      "scenarios": [
+        "pipeline.test.ts session block"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-SAF-007",
+      "title": "Paper/live engine parity (one engine)",
+      "source": "AGENTS.md",
+      "status": "implemented",
+      "evidence": [
+        "paper_sim adapter",
+        "mode field on traces"
+      ],
+      "scenarios": [
+        "architecture review"
+      ],
+      "venues": [
+        "paper_sim",
+        "alpaca"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical",
+      "notes": "Live adapter path not built; parity design only."
+    },
+    {
+      "id": "REQ-SAF-008",
+      "title": "Trace retention 90d hot / 1y archive",
+      "source": "agent-docs/product/product-spec.md §8",
+      "status": "deferred",
+      "evidence": [
+        "data-model retention note",
+        "M6 jobs"
+      ],
+      "scenarios": [
+        "M6 retention jobs"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "compliance"
+    },
+    {
+      "id": "REQ-TST-001",
+      "title": "Contracts package vitest suite",
+      "source": "packages/contracts/src/contracts.test.ts",
+      "status": "implemented",
+      "evidence": [
+        "contracts.test.ts 19 cases"
+      ],
+      "scenarios": [
+        "pnpm test contracts"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-TST-002",
+      "title": "Engine pipeline + dispatch + calc tests",
+      "source": "packages/engine/src/",
+      "status": "implemented",
+      "evidence": [
+        "pipeline.test.ts",
+        "dispatch.test.ts",
+        "calc.test.ts"
+      ],
+      "scenarios": [
+        "34 engine test cases"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-TST-003",
+      "title": "paper-sim adapter tests",
+      "source": "packages/adapters/src/paper-sim.test.ts",
+      "status": "implemented",
+      "evidence": [
+        "paper-sim.test.ts 4 cases"
+      ],
+      "scenarios": [
+        "pnpm test adapters"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "execution_quality"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-TST-004",
+      "title": "companies.spec.ts Playwright",
+      "source": "apps/web/e2e/companies.spec.ts",
+      "status": "implemented",
+      "evidence": [
+        "companies.spec.ts"
+      ],
+      "scenarios": [
+        "template form"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-TST-005",
+      "title": "company-workspace.spec.ts Playwright",
+      "source": "apps/web/e2e/company-workspace.spec.ts",
+      "status": "implemented",
+      "evidence": [
+        "company-workspace.spec.ts 153 lines"
+      ],
+      "scenarios": [
+        "canvas/panels/assistant"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-TST-006",
+      "title": "Clerk sign-up E2E (flow 1 full)",
+      "source": "agent-docs/ui-ux/ui-spec.md §7 flow 1",
+      "status": "deferred",
+      "evidence": [
+        "ui-spec: M1 subset auth-bypass only"
+      ],
+      "scenarios": [
+        "Clerk test account needed"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "compliance_posture"
+      ],
+      "safety_class": "operational",
+      "notes": "doc-drift: flow 1 claimed in spec table but explicitly marked not Clerk-covered."
+    },
+    {
+      "id": "REQ-TST-007",
+      "title": "Full pipeline flow 3 Playwright",
+      "source": "agent-docs/ui-ux/ui-spec.md §7 flow 3",
+      "status": "deferred",
+      "evidence": [
+        "ui-spec Not yet covered"
+      ],
+      "scenarios": [
+        "research→trade E2E"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "execution_quality",
+        "strategy_outcome"
+      ],
+      "safety_class": "safety_critical",
+      "notes": "Synthetic spine exists in engine; no E2E driving full hop chain."
+    },
+    {
+      "id": "REQ-TST-008",
+      "title": "Math lineage flow 7 Playwright",
+      "source": "agent-docs/ui-ux/ui-spec.md §7 flow 7",
+      "status": "deferred",
+      "evidence": [
+        "ui-spec Not yet covered"
+      ],
+      "scenarios": [
+        "k/v browser lineage click"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-DEF-001",
+      "title": "Fund router ledger transfers + approval inbox",
+      "source": "agent-docs/product/product-spec.md §3 Fund router",
+      "status": "deferred",
+      "evidence": [
+        "fund_transfers schema",
+        "D-023 topology only"
+      ],
+      "scenarios": [
+        "M3 fund model v1"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "risk_controls"
+      ],
+      "safety_class": "financial"
+    },
+    {
+      "id": "REQ-DEF-002",
+      "title": "Simulator parallel paper runs + comparison UI",
+      "source": "agent-docs/product/product-spec.md §3 Simulator",
+      "status": "deferred",
+      "evidence": [
+        "simulation_runs schema",
+        "M4 gate"
+      ],
+      "scenarios": [
+        "M4 simulator module"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-DEF-003",
+      "title": "Analyzer verification loopback module",
+      "source": "agent-docs/product/product-spec.md §3 Analyzer",
+      "status": "deferred",
+      "evidence": [
+        "analyzer module type in schema"
+      ],
+      "scenarios": [
+        "M4 analyzer v1"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "execution_quality"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-DEF-004",
+      "title": "Module generator conversational create",
+      "source": "agent-docs/product/product-spec.md §3",
+      "status": "deferred",
+      "evidence": [
+        "generator module type"
+      ],
+      "scenarios": [
+        "M4+ assistant tools"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "operator_transparency"
+      ],
+      "safety_class": "operational"
+    },
+    {
+      "id": "REQ-DEF-005",
+      "title": "Training feedback bounded band retunes",
+      "source": "agent-docs/architecture/system-architecture.md §4",
+      "status": "deferred",
+      "evidence": [
+        "training_feedback schema"
+      ],
+      "scenarios": [
+        "M3+ training loop"
+      ],
+      "venues": [
+        "paper_sim"
+      ],
+      "philosophy_axes": [
+        "strategy_outcome",
+        "risk_controls"
+      ],
+      "safety_class": "safety_critical"
+    },
+    {
+      "id": "REQ-DEF-006",
+      "title": "Dedicated queue worker (OQ-2 escalation)",
+      "source": "agent-docs/architecture/job-orchestration.md §4",
+      "status": "deferred",
+      "evidence": [
+        "OQ-2 open question"
+      ],
+      "scenarios": [
+        "M5 latency measurement"
+      ],
+      "venues": [
+        "platform"
+      ],
+      "philosophy_axes": [
+        "execution_quality"
+      ],
+      "safety_class": "operational"
+    }
+  ]
+}

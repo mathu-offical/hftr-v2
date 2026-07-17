@@ -54,16 +54,26 @@ When implementing flows from `ui-ux/ui-spec.md` §7, verify the relevant flow:
 6. Live-gate blocked with text-first reasons
 7. Math module lineage from trace inspector
 
-## 5. Doc sync
+## 5. Paper experiment verification
+
+When closing a paper experiment run (`paper-experiment` skill):
+
+- [ ] Preflight confirmed: mode=`paper`, no live adapter/credentials, live gate not bypassed
+- [ ] Cohort traces and verification records captured for each company in scope
+- [ ] Provenance audit: feedClass honesty + ValueRef lineage (see `number-handling.mdc` §Experiment close-out)
+- [ ] Intent-alignment audit scored per `agent-docs/testing/intent-alignment-scoring.md`; hard fail on immutable cap violations
+- [ ] Console clean on any UI exercised during the run
+
+## 6. Doc sync
 
 If verification reveals doc drift: fix agent-docs in same session.
 Mark any unverified claims with explicit "unverified" until proven.
 
-## 6. Report
+## 7. Report
 
 Summarize for user: what was verified, how, and any remaining gaps/OQ-n.
 
-## 7. Commit (mandatory — invoke skill)
+## 8. Commit (mandatory — invoke skill)
 
 If verification passed and the working tree has run changes:
 

@@ -57,6 +57,10 @@ export {
 } from './research/market-news';
 export { filterSourceKinds } from './research/source-matrix';
 export {
+  evidenceFromLibraryConcepts,
+  type LibraryConceptEvidenceInput,
+} from './research/library-concepts';
+export {
   gatherEvidencePackages,
   type GatherEvidencePackagesOptions,
   type GatherEvidenceError,

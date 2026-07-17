@@ -1,5 +1,9 @@
 import type { EvidencePackage, ResearchSourceKind } from '@hftr/contracts';
 import { BraveSearchError, searchBrave } from './brave-search';
+import {
+  evidenceFromLibraryConcepts,
+  type LibraryConceptEvidenceInput,
+} from './library-concepts';
 import { fetchMarketNews, MarketNewsError } from './market-news';
 import { searchSecFilings, SecFilingsError } from './sec-filings';
 import { filterSourceKinds } from './source-matrix';
@@ -23,6 +27,8 @@ export interface GatherEvidencePackagesOptions {
   /** Passed to market news when no API key. */
   marketNewsAllowDeterministicFallback?: boolean;
   marketNewsFeedUrl?: string;
+  /** Preloaded admitted library concepts for sourceKind `library`. */
+  libraryConcepts?: LibraryConceptEvidenceInput[];
 }
 
 function errorCode(err: unknown): string {
@@ -69,9 +75,12 @@ async function gatherFromSource(
         ...(opts.marketNewsFeedUrl ? { feedUrl: opts.marketNewsFeedUrl } : {}),
         allowDeterministicFallback: opts.marketNewsAllowDeterministicFallback ?? true,
       });
+    case 'library':
+      return evidenceFromLibraryConcepts(opts.libraryConcepts ?? [], {
+        maxResults: perSourceMax,
+      });
     case 'alpaca_bars':
     case 'catalog':
-    case 'library':
     case 'operator':
       throw new Error('unsupported_source');
     default: {

@@ -19,16 +19,16 @@ Every API route follows the same pattern (`lib/api.ts`):
 
 ## API surface (current)
 
-| Route | Methods | Notes |
-|---|---|---|
-| `/api/health` | GET | public liveness + db probe |
-| `/api/queue/drain` | GET | Vercel cron (per-minute), `CRON_SECRET` bearer |
-| `/api/queue/stats` | GET | queue depth projection |
-| `/api/companies` | GET, POST | create auto-provisions the Math module (D-008) |
-| `/api/companies/:id` | GET, PATCH, DELETE | DELETE = archive (soft) |
-| `/api/companies/:id/modules` | GET, POST | per-type config validated via schema registry |
-| `/api/companies/:id/modules/:mid` | GET, PATCH, DELETE | math module non-deletable |
-| `/api/companies/:id/links` | GET, POST | edges validated against `LINK_RULES` |
+| Route                             | Methods            | Notes                                          |
+| --------------------------------- | ------------------ | ---------------------------------------------- |
+| `/api/health`                     | GET                | public liveness + db probe                     |
+| `/api/queue/drain`                | GET                | Vercel cron (per-minute), `CRON_SECRET` bearer |
+| `/api/queue/stats`                | GET                | queue depth projection                         |
+| `/api/companies`                  | GET, POST          | create auto-provisions the Math module (D-008) |
+| `/api/companies/:id`              | GET, PATCH, DELETE | DELETE = archive (soft)                        |
+| `/api/companies/:id/modules`      | GET, POST          | per-type config validated via schema registry  |
+| `/api/companies/:id/modules/:mid` | GET, PATCH, DELETE | math module non-deletable                      |
+| `/api/companies/:id/links`        | GET, POST          | edges validated against `LINK_RULES`           |
 
 ## UI
 

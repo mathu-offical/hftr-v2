@@ -14,6 +14,7 @@ import '@xyflow/react/dist/style.css';
 import {
   allowedLinkKinds,
   MODULE_COLUMN,
+  type EngineTemplate,
   type ModuleStatus,
   type ModuleType,
 } from '@hftr/contracts';
@@ -196,6 +197,63 @@ export function CompanyCanvas(props: {
     [nodes, props.companyId, setNodes],
   );
 
+  /**
+   * Inserts an end-to-end engine template: creates each module (user input
+   * values merged into configs — inputs sharing a configKey are joined),
+   * then the links between them, offset below existing nodes.
+   */
+  const insertEngine = useCallback(
+    async (engine: EngineTemplate, inputs: Record<string, string>) => {
+      const configs = engine.modules.map((m) => ({ ...m.config }));
+      // Inputs sharing a target configKey compose in declaration order.
+      const grouped = new Map<string, string[]>();
+      for (const input of engine.inputs) {
+        const value = inputs[input.key]?.trim();
+        if (!value) continue;
+        const mapKey = `${input.target.moduleIndex}:${input.target.configKey}`;
+        grouped.set(mapKey, [...(grouped.get(mapKey) ?? []), value]);
+      }
+      for (const [mapKey, values] of grouped) {
+        const [idx, configKey] = mapKey.split(':') as [string, string];
+        configs[Number(idx)]![configKey] = values.join(' — ');
+      }
+
+      const yOffset = nodes.length > 0 ? Math.max(...nodes.map((n) => n.position.y)) + 180 : 60;
+      const baseY = Math.min(...engine.modules.map((m) => m.position.y));
+
+      const created: { id: string }[] = [];
+      for (let i = 0; i < engine.modules.length; i += 1) {
+        const m = engine.modules[i]!;
+        const position = { x: m.position.x, y: yOffset + (m.position.y - baseY) };
+        const { module } = await api<{ module: { id: string } }>(
+          `/api/companies/${props.companyId}/modules`,
+          { method: 'POST', body: { type: m.type, name: m.name, config: configs[i], canvasPosition: position } },
+        );
+        created.push(module);
+        setNodes((current) => [
+          ...current,
+          toNode({ id: module.id, type: m.type, name: m.name, status: 'draft', position }),
+        ]);
+      }
+      for (const l of engine.links) {
+        const { link } = await api<{ link: CanvasLink }>(
+          `/api/companies/${props.companyId}/links`,
+          {
+            method: 'POST',
+            body: {
+              fromModuleId: created[l.fromIndex]!.id,
+              toModuleId: created[l.toIndex]!.id,
+              linkKind: l.linkKind,
+            },
+          },
+        );
+        setEdges((current) => [...current, toEdge(link)]);
+      }
+      flash(`${engine.label} inserted — activate its modules to start.`);
+    },
+    [nodes, props.companyId, setNodes, setEdges],
+  );
+
   const onEdgesDelete = useCallback(
     (deleted: Edge[]) => {
       for (const edge of deleted) {
@@ -240,7 +298,7 @@ export function CompanyCanvas(props: {
 
   return (
     <div className="relative flex min-h-0 flex-1">
-      <Palette onAdd={addModule} />
+      <Palette onAdd={addModule} onInsertEngine={insertEngine} />
 
       <div className="min-w-0 flex-1">
         <ReactFlow

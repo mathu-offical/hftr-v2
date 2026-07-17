@@ -74,14 +74,16 @@ Layout uses measured React Flow node dimensions when available and conservative 
 | Constant | Minimum |
 |---|---:|
 | Module card width | 280 px |
+| Module card height (layout floor) | 320 px (setup-bearing cards) |
 | Horizontal edge/port gutter | 180 px between card bodies |
 | Vertical row gutter | 160 px between owner/tool envelopes |
 | Owner → Math attachment gap | 24 px |
+| Owner/tool envelope height | card + gap + Math tool (392 px at floor) |
 | Group left/right padding | 112 px |
-| Group header/top padding | 120 px |
-| Group bottom padding | 160 px |
+| Group header/top padding | 300 px (full shared setup chrome, D-035) |
+| Group bottom padding | 180 px |
 
-An **owner/tool envelope** includes the module card, its labeled side ports, its dedicated Math tool, and the attachment gap. Layout collision checks use envelopes rather than module card rectangles.
+An **owner/tool envelope** includes the module card, its labeled side ports, its dedicated Math tool, and the attachment gap. Layout collision checks and `LAYOUT_ROW_STEP` use envelopes rather than module card rectangles alone. Engine bounds include dedicated Math docks so group chrome covers the full envelope.
 
 ## Engine-scoped Reflow
 

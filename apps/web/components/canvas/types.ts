@@ -1,5 +1,6 @@
 import {
   linkKindForHandlePair,
+  type EngineSetupSnapshot,
   type LinkKind,
   type ModuleSetupField,
   type ModuleStatus,
@@ -28,6 +29,10 @@ export interface CanvasEngineGroup {
   templateId: string;
   label: string;
   masterTopicSectors: string[];
+  capitalAllocationRef?: string | null;
+  targetExitRef?: string | null;
+  setupSnapshot?: EngineSetupSnapshot | null;
+  templateInputs?: Record<string, string>;
   canvasBounds: { x: number; y: number; width: number; height: number } | null;
   memberModuleIds: string[];
 }

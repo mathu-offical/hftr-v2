@@ -405,6 +405,11 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   nodes (`defaultMemberSetupDrafts` / `withDefaultEngineSetup`); extra engines at create use
   `cascadeEngineSetup` instead of stamping the full envelope onto every member. Skip-setup
   create/insert still cascades capital+exit defaults server-side (topic remains operator-required).
+  **Regression fix (2026-07-17 evening):** engine chrome briefly lost full shared setup after Math
+  reflow work — `EngineGroupNode` topic-only, page hydration omitted `setupSnapshot`/
+  `templateInputs`, and `PATCH /engines/:id` ignored `setup`. Restored D-035 UI + PATCH cascade
+  + SSR hydrate; layout floors raised so owner/tool envelopes (`LAYOUT_ROW_STEP`) and group
+  top padding (300) clear taller setup cards and dedicated Math docks.
   **Status: implemented and verified.**
 
 - **D-036 (auto-disarm + drain latency, 2026-07-17):**

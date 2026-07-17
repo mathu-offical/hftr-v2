@@ -118,6 +118,15 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
               templateId: e.templateId,
               label: e.label,
               masterTopicSectors: e.masterTopicSectors,
+              capitalAllocationRef: e.capitalAllocationRef,
+              targetExitRef: e.targetExitRef,
+              setupSnapshot: (e.setupSnapshot ?? null) as {
+                topicSectors: string[];
+                allocationMode: 'amount' | 'percentage';
+                allocationValue: string;
+                targetExitLocal: string;
+              } | null,
+              templateInputs: (e.templateInputs ?? {}) as Record<string, string>,
               canvasBounds: e.canvasBounds as {
                 x: number;
                 y: number;

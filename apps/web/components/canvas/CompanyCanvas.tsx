@@ -351,7 +351,7 @@ function buildInitialGraph(
   companyId: string,
   engineCallbacks: Pick<
     EngineGroupFlowNode['data'],
-    'onRequestDelete' | 'onRequestReflow' | 'onMasterTopicSaved'
+    'onRequestDelete' | 'onRequestReflow' | 'onEngineSetupSaved'
   >,
 ): CanvasFlowNode[] {
   const attachmentMap = new Map<string, { id: string; name: string }[]>();
@@ -396,6 +396,8 @@ function buildInitialGraph(
         label: engine.label,
         templateId: engine.templateId,
         masterTopicSectors: engine.masterTopicSectors,
+        setupSnapshot: engine.setupSnapshot ?? null,
+        templateInputs: engine.templateInputs ?? {},
         memberModuleIds: engine.memberModuleIds,
         ...engineCallbacks,
       },
@@ -541,7 +543,7 @@ export function CompanyCanvas(props: {
   const [notice, setNotice] = useState<string | null>(null);
   const rfInstanceRef = useRef<ReactFlowInstance<CanvasFlowNode, Edge> | null>(null);
 
-  type MasterTopicModules = Array<{
+  type EngineSetupModules = Array<{
     id: string;
     topicSectors: string[];
     capitalAllocationRef: string | null;
@@ -552,15 +554,21 @@ export function CompanyCanvas(props: {
   const engineCallbacksRef = useRef<{
     onRequestDelete: (engineId: string) => void;
     onRequestReflow: (engineId: string) => void;
-    onMasterTopicSaved: (
+    onEngineSetupSaved: (
       engineId: string,
-      masterTopicSectors: string[],
-      modules: MasterTopicModules,
+      engine: {
+        masterTopicSectors: string[];
+        setupSnapshot?: EngineGroupFlowNode['data']['setupSnapshot'];
+        templateInputs?: Record<string, string>;
+        capitalAllocationRef?: string | null;
+        targetExitRef?: string | null;
+      },
+      modules: EngineSetupModules,
     ) => void;
   }>({
     onRequestDelete: () => {},
     onRequestReflow: () => {},
-    onMasterTopicSaved: () => {},
+    onEngineSetupSaved: () => {},
   });
 
   const stableEngineCallbacks = useMemo(
@@ -571,12 +579,18 @@ export function CompanyCanvas(props: {
       onRequestReflow: (engineId: string) => {
         engineCallbacksRef.current.onRequestReflow(engineId);
       },
-      onMasterTopicSaved: (
+      onEngineSetupSaved: (
         engineId: string,
-        masterTopicSectors: string[],
-        modules: MasterTopicModules,
+        engine: {
+          masterTopicSectors: string[];
+          setupSnapshot?: EngineGroupFlowNode['data']['setupSnapshot'];
+          templateInputs?: Record<string, string>;
+          capitalAllocationRef?: string | null;
+          targetExitRef?: string | null;
+        },
+        modules: EngineSetupModules,
       ) => {
-        engineCallbacksRef.current.onMasterTopicSaved(engineId, masterTopicSectors, modules);
+        engineCallbacksRef.current.onEngineSetupSaved(engineId, engine, modules);
       },
     }),
     [],
@@ -598,8 +612,18 @@ export function CompanyCanvas(props: {
     setDeleteEngineId(engineId);
   }, []);
 
-  const handleMasterTopicSaved = useCallback(
-    (engineId: string, masterTopicSectors: string[], modules: MasterTopicModules) => {
+  const handleEngineSetupSaved = useCallback(
+    (
+      engineId: string,
+      engine: {
+        masterTopicSectors: string[];
+        setupSnapshot?: EngineGroupFlowNode['data']['setupSnapshot'];
+        templateInputs?: Record<string, string>;
+        capitalAllocationRef?: string | null;
+        targetExitRef?: string | null;
+      },
+      modules: EngineSetupModules,
+    ) => {
       const moduleById = new Map(modules.map((m) => [m.id, m]));
       setNodes((current) =>
         current.map((node) => {
@@ -608,7 +632,12 @@ export function CompanyCanvas(props: {
               ...node,
               data: {
                 ...node.data,
-                masterTopicSectors,
+                masterTopicSectors: engine.masterTopicSectors,
+                setupSnapshot:
+                  engine.setupSnapshot !== undefined
+                    ? engine.setupSnapshot
+                    : (node.data.setupSnapshot ?? null),
+                templateInputs: engine.templateInputs ?? node.data.templateInputs ?? {},
                 memberModuleIds: modules.map((m) => m.id),
               },
             };
@@ -797,7 +826,7 @@ export function CompanyCanvas(props: {
   engineCallbacksRef.current = {
     onRequestDelete: handleRequestDelete,
     onRequestReflow: handleEngineReflow,
-    onMasterTopicSaved: handleMasterTopicSaved,
+    onEngineSetupSaved: handleEngineSetupSaved,
   };
 
   useEffect(() => {
@@ -1226,6 +1255,10 @@ export function CompanyCanvas(props: {
             templateId: string;
             label: string;
             masterTopicSectors: string[];
+            capitalAllocationRef?: string | null;
+            targetExitRef?: string | null;
+            setupSnapshot?: CanvasEngineGroup['setupSnapshot'];
+            templateInputs?: Record<string, string>;
             canvasBounds: { x: number; y: number; width: number; height: number } | null;
             memberModuleIds: string[];
           };
@@ -1272,6 +1305,10 @@ export function CompanyCanvas(props: {
               templateId: response.engine.templateId,
               label: response.engine.label,
               masterTopicSectors: response.engine.masterTopicSectors,
+              capitalAllocationRef: response.engine.capitalAllocationRef ?? null,
+              targetExitRef: response.engine.targetExitRef ?? null,
+              setupSnapshot: response.engine.setupSnapshot ?? null,
+              templateInputs: response.engine.templateInputs ?? inputs,
               canvasBounds: bounds,
               memberModuleIds: response.engine.memberModuleIds,
             },

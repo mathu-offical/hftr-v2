@@ -51,14 +51,15 @@
   bind policy envelopes to the trading modules linked into them. Company creation seeds one Math
   module (`Deterministic Math Calculator`); D-028 adds repeatable Math **tools** multi-attachable
   to consumers (see below).
-- **ENGINE groups (D-028 / `canvas-engine-group-design.md`):** insertable engine templates
+- **ENGINE groups (D-028 / D-035 / `canvas-engine-group-design.md`):** insertable engine templates
   persist as `engine_instances` with a dashed React Flow **parent** chrome (`EngineGroupNode`):
-  template label, inline **master topic/sector** editor, delete affordance. Member modules are
-  child nodes (`engine_instance_id`); Math is never a member. Master topic cascades to members
-  until `topic_sectors_overridden`; inspector/module PATCH supports **Restore engine topic**
-  (`restoreEngineTopic`). Delete engine: modal offers **cascade** (remove members + links) vs
-  **ungroup** (keep modules, clear membership). **Canvas wiring partial** — API/DB/component
-  shipped; parent rendering + delete modal + IronBee/E2E not verified.
+  template label, **Reflow**, delete, and **full shared setup** (topic/sector, total capital
+  envelope, overall exit) plus editable template inputs. Member modules are child nodes
+  (`engine_instance_id`); Math is never a member. Shared setup cascades to members until
+  overridden (`topic_sectors_overridden`); capital splits equally across capital-bearing
+  members; exit is the same overall deadline. Inspector/module PATCH supports **Restore
+  engine topic** (`restoreEngineTopic`). Delete engine: modal offers **cascade** (remove
+  members + links) vs **ungroup** (keep modules, clear membership).
 - **Math tools (D-028):** additional Math modules may be created from the palette and deleted;
   each may `data_feed`-attach to allowed consumer types (`MATH_TOOL_CONSUMER_TYPES`). n8n-style
   TOOL dock chrome on consumers is deferred; link rules and contracts are in place.

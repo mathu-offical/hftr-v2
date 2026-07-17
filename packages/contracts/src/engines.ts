@@ -1,10 +1,17 @@
 import { z } from 'zod';
-import { CanvasPosition, ModuleSetupInput, ModuleType } from './modules';
+import {
+  CanvasPosition,
+  CapitalAllocationInput,
+  ModuleSetupInput,
+  ModuleType,
+  requiredModuleSetupFields,
+  type ModuleSetupField,
+} from './modules';
 
 /**
- * Persisted ENGINE instance contracts (D-028).
- * An engine is an insertable template graph with a master topic/sector that
- * cascades to member modules unless overridden.
+ * Persisted ENGINE instance contracts (D-028 / D-035).
+ * An engine is an insertable template graph with master setup (topic, total
+ * capital envelope, overall exit) that cascades to members unless overridden.
  */
 
 export const DeleteEngineMode = z.enum(['cascade', 'ungroup']);
@@ -18,12 +25,25 @@ export const EngineCanvasBounds = z.object({
 });
 export type EngineCanvasBounds = z.infer<typeof EngineCanvasBounds>;
 
+/** Operator-visible setup draft stored on the ENGINE for group chrome. */
+export const EngineSetupSnapshot = z.object({
+  topicSectors: z.array(z.string().trim().min(1).max(80)).max(20).default([]),
+  allocationMode: z.enum(['amount', 'percentage']).default('amount'),
+  allocationValue: z.string().default(''),
+  targetExitLocal: z.string().default(''),
+});
+export type EngineSetupSnapshot = z.infer<typeof EngineSetupSnapshot>;
+
 export const EngineInstance = z.object({
   id: z.string().uuid(),
   companyId: z.string().uuid(),
   templateId: z.string().min(1).max(80),
   label: z.string().min(1).max(120),
   masterTopicSectors: z.array(z.string().trim().min(1).max(80)).max(20),
+  capitalAllocationRef: z.string().nullable().optional(),
+  targetExitRef: z.string().nullable().optional(),
+  setupSnapshot: EngineSetupSnapshot.optional(),
+  templateInputs: z.record(z.string(), z.string()).optional(),
   canvasBounds: EngineCanvasBounds.nullable(),
   memberModuleIds: z.array(z.string().uuid()).optional(),
 });
@@ -43,6 +63,10 @@ export type InsertEngineInput = z.infer<typeof InsertEngineInput>;
 export const UpdateEngineInstanceInput = z.object({
   label: z.string().min(1).max(120).optional(),
   masterTopicSectors: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+  /** Full shared setup (topic + total envelope + overall exit). Cascades to members. */
+  setup: ModuleSetupInput.optional(),
+  setupSnapshot: EngineSetupSnapshot.optional(),
+  templateInputs: z.record(z.string(), z.string()).optional(),
   canvasBounds: EngineCanvasBounds.nullable().optional(),
 });
 export type UpdateEngineInstanceInput = z.infer<typeof UpdateEngineInstanceInput>;
@@ -79,12 +103,16 @@ export function isMathToolAttachment(
   return fromType === 'math' && mathCanAttachTo(toType) && linkKind === 'data_feed';
 }
 
-/** Default group padding around member module cards (port labels + chrome). */
+/**
+ * Default group padding around member module cards (D-033 connection-safe +
+ * D-035 full shared setup chrome).
+ */
 export const ENGINE_GROUP_PADDING = {
-  left: 80,
-  right: 80,
-  top: 72,
-  bottom: 96,
+  left: 112,
+  right: 112,
+  /** Label bar + master topic editor chrome (EngineGroupNode). */
+  top: 120,
+  bottom: 160,
 } as const;
 
 export function computeEngineBoundsFromPositions(
@@ -93,7 +121,12 @@ export function computeEngineBoundsFromPositions(
   nodeHeight = 220,
 ): EngineCanvasBounds {
   if (positions.length === 0) {
-    return { x: 0, y: 0, width: 400, height: 300 };
+    return {
+      x: 0,
+      y: 0,
+      width: ENGINE_GROUP_PADDING.left + ENGINE_GROUP_PADDING.right + nodeWidth,
+      height: ENGINE_GROUP_PADDING.top + ENGINE_GROUP_PADDING.bottom + nodeHeight,
+    };
   }
   let minX = Infinity;
   let minY = Infinity;
@@ -111,4 +144,144 @@ export function computeEngineBoundsFromPositions(
     width: maxX - minX + ENGINE_GROUP_PADDING.left + ENGINE_GROUP_PADDING.right,
     height: maxY - minY + ENGINE_GROUP_PADDING.top + ENGINE_GROUP_PADDING.bottom,
   };
+}
+
+const PERCENT_SCALE = 4;
+
+/** Deterministic equal split of a scaled integer across n parts (remainder to earliest). */
+export function splitScaledInt(total: bigint, n: number): bigint[] {
+  if (n <= 0) return [];
+  if (n === 1) return [total];
+  const base = total / BigInt(n);
+  const rem = total % BigInt(n);
+  return Array.from({ length: n }, (_, index) => base + (BigInt(index) < rem ? 1n : 0n));
+}
+
+function decimalToScaledInt(value: string, scale: number): bigint {
+  const [whole = '0', fraction = ''] = value.split('.');
+  const normalizedFraction = fraction.padEnd(scale, '0').slice(0, scale);
+  return BigInt(whole) * 10n ** BigInt(scale) + BigInt(normalizedFraction || '0');
+}
+
+function formatScaledDecimal(value: bigint, scale: number): string {
+  if (scale <= 0) return value.toString();
+  const negative = value < 0n;
+  const abs = negative ? -value : value;
+  const base = 10n ** BigInt(scale);
+  const whole = abs / base;
+  const fraction = (abs % base).toString().padStart(scale, '0').replace(/0+$/, '');
+  const body = fraction.length > 0 ? `${whole}.${fraction}` : whole.toString();
+  return negative ? `-${body}` : body;
+}
+
+/** Equal-split a capital envelope across n capital-bearing members (D-035). */
+export function splitAllocationValues(
+  mode: 'amount' | 'percentage',
+  value: string,
+  n: number,
+): string[] {
+  const scale = mode === 'amount' ? 2 : PERCENT_SCALE;
+  const parts = splitScaledInt(decimalToScaledInt(value, scale), n);
+  return parts.map((part) => formatScaledDecimal(part, scale));
+}
+
+/**
+ * Default ENGINE capital envelope: paper seed dollars when available, else 100%.
+ * Cascaded as an equal split across capital-bearing members.
+ */
+export function defaultEngineCapitalEnvelope(seedCreditsCents = 0): CapitalAllocationInput {
+  if (seedCreditsCents > 0) {
+    return { mode: 'amount', value: (seedCreditsCents / 100).toFixed(2) };
+  }
+  return { mode: 'percentage', value: '100' };
+}
+
+/**
+ * Fill missing capital on an engine setup with the default envelope.
+ * Always returns a setup object so insert/create paths can cascade defaults
+ * even when the operator skips the setup form.
+ */
+export function withDefaultEngineCapital(
+  setup: ModuleSetupInput | undefined,
+  seedCreditsCents = 0,
+): ModuleSetupInput {
+  if (setup?.capitalAllocation) return setup;
+  return {
+    ...(setup ?? {}),
+    capitalAllocation: defaultEngineCapitalEnvelope(seedCreditsCents),
+  };
+}
+
+/** datetime-local string ~7 days ahead (default overall exit for engine seeds). */
+export function defaultTargetExitLocal(nowMs = Date.now()): string {
+  const d = new Date(nowMs + 7 * 24 * 60 * 60 * 1000);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** ISO timestamp matching {@link defaultTargetExitLocal} (for API ModuleSetupInput). */
+export function defaultTargetExitAt(nowMs = Date.now()): string {
+  return new Date(nowMs + 7 * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/**
+ * Ensure create/insert engine setup has capital envelope + overall exit defaults.
+ * Topic stays operator-required (not invented here).
+ */
+export function withDefaultEngineSetup(
+  setup: ModuleSetupInput | undefined,
+  seedCreditsCents = 0,
+  nowMs = Date.now(),
+): ModuleSetupInput {
+  const withCapital = withDefaultEngineCapital(setup, seedCreditsCents);
+  if (withCapital.targetExitAt) return withCapital;
+  return {
+    ...withCapital,
+    targetExitAt: defaultTargetExitAt(nowMs),
+  };
+}
+
+export interface DefaultMemberSetupDraft {
+  topicSectors: string;
+  allocationMode: 'amount' | 'percentage';
+  allocationValue: string;
+  targetExitLocal: string;
+}
+
+/**
+ * Default inline drafts for engine/company-template members: equal-split capital
+ * from the seed envelope and a shared overall exit. Topic stays empty (operator).
+ */
+export function defaultMemberSetupDrafts(
+  moduleTypes: readonly ModuleType[],
+  seedCreditsCents = 0,
+  nowMs = Date.now(),
+): DefaultMemberSetupDraft[] {
+  const capitalCount = moduleTypes.filter((type) =>
+    requiredModuleSetupFields(type).includes('capital_allocation'),
+  ).length;
+  const envelope = defaultEngineCapitalEnvelope(seedCreditsCents);
+  const splits =
+    capitalCount > 0
+      ? splitAllocationValues(envelope.mode, envelope.value, capitalCount)
+      : [];
+  const exitLocal = defaultTargetExitLocal(nowMs);
+  let capitalIndex = 0;
+  return moduleTypes.map((type) => {
+    const required = new Set<ModuleSetupField>(requiredModuleSetupFields(type));
+    const draft: DefaultMemberSetupDraft = {
+      topicSectors: '',
+      allocationMode: envelope.mode,
+      allocationValue: '',
+      targetExitLocal: '',
+    };
+    if (required.has('capital_allocation')) {
+      draft.allocationValue = splits[capitalIndex] ?? '';
+      capitalIndex += 1;
+    }
+    if (required.has('target_exit')) {
+      draft.targetExitLocal = exitLocal;
+    }
+    return draft;
+  });
 }

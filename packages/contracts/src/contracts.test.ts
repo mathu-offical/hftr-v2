@@ -51,11 +51,16 @@ import { GuardrailEvaluation } from './guardrails';
 import { LimitsSnapshot, LiveGateEvidence } from './limits';
 import {
   computeEngineBoundsFromPositions,
+  defaultEngineCapitalEnvelope,
+  defaultMemberSetupDrafts,
   DeleteEngineMode,
+  ENGINE_GROUP_PADDING,
   InsertEngineInput,
   isMathToolAttachment,
   mathCanAttachTo,
+  splitAllocationValues,
   UpdateEngineInstanceInput,
+  withDefaultEngineSetup,
 } from './engines';
 import { COMPANY_TEMPLATES, ENGINE_TEMPLATES } from './templates';
 
@@ -276,6 +281,27 @@ describe('module inline setup', () => {
     expect(requiredModuleSetupFields('math')).toEqual([]);
   });
 
+  it('splits engine capital envelopes equally across members', () => {
+    expect(splitAllocationValues('amount', '100.00', 3)).toEqual(['33.34', '33.33', '33.33']);
+    expect(defaultEngineCapitalEnvelope(1_000_000)).toEqual({
+      mode: 'amount',
+      value: '10000.00',
+    });
+    const drafts = defaultMemberSetupDrafts(
+      ['research', 'trading', 'holding_fund', 'fund_router'],
+      1_000_000,
+      Date.parse('2026-07-17T12:00:00.000Z'),
+    );
+    expect(drafts[0]?.allocationValue).toBe('');
+    expect(drafts[1]?.allocationValue).toBe('3333.34');
+    expect(drafts[2]?.allocationValue).toBe('3333.33');
+    expect(drafts[3]?.allocationValue).toBe('3333.33');
+    expect(drafts[1]?.targetExitLocal).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+    const skipped = withDefaultEngineSetup(undefined, 1_000_000, Date.parse('2026-07-17T12:00:00.000Z'));
+    expect(skipped.capitalAllocation).toEqual({ mode: 'amount', value: '10000.00' });
+    expect(skipped.targetExitAt).toBe('2026-07-24T12:00:00.000Z');
+  });
+
   it('derives missing setup fields without raw numeric values', () => {
     expect(
       missingModuleSetupFields('trading', {
@@ -459,8 +485,8 @@ describe('engine instances (D-028)', () => {
       { x: 100, y: 200 },
       { x: 400, y: 200 },
     ]);
-    expect(bounds.x).toBe(20);
-    expect(bounds.y).toBe(128);
+    expect(bounds.x).toBe(100 - ENGINE_GROUP_PADDING.left);
+    expect(bounds.y).toBe(200 - ENGINE_GROUP_PADDING.top);
     expect(bounds.width).toBeGreaterThan(500);
     expect(bounds.height).toBeGreaterThan(200);
   });

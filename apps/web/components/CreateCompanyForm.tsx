@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import {
   COMPANY_TEMPLATES,
   ENGINE_TEMPLATES,
+  defaultEngineCapitalEnvelope,
+  defaultMemberSetupDrafts,
+  defaultTargetExitLocal,
   requiredModuleSetupFields,
   type CompanyTemplateId,
   type ModuleSetupField,
@@ -18,6 +21,46 @@ import {
   type ModuleSetupDraft,
 } from '@/components/canvas/ModuleSetupFields';
 import { api, RequestError } from '@/lib/client';
+
+function seedCentsFromDollars(seedDollars: string): number {
+  return Math.max(0, Math.round(Number(seedDollars) || 0) * 100);
+}
+
+function draftsFromDefaults(
+  moduleTypes: readonly ModuleType[],
+  seedCreditsCents: number,
+): Record<number, ModuleSetupDraft> {
+  const defaults = defaultMemberSetupDrafts(moduleTypes, seedCreditsCents);
+  const out: Record<number, ModuleSetupDraft> = {};
+  defaults.forEach((draft, index) => {
+    const required = requiredModuleSetupFields(moduleTypes[index]!);
+    if (required.length === 0) return;
+    out[index] = { ...EMPTY_MODULE_SETUP_DRAFT, ...draft };
+  });
+  return out;
+}
+
+function defaultEngineDraft(seedCreditsCents: number): ModuleSetupDraft {
+  const envelope = defaultEngineCapitalEnvelope(seedCreditsCents);
+  return {
+    ...EMPTY_MODULE_SETUP_DRAFT,
+    allocationMode: envelope.mode,
+    allocationValue: envelope.value,
+    targetExitLocal: defaultTargetExitLocal(),
+  };
+}
+
+function defaultStandaloneModuleDraft(type: ModuleType, seedCreditsCents: number): ModuleSetupDraft {
+  const required = new Set(requiredModuleSetupFields(type));
+  if (required.size === 0) return { ...EMPTY_MODULE_SETUP_DRAFT };
+  const envelope = defaultEngineCapitalEnvelope(seedCreditsCents);
+  return {
+    ...EMPTY_MODULE_SETUP_DRAFT,
+    allocationMode: envelope.mode,
+    allocationValue: required.has('capital_allocation') ? envelope.value : '',
+    targetExitLocal: required.has('target_exit') ? defaultTargetExitLocal() : '',
+  };
+}
 
 type ExtraSeed =
   | {
@@ -153,9 +196,29 @@ export function CreateCompanyForm() {
     setTemplateDrafts((prev) => ({ ...prev, [index]: draft }));
   }
 
+  function applyTemplateDefaults(nextTemplate: CompanyTemplateId, nextSeedDollars: string) {
+    const modules = COMPANY_TEMPLATES[nextTemplate].modules;
+    setTemplateDrafts((prev) => {
+      const defaults = draftsFromDefaults(
+        modules.map((module) => module.type),
+        seedCentsFromDollars(nextSeedDollars),
+      );
+      const out: Record<number, ModuleSetupDraft> = {};
+      for (const [key, draft] of Object.entries(defaults)) {
+        const index = Number(key);
+        out[index] = {
+          ...draft,
+          // Preserve operator topic edits when seed/template capital defaults refresh.
+          topicSectors: prev[index]?.topicSectors ?? draft.topicSectors,
+        };
+      }
+      return out;
+    });
+  }
+
   function selectTemplate(next: CompanyTemplateId) {
     setTemplate(next);
-    setTemplateDrafts({});
+    applyTemplateDefaults(next, seedDollars);
   }
 
   function addModule(type: ModuleType) {
@@ -168,7 +231,7 @@ export function CreateCompanyForm() {
         kind: 'module',
         type: entry.type,
         name: entry.defaultName,
-        draft: { ...EMPTY_MODULE_SETUP_DRAFT },
+        draft: defaultStandaloneModuleDraft(entry.type, seedCentsFromDollars(seedDollars)),
       },
     ]);
   }
@@ -183,7 +246,7 @@ export function CreateCompanyForm() {
         kind: 'engine',
         templateId: engine.id,
         label: engine.label,
-        draft: { ...EMPTY_MODULE_SETUP_DRAFT },
+        draft: defaultEngineDraft(seedCentsFromDollars(seedDollars)),
       },
     ]);
   }
@@ -347,7 +410,38 @@ export function CreateCompanyForm() {
         <span className="text-sm text-[var(--color-ink-dim)]">Paper seed credits (USD)</span>
         <input
           value={seedDollars}
-          onChange={(e) => setSeedDollars(e.target.value)}
+          onChange={(e) => {
+            const next = e.target.value;
+            setSeedDollars(next);
+            applyTemplateDefaults(template, next);
+            setExtras((prev) =>
+              prev.map((item) => {
+                if (item.kind === 'engine') {
+                  return {
+                    ...item,
+                    draft: {
+                      ...defaultEngineDraft(seedCentsFromDollars(next)),
+                      topicSectors: item.draft.topicSectors,
+                    },
+                  };
+                }
+                if (item.kind === 'module') {
+                  const refreshed = defaultStandaloneModuleDraft(
+                    item.type,
+                    seedCentsFromDollars(next),
+                  );
+                  return {
+                    ...item,
+                    draft: {
+                      ...refreshed,
+                      topicSectors: item.draft.topicSectors,
+                    },
+                  };
+                }
+                return item;
+              }),
+            );
+          }}
           inputMode="numeric"
           className="w-40 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-3 py-2 font-mono text-sm outline-none focus:border-[var(--color-accent)]"
         />
@@ -379,7 +473,8 @@ export function CreateCompanyForm() {
           <div>
             <h3 className="text-sm font-medium text-[var(--color-ink)]">Template setup</h3>
             <p className="text-[11px] text-[var(--color-ink-faint)]">
-              Inline fields per seeded module. Capital and exit apply only to capital-bearing nodes.
+              Inline fields per seeded module. Capital defaults to an equal split of paper seed
+              across capital-bearing nodes; exit defaults to one week ahead. Topic stays required.
             </p>
           </div>
 

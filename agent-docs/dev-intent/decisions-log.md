@@ -387,6 +387,37 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   block after exact-label hardening; no full-spec pass is claimed because it later fails at an
   unrelated bottom-panel collapse/expand assertion.
 
+- **D-035 (ENGINE full shared setup on group chrome, 2026-07-17):**
+  Engine groups show **all** insert setup on the group node — topic/sector, **total capital
+  envelope**, **overall exit**, and template inputs — not topic alone. Migration
+  `0016_engine_setup_fields` adds `capital_allocation_ref`, `target_exit_ref`, `setup_snapshot`,
+  `template_inputs` on `engine_instances`. `PATCH` with `setup` records engine ValueRefs,
+  persists the operator-visible snapshot, and cascades: topic (non-overridden members), capital
+  as equal split across capital-bearing members, exit as the same overall deadline to
+  exit-bearing members. `ENGINE_GROUP_PADDING.top` increased for chrome height.
+  Verification (2026-07-17): IronBee on day-trading canvas — engine chrome shows Shared
+  setup hint + topic/capital/exit fields; PATCH `/engines/:id` with full setup returned 200;
+  `setupSnapshot` + engine ValueRefs persisted; topic cascaded to research/library/live_api/
+  trend/analyzer/trading; capital+exit refs cascaded to trading/holding_fund/fund_router.
+  Member capital draft inputs still do not hydrate from ValueRefs (pre-existing ModuleNode gap);
+  engine chrome is the operator-visible source of truth for envelope amounts.
+  Company create + module-store insert prefill default envelope splits for included capital
+  nodes (`defaultMemberSetupDrafts` / `withDefaultEngineCapital`); extra engines at create use
+  `cascadeEngineSetup` instead of stamping the full envelope onto every member.
+  **Status: implemented and verified.**
+
+- **D-036 (auto-disarm + drain latency, 2026-07-17):**
+  `autoDisarmCompany` clears `live_armed_at` and `live_gate_evidence_id` on broker verify
+  failure, stale evidence while armed (`live-gates/status`), and `resolveExecutionContext` block.
+  `drainQueues` records claim-to-complete max/p95; exposed via `/api/queue/stats` `lastDrain`.
+  OQ-2 interim research baseline: market-hours p95 > 30s → evaluate dedicated worker (runbook).
+  Archive-first retention ships in D-036/G6 slice (`0017_archive_retention`).
+
+- **D-037 (model profile promotion thresholds, 2026-07-17):**
+  `privacy_cost` → `strict_compile` when verificationPassRate ≥ 0.85, leakCleanWindow, paperTradeCount
+  ≥ 5, intentAlignmentScore ≥ 0.7. Evaluator in `packages/engine/src/llm-profile/promotion.ts`;
+  automation hook not wired — thresholds are research baseline pending soak data.
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;
@@ -411,7 +442,8 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   asked” vs workspace mandatory end-of-run. Resolve per session until productized.
 - **OQ-1 (open):** Credit pack pricing and subscription tier pricing — needs user input before M4.
 - **OQ-2 (open):** Criteria/timing for adding a dedicated always-on worker for market-hours
-  watchers — decide with M3/M5 latency data.
+  watchers — decide with M3/M5 latency data. **Interim baseline (D-036):** sustained market-hours
+  drain p95 claim-to-complete > 30s triggers worker evaluation; not a final gate.
 - **OQ-3 (open):** Alpaca Broker API correspondent relationship for in-app ACH funding —
   post-launch consideration.
 - **OQ-4 (open):** Whether to run a one-time import of any v1 database content (currently

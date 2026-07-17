@@ -1,17 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  ENGINE_TEMPLATES,
+  defaultEngineCapitalEnvelope,
+  defaultTargetExitLocal,
   requiredModuleSetupFields,
   type EngineTemplate,
   type ModuleSetupField,
   type ModuleSetupInput,
   type ModuleType,
 } from '@hftr/contracts';
+import { api } from '@/lib/client';
 import {
   EMPTY_MODULE_SETUP_DRAFT,
   ModuleSetupFields,
+  missingFieldsFromDraft,
   moduleSetupInputFromDraft,
   type ModuleSetupDraft,
 } from './ModuleSetupFields';
@@ -126,6 +129,27 @@ export function Palette(props: {
   const [open, setOpen] = useState(false);
   const [section, setSection] = useState<'modules' | 'engines'>('modules');
   const [configuring, setConfiguring] = useState<EngineTemplate | null>(null);
+  const [engineTemplates, setEngineTemplates] = useState<EngineTemplate[]>([]);
+  const [enginesLoading, setEnginesLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || section !== 'engines') return;
+    let cancelled = false;
+    setEnginesLoading(true);
+    void api<{ templates: EngineTemplate[] }>('/api/engine-templates')
+      .then((r) => {
+        if (!cancelled) setEngineTemplates(r.templates);
+      })
+      .catch(() => {
+        if (!cancelled) setEngineTemplates([]);
+      })
+      .finally(() => {
+        if (!cancelled) setEnginesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, section]);
 
   if (!open) {
     return (
@@ -210,7 +234,13 @@ export function Palette(props: {
 
         {section === 'engines' && !configuring && (
           <div className="space-y-1.5">
-            {ENGINE_TEMPLATES.map((engine) => (
+            {enginesLoading && (
+              <p className="px-2 py-1 text-[10px] text-[var(--color-ink-faint)]">
+                Loading engine catalog…
+              </p>
+            )}
+            {!enginesLoading &&
+              engineTemplates.map((engine) => (
               <button
                 key={engine.id}
                 disabled={!engine.available}
@@ -258,7 +288,13 @@ function EngineConfigForm(props: {
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(props.engine.inputs.map((i) => [i.key, i.options?.[0] ?? ''])),
   );
-  const [setupDraft, setSetupDraft] = useState<ModuleSetupDraft>(EMPTY_MODULE_SETUP_DRAFT);
+  const envelope = defaultEngineCapitalEnvelope(0);
+  const [setupDraft, setSetupDraft] = useState<ModuleSetupDraft>(() => ({
+    ...EMPTY_MODULE_SETUP_DRAFT,
+    allocationMode: envelope.mode,
+    allocationValue: envelope.value,
+    targetExitLocal: defaultTargetExitLocal(),
+  }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -268,20 +304,7 @@ function EngineConfigForm(props: {
   const requiredSetupFields = [
     ...new Set(props.engine.modules.flatMap((module) => requiredModuleSetupFields(module.type))),
   ] as ModuleSetupField[];
-  const missingSetupFields = requiredSetupFields.filter((field) => {
-    switch (field) {
-      case 'capital_allocation':
-        return !setupDraft.allocationValue.trim();
-      case 'topic_sector':
-        return !setupDraft.topicSectors.trim();
-      case 'target_exit':
-        return !setupDraft.targetExitLocal;
-      default: {
-        const _exhaustive: never = field;
-        return _exhaustive;
-      }
-    }
-  });
+  const missingSetupFields = missingFieldsFromDraft(requiredSetupFields, setupDraft);
   const missingEngineInputs = engineInputs.some((input) => !values[input.key]?.trim());
 
   async function insert(skipSetup: boolean) {
@@ -332,7 +355,8 @@ function EngineConfigForm(props: {
         </label>
       ))}
       <p className="text-[10px] leading-snug text-[var(--color-ink-faint)]">
-        Master topic/sector cascades to engine nodes (overridable).
+        Master topic/sector cascades to engine nodes (overridable). Capital defaults to a 100%
+        envelope split equally across capital-bearing members; exit defaults to one week ahead.
       </p>
       <ModuleSetupFields
         requiredFields={requiredSetupFields}

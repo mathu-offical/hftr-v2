@@ -6,8 +6,10 @@ import {
   computeEngineBoundsFromPositions,
   CreateCompanyInput,
   DEFAULT_PHILOSOPHY_PROFILE,
+  defaultEngineCapitalEnvelope,
   listResolvedEngineTemplates,
   MODULE_CONFIG_SCHEMAS,
+  withDefaultEngineCapital,
   type ModuleSetupInput,
   type ModuleType,
 } from '@hftr/contracts';
@@ -15,6 +17,11 @@ import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schem
 import { scoping } from '@hftr/db';
 import { createSystemClock, loadSessionConstraints } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
+import {
+  cascadeEngineSetup,
+  engineSetupSnapshotFromInput,
+  recordEngineSetupRefs,
+} from '@/lib/engine-setup-cascade';
 import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
 import { recordModuleSetup } from '@/lib/module-setup';
 
@@ -48,6 +55,35 @@ function collectMasterTopics(
     }
   }
   return [...topics];
+}
+
+function collectEngineExit(
+  templateModuleCount: number,
+  input: z.infer<typeof CreateCompanyInput>,
+): Pick<ModuleSetupInput, 'targetExitAt' | 'timezone'> {
+  for (let index = 0; index < templateModuleCount; index += 1) {
+    const setup = setupForTemplateModule(index, input);
+    if (setup?.targetExitAt) {
+      return { targetExitAt: setup.targetExitAt, timezone: setup.timezone };
+    }
+  }
+  if (input.templateSetup?.targetExitAt) {
+    return {
+      targetExitAt: input.templateSetup.targetExitAt,
+      timezone: input.templateSetup.timezone,
+    };
+  }
+  return {};
+}
+
+function anyCapitalSetup(
+  templateModuleCount: number,
+  input: z.infer<typeof CreateCompanyInput>,
+): boolean {
+  for (let index = 0; index < templateModuleCount; index += 1) {
+    if (setupForTemplateModule(index, input)?.capitalAllocation) return true;
+  }
+  return Boolean(input.templateSetup?.capitalAllocation);
 }
 
 export async function GET() {
@@ -113,6 +149,7 @@ export async function POST(req: Request) {
         MODULE_CONFIG_SCHEMAS[module.type].parse(module.config),
       );
       const masterTopicSectors = collectMasterTopics(template.modules.length, input);
+      const exitFields = collectEngineExit(template.modules.length, input);
       const canvasBounds = computeEngineBoundsFromPositions(
         template.modules.map((m) => m.position),
       );
@@ -122,6 +159,24 @@ export async function POST(req: Request) {
           : input.template === 'trend_research_lab'
             ? 'engine_trend_research'
             : input.template;
+      const capitalConfigured = anyCapitalSetup(template.modules.length, input);
+      const capitalEnvelope = capitalConfigured
+        ? (input.templateSetup?.capitalAllocation ??
+          defaultEngineCapitalEnvelope(Number(input.seedCreditsCents)))
+        : undefined;
+      const engineSetup: ModuleSetupInput | undefined = capitalConfigured
+        ? {
+            topicSectors: masterTopicSectors,
+            capitalAllocation: capitalEnvelope,
+            ...exitFields,
+          }
+        : masterTopicSectors.length > 0 || exitFields.targetExitAt
+          ? {
+              topicSectors: masterTopicSectors,
+              ...exitFields,
+            }
+          : undefined;
+      const setupSnapshot = engineSetupSnapshotFromInput(engineSetup);
       const [engineRow] = await db
         .insert(engineInstances)
         .values({
@@ -129,10 +184,28 @@ export async function POST(req: Request) {
           templateId: engineTemplateId,
           label: template.label,
           masterTopicSectors,
+          setupSnapshot,
+          templateInputs: {},
           canvasBounds,
         })
         .returning({ id: engineInstances.id });
       if (!engineRow) throw new ApiError(500, 'engine_instance_create_failed');
+
+      if (engineSetup?.capitalAllocation || engineSetup?.targetExitAt) {
+        const engineRefs = await recordEngineSetupRefs(
+          db,
+          clock,
+          company.id,
+          engineRow.id,
+          engineSetup,
+        );
+        if (Object.keys(engineRefs).length > 0) {
+          await db
+            .update(engineInstances)
+            .set({ ...engineRefs, updatedAt: new Date() })
+            .where(eq(engineInstances.id, engineRow.id));
+        }
+      }
 
       const created = await db
         .insert(modules)
@@ -291,6 +364,8 @@ export async function POST(req: Request) {
       }));
       const canvasBounds = computeEngineBoundsFromPositions(absolutePositions);
       const masterTopicSectors = seed.setup?.topicSectors ?? [];
+      const engineSetup = withDefaultEngineCapital(seed.setup, Number(input.seedCreditsCents));
+      const setupSnapshot = engineSetupSnapshotFromInput(engineSetup);
 
       const [engineRow] = await db
         .insert(engineInstances)
@@ -299,10 +374,28 @@ export async function POST(req: Request) {
           templateId: engine.id,
           label: engine.label,
           masterTopicSectors,
+          setupSnapshot,
+          templateInputs: seed.inputs ?? {},
           canvasBounds,
         })
         .returning({ id: engineInstances.id });
       if (!engineRow) throw new ApiError(500, 'engine_instance_create_failed');
+
+      if (engineSetup) {
+        const engineRefs = await recordEngineSetupRefs(
+          db,
+          clock,
+          company.id,
+          engineRow.id,
+          engineSetup,
+        );
+        if (Object.keys(engineRefs).length > 0) {
+          await db
+            .update(engineInstances)
+            .set({ ...engineRefs, updatedAt: new Date() })
+            .where(eq(engineInstances.id, engineRow.id));
+        }
+      }
 
       const parsedConfigs = configs.map((config, index) =>
         MODULE_CONFIG_SCHEMAS[engine.modules[index]!.type].parse(config),
@@ -332,25 +425,8 @@ export async function POST(req: Request) {
         maxTemplateY = Math.max(maxTemplateY, position.y);
       }
 
-      for (let index = 0; index < created.length; index += 1) {
-        const createdModule = created[index];
-        const templateModule = engine.modules[index];
-        const config = parsedConfigs[index];
-        if (!createdModule || !templateModule || !config) {
-          throw new ApiError(500, 'engine_module_unresolved');
-        }
-        const setupPatch = await recordModuleSetup(
-          db,
-          clock,
-          company.id,
-          createdModule.id,
-          templateModule.type as ModuleType,
-          config as Record<string, unknown>,
-          seed.setup,
-        );
-        if (Object.keys(setupPatch).length > 0) {
-          await db.update(modules).set(setupPatch).where(eq(modules.id, createdModule.id));
-        }
+      if (engineSetup) {
+        await cascadeEngineSetup(db, company.id, engineRow.id, engineSetup);
       }
 
       if (engine.links.length > 0) {

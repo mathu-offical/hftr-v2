@@ -5,6 +5,7 @@ import {
   InsertEngineInput,
   listResolvedEngineTemplates,
   MODULE_CONFIG_SCHEMAS,
+  withDefaultEngineCapital,
   type ModuleType,
 } from '@hftr/contracts';
 import { loadSessionConstraints } from '@hftr/engine';
@@ -12,8 +13,12 @@ import { engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
 import { createSystemClock } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
+import {
+  cascadeEngineSetup,
+  engineSetupSnapshotFromInput,
+  recordEngineSetupRefs,
+} from '@/lib/engine-setup-cascade';
 import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
-import { recordModuleSetup } from '@/lib/module-setup';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,25 +27,46 @@ type Ctx = { params: Promise<{ companyId: string }> };
 
 const MAX_MODULES_PER_COMPANY = 60;
 
+function serializeEngine(
+  row: typeof engineInstances.$inferSelect,
+  memberModuleIds: string[],
+) {
+  return {
+    id: row.id,
+    companyId: row.companyId,
+    templateId: row.templateId,
+    label: row.label,
+    masterTopicSectors: row.masterTopicSectors,
+    capitalAllocationRef: row.capitalAllocationRef,
+    targetExitRef: row.targetExitRef,
+    setupSnapshot: row.setupSnapshot as {
+      topicSectors: string[];
+      allocationMode: 'amount' | 'percentage';
+      allocationValue: string;
+      targetExitLocal: string;
+    },
+    templateInputs: (row.templateInputs ?? {}) as Record<string, string>,
+    canvasBounds: row.canvasBounds as {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    } | null,
+    memberModuleIds,
+  };
+}
+
 export async function GET(_req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
     const { companyId } = Params.parse(await ctx.params);
     const rows = await scoping.listEngineInstances(db, clerkUserId, companyId);
     const moduleRows = await scoping.listModules(db, clerkUserId, companyId);
-    const engines = rows.map((row) => ({
-      id: row.id,
-      companyId: row.companyId,
-      templateId: row.templateId,
-      label: row.label,
-      masterTopicSectors: row.masterTopicSectors,
-      canvasBounds: row.canvasBounds as {
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-      } | null,
-      memberModuleIds: moduleRows.filter((m) => m.engineInstanceId === row.id).map((m) => m.id),
-    }));
+    const engines = rows.map((row) =>
+      serializeEngine(
+        row,
+        moduleRows.filter((m) => m.engineInstanceId === row.id).map((m) => m.id),
+      ),
+    );
     return { engines };
   });
 }
@@ -89,7 +115,11 @@ export async function POST(req: Request, ctx: Ctx) {
     }));
     const canvasBounds = computeEngineBoundsFromPositions(absolutePositions);
     const masterTopicSectors = input.setup?.topicSectors ?? [];
+    const setup = withDefaultEngineCapital(input.setup);
+    const setupSnapshot = engineSetupSnapshotFromInput(setup);
+    const templateInputs = input.inputs ?? {};
 
+    const clock = createSystemClock();
     const [engineRow] = await db
       .insert(engineInstances)
       .values({
@@ -97,10 +127,23 @@ export async function POST(req: Request, ctx: Ctx) {
         templateId: engine.id,
         label: engine.label,
         masterTopicSectors,
+        setupSnapshot,
+        templateInputs,
         canvasBounds,
       })
       .returning();
     if (!engineRow) throw new ApiError(500, 'engine_instance_create_failed');
+
+    const engineRefs = await recordEngineSetupRefs(db, clock, companyId, engineRow.id, setup);
+    let persistedEngine = engineRow;
+    if (Object.keys(engineRefs).length > 0) {
+      const [updatedEngine] = await db
+        .update(engineInstances)
+        .set({ ...engineRefs, updatedAt: new Date() })
+        .where(eq(engineInstances.id, engineRow.id))
+        .returning();
+      if (updatedEngine) persistedEngine = updatedEngine;
+    }
 
     const parsedConfigs = configs.map((config, index) =>
       MODULE_CONFIG_SCHEMAS[engine.modules[index]!.type].parse(config),
@@ -124,34 +167,8 @@ export async function POST(req: Request, ctx: Ctx) {
       )
       .returning();
 
-    const clock = createSystemClock();
-    const updatedModules: (typeof created)[number][] = [];
-    for (let index = 0; index < created.length; index += 1) {
-      const createdModule = created[index];
-      const templateModule = engine.modules[index];
-      const config = parsedConfigs[index];
-      if (!createdModule || !templateModule || !config) {
-        throw new ApiError(500, 'engine_module_unresolved');
-      }
-      const setupPatch = await recordModuleSetup(
-        db,
-        clock,
-        companyId,
-        createdModule.id,
-        templateModule.type as ModuleType,
-        config as Record<string, unknown>,
-        input.setup,
-      );
-      if (Object.keys(setupPatch).length === 0) {
-        updatedModules.push(createdModule);
-        continue;
-      }
-      const [updated] = await db
-        .update(modules)
-        .set(setupPatch)
-        .where(eq(modules.id, createdModule.id))
-        .returning();
-      updatedModules.push(updated ?? createdModule);
+    if (setup) {
+      await cascadeEngineSetup(db, companyId, engineRow.id, setup);
     }
 
     const createdLinks = [];
@@ -180,17 +197,9 @@ export async function POST(req: Request, ctx: Ctx) {
     const refreshedModules = await scoping.listModules(db, clerkUserId, companyId);
     const memberIds = new Set(created.map((m) => m.id));
     return {
-      engine: {
-        id: engineRow.id,
-        companyId: engineRow.companyId,
-        templateId: engineRow.templateId,
-        label: engineRow.label,
-        masterTopicSectors: engineRow.masterTopicSectors,
-        canvasBounds: engineRow.canvasBounds,
-        memberModuleIds: [...memberIds],
-      },
+      engine: serializeEngine(persistedEngine, [...memberIds]),
       modules: refreshedModules.filter(
-        (m) => memberIds.has(m.id) || updatedModules.some((u) => u.id === m.id),
+        (m) => memberIds.has(m.id) || m.id === mathModule?.id,
       ),
       links: createdLinks,
     };

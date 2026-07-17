@@ -34,7 +34,9 @@ watches, steers, and approves through the canvas + three panels + the assistant.
   setup section. Capital-bearing nodes (`holding_fund`, `fund_router`, `trading`) require a fixed
   or percentage capital allocation plus target exit; research/data/signal/trading analysis nodes
   require topic/sector. Template setup renders **one card per seeded module** with its own fields
-  (not a single shared form). Operators can **add multiple extra modules and engines** during
+  (not a single shared form). Engine seeds **default** capital as an equal split of the paper seed
+  envelope (or 100% when seed is zero) across capital-bearing members and default overall exit to
+  one week ahead (D-035 cascade). Operators can **add multiple extra modules and engines** during
   create, each with inline setup. Missing fields validate in place with per-field **Required ·
   label** chips and warning borders; confirmed fields use neutral borders and subtle in-field
   green checks. **Skip setup & open canvas** creates draft nodes with visible missing-field chips

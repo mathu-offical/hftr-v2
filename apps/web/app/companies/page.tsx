@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getDb, scoping } from '@hftr/db';
+import { CompanyCard } from '@/components/CompanyCard';
 import { CreateCompanyForm } from '@/components/CreateCompanyForm';
 import { UserMenu } from '@/components/UserMenu';
 import { ensureProfile, getAuthUserId } from '@/lib/auth';
@@ -14,11 +15,11 @@ export default async function CompaniesPage() {
   const userId = await getAuthUserId();
   if (!userId) return null; // middleware guarantees auth; defensive only
 
-  let companies: Awaited<ReturnType<typeof scoping.listCompanies>> = [];
+  let companies: Awaited<ReturnType<typeof scoping.listCompaniesDirectory>> = [];
   let dbError = false;
   try {
     await ensureProfile(userId);
-    companies = await scoping.listCompanies(getDb(), userId);
+    companies = await scoping.listCompaniesDirectory(getDb(), userId);
   } catch {
     dbError = true;
   }
@@ -54,18 +55,13 @@ export default async function CompaniesPage() {
             <ul className="grid gap-4 sm:grid-cols-2">
               {companies.map((c) => (
                 <li key={c.id}>
-                  <Link
-                    href={`/companies/${c.id}`}
-                    className="block rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] p-5 transition-colors hover:border-[var(--color-accent)]"
-                  >
-                    <div className="mb-1 flex items-center justify-between">
-                      <span className="font-medium">{c.name}</span>
-                      <span className="status-chip">{c.mode}</span>
-                    </div>
-                    <p className="line-clamp-2 text-sm text-[var(--color-ink-dim)]">
-                      {c.philosophyPrompt}
-                    </p>
-                  </Link>
+                  <CompanyCard
+                    id={c.id}
+                    name={c.name}
+                    mode={c.mode}
+                    philosophyPrompt={c.philosophyPrompt}
+                    engines={c.engines}
+                  />
                 </li>
               ))}
             </ul>

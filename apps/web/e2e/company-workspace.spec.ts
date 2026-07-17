@@ -1,4 +1,12 @@
-import { archiveCompany, e2eCompanyName, expect, test } from './fixtures';
+import {
+  archiveCompany,
+  companyNameField,
+  createCompanyFromTemplate,
+  e2eCompanyName,
+  expect,
+  openNewCompanyForm,
+  test,
+} from './fixtures';
 
 test.describe('Company workspace (M1 read flows)', () => {
   // Expanded D-026 dashboard assertions + assistant persistence need headroom on cold compile.
@@ -12,15 +20,10 @@ test.describe('Company workspace (M1 read flows)', () => {
     const companyName = e2eCompanyName('day-trading');
     const philosophy = 'E2E paper desk — patient entries, fast exits on invalidation.';
 
-    await page.goto('/companies');
-    await page.getByRole('button', { name: 'New company' }).click();
-
-    await page.getByLabel('Name').fill(companyName);
+    await openNewCompanyForm(page);
+    await companyNameField(page).fill(companyName);
     await page.getByLabel(/Philosophy/).fill(philosophy);
-    await page.getByRole('button', { name: /Day trading starter/ }).click();
-    await page.getByRole('button', { name: 'Skip setup & open canvas' }).click();
-
-    await page.waitForURL(/\/companies\/[0-9a-f-]{36}$/);
+    await createCompanyFromTemplate(page, /Day trading starter/);
     const companyId = page.url().split('/').pop()!;
     createdCompanyIds.push(companyId);
 
@@ -30,8 +33,9 @@ test.describe('Company workspace (M1 read flows)', () => {
     await page.getByRole('button', { name: 'LLM / operating' }).click();
     await expect(page.getByText('Provider operating budgets')).toBeVisible();
     await expect(page.getByText(/separate from module trading-capital allocations/)).toBeVisible();
-    await expect(page.getByText('LLM privacy & models')).toBeVisible();
-    await expect(page.getByText('Recent LLM calls')).toBeVisible();
+    // Policy block loads async after llm-policy fetch.
+    await expect(page.getByText('LLM privacy & models')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Recent LLM calls')).toBeVisible({ timeout: 20_000 });
     await page.getByRole('button', { name: 'Close ▲' }).click();
 
     // Full seeded engine: named research/data/trend/execution/funds/policy functions.
@@ -117,9 +121,18 @@ test.describe('Company workspace (M1 read flows)', () => {
     );
     await tradingNode.getByRole('button', { name: 'Save setup' }).click();
     expect((await setupResponse).ok()).toBe(true);
-    await expect(tradingNode.getByText('Set · Topic / sector')).toBeVisible();
-    await expect(tradingNode.getByText('Set · Capital allocation')).toBeVisible();
-    await expect(tradingNode.getByText('Set · Target exit')).toBeVisible();
+    await expect(tradingNode.getByLabel('Confirmed: Topic / sector')).toBeVisible();
+    await expect(tradingNode.getByLabel('Confirmed: Capital allocation')).toBeVisible();
+    await expect(tradingNode.getByLabel('Confirmed: Target exit')).toBeVisible();
+    await expect(tradingNode.getByLabel('Topic / sector')).toHaveClass(
+      /border-\[var\(--color-line\)\]/,
+    );
+    await expect(tradingNode.getByLabel('Capital allocation value')).toHaveClass(
+      /border-\[var\(--color-line\)\]/,
+    );
+    await expect(tradingNode.getByLabel('Target exit date / time')).toHaveClass(
+      /border-\[var\(--color-line\)\]/,
+    );
 
     const inspectorName = page.locator('aside').getByLabel('Name');
     await inspectorName.fill('E2E Custom Trading Desk');
@@ -166,7 +179,8 @@ test.describe('Company workspace (M1 read flows)', () => {
     await expect(expandBottom).toBeVisible();
     await expandBottom.click();
     await expect(page.getByRole('button', { name: 'Trends', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: /Collapse bottom panel/ }).click();
+    // Right panel can overlay the bottom strip — force collapse when obstructed.
+    await page.getByRole('button', { name: /Collapse bottom panel/ }).click({ force: true });
     await expect(expandBottom).toBeVisible();
 
     // Keyboard shortcuts per ui-spec §8 (`[`, `]`, backtick).

@@ -34,10 +34,7 @@ test.describe('Canvas ENGINE groups (D-028)', () => {
     const saveMaster = engineGroup.getByRole('button', { name: 'Save', exact: true });
     await Promise.all([
       page.waitForResponse(
-        (res) =>
-          res.url().includes('/engines/') &&
-          res.request().method() === 'PATCH' &&
-          res.ok(),
+        (res) => res.url().includes('/engines/') && res.request().method() === 'PATCH' && res.ok(),
       ),
       saveMaster.click(),
     ]);
@@ -53,8 +50,15 @@ test.describe('Canvas ENGINE groups (D-028)', () => {
     );
 
     await researchNode.getByLabel('Topic / sector', { exact: true }).fill('override-topic');
-    await researchNode.getByRole('button', { name: 'Save setup' }).click();
-    await expect(researchNode.getByRole('button', { name: 'Use engine topic' })).toBeVisible();
+    await Promise.all([
+      page.waitForResponse(
+        (res) => res.url().includes('/modules/') && res.request().method() === 'PATCH' && res.ok(),
+      ),
+      researchNode.getByRole('button', { name: 'Save setup' }).click(),
+    ]);
+    await expect(researchNode.getByRole('button', { name: 'Use engine topic' })).toBeVisible({
+      timeout: 15_000,
+    });
 
     await page.getByRole('button', { name: /Open module store|Module store/i }).click();
     await page.getByRole('button', { name: 'Engines', exact: true }).click();

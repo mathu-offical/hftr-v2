@@ -7,12 +7,14 @@ import { dollars, GATE_KEYS, gateLabel, gateTone, toneFor } from './format';
 import { Justification } from './Justification';
 import { TraceTimeline } from './TraceTimeline';
 
-type Tab = 'trends' | 'scenarios' | 'watchlists' | 'decisions';
+type Tab = 'trends' | 'scenarios' | 'watchlists' | 'decisions' | 'approvals' | 'dead';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'trends', label: 'Trends' },
   { id: 'scenarios', label: 'Scenario engine' },
   { id: 'watchlists', label: 'Watch lists' },
   { id: 'decisions', label: 'Decisions + traces' },
+  { id: 'approvals', label: 'Approvals' },
+  { id: 'dead', label: 'Dead letters' },
 ];
 const BOTTOM_TABS: Tab[] = TABS.map((t) => t.id);
 
@@ -128,6 +130,27 @@ interface TreeRow {
   createdAt: string;
 }
 
+interface DeadJobRow {
+  id: string;
+  kind: string;
+  queueClass: string;
+  lastError: string | null;
+  attempts: number;
+  updatedAt: string;
+}
+
+interface FundTransferRow {
+  id: string;
+  fromKind: string;
+  fromModuleId: string | null;
+  toKind: string;
+  toModuleId: string | null;
+  amountCents: string;
+  status: string;
+  requestedBy: string;
+  createdAt: string;
+}
+
 /**
  * Bottom panel (ui-ux spec): tabbed views over trends (with candidate
  * promotion), the scenario engine (lead → gate strip → tree decomposition),
@@ -147,6 +170,8 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
   const [watchlists, setWatchlists] = useState<WatchlistRow[]>([]);
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [trees, setTrees] = useState<TreeRow[]>([]);
+  const [transfers, setTransfers] = useState<FundTransferRow[]>([]);
+  const [deadJobs, setDeadJobs] = useState<DeadJobRow[]>([]);
   const [openTraceId, setOpenTraceId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -197,6 +222,8 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
       api<{ items: WatchlistRow[] }>(`${base}/watchlists`),
       api<{ leads: LeadRow[] }>(`${base}/leads`),
       api<{ trees: TreeRow[] }>(`${base}/trees`),
+      api<{ transfers: FundTransferRow[] }>(`${base}/fund-transfers`),
+      api<{ jobs: DeadJobRow[] }>(`${base}/jobs/dead`),
     ]);
     if (results[0].status === 'fulfilled') setTrends(results[0].value.trends);
     if (results[1].status === 'fulfilled') setExecutions(results[1].value.executions);
@@ -204,6 +231,8 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
     if (results[3].status === 'fulfilled') setWatchlists(results[3].value.items);
     if (results[4].status === 'fulfilled') setLeads(results[4].value.leads);
     if (results[5].status === 'fulfilled') setTrees(results[5].value.trees);
+    if (results[6].status === 'fulfilled') setTransfers(results[6].value.transfers);
+    if (results[7].status === 'fulfilled') setDeadJobs(results[7].value.jobs);
   }, [props.companyId]);
 
   useEffect(() => {
@@ -228,7 +257,7 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
         title="Expand bottom panel (`)"
         className="flex w-full items-center justify-center gap-2 border-t border-[var(--color-line)] bg-[var(--color-surface-1)] py-1 text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
       >
-        ` · Trends · Scenarios · Watch lists · Decisions ▲
+        ` · Trends · Scenarios · Watch lists · Decisions · Approvals ▲
       </button>
     );
   }
@@ -383,6 +412,19 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
             })}
             empty="No decisions traced yet."
           />
+        )}
+
+        {tab === 'approvals' && (
+          <ApprovalsView
+            companyId={props.companyId}
+            transfers={transfers}
+            moduleName={moduleName}
+            onRefetch={load}
+          />
+        )}
+
+        {tab === 'dead' && (
+          <DeadLettersView companyId={props.companyId} jobs={deadJobs} onRefetch={load} />
         )}
       </div>
 
@@ -813,5 +855,122 @@ function ScenarioView(props: {
         );
       })}
     </ul>
+  );
+}
+
+function endpointLabel(kind: string, moduleId: string | null, moduleName: (id: string) => string) {
+  if (kind === 'module' && moduleId) return moduleName(moduleId);
+  return kind.replace(/_/g, ' ');
+}
+
+function ApprovalsView(props: {
+  companyId: string;
+  transfers: FundTransferRow[];
+  moduleName: (id: string) => string;
+  onRefetch: () => Promise<void>;
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const pending = props.transfers.filter((t) => t.status === 'requested');
+
+  async function decide(id: string, decision: 'approve' | 'reject') {
+    setBusyId(id);
+    try {
+      await api(`/api/companies/${props.companyId}/fund-transfers/${id}`, {
+        method: 'POST',
+        body: { decision },
+      });
+      window.dispatchEvent(new Event(ACTIVITY_REFRESH_EVENT));
+      await props.onRefetch();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (pending.length === 0) {
+    return (
+      <p className="py-3 text-xs text-[var(--color-ink-faint)]">
+        No pending fund transfers. Requests appear here until approved or rejected.
+      </p>
+    );
+  }
+
+  return (
+    <Table
+      head={['From', 'To', 'Amount', 'Requested', 'Actions']}
+      rows={pending.map((t) => [
+        endpointLabel(t.fromKind, t.fromModuleId, props.moduleName),
+        endpointLabel(t.toKind, t.toModuleId, props.moduleName),
+        <span key="a" className="font-mono">
+          {dollars(t.amountCents)}
+        </span>,
+        new Date(t.createdAt).toLocaleTimeString(),
+        <span key="act" className="flex gap-1">
+          <button
+            type="button"
+            disabled={busyId !== null}
+            onClick={() => void decide(t.id, 'approve')}
+            className="rounded border border-[var(--color-ok)] px-2 py-0.5 text-[11px] text-[var(--color-ok)] hover:bg-[var(--color-ok)]/10 disabled:opacity-50"
+          >
+            {busyId === t.id ? '…' : 'Approve'}
+          </button>
+          <button
+            type="button"
+            disabled={busyId !== null}
+            onClick={() => void decide(t.id, 'reject')}
+            className="rounded border border-[var(--color-block)] px-2 py-0.5 text-[11px] text-[var(--color-block)] hover:bg-[var(--color-block)]/10 disabled:opacity-50"
+          >
+            Reject
+          </button>
+        </span>,
+      ])}
+      empty="No pending fund transfers."
+    />
+  );
+}
+
+function DeadLettersView(props: {
+  companyId: string;
+  jobs: DeadJobRow[];
+  onRefetch: () => Promise<void>;
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function retry(jobId: string) {
+    setBusyId(jobId);
+    try {
+      await api(`/api/companies/${props.companyId}/jobs/dead/${jobId}/retry`, {
+        method: 'POST',
+      });
+      await props.onRefetch();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <Table
+      head={['Kind', 'Queue', 'Error', 'Attempts', 'Updated', '']}
+      rows={props.jobs.map((j) => [
+        <span key="k" className="font-mono text-[10px]">
+          {j.kind}
+        </span>,
+        j.queueClass,
+        <span key="e" className="block max-w-xs truncate" title={j.lastError ?? ''}>
+          {j.lastError ?? '—'}
+        </span>,
+        String(j.attempts),
+        new Date(j.updatedAt).toLocaleTimeString(),
+        <button
+          key="r"
+          type="button"
+          disabled={busyId !== null}
+          onClick={() => void retry(j.id)}
+          className="rounded border border-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+        >
+          {busyId === j.id ? '…' : 'Retry'}
+        </button>,
+      ])}
+      empty="No dead-letter jobs for this company."
+    />
   );
 }

@@ -193,7 +193,17 @@ test.describe('Paper intent alignment', () => {
 
     await page.getByRole('button', { name: 'Live trading (gated)' }).click();
     await expect(page.getByText('Live trading is gated.')).toBeVisible();
-    await expect(page.getByText(/Requires a connected broker, funded account/)).toBeVisible();
+    await expect(
+      page.getByText(/checklist pass, fresh evidence|never enabled silently/i),
+    ).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Live gate checklist' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByLabel('Live arm confirmation phrase')).toHaveAttribute(
+      'placeholder',
+      'ARM LIVE TRADING',
+    );
+    await expect(page.getByRole('button', { name: 'Arm' })).toBeDisabled();
   });
 
   test('isolates conflicting company philosophies and records honest paper provenance', async ({

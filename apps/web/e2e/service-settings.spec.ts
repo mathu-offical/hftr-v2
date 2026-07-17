@@ -1,19 +1,25 @@
-import { archiveCompany, e2eCompanyName, expect, test } from './fixtures';
+import {
+  archiveCompany,
+  companyNameField,
+  createCompanyFromTemplate,
+  e2eCompanyName,
+  expect,
+  openNewCompanyForm,
+  test,
+} from './fixtures';
 
 test.describe('Service settings & operating observability', () => {
+  test.setTimeout(90_000);
+
   test('user settings modal and company operating tab surfaces', async ({
     page,
     request,
     createdCompanyIds,
   }) => {
-    await page.goto('/companies');
-    await page.getByRole('button', { name: 'New company' }).click();
-    await page.getByLabel('Name').fill(e2eCompanyName('settings-ops'));
+    await openNewCompanyForm(page);
+    await companyNameField(page).fill(e2eCompanyName('settings-ops'));
     await page.getByLabel(/Philosophy/).fill('E2E settings and operating observability check.');
-    await page.getByRole('button', { name: /Blank/ }).click();
-    await page.getByRole('button', { name: 'Create (paper mode)' }).click();
-
-    await page.waitForURL(/\/companies\/[0-9a-f-]{36}$/);
+    await createCompanyFromTemplate(page, /Blank/, { skipSetup: false });
     const companyId = page.url().split('/').pop()!;
     createdCompanyIds.push(companyId);
 

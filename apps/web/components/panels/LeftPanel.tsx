@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
+import type { Library, ResearchGraphResponse } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
+import { GalaxyView } from '@/components/research/GalaxyView';
+import { ResearchTopicsTree } from '@/components/research/ResearchTopicsTree';
 import { provenanceChip, snippet } from './format';
 
 type Tab = 'research' | 'data';
@@ -86,6 +89,10 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
   const [persistReady, setPersistReady] = useState(false);
   const [concepts, setConcepts] = useState<ConceptRow[]>([]);
   const [conceptsLoaded, setConceptsLoaded] = useState(false);
+  const [libraries, setLibraries] = useState<Library[]>([]);
+  const [librariesLoaded, setLibrariesLoaded] = useState(false);
+  const [graph, setGraph] = useState<ResearchGraphResponse | null>(null);
+  const [showGalaxy, setShowGalaxy] = useState(false);
 
   useEffect(() => {
     if (!storageKey) {
@@ -132,14 +139,43 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
     }
   }, [companyId]);
 
+  const loadLibraries = useCallback(async () => {
+    if (!companyId) return;
+    try {
+      const data = await api<{ libraries: Library[] }>(`/api/companies/${companyId}/libraries`);
+      setLibraries(data.libraries);
+    } catch {
+      setLibraries([]);
+    } finally {
+      setLibrariesLoaded(true);
+    }
+  }, [companyId]);
+
+  const loadGraph = useCallback(async () => {
+    if (!companyId) return;
+    try {
+      const data = await api<ResearchGraphResponse>(`/api/companies/${companyId}/research/graph`);
+      setGraph(data);
+    } catch {
+      setGraph({ nodes: [], links: [], tags: [] });
+    }
+  }, [companyId]);
+
   useEffect(() => {
     if (!open) return;
     void loadConcepts();
-    const interval = setInterval(loadConcepts, 30_000);
+    void loadLibraries();
+    void loadGraph();
+    const interval = setInterval(() => {
+      void loadConcepts();
+      void loadLibraries();
+      void loadGraph();
+    }, 30_000);
     return () => clearInterval(interval);
-  }, [open, loadConcepts]);
+  }, [open, loadConcepts, loadLibraries, loadGraph]);
 
   const research = props.modules.filter((m) => m.type === 'research' || m.type === 'trend');
+  const researchModules = props.modules.filter((m) => m.type === 'research');
   const sources = props.modules.filter((m) => m.type === 'live_api' || m.type === 'library');
   const nameOf = (id: string) => props.modules.find((m) => m.id === id)?.name ?? 'unknown';
 
@@ -194,6 +230,55 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
         {tab === 'research' && (
           <>
             <NewResearchModuleForm companyId={companyId} />
+            <LibrariesSection
+              companyId={companyId}
+              libraries={libraries}
+              loaded={librariesLoaded}
+              onChanged={() => {
+                void loadLibraries();
+                void loadGraph();
+              }}
+            />
+            <div className="mt-3 flex items-center justify-between rounded-lg border border-[var(--color-line)] px-2.5 py-2">
+              <span className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+                Galaxy view
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowGalaxy((v) => !v)}
+                aria-pressed={showGalaxy}
+                aria-label={showGalaxy ? 'Hide galaxy view' : 'Show galaxy view'}
+                className={`rounded-md border px-2 py-0.5 text-[10px] ${
+                  showGalaxy
+                    ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
+                    : 'border-[var(--color-line)] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
+                }`}
+              >
+                {showGalaxy ? 'On' : 'Off'}
+              </button>
+            </div>
+            {showGalaxy && graph && (
+              <div className="mt-2">
+                <GalaxyView
+                  companyId={companyId}
+                  nodes={graph.nodes}
+                  links={graph.links}
+                  tags={graph.tags}
+                />
+              </div>
+            )}
+            {researchModules.length > 0 && (
+              <div className="mt-3">
+                {researchModules.map((m) => (
+                  <ResearchTopicsTree
+                    key={m.id}
+                    companyId={companyId}
+                    moduleId={m.id}
+                    moduleName={m.name}
+                  />
+                ))}
+              </div>
+            )}
             {research.length === 0 ? (
               <p className="mt-3 px-1 text-xs text-[var(--color-ink-faint)]">
                 No research or trend modules yet. Create one above or add from the canvas palette.
@@ -274,6 +359,141 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
 
 const compactInput =
   'w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)]';
+
+async function downloadLibraryExport(companyId: string, libraryId: string, name: string) {
+  const res = await fetch(`/api/companies/${companyId}/libraries/${libraryId}/export`);
+  if (!res.ok) throw new Error('export_failed');
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `${name.replace(/\s+/g, '-').toLowerCase()}-obsidian.zip`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Libraries list with create form and Obsidian zip export per library. */
+function LibrariesSection(props: {
+  companyId: string;
+  libraries: Library[];
+  loaded: boolean;
+  onChanged: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [topicScope, setTopicScope] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [exportingId, setExportingId] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function createLibrary(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmedName = name.trim();
+    if (!trimmedName || !props.companyId) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      await api(`/api/companies/${props.companyId}/libraries`, {
+        method: 'POST',
+        body: { name: trimmedName, topicScope: topicScope.trim() },
+      });
+      setName('');
+      setTopicScope('');
+      setMessage('Library created.');
+      props.onChanged();
+    } catch (err) {
+      setMessage(
+        err instanceof RequestError && err.status === 404
+          ? 'Libraries API not available yet.'
+          : 'Create failed.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function exportLibrary(library: Library) {
+    setExportingId(library.id);
+    setMessage(null);
+    try {
+      await downloadLibraryExport(props.companyId, library.id, library.name);
+      setMessage(`Exported ${library.name}.`);
+    } catch {
+      setMessage('Export failed.');
+    } finally {
+      setExportingId(null);
+    }
+  }
+
+  return (
+    <section
+      className="mt-3 rounded-lg border border-[var(--color-line)] p-2.5"
+      aria-label="Libraries"
+    >
+      <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+        Libraries
+      </p>
+      {!props.loaded ? (
+        <p className="mt-2 text-[10px] text-[var(--color-ink-faint)]">Loading libraries…</p>
+      ) : props.libraries.length === 0 ? (
+        <p className="mt-2 text-[10px] text-[var(--color-ink-faint)]">No libraries yet.</p>
+      ) : (
+        <ul className="mt-2 space-y-1.5">
+          {props.libraries.map((lib) => (
+            <li
+              key={lib.id}
+              className="flex items-center justify-between gap-2 rounded-md border border-[var(--color-line)] px-2 py-1.5"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-[11px] font-medium text-[var(--color-ink)]">
+                  {lib.name}
+                </p>
+                <p className="truncate text-[10px] text-[var(--color-ink-faint)]">
+                  {lib.topicScope || 'no scope'} · {lib.status}
+                  {lib.masterLibrary ? ' · master' : ''}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={exportingId === lib.id}
+                onClick={() => void exportLibrary(lib)}
+                aria-label={`Export ${lib.name} to Obsidian zip`}
+                className="shrink-0 rounded-md border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50"
+              >
+                {exportingId === lib.id ? 'Exporting…' : 'Export'}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form onSubmit={(e) => void createLibrary(e)} className="mt-2 space-y-1.5">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Library name"
+          aria-label="New library name"
+          className={compactInput}
+        />
+        <input
+          value={topicScope}
+          onChange={(e) => setTopicScope(e.target.value)}
+          placeholder="Topic scope (optional)"
+          aria-label="New library topic scope"
+          className={compactInput}
+        />
+        <div className="flex items-center gap-2">
+          <button
+            type="submit"
+            disabled={busy || !name.trim()}
+            className="rounded-md border border-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+          >
+            {busy ? 'Creating…' : 'Create library'}
+          </button>
+          {message && <span className="text-[10px] text-[var(--color-ink-faint)]">{message}</span>}
+        </div>
+      </form>
+    </section>
+  );
+}
 
 /** Compact form to create a research module from the left panel. */
 function NewResearchModuleForm(props: { companyId: string }) {

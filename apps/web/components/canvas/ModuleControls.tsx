@@ -367,3 +367,197 @@ export function DisplayConfigForm(props: { companyId: string; moduleId: string }
     </div>
   );
 }
+
+type Curiosity = 'conservative' | 'balanced' | 'exploratory';
+
+interface ResearchConfig {
+  topicScope: string;
+  curiosity: Curiosity;
+  cadenceMinutes: number;
+  targetLibraryIds: string[];
+  sourceAllowlist: string[];
+  sourceBlocklist: string[];
+}
+
+interface LibraryOption {
+  id: string;
+  name: string;
+}
+
+const DEFAULT_RESEARCH_CONFIG: Omit<ResearchConfig, 'topicScope'> = {
+  curiosity: 'balanced',
+  cadenceMinutes: 180,
+  targetLibraryIds: [],
+  sourceAllowlist: [],
+  sourceBlocklist: [],
+};
+
+export function ResearchConfigForm(props: { companyId: string; moduleId: string }) {
+  const [config, setConfig] = useState<ResearchConfig | null>(null);
+  const [libraries, setLibraries] = useState<LibraryOption[]>([]);
+  const [allowlistText, setAllowlistText] = useState('');
+  const [blocklistText, setBlocklistText] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let stopped = false;
+    async function load() {
+      try {
+        const [mod, libs] = await Promise.all([
+          api<{ module: { config: Partial<ResearchConfig> } }>(
+            `/api/companies/${props.companyId}/modules/${props.moduleId}`,
+          ),
+          api<{ libraries: LibraryOption[] }>(`/api/companies/${props.companyId}/libraries`).catch(
+            () => ({ libraries: [] as LibraryOption[] }),
+          ),
+        ]);
+        if (stopped) return;
+        const merged: ResearchConfig = {
+          topicScope: mod.module.config.topicScope ?? '',
+          ...DEFAULT_RESEARCH_CONFIG,
+          ...mod.module.config,
+        };
+        setConfig(merged);
+        setLibraries(libs.libraries);
+        setAllowlistText(merged.sourceAllowlist.join(', '));
+        setBlocklistText(merged.sourceBlocklist.join(', '));
+      } catch {
+        if (!stopped) setMessage('Could not load research settings.');
+      }
+    }
+    void load();
+    return () => {
+      stopped = true;
+    };
+  }, [props.companyId, props.moduleId]);
+
+  async function saveConfig(next: ResearchConfig) {
+    const prev = config;
+    setConfig(next);
+    setSaving(true);
+    try {
+      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}`, {
+        method: 'PATCH',
+        body: { config: next },
+      });
+      setMessage(null);
+    } catch {
+      setConfig(prev);
+      setMessage('Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function parseCsvList(value: string): string[] {
+    return value
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  if (!config) {
+    return (
+      <div className="border-t border-[var(--color-line)] pt-4 text-xs text-[var(--color-ink-faint)]">
+        {message ?? 'Loading research settings…'}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5 border-t border-[var(--color-line)] pt-4">
+      <span className="text-xs text-[var(--color-ink-dim)]">Research settings</span>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Curiosity</span>
+        <select
+          value={config.curiosity}
+          disabled={saving}
+          onChange={(e) => void saveConfig({ ...config, curiosity: e.target.value as Curiosity })}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          <option value="conservative">conservative</option>
+          <option value="balanced">balanced</option>
+          <option value="exploratory">exploratory</option>
+        </select>
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Cadence (minutes)</span>
+        <input
+          type="number"
+          min={30}
+          max={1440}
+          value={config.cadenceMinutes}
+          disabled={saving}
+          onChange={(e) => {
+            const n = Number.parseInt(e.target.value, 10);
+            if (Number.isFinite(n)) setConfig({ ...config, cadenceMinutes: n });
+          }}
+          onBlur={() => void saveConfig(config)}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        />
+      </label>
+      <div className="space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Target libraries</span>
+        {libraries.length === 0 ? (
+          <p className="text-[10px] text-[var(--color-ink-faint)]">No libraries yet.</p>
+        ) : (
+          <div className="max-h-32 space-y-1 overflow-y-auto">
+            {libraries.map((lib) => {
+              const selected = config.targetLibraryIds.includes(lib.id);
+              return (
+                <button
+                  key={lib.id}
+                  type="button"
+                  disabled={saving}
+                  onClick={() => {
+                    const nextIds = selected
+                      ? config.targetLibraryIds.filter((id) => id !== lib.id)
+                      : [...config.targetLibraryIds, lib.id];
+                    void saveConfig({ ...config, targetLibraryIds: nextIds });
+                  }}
+                  className={`flex w-full rounded-md border px-2 py-1 text-left text-[11px] ${
+                    selected
+                      ? 'border-[var(--color-accent)] text-[var(--color-ink)]'
+                      : 'border-[var(--color-line)] text-[var(--color-ink-dim)] hover:text-[var(--color-ink)]'
+                  }`}
+                >
+                  {lib.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Source allowlist</span>
+        <input
+          value={allowlistText}
+          disabled={saving}
+          onChange={(e) => setAllowlistText(e.target.value)}
+          onBlur={() => {
+            const next = { ...config, sourceAllowlist: parseCsvList(allowlistText) };
+            void saveConfig(next);
+          }}
+          placeholder="Comma-separated domains or feeds"
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Source blocklist</span>
+        <input
+          value={blocklistText}
+          disabled={saving}
+          onChange={(e) => setBlocklistText(e.target.value)}
+          onBlur={() => {
+            const next = { ...config, sourceBlocklist: parseCsvList(blocklistText) };
+            void saveConfig(next);
+          }}
+          placeholder="Comma-separated domains or feeds"
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        />
+      </label>
+      {message && <p className="text-xs text-[var(--color-block)]">{message}</p>}
+    </div>
+  );
+}

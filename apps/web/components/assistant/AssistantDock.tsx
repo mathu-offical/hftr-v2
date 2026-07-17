@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AssistantMessage, AssistantToolResultSummary } from '@hftr/contracts';
+import type { AssistantEdit, AssistantMessage, AssistantToolResultSummary } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 
 function formatTime(iso: string): string {
@@ -15,6 +15,64 @@ function formatTime(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+function humanizeTool(tool: string): string {
+  return tool.replace(/_/g, ' ');
+}
+
+function ProposalCard(props: {
+  proposal: AssistantEdit;
+  companyId: string;
+  onResolved: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const p = props.proposal.proposal;
+
+  async function resolve(action: 'confirm' | 'reject') {
+    setBusy(true);
+    try {
+      await api(
+        `/api/companies/${props.companyId}/assistant/proposals/${props.proposal.id}/${action}`,
+        { method: 'POST' },
+      );
+      props.onResolved();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <li className="rounded-lg border border-[var(--color-warn)]/40 bg-[var(--color-surface-2)] p-2.5">
+      <p className="text-[11px] font-medium text-[var(--color-ink)]">
+        Pending {humanizeTool(props.proposal.tool)}
+      </p>
+      <p className="mt-1 font-mono text-[10px] text-[var(--color-ink-dim)]">
+        {p.tool === 'rename_module' && `Rename module → ${p.name}`}
+        {p.tool === 'patch_module_config' &&
+          `Patch module config (${Object.keys(p.configPatch).join(', ')})`}
+        {p.tool === 'add_watchlist_item' && `Watch ${p.symbol} (${p.bias})`}
+      </p>
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void resolve('confirm')}
+          className="rounded border border-[var(--color-ok)] px-2 py-0.5 text-[11px] text-[var(--color-ok)] hover:bg-[var(--color-ok)]/10 disabled:opacity-50"
+        >
+          Confirm
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void resolve('reject')}
+          className="rounded border border-[var(--color-line)] px-2 py-0.5 text-[11px] hover:bg-[var(--color-surface-3)] disabled:opacity-50"
+        >
+          Reject
+        </button>
+      </div>
+    </li>
+  );
 }
 
 function roleLabel(role: AssistantMessage['role']): string {
@@ -62,12 +120,24 @@ function ToolResultsSummary({ results }: { results: AssistantToolResultSummary[]
 export function AssistantDock(props: { companyId: string }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
+  const [proposals, setProposals] = useState<AssistantEdit[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const loadProposals = useCallback(async () => {
+    try {
+      const data = await api<{ proposals: AssistantEdit[] }>(
+        `/api/companies/${props.companyId}/assistant/proposals`,
+      );
+      setProposals(data.proposals);
+    } catch {
+      setProposals([]);
+    }
+  }, [props.companyId]);
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -89,8 +159,11 @@ export function AssistantDock(props: { companyId: string }) {
   }, [props.companyId]);
 
   useEffect(() => {
-    if (open) void loadHistory();
-  }, [open, loadHistory]);
+    if (open) {
+      void loadHistory();
+      void loadProposals();
+    }
+  }, [open, loadHistory, loadProposals]);
 
   useEffect(() => {
     if (open) {
@@ -197,13 +270,26 @@ export function AssistantDock(props: { companyId: string }) {
           <p className="py-4 text-xs text-[var(--color-ink-faint)]">Loading history…</p>
         )}
 
-        {!historyLoading && messages.length === 0 && (
+        {!historyLoading && messages.length === 0 && proposals.length === 0 && (
           <div className="py-4 text-xs text-[var(--color-ink-faint)]">
             <p>
               Ask about company summary, modules, executions, positions, trends, or queue status.
             </p>
             <p className="mt-1">Messages are saved. Do not paste credentials.</p>
           </div>
+        )}
+
+        {proposals.length > 0 && (
+          <ul className="mb-3 space-y-2" aria-label="Pending assistant proposals">
+            {proposals.map((p) => (
+              <ProposalCard
+                key={p.id}
+                proposal={p}
+                companyId={props.companyId}
+                onResolved={() => void loadProposals()}
+              />
+            ))}
+          </ul>
         )}
 
         <ul className="space-y-3">

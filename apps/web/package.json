@@ -22,9 +22,13 @@
     "@hftr/secrets": "workspace:*",
     "@xyflow/react": "^12.11.2",
     "drizzle-orm": "^0.44.7",
+    "jszip": "^3.10.1",
     "next": "^15.3.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-force-graph-2d": "^1.29.1",
+    "react-force-graph-3d": "^1.29.1",
+    "react-markdown": "^10.1.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {

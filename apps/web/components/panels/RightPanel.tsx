@@ -99,6 +99,17 @@ interface ValueRow {
   capturedAt: string;
 }
 
+interface SimulationRow {
+  id: string;
+  moduleId: string | null;
+  label: string;
+  status: string;
+  config: Record<string, unknown>;
+  resultSummary: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /**
  * Right panel (ui-ux spec): Verification, Executions, Ledger (with open
  * positions), Simulation, and the Math value-store audit. Read-only
@@ -116,6 +127,8 @@ export function RightPanel(props: { companyId: string }) {
   const [verifications, setVerifications] = useState<VerificationRow[]>([]);
   const [positions, setPositions] = useState<PositionRow[]>([]);
   const [values, setValues] = useState<ValueRow[]>([]);
+  const [simulations, setSimulations] = useState<SimulationRow[]>([]);
+  const [simComparison, setSimComparison] = useState<string | null>(null);
 
   useEffect(() => {
     if (!storageKey) {
@@ -158,6 +171,9 @@ export function RightPanel(props: { companyId: string }) {
       api<{ verifications: VerificationRow[] }>(`${base}/verifications`),
       api<{ positions: PositionRow[] }>(`${base}/positions`),
       api<{ values: ValueRow[] }>(`${base}/values`),
+      api<{ runs: SimulationRow[]; comparison?: { runIds: string[]; deltaSummary: string } }>(
+        `${base}/simulations`,
+      ),
     ]);
     if (results[0].status === 'fulfilled') {
       setBalance(results[0].value.balanceCents);
@@ -167,6 +183,10 @@ export function RightPanel(props: { companyId: string }) {
     if (results[2].status === 'fulfilled') setVerifications(results[2].value.verifications);
     if (results[3].status === 'fulfilled') setPositions(results[3].value.positions);
     if (results[4].status === 'fulfilled') setValues(results[4].value.values);
+    if (results[5].status === 'fulfilled') {
+      setSimulations(results[5].value.runs);
+      setSimComparison(results[5].value.comparison?.deltaSummary ?? null);
+    }
   }, [props.companyId]);
 
   useEffect(() => {
@@ -233,12 +253,9 @@ export function RightPanel(props: { companyId: string }) {
         {tab === 'executions' && <ExecutionsTab executions={executions} />}
         {tab === 'ledger' && <LedgerTab ledger={ledger} positions={positions} />}
         {tab === 'simulation' && (
-          <p className="px-1 text-xs text-[var(--color-ink-faint)]">
-            Simulation runs and their analyses appear here once a simulator module executes its
-            first run (simulator milestone).
-          </p>
+          <SimulationTab runs={simulations} comparisonSummary={simComparison} />
         )}
-        {tab === 'values' && <ValuesTab values={values} />}
+        {tab === 'values' && <ValuesTab companyId={props.companyId} values={values} />}
       </div>
     </aside>
   );
@@ -369,25 +386,143 @@ function LedgerTab(props: { ledger: LedgerRow[]; positions: PositionRow[] }) {
   );
 }
 
-function ValuesTab(props: { values: ValueRow[] }) {
+function SimulationTab(props: { runs: SimulationRow[]; comparisonSummary: string | null }) {
+  if (props.runs.length === 0) {
+    return (
+      <Empty text="No simulation runs yet. Create one via POST /simulations or the simulator module." />
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {props.comparisonSummary && (
+        <div
+          role="status"
+          className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] p-2.5 text-[11px] text-[var(--color-ink-dim)]"
+        >
+          <p className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-ink-faint)]">
+            Comparison
+          </p>
+          <p>{props.comparisonSummary}</p>
+        </div>
+      )}
+      <ul className="space-y-2">
+        {props.runs.map((run) => (
+          <li key={run.id} className="rounded-lg border border-[var(--color-line)] p-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-[var(--color-ink)]">{run.label}</span>
+              <span className="text-[10px] uppercase text-[var(--color-ink-faint)]">
+                {run.status}
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] text-[var(--color-ink-dim)]">
+              {run.moduleId ? `module ${run.moduleId.slice(0, 8)}…` : 'company-scoped'} ·{' '}
+              {new Date(run.createdAt).toLocaleString()}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ValuesTab(props: { companyId: string; values: ValueRow[] }) {
+  const [selectedRef, setSelectedRef] = useState<string | null>(null);
+  const [lineage, setLineage] = useState<
+    Array<{
+      ref: string;
+      kind: string;
+      sourceClass: string;
+      sourceId: string;
+      depth: number;
+    }>
+  >([]);
+  const [lineageTruncated, setLineageTruncated] = useState(false);
+  const [lineageError, setLineageError] = useState<string | null>(null);
+
+  async function loadLineage(ref: string) {
+    setSelectedRef(ref);
+    setLineageError(null);
+    try {
+      const result = await api<{
+        chain: Array<{
+          ref: string;
+          kind: string;
+          sourceClass: string;
+          sourceId: string;
+          depth: number;
+        }>;
+        truncated: boolean;
+      }>(`/api/companies/${props.companyId}/values/${encodeURIComponent(ref)}/lineage`);
+      setLineage(result.chain);
+      setLineageTruncated(result.truncated);
+    } catch {
+      setLineage([]);
+      setLineageTruncated(false);
+      setLineageError('Could not load lineage for this value.');
+    }
+  }
+
   if (props.values.length === 0) return <Empty text="No recorded values yet for this company." />;
   return (
-    <ul className="space-y-1.5">
-      {props.values.map((v) => (
-        <li key={v.ref} className="rounded-md border border-[var(--color-line)] px-2.5 py-1.5">
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-xs">
-              {scaled(v.valueInt, v.scale)} {v.unit}
-            </span>
-            <span className="text-[10px] uppercase tracking-wide text-[var(--color-ink-faint)]">
-              {v.kind}
-            </span>
+    <div className="space-y-3">
+      <ul className="space-y-1.5">
+        {props.values.map((v) => (
+          <li key={v.ref}>
+            <button
+              type="button"
+              onClick={() => void loadLineage(v.ref)}
+              className={`w-full rounded-md border px-2.5 py-1.5 text-left ${
+                selectedRef === v.ref
+                  ? 'border-[var(--color-accent)] bg-[var(--color-surface-2)]'
+                  : 'border-[var(--color-line)] hover:bg-[var(--color-surface-2)]'
+              }`}
+              aria-label={`Show lineage for value ${v.ref}`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs">
+                  {scaled(v.valueInt, v.scale)} {v.unit}
+                </span>
+                <span className="text-[10px] uppercase tracking-wide text-[var(--color-ink-faint)]">
+                  {v.kind}
+                </span>
+              </div>
+              <div className="mt-0.5 truncate text-[10px] text-[var(--color-ink-faint)]">
+                {v.sourceClass} · {v.sourceId} · {new Date(v.capturedAt).toLocaleTimeString()}
+              </div>
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {selectedRef && (
+        <div className="rounded-lg border border-[var(--color-line)] p-2.5">
+          <div className="text-[11px] uppercase tracking-wide text-[var(--color-ink-faint)]">
+            Lineage chain
           </div>
-          <div className="mt-0.5 truncate text-[10px] text-[var(--color-ink-faint)]">
-            {v.sourceClass} · {v.sourceId} · {new Date(v.capturedAt).toLocaleTimeString()}
-          </div>
-        </li>
-      ))}
-    </ul>
+          {lineageError ? (
+            <p className="mt-1 text-xs text-[var(--color-block)]">{lineageError}</p>
+          ) : lineage.length === 0 ? (
+            <p className="mt-1 text-xs text-[var(--color-ink-faint)]">Loading lineage…</p>
+          ) : (
+            <ol className="mt-1.5 space-y-1 text-xs text-[var(--color-ink-dim)]">
+              {lineage.map((node) => (
+                <li key={`${node.ref}-${node.depth}`}>
+                  <span className="font-mono text-[10px] text-[var(--color-ink-faint)]">
+                    depth {node.depth}
+                  </span>
+                  {' · '}
+                  {node.kind} · {node.sourceClass} · {node.sourceId}
+                </li>
+              ))}
+            </ol>
+          )}
+          {lineageTruncated && (
+            <p className="mt-1 text-[10px] text-[var(--color-warn)]">
+              Lineage truncated at depth cap.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

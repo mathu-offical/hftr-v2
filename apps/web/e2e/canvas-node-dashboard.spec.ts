@@ -99,6 +99,8 @@ test.describe('Canvas node dashboard (D-026)', () => {
     await expect(tradingNode.getByLabel('Confirmed: Capital allocation')).toBeVisible();
     await expect(tradingNode.getByLabel('Confirmed: Target exit')).toBeVisible();
     await expect(topicField).toHaveClass(/border-\[var\(--color-line\)\]/);
+    await expect(allocationField).toHaveClass(/border-\[var\(--color-line\)\]/);
+    await expect(targetExitField).toHaveClass(/border-\[var\(--color-line\)\]/);
 
     await tradingNode.getByText('Trading', { exact: true }).click();
     const inspectorName = page.locator('aside').getByLabel('Name', { exact: true });

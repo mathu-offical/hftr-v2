@@ -9,8 +9,13 @@ import { isMathToolAttachment } from './engines';
 
 export const CANVAS_LAYOUT = {
   moduleWidth: 280,
-  moduleHeight: 220,
+  /**
+   * Conservative card height for layout before React Flow measurement.
+   * Setup-bearing dashboard cards (capital + exit) routinely exceed 220 px.
+   */
+  moduleHeight: 320,
   horizontalGutter: 180,
+  /** Clearance between owner/tool envelopes in the same rank. */
   verticalGutter: 160,
   mathAttachmentGap: 24,
   mathToolWidth: 220,
@@ -20,11 +25,18 @@ export const CANVAS_LAYOUT = {
   originY: 40,
 } as const;
 
+/** Owner card + dedicated Math dock under it (D-033 envelope). */
+export function layoutOwnerEnvelopeHeight(
+  moduleHeight = CANVAS_LAYOUT.moduleHeight,
+): number {
+  return moduleHeight + CANVAS_LAYOUT.mathAttachmentGap + CANVAS_LAYOUT.mathToolHeight;
+}
+
 /** Horizontal step between pipeline ranks (card body + port gutter). */
 export const LAYOUT_COLUMN_STEP = CANVAS_LAYOUT.moduleWidth + CANVAS_LAYOUT.horizontalGutter;
 
 /** Vertical step between stacked owner envelopes in the same rank. */
-export const LAYOUT_ROW_STEP = CANVAS_LAYOUT.moduleHeight + CANVAS_LAYOUT.verticalGutter;
+export const LAYOUT_ROW_STEP = layoutOwnerEnvelopeHeight() + CANVAS_LAYOUT.verticalGutter;
 
 export const BatchCanvasLayoutInput = z.object({
   modules: z
@@ -318,8 +330,9 @@ export function layoutEngineGroup(
     });
   }
 
-  const memberPositions = ranked.map((r) => positions.get(r.id)!);
-  const bounds = computePaddedBounds(memberPositions, padding);
+  // Include dedicated Math docks so group chrome covers the full owner/tool envelope.
+  const allLayoutPositions = [...positions.values()];
+  const bounds = computePaddedBounds(allLayoutPositions, padding);
 
   // Keep requested origin as the group chrome origin when possible.
   const dx = origin.x - bounds.x;
@@ -330,8 +343,8 @@ export function layoutEngineGroup(
     }
   }
 
-  const shiftedMemberPositions = ranked.map((r) => positions.get(r.id)!);
-  const canvasBounds = computePaddedBounds(shiftedMemberPositions, padding);
+  const shiftedPositions = [...positions.values()];
+  const canvasBounds = computePaddedBounds(shiftedPositions, padding);
 
   return {
     modules: [...positions.entries()].map(([id, canvasPosition]) => ({ id, canvasPosition })),

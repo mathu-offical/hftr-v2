@@ -110,9 +110,9 @@ export function isMathToolAttachment(
 export const ENGINE_GROUP_PADDING = {
   left: 112,
   right: 112,
-  /** Label bar + master topic editor chrome (EngineGroupNode). */
-  top: 120,
-  bottom: 160,
+  /** Label bar + full shared setup chrome (D-035 EngineGroupNode). */
+  top: 300,
+  bottom: 180,
 } as const;
 
 export function computeEngineBoundsFromPositions(

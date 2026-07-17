@@ -92,13 +92,13 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           feedClass: 'synthetic_sim',
           pollSeconds: 60,
         },
-        position: { x: 460, y: 380 },
+        position: { x: 460, y: 552 },
       },
       {
         type: 'trend',
         name: 'Market Trend Scanner',
         config: { focus: 'pending_operator_scope', maxActiveTrends: 10, cadenceMinutes: 30 },
-        position: { x: 920, y: 190 },
+        position: { x: 920, y: 276 },
       },
       {
         type: 'trading',
@@ -109,7 +109,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           exitTimelineDays: 1,
           cadenceMinutes: 5,
         },
-        position: { x: 1380, y: 190 },
+        position: { x: 1380, y: 276 },
       },
       {
         type: 'holding_fund',
@@ -118,7 +118,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           source: 'company_seed',
           allocationPolicyRef: 'paper_balanced_general_v1',
         },
-        position: { x: 920, y: 570 },
+        position: { x: 920, y: 828 },
       },
       {
         type: 'fund_router',
@@ -128,13 +128,13 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           approvalMode: 'manual',
           targetModuleIds: [],
         },
-        position: { x: 1380, y: 570 },
+        position: { x: 1380, y: 828 },
       },
       {
         type: 'analyzer',
         name: 'Transaction Execution Monitor',
         config: {},
-        position: { x: 1840, y: 190 },
+        position: { x: 1840, y: 276 },
       },
       {
         type: 'policy',
@@ -143,7 +143,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           policyEnvelopeRef: 'paper_balanced_general_v1',
           notes: 'Fail-closed paper policy verification.',
         },
-        position: { x: 1840, y: 570 },
+        position: { x: 1840, y: 828 },
       },
     ],
     links: [
@@ -501,19 +501,19 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
     label: 'Day trading starter',
     description:
       'Full paper engine: research, evidence, market/runtime data, trend, execution, deterministic funds, and policy verification.',
-    mathPosition: { x: 540, y: 500 },
+    mathPosition: { x: 920, y: 1104 },
     modules: [
       {
         type: 'research',
         name: 'Market Regime Research',
         config: { topicScope: 'pending_operator_scope', curiosity: 'balanced' },
-        position: { x: 20, y: 180 },
+        position: { x: 40, y: 300 },
       },
       {
         type: 'library',
         name: 'Strategy Evidence Library',
         config: { topicScope: 'pending_operator_scope', masterLibrary: false },
-        position: { x: 280, y: 120 },
+        position: { x: 500, y: 300 },
       },
       {
         type: 'live_api',
@@ -524,13 +524,13 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
           feedClass: 'synthetic_sim',
           pollSeconds: 60,
         },
-        position: { x: 280, y: 300 },
+        position: { x: 500, y: 852 },
       },
       {
         type: 'trend',
         name: 'Market Trend Scanner',
         config: { focus: 'pending_operator_scope', maxActiveTrends: 10, cadenceMinutes: 30 },
-        position: { x: 540, y: 210 },
+        position: { x: 960, y: 576 },
       },
       {
         type: 'trading',
@@ -542,7 +542,7 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
           exitTimelineDays: 1,
           cadenceMinutes: 5,
         },
-        position: { x: 800, y: 210 },
+        position: { x: 1420, y: 576 },
       },
       {
         type: 'holding_fund',
@@ -551,7 +551,7 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
           source: 'company_seed',
           allocationPolicyRef: 'paper_balanced_general_v1',
         },
-        position: { x: 280, y: 500 },
+        position: { x: 960, y: 1128 },
       },
       {
         type: 'fund_router',
@@ -561,13 +561,13 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
           approvalMode: 'manual',
           targetModuleIds: [],
         },
-        position: { x: 800, y: 500 },
+        position: { x: 1420, y: 1128 },
       },
       {
         type: 'analyzer',
         name: 'Transaction Execution Monitor',
         config: {},
-        position: { x: 1060, y: 210 },
+        position: { x: 1880, y: 576 },
       },
       {
         type: 'policy',
@@ -576,7 +576,7 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
           policyEnvelopeRef: 'paper_balanced_general_v1',
           notes: 'Fail-closed paper policy verification.',
         },
-        position: { x: 1060, y: 390 },
+        position: { x: 1880, y: 1128 },
       },
     ],
     links: [

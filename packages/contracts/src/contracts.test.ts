@@ -67,6 +67,7 @@ import { COMPANY_TEMPLATES, ENGINE_TEMPLATES } from './templates';
 import {
   CANVAS_LAYOUT,
   LAYOUT_COLUMN_STEP,
+  LAYOUT_ROW_STEP,
   layoutCanvas,
   rankEngineMembers,
   reflowEngineAtOrigin,
@@ -785,6 +786,20 @@ describe('canvas layout (D-033)', () => {
     const mathPos = result.modules.find((module) => module.id === mathId)!.canvasPosition;
     expect(mathPos.x).toBe(ownerPos.x + (owner.width - CANVAS_LAYOUT.mathToolWidth) / 2);
     expect(mathPos.y).toBe(ownerPos.y + owner.height + CANVAS_LAYOUT.mathAttachmentGap);
+    const bounds = result.engines[0]!.canvasBounds;
+    // Group chrome must cover the Math dock, not only the owner card.
+    expect(bounds.y + bounds.height).toBeGreaterThan(
+      mathPos.y + CANVAS_LAYOUT.mathToolHeight,
+    );
+  });
+
+  it('uses owner/tool envelopes for vertical row spacing', () => {
+    expect(LAYOUT_ROW_STEP).toBe(
+      CANVAS_LAYOUT.moduleHeight +
+        CANVAS_LAYOUT.mathAttachmentGap +
+        CANVAS_LAYOUT.mathToolHeight +
+        CANVAS_LAYOUT.verticalGutter,
+    );
   });
 
   it('ranks members downstream from their producers', () => {

@@ -33,7 +33,7 @@ payloads with precision-safe rounding tables per instrument.
 | Phase | Venue | Notes (verified 2026-07) |
 |---|---|---|
 | M1 | **paper_sim** (internal) | Deterministic fill simulator carried from v1's paper adapter, upgraded: quote-anchored fills, slippage model from band catalog, simulator-gap tags mandatory on traces |
-| M2 | **Alpaca Trading API** | Stocks + crypto. Paper env = same API, different base URL + keys → the parity showcase. User supplies their own account API keys. Live requires their funded brokerage account (Alpaca onboarding is on Alpaca's side). Market data: IEX feed free tier; entitlement labeled per compliance baseline |
+| M2 (D-027) | **Alpaca Trading API (paper)** | Adapter + connect/verify/exclusive company bind shipped. Paper base `https://paper-api.alpaca.markets`; IEX quotes labeled `alpaca_iex_paper`. Capital admission uses `min(virtual allocation, broker buying power)`. Live URLs remain fail-closed (`live_gate_blocked`). |
 | M3 | **Kalshi** | Regulated US prediction markets; REST + WS; demo environment for paper-equivalent. Contracts priced 1–99¢ ≈ probability; edge formula carried from v1 (`edge = p_model - p_market - fee_drag - slippage_drag`) |
 | M4 | **Polymarket CLOB** | Wallet/allowance-based auth (more friction; needs key custody design). Phase-gated behind Kalshi learnings |
 | M4+ | **Coinbase Advanced** | Broader crypto coverage than Alpaca; evaluate need after crypto module usage data |

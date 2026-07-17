@@ -166,6 +166,16 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   POST `/trends` records operator_input ValueRef for drift. LLM call path still reads
   env keys only until user-key injection lands (follow-up).
 
+- **D-026 (canvas node dashboard: labeled ports, fixed card, naming, 2026-07-17):** Operator
+  approved design in `ui-ux/canvas-node-dashboard-design.md`. (a) **Ports:** one labeled handle
+  per accepted `LinkKind` inbound/outbound (not four anonymous data/control/tools points).
+  (b) **Card:** fixed-size dashboard with always-visible editable high-level fields; no
+  expand-on-select. Click chrome → inspector; fields stay interactive on-canvas. (c) **Validation:**
+  Required/Set chips and highlights sit on the corresponding field. (d) **Names:** auto-derived
+  from function + connections until customized; inspector **Restore generated name**. (e)
+  **Supersedes D-024 §(c)** expand-selected / suppress-inspector-while-incomplete. Shipped with
+  migration `0011_canvas_node_generated_names` and labeled-port `ModuleNode` dashboard.
+
 - **D-024 (inline module setup + separate operating budgets, 2026-07-17):** Resolved OQ-9 from
   operator clarification. (a) **Scope:** capital allocation applies only to capital-bearing
   `holding_fund`, `fund_router`, and `trading` modules; LLM/API-provider operating budgets remain
@@ -175,9 +185,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   (b) **Creation:** company templates and module-store engine templates expose highlighted inline
   allocation, topic/sector, and target-exit controls. Complete setup applies shared values to
   matching template nodes. **Skip setup** creates the graph in draft state and opens the canvas
-  with text-visible required-field chips. (c) **Node controls:** required controls render directly
-  inside the selected canvas node; incomplete nodes suppress the overlapping inspector until
-  setup is saved. Draft nodes cannot transition active while required fields are missing.
+  with text-visible required-field chips. (c) **Node controls (superseded by D-026 for canvas
+  chrome):** originally required controls rendered inside the selected node and incomplete nodes
+  suppressed the inspector — replaced by fixed dashboard body + always-available inspector.
+  Draft nodes still cannot transition active while required fields are missing.
   (d) **NRA:** `modules.topic_sectors` stores qualitative scope; `capital_allocation_ref` and
   `target_exit_ref` point to append-only `operator_input` ValueRefs (`usd_cents|pct` and
   `timestamp_ms`). Migration `0008_blushing_kronos` adds these fields. (e) **Operating budget
@@ -252,6 +263,21 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `0009_philosophy_profile`. Verified: typecheck + unit tests including philosophy mapping.
   Live multi-company browser cohort and IronBee not claimed in this slice.
 
+- **D-027 (real service integration: user keys + ZDR routing + Alpaca isolation, 2026-07-17):**
+  Resolved OQ-8. (a) **LLM auth:** only user-saved provider keys authorize provider calls;
+  deployment env keys (`ANTHROPIC_API_KEY`, etc.) do not authorize runtime calls (reserved for
+  offline tooling). (b) **Model routing:** allowlisted `MODEL_CAPABILITY_REGISTRY` with
+  retention class, schema mode, cost, and tier affinity; company `llm_policy` selects profiles
+  (`privacy_cost`, `strict_compile`, `premium_quality`). Strict privacy admits `default_zdr` /
+  `request_zdr` and Anthropic only when `anthropicZdrAttested`; Mistral stays `unclear` and is
+  excluded from strict_zdr until contractually clear. Transport families: Anthropic Messages,
+  Mistral chat, OpenAI-compatible (Groq/Cerebras/Fireworks/OpenRouter). Compile default:
+  Groq `openai/gpt-oss-20b` (strict json_schema). (c) **Broker isolation:** credentials in
+  `broker_connections` encrypted with `CREDENTIALS_ENCRYPTION_KEY` (separate from LLM
+  settings); exclusive company bind via unique `companies.broker_connection_id`; paper only;
+  admission `min(virtual allocation, broker buying power)`. (d) Shared `@hftr/secrets`
+  envelopes; `leakLint` moved to contracts to break llm↔engine cycles.
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;
@@ -262,8 +288,8 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   behavior, account deletion, and whether summary `tool_results` history follows the same rules
   as `content`. No policy encoded yet; `assistant_messages` remains append-only with no purge
   job.
-- **OQ-8 (open):** When user-saved LLM keys exist, should they override env keys, or
-  should env remain the deployment default with user keys as optional personal overrides?
+- **OQ-8 (resolved 2026-07-17, D-027):** User-saved keys only authorize provider calls; env keys
+  do not authorize runtime calls.
 - **OQ-7 (resolved 2026-07-16):** Clerk dev-instance keys added to `apps/web/.env.local`;
   the dev bypass self-deactivates (it requires Clerk to be unconfigured). Clerk-hosted
   sign-up UI verified rendering; full automated sign-up E2E pending (Clerk bot protection

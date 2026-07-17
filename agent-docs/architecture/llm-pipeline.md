@@ -28,9 +28,12 @@ deterministic and provider-free.
    deterministic gates → dispatch → broker → verification
 ```
 
-Model config lives in `packages/llm/models.ts` with env overrides:
-`ANTHROPIC_STRATEGIC_MODEL`, `MISTRAL_TACTICAL_MODEL`, `GROQ_EXECUTION_MODEL`.
-Defaults: `claude-sonnet-*` current, `mistral-large-latest`, `llama-3.3-70b-versatile`.
+Model selection uses allowlisted `MODEL_CAPABILITY_REGISTRY` + company `llm_policy`
+(D-027). Runtime auth is **user-saved keys only** — deployment env API keys do not authorize
+calls. Defaults: strategic `claude-sonnet-4-5` (requires org ZDR attestation in strict mode),
+tactical/assistant `cerebras/zai-glm-4.7` (default ZDR), execution `groq/openai/gpt-oss-20b`
+(strict json_schema). Optional env model-id overrides must still be allowlisted.
+`HFTR_LLM_MODE=deterministic` forces placeholder handlers for CI.
 
 ## 2. Choice-generation over token-generation (v2 spec §"UPDATED LLM MODEL USAGE")
 

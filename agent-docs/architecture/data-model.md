@@ -15,9 +15,10 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 ## Companies & modules
 
 - **companies** — clerk_user_id, name, philosophy_prompt, philosophy_profile jsonb (slideable
-  axes → LeverSetting; D-025), goals jsonb, reinvestment_policy jsonb,
-  scoping_policies jsonb, mode `paper|live`, seed_credits_cents (paper), broker_connection_id
-  nullable, auto_fund_policy jsonb (approval thresholds), archived_at.
+  axes → LeverSetting; D-025), llm_policy jsonb (privacy mode, tier model ids, profile;
+  D-027), goals jsonb, reinvestment_policy jsonb, scoping_policies jsonb, mode `paper|live`,
+  seed_credits_cents (paper), broker_connection_id nullable unique FK → broker_connections,
+  auto_fund_policy jsonb (approval thresholds), archived_at.
 - **modules** — company_id, type `research|library|live_api|trend|trading|policy|generator|
   simulator|analyzer|holding_fund|fund_router|math|display`, subtype (trading: `crypto|prediction|
   hft|day|long_term|custom`), name, config jsonb (schema per type), status
@@ -39,9 +40,13 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 ## Broker connections
 
 - **broker_connections** — clerk_user_id, venue `alpaca|kalshi|polymarket|coinbase`,
-  mode `paper|live`, encrypted_credentials bytea, key_last_four, status
-  `connected|error|revoked`, capabilities jsonb (from adapter handshake), last_verified_at.
-- **broker_balances_snapshot** — connection_id, cash, buying_power, positions jsonb, as_of.
+  mode `paper|live`, ciphertext (AES-GCM via `CREDENTIALS_ENCRYPTION_KEY`), key_hint,
+  status `connected|error|revoked|unverified`, capabilities jsonb, last_verified_at,
+  venue_account_id. Exclusive company bind via unique `companies.broker_connection_id` FK
+  (D-027). Live mode credentials rejected until live gate.
+- **broker_balances_snapshot** — connection_id, cash_cents, buying_power_cents, positions jsonb, as_of.
+- **dispatch_reconciliation_events** — company/connection scoped submit/poll/fill/timeout events
+  with optional venue request ids (no secrets).
 
 ## Research & knowledge
 
@@ -51,7 +56,8 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   embedding vector nullable (pgvector, phase-gated), source_urls jsonb, confidence.
 - **concept_tags** — concept_id, tag (lower_snake_case); **tags** registry (tag, kind, color_hint).
 - **concept_links** — from_concept_id, to_concept_id, relation
-  `supports|contradicts|causes|correlates|mentions|derived_from`, weight 0..1, provenance.
+  `supports|contradicts|causes|correlates|mentions|derived_from`, weight_band
+  `weak|typical|strong`, source_class. Implemented (migration `0010`); galaxy UI still M2.
   (concepts + concept_links + tags = the galaxy graph AND the Obsidian export source.)
 - **libraries** — company_id, name, topic_scope jsonb, master_library flag;
   **library_concepts** join (library_id, concept_id, curation_status).
@@ -149,10 +155,16 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   company_id, module_id, cost_estimate jsonb.
 - **job_schedules** — cron-like recurring definitions per module cadence.
 - **llm_calls** — provider, model, tier, module_id, tokens in/out, cost_cents, latency_ms,
-  schema_valid bool, rate_limit_remaining, job_id.
+  schema_valid, leak_lint_passed, rate_limit_remaining, request_id, retention_class, failure,
+  idempotency_key, job_id. Never stores prompts, outputs, or secrets (D-027).
+- **llm_artifacts** — idempotency_key unique, schema_ref, provider, model, validated output
+  jsonb for replay-without-recall.
 - **llm_budgets** — scope (user/company/module), provider, window, max_calls, max_cost_cents,
   consumed counters. The Company → LLM / operating projection displays these provider call/cost
-  counters and credential source separately from module capital allocation (D-024).
+  counters and credential source (`user_key|unconfigured` only) separately from module capital
+  allocation (D-024/D-027).
+- **user_api_keys** — per-user LLM provider ciphertext + key_hint + retention_attested
+  (`none|org_zdr`); providers include anthropic/mistral/groq/cerebras/fireworks/openrouter.
 
 ## Assistant
 

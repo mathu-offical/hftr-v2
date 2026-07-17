@@ -62,3 +62,38 @@ Scoring: `intent-alignment-scoring.md`
 | Blocker | No Alpaca/Kalshi/Polymarket/Coinbase adapters; quotes remain synthetic |
 | Plan | Activate when M3/M4 adapters + credentials exist; keep paper/demo only |
 | Scenario refs | scenario-encyclopedia data provenance + multi-company isolation classes |
+
+---
+
+## EXP-2026-07-17-03 — Three-company synthetic paper intent cohort
+
+| Field | Value |
+|---|---|
+| Status | completed |
+| Mode | paper only; live gate exercised and remained fail-closed |
+| Quote source | `synthetic_sim` |
+| Venue | `paper_sim` |
+| Companies | 3 isolated `day_trading_starter` companies |
+| Hypothesis | `risk_appetite` min / typical / max produces strictly increasing deterministic quantities without cross-company trace leakage |
+| Declared intent | conservative / balanced / aggressive risk positions; otherwise identical AAPL up-trend inputs |
+| Observed | min < typical < max fill quantity; each activity response contained only its own `companyId` and trading module |
+| Alignment | **pass** — declared risk ordering matched observed order-size ordering |
+| Provenance | every sampled trace used mode=`paper`, venue=`paper_sim`, verification=`pass`, and simulator gap tags `synthetic_quote`, `inline_fill_model`, `no_venue_latency`, `no_partial_fills` |
+| Hard fails | none; a separate unsupported NVDA short was blocked with verification=`blocked` and `pre_dispatch_block` |
+| Browser evidence | Playwright flow visible in right-panel ledger; IronBee philosophy persistence + text-first live gate passed with zero fresh console errors |
+
+### Verification
+
+- `pnpm --filter @hftr/web exec playwright test e2e/paper-intent-alignment.spec.ts` — 2 passed
+- `pnpm --filter @hftr/web test:e2e` — 4 passed
+- `pnpm test` — all seven workspaces passed; adapters 18 tests including unsupported-action fail-closed cases
+- Database drift found during preflight (`llm_policy`, then generated module-name columns); migrations 0010 and 0011 applied before rerun
+
+### Findings and triage
+
+1. **System fix:** broker adapters previously treated non-order action verbs as sell-like submissions.
+   Alpaca mapping now throws and `paper_sim` rejects without a fill or balance mutation.
+2. **Test infrastructure:** the full pipeline Playwright gap is closed for the currently shipped
+   deterministic synthetic spine; real model and live-data variants remain deferred.
+3. **Still deferred:** `capitalAllocationRef` does not yet override risk-axis sizing; live Alpaca,
+   Kalshi, Polymarket, and Coinbase cohorts require their milestone adapters and credentials.

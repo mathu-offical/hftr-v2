@@ -55,16 +55,18 @@ Playwright M1 flows green. Recorded evidence: migration `0008` applied; typechec
 complete two-spec Playwright; IronBee create/skip/inline setup/provider-budget pass with no new
 console errors. Remote CI e2e first run remains pending.
 
-**M2 not started.** Next dependency slices before real provider calls (do not mark M2 done until
-verified): (1) LLM call boundary + key precedence (OQ-8) with `llm_calls` admission wired;
-(2) research graph contracts + `concept_links`; (3) NRA substitution pass + static/temporal ops +
-leak-lint gates — then replace deterministic research placeholder. Do not call providers before
-these gates pass.
+**M2 in progress (D-027 service integration slice):** (1) OQ-8 resolved — user keys only;
+`@hftr/llm` invoke gateway with retention admission, NRA substitute, budgets, `llm_calls` /
+`llm_artifacts` ledger; (2) `concept_links` migrated; research.curate uses ModelGateway with
+deterministic fallback; (3) Alpaca paper adapter + exclusive `broker_connections` + VERIFY
+reconcile handler pulled forward from M4 for parallel real-service work. Remaining for G2:
+galaxy MVP, Obsidian export, library curation UI, live provider smoke with operator keys,
+scenario promotion of default model profiles.
 
 ## M2 — Research stack (Claude+Mistral) + libraries + galaxy MVP + numeric core
 
-1. `packages/llm`: provider clients, `callSchema` wrapper (incl. numeric substitution pass +
-   leak lint), budgets + admission, llm_calls ledger.
+1. `packages/llm`: **partially shipped (D-027)** — provider clients, `invoke`/`callSchema`
+   (substitution + leak lint), budgets + admission, llm_calls ledger, capability registry.
 1b. **Numeric + temporal reference architecture core** (`number-handling.md`): `numeric_values`
    + `calc_operations` + `exchange_calendars` migrations, fixed-point ValueRef store (numeric +
    temporal kinds), static op catalog v1 (financial + temporal ops), expression evaluator with

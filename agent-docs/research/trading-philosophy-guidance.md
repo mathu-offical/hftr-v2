@@ -204,7 +204,7 @@ Deterministic movement is future work — philosophy should not assume transfers
 
 ---
 
-## 8. Experiment learnings (placeholder)
+## 8. Experiment learnings
 
 > **This section accumulates findings from paper experiments run under
 > `/Users/matt-mobile/MATT/web_dev/hftr-v2/agent-docs/research/paper-experimentation-protocol.md`.**
@@ -216,6 +216,7 @@ Deterministic movement is future work — philosophy should not assume transfers
 | --- | --- | --- | --- | --- |
 | EXP-2026-07-17-01 | unit (philosophy control) | synthetic_sim | pass | risk_appetite → sizing BPS; fail-closed levers |
 | EXP-2026-07-17-02 | multi-company live-data | — | deferred | blocked on venue adapters |
+| EXP-2026-07-17-03 | 3× day_trading_starter | synthetic_sim | pass | min < typical < max quantities; company-scoped traces; unsupported short blocked |
 
 See `testing/experiment-log.md` for full scorecards.
 
@@ -224,6 +225,10 @@ See `testing/experiment-log.md` for full scorecards.
 - Free-text philosophy alone never changed sizing (pre-D-025) — structured axes required.
 - Strategy family UI toggles were ignored until promote read `strategyFamilies[0]`.
 - Labeling synthetic quotes as `live_feed` created false provenance confidence — fixed to `synthetic_sim`.
+- Equal strategy/symbol inputs across three companies preserved the declared risk ordering in
+  deterministic quantities. This validates control responsiveness, not expected profitability.
+- `capitalAllocationRef` is recorded but does not yet take priority over risk-axis sizing; treat
+  allocation-vs-risk alignment as not collected until that deterministic resolver is implemented.
 
 ### 8.3 Operator patterns that score well
 

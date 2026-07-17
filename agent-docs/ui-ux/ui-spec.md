@@ -22,8 +22,10 @@
   Trading profile, Settings, Philosophy tabs) → executions ticker tape (`ExecutionTicker`,
   marquee of recent fills/blocks with amounts, pauses on hover) → paper/live master switch
   (`ModeSwitch`, live gated with an explanation popover — fails closed until the broker
-  milestone) → queue chip → **User settings** modal (`UserSettingsLauncher`: encrypted
-  Anthropic/Mistral/Groq API keys) → Clerk user button.
+  milestone) → queue chip → **User settings** modal (`UserSettingsLauncher`: six LLM
+  providers + Anthropic ZDR attestation + Alpaca paper connect/verify — D-027) → Clerk
+  user button. TopDrawer LLM/operating tab: provider budgets, company `llm_policy`,
+  broker bind, recent `llm_calls` metadata (no prompts/outputs).
 - **Canvas-centric layout** per company beneath the ribbon: slim collapsible strips on the
   left (Research · Data), bottom (Trends · Scenarios · Watch lists · Decisions), and right
   (Verify · Executions · Ledger · Sims · Values) expand into panels; the canvas keeps the
@@ -43,24 +45,36 @@
   rounded right-angle routing with column spacing as the primary collision control. **Not**
   arbitrary obstacle avoidance — advanced ELK/pathfinding that routes around nodes is deferred.
   Canonical intent: edges "should generally be structured to avoid nodes."
-- **Node anatomy (simplified view):** icon + name + type chip, status line (text-first:
-  `active · 3 jobs`, `blocked: session_legality`, `watch · 2 leads`), key metric (per type:
-  concepts count / feed freshness / active trends / module PnL + allocation), activity sprite
-  layer. Selected node shows connection handles + quick actions (pause, trigger, open).
-- **Expanded info view:** click node → node grows into an in-canvas card (~2× size) with live
-  detail of what it is doing now: current jobs, last artifacts, mini-log. Second click / "Open
-  panel" jumps to the owning side panel scoped to that node. Esc collapses.
+- **Node anatomy (dashboard card — design D-026 / `canvas-node-dashboard-design.md`):** fixed-size
+  card (no expand-on-select). Header: type chip + function-specific name + text-first status.
+  Body: always-visible editable high-level fields for that type (topic/sector, capital
+  allocation, target exit where required) with **per-field** Required/Set chips and highlight
+  borders — validation sits on the corresponding control, not a detached banner. Activity /
+  status line remains text-first. Clicking card chrome opens the floating inspector (full /
+  secondary settings); interacting with inline fields does not change card geometry.
+- **Labeled ports (per accepted `LinkKind`):** separate left (inbound) / right (outbound)
+  handles for each link kind the module type can use (`data_feed`, `directive`, `verification`,
+  `fund_route`), each with a visible text label. Connections require matching kind +
+  `LINK_RULES`. (Replaces the prior four anonymous data/control/tools handles.)
+- **Names:** auto-derived from function base + connected neighbors until the operator
+  customizes; inspector offers **Restore generated name**. Seeded/palette bases stay
+  function-specific (D-023).
+- **Inspector:** always available when a node is selected (including incomplete setup). Owns
+  rename/restore, status, delete, and type-specific advanced controls. **Supersedes D-024 §(c)**
+  expand-selected-node / suppress-inspector-while-incomplete for setup UX.
+- **Deferred:** old “expanded info view” (node grows ~2× with live mini-log) — replaced by
+  fixed dashboard + inspector; deep jump to owning side panel remains a later affordance.
 - Minimap + zoom controls bottom-right; fit-view on load; LOD: below zoom threshold, node bodies
   simplify to icon+status dot (perf + readability).
 - Empty state: company template picker rendered as ghost-nodes.
 - **Module store (D-023):** floating palette (top-left) with **Modules** (category-grouped singles
   with function-specific default names) and **Engines** (insertable end-to-end templates from
   `ENGINE_TEMPLATES`). Math is absent — auto-created per company.
-- **Inline setup validation (D-024):** company and engine template forms render Required/Set chips
-  plus topic/sector, trading-capital allocation (USD or percentage), and target-exit controls.
-  Skip opens the draft graph. Each incomplete node repeats its missing-field chips; selecting it
-  expands all required controls inside the node. While incomplete, the floating inspector is
-  suppressed to avoid occluding the inline form; it returns immediately after setup is complete.
+- **Inline setup validation (D-024, refined D-026):** company and engine template forms render
+  Required/Set chips plus topic/sector, trading-capital allocation (USD or percentage), and
+  target-exit controls. Skip opens the draft graph. On the canvas, required controls are
+  **always visible** on the fixed node body with validation chips/highlights inline on each
+  field; the inspector is not suppressed for incomplete nodes.
 - **Separate operating meter (D-024):** Company → LLM / operating shows provider credential source,
   call admission, and provider-cost counters for Anthropic/Mistral/Groq. Copy explicitly states
   that this meter is separate from module trading-capital allocation.
@@ -148,6 +162,7 @@ teardown.
 |---|---|
 | `companies.spec.ts` | Companies directory; template choices; day-template Required chips and Skip action |
 | `company-workspace.spec.ts` | skipped `day_trading_starter` setup → missing node chips → complete trading setup inline through ValueRef route → separate LLM/operating view → full seeded names + **10** `smoothstep` edges → panels/shortcuts/store → assistant persistence → archive cleanup |
+| `paper-intent-alignment.spec.ts` | philosophy save/reload → live gate text → three-company min/typical/max trend→promote→compile→paper dispatch → company-scoped provenance/verification → right-panel fill → unsupported short block |
 
 **Verification status (2026-07-17, D-024):** migration `0008_blushing_kronos` applied; typecheck,
 lint, contract tests, and complete two-spec Playwright suite pass. IronBee verified template
@@ -155,10 +170,11 @@ Required chips, Skip → draft canvas, inline node setup save, separate provider
 view, and no new console errors. Clerk test-account password remains unavailable; app-flow
 verification used the existing local dev-auth bypass.
 
-**Not yet covered by M1 Playwright:** Clerk sign-up (flow 1 full), credits/Stripe, full pipeline
-hop (flow 3), broker connect (flow 4), assistant write proposals (flow 5), live-gate block
-(flow 6), Math lineage drill-down (flow 7). CI optional `e2e` job runs the M1 specs against
-service Postgres after applying SQL migrations.
+**Not yet covered by Playwright:** Clerk sign-up (flow 1 full), credits/Stripe, real-model and
+live-data variants of flow 3, broker connect (flow 4), assistant write proposals (flow 5), and
+Math lineage drill-down (flow 7). The shipped deterministic synthetic flow 3 and text-first
+live-gate block (flow 6) are covered. CI optional `e2e` runs the specs against service Postgres
+after applying SQL migrations.
 
 1. Sign up (Clerk) → create company via wizard → canvas renders template graph. *(M1 subset:
    auth-bypass create + canvas — not Clerk sign-up.)*

@@ -33,11 +33,11 @@ plan live gates pass.
 | ID | Description | Expected deterministic effect | Evidence artifact | executable_today | REQ links |
 | --- | --- | --- | --- | --- | --- |
 | ISO-001 | Single user owns companies A (day trading) and B (trend research lab); same Clerk session | Company A API reads return only A modules/jobs/traces; B likewise; no cross-`company_id` rows | API response bodies scoped; DB query logs show `company_id` predicate | partial | `data-model.md` ownership; Playwright creates one company |
-| ISO-002 | N=3 companies with conflicting philosophy prompts (conservative / balanced / aggressive risk language) | Each company's module configs and future lever state remain isolated; no shared `LeverState` | Per-company `modules` rows; future `decision_trees.company_id` | partial | D-024 module setup |
+| ISO-002 | N=3 companies with conflicting philosophy prompts (conservative / balanced / aggressive risk language) | Each company's module configs and lever state remain isolated; no cross-company traces | `paper-intent-alignment.spec.ts` min/typical/max cohort; per-company activity projections | yes | REQ-PHIL-004; REQ-TST-007; D-025 |
 | ISO-003 | Concurrent assistant messages in A and B within same minute | Rate limit (`20/min/company`) applies per company independently | `assistant_messages` counts per `company_id`; 429 only on hot company | yes | D-022 assistant admission |
 | ISO-004 | Queue drain claims jobs for A and B in one batch | Fairness cap prevents A from starving B; claimed rows retain `company_id` | `jobs` claim query result; `/api/queue/stats` per class | no | `job-orchestration.md` §2 fairness |
 | ISO-005 | User archives company A; B remains active | A returns 404/410 on scoped routes; B unaffected; A jobs not claimed | Archive flag + API status codes | partial | e2e `archiveCompany` fixture |
-| ISO-006 | Same strategy family selected in A and B with opposite band positions (risk min vs max) | Positions independent; neither company's refinement mutates the other | Two `TreeRefinement` chains (future) with distinct seeds | no | `philosophy-axis-taxonomy.md` risk |
+| ISO-006 | Same strategy family selected in A and B with opposite band positions (risk min vs max) | Positions independent; neither company's control snapshot mutates the other | Three-company Playwright quantities and company-scoped traces | partial | REQ-PHIL-004/005; `philosophy-axis-taxonomy.md` risk |
 | ISO-007 | LLM operating budgets: A exhausted, B healthy | A model-bearing jobs fail admission; B continues; trading capital separate per D-024 | `llm_budgets` counters; admission rejection records | partial | D-024; `llm-budgets` route |
 | ISO-008 | Synthetic feed symbol overlap (AAPL in A and B) | ValueRefs namespaced by company/module; no ref handle collision | `numeric_values` provenance `sourceId` includes module scope | no | `number-handling.md` §2 |
 
@@ -66,9 +66,9 @@ plan live gates pass.
 
 | ID | Description | Expected deterministic effect | Evidence artifact | executable_today | REQ links |
 | --- | --- | --- | --- | --- | --- |
-| PHIL-001 | All strategic risk axes at `min` | Small per-name size; low heat; tight vol target scalar | `philosophyProfile` → promote `leverState` + sizing BPS; `philosophy.test.ts` | partial | REQ-PHIL-002/004; axis taxonomy §risk; D-025 |
-| PHIL-002 | All strategic risk axes at `max` (paper) | Larger sizes attempted; **hard guardrails still cap** | `enforceScopeStrict` rejects out-of-band; larger BPS vs min in unit cohort | partial | REQ-PHIL-001/004; guardrail catalog; D-025 |
-| PHIL-003 | Midpoint (`typical`) on all bands | Baseline replay matches seeded-testing defaults | Control snapshot axes in promote path; EXP unit cohort | partial | REQ-PHIL-003/004; D-025 |
+| PHIL-001 | All strategic risk axes at `min` | Small per-name size; low heat; tight vol target scalar | Unit mapping + Playwright min company fill quantity | yes | REQ-PHIL-002/004/005; D-025 |
+| PHIL-002 | All strategic risk axes at `max` (paper) | Larger sizes attempted; **hard guardrails still cap** | Unit scope rejection + Playwright max company fill quantity | yes | REQ-PHIL-001/004/005; guardrail catalog; D-025 |
+| PHIL-003 | Midpoint (`typical`) on all bands | Baseline replay matches seeded-testing defaults | Playwright typical quantity strictly between min and max | yes | REQ-PHIL-003/004/005; D-025 |
 | PHIL-004 | Conflicting: aggressive risk + tight slippage + high urgency | Slippage recovery tree fires before size expansion | Recovery ladder `rec-*` phase log | no | axis taxonomy conflicting table |
 | PHIL-005 | Conflicting: trend regime + mean-reversion family | Lower promotion score; no compile without qualifying lead | Activation validation failure | no | `activationTier` |
 | PHIL-006 | Philosophy prompt emphasizes "never short" + family allows short | Short branches suppressed at tactical `branch_order_class_set` | Block reason `shorts_disabled` | no | compliance + guardrails |
@@ -83,7 +83,7 @@ plan live gates pass.
 
 | ID | Description | Expected deterministic effect | Evidence artifact | executable_today | REQ links |
 | --- | --- | --- | --- | --- | --- |
-| ORD-001 | Market order, TIF DAY, regular session, liquid symbol | Instruction compiles; dispatch submits; verification records fill | `action_traces` + `verification_records` | no | tier-lever §3.1–3.2 |
+| ORD-001 | Market order, TIF DAY, regular session, liquid symbol | Instruction compiles; dispatch submits; verification records fill | Three-company Playwright traces + verification records | yes | REQ-TST-007; tier-lever §3.1–3.2 |
 | ORD-002 | Limit passive, TIF GTC, extended hours with flag | `extended_hours=true`; limit-only per session matrix | Compiled instruction JSON | no | session catalog |
 | ORD-003 | IOC partial fill | Remainder canceled; state `wait` or branch complete per tree | Broker partial fill event | no | TIF semantics |
 | ORD-004 | FOK no immediate full size | Entire order canceled; no residual exposure | Zero-fill trace with reason | no | tier-lever §3.2 |
@@ -91,7 +91,7 @@ plan live gates pass.
 | ORD-006 | Trailing stop regular session only | Off-hours attempt rejected or alternate protection branch | Session legality rejection | no | tier-lever §2.3 note |
 | ORD-007 | Bracket OTO entry + stop + target | Parent/child ids linked; cancel parent cascades deterministically | OTO linkage in trace | no | branch_order_class_set |
 | ORD-008 | Oversell: sell qty > position | Deterministic reject before broker call | `blocked` + reason `insufficient_position` | no | dispatch guard |
-| ORD-009 | Short equity when policy disallows | Compile or dispatch blocked fail-closed | `shorts_blocked` reason text-visible | no | product paper default |
+| ORD-009 | Short equity when policy disallows | Compile or dispatch blocked fail-closed | Playwright unsupported NVDA sell: blocked trace + `pre_dispatch_block` | partial | product paper default; EXP-2026-07-17-03 |
 | ORD-010 | Short allowed paper symbol (if policy on) | Negative qty instruction with locate check stub | Trace with side=short | no | broker adapter |
 | ORD-011 | Cancel/replace within `cancel_replace_band` max | Priority-preserving replace; attempt counted | `ActionTrace` cancel_replace attribution | no | tier-lever §3.7 |
 | ORD-012 | Cancel/replace exceeds max attempts | Escalate to recovery ladder; no blind resend | `dead` job or `blocked` state | no | recovery catalog |

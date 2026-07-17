@@ -29,13 +29,34 @@ export type ServiceRequirement = z.infer<typeof ServiceRequirement>;
 export const EquityStatus = z.enum(['fresh', 'stale', 'unavailable']);
 export type EquityStatus = z.infer<typeof EquityStatus>;
 
-/** Public company equity read projection (cents as decimal string). */
-export const CompanyEquityProjection = z.object({
-  equityCents: z.string().regex(/^\d+$/),
-  status: EquityStatus,
-  asOfIso: z.string().datetime(),
-  version: z.number().int().nonnegative(),
-});
+const EquityCentsString = z.string().regex(/^\d+$/);
+const EquityAsOfIso = z.string().datetime();
+
+/**
+ * Public company equity read projection.
+ * fresh/stale always retain the last successful cents + asOf; unavailable may be
+ * null/null when never successfully computed (or after a failed first calc).
+ */
+export const CompanyEquityProjection = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('fresh'),
+    equityCents: EquityCentsString,
+    asOfIso: EquityAsOfIso,
+    version: z.number().int().nonnegative(),
+  }),
+  z.object({
+    status: z.literal('stale'),
+    equityCents: EquityCentsString,
+    asOfIso: EquityAsOfIso,
+    version: z.number().int().nonnegative(),
+  }),
+  z.object({
+    status: z.literal('unavailable'),
+    equityCents: EquityCentsString.nullable(),
+    asOfIso: EquityAsOfIso.nullable(),
+    version: z.number().int().nonnegative(),
+  }),
+]);
 export type CompanyEquityProjection = z.infer<typeof CompanyEquityProjection>;
 
 /** Resolved module coverage against verified user-owned service sources. */
@@ -105,20 +126,22 @@ export function requirementsForEngine(template: EngineTemplate): ServiceRequirem
   };
 }
 
-/** Normalize legacy adapter capabilities into service capability strings. */
+/**
+ * Normalize legacy adapter capabilities into service capability strings.
+ * Only capabilities truthfully implied by AdapterCapabilities / BrokerAdapter:
+ * market_quotes + account_balances are always present on BrokerAdapter;
+ * trade_execution only when orderTypes is non-empty; asset-specific quote
+ * capabilities are asset-gated. historical_bars and open_positions are never
+ * inferred (optional on BrokerAdapter / not declared on AdapterCapabilities).
+ */
 export function normalizeAdapterServiceCapabilities(
   adapter: AdapterCapabilities | null | undefined,
 ): ServiceCapability[] {
   if (!adapter) return [];
 
-  const caps = new Set<ServiceCapability>([
-    'market_quotes',
-    'historical_bars',
-    'trade_execution',
-    'account_balances',
-    'open_positions',
-  ]);
+  const caps = new Set<ServiceCapability>(['market_quotes', 'account_balances']);
 
+  if (adapter.orderTypes.length > 0) caps.add('trade_execution');
   if (adapter.assets.includes('crypto')) caps.add('crypto_quotes');
   if (adapter.assets.includes('event_contract')) caps.add('event_contract_quotes');
 

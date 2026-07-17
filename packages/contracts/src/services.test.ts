@@ -81,6 +81,52 @@ describe('CompanyEquityProjection', () => {
     ).toBeTruthy();
   });
 
+  it('parses never-computed unavailable with null equity and asOf', () => {
+    expect(
+      CompanyEquityProjection.parse({
+        equityCents: null,
+        asOfIso: null,
+        status: 'unavailable',
+        version: 0,
+      }),
+    ).toEqual({
+      equityCents: null,
+      asOfIso: null,
+      status: 'unavailable',
+      version: 0,
+    });
+  });
+
+  it('rejects fresh projection with null equity or asOf', () => {
+    expect(() =>
+      CompanyEquityProjection.parse({
+        equityCents: null,
+        asOfIso: null,
+        status: 'fresh',
+        version: 0,
+      }),
+    ).toThrow();
+  });
+
+  it('requires stale to retain last successful equity and asOf', () => {
+    expect(
+      CompanyEquityProjection.parse({
+        equityCents: '1000000',
+        status: 'stale',
+        asOfIso: '2026-07-17T19:00:00.000Z',
+        version: 3,
+      }),
+    ).toBeTruthy();
+    expect(() =>
+      CompanyEquityProjection.parse({
+        equityCents: null,
+        asOfIso: null,
+        status: 'stale',
+        version: 3,
+      }),
+    ).toThrow();
+  });
+
   it('rejects non-integer cent strings', () => {
     expect(() =>
       CompanyEquityProjection.parse({
@@ -121,7 +167,43 @@ describe('normalizeAdapterServiceCapabilities', () => {
     });
     expect(caps).toContain('market_quotes');
     expect(caps).toContain('trade_execution');
+    expect(caps).toContain('account_balances');
     expect(caps).toContain('crypto_quotes');
+    expect(caps).not.toContain('historical_bars');
+    expect(caps).not.toContain('open_positions');
+  });
+
+  it('does not grant historical_bars or open_positions for Kalshi/minimal adapters', () => {
+    const kalshi = normalizeAdapterServiceCapabilities({
+      venue: 'kalshi',
+      assets: ['event_contract'],
+      orderTypes: ['limit'],
+      sessions: 'around_the_clock',
+      supportsPaper: true,
+      supportsFractional: false,
+      fundingUx: 'none',
+    });
+    expect(kalshi).toContain('market_quotes');
+    expect(kalshi).toContain('account_balances');
+    expect(kalshi).toContain('trade_execution');
+    expect(kalshi).toContain('event_contract_quotes');
+    expect(kalshi).not.toContain('historical_bars');
+    expect(kalshi).not.toContain('open_positions');
+    expect(kalshi).not.toContain('crypto_quotes');
+
+    const quotesOnly = normalizeAdapterServiceCapabilities({
+      venue: 'alpaca',
+      assets: ['us_equity'],
+      orderTypes: [],
+      sessions: 'rth_only',
+      supportsPaper: true,
+      supportsFractional: false,
+      fundingUx: 'none',
+    });
+    expect(quotesOnly).toEqual(['account_balances', 'market_quotes']);
+    expect(quotesOnly).not.toContain('trade_execution');
+    expect(quotesOnly).not.toContain('historical_bars');
+    expect(quotesOnly).not.toContain('open_positions');
   });
 });
 

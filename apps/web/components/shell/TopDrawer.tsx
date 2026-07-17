@@ -13,12 +13,12 @@ import {
   type CompanyBrokerStatus,
   type CompanyLlmPolicy,
   type LlmBudgetSummary,
-  type LlmBudgetsResponse,
   type ModelCapability,
   type PhilosophyProfile,
   type RetentionClass,
 } from '@hftr/contracts';
 import { api } from '@/lib/client';
+import { useOptionalLlmConnectionStatus } from '@/components/shell/LlmConnectionStatus';
 
 type Tab = 'ledger' | 'profile' | 'operating' | 'settings' | 'philosophy';
 const TABS: { id: Tab; label: string }[] = [
@@ -73,20 +73,19 @@ export function TopDrawer(props: {
   const [balance, setBalance] = useState<string | null>(null);
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [positions, setPositions] = useState<PositionRow[]>([]);
-  const [llmBudgets, setLlmBudgets] = useState<LlmBudgetSummary[]>([]);
+  const llmConnection = useOptionalLlmConnectionStatus();
+  const llmBudgets = llmConnection?.budgets ?? [];
 
   const load = useCallback(async () => {
     try {
       const base = `/api/companies/${props.companyId}`;
-      const [a, p, budgets] = await Promise.all([
+      const [a, p] = await Promise.all([
         api<{ balanceCents: string; ledger: LedgerRow[] }>(`${base}/activity`),
         api<{ positions: PositionRow[] }>(`${base}/positions`),
-        api<LlmBudgetsResponse>(`${base}/llm-budgets`),
       ]);
       setBalance(a.balanceCents);
       setLedger(a.ledger);
       setPositions(p.positions);
-      setLlmBudgets(budgets.providers);
     } catch {
       // transient
     }
@@ -709,24 +708,49 @@ function ProviderHealthStrip(props: {
   budgets: LlmBudgetSummary[];
   lastFailureByProvider: Map<string, string>;
 }) {
+  const connection = useOptionalLlmConnectionStatus();
+  const rows =
+    props.budgets.length > 0
+      ? props.budgets
+      : (connection?.providers.map((p) => ({
+          provider: p.provider,
+          credentialSource:
+            p.status === 'configured' ? ('user_key' as const) : ('unconfigured' as const),
+          maxCalls: null,
+          consumedCalls: 0,
+          maxCostCents: null,
+          consumedCostCents: 0,
+          windowMinutes: null,
+          windowStartedAt: null,
+        })) ?? []);
+
   return (
     <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-0)] p-3">
       <h4 className="text-[11px] font-medium text-[var(--color-ink)]">Provider health</h4>
-      <ul className="mt-2 space-y-1 text-[10px] text-[var(--color-ink-dim)]">
-        {props.budgets.map((budget) => {
+      <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">
+        From shell LLM connection status (not re-fetched per panel).
+      </p>
+      <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="LLM provider health">
+        {rows.map((budget) => {
           const configured = budget.credentialSource === 'user_key';
           const lastFailure = props.lastFailureByProvider.get(budget.provider);
           return (
-            <li key={budget.provider} className="flex flex-wrap items-baseline gap-x-2">
-              <span className="capitalize text-[var(--color-ink)]">{budget.provider}</span>
+            <li key={budget.provider}>
               <span
-                className={configured ? 'text-[var(--color-ok)]' : 'text-[var(--color-ink-faint)]'}
+                className={`status-chip text-[10px] uppercase tracking-wider ${
+                  configured ? 'text-[var(--color-ok)]' : 'text-[var(--color-ink-faint)]'
+                }`}
+                title={
+                  lastFailure
+                    ? `${budget.provider}: last failure ${lastFailure}`
+                    : configured
+                      ? `${budget.provider}: credential configured`
+                      : `${budget.provider}: unconfigured`
+                }
               >
-                {configured ? 'credential configured' : 'unconfigured'}
+                {budget.provider}:{configured ? 'ok' : 'off'}
+                {lastFailure ? '!' : ''}
               </span>
-              {lastFailure && (
-                <span className="text-[var(--color-block)]">last failure: {lastFailure}</span>
-              )}
             </li>
           );
         })}

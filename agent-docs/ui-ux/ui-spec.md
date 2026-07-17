@@ -22,12 +22,15 @@
   Trading profile, Settings, Philosophy tabs) → executions ticker tape (`ExecutionTicker`,
   marquee of recent fills/blocks with amounts, pauses on hover) → paper/live master switch
   (`ModeSwitch`, live gated with an explanation popover — fails closed until the broker
-  milestone) → queue chip → **User settings** modal (`UserSettingsLauncher`: tabs **LLM
+  milestone) → **LLM connection chip** (`LlmRibbonStatusChip`: `llm: n/6` from shell
+  `LlmConnectionStatusProvider`, refreshed on settings save — not re-fetched per panel) →
+  queue chip → **User settings** modal (`UserSettingsLauncher`: tabs **LLM
   providers** | **Research** | **Brokers** — six LLM providers + Anthropic ZDR attestation,
   research gather keys, Alpaca paper connect/verify — D-027) → Clerk
   user button. TopDrawer LLM/operating tab: **trading capital caps** (virtual / broker buying
   power / effective min when bound, else paper sim), provider budgets + **provider health**
-  strip (credential configured + last failure from recent calls), company `llm_policy` with tier
+  chips (same shell connection status; last failure from recent calls when operating tab
+  loads), company `llm_policy` with tier
   model cost/privacy labels from `MODEL_CAPABILITY_REGISTRY`, broker bind + feed entitlement,
   recent `llm_calls` metadata (request id truncated, retention class — no prompts/outputs).
   User settings: per-provider **Verify** (`POST /api/settings/keys/:provider/verify`) and
@@ -37,9 +40,9 @@
   (Verify · Executions · Ledger · Sims · Values) expand into panels; the canvas keeps the
   remaining space. The earlier "full slide-over" model is deferred; current panels are
   docked flex children so canvas context is never fully hidden.
-- **Companies directory (`/companies`):** header shell includes the same **User settings**
-  launcher next to the user menu (LLM / Research / Brokers) so credentials are reachable
-  before opening a company. Card grid with paper (cyan) / live (red) text-first
+- **Companies directory (`/companies`):** header shell includes **LLM connection chip**
+  (`llm: n/6`) plus the same **User settings** launcher next to the user menu (LLM /
+  Research / Brokers) so credentials are reachable before opening a company. Card grid with paper (cyan) / live (red) text-first
   mode badges, listed engine labels, link into the company canvas, and a ⋯ menu for rename,
   duplicate (always a zero-capital paper copy of topology with non-Math modules reset to draft),
   and archive/delete (fail-closed: leaves directory, stops schedules, clears live/broker bind;

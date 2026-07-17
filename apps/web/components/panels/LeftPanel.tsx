@@ -2,15 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import type { CurationStatus, Library, ResearchGraphResponse } from '@hftr/contracts';
+import type { CurationStatus, Library } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
-import { GalaxyView } from '@/components/research/GalaxyView';
+import { useResearchView } from '@/components/research/ResearchViewContext';
 import { ResearchTopicsTree } from '@/components/research/ResearchTopicsTree';
 import {
   ResearchRunStatus,
   type ResearchRunSnapshot,
 } from '@/components/panels/ResearchRunStatus';
 import { provenanceChip, snippet, toneFor } from './format';
+import { LlmAvailabilityChips } from '@/components/shell/LlmConnectionStatus';
 
 type Tab = 'research' | 'data';
 const LEFT_TABS: Tab[] = ['research', 'data'];
@@ -95,8 +96,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
   const [conceptsLoaded, setConceptsLoaded] = useState(false);
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [librariesLoaded, setLibrariesLoaded] = useState(false);
-  const [graph, setGraph] = useState<ResearchGraphResponse | null>(null);
-  const [showGalaxy, setShowGalaxy] = useState(false);
+  const researchView = useResearchView();
 
   useEffect(() => {
     if (!storageKey) {
@@ -155,28 +155,16 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
     }
   }, [companyId]);
 
-  const loadGraph = useCallback(async () => {
-    if (!companyId) return;
-    try {
-      const data = await api<ResearchGraphResponse>(`/api/companies/${companyId}/research/graph`);
-      setGraph(data);
-    } catch {
-      setGraph({ nodes: [], links: [], tags: [] });
-    }
-  }, [companyId]);
-
   useEffect(() => {
     if (!open) return;
     void loadConcepts();
     void loadLibraries();
-    void loadGraph();
     const interval = setInterval(() => {
       void loadConcepts();
       void loadLibraries();
-      void loadGraph();
     }, 30_000);
     return () => clearInterval(interval);
-  }, [open, loadConcepts, loadLibraries, loadGraph]);
+  }, [open, loadConcepts, loadLibraries]);
 
   const research = props.modules.filter((m) => m.type === 'research' || m.type === 'trend');
   const researchModules = props.modules.filter((m) => m.type === 'research');
@@ -245,48 +233,6 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
         {tab === 'research' && (
           <>
             <NewResearchModuleForm companyId={companyId} />
-            <LibrariesSection
-              companyId={companyId}
-              libraries={libraries}
-              loaded={librariesLoaded}
-              requiresOperatorApproval={requiresOperatorApproval}
-              onChanged={() => {
-                void loadLibraries();
-                void loadGraph();
-                void loadConcepts();
-              }}
-            />
-            {researchModules.length > 0 && (
-              <CompanySweepAction companyId={companyId} onDone={loadConcepts} />
-            )}
-            <div className="mt-3 flex items-center justify-between rounded-lg border border-[var(--color-line)] px-2.5 py-2">
-              <span className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                Galaxy view
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowGalaxy((v) => !v)}
-                aria-pressed={showGalaxy}
-                aria-label={showGalaxy ? 'Hide galaxy view' : 'Show galaxy view'}
-                className={`rounded-md border px-2 py-0.5 text-[10px] ${
-                  showGalaxy
-                    ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
-                    : 'border-[var(--color-line)] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
-                }`}
-              >
-                {showGalaxy ? 'On' : 'Off'}
-              </button>
-            </div>
-            {showGalaxy && graph && (
-              <div className="mt-2">
-                <GalaxyView
-                  companyId={companyId}
-                  nodes={graph.nodes}
-                  links={graph.links}
-                  tags={graph.tags}
-                />
-              </div>
-            )}
             {researchModules.length > 0 && (
               <div className="mt-3">
                 {researchModules.map((m) => (
@@ -295,9 +241,42 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                     companyId={companyId}
                     moduleId={m.id}
                     moduleName={m.name}
+                    selectedTopicId={researchView.selectedTopicId}
+                    onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
                   />
                 ))}
               </div>
+            )}
+            <div className="mt-3 flex items-center justify-between rounded-lg border border-[var(--color-line)] px-2.5 py-2">
+              <span className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+                Research galaxy
+              </span>
+              <button
+                type="button"
+                onClick={() => researchView.openOverlay({ tab: 'galaxy' })}
+                aria-pressed={researchView.overlayOpen}
+                aria-label="Open research galaxy overlay"
+                className={`rounded-md border px-2 py-0.5 text-[10px] ${
+                  researchView.overlayOpen
+                    ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
+                    : 'border-[var(--color-line)] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
+                }`}
+              >
+                Open galaxy
+              </button>
+            </div>
+            <LibrariesSection
+              companyId={companyId}
+              libraries={libraries}
+              loaded={librariesLoaded}
+              requiresOperatorApproval={requiresOperatorApproval}
+              onChanged={() => {
+                void loadLibraries();
+                void loadConcepts();
+              }}
+            />
+            {researchModules.length > 0 && (
+              <CompanySweepAction companyId={companyId} onDone={loadConcepts} />
             )}
             {research.length === 0 ? (
               <p className="mt-3 px-1 text-xs text-[var(--color-ink-faint)]">
@@ -334,7 +313,6 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                         }
                         onDone={() => {
                           void loadConcepts();
-                          void loadGraph();
                           void loadLibraries();
                         }}
                       />
@@ -1206,6 +1184,7 @@ function ResearchActions(props: {
         >
           {busy === 'curate' ? 'Curating…' : 'Curate now'}
         </button>
+        <LlmAvailabilityChips tiers={['strategic', 'tactical']} />
       </div>
       {message && <span className="text-[10px] text-[var(--color-ink-faint)]">{message}</span>}
       <ResearchRunStatus

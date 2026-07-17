@@ -6,6 +6,7 @@ import { ACTIVITY_REFRESH_EVENT } from '../canvas/PaperTradeForm';
 import { dollars, GATE_KEYS, gateLabel, gateTone, toneFor } from './format';
 import { Justification } from './Justification';
 import { TraceTimeline } from './TraceTimeline';
+import { LlmAvailabilityChips } from '@/components/shell/LlmConnectionStatus';
 
 type Tab = 'trends' | 'scenarios' | 'watchlists' | 'decisions' | 'approvals' | 'dead';
 const TABS: { id: Tab; label: string }[] = [
@@ -507,6 +508,12 @@ function TrendsView(props: {
 
   return (
     <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[10px] text-[var(--color-ink-faint)]">
+          Promote uses tactical + compile LLM tiers.
+        </p>
+        <LlmAvailabilityChips tiers={['tactical', 'execution']} />
+      </div>
       <AddCandidateForm
         companyId={props.companyId}
         trendModules={trendModules}

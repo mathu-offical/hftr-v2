@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { BrokerConnectionSummary, LlmProvider } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
+import { notifyLlmCredentialsChanged } from '@/components/shell/LlmConnectionStatus';
 
 type RetentionAttested = 'none' | 'org_zdr';
 type SettingsTab = 'llm' | 'research' | 'brokers';
@@ -167,6 +168,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
       await api('/api/settings/keys', { method: 'PUT', body });
       setDrafts((d) => ({ ...d, [provider]: '' }));
       setMessages((m) => ({ ...m, [provider]: 'Saved.' }));
+      notifyLlmCredentialsChanged();
       await load();
     } catch (err) {
       setMessages((m) => ({ ...m, [provider]: formatSaveError(err) }));
@@ -205,6 +207,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
       await api(`/api/settings/keys/${provider}`, { method: 'DELETE' });
       if (provider === 'anthropic') setAnthropicZdr(false);
       setMessages((m) => ({ ...m, [provider]: 'Removed.' }));
+      notifyLlmCredentialsChanged();
       await load();
     } catch {
       setMessages((m) => ({ ...m, [provider]: 'Delete failed.' }));

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { getDb, scoping } from '@hftr/db';
 import { CompanyCard } from '@/components/CompanyCard';
 import { CreateCompanyForm } from '@/components/CreateCompanyForm';
-import { UserSettingsLauncher } from '@/components/shell/UserSettingsModal';
+import { CompaniesDirectoryStatus } from '@/components/shell/CompaniesDirectoryShell';
 import { UserMenu } from '@/components/UserMenu';
 import { ensureProfile, getAuthUserId } from '@/lib/auth';
 
@@ -35,7 +35,7 @@ export default async function CompaniesPage() {
           <h1 className="text-xl font-semibold">Companies</h1>
         </div>
         <div className="flex items-center gap-3">
-          <UserSettingsLauncher />
+          <CompaniesDirectoryStatus />
           <UserMenu />
         </div>
       </header>

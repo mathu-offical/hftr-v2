@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/client';
+import { LlmAvailabilityChips } from '@/components/shell/LlmConnectionStatus';
 import { ACTIVITY_REFRESH_EVENT } from './PaperTradeForm';
 
 /**
@@ -42,7 +43,10 @@ export function TrendScanForm(props: { companyId: string; moduleId: string; disa
 
   return (
     <div className="space-y-2.5 border-t border-[var(--color-line)] pt-4">
-      <span className="text-xs text-[var(--color-ink-dim)]">Trend scan</span>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs text-[var(--color-ink-dim)]">Trend scan</span>
+        <LlmAvailabilityChips tiers={['tactical']} />
+      </div>
       <input
         value={symbols}
         onChange={(e) => setSymbols(e.target.value)}

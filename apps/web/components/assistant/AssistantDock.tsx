@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AssistantEdit, AssistantMessage, AssistantToolResultSummary } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
+import { LlmAvailabilityChips } from '@/components/shell/LlmConnectionStatus';
 
 function formatTime(iso: string): string {
   try {
@@ -275,6 +276,7 @@ export function AssistantDock(props: { companyId: string }) {
         <div>
           <h2 className="text-sm font-medium text-[var(--color-ink)]">Assistant</h2>
           <p className="text-[10px] text-[var(--color-ink-faint)]">Read-only · no model calls</p>
+          <LlmAvailabilityChips tiers={['assistant']} className="mt-1" />
         </div>
         <button
           type="button"

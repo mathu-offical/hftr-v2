@@ -57,6 +57,8 @@ test.describe('Service settings & operating observability', () => {
     );
     await expect(page.getByText('Virtual cap')).toBeVisible();
     await expect(page.getByText('Provider health')).toBeVisible();
+    await expect(page.getByRole('list', { name: 'LLM provider health' })).toBeVisible();
+    await expect(page.getByText(/anthropic:(ok|off)/i).first()).toBeVisible();
     await expect(page.getByText('LLM privacy & models')).toBeVisible();
     await expect(page.getByText('Broker connection')).toBeVisible();
     await expect(page.getByText('Recent LLM calls')).toBeVisible();

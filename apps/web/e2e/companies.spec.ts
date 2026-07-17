@@ -24,6 +24,7 @@ async function createDayTradingCompany(page: Page): Promise<void> {
 test.describe('Companies directory', () => {
   test('exposes User Settings from the directory shell', async ({ page }) => {
     await page.goto('/companies');
+    await expect(page.getByText(/llm:\s*\d+\/6/i)).toBeVisible();
     await page.getByRole('button', { name: 'Open user settings' }).click();
     await expect(page.getByRole('dialog', { name: 'User settings' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'LLM providers' })).toBeVisible();

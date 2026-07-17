@@ -6,3 +6,4 @@ export * from './pipeline';
 export * from './knowledge';
 export * from './research';
 export * from './watchlists';
+export * from './assistant';

@@ -43,6 +43,13 @@
       "when": 1784274684165,
       "tag": "0005_smiling_kid_colt",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784276095961,
+      "tag": "0006_next_susan_delgado",
+      "breakpoints": true
     }
   ]
 }

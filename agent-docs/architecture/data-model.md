@@ -149,9 +149,16 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 
 ## Assistant
 
-- **assistant_sessions** / **assistant_messages** — company-scoped chat history;
-  **assistant_edits** — audit of every mutation the assistant performed: tool name, JSON patch,
-  affected entity, user confirmation state, reversal ref.
+- **assistant_messages** — APPEND-ONLY company + user-scoped chat log (M1, D-022). Columns:
+  `company_id`, `clerk_user_id`, `role` (`user|assistant|system`), `content`, `tool_results`
+  jsonb (structured lookup cards), `created_at`. Indexed on `(company_id, created_at)`. No
+  UPDATE/DELETE in app code. `GET/POST /api/companies/:companyId/assistant` returns newest 100
+  in chronological order. M1 path is deterministic regex intent routing to six read lookups —
+  **no LLM tier calls**; financial figures in payloads are server projections, not model output.
+- **assistant_sessions** — not implemented in M1; session grouping deferred until Mistral chat
+  ships (M2+). Company + user scoping on messages is sufficient for M1 history.
+- **assistant_edits** — audit of every mutation the assistant performed: tool name, JSON patch,
+  affected entity, user confirmation state, reversal ref. **M4** (write tools + proposal cards).
 
 ## Seed catalogs (read-mostly, versioned)
 
@@ -165,7 +172,8 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 - Ownership scoping helper (`packages/db/scoping.ts`) required on every query; tests assert no
   unscoped table access from API handlers.
 - `action_traces`, `verification_records`, `credit_ledger`, `assistant_edits`,
-  `numeric_values`, `calc_operations` are append-only (no UPDATE/DELETE grants in app role).
+  `assistant_messages`, `numeric_values`, `calc_operations` are append-only (no UPDATE/DELETE
+  grants in app role).
 - Financial numeric columns across ALL tables use integer cents / fixed-point convention
   (`*_cents`, or `value_int + scale`); jsonb contract payloads carry ValueRef handles rather
   than embedded floats wherever the value participates in the pipeline.

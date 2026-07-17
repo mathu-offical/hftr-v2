@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { getDb, NotFoundError, scoping } from '@hftr/db';
+import { AssistantDock } from '@/components/assistant/AssistantDock';
 import { CompanyCanvas } from '@/components/canvas/CompanyCanvas';
 import { BottomPanel } from '@/components/panels/BottomPanel';
 import { LeftPanel } from '@/components/panels/LeftPanel';
@@ -111,6 +112,7 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
 
         <RightPanel companyId={companyId} />
       </div>
+      <AssistantDock companyId={companyId} />
     </div>
   );
 }

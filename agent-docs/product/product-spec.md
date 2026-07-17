@@ -93,9 +93,23 @@ Canvas ordering left→right: research → data (libraries + live APIs) → tren
 
 ## 5. Built-in assistant
 
-- Mistral-run chat, always aware of currently viewed company; panel-docked (bottom).
+**M1 interim (shipped, D-022):** docked bottom-right chat pill on the company canvas. Messages
+persist in append-only `assistant_messages` scoped to `(company_id, clerk_user_id)`. The M1
+path is **deliberately deterministic and read-only** — regex intent routing to six server
+lookups (`company_summary`, `module_status`, `recent_executions`, `positions`, `trends`,
+`queue_status`) with **no model calls**. UI copy states "Read-only · no model calls". Financial
+figures in responses are server-sourced projections (fixed-point strings from DB/engine), not
+LLM output. Unmatched questions return a capabilities card. The empty state tells operators
+that messages are persisted and not to paste credentials; API keys remain confined to the
+encrypted user-settings store.
+
+**Target (M2+ chat, M4 writes):**
+- Mistral-run conversational chat, always aware of the currently viewed company; panel-docked
+  (bottom).
 - Direct edits via hardened JSON-schema tools only; confirm-before-apply default; auto-apply
   opt-in for non-financial edits; financial/live actions always confirmed.
+- Structured edit-proposal cards (diff-style: field, old → new) with Confirm/Reject; applied
+  edits link to `assistant_edits` audit entries.
 - Can answer "why" questions by citing traces, trends, and evidence (read tools over the same
   projections the UI uses).
 

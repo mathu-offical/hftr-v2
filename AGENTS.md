@@ -84,8 +84,9 @@ These rules apply to any assistant or automation operating in the hftr-v2 worksp
 ## Cursor workspace
 
 - Agent rules, skills, workflows, and slash commands: `.cursor/README.md` (D-010).
-- Start substantial tasks with `session-start` skill; close with **verify → curate → commit**.
-- Slash commands: `/continue-build`, `/curate-docs`, `/verify`, `/commit-session`.
+- Start substantial tasks with `session-start` skill; close with **verify → curate → commit**
+  (`/end-run` or `.cursor/workflows/end-of-run.md`). Always **invoke** `commit-message` skill.
+- Slash commands: `/continue-build`, `/curate-docs`, `/verify`, `/commit-session`, `/end-run`.
 
 ## Sub-agent orchestration
 
@@ -99,11 +100,15 @@ These rules apply to any assistant or automation operating in the hftr-v2 worksp
 
 ## Git commits
 
-- Use **Conventional Commits** with hftr-v2 scopes and a **structured body** (Context, Why,
-  What changed, Connections, Verification, Next steps). Subject ≤72 chars, imperative mood.
-- One logical intent per commit; bundle code with owning `agent-docs/` in the same change.
-- Pre-commit: `pnpm typecheck`, `pnpm lint`, `pnpm test` for runtime code. Never commit secrets.
-- **End-of-run policy:** after verification passes, **commit** all run changes before ending.
-  A session is incomplete with verified work still uncommitted. Push only when user asks.
+- Use **Conventional Commits** with hftr-v2 scopes and a **full structured body**.
+  Subject ≤72 chars; body must list **every staged file** under `Files changed`
+  (path + what + why). Never paragraph-only or truncated messages.
+- **Mandatory end-of-run:** after verification, **read and follow**
+  `.cursor/skills/commit-message/SKILL.md` — inventory diffs, plan chunks, commit
+  each chunk. A run with uncommitted verified work is incomplete.
+- One logical intent per commit; bundle code with owning `agent-docs/` when same intent.
+- Cross-check: Files changed bullet count == staged file count.
+- Pre-commit: `pnpm typecheck`, `pnpm lint`, `pnpm test` for runtime code.
+- Never commit secrets. Push only when user asks.
 - Rule: `.cursor/rules/git-commits.mdc`; skill: `.cursor/skills/commit-message/`;
-  workflows: `verify-and-ship.md`, `commit-session.md`.
+  workflows: `end-of-run.md`, `verify-and-ship.md`; commands: `/end-run`, `/commit-session`.

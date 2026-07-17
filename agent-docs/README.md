@@ -72,10 +72,12 @@ They extend — do not replace — this directory and `AGENTS.md`.
 |--------|---------|
 | `/continue-build` | Milestone implementation loop |
 | `/curate-docs` | Self-curation pass on agent-docs |
-| `/verify` | Verify, then commit verified changes |
-| `/commit-session` | End-of-run structured commit |
+| `/verify` | Verify, then invoke commit-message if dirty |
+| `/commit-session` | Chunked per-file Conventional Commits |
+| `/end-run` | Full end-of-run: verify → curate → commit |
 
-**End-of-run sequence:** verify → curate docs → **commit** → report (D-018). Push only when user asks.
+**End-of-run sequence:** verify → curate → **invoke `commit-message` skill** (per-file
+bodies, chunked) → report (D-018, D-020). Push only when user asks.
 
 Key skills: `session-start`, `agent-docs-curate`, `v1-reference`, `implement-milestone`,
 `verify-change`, `pipeline-engine`, `parallel-orchestration`, `commit-message`

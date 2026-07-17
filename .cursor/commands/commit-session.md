@@ -1,15 +1,17 @@
-Create a detailed hftr-v2 git commit for verified session changes.
+Create detailed, chunked git commits for all verified session changes.
 
-**When:** End of every implementation run after verification passes, or on demand.
+**MANDATORY:** Read `.cursor/skills/commit-message/SKILL.md` and follow every step.
+Do not invent a short paragraph message.
 
-**Sources:** `.cursor/rules/git-commits.mdc`, `.cursor/skills/commit-message/SKILL.md`, `.cursor/workflows/commit-session.md`
+1. Confirm verification passed (or run verify first).
+2. `git status --short` + `git diff --name-status` — inventory **every** dirty file.
+3. Write chunk plan: list every file under each planned commit (in your response).
+4. For each chunk: stage only those files → HEREDOC with sections Context, Why,
+   **Files changed** (one bullet per staged file: path + what + why), Connections,
+   Verification, Next steps.
+5. Cross-check: number of Files changed bullets == `git diff --cached --name-only | wc -l`.
+6. Repeat until clean. Show `git log --oneline -N` for all new commits.
 
-1. Confirm verification already passed this run (do not commit failed work).
-2. Read `.cursor/skills/commit-message/SKILL.md` and follow it completely.
-3. Run `git status` and `git diff` — split unrelated domains into separate commits.
-4. Bundle code with owning `agent-docs/` updates (self-curation contract).
-5. Write Conventional Commit subject (≤72 chars) plus structured body with Verification section citing checks that passed.
-6. Commit via HEREDOC. Never stage `.env`, `.env.local`, or build artifacts.
-7. Show `git log -1` and `git show --stat HEAD`. Report SHA(s) to user.
+Forbidden: truncated subjects-as-bodies, "various files", fewer bullets than files.
 
-Push only if the user also asked to push.
+Push only if user asked. See `.cursor/workflows/end-of-run.md`.

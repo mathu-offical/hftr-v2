@@ -39,7 +39,7 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `hftr-safety-invariants.mdc` | Always apply — trading/LLM pipeline safety |
 | `zero-trust-verification.mdc` | Always apply — verify before claiming done |
 | `parallel-subagents.mdc` | Always apply — parallel delegation, composer-2.5, never Grok |
-| `git-commits.mdc` | Always apply — Conventional Commits + structured bodies |
+| `git-commits.mdc` | Always apply — per-file bodies, chunked commits, end-of-run mandatory |
 | `architecture-monorepo.mdc` | `packages/**`, `apps/**` |
 | `typescript-standards.mdc` | `**/*.{ts,tsx}` |
 | `ui-ux-standards.mdc` | `**/*.{tsx,css}` |
@@ -57,7 +57,7 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `verify-change` | Zero-trust verification before finishing |
 | `pipeline-engine` | Engine, dispatch, verification, bands/levers work |
 | `parallel-orchestration` | Multi-package/domain parallel sub-agent delegation |
-| `commit-message` | Structured Conventional Commits with verification |
+| `commit-message` | **MANDATORY end-of-run** — inventory files, chunk, per-file commit bodies |
 
 ## Cursor workflows
 
@@ -66,8 +66,9 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `session-start.md` | Context load + milestone alignment |
 | `implement-milestone-slice.md` | Spec → plan → implement → verify loop |
 | `agent-docs-curate.md` | Self-curation pass |
-| `verify-and-ship.md` | Verify → curate → **commit** → report (end-of-run) |
-| `commit-session.md` | Structured git commit capture |
+| `verify-and-ship.md` | Verify → curate → invoke commit-message → report |
+| `end-of-run.md` | **Mandatory** close: verify + chunked per-file commits |
+| `commit-session.md` | Alias of end-of-run commit phase |
 
 ## Slash commands
 
@@ -75,8 +76,9 @@ Full index: `.cursor/rules/agent-sources.mdc`
 |---------|---------|
 | `/continue-build` | Milestone implementation loop |
 | `/curate-docs` | agent-docs curation |
-| `/verify` | Verify, then commit if changes exist |
-| `/commit-session` | End-of-run structured commit (after verification) |
+| `/verify` | Verify, then invoke commit-message if dirty |
+| `/commit-session` | Chunked per-file Conventional Commits |
+| `/end-run` | Full end-of-run: verify → curate → commit |
 
 ## Product goals (quick reference)
 

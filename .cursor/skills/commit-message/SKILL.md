@@ -1,109 +1,104 @@
 ---
 name: commit-message
-description: Generates detailed Conventional Commits for hftr-v2 with structured bodies (Context, Why, What changed, Connections, Verification, Next steps). Use at end of implementation runs after verification passes, when staging changes, or via /commit-session.
+description: MANDATORY at end of every hftr-v2 run with file changes. Analyzes every dirty file via git diff, plans logical commit chunks, writes per-file Conventional Commit bodies (never truncated subjects-as-bodies). Invoke after verification passes; use via /commit-session or /end-run.
 ---
 
-# hftr-v2 commit messages
+# hftr-v2 commit messages (mandatory end-of-run)
 
 Rule: `.cursor/rules/git-commits.mdc`
 
-## End-of-run trigger
+> **You MUST read and follow this entire skill before ending any turn that modified
+> files.** A run without chunked, per-file commits is incomplete.
 
-Run this skill **automatically** when:
+## Step 0 — Gate
 
-- An implementation run finished and verification passed
-- `git status` shows uncommitted changes from the run
-- You are about to end a session with verified work still unstaged
+| Condition | Action |
+|-----------|--------|
+| `git status` clean | Done — report no commit needed |
+| Verification failed | Fix first — do not commit |
+| Only secrets/artifacts dirty | Leave unstaged — report why |
+| Verified code/docs dirty | **Continue steps 1–8** |
 
-A run is **not complete** until verified changes are committed (push is separate — user must ask).
-
-## Step 1 — Gather context
-
-Run in parallel:
+## Step 1 — Inventory every changed file
 
 ```bash
 cd /Users/matt-mobile/MATT/web_dev/hftr-v2
 git status --short
+git diff --name-status
 git diff --stat
-git diff --staged --stat
-git log --oneline -8
+git log --oneline -5
 ```
 
-Identify: primary intent, touched packages, whether agent-docs/plans/decisions should be included.
+For **each** path in the output, note:
+- Status: `M` `A` `D` `R`
+- Package/domain: contracts | db | engine | api | web | cursor | agent-docs | …
+- One-line: what changed in **this file specifically**
 
-## Step 2 — Split or batch
+If >15 files, still list all in chunk plan; read `git diff path` for any file you cannot explain.
 
-| Situation | Action |
-|-----------|--------|
-| Unrelated domains in diff | **Split** into multiple commits (contracts → db → engine → web) |
-| Code + owning agent-docs | **Same commit** (self-curation) |
-| Migration + schema usage | **Same commit** |
-| Only `.cursor/` or `agent-docs/` | `docs(cursor)` or `docs(agent-docs)` |
+## Step 2 — Plan chunks (write before staging)
 
-Never stage secrets or build artifacts. Confirm `.gitignore` covers them.
-
-## Step 3 — Choose type and scope
-
-Use scope table in `git-commits.mdc`. Examples:
-
-| Change | Subject |
-|--------|---------|
-| New API route for trends | `feat(api): add company trends list endpoint` |
-| Queue drain fix | `fix(queue): recover expired leases before claim` |
-| Leak-lint rejection | `fix(calc): reject datetime patterns in model output` |
-| M1 canvas node UI | `feat(canvas): render module type chip and status line` |
-| Sprint doc progress | `docs(plans): mark M1 queue spine items complete` |
-| Cursor parallel-subagents rule | `chore(cursor): add git commit message standards` |
-| Drizzle migration 0004 | `feat(db): add watchlist_access table` |
-
-Subject ≤ **72 chars**. Imperative mood. No trailing period.
-
-## Step 4 — Write structured body
-
-Required sections (in order) for any non-trivial commit:
-
-### Context
-- User request or session goal (one line)
-- Milestone/gate if applicable: `M1`, `G1`, `M3 paper loop`, etc.
-
-### Why
-- Safety invariant, architecture boundary, or product behavior driving the change
-- For trading/pipeline: note model-free boundary, ValueRef, fail-closed if relevant
-
-### What changed
-Group by path prefix; one bullet per logical unit:
+Produce an explicit chunk plan in your response **before** any `git add`:
 
 ```text
-- packages/engine/src/handlers/trend.ts: emit trend job handler
-- packages/db/src/schema/research.ts: trends table + indexes
-- apps/web/app/api/companies/[companyId]/trends/route.ts: GET handler
+PLANNED COMMITS:
+1. feat(db): migration + schema — [file1, file2, file3]
+2. feat(api): routes — [file4, file5]
+3. feat(panels): UI — [file6, file7, file8]
 ```
 
-For large diffs, use `git diff --name-status` abbreviated list.
+Chunk rules:
+- One logical intent per commit; dependency order (contracts → db → engine → api → web)
+- Never mix unrelated domains (db + canvas UI = two commits)
+- Code + owning agent-docs = same commit when same intent
 
-### Connections
+## Step 3 — Per-chunk: analyze files
+
+For each chunk, before staging:
+
+```bash
+git diff --name-status -- path1 path2 ...
+git diff --stat -- path1 path2 ...
+```
+
+For each file in the chunk, draft a **Files changed** bullet:
+
 ```text
-- agent-docs: architecture/data-model.md, plans/m1-sprint-spec.md
-- decisions: D-012 (if new decision logged this commit)
-- plans: m1-sprint-spec §queue spine — 2 items checked
+- apps/web/components/panels/BottomPanel.tsx: added watchlist fetch via SWR,
+  module scope filter, create form — bottom panel CRUD per ui-spec
 ```
 
-### Verification
-Be honest — mark unverified explicitly:
+**Requirements per bullet:**
+- Full repo-relative path (required)
+- What changed: component, function, table, route, rule (specific)
+- Why: ties to user intent, spec, or architecture (required)
+- No vague words: "updated", "improved", "enhanced", "refactored" alone
 
-```text
-- pnpm typecheck ✓
-- pnpm --filter @hftr/engine test ✓ (42 passed)
-- IronBee browser: /companies/[id] canvas loads, no console errors ✓
-```
+## Step 4 — Choose type, scope, subject
 
-### Next steps
-```text
-- wire right panel ledger to dispatch traces (OQ-7 unrelated)
-- none
-```
+Subject ≤ **72 chars**. Imperative. One scope per commit.
 
-## Step 5 — Pre-commit checks
+| Bad subject | Good subject |
+|-------------|--------------|
+| Enhance project documentation and configuration… | `chore(cursor): add per-file commit body standards` |
+| Update data model and system architecture… | `feat(db): add watchlist_items for bottom panel` |
+| fix bug | `fix(queue): recover expired job leases before claim` |
+
+## Step 5 — Write full body (never truncate)
+
+Every commit uses **all six sections** in order:
+
+1. **Context** — user request, milestone (M0–M6), gate
+2. **Why** — product/safety/architecture rationale
+3. **Files changed** — **one bullet per staged file** (see Step 3)
+4. **Connections** — agent-docs paths, D-nnn, sprint spec refs
+5. **Verification** — exact commands + pass/fail for this chunk
+6. **Next steps** — follow-ups or `none`
+
+**Cross-check:** count staged files (`git diff --cached --name-only | wc -l`) must equal
+bullet count under `Files changed`. Mismatch = fix message before committing.
+
+## Step 6 — Pre-commit checks
 
 ```bash
 pnpm typecheck
@@ -111,16 +106,14 @@ pnpm lint
 pnpm test
 ```
 
-Skip tests only for pure docs/config with zero runtime claims. Record skip reason in Verification.
+Docs-only `.cursor/` or `agent-docs/` chunks: state skip reason in Verification.
 
-## Step 6 — Stage and commit
-
-Stage **only** files for this logical change:
+## Step 7 — Stage and commit (HEREDOC only)
 
 ```bash
 git add path/to/file1 path/to/file2
 git commit -m "$(cat <<'EOF'
-<type>(<scope>): <imperative summary under 72 chars>
+<type>(<scope>): <subject under 72 chars>
 
 Context
 - ...
@@ -128,8 +121,9 @@ Context
 Why
 - ...
 
-What changed
-- ...
+Files changed
+- path/file1: what — why
+- path/file2: what — why
 
 Connections
 - agent-docs: ...
@@ -146,38 +140,45 @@ EOF
 )"
 ```
 
-## Step 7 — Verify commit
+Repeat for **each chunk** until `git status` is clean (except forbidden paths).
+
+## Step 8 — Verify and report
 
 ```bash
-git log -1 --format=full
-git show --stat HEAD
+git log -n <chunk-count> --oneline
+git show --stat HEAD   # per chunk if needed
 ```
 
-Confirm subject length, section order, and no secrets in diff.
+Report to user:
+- Each SHA + subject
+- File count per commit
+- Confirmation working tree clean
+- Anything left unstaged and why
 
-## Anti-patterns (reject these)
+## Anti-patterns (reject and rewrite)
 
 ```text
-BAD  Update data model and system architecture documentation...
-BAD  fix bug
-BAD  feat: stuff
-BAD  chore: update files
-GOOD feat(db): add module_links kind enum for canvas edges
-GOOD fix(engine): fail-closed when leak-lint finds digits in compile output
+FORBIDDEN  Single-line paragraph commit body
+FORBIDDEN  Subject >72 chars used as entire message
+FORBIDDEN  "What changed: various files in apps/web"
+FORBIDDEN  "Updated documentation and components"
+FORBIDDEN  Files changed with 2 bullets for 8 staged files
+REQUIRED   N bullets under Files changed for N staged files
 ```
 
 ## Multi-commit session order
 
-1. `feat(contracts): ...`
-2. `feat(db): ...` (depends on contracts)
-3. `feat(engine): ...`
-4. `feat(api): ...` + `feat(web): ...` (may parallel if independent)
-5. `docs(agent-docs): ...` only if docs weren't bundled with code commits
+1. `chore(config)` / `chore(cursor)` — tooling, gitignore
+2. `refactor(contracts)` / `feat(contracts)`
+3. `feat(db)` — schema + migration together
+4. `feat(engine)` / `feat(api)`
+5. `feat(web)` / `feat(canvas)` / `feat(panels)` / `feat(shell)`
+6. `docs(agent-docs)` — only if not bundled with code
 
 ## Breaking changes
 
-Add footer after body:
+Footer after body:
 
 ```text
-BREAKING CHANGE: module_links.kind values renamed; run migration 0004 and update canvas client.
+BREAKING CHANGE: <what broke> — <migration path>
 ```

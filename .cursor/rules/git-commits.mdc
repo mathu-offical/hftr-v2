@@ -1,31 +1,26 @@
 ---
-description: Conventional Commits for hftr-v2 — detailed subjects, structured bodies, scoped batches
+description: Conventional Commits for hftr-v2 — per-file bodies, chunked batches, mandatory end-of-run
 alwaysApply: true
 ---
 
 # Git commit messages
 
-Follow **Conventional Commits** with hftr-v2-specific scopes and a **structured body**.
-Commits are an audit trail for trading-safety work — be precise, not generic.
+Commits are the **audit trail** for trading-safety work. Vague or truncated messages are
+**forbidden**. Every commit documents **every staged file** with path + what + why.
 
-## End-of-run commit (mandatory)
+## End-of-run (mandatory — run is NOT complete without this)
 
-A run is **not complete** until verified implementation work is **committed**.
+Before ending **any** turn that modified files:
 
-After verification passes and agent-docs are synced:
+1. **Invoke** `.cursor/skills/commit-message/SKILL.md` (read it; follow every step)
+2. Verify passed → analyze **all** dirty files → plan chunks → commit each chunk
+3. Report every commit SHA + full subject to the user
 
-1. Run `git status` — if the run produced uncommitted changes, **commit them** before ending
-2. Split unrelated domains into separate commits (dependency order)
-3. Bundle code with owning `agent-docs/` in the same commit
-4. Use the structured body format below; record verification in the **Verification** section
-5. Report commit SHA(s) to the user with the verification summary
+Skipping the skill or leaving verified work uncommitted = **failed run**.
 
-**Do not commit** when: verification failed (fix and re-verify first), no changes exist,
-or only forbidden paths are dirty (`.env.local`, `node_modules/`, `.next/`). Never commit secrets.
+**Push** only when user explicitly asks.
 
-**Push** only when the user explicitly asks (`git push origin HEAD`).
-
-## Subject line (required)
+## Subject line
 
 ```
 type(scope): imperative summary
@@ -33,156 +28,121 @@ type(scope): imperative summary
 
 | Rule | Value |
 |------|-------|
-| Max length | **72 characters** (shortlog-friendly) |
-| Mood | **Imperative**, present tense (`add`, `fix`, `wire` — not `added`, `fixes`) |
-| Case | lowercase type and scope; sentence case or lowercase summary after colon |
-| Period | **No** trailing period on subject |
-| Scope | **One primary scope** per commit (split if multiple domains) |
+| Max length | **72 characters** |
+| Mood | Imperative present (`add`, `fix`, `wire`) |
+| Forbidden | Paragraph subjects, `Update…`, `Enhance…`, `WIP`, `misc` |
 
-### Types
+### Types & scopes
 
-| Type | Use when |
-|------|----------|
-| `feat` | New user-visible behavior, API, schema field, pipeline stage |
-| `fix` | Bug fix, regression, incorrect invariant enforcement |
-| `docs` | agent-docs, README, comments-only (no runtime change) |
-| `refactor` | Internal restructure, no behavior change |
-| `perf` | Measurable performance improvement |
-| `test` | Tests only |
-| `build` | turbo, pnpm, tsconfig, package build wiring |
-| `ci` | GitHub Actions, Vercel config |
-| `chore` | tooling, .cursor workspace, non-product maintenance |
-| `style` | formatting, tokens/CSS with no logic change |
-| `revert` | revert prior commit |
+See skill reference table. Pick **narrowest** scope. Split if multiple domains.
 
-### Scopes (hftr-v2)
+## Body (required — never truncate)
 
-Pick the **narrowest** scope that owns the change:
+**Every non-empty commit** uses the full structured body via HEREDOC. The subject is short;
+the body carries detail. **Never** put the whole description in the subject line.
 
-| Scope | Paths / domain |
-|-------|----------------|
-| `web` | `apps/web/` (general) |
-| `canvas` | React Flow canvas, nodes, edges |
-| `panels` | slide-over panels, ActivityPanel, control UI |
-| `shell` | top bar, ticker, drawer, app chrome |
-| `assistant` | Mistral assistant chat + edit proposals |
-| `contracts` | `packages/contracts/` |
-| `db` | `packages/db/`, migrations, Drizzle schema |
-| `engine` | `packages/engine/` (deterministic core) |
-| `queue` | job queue, drain, handlers registry |
-| `pipeline` | trend/compile handoff, multi-tier flow |
-| `dispatch` | broker dispatch, paper-trade |
-| `verification` | verification schemas, recovery ladders |
-| `calc` | ValueRef store, calculator, leak-lint, sanity |
-| `adapters` | `packages/adapters/`, broker adapters |
-| `llm` | `packages/llm/`, provider clients |
-| `auth` | Clerk, middleware, dev bypass |
-| `billing` | Stripe, credits ledger |
-| `catalogs` | seed JSON catalogs, `catalog_version` |
-| `api` | route handlers under `apps/web/app/api/` |
-| `agent-docs` | `agent-docs/` living documentation |
-| `cursor` | `.cursor/` rules, skills, workflows |
-| `deps` | package.json / lockfile dependency changes |
-| `config` | `.env.example`, turbo, workspace config |
-
-If a change truly spans two scopes with equal weight, use the **user-facing** scope or **split into two commits**.
-
-## Body (required for non-trivial commits)
-
-Wrap prose at **72 characters**. Use this **fixed section order**:
+### Fixed section order
 
 ```text
 Context
-- [user intent, milestone M0–M6, or gate Gn if applicable]
+- [user intent / milestone / gate]
 
 Why
-- [rationale: safety invariant, architecture boundary, product behavior]
+- [rationale tied to product, safety, or architecture]
 
-What changed
-- [path or area]: [one-line description per logical group]
-- [optional git name-status lines for precision]
+Files changed
+- path/to/file.ext: [what changed in this file] — [why this file]
+- path/to/other.ts: [specific change] — [reason]
+(one bullet per staged file; no "and others", no grouping without listing paths)
 
 Connections
-- agent-docs: [files updated, or "none"]
-- decisions: [D-nnn logged, or "none"]
-- plans: [sprint spec / master plan touch, or "none"]
+- agent-docs: [paths or none]
+- decisions: [D-nnn or none]
+- plans: [sprint refs or none]
 
 Verification
-- [pnpm typecheck | lint | test | browser flow — what ran and result]
+- [commands run + results for this chunk]
 
 Next steps
-- [follow-up work, OQ-n, or "none"]
+- [follow-ups or none]
 ```
 
-**Trivial commits** (single-file typo, one-line config): subject + one-line body is acceptable.
+### Per-file rules (non-negotiable)
 
-## Batching rules
+1. Run `git diff --name-status` on the chunk **before** writing the message
+2. **Every staged file** appears under `Files changed` with its own bullet
+3. Each bullet: **path** + **what** (function/section/behavior) + **why** (intent)
+4. For `D` deletions: note what replaced it or why removed
+5. For `R` renames: note old → new path
+6. If you cannot explain a file, **do not stage it** until you can
 
-1. **One logical intent per commit** — never bundle unrelated domains (e.g. canvas UI + db migration)
-2. **Docs + code** that implement the same intent **belong together** (self-curation contract)
-3. **Migrations** commit with the schema/code that requires them
-4. **agent-docs** update in the **same commit** as the behavior they document
-5. Multiple commits in a session: order **dependencies first** (contracts → db → engine → web)
+### Chunking (split before commit)
 
-## Pre-commit verification
+| Rule | Action |
+|------|--------|
+| Unrelated packages | Separate commits (contracts → db → engine → api → web) |
+| Same feature, multiple files | One commit; **all files listed** |
+| Code + owning agent-docs | Same commit |
+| Migration + schema + usage | Same commit |
+| `.cursor/` only | `chore(cursor):` |
+| `agent-docs/` only | `docs(agent-docs):` |
 
-Before committing runtime code:
+Write the chunk plan **in the open** before the first `git add`:
+
+```text
+Chunk 1 feat(db): [files…]
+Chunk 2 feat(api): [files…]
+```
+
+## Pre-commit
 
 ```bash
-pnpm typecheck
-pnpm lint
-pnpm test          # or package-scoped: pnpm --filter @hftr/engine test
+pnpm typecheck && pnpm lint && pnpm test
 ```
 
-Document what ran under **Verification**. Skip only for docs-only `.cursor/` or `agent-docs/` with no behavior claims.
+Record in **Verification**. Docs-only chunks may skip tests with reason stated.
 
 ## Forbidden
 
-- Generic subjects: `update files`, `fix stuff`, `WIP`, `misc changes`
-- Committing: `.env`, `.env.local`, `node_modules/`, `.next/`, `.vercel/`, secrets, build artifacts
-- Editing `DevSpecs/` (read-only) — if accidentally staged, unstage
-- `Co-authored-by:` trailers unless the user explicitly requests them
-- Guaranteed-returns or live-trading language in commit messages
+- Single-paragraph commit messages (the entire prior bad pattern)
+- `What changed` sections with only directory names and no per-file bullets
+- `Various files updated`, `improved documentation`, `refactored components`
+- Staging `.env.local`, `node_modules/`, `.next/`, secrets, `*.tsbuildinfo`
+- `Co-authored-by:` unless user requests
 
-## Breaking changes
-
-Footer line after body:
-
-```text
-BREAKING CHANGE: <what broke and migration path>
-```
-
-## Commit command
-
-Always pass the message via HEREDOC:
+## HEREDOC (always)
 
 ```bash
 git commit -m "$(cat <<'EOF'
-feat(canvas): add module status line from queue projection
+feat(panels): wire bottom panel watchlist CRUD to API
 
 Context
-- M1 sprint: node anatomy v1 per ui-spec.md
+- M1 bottom control panel per ui-spec §4
 
 Why
-- Operators need text-first status on canvas nodes without opening panels
+- Watchlists must be module-scoped with operator-visible bias and status
 
-What changed
-- apps/web/components/canvas/ModuleNode.tsx: status line from queue stats
-- agent-docs/ui-ux/ui-spec.md: mark node anatomy item done
+Files changed
+- apps/web/components/panels/BottomPanel.tsx: fetch watchlists from API,
+  add create/delete handlers, scope filter by module — bottom panel data
+- apps/web/app/api/companies/[companyId]/watchlists/route.ts: GET/POST
+  with ownership scoping — server boundary for watchlist_items table
+- packages/db/src/schema/watchlists.ts: watchlist_items Drizzle schema —
+  persistence for panel watchlists
 
 Connections
-- agent-docs: ui-ux/ui-spec.md
+- agent-docs: none
 - decisions: none
-- plans: m1-sprint-spec.md
+- plans: m1-sprint-spec.md §bottom panel
 
 Verification
-- pnpm typecheck ✓ | pnpm --filter @hftr/web lint ✓ | browser: company canvas ✓
+- pnpm typecheck ✓ | pnpm test ✓ | IronBee: add watchlist item on canvas ✓
 
 Next steps
-- wire activity sprite layer to job events
+- trend-promoted watchlist rows from trend.scan handler
 
 EOF
 )"
 ```
 
-Full workflow: `.cursor/skills/commit-message/SKILL.md` | `/commit-session`
+Skill: `.cursor/skills/commit-message/SKILL.md` | Workflow: `.cursor/workflows/end-of-run.md`

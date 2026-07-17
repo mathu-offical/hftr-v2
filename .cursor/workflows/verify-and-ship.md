@@ -1,61 +1,58 @@
 # Verify, Commit, and Report Workflow
 
-Standard **end-of-run** sequence. A run is incomplete until verified work is committed.
+Standard **end-of-run** sequence. Incomplete without invoking `commit-message` skill.
 
-**Sources:** `.cursor/skills/verify-change/SKILL.md`, `.cursor/skills/commit-message/SKILL.md`
+**Sources:** `.cursor/skills/verify-change/SKILL.md`, `.cursor/skills/commit-message/SKILL.md`,
+`.cursor/workflows/end-of-run.md`
 
 ## Fixed order
 
 ```
-implement → verify → curate docs → commit → report
+implement → verify → curate docs → INVOKE commit-message skill → report
 ```
 
 ## Steps
 
 ### 1. Verify
 
-Follow `verify-change` skill steps 1–5 (tests, browser, doc sync). **Stop** if verification fails — fix and re-verify; do not commit broken state.
+Follow `verify-change` skill steps 1–5. **Stop** if verification fails.
 
 ### 2. Curate
 
-Ensure agent-docs, sprint specs, and decisions-log reflect the verified behavior (self-curation rule).
+Ensure agent-docs reflect verified behavior.
 
-### 3. Commit
+### 3. Commit (invoke skill — mandatory)
 
-If `git status` shows uncommitted changes from this run:
-
-1. Follow `commit-message` skill
-2. Split unrelated domains into separate commits (contracts → db → engine → web)
-3. Bundle code with owning `agent-docs/` in the same commit
-4. Structured body with **Verification** section citing what just passed
-5. Never stage `.env`, `.env.local`, `node_modules/`, `.next/`
+1. **Read** `.cursor/skills/commit-message/SKILL.md` (full file)
+2. Inventory every dirty file (`git diff --name-status`)
+3. Publish chunk plan with **every file listed** per commit
+4. For each chunk: **one Files changed bullet per staged file** + HEREDOC body
+5. Cross-check bullet count = staged file count
+6. Never use paragraph-only commit messages
 
 ### 4. Report
 
-Tell the user:
+- Built + verified (how)
+- Every commit SHA + subject + file count
+- Uncommitted leftovers + why
 
-- What was built and verified (how)
-- Commit SHA(s) and subject line(s)
-- What remains uncommitted (if anything) and why
-- Suggested next steps / open OQ-n
+### 5. Push
 
-### 5. Push (optional)
+Only when user explicitly asks.
 
-`git push origin HEAD` **only** when the user explicitly asks.
-
-## Skip conditions
+## Skip commit only when
 
 | Condition | Commit? |
 |-----------|---------|
-| Verification passed + run changes exist | **Yes — required** |
-| No file changes in run | No |
-| Verification failed | No — fix first |
-| Only secrets/build artifacts dirty | No — leave unstaged |
+| Verification passed + dirty files | **Yes — required** |
+| Clean tree | No |
+| Verification failed | No |
+| Only secrets/artifacts dirty | No |
 
 ## IronBee only
 
-Browser verification via IronBee DevTools — not Cursor built-in browser.
+Browser via IronBee DevTools.
 
 ## Milestone gates
 
-Before claiming gate G0–G6 passed: verification + commit + gate review in `decisions-log.md`.
+Gate claim requires verification + commits + decisions-log entry.

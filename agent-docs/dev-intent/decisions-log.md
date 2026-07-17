@@ -146,6 +146,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Verified in the browser: ticker showing fills, drawer PnL rollup, watch-list add →
   bottom panel row, decisions tab joining traces to verification passes, trends tab.
 
+- **D-020 (per-file commit bodies, 2026-07-17):** Commit messages were still too truncated
+  (paragraph subjects / incomplete file coverage). Strengthened standards: agents **must**
+  invoke `commit-message` skill at end of every run; inventory every dirty file via
+  `git diff --name-status`; publish an explicit chunk plan; each commit body lists **every
+  staged file** under `Files changed` (path + what + why); bullet count must equal staged
+  file count. New workflow/command: `end-of-run.md` / `/end-run`. Paragraph-only messages
+  and truncated file lists are forbidden.
+
 ## Open questions
 
 - **OQ-7 (resolved 2026-07-16):** Clerk dev-instance keys added to `apps/web/.env.local`;

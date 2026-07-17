@@ -40,14 +40,17 @@ Invoke `verify-change` skill before claiming done.
 
 Update sprint spec progress + owning agent-docs. Log blockers as OQ-n.
 
-## 6. Commit (mandatory)
+## 6. Commit (mandatory — invoke skill)
 
-After verification passes, commit all run changes before ending:
+After verification passes:
 
-- Invoke `commit-message` skill — split by logical intent, structured body, verification recorded
-- Report commit SHA(s) to the user
-- Do not leave verified implementation uncommitted in the working tree
-- Push only if user explicitly asks
+1. **Read** `.cursor/skills/commit-message/SKILL.md` (do not improvise)
+2. Inventory all dirty files; publish chunk plan (every file assigned)
+3. Commit each chunk with **Files changed** bullet per staged file
+4. Report every SHA + subject; leave no verified work uncommitted
+5. Push only if user explicitly asks
+
+See `.cursor/workflows/end-of-run.md`.
 
 ## Milestone gate checklist (before claiming gate passed)
 

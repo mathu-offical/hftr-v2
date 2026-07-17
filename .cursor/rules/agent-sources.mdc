@@ -46,4 +46,5 @@ Read sources in this priority order when resolving intent vs implementation:
 ## Cursor workspace
 
 Skills/workflows: `.cursor/README.md`. Invoke `session-start` at task start.
-Close every implementation run: **verify → curate → commit** (`verify-and-ship` workflow).
+Close every implementation run: **verify → curate → invoke `commit-message` skill**
+(`.cursor/workflows/end-of-run.md` or `/end-run`). Per-file commit bodies required.

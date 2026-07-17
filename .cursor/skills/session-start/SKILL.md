@@ -31,9 +31,11 @@ listed in `agent-sources.mdc` before designing new types.
 
 ## End of session
 
-Fixed closing sequence: **verify → curate docs → commit → report**.
+Fixed closing sequence: **verify → curate → INVOKE commit-message skill → report**.
 
 - [ ] Invoke `verify-change` skill — tests + browser as applicable
 - [ ] Update agent-docs (self-curation rule)
-- [ ] Invoke `commit-message` skill if verification passed and changes exist
-- [ ] Report verification summary + commit SHA(s) to user (push only if user asks)
+- [ ] **Read** `.cursor/skills/commit-message/SKILL.md` and follow every step
+- [ ] Chunk plan with every dirty file listed; per-file bullets in each commit body
+- [ ] Report SHA(s) + subjects; working tree clean (push only if user asks)
+- [ ] Prefer `/end-run` or `.cursor/workflows/end-of-run.md`

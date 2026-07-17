@@ -63,16 +63,20 @@ Mark any unverified claims with explicit "unverified" until proven.
 
 Summarize for user: what was verified, how, and any remaining gaps/OQ-n.
 
-## 7. Commit (mandatory if changes exist)
+## 7. Commit (mandatory — invoke skill)
 
-If verification passed and `git status` shows uncommitted run changes:
+If verification passed and the working tree has run changes:
 
-1. Invoke `commit-message` skill (or `commit-session` workflow)
-2. Split by logical intent; bundle code + agent-docs
-3. Commit with structured Conventional Commit body
-4. Include verification results in the **Verification** section
-5. Report commit SHA(s) in the final summary
+1. **Read** `.cursor/skills/commit-message/SKILL.md` and follow it completely
+2. Inventory every dirty file; write a chunk plan listing each file per commit
+3. Per chunk: **one Files changed bullet per staged file** (path + what + why)
+4. HEREDOC commit; cross-check bullet count equals staged file count
+5. Report every SHA + subject + file count
 
-**Skip commit** only when: no changes, verification failed, or dirty files are secrets/artifacts only.
+**Forbidden:** paragraph-style messages, truncated file lists, skipping the skill.
+
+**Skip commit** only when: no changes, verification failed, or only secrets/artifacts dirty.
 
 Do **not** push unless the user explicitly requests it.
+
+Prefer workflow `.cursor/workflows/end-of-run.md` or `/end-run`.

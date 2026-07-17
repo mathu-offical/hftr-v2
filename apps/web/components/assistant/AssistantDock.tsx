@@ -21,6 +21,36 @@ function humanizeTool(tool: string): string {
   return tool.replace(/_/g, ' ');
 }
 
+function proposalSummary(proposal: AssistantEdit['proposal']): string {
+  switch (proposal.tool) {
+    case 'create_module':
+      return `Create ${proposal.type} module "${proposal.name}"`;
+    case 'update_module_config':
+    case 'patch_module_config':
+      return `Update module config (${Object.keys(proposal.configPatch).join(', ')})`;
+    case 'link_modules':
+      return `Link modules (${proposal.linkKind})`;
+    case 'set_policy':
+      return `Set policy on module ${proposal.moduleId.slice(0, 8)}…`;
+    case 'allocate_funds':
+      return proposal.amountCents
+        ? `Allocate funds (${proposal.fromKind} → ${proposal.toKind})`
+        : 'Allocate funds (amount from your message — confirm to parse)';
+    case 'create_watchlist':
+      return `Create watchlist (${(proposal.symbols ?? []).length} symbols)`;
+    case 'trigger_tier':
+      return `Trigger tier job on module ${proposal.moduleId.slice(0, 8)}…`;
+    case 'rename_module':
+      return `Rename module → ${proposal.name}`;
+    case 'add_watchlist_item':
+      return `Watch ${proposal.symbol.toUpperCase()} (${proposal.bias ?? 'neutral'})`;
+    default: {
+      const _exhaustive: never = proposal;
+      return _exhaustive;
+    }
+  }
+}
+
 function ProposalCard(props: {
   proposal: AssistantEdit;
   companyId: string;
@@ -47,12 +77,7 @@ function ProposalCard(props: {
       <p className="text-[11px] font-medium text-[var(--color-ink)]">
         Pending {humanizeTool(props.proposal.tool)}
       </p>
-      <p className="mt-1 font-mono text-[10px] text-[var(--color-ink-dim)]">
-        {p.tool === 'rename_module' && `Rename module → ${p.name}`}
-        {p.tool === 'patch_module_config' &&
-          `Patch module config (${Object.keys(p.configPatch).join(', ')})`}
-        {p.tool === 'add_watchlist_item' && `Watch ${p.symbol} (${p.bias})`}
-      </p>
+      <p className="mt-1 font-mono text-[10px] text-[var(--color-ink-dim)]">{proposalSummary(p)}</p>
       <div className="mt-2 flex gap-2">
         <button
           type="button"
@@ -199,6 +224,7 @@ export function AssistantDock(props: { companyId: string }) {
         body: { message: text },
       });
       setMessages((prev) => [...prev, data.userMessage, data.assistantMessage]);
+      void loadProposals();
     } catch (err: unknown) {
       setInput(text);
       if (err instanceof RequestError) {

@@ -1,7 +1,15 @@
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { createAlpacaPaperAdapter, fetchAlpacaAccountId, createAlpacaClient } from '@hftr/adapters';
+import {
+  createAlpacaPaperAdapter,
+  createAlpacaClient,
+  createKalshiDemoAdapter,
+  fetchAlpacaAccountId,
+} from '@hftr/adapters';
 import { brokerConnections } from '@hftr/db/schema';
+import type { Db } from '@hftr/db';
+import type { AdapterCapabilities, ConnectionStatus } from '@hftr/contracts';
+import { autoDisarmCompaniesForBroker } from '@hftr/engine';
 import { ApiError, withAuth } from '@/lib/api';
 import { getOwnedBrokerConnection } from '@/lib/brokers';
 import { decryptSecret } from '@/lib/secrets';
@@ -19,6 +27,58 @@ function parseAlpacaCredentials(plain: string): { keyId: string; secret: string 
   return parsed;
 }
 
+function parseKalshiCredentials(plain: string): {
+  apiKeyId: string;
+  privateKeyPem: string;
+  demoMode: boolean;
+} {
+  const parsed = JSON.parse(plain) as {
+    apiKeyId: string;
+    privateKeyPem: string;
+    demoMode?: boolean;
+  };
+  if (!parsed.apiKeyId || !parsed.privateKeyPem) {
+    throw new ApiError(500, 'invalid_stored_credentials');
+  }
+  return {
+    apiKeyId: parsed.apiKeyId,
+    privateKeyPem: parsed.privateKeyPem,
+    demoMode: parsed.demoMode ?? true,
+  };
+}
+
+async function persistVerifyResult(
+  db: Db,
+  id: string,
+  status: ConnectionStatus,
+  capabilities: AdapterCapabilities | null,
+  venueAccountId: string | null,
+) {
+  if (status !== 'connected') {
+    await autoDisarmCompaniesForBroker(db, id, 'broker_verify_failed');
+  }
+
+  const updated = await db
+    .update(brokerConnections)
+    .set({
+      status,
+      capabilities,
+      lastVerifiedAt: new Date(),
+      venueAccountId,
+      updatedAt: new Date(),
+    })
+    .where(eq(brokerConnections.id, id))
+    .returning({
+      id: brokerConnections.id,
+      status: brokerConnections.status,
+      capabilities: brokerConnections.capabilities,
+      lastVerifiedAt: brokerConnections.lastVerifiedAt,
+      venueAccountId: brokerConnections.venueAccountId,
+    });
+
+  return updated[0]!;
+}
+
 export async function POST(_req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
     const { id } = Params.parse(await ctx.params);
@@ -32,13 +92,14 @@ export async function POST(_req: Request, ctx: Ctx) {
     }
 
     const plain = decryptSecret(connection.ciphertext, 'broker_credentials');
-    const creds = parseAlpacaCredentials(plain);
+    const nowMs = () => Date.now();
 
     if (connection.venue === 'alpaca') {
+      const creds = parseAlpacaCredentials(plain);
       const adapter = createAlpacaPaperAdapter({
         keyId: creds.keyId,
         secret: creds.secret,
-        nowMs: () => Date.now(),
+        nowMs,
       });
       const status = await adapter.verifyConnection();
       const capabilities = adapter.capabilities();
@@ -48,25 +109,23 @@ export async function POST(_req: Request, ctx: Ctx) {
         venueAccountId = await fetchAlpacaAccountId(client);
       }
 
-      const updated = await db
-        .update(brokerConnections)
-        .set({
-          status,
-          capabilities,
-          lastVerifiedAt: new Date(),
-          venueAccountId,
-          updatedAt: new Date(),
-        })
-        .where(eq(brokerConnections.id, id))
-        .returning({
-          id: brokerConnections.id,
-          status: brokerConnections.status,
-          capabilities: brokerConnections.capabilities,
-          lastVerifiedAt: brokerConnections.lastVerifiedAt,
-          venueAccountId: brokerConnections.venueAccountId,
-        });
+      return persistVerifyResult(db, id, status, capabilities, venueAccountId);
+    }
 
-      return updated[0]!;
+    if (connection.venue === 'kalshi') {
+      const creds = parseKalshiCredentials(plain);
+      if (!creds.demoMode) {
+        throw new ApiError(400, 'live_gate_blocked');
+      }
+      const adapter = createKalshiDemoAdapter({
+        apiKeyId: creds.apiKeyId,
+        privateKeyPem: creds.privateKeyPem,
+        demoMode: true,
+        nowMs,
+      });
+      const status = await adapter.verifyConnection();
+      const capabilities = adapter.capabilities();
+      return persistVerifyResult(db, id, status, capabilities, null);
     }
 
     throw new ApiError(400, 'unsupported_venue');

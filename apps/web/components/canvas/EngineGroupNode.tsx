@@ -11,6 +11,7 @@ export type EngineGroupNodeData = {
   masterTopicSectors: string[];
   memberModuleIds: string[];
   onRequestDelete: (engineId: string) => void;
+  onRequestReflow: (engineId: string) => void;
   onMasterTopicSaved: (
     engineId: string,
     masterTopicSectors: string[],
@@ -27,8 +28,8 @@ export type EngineGroupNodeData = {
 export type EngineGroupFlowNode = Node<EngineGroupNodeData, 'engineGroup'>;
 
 /**
- * React Flow parent node for an ENGINE instance (D-028): labeled background
- * with inline master topic/sector and delete affordance.
+ * React Flow parent node for an ENGINE instance (D-028 / D-033): labeled
+ * background with master topic, Reflow, and delete affordances.
  */
 export const EngineGroupNode = memo(function EngineGroupNode({
   id,
@@ -87,13 +88,22 @@ export const EngineGroupNode = memo(function EngineGroupNode({
           </div>
           <div className="truncate text-sm font-medium text-[var(--color-ink)]">{data.label}</div>
         </div>
-        <button
-          type="button"
-          className="nodrag shrink-0 rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-block)]"
-          onClick={() => data.onRequestDelete(id)}
-        >
-          Delete
-        </button>
+        <div className="nodrag flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            className="rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-ink-dim)]"
+            onClick={() => data.onRequestReflow(id)}
+          >
+            Reflow
+          </button>
+          <button
+            type="button"
+            className="rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-block)]"
+            onClick={() => data.onRequestDelete(id)}
+          >
+            Delete
+          </button>
+        </div>
       </div>
       <div className="nodrag nowheel space-y-1 px-3 py-2">
         <label className="block space-y-1">

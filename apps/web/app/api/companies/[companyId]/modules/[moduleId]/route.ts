@@ -8,7 +8,7 @@ import {
 } from '@hftr/contracts';
 import { moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
-import { createSystemClock } from '@hftr/engine';
+import { createSystemClock, ensureResearchCadenceSchedule } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import {
   refreshGeneratedModuleNames,
@@ -124,7 +124,25 @@ export async function PATCH(req: Request, ctx: Ctx) {
       .set(patch)
       .where(and(eq(modules.id, moduleId), eq(modules.companyId, companyId)))
       .returning();
-    return { module: updated[0] };
+    const moduleRow = updated[0]!;
+
+    if (moduleRow.type === 'research' && moduleRow.status === 'active') {
+      const cfg = (moduleRow.config ?? {}) as {
+        cadenceMinutes?: number;
+        topicScope?: string;
+        focus?: string;
+      };
+      const cadenceMinutes =
+        typeof cfg.cadenceMinutes === 'number' && cfg.cadenceMinutes > 0 ? cfg.cadenceMinutes : 180;
+      await ensureResearchCadenceSchedule(db, clock, {
+        companyId,
+        moduleId,
+        cadenceMinutes,
+        topicScope: cfg.topicScope ?? cfg.focus ?? '',
+      });
+    }
+
+    return { module: moduleRow };
   });
 }
 

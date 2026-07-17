@@ -134,6 +134,7 @@ interface DeadJobRow {
   id: string;
   kind: string;
   queueClass: string;
+  moduleId: string | null;
   lastError: string | null;
   attempts: number;
   updatedAt: string;
@@ -934,43 +935,123 @@ function DeadLettersView(props: {
   onRefetch: () => Promise<void>;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  function toggle(id: string, checked: boolean) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function toggleAll(checked: boolean) {
+    setSelected(checked ? new Set(props.jobs.map((j) => j.id)) : new Set());
+  }
 
   async function retry(jobId: string) {
     setBusyId(jobId);
+    setMessage(null);
     try {
       await api(`/api/companies/${props.companyId}/jobs/dead/${jobId}/retry`, {
         method: 'POST',
       });
       await props.onRefetch();
+      setMessage('Dead letter re-queued.');
     } finally {
       setBusyId(null);
     }
   }
 
+  async function bulkRetry() {
+    const jobIds = [...selected].slice(0, 20);
+    if (jobIds.length === 0) return;
+    setBulkBusy(true);
+    setMessage(null);
+    try {
+      await api(`/api/companies/${props.companyId}/jobs/dead`, {
+        method: 'POST',
+        body: { jobIds },
+      });
+      setSelected(new Set());
+      await props.onRefetch();
+      setMessage(`Re-queued ${jobIds.length} dead letter${jobIds.length === 1 ? '' : 's'}.`);
+    } catch {
+      setMessage('Bulk retry failed.');
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  if (props.jobs.length === 0) {
+    return (
+      <p className="py-3 text-xs text-[var(--color-ink-faint)]">
+        No dead-letter jobs for this company.
+      </p>
+    );
+  }
+
+  const allSelected = selected.size === props.jobs.length && props.jobs.length > 0;
+
   return (
-    <Table
-      head={['Kind', 'Queue', 'Error', 'Attempts', 'Updated', '']}
-      rows={props.jobs.map((j) => [
-        <span key="k" className="font-mono text-[10px]">
-          {j.kind}
-        </span>,
-        j.queueClass,
-        <span key="e" className="block max-w-xs truncate" title={j.lastError ?? ''}>
-          {j.lastError ?? '—'}
-        </span>,
-        String(j.attempts),
-        new Date(j.updatedAt).toLocaleTimeString(),
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <label className="flex items-center gap-1.5 text-[11px] text-[var(--color-ink-dim)]">
+          <input
+            type="checkbox"
+            checked={allSelected}
+            onChange={(e) => toggleAll(e.target.checked)}
+            aria-label="Select all dead letters"
+          />
+          Select all
+        </label>
         <button
-          key="r"
           type="button"
-          disabled={busyId !== null}
-          onClick={() => void retry(j.id)}
+          disabled={bulkBusy || selected.size === 0}
+          onClick={() => void bulkRetry()}
           className="rounded border border-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
         >
-          {busyId === j.id ? '…' : 'Retry'}
-        </button>,
-      ])}
-      empty="No dead-letter jobs for this company."
-    />
+          {bulkBusy ? 'Retrying…' : `Retry selected (${selected.size})`}
+        </button>
+      </div>
+      {message && <p className="text-[10px] text-[var(--color-ink-faint)]">{message}</p>}
+      <Table
+        head={['', 'Kind', 'Module', 'Queue', 'Error', 'Attempts', 'Updated', '']}
+        rows={props.jobs.map((j) => [
+          <input
+            key="c"
+            type="checkbox"
+            checked={selected.has(j.id)}
+            onChange={(e) => toggle(j.id, e.target.checked)}
+            aria-label={`Select dead letter ${j.kind}`}
+          />,
+          <span key="k" className="font-mono text-[10px]">
+            {j.kind}
+          </span>,
+          <span key="m" className="font-mono text-[10px]">
+            {j.moduleId ?? '—'}
+          </span>,
+          j.queueClass,
+          <span key="e" className="block max-w-xs truncate" title={j.lastError ?? ''}>
+            {j.lastError ?? '—'}
+          </span>,
+          String(j.attempts),
+          new Date(j.updatedAt).toLocaleTimeString(),
+          <button
+            key="r"
+            type="button"
+            disabled={busyId !== null || bulkBusy}
+            onClick={() => void retry(j.id)}
+            className="rounded border border-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+          >
+            {busyId === j.id ? '…' : 'Retry'}
+          </button>,
+        ])}
+        empty="No dead-letter jobs for this company."
+      />
+    </div>
   );
 }

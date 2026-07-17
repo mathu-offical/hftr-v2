@@ -406,20 +406,54 @@ function SimulationTab(props: { runs: SimulationRow[]; comparisonSummary: string
         </div>
       )}
       <ul className="space-y-2">
-        {props.runs.map((run) => (
-          <li key={run.id} className="rounded-lg border border-[var(--color-line)] p-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-[var(--color-ink)]">{run.label}</span>
-              <span className="text-[10px] uppercase text-[var(--color-ink-faint)]">
-                {run.status}
-              </span>
-            </div>
-            <p className="mt-1 text-[11px] text-[var(--color-ink-dim)]">
-              {run.moduleId ? `module ${run.moduleId.slice(0, 8)}…` : 'company-scoped'} ·{' '}
-              {new Date(run.createdAt).toLocaleString()}
-            </p>
-          </li>
-        ))}
+        {props.runs.map((run) => {
+          const fillCount =
+            typeof run.resultSummary.fillCount === 'number' ? run.resultSummary.fillCount : null;
+          const pnlBand =
+            typeof run.resultSummary.realizedPnlBand === 'string'
+              ? run.resultSummary.realizedPnlBand
+              : null;
+          const provenance =
+            typeof run.resultSummary.provenance === 'string' ? run.resultSummary.provenance : null;
+          const analyzerSummary =
+            typeof run.resultSummary.analyzerSummary === 'string'
+              ? run.resultSummary.analyzerSummary
+              : null;
+          return (
+            <li key={run.id} className="rounded-lg border border-[var(--color-line)] p-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-[var(--color-ink)]">{run.label}</span>
+                <span className="text-[10px] uppercase text-[var(--color-ink-faint)]">
+                  {run.status}
+                </span>
+              </div>
+              <p className="mt-1 text-[11px] text-[var(--color-ink-dim)]">
+                {run.moduleId ? `module ${run.moduleId.slice(0, 8)}…` : 'company-scoped'} ·{' '}
+                {new Date(run.createdAt).toLocaleString()}
+              </p>
+              {(fillCount !== null || pnlBand || provenance) && (
+                <p className="mt-1 text-[11px] text-[var(--color-ink-dim)]">
+                  {fillCount !== null && <span>{fillCount} fills</span>}
+                  {pnlBand && (
+                    <span>
+                      {fillCount !== null ? ' · ' : ''}
+                      P&L band: {pnlBand.replace(/_/g, ' ')}
+                    </span>
+                  )}
+                  {provenance && (
+                    <span>
+                      {' · '}
+                      via {provenance}
+                    </span>
+                  )}
+                </p>
+              )}
+              {analyzerSummary && (
+                <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">{analyzerSummary}</p>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

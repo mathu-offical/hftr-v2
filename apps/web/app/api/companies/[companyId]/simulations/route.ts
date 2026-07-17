@@ -34,21 +34,24 @@ function buildComparison(runs: SimulationRun[]): SimulationComparisonSummary | u
   const completed = runs.filter((run) => run.status === 'completed');
   if (completed.length < 2) return undefined;
 
-  const statusCounts = new Map<string, number>();
-  for (const run of runs) {
-    statusCounts.set(run.status, (statusCounts.get(run.status) ?? 0) + 1);
+  const bandCounts = new Map<string, number>();
+  let totalFills = 0;
+  for (const run of completed) {
+    const band =
+      typeof run.resultSummary.realizedPnlBand === 'string'
+        ? run.resultSummary.realizedPnlBand
+        : 'unknown';
+    bandCounts.set(band, (bandCounts.get(band) ?? 0) + 1);
+    const fills = typeof run.resultSummary.fillCount === 'number' ? run.resultSummary.fillCount : 0;
+    totalFills += fills;
   }
-  const statusPart = [...statusCounts.entries()]
-    .map(([status, count]) => `${count} ${status}`)
-    .join(', ');
-  const labelPart = completed.map((run) => run.label).join('; ');
+  const bandPart = [...bandCounts.entries()].map(([band, count]) => `${count}× ${band}`).join(', ');
 
   return SimulationComparisonSummary.parse({
     runIds: completed.map((run) => run.id),
     deltaSummary:
-      `Compared ${completed.length} completed runs. ` +
-      `Status mix across listed runs: ${statusPart}. ` +
-      `Completed labels: ${labelPart}.`,
+      `Compared ${completed.length} completed runs (${totalFills} total synthetic fills). ` +
+      `P&L bands: ${bandPart}. Labels: ${completed.map((run) => run.label).join('; ')}.`,
   });
 }
 

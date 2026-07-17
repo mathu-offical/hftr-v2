@@ -5,22 +5,31 @@ import {
   Background,
   ConnectionLineType,
   Controls,
+  Panel,
   ReactFlow,
+  PanOnScrollMode,
   useEdgesState,
   useNodesState,
   type Connection,
   type Edge,
+  type ReactFlowInstance,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import {
   allowedLinkKinds,
   computeEngineBoundsFromPositions,
+  ENGINE_GROUP_PADDING,
   handleIdForLink,
   isMathToolAttachment,
+  layoutCanvas,
   missingModuleSetupFields,
   MODULE_COLUMN,
+  reflowEngineAtOrigin,
   type DeleteEngineMode,
   type EngineTemplate,
+  type LayoutLink,
+  type LayoutModule,
+  type LayoutResult,
   type LinkKind,
   type ModuleStatus,
   type ModuleSetupInput,
@@ -196,12 +205,38 @@ function toModuleNode(
   };
 }
 
+function gatherLayoutModules(nodes: readonly CanvasFlowNode[]): LayoutModule[] {
+  return nodes.filter(isModuleNode).map((node) => ({
+    id: node.id,
+    type: node.data.moduleType,
+    engineInstanceId: node.data.engineInstanceId,
+    position: absoluteModulePosition(node, nodes),
+  }));
+}
+
+function gatherLayoutLinks(edges: readonly Edge[]): LayoutLink[] {
+  const links: LayoutLink[] = [];
+  for (const edge of edges) {
+    const linkKind = (edge.data as { linkKind?: LinkKind } | undefined)?.linkKind;
+    if (!linkKind) continue;
+    links.push({
+      fromModuleId: edge.source,
+      toModuleId: edge.target,
+      linkKind,
+    });
+  }
+  return links;
+}
+
 function buildInitialGraph(
   modules: CanvasModule[],
   engines: CanvasEngineGroup[],
   links: CanvasLink[],
   companyId: string,
-  engineCallbacks: Pick<EngineGroupFlowNode['data'], 'onRequestDelete' | 'onMasterTopicSaved'>,
+  engineCallbacks: Pick<
+    EngineGroupFlowNode['data'],
+    'onRequestDelete' | 'onRequestReflow' | 'onMasterTopicSaved'
+  >,
 ): CanvasFlowNode[] {
   const attachmentMap = new Map<string, { id: string; name: string }[]>();
   const typeById = new Map(modules.map((m) => [m.id, m.type]));
@@ -348,6 +383,7 @@ export function CompanyCanvas(props: {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const rfInstanceRef = useRef<ReactFlowInstance<CanvasFlowNode, Edge> | null>(null);
 
   type MasterTopicModules = Array<{
     id: string;
@@ -359,6 +395,7 @@ export function CompanyCanvas(props: {
 
   const engineCallbacksRef = useRef<{
     onRequestDelete: (engineId: string) => void;
+    onRequestReflow: (engineId: string) => void;
     onMasterTopicSaved: (
       engineId: string,
       masterTopicSectors: string[],
@@ -366,6 +403,7 @@ export function CompanyCanvas(props: {
     ) => void;
   }>({
     onRequestDelete: () => {},
+    onRequestReflow: () => {},
     onMasterTopicSaved: () => {},
   });
 
@@ -373,6 +411,9 @@ export function CompanyCanvas(props: {
     () => ({
       onRequestDelete: (engineId: string) => {
         engineCallbacksRef.current.onRequestDelete(engineId);
+      },
+      onRequestReflow: (engineId: string) => {
+        engineCallbacksRef.current.onRequestReflow(engineId);
       },
       onMasterTopicSaved: (
         engineId: string,
@@ -435,8 +476,120 @@ export function CompanyCanvas(props: {
     [setNodes],
   );
 
+  const applyLayoutResult = useCallback(
+    (layout: LayoutResult) => {
+      const modulePosById = new Map(layout.modules.map((m) => [m.id, m.canvasPosition]));
+      const engineBoundsById = new Map(layout.engines.map((e) => [e.id, e.canvasBounds]));
+
+      setNodes((current) =>
+        current.map((node) => {
+          if (isEngineGroupNode(node)) {
+            const bounds = engineBoundsById.get(node.id);
+            if (!bounds) return node;
+            return {
+              ...node,
+              position: { x: bounds.x, y: bounds.y },
+              style: { ...node.style, width: bounds.width, height: bounds.height },
+            };
+          }
+          if (!isModuleNode(node)) return node;
+
+          const abs = modulePosById.get(node.id);
+          if (!abs) return node;
+
+          const engineId = node.data.engineInstanceId;
+          if (engineId && node.data.moduleType !== 'math') {
+            const bounds = engineBoundsById.get(engineId);
+            if (bounds) {
+              return {
+                ...node,
+                parentId: engineId,
+                position: {
+                  x: abs.x - bounds.x,
+                  y: abs.y - bounds.y,
+                },
+                expandParent: false,
+              };
+            }
+          }
+
+          const { parentId: _parent, ...rest } = node;
+          return {
+            ...rest,
+            position: abs,
+            expandParent: false,
+          };
+        }),
+      );
+    },
+    [setNodes],
+  );
+
+  const handleEngineReflow = useCallback(
+    async (engineId: string) => {
+      const engineNode = nodes.find(
+        (n): n is EngineGroupFlowNode => isEngineGroupNode(n) && n.id === engineId,
+      );
+      if (!engineNode) return;
+
+      const layout = reflowEngineAtOrigin(
+        { id: engineId, memberModuleIds: engineNode.data.memberModuleIds },
+        gatherLayoutModules(nodes),
+        gatherLayoutLinks(edges),
+        { x: engineNode.position.x, y: engineNode.position.y },
+        ENGINE_GROUP_PADDING,
+      );
+
+      applyLayoutResult(layout);
+
+      try {
+        await api(`/api/companies/${props.companyId}/canvas/layout`, {
+          method: 'PATCH',
+          body: {
+            modules: layout.modules,
+            engines: layout.engines,
+          },
+        });
+        requestAnimationFrame(() => {
+          rfInstanceRef.current?.fitView({ padding: 0.15, maxZoom: 1 });
+        });
+      } catch {
+        flash('Could not save engine reflow.');
+      }
+    },
+    [nodes, edges, props.companyId, applyLayoutResult],
+  );
+
+  const handleCanvasReflow = useCallback(async () => {
+    const engineNodes = nodes.filter(isEngineGroupNode);
+    const layout = layoutCanvas(
+      engineNodes.map((n) => ({ id: n.id, memberModuleIds: n.data.memberModuleIds })),
+      gatherLayoutModules(nodes),
+      gatherLayoutLinks(edges),
+      ENGINE_GROUP_PADDING,
+    );
+
+    applyLayoutResult(layout);
+
+    try {
+      await api(`/api/companies/${props.companyId}/canvas/layout`, {
+        method: 'PATCH',
+        body: {
+          modules: layout.modules,
+          engines: layout.engines,
+        },
+      });
+      requestAnimationFrame(() => {
+        rfInstanceRef.current?.fitView({ padding: 0.15, maxZoom: 1 });
+      });
+    } catch {
+      flash('Could not save canvas reflow.');
+    }
+  }, [nodes, edges, props.companyId, applyLayoutResult]);
+
   engineCallbacksRef.current = {
     onRequestDelete: handleRequestDelete,
+    onRequestReflow: handleEngineReflow,
     onMasterTopicSaved: handleMasterTopicSaved,
   };
 
@@ -823,6 +976,7 @@ export function CompanyCanvas(props: {
             masterTopicSectors: response.engine.masterTopicSectors,
             memberModuleIds: response.engine.memberModuleIds,
             onRequestDelete: stableEngineCallbacks.onRequestDelete,
+            onRequestReflow: stableEngineCallbacks.onRequestReflow,
             onMasterTopicSaved: stableEngineCallbacks.onMasterTopicSaved,
           },
         };
@@ -1014,12 +1168,20 @@ export function CompanyCanvas(props: {
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          onInit={(instance) => {
+            rfInstanceRef.current = instance;
+          }}
           onNodesChange={onNodesChange}
           onNodeDragStop={persistNodeDragStop}
           onConnect={onConnect}
           connectionLineType={ConnectionLineType.SmoothStep}
           onEdgesDelete={onEdgesDelete}
           deleteKeyCode={['Backspace', 'Delete']}
+          panOnScroll
+          panOnScrollMode={PanOnScrollMode.Free}
+          zoomOnPinch
+          zoomOnScroll={false}
+          selectionOnDrag={false}
           onNodeClick={(event, node) => {
             if (isInteractiveNodeTarget(event.target)) return;
             if (!isModuleNode(node)) {
@@ -1037,6 +1199,15 @@ export function CompanyCanvas(props: {
         >
           <Background gap={24} color="var(--color-line)" />
           <Controls showInteractive={false} />
+          <Panel position="top-right">
+            <button
+              type="button"
+              onClick={() => void handleCanvasReflow()}
+              className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-1.5 text-xs text-[var(--color-ink-dim)] shadow-sm hover:border-[var(--color-accent)] hover:text-[var(--color-ink)]"
+            >
+              Reflow canvas
+            </button>
+          </Panel>
         </ReactFlow>
       </div>
 

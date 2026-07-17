@@ -327,6 +327,20 @@ function BrokersTab(props: {
   onBusy: (v: LlmProvider | 'brokers' | null) => void;
   onMessage: (msg: string) => void;
 }) {
+  return (
+    <div className="space-y-8">
+      <AlpacaBrokerSection {...props} />
+      <KalshiBrokerSection {...props} />
+    </div>
+  );
+}
+
+function AlpacaBrokerSection(props: {
+  busy: boolean;
+  message: string | null;
+  onBusy: (v: LlmProvider | 'brokers' | null) => void;
+  onMessage: (msg: string) => void;
+}) {
   const [connection, setConnection] = useState<BrokerConnectionSummary | null>(null);
   const [keyId, setKeyId] = useState('');
   const [secret, setSecret] = useState('');
@@ -492,6 +506,188 @@ function BrokersTab(props: {
       {props.message && (
         <p className="text-[10px] text-[var(--color-ink-faint)]">{props.message}</p>
       )}
+    </div>
+  );
+}
+
+function KalshiBrokerSection(props: {
+  busy: boolean;
+  onBusy: (v: LlmProvider | 'brokers' | null) => void;
+  onMessage: (msg: string) => void;
+}) {
+  const [connection, setConnection] = useState<BrokerConnectionSummary | null>(null);
+  const [apiKeyId, setApiKeyId] = useState('');
+  const [privateKeyPem, setPrivateKeyPem] = useState('');
+  const [localMessage, setLocalMessage] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await api<{ connection: BrokerConnectionSummary | null }>(
+        '/api/settings/brokers/kalshi',
+      );
+      setConnection(r.connection);
+    } catch {
+      setConnection(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function save() {
+    if (apiKeyId.trim().length < 8 || privateKeyPem.trim().length < 32) {
+      setLocalMessage('API key ID and private key PEM are required (PEM at least 32 characters).');
+      return;
+    }
+    props.onBusy('brokers');
+    try {
+      await api('/api/settings/brokers/kalshi', {
+        method: 'PUT',
+        body: {
+          apiKeyId: apiKeyId.trim(),
+          privateKeyPem: privateKeyPem.trim(),
+          mode: 'paper',
+          demoMode: true,
+        },
+      });
+      setApiKeyId('');
+      setPrivateKeyPem('');
+      setLocalMessage('Kalshi demo credentials saved — verify to connect.');
+      props.onMessage('Kalshi demo credentials saved.');
+      await load();
+    } catch {
+      setLocalMessage('Save failed.');
+      props.onMessage('Kalshi save failed.');
+    } finally {
+      props.onBusy(null);
+    }
+  }
+
+  async function verify() {
+    if (!connection) return;
+    props.onBusy('brokers');
+    try {
+      const result = await api<{ status: string }>(
+        `/api/settings/brokers/${connection.id}/verify`,
+        { method: 'POST' },
+      );
+      setLocalMessage(
+        result.status === 'connected'
+          ? 'Kalshi demo connection verified.'
+          : `Verification finished with status: ${result.status}.`,
+      );
+      props.onMessage('Kalshi verification complete.');
+      await load();
+    } catch {
+      setLocalMessage('Verification failed.');
+      props.onMessage('Kalshi verification failed.');
+    } finally {
+      props.onBusy(null);
+    }
+  }
+
+  async function revoke() {
+    if (!connection) return;
+    props.onBusy('brokers');
+    try {
+      await api(`/api/settings/brokers/${connection.id}`, { method: 'DELETE' });
+      setConnection(null);
+      setLocalMessage('Kalshi connection revoked.');
+      props.onMessage('Kalshi connection revoked.');
+    } catch {
+      setLocalMessage('Revoke failed.');
+      props.onMessage('Kalshi revoke failed.');
+    } finally {
+      props.onBusy(null);
+    }
+  }
+
+  return (
+    <div className="space-y-4 border-t border-[var(--color-line)] pt-4">
+      <div>
+        <h3 className="text-xs font-medium text-[var(--color-ink)]">Kalshi demo</h3>
+        <p className="mt-0.5 text-[11px] text-[var(--color-ink-faint)]">
+          Event-contract demo API credentials. Live Kalshi remains fail-closed.
+        </p>
+      </div>
+
+      {connection && (
+        <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-0)] p-3 text-[11px]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-medium text-[var(--color-ink)]">
+              {connection.venue} · {connection.mode} · demo
+            </span>
+            <StatusChip status={connection.status} />
+          </div>
+          <p className="mt-1.5 text-[var(--color-ink-dim)]">
+            Key ·····{connection.keyHint}
+            {connection.lastVerifiedAt && (
+              <span className="ml-2 text-[var(--color-ink-faint)]">
+                verified {new Date(connection.lastVerifiedAt).toLocaleString()}
+              </span>
+            )}
+          </p>
+          {connection.capabilities && (
+            <div className="mt-1.5 space-y-0.5 text-[var(--color-ink-dim)]">
+              <p>Assets: {connection.capabilities.assets.join(', ')}</p>
+              <p>Order types: {connection.capabilities.orderTypes.join(', ')}</p>
+              <p>Sessions: {connection.capabilities.sessions}</p>
+            </div>
+          )}
+          <div className="mt-2 flex gap-2">
+            <button
+              onClick={() => void verify()}
+              disabled={props.busy || connection.status === 'revoked'}
+              className="rounded border border-[var(--color-accent)] px-2 py-1 text-[10px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+            >
+              Verify
+            </button>
+            <button
+              onClick={() => void revoke()}
+              disabled={props.busy}
+              className="rounded border border-[var(--color-line)] px-2 py-1 text-[10px] text-[var(--color-block)] hover:underline disabled:opacity-50"
+            >
+              Revoke
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <label className="block space-y-1">
+          <span className="text-[11px] text-[var(--color-ink-dim)]">API key ID</span>
+          <input
+            type="password"
+            value={apiKeyId}
+            onChange={(e) => setApiKeyId(e.target.value)}
+            autoComplete="off"
+            aria-label="Kalshi API key ID"
+            className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-[11px] text-[var(--color-ink-dim)]">Private key PEM</span>
+          <textarea
+            value={privateKeyPem}
+            onChange={(e) => setPrivateKeyPem(e.target.value)}
+            autoComplete="off"
+            aria-label="Kalshi private key PEM"
+            rows={4}
+            placeholder="-----BEGIN PRIVATE KEY-----"
+            className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 font-mono text-[10px] outline-none focus:border-[var(--color-accent)]"
+          />
+        </label>
+        <button
+          onClick={() => void save()}
+          disabled={props.busy}
+          className="rounded-md border border-[var(--color-accent)] px-3 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+        >
+          Save credentials
+        </button>
+      </div>
+
+      {localMessage && <p className="text-[10px] text-[var(--color-ink-faint)]">{localMessage}</p>}
     </div>
   );
 }

@@ -5,10 +5,11 @@ import {
   AssistantEditProposal,
   AssistantProposalsResponse,
   CreateAssistantProposalInput,
+  validateAllocateFundsAmount,
 } from '@hftr/contracts';
 import { scoping } from '@hftr/db';
 import { assistantEdits } from '@hftr/db/schema';
-import { parseBody, withAuth } from '@/lib/api';
+import { parseBody, withAuth, ApiError } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,6 +48,9 @@ export async function POST(req: Request, ctx: Ctx) {
     const { companyId } = Params.parse(await ctx.params);
     await scoping.getOwnedCompany(db, clerkUserId, companyId);
     const proposal = await parseBody(req, CreateAssistantProposalInput);
+    if (proposal.tool === 'allocate_funds' && !validateAllocateFundsAmount(proposal)) {
+      throw new ApiError(422, 'allocate_funds_requires_amount_cents_xor_amount_from');
+    }
     const [row] = await db
       .insert(assistantEdits)
       .values({

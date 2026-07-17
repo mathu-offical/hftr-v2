@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { AssistantEdit, AssistantEditProposal } from '@hftr/contracts';
 import { scoping } from '@hftr/db';
-import { assistantEdits } from '@hftr/db/schema';
+import { assistantEdits, assistantMessages } from '@hftr/db/schema';
 import { ApiError, withAuth } from '@/lib/api';
 import { applyAssistantEdit } from '@/lib/assistant-edits';
 
@@ -25,7 +25,30 @@ export async function POST(_req: Request, ctx: Ctx) {
     if (edit.status !== 'pending') throw new ApiError(409, 'proposal_already_resolved');
 
     const proposal = AssistantEditProposal.parse(edit.proposal);
-    await applyAssistantEdit(db, clerkUserId, companyId, proposal);
+
+    let userMessageText: string | undefined;
+    if (proposal.tool === 'allocate_funds' && proposal.amountFrom) {
+      const [msg] = await db
+        .select({ content: assistantMessages.content })
+        .from(assistantMessages)
+        .where(
+          and(
+            eq(assistantMessages.id, proposal.amountFrom.messageId),
+            eq(assistantMessages.companyId, companyId),
+          ),
+        )
+        .limit(1);
+      if (!msg) throw new ApiError(422, 'amount_source_message_missing');
+      userMessageText = msg.content;
+    }
+
+    await applyAssistantEdit(
+      db,
+      clerkUserId,
+      companyId,
+      proposal,
+      userMessageText !== undefined ? { userMessageText } : {},
+    );
 
     const [updated] = await db
       .update(assistantEdits)

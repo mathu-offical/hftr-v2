@@ -49,7 +49,16 @@ function GalaxyViewInner(props: GalaxyViewProps) {
   const [selected, setSelected] = useState<ResearchGraphNode | null>(null);
   const [statusText, setStatusText] = useState<string | null>(null);
 
+  const force2d = props.nodes.length > 200;
+
   useEffect(() => {
+    if (force2d) {
+      setMode3d(false);
+      setStatusText(`Large graph (${props.nodes.length} concepts) — 2D mode for performance.`);
+    }
+  }, [force2d, props.nodes.length]);
+  useEffect(() => {
+    if (force2d) return;
     let cancelled = false;
     void loadForceGraph3D()
       .then((mod) => {
@@ -66,7 +75,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [force2d]);
 
   const filteredNodeIds = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -103,7 +112,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     return { nodes, links };
   }, [props.nodes, props.links, filteredNodeIds]);
 
-  const use3dRenderer = mode3d && threeAvailable === true && ForceGraph3D !== null;
+  const use3dRenderer = !force2d && mode3d && threeAvailable === true && ForceGraph3D !== null;
 
   const onNodeClick = useCallback(
     (node: { id?: string | number }) => {
@@ -147,6 +156,12 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           <button
             type="button"
             onClick={() => {
+              if (force2d) {
+                setStatusText(
+                  `Large graph (${props.nodes.length} concepts) — 2D mode for performance.`,
+                );
+                return;
+              }
               if (threeAvailable === false) {
                 setStatusText('3D renderer unavailable — showing 2D graph.');
                 return;
@@ -154,6 +169,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               setMode3d(true);
               setStatusText(null);
             }}
+            disabled={force2d}
             aria-pressed={use3dRenderer}
             className={`rounded px-2 py-0.5 text-[10px] uppercase tracking-wide ${
               use3dRenderer
@@ -203,7 +219,9 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       )}
 
       {statusText && (
-        <p className="px-2 py-1 text-[10px] text-[var(--color-ink-faint)]">{statusText}</p>
+        <p className="px-2 py-1 text-[10px] text-[var(--color-ink-faint)]" aria-live="polite">
+          {statusText}
+        </p>
       )}
 
       {graphData.nodes.length === 0 ? (

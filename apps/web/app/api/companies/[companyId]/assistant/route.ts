@@ -11,9 +11,20 @@ import {
   parseAssistantToolResultsForPersistence,
 } from '@hftr/contracts';
 import { scoping } from '@hftr/db';
-import { actionTraces, assistantMessages, jobs, positions, trendCandidates } from '@hftr/db/schema';
+import {
+  actionTraces,
+  assistantEdits,
+  assistantMessages,
+  jobs,
+  positions,
+  trendCandidates,
+} from '@hftr/db/schema';
 import { createSystemClock } from '@hftr/engine';
 import { parseBody, withAuth, ApiError } from '@/lib/api';
+import {
+  generateAssistantProposal,
+  loadCompanyModulesForAssistant,
+} from '@/lib/assistant-proposals';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,7 +93,7 @@ function lookupErrorType(err: unknown): string {
   return 'UnknownError';
 }
 
-function humanizeTool(tool: ReadTool | 'capabilities'): string {
+function humanizeTool(tool: ReadTool | string): string {
   return tool.replace(/_/g, ' ');
 }
 
@@ -202,12 +213,19 @@ function buildAssistantReply(
   intent: ReadTool | null,
   outcome: 'ok' | 'failed' | 'capabilities',
   lookup: ToolLookupResult | null,
+  proposalDetail: { tool: string; source: string } | null,
 ): string {
+  if (proposalDetail) {
+    return (
+      `Proposed ${humanizeTool(proposalDetail.tool)} (${proposalDetail.source}). ` +
+      'Review the pending card and confirm before changes apply.'
+    );
+  }
   if (outcome === 'capabilities' || !intent) {
     return (
-      'I am a read-only assistant (no model analysis). I can look up: company summary, ' +
-      'module status, recent executions, positions, trends, and queue status. ' +
-      'Try asking about one of those topics.'
+      'I can look up company summary, module status, executions, positions, trends, and queue ' +
+      'status — or propose bounded canvas edits (create/rename modules, links, watchlists). ' +
+      'Try a read query or a write request like "rename module X to Y".'
     );
   }
   if (outcome === 'failed') {
@@ -280,7 +298,7 @@ export async function GET(_req: Request, ctx: Ctx) {
   });
 }
 
-/** Persist user message and return a deterministic read-only assistant reply. */
+/** Persist user message; read lookup and/or write proposals. */
 export async function POST(req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
     const { companyId } = Params.parse(await ctx.params);
@@ -289,11 +307,38 @@ export async function POST(req: Request, ctx: Ctx) {
 
     await assertAssistantRateLimit(db, clerkUserId, companyId);
 
-    const intent = classifyIntent(message);
+    const [userRow] = await db
+      .insert(assistantMessages)
+      .values({ companyId, clerkUserId, role: 'user', content: message })
+      .returning();
+    if (!userRow) throw new ApiError(500, 'insert_failed');
+
+    const moduleDigest = await loadCompanyModulesForAssistant(db, clerkUserId, companyId);
+    const generated = await generateAssistantProposal(db, {
+      companyId,
+      clerkUserId,
+      messageId: userRow.id,
+      message,
+      modules: moduleDigest,
+    });
+
+    let proposalDetail: { tool: string; source: string } | null = null;
+    if (generated.proposal) {
+      await db.insert(assistantEdits).values({
+        companyId,
+        clerkUserId,
+        tool: generated.proposal.tool,
+        proposal: generated.proposal,
+        status: 'pending',
+      });
+      proposalDetail = { tool: generated.proposal.tool, source: generated.source };
+    }
+
+    const intent = proposalDetail ? null : classifyIntent(message);
     let outcome: 'ok' | 'failed' | 'capabilities' = 'capabilities';
     let lookup: ToolLookupResult | null = null;
 
-    if (intent) {
+    if (!proposalDetail && intent) {
       try {
         lookup = await runReadTool(db, clerkUserId, companyId, intent);
         outcome = 'ok';
@@ -307,36 +352,24 @@ export async function POST(req: Request, ctx: Ctx) {
       }
     }
 
-    const assistantContent = buildAssistantReply(intent, outcome, lookup);
+    const assistantContent = buildAssistantReply(intent, outcome, lookup, proposalDetail);
     const toolResultsPayload = buildToolResults(intent, outcome, lookup);
 
-    const inserted = await db
+    const [assistantRow] = await db
       .insert(assistantMessages)
-      .values([
-        {
-          companyId,
-          clerkUserId,
-          role: 'user',
-          content: message,
-        },
-        {
-          companyId,
-          clerkUserId,
-          role: 'assistant',
-          content: assistantContent,
-          toolResults: toolResultsPayload,
-        },
-      ])
+      .values({
+        companyId,
+        clerkUserId,
+        role: 'assistant',
+        content: assistantContent,
+        toolResults: toolResultsPayload,
+      })
       .returning();
+    if (!assistantRow) throw new ApiError(500, 'insert_failed');
 
-    const userRow = inserted.find((r) => r.role === 'user');
-    const assistantRow = inserted.find((r) => r.role === 'assistant');
-    if (!userRow || !assistantRow) throw new ApiError(500, 'insert_failed');
-
-    const response = AssistantPostResponse.parse({
+    return AssistantPostResponse.parse({
       userMessage: serializeMessage(userRow),
       assistantMessage: serializeMessage(assistantRow),
     });
-    return response;
   });
 }

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { scoping } from '@hftr/db';
-import { createSystemClock, drainQueues, enqueue } from '@hftr/engine';
+import { createSystemClock, drainQueues, enqueue, estimateLlmJobCost } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import { createWebModelGateway } from '@/lib/model-gateway';
 
@@ -32,6 +32,7 @@ export async function POST(req: Request, ctx: Ctx) {
     await enqueue(db, clock, {
       queueClass: 'RESEARCH',
       kind: 'research.curate',
+      costEstimate: estimateLlmJobCost('research.curate'),
       payload: { companyId, moduleId, topicScope },
       idempotencyKey: `curate-${randomUUID()}`,
       priority: 'NORMAL',

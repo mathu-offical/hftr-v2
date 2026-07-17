@@ -1,4 +1,4 @@
-import { queueStats } from '@hftr/engine';
+import { queueStats, getLastDrainMetrics } from '@hftr/engine';
 import { withAuth } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
@@ -7,6 +7,6 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   return withAuth(async ({ db }) => {
     const rows = await queueStats(db);
-    return { stats: rows };
+    return { stats: rows, lastDrain: getLastDrainMetrics() };
   });
 }

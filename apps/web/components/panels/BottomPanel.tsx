@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { api, RequestError } from '@/lib/client';
 import { ACTIVITY_REFRESH_EVENT } from '../canvas/PaperTradeForm';
 import { dollars, GATE_KEYS, gateLabel, gateTone, toneFor } from './format';
@@ -15,17 +15,29 @@ import {
 } from './WatchlistTierFilters';
 import { invalidateMarketHub } from '@/lib/market-hub-cache';
 
-type Tab = 'trends' | 'scenarios' | 'watchlists' | 'decisions' | 'lineage' | 'approvals' | 'dead';
+type Tab =
+  | 'trends'
+  | 'scenarios'
+  | 'watchlists'
+  | 'positions'
+  | 'policies'
+  | 'decisions'
+  | 'lineage'
+  | 'approvals'
+  | 'dead';
 const TABS: { id: Tab; label: string; rail: string }[] = [
   { id: 'trends', label: 'Trends', rail: 'Trends' },
   { id: 'scenarios', label: 'Scenario engine', rail: 'Scenarios' },
   { id: 'watchlists', label: 'Watch lists', rail: 'Watch' },
+  { id: 'positions', label: 'Open positions', rail: 'Positions' },
+  { id: 'policies', label: 'Policies', rail: 'Policies' },
   { id: 'decisions', label: 'Decisions + traces', rail: 'Decisions' },
   { id: 'lineage', label: 'Lineage', rail: 'Lineage' },
   { id: 'approvals', label: 'Approvals', rail: 'Approvals' },
   { id: 'dead', label: 'Dead letters', rail: 'Dead' },
 ];
 const BOTTOM_TABS: Tab[] = TABS.map((t) => t.id);
+const DEFAULT_OPEN_TABS: Tab[] = ['trends'];
 
 function isEditableTarget(e: KeyboardEvent): boolean {
   const el = e.target;
@@ -59,13 +71,31 @@ function isBottomTab(v: unknown): v is Tab {
   return typeof v === 'string' && BOTTOM_TABS.includes(v as Tab);
 }
 
+function parseOpenTabs(raw: unknown, legacyTab: unknown): Tab[] {
+  if (Array.isArray(raw)) {
+    const tabs = raw.filter(isBottomTab);
+    if (tabs.length > 0) return tabs;
+  }
+  if (isBottomTab(legacyTab)) return [legacyTab];
+  return [...DEFAULT_OPEN_TABS];
+}
+
+function parseCollapsedPanes(raw: unknown): Tab[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(isBottomTab);
+}
+
 interface ModuleOption {
   id: string;
   name: string;
   type: string;
   engineInstanceId: string | null;
+  status?: string;
   /** Trend modules only — from TrendModuleConfig (default 10). */
   maxActiveTrends?: number;
+  /** Policy modules — from PolicyModuleConfig. */
+  policyEnvelopeRef?: string;
+  policyNotes?: string;
 }
 
 interface EngineOption {
@@ -83,6 +113,18 @@ interface TrendRow {
   sourceClass: string;
   status: string;
   scannedAt: string;
+}
+
+interface PositionRow {
+  id: string;
+  moduleId: string;
+  symbol: string;
+  qty: string;
+  avgCostCents: number;
+  markCents: number;
+  unrealizedPnlCents: string;
+  realizedPnlCents: string;
+  updatedAt: string;
 }
 
 interface ExecutionRow {
@@ -199,10 +241,10 @@ interface FundTransferRow {
 }
 
 /**
- * Bottom panel (ui-spec §4 / D-097): persistent ribbon tab buttons + execution-
- * engine scope switcher. Tabs project company APIs scoped to modules that
- * belong to the selected engine instance (or all engines). Collapsible content
- * sits above the always-visible ribbon.
+ * Bottom panel (ui-spec §4 / D-097 / D-114): multi-open tab panes + execution-
+ * engine scope switcher. Ribbon toggles which panes are visible; each open pane
+ * can collapse in-place. Expanded body is a horizontally scrollable row of
+ * condensed lists. Panel show/hide and tab/pane state persist per company.
  */
 export function BottomPanel(props: {
   companyId: string;
@@ -212,10 +254,12 @@ export function BottomPanel(props: {
   const storageKey = props.companyId ? `hftr:${props.companyId}:panel:bottom` : null;
 
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<Tab>('trends');
+  const [openTabs, setOpenTabs] = useState<Tab[]>([...DEFAULT_OPEN_TABS]);
+  const [collapsedPanes, setCollapsedPanes] = useState<Tab[]>([]);
   const [engineFilter, setEngineFilter] = useState<string>('all');
   const [persistReady, setPersistReady] = useState(false);
   const [trends, setTrends] = useState<TrendRow[]>([]);
+  const [positions, setPositions] = useState<PositionRow[]>([]);
   const [executions, setExecutions] = useState<ExecutionRow[]>([]);
   const [verifications, setVerifications] = useState<VerificationRow[]>([]);
   const [watchlists, setWatchlists] = useState<WatchlistRow[]>([]);
@@ -238,13 +282,16 @@ export function BottomPanel(props: {
     const stored = readPanelState<{
       open?: unknown;
       tab?: unknown;
+      openTabs?: unknown;
+      collapsedPanes?: unknown;
       engineFilter?: unknown;
       /** Legacy D-022 key — ignored after D-097 engine scope. */
       moduleFilter?: unknown;
     }>(storageKey);
     if (stored) {
       if (typeof stored.open === 'boolean') setOpen(stored.open);
-      if (isBottomTab(stored.tab)) setTab(stored.tab);
+      setOpenTabs(parseOpenTabs(stored.openTabs, stored.tab));
+      setCollapsedPanes(parseCollapsedPanes(stored.collapsedPanes));
       if (typeof stored.engineFilter === 'string') {
         const ok =
           stored.engineFilter === 'all' || props.engines.some((e) => e.id === stored.engineFilter);
@@ -256,8 +303,8 @@ export function BottomPanel(props: {
 
   useEffect(() => {
     if (!storageKey || !persistReady) return;
-    writePanelState(storageKey, { open, tab, engineFilter });
-  }, [storageKey, open, tab, engineFilter, persistReady]);
+    writePanelState(storageKey, { open, openTabs, collapsedPanes, engineFilter });
+  }, [storageKey, open, openTabs, collapsedPanes, engineFilter, persistReady]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -289,6 +336,7 @@ export function BottomPanel(props: {
       api<{ jobs: PendingJobRow[] }>(`${base}/jobs/pending`),
       api<{ proposals: AssistantProposalRow[] }>(`${base}/assistant/proposals`),
       api<LiveGateStatusRow>(`${base}/live-gates/status`),
+      api<{ positions: PositionRow[] }>(`${base}/positions`),
     ]);
     if (results[0].status === 'fulfilled') setTrends(results[0].value.trends);
     if (results[1].status === 'fulfilled') setExecutions(results[1].value.executions);
@@ -301,6 +349,7 @@ export function BottomPanel(props: {
     if (results[8].status === 'fulfilled') setPendingJobs(results[8].value.jobs);
     if (results[9].status === 'fulfilled') setProposals(results[9].value.proposals);
     if (results[10].status === 'fulfilled') setLiveGate(results[10].value);
+    if (results[11].status === 'fulfilled') setPositions(results[11].value.positions);
   }, [props.companyId]);
 
   useEffect(() => {
@@ -368,10 +417,37 @@ export function BottomPanel(props: {
     [props.companyId, load],
   );
 
-  const selectTab = useCallback((next: Tab) => {
-    setTab(next);
-    setOpen(true);
+  const toggleTab = useCallback((id: Tab) => {
+    setOpenTabs((prev) => {
+      if (prev.includes(id)) {
+        setCollapsedPanes((c) => c.filter((t) => t !== id));
+        return prev.filter((t) => t !== id);
+      }
+      setOpen(true);
+      return [...prev, id];
+    });
   }, []);
+
+  const hideTab = useCallback((id: Tab) => {
+    setOpenTabs((prev) => prev.filter((t) => t !== id));
+    setCollapsedPanes((prev) => prev.filter((t) => t !== id));
+  }, []);
+
+  const togglePaneCollapse = useCallback((id: Tab) => {
+    setCollapsedPanes((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id],
+    );
+  }, []);
+
+  const openPositions = byEngine(positions).filter((p) => {
+    const q = String(p.qty);
+    return q !== '0' && q !== '';
+  });
+
+  const policyModules = scopedModules()
+    .filter((m) => m.type === 'policy')
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const ribbon = (
     <div
@@ -384,12 +460,12 @@ export function BottomPanel(props: {
       <PanelTabs
         aria-label="Bottom panel sections"
         className="min-w-0 flex-1"
-        value={tab}
-        onChange={selectTab}
+        values={openTabs}
+        onToggle={toggleTab}
         tabs={TABS.map((t) => ({
           id: t.id,
           label: t.rail,
-          title: t.label,
+          title: `${t.label}${openTabs.includes(t.id) ? ' (open — click to hide)' : ' (click to open)'}`,
         }))}
       />
       <div className="flex shrink-0 items-center gap-2 px-2">
@@ -428,188 +504,106 @@ export function BottomPanel(props: {
     return <section className="shrink-0">{ribbon}</section>;
   }
 
+  const orderedOpenTabs = TABS.map((t) => t.id).filter((id) => openTabs.includes(id));
+
   return (
     <section className="flex shrink-0 flex-col bg-[var(--color-surface-1)]">
       {ribbon}
-      <div className="h-[min(70vh,48rem)] min-h-[16rem] overflow-y-auto px-4 py-2 text-sm">
-        {tab === 'trends' && (
-          <TrendsView
-            companyId={props.companyId}
-            trends={byEngine(trends)}
-            modules={scopedModules()}
-            engines={props.engines}
-            onRefetch={load}
-          />
-        )}
-
-        {tab === 'scenarios' && (
-          <ScenarioView
-            leads={byEngine(leads)}
-            trees={byEngine(trees)}
-            executions={byEngine(executions)}
-            moduleName={moduleName}
-          />
-        )}
-
-        {tab === 'watchlists' && (
-          <div className="space-y-2">
-            <WatchlistTierFilterChips
-              value={watchlistTierFilter}
-              onChange={setWatchlistTierFilter}
-            />
-            <Table
-              head={['Symbol', 'Bias', 'Status', 'Module', 'Note', 'Updated', '']}
-              rows={byEngine(watchlists)
-                .filter((w) => watchlistMatchesTierFilter(w.status, watchlistTierFilter))
-                .map((w) => [
-                  <span key="s" className="font-mono">
-                    {w.symbol}
-                  </span>,
-                  <Justification
-                    key="b"
-                    sourceClass={w.sourceClass || 'operator'}
-                    lines={[
-                      `Bias "${w.bias}" on ${w.symbol}.`,
-                      w.sourceClass === 'movers_rank'
-                        ? 'Suggested by compound movers rank — Confirm promotes to watching.'
-                        : w.sourceClass === 'operator'
-                          ? 'Operator-set watch bias — not model-generated.'
-                          : `Recorded with source class ${w.sourceClass || 'operator'}.`,
-                      w.note ? `Note: ${w.note}` : 'No operator note attached.',
-                    ]}
-                  >
-                    <span
-                      className="capitalize"
-                      style={{
-                        color:
-                          w.bias === 'long'
-                            ? 'var(--color-ok)'
-                            : w.bias === 'short'
-                              ? 'var(--color-block)'
-                              : 'var(--color-ink-dim)',
-                      }}
-                    >
-                      {w.bias}
-                    </span>
-                  </Justification>,
-                  <span key="st" className="font-mono text-[10px]">
-                    {w.status}
-                  </span>,
-                  w.moduleName,
-                  <span key="n" className="block max-w-56 truncate">
-                    {w.note || '—'}
-                  </span>,
-                  new Date(w.updatedAt).toLocaleTimeString(),
-                  w.status === 'suggested_search' || w.status === 'suggested_verified' ? (
-                    <button
-                      key="c"
-                      type="button"
-                      className="text-[10px] uppercase tracking-wider text-[var(--color-accent)] hover:underline"
-                      onClick={() => void confirmWatchlist(w.id)}
-                    >
-                      Confirm
-                    </button>
-                  ) : (
-                    <span key="c" className="text-[var(--color-ink-faint)]">
-                      —
-                    </span>
-                  ),
-                ])}
-              empty="No watched symbols for this tier filter."
-            />
-          </div>
-        )}
-
-        {tab === 'lineage' && (
-          <LineageView
-            trends={byEngine(trends)}
-            leads={byEngine(leads)}
-            trees={byEngine(trees)}
-            executions={byEngine(executions)}
-            verifications={verifications}
-            pendingJobs={byEngineOptionalModule(pendingJobs)}
-            deadJobs={byEngineOptionalModule(deadJobs)}
-            moduleName={moduleName}
-            selectedKey={selectedLineageKey}
-            onSelectKey={setSelectedLineageKey}
-          />
-        )}
-
-        {tab === 'decisions' && (
-          <Table
-            head={['Outcome', 'Detail', 'Amount', 'Verification', 'Module', 'Time']}
-            rows={byEngine(executions).map((e) => {
-              const v = verifications.find((x) => x.traceId === e.id);
-              const openTrace = () => setOpenTraceId(e.id);
-              const outcomeLines = [
-                `Execution outcome: ${e.outcome}.`,
-                e.failureCode
-                  ? `Failure code: ${e.failureCode}.`
-                  : (e.description ?? `${e.venue} · ${e.mode} mode.`),
-                v
-                  ? `Verification: ${v.result}${v.failureCode ? ` (${v.failureCode})` : ''}.`
-                  : 'No verification record linked to this trace yet.',
-              ];
-              return [
-                <Justification key="o" sourceClass="deterministic_scan" lines={outcomeLines}>
-                  <button
-                    onClick={openTrace}
-                    aria-label={`Open decision trace for execution ${e.id}`}
-                    className="capitalize underline decoration-dotted underline-offset-2 hover:text-[var(--color-ink)]"
-                    style={{ color: toneFor(e.outcome) }}
-                  >
-                    {e.outcome}
-                  </button>
-                </Justification>,
-                <button
-                  key="d"
-                  onClick={openTrace}
-                  aria-label={`Open decision trace for execution ${e.id}`}
-                  className="block max-w-72 truncate text-left hover:text-[var(--color-ink)]"
-                >
-                  {e.description ?? e.failureCode ?? `${e.venue} · ${e.mode}`}
-                </button>,
-                e.amountCents ? (
-                  <span key="a" className="font-mono">
-                    {dollars(e.amountCents)}
-                  </span>
-                ) : (
-                  '—'
-                ),
-                v ? (
-                  <span key="v" style={{ color: toneFor(v.result) }}>
-                    {v.result}
-                    {v.failureCode ? ` (${v.failureCode})` : ''}
-                  </span>
-                ) : (
-                  '—'
-                ),
-                moduleName(e.moduleId),
-                new Date(e.createdAt).toLocaleTimeString(),
-              ];
-            })}
-            empty="No decisions traced yet."
-          />
-        )}
-
-        {tab === 'approvals' && (
-          <ApprovalsView
-            companyId={props.companyId}
-            transfers={scopedTransfers()}
-            proposals={proposals}
-            liveGate={liveGate}
-            moduleName={moduleName}
-            onRefetch={load}
-          />
-        )}
-
-        {tab === 'dead' && (
-          <DeadLettersView
-            companyId={props.companyId}
-            jobs={byEngineOptionalModule(deadJobs)}
-            moduleName={moduleName}
-            onRefetch={load}
-          />
+      <div className="flex h-[min(70vh,48rem)] min-h-[16rem] gap-2 overflow-x-auto overflow-y-hidden px-3 py-2 text-sm">
+        {orderedOpenTabs.length === 0 ? (
+          <p className="self-center px-2 text-xs text-[var(--color-ink-faint)]">
+            No panes open. Press a ribbon tab to show a condensed list.
+          </p>
+        ) : (
+          orderedOpenTabs.map((id) => {
+            const meta = TABS.find((t) => t.id === id)!;
+            const collapsed = collapsedPanes.includes(id);
+            return (
+              <PaneShell
+                key={id}
+                title={meta.label}
+                rail={meta.rail}
+                collapsed={collapsed}
+                onToggleCollapse={() => togglePaneCollapse(id)}
+                onHide={() => hideTab(id)}
+              >
+                {id === 'trends' ? (
+                  <TrendsView
+                    companyId={props.companyId}
+                    trends={byEngine(trends)}
+                    modules={scopedModules()}
+                    engines={props.engines}
+                    onRefetch={load}
+                  />
+                ) : null}
+                {id === 'scenarios' ? (
+                  <CondensedScenarioList
+                    leads={byEngine(leads)}
+                    trees={byEngine(trees)}
+                    moduleName={moduleName}
+                  />
+                ) : null}
+                {id === 'watchlists' ? (
+                  <div className="space-y-2">
+                    <WatchlistTierFilterChips
+                      value={watchlistTierFilter}
+                      onChange={setWatchlistTierFilter}
+                    />
+                    <CondensedWatchlistList
+                      rows={byEngine(watchlists).filter((w) =>
+                        watchlistMatchesTierFilter(w.status, watchlistTierFilter),
+                      )}
+                      onConfirm={(itemId) => void confirmWatchlist(itemId)}
+                    />
+                  </div>
+                ) : null}
+                {id === 'positions' ? (
+                  <CondensedPositionsList rows={openPositions} moduleName={moduleName} />
+                ) : null}
+                {id === 'policies' ? <CondensedPoliciesList modules={policyModules} /> : null}
+                {id === 'lineage' ? (
+                  <LineageView
+                    trends={byEngine(trends)}
+                    leads={byEngine(leads)}
+                    trees={byEngine(trees)}
+                    executions={byEngine(executions)}
+                    verifications={verifications}
+                    pendingJobs={byEngineOptionalModule(pendingJobs)}
+                    deadJobs={byEngineOptionalModule(deadJobs)}
+                    moduleName={moduleName}
+                    selectedKey={selectedLineageKey}
+                    onSelectKey={setSelectedLineageKey}
+                  />
+                ) : null}
+                {id === 'decisions' ? (
+                  <CondensedDecisionsList
+                    executions={byEngine(executions)}
+                    verifications={verifications}
+                    moduleName={moduleName}
+                    onOpenTrace={setOpenTraceId}
+                  />
+                ) : null}
+                {id === 'approvals' ? (
+                  <ApprovalsView
+                    companyId={props.companyId}
+                    transfers={scopedTransfers()}
+                    proposals={proposals}
+                    liveGate={liveGate}
+                    moduleName={moduleName}
+                    onRefetch={load}
+                  />
+                ) : null}
+                {id === 'dead' ? (
+                  <DeadLettersView
+                    companyId={props.companyId}
+                    jobs={byEngineOptionalModule(deadJobs)}
+                    moduleName={moduleName}
+                    onRefetch={load}
+                  />
+                ) : null}
+              </PaneShell>
+            );
+          })
         )}
       </div>
 
@@ -624,7 +618,242 @@ export function BottomPanel(props: {
   );
 }
 
-function Table(props: { head: string[]; rows: React.ReactNode[][]; empty: string }) {
+function PaneShell(props: {
+  title: string;
+  rail: string;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  onHide: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      className={`flex shrink-0 flex-col overflow-hidden rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] ${
+        props.collapsed ? 'w-[10.5rem]' : 'w-[min(22rem,80vw)] min-w-[16rem]'
+      }`}
+      aria-label={`${props.title} pane`}
+    >
+      <header className="flex shrink-0 items-center gap-1 border-b border-[var(--color-line)] px-2 py-1.5">
+        <h3 className="min-w-0 flex-1 truncate font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--color-ink)]">
+          {props.rail}
+        </h3>
+        <button
+          type="button"
+          onClick={props.onToggleCollapse}
+          className="shrink-0 px-1 font-mono text-[10px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+          aria-expanded={!props.collapsed}
+          aria-label={
+            props.collapsed ? `Expand ${props.title} pane` : `Collapse ${props.title} pane`
+          }
+          title={props.collapsed ? 'Expand pane' : 'Collapse pane'}
+        >
+          {props.collapsed ? '▸' : '▾'}
+        </button>
+        <button
+          type="button"
+          onClick={props.onHide}
+          className="shrink-0 px-1 font-mono text-[10px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+          aria-label={`Hide ${props.title} pane`}
+          title="Hide pane"
+        >
+          ×
+        </button>
+      </header>
+      {props.collapsed ? (
+        <p className="px-2 py-2 text-[10px] text-[var(--color-ink-faint)]">{props.title}</p>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">{props.children}</div>
+      )}
+    </section>
+  );
+}
+
+function CondensedRow(props: {
+  primary: ReactNode;
+  secondary?: ReactNode;
+  meta?: ReactNode;
+  onClick?: () => void;
+}) {
+  const className =
+    'w-full border-b border-[var(--color-line)] py-1.5 text-left last:border-b-0';
+  const body = (
+    <>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="min-w-0 truncate text-xs text-[var(--color-ink)]">{props.primary}</span>
+        {props.meta != null ? (
+          <span className="shrink-0 font-mono text-[10px] text-[var(--color-ink-faint)]">
+            {props.meta}
+          </span>
+        ) : null}
+      </div>
+      {props.secondary != null ? (
+        <p className="mt-0.5 truncate text-[10px] text-[var(--color-ink-dim)]">{props.secondary}</p>
+      ) : null}
+    </>
+  );
+  if (props.onClick) {
+    return (
+      <button type="button" onClick={props.onClick} className={`${className} hover:bg-[var(--color-surface-1)]`}>
+        {body}
+      </button>
+    );
+  }
+  return <div className={className}>{body}</div>;
+}
+
+function CondensedEmpty(props: { children: string }) {
+  return <p className="py-2 text-[10px] text-[var(--color-ink-faint)]">{props.children}</p>;
+}
+
+function CondensedPositionsList(props: {
+  rows: PositionRow[];
+  moduleName: (id: string) => string;
+}) {
+  if (props.rows.length === 0) {
+    return <CondensedEmpty>No open positions in this engine scope.</CondensedEmpty>;
+  }
+  return (
+    <div>
+      {props.rows.map((p) => {
+        const pnl = Number(p.unrealizedPnlCents);
+        return (
+          <CondensedRow
+            key={p.id}
+            primary={
+              <span className="font-mono">
+                {p.symbol} · {String(p.qty)}
+              </span>
+            }
+            secondary={`${props.moduleName(p.moduleId)} · mark ${dollars(String(p.markCents))}`}
+            meta={
+              <span style={{ color: pnl >= 0 ? 'var(--color-ok)' : 'var(--color-block)' }}>
+                {dollars(String(p.unrealizedPnlCents))}
+              </span>
+            }
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function CondensedPoliciesList(props: { modules: ModuleOption[] }) {
+  if (props.modules.length === 0) {
+    return <CondensedEmpty>No policy modules in this engine scope.</CondensedEmpty>;
+  }
+  return (
+    <div>
+      {props.modules.map((m) => (
+        <CondensedRow
+          key={m.id}
+          primary={m.name}
+          secondary={m.policyEnvelopeRef ?? 'No envelope ref'}
+          meta={m.status ?? '—'}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CondensedWatchlistList(props: {
+  rows: WatchlistRow[];
+  onConfirm: (id: string) => void;
+}) {
+  if (props.rows.length === 0) {
+    return <CondensedEmpty>No watched symbols for this tier filter.</CondensedEmpty>;
+  }
+  return (
+    <div>
+      {props.rows.map((w) => (
+        <div key={w.id} className="border-b border-[var(--color-line)] py-1.5 last:border-b-0">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="font-mono text-xs text-[var(--color-ink)]">
+              {w.symbol} · {w.bias}
+            </span>
+            <span className="font-mono text-[10px] text-[var(--color-ink-faint)]">{w.status}</span>
+          </div>
+          <p className="mt-0.5 truncate text-[10px] text-[var(--color-ink-dim)]">
+            {w.moduleName}
+            {w.note ? ` · ${w.note}` : ''}
+          </p>
+          {w.status === 'suggested_search' || w.status === 'suggested_verified' ? (
+            <button
+              type="button"
+              className="mt-1 text-[10px] uppercase tracking-wider text-[var(--color-accent)] hover:underline"
+              onClick={() => props.onConfirm(w.id)}
+            >
+              Confirm
+            </button>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CondensedScenarioList(props: {
+  leads: LeadRow[];
+  trees: TreeRow[];
+  moduleName: (id: string) => string;
+}) {
+  const rows = [
+    ...props.leads.map((l) => ({
+      key: `lead-${l.id}`,
+      primary: `${l.symbol} · ${l.status}`,
+      secondary: `Lead · ${l.strategyFamily} · ${props.moduleName(l.moduleId)}`,
+      meta: new Date(l.createdAt).toLocaleTimeString(),
+    })),
+    ...props.trees.map((t) => ({
+      key: `tree-${t.id}`,
+      primary: `${t.symbol} · ${t.status}`,
+      secondary: `Tree · ${props.moduleName(t.moduleId)}`,
+      meta: new Date(t.createdAt).toLocaleTimeString(),
+    })),
+  ];
+  if (rows.length === 0) {
+    return <CondensedEmpty>No scenario leads or trees in scope.</CondensedEmpty>;
+  }
+  return (
+    <div>
+      {rows.map((r) => (
+        <CondensedRow key={r.key} primary={r.primary} secondary={r.secondary} meta={r.meta} />
+      ))}
+    </div>
+  );
+}
+
+function CondensedDecisionsList(props: {
+  executions: ExecutionRow[];
+  verifications: VerificationRow[];
+  moduleName: (id: string) => string;
+  onOpenTrace: (id: string) => void;
+}) {
+  if (props.executions.length === 0) {
+    return <CondensedEmpty>No decisions traced yet.</CondensedEmpty>;
+  }
+  return (
+    <div>
+      {props.executions.map((e) => {
+        const v = props.verifications.find((x) => x.traceId === e.id);
+        return (
+          <CondensedRow
+            key={e.id}
+            primary={
+              <span style={{ color: toneFor(e.outcome) }} className="capitalize">
+                {e.outcome}
+              </span>
+            }
+            secondary={`${e.description ?? e.failureCode ?? `${e.venue} · ${e.mode}`} · ${props.moduleName(e.moduleId)}${v ? ` · ${v.result}` : ''}`}
+            meta={new Date(e.createdAt).toLocaleTimeString()}
+            onClick={() => props.onOpenTrace(e.id)}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function Table(props: { head: string[]; rows: ReactNode[][]; empty: string }) {
   if (props.rows.length === 0) {
     return <p className="py-3 text-xs text-[var(--color-ink-faint)]">{props.empty}</p>;
   }
@@ -666,6 +895,7 @@ function TrendsView(props: {
   modules: ModuleOption[];
   engines: EngineOption[];
   onRefetch: () => Promise<void>;
+  condensed?: boolean;
 }) {
   const [promotingId, setPromotingId] = useState<string | null>(null);
   const [promoted, setPromoted] = useState<Record<string, string>>({});
@@ -713,6 +943,62 @@ function TrendsView(props: {
       .slice()
       .sort((a, b) => new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime())
       .slice(0, maxActive);
+  }
+
+  if (props.condensed) {
+    if (trendModules.length === 0) {
+      return <CondensedEmpty>No trend modules in this engine scope.</CondensedEmpty>;
+    }
+    return (
+      <div className="space-y-3">
+        <LlmAvailabilityChips tiers={['tactical', 'execution']} />
+        {trendModules.map((mod) => {
+          const maxActive = mod.maxActiveTrends ?? 10;
+          const rows = listRowsForModule(mod.id, maxActive);
+          return (
+            <div key={mod.id}>
+              <p className="mb-1 font-mono text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+                {mod.name} · {rows.length}/{maxActive}
+              </p>
+              {rows.length === 0 ? (
+                <CondensedEmpty>No candidates.</CondensedEmpty>
+              ) : (
+                rows.map((t) => (
+                  <div
+                    key={t.id}
+                    className="border-b border-[var(--color-line)] py-1.5 last:border-b-0"
+                  >
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="font-mono text-xs text-[var(--color-ink)]">
+                        {t.symbol} · {t.direction}
+                      </span>
+                      <span className="font-mono text-[10px] text-[var(--color-ink-faint)]">
+                        {t.status}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-[10px] text-[var(--color-ink-dim)]">
+                      {t.strengthBand} · {engineLabel(mod.engineInstanceId)}
+                    </p>
+                    {t.status === 'candidate' ? (
+                      <button
+                        type="button"
+                        disabled={promotingId === t.id}
+                        className="mt-1 text-[10px] uppercase tracking-wider text-[var(--color-accent)] hover:underline disabled:opacity-40"
+                        onClick={() => void promote(t)}
+                      >
+                        {promotingId === t.id
+                          ? 'Promoting…'
+                          : (promoted[t.id] ?? 'Promote')}
+                      </button>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
   }
 
   return (
@@ -1146,6 +1432,7 @@ function ApprovalsView(props: {
   liveGate: LiveGateStatusRow | null;
   moduleName: (id: string) => string;
   onRefetch: () => Promise<void>;
+  condensed?: boolean;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const pending = props.transfers.filter((t) => t.status === 'requested');
@@ -1204,6 +1491,90 @@ function ApprovalsView(props: {
         No pending approvals — fund transfers, assistant edit proposals, and live-gate follow-ups
         appear here.
       </p>
+    );
+  }
+
+  if (props.condensed) {
+    return (
+      <div>
+        {liveGateNeedsAttention && props.liveGate ? (
+          <div className="mb-2 border-b border-[var(--color-line)] pb-2">
+            <CondensedRow
+              primary="Live gate"
+              secondary={
+                props.liveGate.overallPass
+                  ? props.liveGate.evidenceFresh
+                    ? 'Ready to arm (top bar)'
+                    : 'Evidence stale'
+                  : `Blocked · ${failedGates.length} fail(s)`
+              }
+              meta={props.liveGate.liveArmedAt ? 'armed' : 'disarmed'}
+            />
+            <button
+              type="button"
+              disabled={busyId !== null}
+              onClick={() => void reviewLiveGate()}
+              className="mt-1 text-[10px] uppercase tracking-wider text-[var(--color-accent)] hover:underline disabled:opacity-50"
+            >
+              {busyId === 'live-gate' ? '…' : 'Save evidence'}
+            </button>
+          </div>
+        ) : null}
+        {props.proposals.map((p) => (
+          <div key={p.id} className="border-b border-[var(--color-line)] py-1.5 last:border-b-0">
+            <CondensedRow
+              primary={p.tool}
+              secondary={summarizeProposal(p.proposal)}
+              meta={new Date(p.createdAt).toLocaleTimeString()}
+            />
+            <div className="mt-1 flex gap-2">
+              <button
+                type="button"
+                disabled={busyId !== null}
+                onClick={() => void decideProposal(p.id, 'confirm')}
+                className="text-[10px] uppercase tracking-wider text-[var(--color-ok)] hover:underline disabled:opacity-50"
+              >
+                Confirm
+              </button>
+              <button
+                type="button"
+                disabled={busyId !== null}
+                onClick={() => void decideProposal(p.id, 'reject')}
+                className="text-[10px] uppercase tracking-wider text-[var(--color-block)] hover:underline disabled:opacity-50"
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        ))}
+        {pending.map((t) => (
+          <div key={t.id} className="border-b border-[var(--color-line)] py-1.5 last:border-b-0">
+            <CondensedRow
+              primary={dollars(t.amountCents)}
+              secondary={`${endpointLabel(t.fromKind, t.fromModuleId, props.moduleName)} → ${endpointLabel(t.toKind, t.toModuleId, props.moduleName)}`}
+              meta={t.status}
+            />
+            <div className="mt-1 flex gap-2">
+              <button
+                type="button"
+                disabled={busyId !== null}
+                onClick={() => void decideTransfer(t.id, 'approve')}
+                className="text-[10px] uppercase tracking-wider text-[var(--color-ok)] hover:underline disabled:opacity-50"
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                disabled={busyId !== null}
+                onClick={() => void decideTransfer(t.id, 'reject')}
+                className="text-[10px] uppercase tracking-wider text-[var(--color-block)] hover:underline disabled:opacity-50"
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     );
   }
 
@@ -1559,6 +1930,7 @@ function LineageView(props: {
   moduleName: (id: string) => string;
   selectedKey: string | null;
   onSelectKey: (key: string | null) => void;
+  condensed?: boolean;
 }) {
   const known = new Set<string>();
   for (const t of props.trends) known.add(t.symbol.toUpperCase());
@@ -1611,6 +1983,56 @@ function LineageView(props: {
   const sortedPending = [...props.pendingJobs].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   );
+
+  if (props.condensed) {
+    const items: { key: string; primary: string; secondary: string }[] = [
+      ...sortedTrends.map((t) => ({
+        key: `trend:${t.id}`,
+        primary: `Trend · ${t.symbol} · ${t.direction}`,
+        secondary: `${t.status} · ${props.moduleName(t.moduleId)}`,
+      })),
+      ...sortedLeads.map((l) => ({
+        key: `lead:${l.id}`,
+        primary: `Lead · ${l.symbol} · ${l.status}`,
+        secondary: `${l.strategyFamily} · ${props.moduleName(l.moduleId)}`,
+      })),
+      ...sortedTrees.map((tr) => ({
+        key: `tree:${tr.id}`,
+        primary: `Tree · ${tr.symbol} · ${tr.status}`,
+        secondary: props.moduleName(tr.moduleId),
+      })),
+      ...sortedExecutions.map((e) => ({
+        key: `exec:${e.id}`,
+        primary: `Exec · ${e.outcome}`,
+        secondary: `${e.description ?? e.venue} · ${props.moduleName(e.moduleId)}`,
+      })),
+      ...sortedPending.map((j) => ({
+        key: `pending:${j.id}`,
+        primary: `Queue · ${j.kind} · ${j.status}`,
+        secondary: j.moduleId ? props.moduleName(j.moduleId) : 'company scope',
+      })),
+      ...sortedDead.map((j) => ({
+        key: `dead:${j.id}`,
+        primary: `Dead · ${j.kind}`,
+        secondary: j.lastError ?? (j.moduleId ? props.moduleName(j.moduleId) : 'company scope'),
+      })),
+    ];
+    if (items.length === 0) {
+      return <CondensedEmpty>No lineage rows in this engine scope.</CondensedEmpty>;
+    }
+    return (
+      <div>
+        {items.map((item) => (
+          <CondensedRow
+            key={item.key}
+            primary={item.primary}
+            secondary={item.secondary}
+            onClick={() => toggleKey(item.key)}
+          />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-1.5">

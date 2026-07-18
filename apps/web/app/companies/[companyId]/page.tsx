@@ -209,12 +209,23 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
                     m.type === 'trend' && typeof config.maxActiveTrends === 'number'
                       ? config.maxActiveTrends
                       : undefined;
+                  const policyEnvelopeRef =
+                    m.type === 'policy' && typeof config.policyEnvelopeRef === 'string'
+                      ? config.policyEnvelopeRef
+                      : undefined;
+                  const policyNotes =
+                    m.type === 'policy' && typeof config.notes === 'string'
+                      ? config.notes
+                      : undefined;
                   return {
                     id: m.id,
                     name: m.name,
                     type: m.type,
+                    status: m.status,
                     engineInstanceId: m.engineInstanceId,
                     ...(maxActive !== undefined ? { maxActiveTrends: maxActive } : {}),
+                    ...(policyEnvelopeRef !== undefined ? { policyEnvelopeRef } : {}),
+                    ...(policyNotes !== undefined ? { policyNotes } : {}),
                   };
                 })}
                 engines={engineRows.map((e) => ({

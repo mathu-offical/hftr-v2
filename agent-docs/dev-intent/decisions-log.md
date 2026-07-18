@@ -1174,6 +1174,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   collapsed state keeps the same controls as a bottom ribbon. Docs: ui-spec §4. **Status:
   implemented.**
 
+- **D-114 (bottom panel multi-open condensed panes, 2026-07-18):** Bottom ribbon tabs are
+  multi-select — operators can keep several sections open as condensed side-by-side panes
+  (Trends, Scenarios, Watch, **Positions**, **Policies**, Decisions, Lineage, Approvals, Dead).
+  Pane chrome supports collapse and hide; state persists as `openTabs` / `collapsedPanes`
+  (legacy single `tab` migrates). Positions load from `GET …/positions` (engine-scoped);
+  Policies list policy modules with envelope refs. Docs: ui-spec §4 middle-bottom.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

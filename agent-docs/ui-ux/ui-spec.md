@@ -331,10 +331,13 @@ suppressed in editable fields.
   flow, library list with curation status.
 
 ### MIDDLE BOTTOM — Exploration + Analysis + Choice (the main control panel)
-- **Persistent ribbon (D-097 / D-113):** collapsed view keeps tab buttons + engine dropdown +
-  chevron as a slim **bottom ribbon**. When expanded, that same chrome moves to the **top** of
-  the panel window (tabs above content); `` ` `` / Esc / chevron still toggle height. Content
-  defaults to **~70vh** (capped at 48rem, floor 16rem) below the top chrome (D-105).
+- **Persistent ribbon (D-097 / D-113 / D-114):** collapsed view keeps tab buttons + engine
+  dropdown + chevron as a slim **bottom ribbon**. When expanded, that same chrome moves to the
+  **top** of the panel window (tabs above content); `` ` `` / Esc / chevron still toggle height.
+  Content defaults to **~70vh** (capped at 48rem, floor 16rem) below the top chrome (D-105).
+  **Multi-open panes (D-114):** ribbon tabs toggle independently (`aria-pressed`); several
+  condensed side-by-side panes can be open at once (Positions, Policies, Trends, …). Pane
+  headers collapse/expand or hide; `openTabs` + `collapsedPanes` persist per company.
 - **Engine scope (D-097):** dropdown selects `All engines` or one `engine_instances` row.
   Every tab filters durable API projections to modules whose `engine_instance_id` matches
   (trends, leads/trees, watchlists, executions/decisions, lineage columns, approvals that

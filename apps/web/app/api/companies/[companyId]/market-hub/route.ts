@@ -440,7 +440,7 @@ export async function POST(_req: Request, ctx: Ctx) {
     await scoping.getOwnedCompany(db, clerkUserId, companyId);
     const clock = createSystemClock();
     await enqueue(db, clock, {
-      queueClass: 'RESEARCH',
+      queueClass: 'POSTURE_RESEARCH',
       kind: 'library.system_movers',
       payload: { companyId },
       idempotencyKey: `market-hub-movers-${companyId}-${randomUUID()}`,

@@ -3,6 +3,9 @@
  * Storage titles stay stable for archive/seed matching; UI may shorten nested leaves.
  */
 
+/** Matches engine `DESK_FOCUS_TOPIC_PREFIX` (D-096). */
+const DESK_FOCUS_TOPIC_PREFIX = 'Desk focus · ';
+
 const NESTED_TITLE_PREFIXES = [
   'Strategy class — ',
   'Strategy families — ',
@@ -24,6 +27,12 @@ export function researchTopicDisplayLabel(title: string, depth = 0): string {
       return trimmed.slice(prefix.length).trim() || trimmed;
     }
   }
+  // Desk focus · Label · Combination → show combination suffix under the focus parent.
+  if (trimmed.startsWith(DESK_FOCUS_TOPIC_PREFIX)) {
+    const afterPrefix = trimmed.slice(DESK_FOCUS_TOPIC_PREFIX.length);
+    const sep = afterPrefix.lastIndexOf(' · ');
+    if (sep >= 0) return afterPrefix.slice(sep + 3).trim() || trimmed;
+  }
   return trimmed;
 }
 
@@ -35,10 +44,9 @@ export function researchTopicDisplayKind(opts: {
   if (opts.childCount > 0) {
     if (
       opts.title === 'Seeded trading mechanisms' ||
-      opts.provenance === 'deterministic_bootstrap'
+      opts.title.startsWith(DESK_FOCUS_TOPIC_PREFIX)
     ) {
-      // Program is the seeded root; other parents with children are groups.
-      return opts.title === 'Seeded trading mechanisms' ? 'program' : 'group';
+      return 'program';
     }
     return 'group';
   }

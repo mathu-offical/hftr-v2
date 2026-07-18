@@ -421,6 +421,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                 <p className="text-[10px] text-[var(--color-ink-faint)]">Loading research topics…</p>
               ) : (
                 <ResearchPagesList
+                  companyId={companyId}
                   topics={topics.map((t) => ({
                     id: t.id,
                     title: t.title,

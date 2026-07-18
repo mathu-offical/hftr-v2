@@ -7,6 +7,7 @@ import {
   researchTopicKindLabel,
   type ResearchTopicDisplayKind,
 } from '@/lib/research-topic-display';
+import { api } from '@/lib/client';
 
 export interface ResearchPageTopic {
   id: string;
@@ -20,6 +21,7 @@ export interface ResearchPageTopic {
 }
 
 export interface ResearchPagesListProps {
+  companyId: string;
   topics: ResearchPageTopic[];
   selectedTopicId: string | null;
   linkedTopicIds: string[];
@@ -80,6 +82,8 @@ function TopicRow(props: {
   linkedIdSet: Set<string>;
   linkedTitleSet: Set<string>;
   onSelectTopic: (topicId: string) => void;
+  onResearchTopic: (topicId: string) => void;
+  researchingId: string | null;
   forceExpand: boolean;
   defaultOpen: boolean;
 }) {
@@ -97,6 +101,7 @@ function TopicRow(props: {
     props.linkedTitleSet.has(normalizeTitle(topic.title));
   const label = researchTopicDisplayLabel(topic.title, props.depth);
   const hasChildren = children.length > 0;
+  const researching = props.researchingId === topic.id;
 
   return (
     <li>
@@ -141,6 +146,20 @@ function TopicRow(props: {
             {researchTopicKindLabel(kind)}
           </span>
         </button>
+        <button
+          type="button"
+          data-testid={`research-topic-queue-${topic.id}`}
+          disabled={researching || props.researchingId === 'all'}
+          onClick={(e) => {
+            e.stopPropagation();
+            props.onResearchTopic(topic.id);
+          }}
+          title="Queue library research for this topic"
+          aria-label={`Initiate research for ${topic.title}`}
+          className="shrink-0 rounded border border-[var(--color-line)] px-1 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50"
+        >
+          {researching ? '…' : 'Research'}
+        </button>
       </div>
       {hasChildren && expanded ? (
         <ul className="mt-0.5 space-y-0.5 border-l border-[var(--color-line)]/50 ml-2 pl-1">
@@ -153,6 +172,8 @@ function TopicRow(props: {
               linkedIdSet={props.linkedIdSet}
               linkedTitleSet={props.linkedTitleSet}
               onSelectTopic={props.onSelectTopic}
+              onResearchTopic={props.onResearchTopic}
+              researchingId={props.researchingId}
               forceExpand={props.forceExpand}
               defaultOpen={false}
             />
@@ -168,6 +189,8 @@ function ResearchPagesListInner(props: ResearchPagesListProps) {
   const linkedTitleSet = useMemo(() => new Set(props.linkedTopicTitles), [props.linkedTopicTitles]);
   const forest = useMemo(() => buildTopicForest(props.topics), [props.topics]);
   const [filter, setFilter] = useState('');
+  const [researchingId, setResearchingId] = useState<string | null>(null);
+  const [queueMessage, setQueueMessage] = useState<string | null>(null);
 
   const filteredForest = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -181,7 +204,6 @@ function ResearchPagesListInner(props: ResearchPagesListProps) {
         .map((c) => matchNode(c))
         .filter((c): c is TopicNode => c !== null);
       if (titleHit || kids.length > 0) {
-        // Keep full children when the node itself matches so operators can browse the group.
         return { topic: node.topic, children: titleHit ? node.children : kids };
       }
       return null;
@@ -193,6 +215,27 @@ function ResearchPagesListInner(props: ResearchPagesListProps) {
   const topicCount = props.topics.length;
   const forceExpand = Boolean(filter.trim());
 
+  async function queueTopics(body: { all: true } | { topicIds: string[] }, label: string) {
+    if (!props.companyId) return;
+    const researchingKey =
+      'all' in body && body.all ? 'all' : 'topicIds' in body ? (body.topicIds[0] ?? 'one') : 'one';
+    setResearchingId(researchingKey);
+    setQueueMessage(null);
+    try {
+      const result = await api<{ queued: number; queueClass: string }>(
+        `/api/companies/${props.companyId}/research/topics/research`,
+        { method: 'POST', body },
+      );
+      setQueueMessage(
+        `Queued ${result.queued} on library research lane${label ? ` (${label})` : ''}.`,
+      );
+    } catch {
+      setQueueMessage('Could not queue library research.');
+    } finally {
+      setResearchingId(null);
+    }
+  }
+
   return (
     <div
       data-testid="research-pages-list"
@@ -202,11 +245,30 @@ function ResearchPagesListInner(props: ResearchPagesListProps) {
         <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
           Research topics
         </p>
-        <span className="tabular-nums text-[9px] text-[var(--color-ink-faint)]">{topicCount}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="tabular-nums text-[9px] text-[var(--color-ink-faint)]">{topicCount}</span>
+          {topicCount > 0 ? (
+            <button
+              type="button"
+              data-testid="research-topics-queue-all"
+              disabled={researchingId !== null}
+              onClick={() => void queueTopics({ all: true }, 'all topics')}
+              title="Queue library research for every topic"
+              className="rounded border border-[var(--color-line)] px-1.5 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50"
+            >
+              {researchingId === 'all' ? 'Queuing…' : 'Research all'}
+            </button>
+          ) : null}
+        </div>
       </div>
       <p className="mt-0.5 text-[9px] text-[var(--color-ink-faint)]">
-        Module directives · concepts stay on library shelves
+        Module directives · library research queue (separate from posture / execution)
       </p>
+      {queueMessage ? (
+        <p className="mt-1 text-[10px] text-[var(--color-ink-dim)]" role="status">
+          {queueMessage}
+        </p>
+      ) : null}
       {topicCount > 8 ? (
         <input
           value={filter}
@@ -231,10 +293,12 @@ function ResearchPagesListInner(props: ResearchPagesListProps) {
               linkedIdSet={linkedIdSet}
               linkedTitleSet={linkedTitleSet}
               onSelectTopic={props.onSelectTopic}
-              forceExpand={forceExpand}
-              defaultOpen={
-                node.topic.title === 'Seeded trading mechanisms' || node.children.length === 0
+              onResearchTopic={(topicId) =>
+                void queueTopics({ topicIds: [topicId] }, 'one topic')
               }
+              researchingId={researchingId}
+              forceExpand={forceExpand}
+              defaultOpen={node.children.length <= 12}
             />
           ))}
         </ul>

@@ -42,7 +42,7 @@ export async function POST(req: Request, ctx: Ctx) {
 
     const clock = createSystemClock();
     await enqueue(db, clock, {
-      queueClass: 'RESEARCH',
+      queueClass: 'LIBRARY_RESEARCH',
       kind: 'research.curate',
       costEstimate: estimateLlmJobCost('research.curate'),
       payload: {

@@ -47,7 +47,7 @@ export async function POST(req: Request, ctx: Ctx) {
     // D-074: identity + intent only — gather keys resolve inside research.gather.
     const clock = createSystemClock();
     await enqueue(db, clock, {
-      queueClass: 'RESEARCH',
+      queueClass: 'LIBRARY_RESEARCH',
       kind: 'research.curate',
       costEstimate: estimateLlmJobCost('research.curate'),
       payload: {

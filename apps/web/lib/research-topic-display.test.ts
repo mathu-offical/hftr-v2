@@ -22,6 +22,9 @@ describe('researchTopicDisplayLabel', () => {
       'Catalyst conflict guardrail',
     );
     expect(researchTopicDisplayLabel('Sector — Technology', 2)).toBe('Technology');
+    expect(researchTopicDisplayLabel('Desk focus · Semiconductors · Strategies', 1)).toBe(
+      'Strategies',
+    );
   });
 });
 
@@ -31,6 +34,13 @@ describe('researchTopicDisplayKind', () => {
       researchTopicDisplayKind({
         title: 'Seeded trading mechanisms',
         childCount: 11,
+        provenance: 'deterministic_bootstrap',
+      }),
+    ).toBe('program');
+    expect(
+      researchTopicDisplayKind({
+        title: 'Desk focus · Semiconductors',
+        childCount: 4,
         provenance: 'deterministic_bootstrap',
       }),
     ).toBe('program');

@@ -18,7 +18,7 @@ export async function POST(_req: Request, ctx: Ctx) {
 
     const clock = createSystemClock();
     await enqueue(db, clock, {
-      queueClass: 'RESEARCH',
+      queueClass: 'LIBRARY_RESEARCH',
       kind: 'research.company_sweep',
       payload: { companyId },
       idempotencyKey: `research-sweep-${randomUUID()}`,

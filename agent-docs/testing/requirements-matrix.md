@@ -135,7 +135,7 @@ Additional drift (not in JSON flag list):
 | REQ-ID | Title | Source | Status | Evidence | Scenarios | Venues | Axes | Safety |
 |---|---|---|---|---|---|---|---|---|
 | REQ-PAN-001 | Left panel Research + Libraries / Market posture / Data sources tabs | apps/web/components/panels/LeftPanel.tsx | **implemented** | LeftPanel.tsx; MarketPosturePanel; market-hub route | company-workspace [ shortcut | paper_sim | research_quality | operational |
-| REQ-PAN-002 | Bottom panel Trends/Scenarios/Watchlists/Decisions | apps/web/components/panels/BottomPanel.tsx | **implemented** | BottomPanel.tsx | ` shortcut toggle | paper_sim | strategy_outcome | operational |
+| REQ-PAN-002 | Bottom panel Trends/Scenarios/Watchlists/Decisions (+ Lineage/Approvals/Dead); persistent ribbon tabs; execution-engine scope (D-097) | apps/web/components/panels/BottomPanel.tsx | **implemented** | BottomPanel.tsx | ` shortcut + ribbon tab click; engine dropdown | paper_sim | strategy_outcome | operational |
 | REQ-PAN-003 | Right panel Verify/Executions/Ledger/Sims/Values | apps/web/components/panels/RightPanel.tsx | **implemented** | RightPanel.tsx; Paper balance label | ] shortcut; ledger tab | paper_sim | execution_quality, operator_transparency | financial |
 | REQ-PAN-004 | Panel keyboard shortcuts ([, ], `) | agent-docs/ui-ux/ui-spec.md §4 | **implemented** | panel components key handlers | company-workspace keyboard section | paper_sim | operator_transparency | operational |
 | REQ-PAN-005 | Per-company panel localStorage persistence | agent-docs/ui-ux/ui-spec.md §4 | **implemented** | hftr:{companyId}:panel:{left|bottom|right} keys | return visit state restore | paper_sim | operator_transparency | informational |

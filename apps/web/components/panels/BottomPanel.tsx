@@ -63,6 +63,13 @@ interface ModuleOption {
   id: string;
   name: string;
   type: string;
+  engineInstanceId: string | null;
+}
+
+interface EngineOption {
+  id: string;
+  label: string;
+  templateId: string;
 }
 
 interface TrendRow {
@@ -162,17 +169,21 @@ interface FundTransferRow {
 }
 
 /**
- * Bottom panel (ui-ux spec): tabbed views over trends (with candidate
- * promotion), the scenario engine (lead → gate strip → tree decomposition),
- * watch lists, and decision traces with per-row trace timelines — each
- * filterable by module. Collapsible to a slim strip.
+ * Bottom panel (ui-spec §4 / D-097): persistent ribbon tab buttons + execution-
+ * engine scope switcher. Tabs project company APIs scoped to modules that
+ * belong to the selected engine instance (or all engines). Collapsible content
+ * sits above the always-visible ribbon.
  */
-export function BottomPanel(props: { companyId: string; modules: ModuleOption[] }) {
+export function BottomPanel(props: {
+  companyId: string;
+  modules: ModuleOption[];
+  engines: EngineOption[];
+}) {
   const storageKey = props.companyId ? `hftr:${props.companyId}:panel:bottom` : null;
 
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('trends');
-  const [moduleFilter, setModuleFilter] = useState<string>('all');
+  const [engineFilter, setEngineFilter] = useState<string>('all');
   const [persistReady, setPersistReady] = useState(false);
   const [trends, setTrends] = useState<TrendRow[]>([]);
   const [executions, setExecutions] = useState<ExecutionRow[]>([]);
@@ -194,20 +205,26 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
     const stored = readPanelState<{
       open?: unknown;
       tab?: unknown;
+      engineFilter?: unknown;
+      /** Legacy D-022 key — ignored after D-097 engine scope. */
       moduleFilter?: unknown;
     }>(storageKey);
     if (stored) {
       if (typeof stored.open === 'boolean') setOpen(stored.open);
       if (isBottomTab(stored.tab)) setTab(stored.tab);
-      if (typeof stored.moduleFilter === 'string') setModuleFilter(stored.moduleFilter);
+      if (typeof stored.engineFilter === 'string') {
+        const ok =
+          stored.engineFilter === 'all' || props.engines.some((e) => e.id === stored.engineFilter);
+        if (ok) setEngineFilter(stored.engineFilter);
+      }
     }
     setPersistReady(true);
-  }, [storageKey]);
+  }, [storageKey, props.engines]);
 
   useEffect(() => {
     if (!storageKey || !persistReady) return;
-    writePanelState(storageKey, { open, tab, moduleFilter });
-  }, [storageKey, open, tab, moduleFilter, persistReady]);
+    writePanelState(storageKey, { open, tab, engineFilter });
+  }, [storageKey, open, tab, engineFilter, persistReady]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -258,8 +275,47 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
     (id: string) => props.modules.find((m) => m.id === id)?.name ?? 'unknown',
     [props.modules],
   );
-  const byModule = <T extends { moduleId: string }>(rows: T[]) =>
-    moduleFilter === 'all' ? rows : rows.filter((r) => r.moduleId === moduleFilter);
+
+  const moduleIdsInScope = useCallback((): Set<string> | null => {
+    if (engineFilter === 'all') return null;
+    return new Set(
+      props.modules.filter((m) => m.engineInstanceId === engineFilter).map((m) => m.id),
+    );
+  }, [engineFilter, props.modules]);
+
+  const byEngine = useCallback(
+    <T extends { moduleId: string }>(rows: T[]) => {
+      const ids = moduleIdsInScope();
+      if (!ids) return rows;
+      return rows.filter((r) => ids.has(r.moduleId));
+    },
+    [moduleIdsInScope],
+  );
+
+  const byEngineOptionalModule = useCallback(
+    <T extends { moduleId: string | null }>(rows: T[]) => {
+      const ids = moduleIdsInScope();
+      if (!ids) return rows;
+      return rows.filter((r) => r.moduleId != null && ids.has(r.moduleId));
+    },
+    [moduleIdsInScope],
+  );
+
+  const scopedTransfers = useCallback(() => {
+    const ids = moduleIdsInScope();
+    if (!ids) return transfers;
+    return transfers.filter((t) => {
+      const fromHit = t.fromModuleId != null && ids.has(t.fromModuleId);
+      const toHit = t.toModuleId != null && ids.has(t.toModuleId);
+      return fromHit || toHit;
+    });
+  }, [moduleIdsInScope, transfers]);
+
+  const scopedModules = useCallback(() => {
+    const ids = moduleIdsInScope();
+    if (!ids) return props.modules;
+    return props.modules.filter((m) => ids.has(m.id));
+  }, [moduleIdsInScope, props.modules]);
 
   const confirmWatchlist = useCallback(
     async (itemId: string) => {
@@ -273,64 +329,68 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
     [props.companyId, load],
   );
 
+  const selectTab = useCallback((next: Tab) => {
+    setTab(next);
+    setOpen(true);
+  }, []);
+
+  const ribbon = (
+    <div className="flex w-full items-stretch gap-2 border-t border-[var(--color-line)] bg-[var(--color-surface-1)]">
+      <PanelTabs
+        aria-label="Bottom panel sections"
+        className="min-w-0 flex-1"
+        value={tab}
+        onChange={selectTab}
+        tabs={TABS.map((t) => ({
+          id: t.id,
+          label: t.rail,
+          title: t.label,
+        }))}
+      />
+      <div className="flex shrink-0 items-center gap-2 px-2">
+        <select
+          value={engineFilter}
+          onChange={(e) => setEngineFilter(e.target.value)}
+          aria-label="Execution engine"
+          title="Execution engine being viewed"
+          className="max-w-[12rem] border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 font-mono text-[10px] text-[var(--color-ink-dim)] outline-none"
+        >
+          <option value="all">All engines</option>
+          {props.engines.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+          aria-label={
+            open
+              ? 'Collapse bottom panel (keyboard shortcut backtick or Escape)'
+              : 'Expand bottom panel (keyboard shortcut backtick)'
+          }
+          title={open ? 'Collapse (` or Esc)' : 'Expand (`)'}
+        >
+          {open ? '▼' : '▲'}
+        </button>
+      </div>
+    </div>
+  );
+
   if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        aria-label="Expand bottom panel (keyboard shortcut backtick)"
-        title="Expand bottom panel (`)"
-        className="flex w-full items-center justify-center gap-2 border-t border-[var(--color-line)] bg-[var(--color-surface-1)] py-1 text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-      >
-        ` · Trends · Scenarios · Watch lists · Decisions · Lineage · Approvals ▲
-      </button>
-    );
+    return <section className="shrink-0">{ribbon}</section>;
   }
 
   return (
-    <section className="flex h-64 shrink-0 flex-col border-t border-[var(--color-line)] bg-[var(--color-surface-1)]">
-      <div className="flex items-stretch justify-between gap-2 border-b border-[var(--color-line)]">
-        <PanelTabs
-          aria-label="Bottom panel sections"
-          className="min-w-0 flex-1"
-          value={tab}
-          onChange={setTab}
-          tabs={TABS.map((t) => ({
-            id: t.id,
-            label: t.rail,
-            title: t.label,
-          }))}
-        />
-        <div className="flex shrink-0 items-center gap-2 px-2">
-          <select
-            value={moduleFilter}
-            onChange={(e) => setModuleFilter(e.target.value)}
-            aria-label="Filter by module"
-            className="border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 font-mono text-[10px] text-[var(--color-ink-dim)] outline-none"
-          >
-            <option value="all">All modules</option>
-            {props.modules.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name} ({m.type})
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => setOpen(false)}
-            className="text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-            aria-label="Collapse bottom panel (keyboard shortcut backtick or Escape)"
-            title="Collapse (` or Esc)"
-          >
-            ▼
-          </button>
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2 text-sm">
+    <section className="flex shrink-0 flex-col bg-[var(--color-surface-1)]">
+      <div className="h-64 min-h-0 overflow-y-auto border-t border-[var(--color-line)] px-4 py-2 text-sm">
         {tab === 'trends' && (
           <TrendsView
             companyId={props.companyId}
-            trends={byModule(trends)}
-            modules={props.modules}
+            trends={byEngine(trends)}
+            modules={scopedModules()}
             moduleName={moduleName}
             onRefetch={load}
           />
@@ -338,9 +398,9 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
 
         {tab === 'scenarios' && (
           <ScenarioView
-            leads={byModule(leads)}
-            trees={trees}
-            executions={executions}
+            leads={byEngine(leads)}
+            trees={byEngine(trees)}
+            executions={byEngine(executions)}
             moduleName={moduleName}
           />
         )}
@@ -353,7 +413,7 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
             />
             <Table
               head={['Symbol', 'Bias', 'Status', 'Module', 'Note', 'Updated', '']}
-              rows={byModule(watchlists)
+              rows={byEngine(watchlists)
                 .filter((w) => watchlistMatchesTierFilter(w.status, watchlistTierFilter))
                 .map((w) => [
                   <span key="s" className="font-mono">
@@ -416,12 +476,12 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
 
         {tab === 'lineage' && (
           <LineageView
-            trends={byModule(trends)}
-            leads={byModule(leads)}
-            trees={trees.filter((t) => moduleFilter === 'all' || t.moduleId === moduleFilter)}
-            executions={byModule(executions)}
+            trends={byEngine(trends)}
+            leads={byEngine(leads)}
+            trees={byEngine(trees)}
+            executions={byEngine(executions)}
             verifications={verifications}
-            deadJobs={deadJobs.filter((j) => moduleFilter === 'all' || j.moduleId === moduleFilter)}
+            deadJobs={byEngineOptionalModule(deadJobs)}
             moduleName={moduleName}
             selectedKey={selectedLineageKey}
             onSelectKey={setSelectedLineageKey}
@@ -431,7 +491,7 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
         {tab === 'decisions' && (
           <Table
             head={['Outcome', 'Detail', 'Amount', 'Verification', 'Module', 'Time']}
-            rows={byModule(executions).map((e) => {
+            rows={byEngine(executions).map((e) => {
               const v = verifications.find((x) => x.traceId === e.id);
               const openTrace = () => setOpenTraceId(e.id);
               const outcomeLines = [
@@ -488,16 +548,22 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
         {tab === 'approvals' && (
           <ApprovalsView
             companyId={props.companyId}
-            transfers={transfers}
+            transfers={scopedTransfers()}
             moduleName={moduleName}
             onRefetch={load}
           />
         )}
 
         {tab === 'dead' && (
-          <DeadLettersView companyId={props.companyId} jobs={deadJobs} onRefetch={load} />
+          <DeadLettersView
+            companyId={props.companyId}
+            jobs={byEngineOptionalModule(deadJobs)}
+            onRefetch={load}
+          />
         )}
       </div>
+
+      {ribbon}
 
       {openTraceId && (
         <TraceTimeline

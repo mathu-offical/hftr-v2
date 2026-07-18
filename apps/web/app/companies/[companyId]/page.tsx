@@ -186,7 +186,17 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
               </div>
               <BottomPanel
                 companyId={companyId}
-                modules={moduleRows.map((m) => ({ id: m.id, name: m.name, type: m.type }))}
+                modules={moduleRows.map((m) => ({
+                  id: m.id,
+                  name: m.name,
+                  type: m.type,
+                  engineInstanceId: m.engineInstanceId,
+                }))}
+                engines={engineRows.map((e) => ({
+                  id: e.id,
+                  label: e.label,
+                  templateId: e.templateId,
+                }))}
               />
             </div>
 

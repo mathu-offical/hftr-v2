@@ -1012,6 +1012,18 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   keeps module inventory/sweep only (no duplicate run actions or libraries section). Docs:
   research-tab-shelves-inspector-design, ui-spec. **Status: implemented.**
 
+- **D-097 (bottom ribbon tabs + execution-engine scope, 2026-07-18):** Bottom control panel
+  keeps **persistent ribbon tab buttons** (Trends · Scenarios · Watch · Decisions · Lineage ·
+  Approvals · Dead) for quick navigation when collapsed or expanded; chevron / `` ` `` / Esc
+  still toggle the content pane. The ribbon dropdown selects the **execution engine** being
+  viewed (`All engines` or one `engine_instances` row), not individual modules. Every tab
+  filters company API projections to modules with matching `engine_instance_id` (trends from
+  trend lists, scenarios/leads/trees, watchlists, decisions/executions, lineage, approvals
+  touching member modules, dead letters with member `moduleId`). Company-scoped rows without a
+  module binding show only under All engines. Persist `engineFilter` in
+  `hftr:{companyId}:panel:bottom` (legacy `moduleFilter` ignored). Docs: ui-spec §4 middle-bottom,
+  m1-sprint-spec T1.5. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

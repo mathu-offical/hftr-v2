@@ -153,7 +153,7 @@ test.describe('Paper trading loop (flow 3)', () => {
     if (await expandBottom.isVisible()) {
       await expandBottom.click();
     }
-    await page.getByRole('button', { name: 'Decisions + traces', exact: true }).click();
+    await page.getByRole('tab', { name: 'Decisions + traces', exact: true }).click();
     await expect(page.getByText('filled').first()).toBeVisible();
     await expect(page.getByText(/paper_sim/i).first()).toBeVisible();
   });

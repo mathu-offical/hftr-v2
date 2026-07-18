@@ -618,11 +618,11 @@
     },
     {
       "id": "REQ-PAN-002",
-      "title": "Bottom panel Trends/Scenarios/Watchlists/Decisions",
+      "title": "Bottom panel ribbon tabs + execution-engine scope (D-097)",
       "source": "apps/web/components/panels/BottomPanel.tsx",
       "status": "implemented",
       "evidence": ["BottomPanel.tsx"],
-      "scenarios": ["` shortcut toggle"],
+      "scenarios": ["` shortcut + ribbon tab click; engine dropdown"],
       "venues": ["paper_sim"],
       "philosophyAxes": ["strategy_outcome"],
       "safetyClass": "operational"

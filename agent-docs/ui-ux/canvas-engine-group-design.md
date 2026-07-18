@@ -41,28 +41,28 @@ Engine group header exposes comma-separated master topic editor + **Save** → `
 ## Canvas chrome (target UX)
 
 ```
-┌─ Engine ──────────────── [Reflow] [Delete] ─┐
-│ Day trading engine                          │
-│ Topic / sector     [human-length value____] │
-│ Capital allocation [USD] [value___________] │
-│ Target exit        [datetime-local________] │
-│ Template inputs (human labels) …  [Save]    │
-│ ┌─────────────────────────────────────────┐ │
-│ │  (member module nodes as children)      │ │
-│ └─────────────────────────────────────────┘ │
-└─────────────────────────────────────────────┘
+┌─ Engine · category ────────── [Reflow] [Delete] ─┐
+│ Day trading engine                                 │
+│ [topic____] [USD|%] [cap__] [exit____] [tpl…] [Save]│
+│ ┌────────────────────────────────────────────────┐ │
+│ │  (member module nodes as children)             │ │
+│ └────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────┘
 ```
 
 - React Flow **parent node** `type: engineGroup`; children use `parentId` + relative positions.
-- Bounds: `computeEngineBoundsFromPositions(member positions)` + `ENGINE_GROUP_PADDING`.
-- Drag handle on group header bar (`engine-group-drag`); inline fields use `nodrag nowheel`.
-- Enterable fields sit in a **compact top strip** with visible human-readable labels; tap focuses the control for entry.
+- Bounds: `computeEngineBoundsFromPositions(member positions)` + `ENGINE_GROUP_PADDING`
+  (`top: 92` after D-089).
+- Drag handle on group header bar (`engine-group-drag`); fields use `nodrag nowheel`.
+- **D-089:** shared setup + template inputs are **bordered inline fields in the header**
+  (`ModuleSetupFields` `layout="inline"`); placeholders carry labels; missing fields use warn
+  borders (Required chips stay off the header row).
 - Create / insert / single-engine reflow / engine drag-stop use `placeNextEngineOrigin` so envelopes do not overlap.
 - **D-056:** category-colored background wash + diagonal stripe + left accent from
   `ENGINE_TEMPLATES.category` (`engineVisualForTemplate`); badge shows `Engine · {category}`.
 
 **Shipped:** `EngineGroupNode.tsx`, `CanvasEngineGroup` type, non-overlapping placement helpers,
-category chrome.
+category chrome, D-089 header inline fields.
 
 ## Delete modal
 

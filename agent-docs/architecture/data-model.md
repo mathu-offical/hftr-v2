@@ -20,7 +20,8 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   D-027), goals jsonb, reinvestment_policy jsonb, scoping_policies jsonb, mode `paper|live`,
   seed_credits_cents (paper), equity_cents / equity_ref / equity_as_of / equity_status
   (`fresh|stale|unavailable`) / equity_version (materialized read projection; cards display
-  Seed + Current value), broker_connection_id nullable unique FK → broker_connections,
+  Seed + Current value), broker_connection_id nullable FK → broker_connections (preferred
+  bind; not exclusive — multi-source via `module_service_bindings`, D-090),
   live_armed_at timestamptz nullable, live_gate_evidence_id uuid nullable FK →
   live_gate_evidence (D-029),
   auto_fund_policy jsonb (approval thresholds), archived_at.
@@ -29,6 +30,12 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   **D-082:** companion append-only **operator_philosophy_directives** (company_id,
   module_id nullable, body, created_by_clerk_user_id, created_at) — immutable operator
   constraints folded into synthesize; never agent-writable. Migration `0035`.
+  **D-090:** **module_service_bindings** (company_id, module_id, capability,
+  broker_connection_id XOR user_api_key_id, status `bound|stale|missing|revoked`) —
+  persisted coverage from verified sources; resolved on broker verify and module/engine/
+  company create. GET `/api/companies/:id/service-coverage`. Migration `0036`.
+  **realized_pnl_events** append-only fill-time PnL for session daily-loss limits
+  (cash ledger stays cash-only).
 - **engine_instances** (D-028, migration `0014_engine_instances`) — company_id, template_id,
   label, master_topic_sectors text[], canvas_bounds jsonb `{x,y,width,height}` nullable.
   Member modules reference via `modules.engine_instance_id`; Math modules never join.
@@ -63,8 +70,9 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 - **broker_connections** — clerk_user_id, venue `alpaca|kalshi|polymarket|coinbase`,
   mode `paper|live`, ciphertext (AES-GCM via `CREDENTIALS_ENCRYPTION_KEY`), key_hint,
   status `connected|error|revoked|unverified`, capabilities jsonb, last_verified_at,
-  venue_account_id. Exclusive company bind via unique `companies.broker_connection_id` FK
-  (D-027). Live mode credentials rejected until live gate.
+  venue_account_id. Preferred company bind via nullable `companies.broker_connection_id`
+  (D-027); multi-source capability coverage via `module_service_bindings` (D-090).
+  Live mode credentials rejected until live gate.
 - **broker_balances_snapshot** — connection_id, cash_cents, buying_power_cents, positions jsonb, as_of.
 - **dispatch_reconciliation_events** — company/connection scoped submit/poll/fill/timeout events
   with optional venue request ids (no secrets).
@@ -75,7 +83,11 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   priority, provenance. Implemented (migration `0012`). **D-040 (specified):** add
   `synopsis_md` (hybrid article agent synopsis), usage counters
   (`query_count`, `last_queried_at`, `reference_count`, `last_referenced_at`). Topics are
-  agent organizations — not galaxy nodes.
+  **module-side directives** (work programs that may spawn articles/libraries) — not galaxy
+  nodes and not library entities.   **D-086:** seeded tree under **Seeded trading mechanisms**
+  (program → catalog groups → class/tier/sector leaves via `parent_topic_id`);
+  membership via `topic_concepts` is organizational focus, while concepts remain
+  library-side.
 - **topic_concepts** — **D-040 (specified):** join `(topic_id, concept_id, sort_order, role?)`
   unique `(topic_id, concept_id)`; defines topic membership / galaxy focus subgraph and
   Article tab section order.
@@ -148,9 +160,12 @@ UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
 - **ledger_entries** — company_id, module_id, kind `trade|fee|transfer|simulation`,
   amount, balance_after, trace ref. (Right panel's canonical feed.)
 - **positions** — (module_id, symbol) unique; qty bigint (whole units), avg_cost_cents,
-  realized_pnl_cents. Written ONLY by the dispatch layer at fill time; sells above held
-  quantity are blocked (`broker_policy_block` — no shorting in paper v1). Implemented
-  2026-07-16 (D-016).
+  realized_pnl_cents; optional connection_id / venue provenance (D-090). Written ONLY by
+  the dispatch layer at fill time; sells above held quantity are blocked
+  (`broker_policy_block` — no shorting in paper v1). Implemented 2026-07-16 (D-016).
+- **realized_pnl_events** — append-only (company_id, module_id, symbol, realized_cents,
+  trace_id, created_at). Day-bucket loss for operating limits; cash `ledger_entries`
+  remain cash-only (D-090).
 - **trend_candidates** — module-scoped candidates with direction, strength band, drift
   ValueRef, and source_class `deterministic_scan|model_nominated` (the deterministic
   `trend.scan` handler writes the former; LLM tiers will write the latter). D-016.

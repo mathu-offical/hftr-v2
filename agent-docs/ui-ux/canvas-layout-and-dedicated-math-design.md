@@ -86,7 +86,7 @@ Layout uses measured React Flow node dimensions when available and conservative 
 | Math tool | 180 × 40 px |
 | Horizontal / vertical gutters | 120 / 80 px |
 | Group left/right padding | 72 px |
-| Group header/top padding | 140 px (compact setup strip) |
+| Group header/top padding | 92 px (D-089 inline bounded header fields; was 140 under D-035/D-057) |
 | Group bottom padding | 100 px |
 | Top-level engine gutter | 120 px — create/insert/reflow/drag-stop via `placeNextEngineOrigin` |
 | Canvas min zoom | 0.15 (fit large multi-engine graphs) |

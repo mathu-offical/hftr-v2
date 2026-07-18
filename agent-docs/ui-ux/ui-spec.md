@@ -65,15 +65,16 @@
   bind policy envelopes to the trading modules linked into them. Company creation seeds one Math
   module (`Deterministic Math Calculator`); D-028 adds repeatable Math **tools** multi-attachable
   to consumers (see below).
-- **ENGINE groups (D-028 / D-035 / `canvas-engine-group-design.md`):** insertable engine templates
-  persist as `engine_instances` with a dashed React Flow **parent** chrome (`EngineGroupNode`):
-  template label, **Reflow**, delete, and **full shared setup** (topic/sector, total capital
-  envelope, overall exit) plus editable template inputs. Member modules are child nodes
-  (`engine_instance_id`); Math is never a member. Shared setup cascades to members until
-  overridden (`topic_sectors_overridden`); capital splits equally across capital-bearing
-  members; exit is the same overall deadline. Inspector/module PATCH supports **Restore
-  engine topic** (`restoreEngineTopic`). Delete engine: modal offers **cascade** (remove
-  members + links) vs **ungroup** (keep modules, clear membership).
+- **ENGINE groups (D-028 / D-035 / D-089 / `canvas-engine-group-design.md`):** insertable engine
+  templates persist as `engine_instances` with a dashed React Flow **parent** chrome
+  (`EngineGroupNode`): template label, **Reflow**, delete, and **full shared setup** in the
+  header as bordered inline fields (topic/sector, total capital envelope, overall exit) plus
+  editable template inputs and Save. Member modules are child nodes (`engine_instance_id`);
+  Math is never a member. Shared setup cascades to members until overridden
+  (`topic_sectors_overridden`); capital splits equally across capital-bearing members; exit is
+  the same overall deadline. Inspector/module PATCH supports **Restore engine topic**
+  (`restoreEngineTopic`). Delete engine: modal offers **cascade** (remove members + links) vs
+  **ungroup** (keep modules, clear membership).
 - **Math tools (D-028 / D-033 / D-042):** additional Math modules may be created from the palette and
   deleted; each may `data_feed`-attach to allowed consumer types. Dedicated Math tools render as
   compact nodes with **data handles on top** (owner connection) and **fund handles left→right**.

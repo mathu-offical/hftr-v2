@@ -25,10 +25,10 @@ Usage and reference counters on topics and concepts exist for **system optimizat
 
 | Object | Role | Galaxy? |
 |---|---|---|
-| **Topic** | Agent-created organization; may include many concepts; owns hybrid article | No (left panel + focus overlay only) |
-| **Concept** | Atomic curated knowledge unit (body, tags, provenance) | Yes (primary node) |
-| **Tag** | Cross-cutting label on concepts | Yes (secondary nodes / color / filter chips) |
-| **Library** | Curated membership container; hard spatial nest in galaxy | Nest boundary (hull), not a node |
+| **Topic** | Agent/research-module **directive** (module-side); may include many concepts; owns hybrid article; may spawn further articles/libraries | No (left panel + focus overlay only) |
+| **Concept** | Atomic curated knowledge unit (body, tags, provenance) — **library-side** | Yes (primary node) |
+| **Tag** | Cross-cutting label on concepts — **library-side** | Yes (secondary nodes / color / filter chips) |
+| **Library** | Curated membership container for concepts/tags/trends/functions; hard spatial nest in galaxy | Nest boundary (hull), not a node |
 | **Folder star** | Catalog/runtime tag cluster inside a library (D-078) | Folder hull + nest force |
 | **Article orbit** | Topic membership orbit inside a folder (D-078) | Article hull; topics still not concept hubs |
 | **Concept link** | Typed edge (`supports`, `contradicts`, …) | Yes (edge; springs blend weight + similarity) |
@@ -53,10 +53,11 @@ librarian relevance (`low|medium|high`) — see `architecture/research-relevance
 Topics may link concepts whose provenance spans:
 
 1. **Company space** — prior research runs, admitted library concepts, module outputs  
-2. **Seeded knowledgebase** — compile-time / catalog seed libraries (**D-045**
-   `bootstrapCompanyKnowledge` materializes full `SEED_CATALOG_NAMES` families into
-   `catalog_seed` concepts with payload-derived readable bodies + dedicated
-   **Seeded trading mechanisms** library + hybrid topic Page when a research module exists)  
+2. **Seeded knowledgebase** — compile-time / catalog seed libraries (**D-045** /
+   **D-081** / **D-086** `bootstrapCompanyKnowledge` materializes `SEED_CATALOG_NAMES`
+   into `catalog_seed` concepts in the **Seeded trading mechanisms** library, plus a
+   **program topic**, mid-level catalog groups, and class/tier/sector child directives
+   on the research module)  
 3. **External gather** — Brave / SEC / market-news evidence → validated → synthesized concepts (D-039)
 
 Librarian agents score relevance across resources; research agents create/update topics and

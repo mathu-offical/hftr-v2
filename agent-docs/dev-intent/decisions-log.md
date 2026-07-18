@@ -929,6 +929,25 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   engine-node-family-design, canvas-layout-and-dedicated-math-design.
   **Status: implemented.**
 
+- **D-089 (engine header inline bounded setup fields, 2026-07-18):** ENGINE group shared
+  setup (topic/sector, capital mode+value, target exit) and template inputs move from a
+  stacked body strip into the **header** as one wrap row of bordered (“bounded”) inline
+  fields (`ModuleSetupFields` `layout="inline"`). `ENGINE_GROUP_PADDING.top` 140→92.
+  Drag remains on chrome; fields stay `nodrag nowheel`. Docs: ui-spec §3,
+  canvas-engine-group-design, canvas-layout-and-dedicated-math-design.
+  **Status: implemented.**
+
+- **D-090 (paper-spine service bindings + gate/limit hardening, 2026-07-18):** Continues
+  D-087 gap closure: (a) `evidence_fit` never company-wide-scans when library→trend
+  links are empty — linked libs always consult admitted refs (empty fails until curated);
+  unlinked trends stay freshness-only. (b) `market_structure_fit` fail-closed for live
+  unknown feed class; paper keeps waiver. (c) daily-loss limits use fresh
+  `companies.equityCents` when available + session-window loss from
+  `realized_pnl_events` (not cash-ledger buy debits). (d) `module_service_bindings`
+  table + `resolveCompanyServiceBindings` after broker verify / company / engine /
+  module create; GET `service-coverage`; positions carry connection_id/venue on fill.
+  Migration `0036`. Docs: data-model. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

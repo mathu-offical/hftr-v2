@@ -28,6 +28,7 @@ import {
   CreateModuleInput,
   deriveGeneratedModuleName,
   handleIdForLink,
+  handleIdForStream,
   isLegalFundRoute,
   LINK_KIND_ORDER,
   linkKindForHandlePair,
@@ -37,6 +38,8 @@ import {
   moduleRequiresMath,
   MODULE_CONFIG_SCHEMAS,
   moduleLinkPorts,
+  moduleStreamPorts,
+  parseStreamHandle,
   ModuleType,
   MAX_MODULES_PER_COMPANY,
   projectedModuleSlotsForCreate,
@@ -230,6 +233,95 @@ describe('canvas link port helpers', () => {
     expect(linkKindForHandlePair(null, 'data-in')).toBeNull();
     expect(linkKindForHandlePair('data-out', undefined)).toBeNull();
     expect(linkKindForHandlePair('unknown-out', 'data-in')).toBeNull();
+  });
+
+  it('builds bus vs stream handle ids', () => {
+    expect(handleIdForStream('data_feed', 'in')).toBe('data_feed-in');
+    expect(handleIdForStream('data_feed', 'out')).toBe('data_feed-out');
+    const peer = '00000000-0000-4000-8000-000000000001';
+    expect(handleIdForStream('directive', 'out', peer)).toBe(`directive-out__${peer}`);
+    expect(handleIdForStream('verification', 'in', peer)).toBe(`verification-in__${peer}`);
+  });
+
+  it('round-trips stream handles via parseStreamHandle', () => {
+    const peer = '00000000-0000-4000-8000-000000000002';
+    const busOut = handleIdForStream('fund_route', 'out');
+    expect(parseStreamHandle(busOut)).toEqual({
+      kind: 'fund_route',
+      direction: 'out',
+      peerModuleId: null,
+    });
+    const streamIn = handleIdForStream('data_feed', 'in', peer);
+    expect(parseStreamHandle(streamIn)).toEqual({
+      kind: 'data_feed',
+      direction: 'in',
+      peerModuleId: peer,
+    });
+    expect(parseStreamHandle('not-a-handle')).toBeNull();
+  });
+
+  it('emits bus then per-peer stream ports for trading inbound data_feed', () => {
+    const tradingId = '00000000-0000-4000-8000-0000000000t1';
+    const liveApiId = '00000000-0000-4000-8000-0000000000l1';
+    const mathId = '00000000-0000-4000-8000-0000000000m1';
+    const ports = moduleStreamPorts({
+      type: 'trading',
+      moduleId: tradingId,
+      links: [
+        {
+          fromModuleId: liveApiId,
+          toModuleId: tradingId,
+          linkKind: 'data_feed',
+          fromLabel: 'LiveAPI',
+          toLabel: 'Trade',
+        },
+        {
+          fromModuleId: mathId,
+          toModuleId: tradingId,
+          linkKind: 'data_feed',
+          fromLabel: 'Math',
+          toLabel: 'Trade',
+        },
+      ],
+    });
+    const dataInbound = ports.inbound.filter((port) => port.kind === 'data_feed');
+    expect(dataInbound).toHaveLength(3);
+    expect(dataInbound[0]).toMatchObject({
+      role: 'bus',
+      peerModuleId: null,
+      handleId: 'data_feed-in',
+    });
+    expect(dataInbound.slice(1).map((port) => port.peerModuleId)).toEqual([liveApiId, mathId]);
+    expect(dataInbound.slice(1).every((port) => port.role === 'stream')).toBe(true);
+  });
+
+  it('resolves link kind for bus↔stream and stream↔stream handle pairs', () => {
+    const peerA = '00000000-0000-4000-8000-0000000000a1';
+    const peerB = '00000000-0000-4000-8000-0000000000b1';
+    expect(
+      linkKindForHandlePair(
+        handleIdForStream('data_feed', 'out'),
+        handleIdForStream('data_feed', 'in', peerA),
+      ),
+    ).toBe('data_feed');
+    expect(
+      linkKindForHandlePair(
+        handleIdForStream('directive', 'out', peerA),
+        handleIdForStream('directive', 'in'),
+      ),
+    ).toBe('directive');
+    expect(
+      linkKindForHandlePair(
+        handleIdForStream('verification', 'out', peerA),
+        handleIdForStream('verification', 'in', peerB),
+      ),
+    ).toBe('verification');
+    expect(
+      linkKindForHandlePair(
+        handleIdForStream('data_feed', 'out', peerA),
+        handleIdForStream('directive', 'in', peerB),
+      ),
+    ).toBeNull();
   });
 });
 
@@ -1094,6 +1186,9 @@ describe('canvas layout (D-033)', () => {
         CANVAS_LAYOUT.mathAttachmentGap +
         CANVAS_LAYOUT.mathToolHeight +
         CANVAS_LAYOUT.verticalGutter,
+    );
+    expect(LAYOUT_COLUMN_STEP).toBe(
+      CANVAS_LAYOUT.moduleWidth + CANVAS_LAYOUT.horizontalGutter,
     );
   });
 

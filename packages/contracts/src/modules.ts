@@ -288,9 +288,113 @@ function parseKindHandle(handle: string): { kind: LinkKind; direction: 'in' | 'o
   return { kind: parsed.data, direction: suffix };
 }
 
+/** Per-stream dependency port on the canvas (D-057). */
+export type StreamPortSpec = {
+  handleId: string;
+  kind: LinkKind;
+  direction: 'in' | 'out';
+  /** null = free bus for new links */
+  peerModuleId: string | null;
+  peerLabel: string | null;
+  role: 'bus' | 'stream';
+};
+
+/**
+ * Stable handle id for a bus or per-peer stream port.
+ * Bus: `{kind}-{in|out}`; stream: `{kind}-{in|out}__{peerUuid}`.
+ */
+export function handleIdForStream(
+  kind: LinkKind,
+  direction: 'in' | 'out',
+  peerModuleId?: string | null,
+): string {
+  const base = handleIdForLink(kind, direction);
+  if (peerModuleId == null) return base;
+  return `${base}__${peerModuleId}`;
+}
+
+/** Parse bus or stream handle ids produced by {@link handleIdForStream}. */
+export function parseStreamHandle(
+  handle: string,
+): { kind: LinkKind; direction: 'in' | 'out'; peerModuleId: string | null } | null {
+  const sepIndex = handle.indexOf('__');
+  const base = sepIndex >= 0 ? handle.slice(0, sepIndex) : handle;
+  const peerModuleId = sepIndex >= 0 ? handle.slice(sepIndex + 2) || null : null;
+  const parsed = parseKindHandle(base);
+  if (!parsed) return null;
+  return { ...parsed, peerModuleId };
+}
+
+/**
+ * Inbound/outbound stream ports for a module: one bus per kind, then one stream
+ * per existing link peer (sorted by peer id). Labels are presentation only.
+ */
+export function moduleStreamPorts(input: {
+  type: ModuleType;
+  moduleId: string;
+  links: Array<{
+    fromModuleId: string;
+    toModuleId: string;
+    linkKind: LinkKind;
+    fromLabel: string;
+    toLabel: string;
+  }>;
+}): { inbound: StreamPortSpec[]; outbound: StreamPortSpec[] } {
+  const ports = moduleLinkPorts(input.type);
+
+  const buildPorts = (
+    kinds: readonly LinkKind[],
+    direction: 'in' | 'out',
+  ): StreamPortSpec[] => {
+    const result: StreamPortSpec[] = [];
+    for (const kind of kinds) {
+      result.push({
+        handleId: handleIdForStream(kind, direction),
+        kind,
+        direction,
+        peerModuleId: null,
+        peerLabel: null,
+        role: 'bus',
+      });
+
+      const streams: StreamPortSpec[] = [];
+      for (const link of input.links) {
+        if (link.linkKind !== kind) continue;
+        if (direction === 'in' && link.toModuleId === input.moduleId) {
+          streams.push({
+            handleId: handleIdForStream(kind, direction, link.fromModuleId),
+            kind,
+            direction,
+            peerModuleId: link.fromModuleId,
+            peerLabel: link.fromLabel,
+            role: 'stream',
+          });
+        } else if (direction === 'out' && link.fromModuleId === input.moduleId) {
+          streams.push({
+            handleId: handleIdForStream(kind, direction, link.toModuleId),
+            kind,
+            direction,
+            peerModuleId: link.toModuleId,
+            peerLabel: link.toLabel,
+            role: 'stream',
+          });
+        }
+      }
+      streams.sort((a, b) => (a.peerModuleId ?? '').localeCompare(b.peerModuleId ?? ''));
+      result.push(...streams);
+    }
+    return result;
+  };
+
+  return {
+    inbound: buildPorts(ports.inbound, 'in'),
+    outbound: buildPorts(ports.outbound, 'out'),
+  };
+}
+
 /**
  * Decode a source/target handle pair into a link kind.
- * New handles require matching `{kind}-out` → `{kind}-in`.
+ * Accepts bus and per-stream handles (`parseStreamHandle`).
  * Legacy migration pairs map to their canonical kinds; fund-route ambiguity on
  * `data-out` → `data-in` stays `data_feed` here (endpoint-aware UI resolves fund).
  */
@@ -300,8 +404,8 @@ export function linkKindForHandlePair(
 ): LinkKind | null {
   if (!sourceHandle || !targetHandle) return null;
 
-  const source = parseKindHandle(sourceHandle);
-  const target = parseKindHandle(targetHandle);
+  const source = parseStreamHandle(sourceHandle);
+  const target = parseStreamHandle(targetHandle);
   if (source && target) {
     if (source.direction !== 'out' || target.direction !== 'in') return null;
     if (source.kind !== target.kind) return null;

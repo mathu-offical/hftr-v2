@@ -8,19 +8,15 @@ import { isMathToolAttachment } from './engines';
  */
 
 export const CANVAS_LAYOUT = {
-  moduleWidth: 280,
-  /**
-   * Conservative card height for layout before React Flow measurement.
-   * Setup-bearing dashboard cards (capital + exit) routinely exceed 220 px.
-   */
-  moduleHeight: 320,
-  horizontalGutter: 180,
+  moduleWidth: 220,
+  moduleHeight: 240,
+  horizontalGutter: 120,
   /** Clearance between owner/tool envelopes in the same rank. */
-  verticalGutter: 160,
-  mathAttachmentGap: 24,
-  mathToolWidth: 220,
-  mathToolHeight: 48,
-  topLevelGutter: 200,
+  verticalGutter: 100,
+  mathAttachmentGap: 16,
+  mathToolWidth: 180,
+  mathToolHeight: 40,
+  topLevelGutter: 140,
   originX: 40,
   originY: 40,
 } as const;

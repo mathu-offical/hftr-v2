@@ -13,8 +13,12 @@ export function fundRouterToTradingMathLinks(
   toModuleId: string;
   linkKind: 'fund_route';
 }> {
-  const routers = modules.filter((module) => module.type === 'fund_router');
-  const tradings = modules.filter((module) => module.type === 'trading');
+  const routers = modules
+    .filter((module) => module.type === 'fund_router')
+    .sort((a, b) => a.id.localeCompare(b.id));
+  const tradings = modules
+    .filter((module) => module.type === 'trading')
+    .sort((a, b) => a.id.localeCompare(b.id));
   const links: Array<{
     companyId: string;
     fromModuleId: string;

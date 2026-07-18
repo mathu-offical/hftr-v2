@@ -47,7 +47,7 @@ Math  --data_feed--> owner (returns from Math top)
 
 The first edge carries the owner’s calculation inputs/context into the deterministic tool. The return edge carries typed calculated output back to the owner. These are topology and dispatch declarations; they do not permit raw model-generated numbers.
 
-**Fund ports on Math:** left = fund in, right = fund out. Data ports sit on the **top** edge so owner cards connect downward into the tool lane.
+**Fund ports on Math:** left = fund in, right = fund out. Data ports sit on the **top** edge so owner cards connect downward into the tool lane. Peer stream order (D-073): capital-flow / pipeline lane, not UUID; template Math `fund_route` links normalize into-Math then out-of-Math.
 
 For capital routing, funds only flow through Math / holding_fund / fund_router — never into LLM or model-bearing nodes:
 

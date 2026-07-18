@@ -227,12 +227,12 @@ export const ModuleNode = memo(function ModuleNode({
           borderColor: selected
             ? visual.hue
             : shaped
-              ? `${visual.hue}99`
+              ? `${visual.hue}1c`
               : 'var(--color-line)',
           boxShadow: selected
-            ? `0 0 0 1px ${visual.hue}, 0 8px 24px ${visual.hue}22`
+            ? `0 0 0 1px ${visual.hue}, 0 8px 24px ${visual.hue}18`
             : shaped
-              ? `0 6px 18px rgba(0,0,0,0.35), inset 0 0 0 1px ${visual.hue}22`
+              ? `0 4px 14px rgba(0,0,0,0.28), inset 0 0 0 1px ${visual.hue}06`
               : undefined,
           backgroundImage: `linear-gradient(${visual.wash}, ${visual.wash}), linear-gradient(var(--color-surface-1), var(--color-surface-1))`,
         }}

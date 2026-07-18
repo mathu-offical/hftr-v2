@@ -24,6 +24,34 @@ export interface TemplateLink {
   linkKind: 'data_feed' | 'directive' | 'verification' | 'fund_route';
 }
 
+/**
+ * Stable template link order (D-073): non-math graph edges keep author order;
+ * Math fund_route edges are contiguous as into-Math then out-of-Math so capital
+ * flow reads holding → Math → router in every engine template.
+ */
+export function orderTemplateLinks(links: readonly TemplateLink[]): TemplateLink[] {
+  const mathFund: TemplateLink[] = [];
+  const rest: TemplateLink[] = [];
+  for (const link of links) {
+    const touchesMath = link.fromIndex === 'math' || link.toIndex === 'math';
+    if (link.linkKind === 'fund_route' && touchesMath) {
+      mathFund.push(link);
+    } else {
+      rest.push(link);
+    }
+  }
+  const intoMath = mathFund
+    .filter((link) => link.toIndex === 'math')
+    .sort((a, b) => String(a.fromIndex).localeCompare(String(b.fromIndex)));
+  const outOfMath = mathFund
+    .filter((link) => link.fromIndex === 'math')
+    .sort((a, b) => String(a.toIndex).localeCompare(String(b.toIndex)));
+  const otherMathFund = mathFund.filter(
+    (link) => link.toIndex !== 'math' && link.fromIndex !== 'math',
+  );
+  return [...rest, ...intoMath, ...outOfMath, ...otherMathFund];
+}
+
 export interface CompanyTemplate {
   id: CompanyTemplateId;
   label: string;
@@ -181,11 +209,11 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 4, toIndex: 5, linkKind: 'directive' },
-      { fromIndex: 6, toIndex: 'math', linkKind: 'fund_route' },
-      { fromIndex: 'math', toIndex: 7, linkKind: 'fund_route' },
       { fromIndex: 5, toIndex: 8, linkKind: 'verification' },
       { fromIndex: 8, toIndex: 9, linkKind: 'verification' },
       { fromIndex: 5, toIndex: 9, linkKind: 'directive' },
+      { fromIndex: 6, toIndex: 'math', linkKind: 'fund_route' },
+      { fromIndex: 'math', toIndex: 7, linkKind: 'fund_route' },
     ],
     inputs: [
       {
@@ -1261,6 +1289,11 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
 /** Session envelope id that unlocks engine_crypto when present in session-constraint-catalog. */
 export const ALPACA_CRYPTO_SESSION_ENVELOPE_ID = 'sess-crypto-alpaca-24x7';
 
+// Normalize Math fund_route link order on every engine template (D-073).
+for (const template of ENGINE_TEMPLATES) {
+  template.links = orderTemplateLinks(template.links);
+}
+
 /**
  * Resolve dynamic engine availability (e.g. crypto when session envelope ships).
  * Paper crypto preset becomes available only when `sess-crypto-alpaca-24x7` is
@@ -1281,11 +1314,18 @@ export function resolveEngineTemplateAvailability(
 export function listResolvedEngineTemplates(
   sessionEnvelopeIds: ReadonlySet<string> = new Set(),
 ): EngineTemplate[] {
-  return ENGINE_TEMPLATES.map((t) => resolveEngineTemplateAvailability(t, sessionEnvelopeIds));
+  return ENGINE_TEMPLATES.map((t) => {
+    const resolved = resolveEngineTemplateAvailability(t, sessionEnvelopeIds);
+    return { ...resolved, links: orderTemplateLinks(resolved.links) };
+  });
 }
 
 export function getEngineTemplateById(id: string): EngineTemplate | undefined {
-  return ENGINE_TEMPLATES.find((template) => template.id === id);
+  const template = ENGINE_TEMPLATES.find((item) => item.id === id);
+  if (!template) return undefined;
+  const links = orderTemplateLinks(template.links);
+  const alreadyOrdered = links.length === template.links.length && links.every((link, i) => link === template.links[i]);
+  return alreadyOrdered ? template : { ...template, links };
 }
 
 /** Create-form sections: research engines vs execution (full-spine) engines. */

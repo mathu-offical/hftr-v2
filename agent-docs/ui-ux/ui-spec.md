@@ -105,12 +105,14 @@
   (`{kind}-{in|out}__{peerId}`), labeled `← Peer` / `→ Peer` with role context (Corpus,
   Market feed, Trade directive, …). Math: top data streams + side fund streams. Edges attach
   to stream pins; kind color + dash pattern. Validation remains `LinkKind` + `LINK_RULES`.
-- **Node families (D-056 / D-068):** cards distinguish **Data source** (`library` shelves /
+- **Node families (D-056 / D-068 / D-073):** cards distinguish **Data source** (`library` shelves /
   book-spine silhouette; `live_api` aperture + signal bars — dashed border), **Agent** (solid +
   left bar), **Vault** / fund (`holding_fund`, `fund_router` — vault door, rivets, dial chrome;
-  double border), **Tool** (Math), **Control** (policy). Subtype chips show library class, venue,
+  double border), **Tool** (Math), **Control** (policy). Silhouette structure strokes are
+  low-contrast background wash. Subtype chips show library class, venue,
   trading subtype, etc. Engine groups use **category-colored** washes/stripes from template
   category. Shape chrome is decorative; text-first family labels remain authoritative.
+  Stream peers and engine-template Math `fund_route` links order by capital-flow / pipeline lane.
 - **Density (D-057):** module cards ~220×240 layout floor; Math tools 180×40; tighter engine
   padding and gutters; React Flow `minZoom=0.15` so full engines fit in view.
 - **Names (compact Fn · Focus):** auto-derived as `{moduleFunctionLabel} · {focusToken}` plus

@@ -267,6 +267,7 @@ describe('canvas link port helpers', () => {
     const tradingId = '00000000-0000-4000-8000-0000000000t1';
     const liveApiId = '00000000-0000-4000-8000-0000000000l1';
     const mathId = '00000000-0000-4000-8000-0000000000m1';
+    const researchId = '00000000-0000-4000-8000-0000000000r1';
     const ports = moduleStreamPorts({
       type: 'trading',
       moduleId: tradingId,
@@ -277,6 +278,8 @@ describe('canvas link port helpers', () => {
           linkKind: 'data_feed',
           fromLabel: 'LiveAPI',
           toLabel: 'Trade',
+          fromType: 'live_api',
+          toType: 'trading',
         },
         {
           fromModuleId: mathId,
@@ -284,18 +287,92 @@ describe('canvas link port helpers', () => {
           linkKind: 'data_feed',
           fromLabel: 'Math',
           toLabel: 'Trade',
+          fromType: 'math',
+          toType: 'trading',
+        },
+        {
+          fromModuleId: researchId,
+          toModuleId: tradingId,
+          linkKind: 'data_feed',
+          fromLabel: 'Research',
+          toLabel: 'Trade',
+          fromType: 'research',
+          toType: 'trading',
         },
       ],
     });
     const dataInbound = ports.inbound.filter((port) => port.kind === 'data_feed');
-    expect(dataInbound).toHaveLength(3);
+    expect(dataInbound).toHaveLength(4);
     expect(dataInbound[0]).toMatchObject({
       role: 'bus',
       peerModuleId: null,
       handleId: 'data_feed-in',
     });
-    expect(dataInbound.slice(1).map((port) => port.peerModuleId)).toEqual([liveApiId, mathId]);
+    // Pipeline lane order: research (0) → math/live_api (1, math row before live_api).
+    expect(dataInbound.slice(1).map((port) => port.peerModuleId)).toEqual([
+      researchId,
+      mathId,
+      liveApiId,
+    ]);
     expect(dataInbound.slice(1).every((port) => port.role === 'stream')).toBe(true);
+  });
+
+  it('orders Math fund_route peers holding_fund → fund_router (capital flow)', () => {
+    const mathId = '00000000-0000-4000-8000-0000000000m1';
+    const fundId = '00000000-0000-4000-8000-0000000000f1';
+    const routerId = '00000000-0000-4000-8000-0000000000r1';
+    const ports = moduleStreamPorts({
+      type: 'math',
+      moduleId: mathId,
+      links: [
+        {
+          fromModuleId: mathId,
+          toModuleId: routerId,
+          linkKind: 'fund_route',
+          fromLabel: 'Math',
+          toLabel: 'Router',
+          fromType: 'math',
+          toType: 'fund_router',
+        },
+        {
+          fromModuleId: fundId,
+          toModuleId: mathId,
+          linkKind: 'fund_route',
+          fromLabel: 'Fund',
+          toLabel: 'Math',
+          fromType: 'holding_fund',
+          toType: 'math',
+        },
+      ],
+    });
+    const fundIn = ports.inbound.filter((p) => p.kind === 'fund_route' && p.role === 'stream');
+    const fundOut = ports.outbound.filter((p) => p.kind === 'fund_route' && p.role === 'stream');
+    expect(fundIn.map((p) => p.peerModuleId)).toEqual([fundId]);
+    expect(fundOut.map((p) => p.peerModuleId)).toEqual([routerId]);
+  });
+
+  it('orders engine template Math fund_route links into-Math then out-of-Math', () => {
+    for (const engine of ENGINE_TEMPLATES) {
+      const mathFund = engine.links.filter(
+        (link) =>
+          link.linkKind === 'fund_route' &&
+          (link.fromIndex === 'math' || link.toIndex === 'math'),
+      );
+      if (mathFund.length === 0) continue;
+      const firstMathIdx = engine.links.findIndex(
+        (link) =>
+          link.linkKind === 'fund_route' &&
+          (link.fromIndex === 'math' || link.toIndex === 'math'),
+      );
+      const trailing = engine.links.slice(firstMathIdx);
+      expect(trailing.every((link) => mathFund.includes(link))).toBe(true);
+      const into = trailing.filter((link) => link.toIndex === 'math');
+      const outOf = trailing.filter((link) => link.fromIndex === 'math');
+      const intoEnd = trailing.findIndex((link) => link.fromIndex === 'math');
+      if (into.length > 0 && outOf.length > 0) {
+        expect(intoEnd).toBe(into.length);
+      }
+    }
   });
 
   it('resolves link kind for bus↔stream and stream↔stream handle pairs', () => {

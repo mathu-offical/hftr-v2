@@ -1,6 +1,6 @@
 /**
  * Rudimentary family silhouettes for fund (vault) and data-source (library / live feed)
- * canvas cards (D-068). Decorative only — no interaction; color reinforces text labels.
+ * canvas cards (D-068). Decorative only — low-contrast background structure; text labels lead.
  */
 
 import type { FamilyShapeKind } from './canvas-visuals';
@@ -10,9 +10,14 @@ type ShapeProps = {
   selected?: boolean | undefined;
 };
 
+/** Shared low-contrast stroke so structure reads as wash, not foreground (D-073). */
+function structureStroke(hue: string, selected: boolean | undefined): string {
+  return selected ? `${hue}22` : `${hue}0c`;
+}
+
 /** Capital vault: thick frame, rivets, door panel, keyhole. */
 export function VaultShapeChrome({ hue, selected }: ShapeProps) {
-  const stroke = selected ? hue : `${hue}aa`;
+  const stroke = structureStroke(hue, selected);
   return (
     <svg
       className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
@@ -20,7 +25,6 @@ export function VaultShapeChrome({ hue, selected }: ShapeProps) {
       preserveAspectRatio="none"
       aria-hidden
     >
-      {/* Outer vault body — slightly inset so ports stay clear */}
       <rect
         x="4"
         y="4"
@@ -30,10 +34,9 @@ export function VaultShapeChrome({ hue, selected }: ShapeProps) {
         ry="14"
         fill="none"
         stroke={stroke}
-        strokeWidth="2.5"
-        opacity="0.85"
+        strokeWidth="1"
+        opacity="0.28"
       />
-      {/* Inner door panel */}
       <rect
         x="18"
         y="28"
@@ -41,15 +44,13 @@ export function VaultShapeChrome({ hue, selected }: ShapeProps) {
         height="188"
         rx="8"
         ry="8"
-        fill={`${hue}0c`}
+        fill={`${hue}03`}
         stroke={stroke}
-        strokeWidth="1.25"
-        opacity="0.9"
+        strokeWidth="0.5"
+        opacity="0.28"
       />
-      {/* Horizontal vault bands */}
-      <line x1="18" y1="70" x2="202" y2="70" stroke={stroke} strokeWidth="1" opacity="0.35" />
-      <line x1="18" y1="170" x2="202" y2="170" stroke={stroke} strokeWidth="1" opacity="0.35" />
-      {/* Corner rivets */}
+      <line x1="18" y1="70" x2="202" y2="70" stroke={stroke} strokeWidth="0.5" opacity="0.16" />
+      <line x1="18" y1="170" x2="202" y2="170" stroke={stroke} strokeWidth="0.5" opacity="0.16" />
       {[
         [14, 14],
         [206, 14],
@@ -60,16 +61,16 @@ export function VaultShapeChrome({ hue, selected }: ShapeProps) {
           key={`${cx}-${cy}`}
           cx={cx}
           cy={cy}
-          r="3"
-          fill={`${hue}33`}
+          r="2.5"
+          fill={`${hue}08`}
           stroke={stroke}
-          strokeWidth="1"
+          strokeWidth="0.5"
+          opacity="0.3"
         />
       ))}
-      {/* Dial / keyhole watermark (upper right of body) */}
-      <g opacity="0.45" transform="translate(168 48)">
-        <circle cx="0" cy="0" r="14" fill="none" stroke={stroke} strokeWidth="1.5" />
-        <circle cx="0" cy="0" r="4" fill={`${hue}55`} stroke={stroke} strokeWidth="1" />
+      <g opacity="0.12" transform="translate(168 48)">
+        <circle cx="0" cy="0" r="14" fill="none" stroke={stroke} strokeWidth="0.6" />
+        <circle cx="0" cy="0" r="3.5" fill={`${hue}0e`} stroke={stroke} strokeWidth="0.5" />
         {[0, 45, 90, 135].map((deg) => (
           <line
             key={deg}
@@ -78,24 +79,23 @@ export function VaultShapeChrome({ hue, selected }: ShapeProps) {
             x2="0"
             y2="-7"
             stroke={stroke}
-            strokeWidth="1.25"
+            strokeWidth="0.6"
             transform={`rotate(${deg})`}
           />
         ))}
         <path
           d="M -2 6 L 2 6 L 2 14 L 0 16 L -2 14 Z"
-          fill={`${hue}44`}
+          fill={`${hue}0c`}
           stroke={stroke}
-          strokeWidth="0.75"
+          strokeWidth="0.4"
         />
       </g>
-      {/* Pedestal lip */}
       <path
         d="M 28 228 H 192"
         stroke={stroke}
-        strokeWidth="3"
+        strokeWidth="1.25"
         strokeLinecap="round"
-        opacity="0.5"
+        opacity="0.14"
       />
     </svg>
   );
@@ -103,7 +103,7 @@ export function VaultShapeChrome({ hue, selected }: ShapeProps) {
 
 /** Evidence library: shelf lines + book-spine stack watermark. */
 export function LibraryShapeChrome({ hue, selected }: ShapeProps) {
-  const stroke = selected ? hue : `${hue}99`;
+  const stroke = structureStroke(hue, selected);
   return (
     <svg
       className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
@@ -111,7 +111,6 @@ export function LibraryShapeChrome({ hue, selected }: ShapeProps) {
       preserveAspectRatio="none"
       aria-hidden
     >
-      {/* Soft outer frame — archive card */}
       <rect
         x="3"
         y="3"
@@ -121,11 +120,10 @@ export function LibraryShapeChrome({ hue, selected }: ShapeProps) {
         ry="6"
         fill="none"
         stroke={stroke}
-        strokeWidth="1.5"
+        strokeWidth="0.7"
         strokeDasharray="5 3"
-        opacity="0.75"
+        opacity="0.22"
       />
-      {/* Shelf rails */}
       {[56, 108, 160, 212].map((y) => (
         <line
           key={y}
@@ -134,12 +132,11 @@ export function LibraryShapeChrome({ hue, selected }: ShapeProps) {
           x2="208"
           y2={y}
           stroke={stroke}
-          strokeWidth="1"
-          opacity="0.28"
+          strokeWidth="0.5"
+          opacity="0.1"
         />
       ))}
-      {/* Book spines watermark (left) */}
-      <g opacity="0.4" transform="translate(14 62)">
+      <g opacity="0.1" transform="translate(14 62)">
         {[
           { x: 0, h: 36, w: 8 },
           { x: 10, h: 40, w: 7 },
@@ -153,19 +150,18 @@ export function LibraryShapeChrome({ hue, selected }: ShapeProps) {
             width={book.w}
             height={book.h}
             rx="1"
-            fill={`${hue}22`}
+            fill={`${hue}08`}
             stroke={stroke}
-            strokeWidth="1"
+            strokeWidth="0.5"
           />
         ))}
       </g>
-      {/* Catalog tab notch top-right */}
       <path
         d="M 178 3 H 206 Q 214 3 214 11 V 22 H 178 Z"
-        fill={`${hue}18`}
+        fill={`${hue}06`}
         stroke={stroke}
-        strokeWidth="1"
-        opacity="0.7"
+        strokeWidth="0.5"
+        opacity="0.2"
       />
     </svg>
   );
@@ -173,7 +169,7 @@ export function LibraryShapeChrome({ hue, selected }: ShapeProps) {
 
 /** Live API feed: window / aperture with signal ticks. */
 export function LiveFeedShapeChrome({ hue, selected }: ShapeProps) {
-  const stroke = selected ? hue : `${hue}aa`;
+  const stroke = structureStroke(hue, selected);
   return (
     <svg
       className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
@@ -190,24 +186,22 @@ export function LiveFeedShapeChrome({ hue, selected }: ShapeProps) {
         ry="8"
         fill="none"
         stroke={stroke}
-        strokeWidth="1.75"
-        opacity="0.8"
+        strokeWidth="0.7"
+        opacity="0.22"
       />
-      {/* Aperture / viewport frame */}
       <rect
         x="22"
         y="36"
         width="176"
         height="72"
         rx="4"
-        fill={`${hue}0a`}
+        fill={`${hue}03`}
         stroke={stroke}
-        strokeWidth="1.25"
-        opacity="0.85"
+        strokeWidth="0.5"
+        opacity="0.22"
       />
-      <line x1="22" y1="72" x2="198" y2="72" stroke={stroke} strokeWidth="0.75" opacity="0.35" />
-      {/* Signal bars watermark */}
-      <g opacity="0.5" transform="translate(168 48)">
+      <line x1="22" y1="72" x2="198" y2="72" stroke={stroke} strokeWidth="0.4" opacity="0.1" />
+      <g opacity="0.12" transform="translate(168 48)">
         {[0, 1, 2, 3].map((i) => (
           <rect
             key={i}
@@ -216,19 +210,18 @@ export function LiveFeedShapeChrome({ hue, selected }: ShapeProps) {
             width="4"
             height={8 + i * 4}
             rx="0.5"
-            fill={`${hue}66`}
+            fill={`${hue}12`}
             stroke={stroke}
-            strokeWidth="0.75"
+            strokeWidth="0.4"
           />
         ))}
       </g>
-      {/* Pipe stubs suggesting feed lines */}
       <path
         d="M 4 120 H 14 M 206 120 H 216"
         stroke={stroke}
-        strokeWidth="2"
+        strokeWidth="0.85"
         strokeLinecap="round"
-        opacity="0.55"
+        opacity="0.14"
       />
     </svg>
   );

@@ -169,6 +169,8 @@ export function MathPortBuses(props: {
   const topOut = dataOut.length > 0 ? dataOut : [fallbackOut];
   const sideIn = fundIn.length > 0 ? fundIn : [fallbackFundIn];
   const sideOut = fundOut.length > 0 ? fundOut : [fallbackFundOut];
+  // Top edge L→R: calc-ins (pipeline order) then calc-outs (same peer order).
+  const topTotal = topIn.length + topOut.length;
 
   return (
     <>
@@ -188,7 +190,7 @@ export function MathPortBuses(props: {
 
       {topIn.map((port, index) => {
         const label = streamLabel('math', port);
-        const left = portLeftPercent(index, topIn.length * 2);
+        const left = portLeftPercent(index, topTotal);
         return (
           <div key={port.handleId}>
             <Handle
@@ -219,7 +221,7 @@ export function MathPortBuses(props: {
 
       {topOut.map((port, index) => {
         const label = streamLabel('math', port);
-        const left = portLeftPercent(topIn.length + index, topIn.length + topOut.length);
+        const left = portLeftPercent(topIn.length + index, topTotal);
         return (
           <div key={port.handleId}>
             <Handle

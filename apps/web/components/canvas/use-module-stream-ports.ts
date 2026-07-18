@@ -30,10 +30,16 @@ export function useModuleStreamPorts(
   const nodes = useNodes();
 
   return useMemo(() => {
-    const labelById = new Map<string, string>();
+    const metaById = new Map<string, { label: string; type: ModuleType }>();
     for (const node of nodes) {
       if (node.type !== 'module' && node.type !== 'mathTool') continue;
-      labelById.set(node.id, peerLabelFromNodeData(node.data as Record<string, unknown>));
+      const data = node.data as Record<string, unknown>;
+      const type =
+        typeof data.moduleType === 'string' ? (data.moduleType as ModuleType) : 'display';
+      metaById.set(node.id, {
+        label: peerLabelFromNodeData(data),
+        type,
+      });
     }
 
     const links = edges
@@ -42,12 +48,16 @@ export function useModuleStreamPorts(
         const linkKind =
           ((edge.data as { linkKind?: LinkKind } | undefined)?.linkKind as LinkKind | undefined) ??
           'data_feed';
+        const fromMeta = metaById.get(edge.source);
+        const toMeta = metaById.get(edge.target);
         return {
           fromModuleId: edge.source,
           toModuleId: edge.target,
           linkKind,
-          fromLabel: labelById.get(edge.source) ?? 'Node',
-          toLabel: labelById.get(edge.target) ?? 'Node',
+          fromLabel: fromMeta?.label ?? 'Node',
+          toLabel: toMeta?.label ?? 'Node',
+          fromType: fromMeta?.type,
+          toType: toMeta?.type,
         };
       });
 

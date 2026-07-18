@@ -327,7 +327,8 @@ export function parseStreamHandle(
 
 /**
  * Inbound/outbound stream ports for a module: one bus per kind, then one stream
- * per existing link peer (sorted by peer id). Labels are presentation only.
+ * per existing link peer. Peers sort in pipeline / capital-flow order (D-073),
+ * not raw UUID order, so Math and multi-attach stacks stay logical.
  */
 export function moduleStreamPorts(input: {
   type: ModuleType;
@@ -338,9 +339,33 @@ export function moduleStreamPorts(input: {
     linkKind: LinkKind;
     fromLabel: string;
     toLabel: string;
+    fromType?: ModuleType | undefined;
+    toType?: ModuleType | undefined;
   }>;
 }): { inbound: StreamPortSpec[]; outbound: StreamPortSpec[] } {
   const ports = moduleLinkPorts(input.type);
+
+  const peerSortKey = (
+    peerType: ModuleType | undefined,
+    peerLabel: string,
+    peerId: string,
+    kind: LinkKind,
+  ): string => {
+    if (kind === 'fund_route') {
+      const fundBias =
+        peerType === 'holding_fund'
+          ? 0
+          : peerType === 'fund_router'
+            ? 1
+            : peerType === 'math'
+              ? 2
+              : 3;
+      return `${fundBias}:${peerLabel}:${peerId}`;
+    }
+    const col = peerType != null ? MODULE_COLUMN[peerType] : 99;
+    const row = peerType != null ? MODULE_LANE_ROW[peerType] : 99;
+    return `${String(col).padStart(2, '0')}:${String(row).padStart(2, '0')}:${peerLabel}:${peerId}`;
+  };
 
   const buildPorts = (
     kinds: readonly LinkKind[],
@@ -357,31 +382,41 @@ export function moduleStreamPorts(input: {
         role: 'bus',
       });
 
-      const streams: StreamPortSpec[] = [];
+      type RankedStream = {
+        port: StreamPortSpec;
+        sortKey: string;
+      };
+      const streams: RankedStream[] = [];
       for (const link of input.links) {
         if (link.linkKind !== kind) continue;
         if (direction === 'in' && link.toModuleId === input.moduleId) {
           streams.push({
-            handleId: handleIdForStream(kind, direction, link.fromModuleId),
-            kind,
-            direction,
-            peerModuleId: link.fromModuleId,
-            peerLabel: link.fromLabel,
-            role: 'stream',
+            sortKey: peerSortKey(link.fromType, link.fromLabel, link.fromModuleId, kind),
+            port: {
+              handleId: handleIdForStream(kind, direction, link.fromModuleId),
+              kind,
+              direction,
+              peerModuleId: link.fromModuleId,
+              peerLabel: link.fromLabel,
+              role: 'stream',
+            },
           });
         } else if (direction === 'out' && link.fromModuleId === input.moduleId) {
           streams.push({
-            handleId: handleIdForStream(kind, direction, link.toModuleId),
-            kind,
-            direction,
-            peerModuleId: link.toModuleId,
-            peerLabel: link.toLabel,
-            role: 'stream',
+            sortKey: peerSortKey(link.toType, link.toLabel, link.toModuleId, kind),
+            port: {
+              handleId: handleIdForStream(kind, direction, link.toModuleId),
+              kind,
+              direction,
+              peerModuleId: link.toModuleId,
+              peerLabel: link.toLabel,
+              role: 'stream',
+            },
           });
         }
       }
-      streams.sort((a, b) => (a.peerModuleId ?? '').localeCompare(b.peerModuleId ?? ''));
-      result.push(...streams);
+      streams.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+      result.push(...streams.map((entry) => entry.port));
     }
     return result;
   };

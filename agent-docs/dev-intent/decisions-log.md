@@ -739,6 +739,19 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Agents unchanged. Implementation: `FamilyShapeChrome.tsx`, `MODULE_VISUALS.shape`.
   Docs: ui-spec §3, canvas-node-dashboard-design. **Status: implemented.**
 
+
+- **D-073 (soft vault chrome + Math connection order, 2026-07-18):** Operator asked to
+  (1) reduce contrast on vault/library/live-feed background structure so silhouettes read
+  as wash behind labels, and (2) order Math fund connections logically across engines and
+  templates. Chrome strokes use lower alpha (`structureStroke` idle ~0c / selected ~22) and
+  reduced element opacities; shaped-card borders softened. Math peer stream ports sort by
+  capital-flow / pipeline lane (`holding_fund` → `fund_router` → `math`, else
+  `MODULE_COLUMN`/`MODULE_LANE_ROW`), not UUID. Engine/company templates normalize
+  `fund_route` Math links as into-Math then out-of-Math via `orderTemplateLinks`.
+  Implementation: `FamilyShapeChrome.tsx`, `moduleStreamPorts`, `templates.ts`,
+  `fund-route-links.ts`, `MathPortBuses`. Docs: ui-spec §3, canvas-node-dashboard-design.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

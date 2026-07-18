@@ -243,12 +243,15 @@ accent underline on the active tab (financial-terminal, not pill chips). Short r
 labels use `aria-label` / `title` for full product names (e.g. Research → Research +
 Libraries). Nested category strips (Market posture) use `density="compact"`.
 
-**Keyboard + persistence (shipped 2026-07-17, D-022; engine scope D-097):** `[` toggles left, `]` toggles right,
-`` ` `` toggles bottom; `Esc` collapses the active panel (bottom defers when `TraceTimeline`
-is open). Per-company `localStorage` keys `hftr:{companyId}:panel:{left|bottom|right}` restore
-open state, active tab, and bottom **execution-engine** filter (`engineFilter`: `all` or
-`engine_instances.id`) on return visits. Legacy `moduleFilter` keys are ignored. Shortcuts are
-suppressed in editable fields.
+**Keyboard + persistence (shipped 2026-07-17, D-022; engine scope D-097; edge rails D-118):**
+`[` toggles left, `]` toggles right, `` ` `` toggles bottom; `Esc` collapses the active panel
+(bottom defers when `TraceTimeline` is open). **Edge toggles persist** at each panel’s window
+edge while expanded: left/right keep the vertical expand rail outside the panel body (no
+header `×`); bottom keeps a slim bottom-edge hide/show strip while the tab ribbon stays on
+top of the panel (D-113). Per-company `localStorage` keys `hftr:{companyId}:panel:{left|bottom|right}`
+restore open state, active tab, and bottom **execution-engine** filter (`engineFilter`: `all`
+or `engine_instances.id`) on return visits. Legacy `moduleFilter` keys are ignored. Shortcuts
+are suppressed in editable fields.
 
 ### LEFT — Research + Libraries + Market posture + Data
 - Tabs: **Research + Libraries** | **Market posture** | **Data sources** (D-081).
@@ -334,10 +337,12 @@ suppressed in editable fields.
   flow, library list with curation status.
 
 ### MIDDLE BOTTOM — Exploration + Analysis + Choice (the main control panel)
-- **Persistent ribbon (D-097 / D-113 / D-114):** collapsed view keeps tab buttons + engine
-  dropdown + chevron as a slim **bottom ribbon**. When expanded, that same chrome moves to the
-  **top** of the panel window (tabs above content); `` ` `` / Esc / chevron still toggle height.
-  Content defaults to **~70vh** (capped at 48rem, floor 16rem) below the top chrome (D-105).
+- **Persistent ribbon (D-097 / D-113 / D-114 / D-118):** collapsed view keeps tab buttons +
+  engine dropdown + chevron as a slim **bottom ribbon**. When expanded, **tabs + engine** stay
+  at the **top** of the panel; a separate **bottom-edge** strip holds only the hide/show
+  chevron (same screen area as the collapsed expand target); `` ` `` / Esc / edge chevron still
+  toggle height. Content defaults to **~70vh** (capped at 48rem, floor adjusted for the edge
+  strip) below the top chrome (D-105).
   **Multi-open panes (D-114 / D-117):** ribbon tabs toggle independently (`aria-pressed`); several
   condensed side-by-side panes can be open at once in a **horizontally scrollable** row
   (Trends, Scenarios, Watch, **Open positions**, **Policies**, Decisions, Lineage, Approvals,

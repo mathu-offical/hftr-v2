@@ -1214,6 +1214,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   the hide/show chevron; content height is reduced to account for the strip. Keyboard
   shortcuts unchanged (`[` / `]` / `` ` `` / Esc). Docs: ui-spec §4. **Status: implemented.**
 
+- **D-119 (activity `view=ledger` light path, 2026-07-18):** `GET …/activity` accepts
+  `?view=ledger|full` (default `full` for e2e/trace callers). Ledger view returns balance +
+  recent ledger only (skips action_traces + verification join). Company profile Desk/PnL and
+  right-panel ledger poll use `view=ledger` so desk open is not contended by heavy trace
+  scans under market-hub load. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

@@ -522,11 +522,37 @@ export function BottomPanel(props: {
     }
   };
 
-  const ribbon = (
+  const edgeToggle = (
+    <button
+      type="button"
+      onClick={() => setPanelOpen(!open)}
+      className={
+        open
+          ? 'w-full py-1 text-center text-[var(--color-ink-faint)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-ink)] disabled:cursor-not-allowed disabled:opacity-40'
+          : 'px-1 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)] disabled:cursor-not-allowed disabled:opacity-40'
+      }
+      disabled={!open && openTabs.length === 0}
+      aria-expanded={open}
+      aria-label={
+        open
+          ? 'Collapse bottom panel (keyboard shortcut backtick or Escape)'
+          : openTabs.length === 0
+            ? 'Open a ribbon tab to expand the bottom panel'
+            : 'Expand bottom panel (keyboard shortcut backtick)'
+      }
+      title={
+        open ? 'Collapse (` or Esc)' : openTabs.length === 0 ? 'Open a tab first' : 'Expand (`)'
+      }
+    >
+      {open ? '▼' : '▲'}
+    </button>
+  );
+
+  const tabRibbon = (
     <div
       className={`flex w-full items-stretch gap-2 bg-[var(--color-surface-1)] ${
         open
-          ? 'border-b border-t border-[var(--color-line)]'
+          ? 'border-b border-[var(--color-line)]'
           : 'border-t border-[var(--color-line)]'
       }`}
     >
@@ -560,30 +586,13 @@ export function BottomPanel(props: {
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          onClick={() => setPanelOpen(!open)}
-          className="text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-          disabled={!open && openTabs.length === 0}
-          aria-label={
-            open
-              ? 'Collapse bottom panel (keyboard shortcut backtick or Escape)'
-              : openTabs.length === 0
-                ? 'Open a ribbon tab to expand the bottom panel'
-                : 'Expand bottom panel (keyboard shortcut backtick)'
-          }
-          title={
-            open ? 'Collapse (` or Esc)' : openTabs.length === 0 ? 'Open a tab first' : 'Expand (`)'
-          }
-        >
-          {open ? '▼' : '▲'}
-        </button>
+        {!open ? edgeToggle : null}
       </div>
     </div>
   );
 
   if (!open) {
-    return <section className="shrink-0">{ribbon}</section>;
+    return <section className="shrink-0">{tabRibbon}</section>;
   }
 
   const orderedOpenTabs = TABS.map((t) => t.id).filter((id) => openTabs.includes(id));
@@ -591,8 +600,8 @@ export function BottomPanel(props: {
 
   return (
     <section className="flex shrink-0 flex-col bg-[var(--color-surface-1)]">
-      {ribbon}
-      <div className="flex h-[min(70vh,48rem)] min-h-[16rem] gap-2 overflow-x-auto overflow-y-hidden px-3 py-2 text-sm">
+      {tabRibbon}
+      <div className="flex h-[min(calc(70vh-1.75rem),calc(48rem-1.75rem))] min-h-[14.25rem] gap-2 overflow-x-auto overflow-y-hidden px-3 py-2 text-sm">
         {orderedOpenTabs.map((id) => {
           const meta = TABS.find((t) => t.id === id)!;
           const collapsed = collapsedPanes.includes(id);
@@ -689,6 +698,11 @@ export function BottomPanel(props: {
             </PaneShell>
           );
         })}
+      </div>
+
+      {/* D-118: hide/show control stays on the viewport bottom edge while tabs stay on top. */}
+      <div className="shrink-0 border-t border-[var(--color-line)] bg-[var(--color-surface-1)]">
+        {edgeToggle}
       </div>
 
       {openTraceId && (

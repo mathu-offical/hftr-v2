@@ -320,60 +320,57 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
   const sources = props.modules.filter((m) => m.type === 'live_api' || m.type === 'library');
   const nameOf = (id: string) => props.modules.find((m) => m.id === id)?.name ?? 'unknown';
 
-  if (!open) {
-    return (
+  // D-118: edge expand/collapse rail stays at the left window edge in both states.
+  return (
+    <div className="flex h-full min-h-0 shrink-0">
       <button
-        onClick={() => setOpen(true)}
-        aria-label="Expand left panel (keyboard shortcut [)"
-        title="Expand left panel ([)"
-        className="border-r border-[var(--color-line)] bg-[var(--color-surface-1)] px-1.5 text-[10px] tracking-widest text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={
+          open
+            ? 'Collapse left panel (keyboard shortcut [ or Escape)'
+            : 'Expand left panel (keyboard shortcut [)'
+        }
+        title={open ? 'Collapse ([ or Esc)' : 'Expand left panel ([)'}
+        className="shrink-0 border-r border-[var(--color-line)] bg-[var(--color-surface-1)] px-1.5 text-[10px] tracking-widest text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
         style={{ writingMode: 'vertical-rl' }}
       >
         RESEARCH · POSTURE · DATA · [
       </button>
-    );
-  }
 
-  return (
-    <aside className="flex h-full min-h-0 w-80 shrink-0 flex-col overflow-hidden border-r border-[var(--color-line)] bg-[var(--color-surface-1)]">
-      <div className="flex shrink-0 items-stretch justify-between gap-1 border-b border-[var(--color-line)]">
-        <PanelTabs
-          aria-label="Left panel sections"
-          className="min-w-0 flex-1"
-          value={tab}
-          onChange={setTab}
-          tabs={[
-            {
-              id: 'research',
-              label: 'Research',
-              title: 'Research + Libraries',
-              meta:
-                concepts.length + topics.length > 0
-                  ? String(concepts.length + topics.length)
-                  : undefined,
-            },
-            {
-              id: 'market_posture',
-              label: 'Posture',
-              title: 'Market posture',
-            },
-            {
-              id: 'data',
-              label: 'Data',
-              title: 'Data sources',
-              meta: sources.length > 0 ? String(sources.length) : undefined,
-            },
-          ]}
-        />
-        <button
-          onClick={() => setOpen(false)}
-          className="shrink-0 px-2 font-mono text-[11px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-          aria-label="Collapse left panel (keyboard shortcut [ or Escape)"
-          title="Collapse ([ or Esc)"
-        >
-          ×
-        </button>
-      </div>
+      {open ? (
+        <aside className="flex h-full min-h-0 w-80 shrink-0 flex-col overflow-hidden border-r border-[var(--color-line)] bg-[var(--color-surface-1)]">
+          <div className="flex shrink-0 items-stretch border-b border-[var(--color-line)]">
+            <PanelTabs
+              aria-label="Left panel sections"
+              className="min-w-0 flex-1"
+              value={tab}
+              onChange={setTab}
+              tabs={[
+                {
+                  id: 'research',
+                  label: 'Research',
+                  title: 'Research + Libraries',
+                  meta:
+                    concepts.length + topics.length > 0
+                      ? String(concepts.length + topics.length)
+                      : undefined,
+                },
+                {
+                  id: 'market_posture',
+                  label: 'Posture',
+                  title: 'Market posture',
+                },
+                {
+                  id: 'data',
+                  label: 'Data',
+                  title: 'Data sources',
+                  meta: sources.length > 0 ? String(sources.length) : undefined,
+                },
+              ]}
+            />
+          </div>
 
       {tab === 'research' ? (
         <>
@@ -672,7 +669,9 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
           )}
         </div>
       )}
-    </aside>
+        </aside>
+      ) : null}
+    </div>
   );
 }
 

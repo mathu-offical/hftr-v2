@@ -113,4 +113,14 @@ describe('MarketHubRefreshResponse', () => {
       }),
     ).toEqual({ enqueued: true, kind: 'library.system_movers' });
   });
+
+  it('parses optional drained summary', () => {
+    expect(
+      MarketHubRefreshResponse.parse({
+        enqueued: true,
+        kind: 'library.system_movers',
+        drained: { claimed: 1, completed: 1, failed: 0, deadlineHit: false },
+      }).drained,
+    ).toEqual({ claimed: 1, completed: 1, failed: 0, deadlineHit: false });
+  });
 });

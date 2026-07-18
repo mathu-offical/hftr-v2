@@ -161,7 +161,8 @@ export const MarketHubSources = z.object({
 export type MarketHubSources = z.infer<typeof MarketHubSources>;
 
 export const MarketHubResponse = z.object({
-  sectorFocuses: z.array(z.string().max(80)).max(24).default([]),
+  sectorFocuses: z.array(z.string().max(80)).max(64).default([]),
+  universeExcludes: z.array(z.string().max(12)).max(200).default([]),
   equity: MarketHubEquity,
   movers: MarketHubMovers,
   reports: z.array(MarketHubReportLink).max(24).default([]),
@@ -182,5 +183,14 @@ export type MarketHubResponse = z.infer<typeof MarketHubResponse>;
 export const MarketHubRefreshResponse = z.object({
   enqueued: z.boolean(),
   kind: z.literal('library.system_movers'),
+  drained: z
+    .object({
+      claimed: z.number().int().nonnegative(),
+      completed: z.number().int().nonnegative(),
+      failed: z.number().int().nonnegative(),
+      deadlineHit: z.boolean(),
+    })
+    .optional(),
+  drainError: z.string().optional(),
 });
 export type MarketHubRefreshResponse = z.infer<typeof MarketHubRefreshResponse>;

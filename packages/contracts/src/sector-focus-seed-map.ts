@@ -1,8 +1,15 @@
-import { SECTOR_FOCUS_PRESETS, type SectorFocusPreset } from './sector-focus';
+import {
+  SECTOR_FOCUS_PRESETS,
+  type SectorFocusGroupId,
+  type SectorFocusPreset,
+} from './sector-focus';
 
 /**
  * Maps company sector-focus presets → vendored `sector_seeds` catalog keys
  * (`sector-behavior-seed-catalog.json` coarse sectors + optional subsector ids).
+ *
+ * Shared sectorKey/subsectorKey across presets is intentional (D-106): overlaps
+ * are confirmation signals for early picks, not accidental duplication.
  */
 
 export type SectorSeedTarget = {
@@ -13,13 +20,15 @@ export type SectorSeedTarget = {
 };
 
 /** Preset group → primary sector_seeds sector key. */
-const GROUP_TO_SECTOR: Record<SectorFocusPreset['group'], string> = {
+const GROUP_TO_SECTOR: Record<SectorFocusGroupId, string> = {
   technology: 'technology',
   finance: 'financials',
   healthcare: 'health_care',
   energy: 'energy',
+  materials: 'materials',
   consumer: 'consumer_discretionary',
   industrial: 'industrials',
+  communication: 'communication_services',
   macro: 'real_estate',
   alt: 'crypto_equities_and_proxies',
 };
@@ -30,24 +39,32 @@ const PRESET_ID_OVERRIDES: Partial<Record<SectorFocusPreset['id'], SectorSeedTar
   ai_software: { sectorKey: 'technology', subsectorKey: 'software_infrastructure' },
   cloud_saas: { sectorKey: 'technology', subsectorKey: 'software_infrastructure' },
   cybersecurity: { sectorKey: 'technology', subsectorKey: 'cybersecurity' },
+  hardware_devices: { sectorKey: 'technology' },
   fintech_payments: { sectorKey: 'financials' },
   banks_financials: { sectorKey: 'financials' },
   insurance: { sectorKey: 'financials' },
+  asset_managers: { sectorKey: 'financials' },
   biotech_life_science: { sectorKey: 'health_care' },
   pharma: { sectorKey: 'health_care' },
   healthcare_providers: { sectorKey: 'health_care' },
+  healthcare_tech: { sectorKey: 'health_care' },
   clean_energy: { sectorKey: 'utilities' },
   oil_gas: { sectorKey: 'energy' },
   commodities_ag: { sectorKey: 'materials' },
   climate_carbon: { sectorKey: 'utilities' },
+  energy_midstream: { sectorKey: 'energy' },
+  specialty_chemicals: { sectorKey: 'materials' },
   consumer_discretionary: { sectorKey: 'consumer_discretionary' },
   consumer_staples: { sectorKey: 'consumer_staples' },
   ecommerce_retail: { sectorKey: 'consumer_discretionary' },
+  travel_leisure: { sectorKey: 'consumer_discretionary' },
   media_entertainment: { sectorKey: 'communication_services' },
+  internet_platforms: { sectorKey: 'communication_services' },
   industrials: { sectorKey: 'industrials' },
   aerospace_defense: { sectorKey: 'industrials' },
   automotive_ev: { sectorKey: 'industrials' },
   transport_logistics: { sectorKey: 'industrials' },
+  construction_infra: { sectorKey: 'industrials' },
   materials_mining: { sectorKey: 'materials' },
   real_estate_reits: { sectorKey: 'real_estate' },
   telecom: { sectorKey: 'communication_services' },

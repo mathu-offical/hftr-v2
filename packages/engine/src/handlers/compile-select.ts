@@ -35,7 +35,7 @@ import {
   resolveRiskPerTradePct,
 } from '../pipeline/lever-resolver';
 import {
-  loadCompanyOpenPositionRisks,
+  loadCompanyOpenPositionRisksWithAtr,
   projectHeatAfterEntry,
   sumOpenRiskCents,
 } from '../pipeline/portfolio-heat';
@@ -311,7 +311,11 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
     atrMultiplier,
   });
 
-  const openRows = await loadCompanyOpenPositionRisks(db, payload.companyId);
+  const openRows = await loadCompanyOpenPositionRisksWithAtr(
+    db,
+    clock,
+    payload.companyId,
+  );
   const existingOpenRiskCents = sumOpenRiskCents(openRows, atrMultiplier);
   const { equityCents } = await resolveEquityCentsForLimits(db, payload.companyId, budgetCents);
   const heatCapPct = resolvePortfolioHeatCapPct(leverState);
@@ -322,6 +326,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
     atrMultiplier,
     equityCents,
     heatCapPct,
+    entryAtrCents: atrCents,
   });
   if (heatProjection.exceeds) {
     await db.insert(compileEvents).values({

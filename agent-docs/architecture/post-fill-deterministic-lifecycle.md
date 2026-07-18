@@ -5,9 +5,10 @@
 Linked: D-124 (polarization sizing), D-125 (heat + trail + weighted valves),
 D-126 shorthand for POV plan / training_feedback / atr_stream / fees (see
 post-fill workstream; research-topics also uses D-126), D-129 (POV drain +
-positions/exits), D-134 (control_snapshots persist + atr_stream maintenance +
-time-spaced child drain), `product-spec.md` §Trading modules, `data-model.md`
-jobs, `seeded-strategy-catalog.json` bands, `academic-quant-tool-catalog.md`.
+positions/exits), D-134 (control_snapshots + atr_stream maintenance +
+time-spaced child drain), D-135 (heat atr_stream + mid-drain partial traces),
+`product-spec.md` §Trading modules, `data-model.md` jobs,
+`seeded-strategy-catalog.json` bands, `academic-quant-tool-catalog.md`.
 
 ## 1. Scope and boundaries
 
@@ -123,6 +124,5 @@ on handoff envelopes for operator lineage and future IS trajectory realignment
 
 ## 10. Open follow-ons
 
-- Portfolio-heat compile path prefer live `atr_stream` over synthetic
-- Credentialed Alpaca soak for atr_stream refresh
-- Trace `partial` rows mid-drain (today: one filled trace on last slice)
+- Credentialed Alpaca soak for atr_stream refresh (needs company.brokerConnectionId)
+- Wire mid-drain ledger `traceId` to partial traces (fills attach today; ledger rows still null until final fee)

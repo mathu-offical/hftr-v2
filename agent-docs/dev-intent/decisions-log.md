@@ -1297,6 +1297,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Plan: `docs/superpowers/plans/2026-07-18-internal-paper-trade-engine.md`.
   **Status: implementing (Phase 4 done; Phase 5 — InternalPaperCore unify + UI binding).**
 
+- **D-135 (heat atr_stream + mid-drain partial traces, 2026-07-18):** Compile portfolio
+  heat prefers `resolveAtrCents` per open position (`loadCompanyOpenPositionRisksWithAtr`)
+  and passes `entryAtrCents` into `projectHeatAfterEntry`. Time-spaced child drain appends
+  `action_traces` with `outcome: 'partial'` + `time_spaced_drain_in_progress` after each
+  non-final slice; final slice still writes `filled`. Migration **0044** applied on Neon.
+  Docs: post-fill-deterministic-lifecycle.md. **Status: implemented (paper).**
+
 - **D-134 (control_snapshots + atr_stream cadence + time-spaced drain, 2026-07-18):**
   Closes D-129 follow-ons. (1) Admitted promote + successful compile persist
   append-only `control_snapshots` rows; compile sets non-null

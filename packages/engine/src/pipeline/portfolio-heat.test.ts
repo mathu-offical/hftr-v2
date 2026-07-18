@@ -28,6 +28,23 @@ describe('portfolio-heat', () => {
     expect(portfolioHeatPct(4_000, 100_000n)).toBe(4);
   });
 
+  it('uses provided atrCents instead of synthetic', () => {
+    // atr 200 × 2.25 = 450; qty 10 → 4500 (vs synthetic 1120)
+    expect(computePositionOpenRiskCents(10n, 10_000, 2.25, 200)).toBe(4_500);
+  });
+
+  it('sums with per-row atrCents', () => {
+    expect(
+      sumOpenRiskCents(
+        [
+          { qty: 10n, avgCostCents: 10_000, atrCents: 100 },
+          { qty: 5n, avgCostCents: 10_000 },
+        ],
+        2.25,
+      ),
+    ).toBe(10 * 225 + 560);
+  });
+
   it('blocks entry when projected heat exceeds cap', () => {
     const result = projectHeatAfterEntry({
       existingOpenRiskCents: 7_000,
@@ -40,6 +57,21 @@ describe('portfolio-heat', () => {
     // entry risk = 20 * 112 = 2240 → projected 9240 → 9.24% > 8
     expect(result.exceeds).toBe(true);
     expect(result.projectedHeatPct).toBeGreaterThan(8);
+  });
+
+  it('uses entryAtrCents for candidate risk', () => {
+    const withStream = projectHeatAfterEntry({
+      existingOpenRiskCents: 0,
+      entryQty: 10,
+      entryPriceCents: 10_000,
+      atrMultiplier: 2.25,
+      equityCents: 100_000n,
+      heatCapPct: 8,
+      entryAtrCents: 200,
+    });
+    // 10 * 450 = 4500 → 4.5%
+    expect(withStream.projectedOpenRiskCents).toBe(4_500);
+    expect(withStream.exceeds).toBe(false);
   });
 
   it('admits entry when projected heat stays under cap', () => {

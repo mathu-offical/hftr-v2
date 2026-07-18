@@ -1,11 +1,14 @@
 /**
  * Portfolio heat (Grinold & Kahn open-risk budget).
  * Model-free: sum open ATR-risk dollars vs equity × catalog heat band %.
+ * Prefer atr_stream / bars via resolveAtrCents; synthetic only as fallback.
  */
 
 import { and, eq, gt } from 'drizzle-orm';
 import type { Db } from '@hftr/db';
 import { positions } from '@hftr/db/schema';
+import type { Clock } from '../clock';
+import { resolveAtrCents } from '../calc/resolve-atr';
 import {
   riskDistanceCents,
   syntheticAtrCents,
@@ -14,6 +17,9 @@ import {
 export interface OpenPositionRiskInput {
   qty: bigint;
   avgCostCents: number;
+  /** When set, used instead of synthetic ATR for open-risk geometry. */
+  atrCents?: number;
+  symbol?: string;
 }
 
 /** Per-position open risk in cents = qty × (ATR × atr_mult). */
@@ -32,14 +38,19 @@ export function computePositionOpenRiskCents(
   return Math.floor(n * riskPerShare);
 }
 
-/** Sum open risk across positions. */
+/** Sum open risk across positions (honors per-row atrCents when present). */
 export function sumOpenRiskCents(
   rows: OpenPositionRiskInput[],
   atrMultiplier: number,
 ): number {
   let total = 0;
   for (const row of rows) {
-    total += computePositionOpenRiskCents(row.qty, row.avgCostCents, atrMultiplier);
+    total += computePositionOpenRiskCents(
+      row.qty,
+      row.avgCostCents,
+      atrMultiplier,
+      row.atrCents,
+    );
   }
   return total;
 }
@@ -63,6 +74,8 @@ export function projectHeatAfterEntry(args: {
   atrMultiplier: number;
   equityCents: bigint;
   heatCapPct: number;
+  /** Prefer live/stream ATR for the candidate entry when known. */
+  entryAtrCents?: number;
 }): {
   projectedOpenRiskCents: number;
   projectedHeatPct: number;
@@ -72,6 +85,7 @@ export function projectHeatAfterEntry(args: {
     BigInt(Math.max(0, Math.floor(args.entryQty))),
     args.entryPriceCents,
     args.atrMultiplier,
+    args.entryAtrCents,
   );
   const projectedOpenRiskCents = args.existingOpenRiskCents + entryRisk;
   const projectedHeatPct = portfolioHeatPct(projectedOpenRiskCents, args.equityCents);
@@ -84,7 +98,7 @@ export function projectHeatAfterEntry(args: {
   };
 }
 
-/** Load company open positions for heat accounting. */
+/** Load company open positions for heat accounting (qty + cost only). */
 export async function loadCompanyOpenPositionRisks(
   db: Db,
   companyId: string,
@@ -93,8 +107,42 @@ export async function loadCompanyOpenPositionRisks(
     .select({
       qty: positions.qty,
       avgCostCents: positions.avgCostCents,
+      symbol: positions.symbol,
     })
     .from(positions)
     .where(and(eq(positions.companyId, companyId), gt(positions.qty, 0n)));
-  return rows.map((r) => ({ qty: r.qty, avgCostCents: r.avgCostCents }));
+  return rows.map((r) => ({
+    qty: r.qty,
+    avgCostCents: r.avgCostCents,
+    symbol: r.symbol,
+  }));
+}
+
+/**
+ * Load open positions and attach atr_stream (or bars/synthetic) per symbol
+ * via resolveAtrCents. Used by compile heat gate so live ATR is preferred.
+ */
+export async function loadCompanyOpenPositionRisksWithAtr(
+  db: Db,
+  clock: Clock,
+  companyId: string,
+): Promise<OpenPositionRiskInput[]> {
+  const rows = await loadCompanyOpenPositionRisks(db, companyId);
+  const out: OpenPositionRiskInput[] = [];
+  for (const row of rows) {
+    const symbol = row.symbol ?? 'UNKNOWN';
+    try {
+      const { atrCents } = await resolveAtrCents({
+        db,
+        clock,
+        symbol,
+        markCents: row.avgCostCents,
+        companyId,
+      });
+      out.push({ ...row, atrCents });
+    } catch {
+      out.push(row);
+    }
+  }
+  return out;
 }

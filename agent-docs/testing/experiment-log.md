@@ -198,3 +198,16 @@ Scoring: `intent-alignment-scoring.md`
 | System fixes | Commits `3b87fa4` snapshots, `cd4b377` atr_stream, `42f406c`+`b5f9bd7` time-spaced drain (**0044**) |
 | Alignment | **aligned** for paper engine; apply migration **0044** before runtime drains |
 | Decisions | D-134 |
+
+---
+
+## EXP-2026-07-18-006 — Heat atr_stream + mid-drain partials + 0044 apply
+
+| Field | Value |
+|---|---|
+| Status | pass (unit + migrate); atr soak blocked |
+| Mode | paper only |
+| Hypothesis | Heat gate + drain observability close remaining D-134 follow-ons without live keys |
+| Observed | Migration **0044** applied on Neon; portfolio-heat uses per-position ATR; mid-drain writes `partial` traces; atr soak: open positions exist but **no** `companies.brokerConnectionId` → refresh skipped (fail-open) |
+| Alignment | **aligned** for heat/partials; atr_stream live bars need broker-bound company |
+| Decisions | D-135 |

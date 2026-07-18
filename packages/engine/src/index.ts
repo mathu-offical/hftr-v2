@@ -545,6 +545,7 @@ export {
   portfolioHeatPct,
   projectHeatAfterEntry,
   loadCompanyOpenPositionRisks,
+  loadCompanyOpenPositionRisksWithAtr,
 } from './pipeline/portfolio-heat';
 export {
   blendValveDrivers,

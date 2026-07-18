@@ -71,6 +71,8 @@ export function childDrainGapTags(args: {
   usedLiveMarketQuote: boolean;
   routingMode: PaperRoutingMode;
   shadowVerifyAttempted?: boolean;
+  /** Mid-drain append-only partial traces. */
+  inProgress?: boolean;
 }): string[] {
   const tags = [
     args.usedLiveMarketQuote ? 'live_market_quote' : 'synthetic_quote',
@@ -79,6 +81,9 @@ export function childDrainGapTags(args: {
     'child_slice_drain',
     'time_spaced_child_drain',
   ];
+  if (args.inProgress) {
+    tags.push('time_spaced_drain_in_progress');
+  }
   switch (args.routingMode) {
     case 'funds_only':
       tags.push('funds_only_routing');
@@ -155,6 +160,43 @@ async function applySliceFillAndLedger(
         : `buy ${qty} ${args.symbol} @ ${args.venue} child slice ${args.fill.sliceIndex}`,
   });
   return balanceAfter;
+}
+
+async function writePartialDrainTrace(
+  db: Db,
+  state: ChildDrainState,
+  taskId: string,
+): Promise<string> {
+  const fillRecords = state.fills.map((f) => ({
+    qtyInt: f.qtyInt,
+    qtyScale: f.qtyScale,
+    priceCents: f.priceCents,
+    atRef: f.atRef,
+    sliceIndex: f.sliceIndex,
+    childVenueOrderId: f.venueOrderId,
+  }));
+  const rows = await db
+    .insert(actionTraces)
+    .values({
+      taskId,
+      companyId: state.companyId,
+      moduleId: state.moduleId,
+      venue: state.venue,
+      mode: 'paper',
+      outcome: 'partial',
+      fills: fillRecords,
+      simulatorGapTags: childDrainGapTags({
+        usedLiveMarketQuote: state.usedLiveMarketQuote,
+        routingMode: state.routingMode,
+        shadowVerifyAttempted: state.shadowVerify === true,
+        inProgress: true,
+      }),
+      sessionLegalitySnapshot: state.sessionSnapshot,
+      policyEnvelopeVersion: POLICY_ENVELOPE_VERSION,
+      failureCode: null,
+    })
+    .returning({ id: actionTraces.id });
+  return rows[0]!.id;
 }
 
 async function finalizeTimeSpacedChildDrain(
@@ -393,16 +435,25 @@ export async function startTimeSpacedChildDrain(
     .where(eq(deterministicTasks.id, ctx.taskId));
 
   if (ctx.slices.length > 1) {
+    await writePartialDrainTrace(db, drainState, ctx.taskId);
     await enqueueNextChildSlice(db, clock, drainState, ctx.taskId, 1);
+  } else {
+    const traceId = await finalizeTimeSpacedChildDrain(db, clock, drainState, ctx.taskId);
+    return {
+      outcome: 'filled',
+      failureCode: null,
+      detail: 'child slice drain complete (single slice)',
+      traceId,
+      fillPriceCents: fill0.priceCents,
+      notionalCents: Number(fill0.qtyInt) * fill0.priceCents,
+      balanceAfterCents: (await getCompanyBalanceCents(db, req.companyId)).toString(),
+    };
   }
 
   return {
     outcome: 'filled',
     failureCode: null,
-    detail:
-      ctx.slices.length > 1
-        ? 'child slice drain started; remaining slices enqueued'
-        : 'child slice drain complete (single slice)',
+    detail: 'child slice drain started; remaining slices enqueued',
     traceId: null,
     fillPriceCents: fill0.priceCents,
     notionalCents: Number(fill0.qtyInt) * fill0.priceCents,
@@ -473,5 +524,6 @@ export async function executePaperTradeChildSlice(
     .set({ drainState: nextState, updatedAt: new Date(clock.nowMs()) })
     .where(eq(deterministicTasks.id, payload.taskId));
 
+  await writePartialDrainTrace(db, nextState, payload.taskId);
   await enqueueNextChildSlice(db, clock, nextState, payload.taskId, sliceIndex + 1);
 }

@@ -92,7 +92,12 @@ test.describe('Research articles (D-127)', () => {
     expect(verifyRes.ok()).toBeTruthy();
 
     await page.goto(`/companies/${companyId}`);
-    await page.getByRole('button', { name: /Expand left panel/ }).click();
+    await page.keyboard.press('Escape').catch(() => undefined);
+    await page
+      .locator('nextjs-portal')
+      .evaluateAll((nodes) => nodes.forEach((n) => n.remove()))
+      .catch(() => undefined);
+    await page.getByRole('button', { name: /Expand left panel/ }).click({ force: true });
     await expect(page.getByTestId('research-articles-panel')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId(`research-article-${submitBody.conceptId}`)).toBeVisible({
       timeout: 15_000,
@@ -102,10 +107,24 @@ test.describe('Research articles (D-127)', () => {
     );
     await expect(page.getByTestId('research-submit-article')).toBeVisible();
 
+    // Soft-refresh shell so the API-created runtime library appears in the dock.
+    await page.reload();
+    await page.keyboard.press('Escape').catch(() => undefined);
+    await page
+      .locator('nextjs-portal')
+      .evaluateAll((nodes) => nodes.forEach((n) => n.remove()))
+      .catch(() => undefined);
+    const expand = page.getByRole('button', { name: /Expand left panel/ });
+    if (await expand.isVisible().catch(() => false)) {
+      await expand.click({ force: true });
+    }
     const dockCard = page.getByTestId('research-libraries-dock-card');
     if (await dockCard.isVisible().catch(() => false)) {
-      await dockCard.click();
+      await dockCard.click({ force: true });
     }
+    const runtimeShelf = page.getByText('Runtime (user / engine)', { exact: true });
+    await expect(runtimeShelf).toBeVisible({ timeout: 20_000 });
+    await runtimeShelf.click({ force: true });
     await expect(page.getByTestId(`library-librarian-actions-${library.id}`)).toBeVisible({
       timeout: 15_000,
     });

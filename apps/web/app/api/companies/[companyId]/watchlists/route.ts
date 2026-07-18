@@ -1,5 +1,6 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
+import { WatchlistItemStatus, type WatchlistItemStatus as WatchlistStatus } from '@hftr/contracts';
 import { scoping } from '@hftr/db';
 import { modules, watchlistItems } from '@hftr/db/schema';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
@@ -21,11 +22,24 @@ const CreateWatchlistItemInput = z.object({
   note: z.string().max(500).default(''),
 });
 
-export async function GET(_req: Request, ctx: Ctx) {
+export async function GET(req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
     const { companyId } = Params.parse(await ctx.params);
     await scoping.getOwnedCompany(db, clerkUserId, companyId);
-    const items = await db
+    const url = new URL(req.url);
+    const statusParam = url.searchParams.get('status');
+    const statuses: WatchlistStatus[] =
+      statusParam && statusParam !== 'all'
+        ? statusParam
+            .split(',')
+            .map((s) => s.trim())
+            .flatMap((s) => {
+              const parsed = WatchlistItemStatus.safeParse(s);
+              return parsed.success ? [parsed.data] : [];
+            })
+        : [];
+
+    const rows = await db
       .select({
         id: watchlistItems.id,
         moduleId: watchlistItems.moduleId,
@@ -39,10 +53,15 @@ export async function GET(_req: Request, ctx: Ctx) {
       })
       .from(watchlistItems)
       .innerJoin(modules, eq(modules.id, watchlistItems.moduleId))
-      .where(eq(watchlistItems.companyId, companyId))
+      .where(
+        statuses.length > 0
+          ? and(eq(watchlistItems.companyId, companyId), inArray(watchlistItems.status, statuses))
+          : eq(watchlistItems.companyId, companyId),
+      )
       .orderBy(desc(watchlistItems.updatedAt))
       .limit(200);
-    return { items };
+
+    return { items: rows };
   });
 }
 
@@ -54,6 +73,7 @@ export async function POST(req: Request, ctx: Ctx) {
     if (module_.type !== 'trading' && module_.type !== 'trend') {
       throw new ApiError(422, 'module_type_not_watchable');
     }
+
     const rows = await db
       .insert(watchlistItems)
       .values({
@@ -62,12 +82,15 @@ export async function POST(req: Request, ctx: Ctx) {
         symbol: input.symbol,
         bias: input.bias,
         note: input.note,
+        sourceClass: 'operator',
+        status: 'watching',
       })
       .onConflictDoUpdate({
         target: [watchlistItems.moduleId, watchlistItems.symbol],
         set: {
           bias: input.bias,
           note: input.note,
+          sourceClass: 'operator',
           status: 'watching',
           updatedAt: new Date(),
         },

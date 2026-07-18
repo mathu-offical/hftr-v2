@@ -5,6 +5,7 @@ import {
   CompileSelectionOutput,
   ConceptBatch,
   ResearchDirective,
+  SuggestionThresholdProfile,
   TreeExpandOutput,
   type TemporalOrientation,
 } from '@hftr/contracts';
@@ -14,6 +15,7 @@ import type {
   CompileSelectionInput,
   ModelGateway,
   ResearchSynthesizeInput,
+  SuggestionThresholdProposeInput,
   TreeExpandInput,
 } from '@hftr/engine';
 import { buildOrientation, createSystemClock } from '@hftr/engine';
@@ -96,6 +98,11 @@ export function createOwnerScopedModelGateway(db: Db): ModelGateway {
       const ownerId = await resolveCompanyOwnerClerkUserId(db, input.companyId);
       if (!ownerId) return missingOwner();
       return createWebModelGateway(db, ownerId).compileSelection(input);
+    },
+    async proposeSuggestionThresholds(input) {
+      const ownerId = await resolveCompanyOwnerClerkUserId(db, input.companyId);
+      if (!ownerId) return missingOwner();
+      return createWebModelGateway(db, ownerId).proposeSuggestionThresholds(input);
     },
   };
 }
@@ -290,6 +297,67 @@ export function createWebModelGateway(db: Db, clerkUserId: string): ModelGateway
 
       const output = CompileSelectionOutput.parse(outcome.output);
       return { ok: true as const, output };
+    },
+
+    async proposeSuggestionThresholds(input: SuggestionThresholdProposeInput) {
+      const policy = await loadCompanyPolicy(db, clerkUserId, input.companyId);
+      const orientation = await loadOrientation(db);
+
+      const directive = {
+        philosophyAxisLabels: input.philosophyAxisLabels,
+        libraryLensTitles: input.libraryLensTitles.slice(0, 24),
+        sectorFocuses: input.sectorFocuses.slice(0, 12),
+        lanePresence: input.lanePresence,
+        sessionPhase: input.sessionPhase,
+        priorProfileNote: input.priorProfileNote ?? 'none',
+      };
+
+      const systemPrompt = promptForId('suggestion_threshold_profile.v1');
+      if (!systemPrompt) {
+        return { ok: false as const, failure: 'prompt_missing' };
+      }
+
+      const jsonSchema = jsonSchemaForRef(SCHEMA_REFS.suggestionThresholdProfile);
+      const idempotencyKey = createHash('sha256')
+        .update(
+          JSON.stringify({
+            tier: 'tactical',
+            schema: SCHEMA_REFS.suggestionThresholdProfile,
+            companyId: input.companyId,
+            moduleId: input.moduleId,
+            directive,
+          }),
+        )
+        .digest('hex')
+        .slice(0, 32);
+
+      const outcome = await callSchema({
+        db,
+        clerkUserId,
+        companyPolicy: policy,
+        request: {
+          tier: 'tactical',
+          schemaRef: SCHEMA_REFS.suggestionThresholdProfile,
+          systemPromptId: 'suggestion_threshold_profile.v1',
+          promptVersion: '1',
+          input: directive,
+          orientation,
+          companyId: input.companyId,
+          moduleId: input.moduleId,
+          jobId: input.jobId,
+          idempotencyKey,
+        },
+        outputSchema: SuggestionThresholdProfile,
+        systemPrompt,
+        ...(jsonSchema !== undefined ? { jsonSchema } : {}),
+      });
+
+      if (!outcome.ok || outcome.output === null) {
+        return { ok: false as const, failure: outcome.failure ?? 'provider_error' };
+      }
+
+      const profile = SuggestionThresholdProfile.parse(outcome.output);
+      return { ok: true as const, profile };
     },
   };
 }

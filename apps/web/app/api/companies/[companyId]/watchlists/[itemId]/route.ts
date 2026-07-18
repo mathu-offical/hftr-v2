@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { WatchlistItemStatus } from '@hftr/contracts';
 import { NotFoundError, scoping } from '@hftr/db';
 import { watchlistItems } from '@hftr/db/schema';
 import { parseBody, withAuth } from '@/lib/api';
@@ -12,7 +13,8 @@ type Ctx = { params: Promise<{ companyId: string; itemId: string }> };
 const UpdateWatchlistItemInput = z.object({
   bias: z.enum(['long', 'short', 'neutral']).optional(),
   note: z.string().max(500).optional(),
-  status: z.enum(['watching', 'triggered', 'archived']).optional(),
+  /** Confirm suggestion → watching, or archive / triggered. */
+  status: WatchlistItemStatus.optional(),
 });
 
 export async function PATCH(req: Request, ctx: Ctx) {
@@ -24,7 +26,13 @@ export async function PATCH(req: Request, ctx: Ctx) {
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     if (input.bias !== undefined) patch.bias = input.bias;
     if (input.note !== undefined) patch.note = input.note;
-    if (input.status !== undefined) patch.status = input.status;
+    if (input.status !== undefined) {
+      patch.status = input.status;
+      // Operator confirm / explicit status change claims ownership.
+      if (input.status === 'watching') {
+        patch.sourceClass = 'operator';
+      }
+    }
 
     const rows = await db
       .update(watchlistItems)

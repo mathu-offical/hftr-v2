@@ -31,8 +31,17 @@ export const FAMILY_LABELS: Record<ModuleFamily, string> = {
   control: 'Control',
 };
 
-/** Rudimentary card silhouette for fund / data-source families (D-068). */
-export type FamilyShapeKind = 'vault' | 'library' | 'live_feed';
+/** Rudimentary card silhouette for fund / data-source / agent families (D-068 / D-109). */
+export type FamilyShapeKind =
+  | 'vault'
+  | 'library'
+  | 'live_feed'
+  | 'research'
+  | 'librarian'
+  | 'trend'
+  | 'trading'
+  | 'analyzer'
+  | 'policy';
 
 export type ModuleVisual = {
   label: string;
@@ -58,6 +67,7 @@ export const MODULE_VISUALS: Record<ModuleType, ModuleVisual> = {
     borderStyle: 'solid',
     accent: 'bar',
     wash: 'rgba(122, 162, 247, 0.06)',
+    shape: 'research',
   },
   librarian: {
     label: 'Librarian',
@@ -67,6 +77,7 @@ export const MODULE_VISUALS: Record<ModuleType, ModuleVisual> = {
     borderStyle: 'solid',
     accent: 'bar',
     wash: 'rgba(137, 180, 250, 0.06)',
+    shape: 'librarian',
   },
   library: {
     label: 'Library',
@@ -123,6 +134,7 @@ export const MODULE_VISUALS: Record<ModuleType, ModuleVisual> = {
     borderStyle: 'solid',
     accent: 'bar',
     wash: 'rgba(42, 195, 222, 0.06)',
+    shape: 'analyzer',
   },
   trend: {
     label: 'Trend',
@@ -132,6 +144,7 @@ export const MODULE_VISUALS: Record<ModuleType, ModuleVisual> = {
     borderStyle: 'solid',
     accent: 'bar',
     wash: 'rgba(224, 175, 104, 0.07)',
+    shape: 'trend',
   },
   trading: {
     label: 'Trading',
@@ -141,6 +154,7 @@ export const MODULE_VISUALS: Record<ModuleType, ModuleVisual> = {
     borderStyle: 'solid',
     accent: 'bar',
     wash: 'rgba(247, 118, 142, 0.07)',
+    shape: 'trading',
   },
   simulator: {
     label: 'Simulator',
@@ -188,6 +202,7 @@ export const MODULE_VISUALS: Record<ModuleType, ModuleVisual> = {
     borderStyle: 'solid',
     accent: 'stripe',
     wash: 'rgba(169, 177, 214, 0.08)',
+    shape: 'policy',
   },
   display: {
     label: 'Display',
@@ -254,7 +269,12 @@ export const LINK_PORT_VISUALS: Record<
  * Role-specific port label for the nature of data on that bus.
  * LinkKind remains the connection contract; labels are presentation-only.
  */
-export function portRoleLabel(type: ModuleType, kind: LinkKind, direction: 'in' | 'out'): string {
+export function portRoleLabel(
+  type: ModuleType,
+  kind: LinkKind,
+  direction: 'in' | 'out',
+  config?: Record<string, unknown> | null,
+): string {
   const base = LINK_PORT_VISUALS[kind].label;
   switch (kind) {
     case 'data_feed': {
@@ -269,7 +289,14 @@ export function portRoleLabel(type: ModuleType, kind: LinkKind, direction: 'in' 
       if (type === 'time') {
         return direction === 'out' ? 'Time bus' : 'Authority in';
       }
-      if (type === 'analyzer') return direction === 'out' ? 'Analysis' : 'Observe';
+      if (type === 'analyzer') {
+        if (direction === 'in') return 'Observe';
+        const emit = config?.emitMode;
+        if (emit === 'verify_loopback') return 'ExecMon';
+        if (emit === 'to_desk_stream') return 'Desk out';
+        if (emit === 'to_library') return 'Lib write';
+        return 'Analysis';
+      }
       if (type === 'simulator') return direction === 'out' ? 'Sim data' : 'Sim in';
       if (type === 'generator') return 'Generated';
       if (type === 'display') return direction === 'in' ? 'Display in' : 'Display out';
@@ -377,6 +404,51 @@ export function moduleSubtypeChip(
       const kind = cfg.displayKind;
       if (typeof kind === 'string' && kind.trim()) {
         return humanizeToken(kind);
+      }
+      break;
+    }
+    case 'trend': {
+      const posture = cfg.trendPosture;
+      if (typeof posture === 'string' && posture.trim()) {
+        return humanizeToken(posture);
+      }
+      break;
+    }
+    case 'analyzer': {
+      const emitMode = cfg.emitMode;
+      if (emitMode === 'verify_loopback') return 'Exec monitor';
+      if (emitMode === 'to_desk_stream') return 'Desk stream';
+      if (emitMode === 'to_library') return 'To library';
+      if (typeof emitMode === 'string' && emitMode.trim()) {
+        return humanizeToken(emitMode);
+      }
+      break;
+    }
+    case 'policy': {
+      const envelope = cfg.policyEnvelopeRef;
+      if (typeof envelope === 'string' && envelope.trim()) {
+        return humanizeToken(envelope.replace(/_v\d+$/i, '').slice(0, 28));
+      }
+      break;
+    }
+    case 'holding_fund': {
+      const source = cfg.source;
+      if (typeof source === 'string' && source.trim()) {
+        return humanizeToken(source);
+      }
+      break;
+    }
+    case 'fund_router': {
+      const mode = cfg.approvalMode;
+      if (typeof mode === 'string' && mode.trim()) {
+        return humanizeToken(mode);
+      }
+      break;
+    }
+    case 'simulator':
+    case 'generator': {
+      if (generatedNameBase && generatedNameBase !== MODULE_VISUALS[type].label) {
+        return generatedNameBase;
       }
       break;
     }

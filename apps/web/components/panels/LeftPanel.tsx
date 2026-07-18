@@ -68,7 +68,7 @@ interface ConceptRow {
   title: string;
   body: string;
   tags: string[];
-  sourceClass: 'deterministic_placeholder' | 'model_generated' | 'operator';
+  sourceClass: 'catalog_seed' | 'deterministic_placeholder' | 'model_generated' | 'operator';
   sourceRef: string;
   status: string;
   createdAt: string;

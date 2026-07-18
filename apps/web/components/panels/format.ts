@@ -63,6 +63,8 @@ export function snippet(text: string, max = 140): string {
 /** Text-first provenance chip styling for concept/artifact source classes. */
 export function provenanceChip(sourceClass: string): { label: string; color: string } {
   switch (sourceClass) {
+    case 'catalog_seed':
+      return { label: 'catalog', color: 'var(--color-ok)' };
     case 'deterministic_placeholder':
       return { label: 'placeholder', color: 'var(--color-warn)' };
     case 'model_generated':

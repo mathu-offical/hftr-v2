@@ -208,7 +208,10 @@ async function main() {
 
   // Bottom rail first (posture overlay is full-bleed and covers Trends).
   await expandBottom(page);
-  const execTab = page.getByRole('tab', { name: 'Executions' });
+  const bottomTabs = page.getByRole('tablist', { name: 'Bottom panel sections' });
+  const rightTabs = page.getByRole('tablist', { name: 'Info panel sections' });
+
+  const execTab = rightTabs.getByRole('tab', { name: 'Executions' });
   if (await execTab.isVisible({ timeout: 60_000 }).catch(() => false)) {
     await execTab.click();
     await page.waitForTimeout(1200);
@@ -219,21 +222,44 @@ async function main() {
       .catch(() => false);
     note('ui_executions', execVisible);
   } else {
-    note('ui_executions', false, 'Executions tab missing');
+    // Right panel may be collapsed — expand via ]
+    const expandRight = page.getByRole('button', { name: /Expand info panel/ });
+    if (await expandRight.isVisible().catch(() => false)) await expandRight.click();
+    await page.waitForTimeout(400);
+    if (await execTab.isVisible().catch(() => false)) {
+      await execTab.click();
+      await page.waitForTimeout(800);
+      note(
+        'ui_executions',
+        await page.getByText(/filled|No executions|MSFT|AAPL|paper/i).first().isVisible().catch(() => false),
+      );
+    } else {
+      note('ui_executions', false, 'Executions tab missing');
+    }
   }
 
-  const trendsTabBtn = page.getByRole('tab', { name: 'Trends' });
+  const trendsTabBtn = bottomTabs.getByRole('tab', { name: 'Trends' });
   if (await trendsTabBtn.isVisible({ timeout: 30_000 }).catch(() => false)) {
     await trendsTabBtn.click();
     await page.waitForTimeout(1000);
     const trendsTab = await page
-      .getByText(/Trend lists|Promote|MSFT|No trends/i)
+      .getByText(/Trend lists|Promote|MSFT|No trends|candidate/i)
       .first()
       .isVisible({ timeout: 20_000 })
       .catch(() => false);
     note('ui_trends', trendsTab);
   } else {
-    note('ui_trends', false, 'Trends tab missing');
+    await page.keyboard.press('`');
+    await page.waitForTimeout(500);
+    if (await trendsTabBtn.isVisible().catch(() => false)) {
+      await trendsTabBtn.click();
+      note(
+        'ui_trends',
+        await page.getByText(/Trend lists|Promote|MSFT|No trends|candidate/i).first().isVisible().catch(() => false),
+      );
+    } else {
+      note('ui_trends', false, 'Trends tab missing');
+    }
   }
 
   // Left: Posture (tabs only exist after left rail expands)

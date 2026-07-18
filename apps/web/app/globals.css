@@ -15,6 +15,9 @@
   --color-ok: #3ecf8e;
   --color-warn: #e6b450;
   --color-block: #e5645f;
+  /* Relevance strength (non-held SymbolTicker ticks) — orange → lime (D-109). */
+  --color-relevance-low: #f0a04b;
+  --color-relevance-high: #9be15d;
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }

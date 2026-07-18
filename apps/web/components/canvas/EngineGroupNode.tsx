@@ -10,7 +10,7 @@ import {
   type ModuleSetupField,
 } from '@hftr/contracts';
 import { api } from '@/lib/client';
-import { engineVisualForTemplate } from './canvas-visuals';
+import { engineVisualForTemplate, NATURE_PORT_VISUALS } from './canvas-visuals';
 import {
   EMPTY_MODULE_SETUP_DRAFT,
   ModuleSetupFields,
@@ -31,6 +31,15 @@ const BUS_LABELS: Record<EngineUtilityBus, string> = {
   clock: 'Clock',
   funds: 'Funds',
   system_control: 'Control',
+};
+
+/** Motherboard utility bus → port nature (edge/handle chrome parity with module rails). */
+const BUS_NATURE: Record<EngineUtilityBus, keyof typeof NATURE_PORT_VISUALS> = {
+  data_in: 'data',
+  data_out: 'data',
+  clock: 'time',
+  funds: 'fund',
+  system_control: 'system',
 };
 
 export type EngineUtilityLinkView = {
@@ -233,29 +242,57 @@ export const EngineGroupNode = memo(function EngineGroupNode({
       {inboundBuses.map((bus, index) => {
         const bound = (linksByBus.get(bus) ?? []).length > 0;
         const top = `${18 + index * 16}%`;
+        const nature = NATURE_PORT_VISUALS[BUS_NATURE[bus]];
         return (
-          <Handle
-            key={`in-${bus}`}
-            id={`engine-util-${bus}`}
-            type="target"
-            position={Position.Left}
-            style={{ top, background: bound ? engineVisual.hue : 'var(--color-line)' }}
-            title={`${BUS_LABELS[bus]}${bound ? ' · bound' : ' · unbound'}`}
-          />
+          <div key={`in-${bus}`}>
+            <Handle
+              id={`engine-util-${bus}`}
+              type="target"
+              position={Position.Left}
+              style={{
+                top,
+                background: bound ? nature.color : 'var(--color-line)',
+                border: `1px solid ${bound ? nature.color : 'var(--color-surface-0)'}`,
+              }}
+              title={`${BUS_LABELS[bus]}${bound ? ' · bound' : ' · unbound'}`}
+              aria-label={`${BUS_LABELS[bus]} (${nature.label})`}
+            />
+            <span
+              className="pointer-events-none absolute -left-[3.8rem] w-[3.6rem] truncate text-right text-[5px]"
+              style={{ top, transform: 'translateY(-50%)', color: nature.color }}
+              aria-hidden
+            >
+              {BUS_LABELS[bus]}
+            </span>
+          </div>
         );
       })}
       {outboundBuses.map((bus, index) => {
         const bound = (linksByBus.get(bus) ?? []).length > 0;
         const top = `${22 + index * 18}%`;
+        const nature = NATURE_PORT_VISUALS[BUS_NATURE[bus]];
         return (
-          <Handle
-            key={`out-${bus}`}
-            id={`engine-util-${bus}-out`}
-            type="source"
-            position={Position.Right}
-            style={{ top, background: bound ? engineVisual.hue : 'var(--color-line)' }}
-            title={`${BUS_LABELS[bus]}${bound ? ' · bound' : ' · unbound'}`}
-          />
+          <div key={`out-${bus}`}>
+            <Handle
+              id={`engine-util-${bus}-out`}
+              type="source"
+              position={Position.Right}
+              style={{
+                top,
+                background: bound ? nature.color : 'var(--color-line)',
+                border: `1px solid ${bound ? nature.color : 'var(--color-surface-0)'}`,
+              }}
+              title={`${BUS_LABELS[bus]}${bound ? ' · bound' : ' · unbound'}`}
+              aria-label={`${BUS_LABELS[bus]} (${nature.label})`}
+            />
+            <span
+              className="pointer-events-none absolute -right-[3.8rem] w-[3.6rem] truncate text-left text-[5px]"
+              style={{ top, transform: 'translateY(-50%)', color: nature.color }}
+              aria-hidden
+            >
+              {BUS_LABELS[bus]}
+            </span>
+          </div>
         );
       })}
       <div className="engine-group-drag border-b border-[var(--color-line)]/60 px-2 py-1 pl-3">
@@ -346,6 +383,7 @@ export const EngineGroupNode = memo(function EngineGroupNode({
         <div className="nodrag mt-1 flex flex-wrap gap-1">
           {utilityBuses.map((bus) => {
             const bound = linksByBus.get(bus) ?? [];
+            const nature = NATURE_PORT_VISUALS[BUS_NATURE[bus]];
             const tip =
               bound[0]?.streamDescriptor ||
               (bound.length > 0 ? `${bound.length} bound` : 'unbound');
@@ -354,8 +392,8 @@ export const EngineGroupNode = memo(function EngineGroupNode({
                 key={bus}
                 className="rounded border px-1 py-0.5 text-[8px]"
                 style={{
-                  borderColor: bound.length > 0 ? `${engineVisual.hue}88` : 'var(--color-line)',
-                  color: bound.length > 0 ? engineVisual.hue : 'var(--color-ink-faint)',
+                  borderColor: bound.length > 0 ? `${nature.color}88` : 'var(--color-line)',
+                  color: bound.length > 0 ? nature.color : 'var(--color-ink-faint)',
                 }}
                 title={tip}
               >

@@ -1,15 +1,20 @@
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import {
+  CANVAS_LAYOUT,
   computeEngineBoundsFromPositions,
   deriveGeneratedModuleName,
+  engineCanvasOffsetForOrigin,
+  ENGINE_GROUP_PADDING,
   InsertEngineInput,
   listResolvedEngineTemplates,
   MAX_MODULES_PER_COMPANY,
   MODULE_CONFIG_SCHEMAS,
   moduleFunctionLabel,
   moduleRequiresMath,
+  placeNextEngineOrigin,
   withDefaultEngineSetup,
+  type LayoutRect,
   type ModuleType,
 } from '@hftr/contracts';
 import { loadSessionConstraints } from '@hftr/engine';
@@ -112,12 +117,32 @@ export async function POST(req: Request, ctx: Ctx) {
       configs[Number(idx)]![configKey] = values.join(' — ');
     }
 
-    const offset = input.canvasOffset ?? { x: 0, y: 0 };
+    const existingEngines = await scoping.listEngineInstances(db, clerkUserId, companyId);
+    const occupied: LayoutRect[] = existingEngines
+      .map((row) => row.canvasBounds)
+      .filter((bounds): bounds is LayoutRect => bounds != null);
+    const templatePositions = engine.modules.map((m) => m.position);
+    const relativeBounds = computeEngineBoundsFromPositions(templatePositions);
+    const preferredOrigin = input.canvasOffset
+      ? {
+          x: relativeBounds.x + input.canvasOffset.x,
+          y: relativeBounds.y + input.canvasOffset.y,
+        }
+      : undefined;
+    const origin = placeNextEngineOrigin(occupied, relativeBounds, {
+      preferred: preferredOrigin,
+      originX: CANVAS_LAYOUT.originX,
+      originY: CANVAS_LAYOUT.originY,
+    });
+    const { offset, bounds: canvasBounds } = engineCanvasOffsetForOrigin(
+      templatePositions,
+      origin,
+      ENGINE_GROUP_PADDING,
+    );
     const absolutePositions = engine.modules.map((m) => ({
       x: m.position.x + offset.x,
       y: m.position.y + offset.y,
     }));
-    const canvasBounds = computeEngineBoundsFromPositions(absolutePositions);
     const masterTopicSectors = input.setup?.topicSectors ?? [];
     const setup = withDefaultEngineSetup(input.setup);
     const setupSnapshot = engineSetupSnapshotFromInput(setup);

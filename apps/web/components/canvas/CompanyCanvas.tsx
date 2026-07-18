@@ -17,18 +17,23 @@ import {
 import '@xyflow/react/dist/style.css';
 import {
   allowedLinkKinds,
+  CANVAS_LAYOUT,
   computeEngineBoundsFromPositions,
+  engineCanvasOffsetForOrigin,
   ENGINE_GROUP_PADDING,
   handleIdForLink,
   isMathToolAttachment,
   layoutCanvas,
   missingModuleSetupFields,
   MODULE_COLUMN,
+  placeNextEngineOrigin,
   reflowEngineAtOrigin,
+  translateLayoutResultToOrigin,
   type DeleteEngineMode,
   type EngineTemplate,
   type LayoutLink,
   type LayoutModule,
+  type LayoutRect,
   type LayoutResult,
   type LinkKind,
   type ModuleStatus,
@@ -136,17 +141,18 @@ function ClearCanvasDialog(props: {
   );
 }
 
-function engineBounds(node: EngineGroupFlowNode): {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-} {
+function engineBounds(node: EngineGroupFlowNode): LayoutRect {
   return {
     x: node.position.x,
     y: node.position.y,
-    width: (node.style?.width as number) ?? 400,
-    height: (node.style?.height as number) ?? 300,
+    width:
+      (node.style?.width as number) ??
+      node.measured?.width ??
+      ENGINE_GROUP_PADDING.left + ENGINE_GROUP_PADDING.right + CANVAS_LAYOUT.moduleWidth,
+    height:
+      (node.style?.height as number) ??
+      node.measured?.height ??
+      ENGINE_GROUP_PADDING.top + ENGINE_GROUP_PADDING.bottom + CANVAS_LAYOUT.moduleHeight,
   };
 }
 
@@ -814,13 +820,23 @@ export function CompanyCanvas(props: {
       );
       if (!engineNode) return;
 
-      const layout = reflowEngineAtOrigin(
+      let layout = reflowEngineAtOrigin(
         { id: engineId, memberModuleIds: engineNode.data.memberModuleIds },
         gatherLayoutModules(workingNodes),
         gatherLayoutLinks(workingEdges),
         { x: engineNode.position.x, y: engineNode.position.y },
         ENGINE_GROUP_PADDING,
       );
+      const reflowedBounds = layout.engines[0]?.canvasBounds;
+      if (reflowedBounds) {
+        const others = workingNodes
+          .filter((n): n is EngineGroupFlowNode => isEngineGroupNode(n) && n.id !== engineId)
+          .map(engineBounds);
+        const clearOrigin = placeNextEngineOrigin(others, reflowedBounds, {
+          preferred: { x: reflowedBounds.x, y: reflowedBounds.y },
+        });
+        layout = translateLayoutResultToOrigin(layout, engineId, clearOrigin);
+      }
 
       applyLayoutResult(layout);
 
@@ -1036,7 +1052,34 @@ export function CompanyCanvas(props: {
   const persistNodeDragStop = useCallback(
     async (_e: unknown, node: CanvasFlowNode) => {
       if (isEngineGroupNode(node)) {
-        const bounds = engineBounds(node);
+        const rawBounds = engineBounds(node);
+        const others = nodes
+          .filter((n): n is EngineGroupFlowNode => isEngineGroupNode(n) && n.id !== node.id)
+          .map(engineBounds);
+        const clearOrigin = placeNextEngineOrigin(others, rawBounds, {
+          preferred: { x: rawBounds.x, y: rawBounds.y },
+        });
+        const bounds: LayoutRect = {
+          ...rawBounds,
+          x: clearOrigin.x,
+          y: clearOrigin.y,
+        };
+        const dx = bounds.x - rawBounds.x;
+        const dy = bounds.y - rawBounds.y;
+        if (dx !== 0 || dy !== 0) {
+          setNodes((current) =>
+            current.map((n) => {
+              if (isEngineGroupNode(n) && n.id === node.id) {
+                return {
+                  ...n,
+                  position: { x: bounds.x, y: bounds.y },
+                  style: { ...n.style, width: bounds.width, height: bounds.height },
+                };
+              }
+              return n;
+            }),
+          );
+        }
         try {
           await api(`/api/companies/${props.companyId}/engines/${node.id}`, {
             method: 'PATCH',
@@ -1327,18 +1370,18 @@ export function CompanyCanvas(props: {
 
   const insertEngine = useCallback(
     async (engine: EngineTemplate, inputs: Record<string, string>, setup?: ModuleSetupInput) => {
-      const yCandidates = nodes.flatMap((n) => {
-        if (isEngineGroupNode(n)) {
-          const b = engineBounds(n);
-          return [b.y + b.height];
-        }
-        if (isModuleNode(n)) {
-          const abs = absoluteModulePosition(n, nodes);
-          return [abs.y + 220];
-        }
-        return [];
+      const occupied = nodes.filter(isEngineGroupNode).map(engineBounds);
+      const templatePositions = engine.modules.map((module) => module.position);
+      const relativeBounds = computeEngineBoundsFromPositions(templatePositions);
+      const origin = placeNextEngineOrigin(occupied, relativeBounds, {
+        originX: CANVAS_LAYOUT.originX,
+        originY: CANVAS_LAYOUT.originY,
       });
-      const yOffset = yCandidates.length > 0 ? Math.max(...yCandidates) + 60 : 60;
+      const { offset } = engineCanvasOffsetForOrigin(
+        templatePositions,
+        origin,
+        ENGINE_GROUP_PADDING,
+      );
 
       try {
         const response = await api<{
@@ -1376,7 +1419,7 @@ export function CompanyCanvas(props: {
             templateId: engine.id,
             inputs,
             setup,
-            canvasOffset: { x: 80, y: yOffset },
+            canvasOffset: offset,
           },
         });
 

@@ -1,15 +1,20 @@
 import { eq } from 'drizzle-orm';
 import {
+  CANVAS_LAYOUT,
   computeEngineBoundsFromPositions,
   CreateCompanyInput,
   DEFAULT_PHILOSOPHY_PROFILE,
   deriveGeneratedModuleName,
+  engineCanvasOffsetForOrigin,
+  ENGINE_GROUP_PADDING,
   listResolvedEngineTemplates,
   MAX_MODULES_PER_COMPANY,
   MODULE_CONFIG_SCHEMAS,
   moduleFunctionLabel,
+  placeNextEngineOrigin,
   projectedModuleSlotsForCreate,
   withDefaultEngineSetup,
+  type LayoutRect,
 } from '@hftr/contracts';
 import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
@@ -118,6 +123,7 @@ export async function POST(req: Request) {
 
     let maxTemplateX = 0;
     let maxTemplateY = 0;
+    const occupiedEngineBounds: LayoutRect[] = [];
 
     for (let engineIndex = 0; engineIndex < input.engines.length; engineIndex += 1) {
       const seed = input.engines[engineIndex]!;
@@ -136,15 +142,29 @@ export async function POST(req: Request) {
         configs[Number(idx)]![configKey] = values.join(' — ');
       }
 
-      const offset = seed.canvasOffset ?? {
-        x: 40 + engineIndex * 200,
-        y: 40 + engineIndex * 40,
-      };
+      const templatePositions = engine.modules.map((m) => m.position);
+      const relativeBounds = computeEngineBoundsFromPositions(templatePositions);
+      const origin = seed.canvasOffset
+        ? placeNextEngineOrigin(occupiedEngineBounds, relativeBounds, {
+            preferred: {
+              x: seed.canvasOffset.x + relativeBounds.x,
+              y: seed.canvasOffset.y + relativeBounds.y,
+            },
+          })
+        : placeNextEngineOrigin(occupiedEngineBounds, relativeBounds, {
+            originX: CANVAS_LAYOUT.originX,
+            originY: CANVAS_LAYOUT.originY,
+          });
+      const { offset, bounds: canvasBounds } = engineCanvasOffsetForOrigin(
+        templatePositions,
+        origin,
+        ENGINE_GROUP_PADDING,
+      );
+      occupiedEngineBounds.push(canvasBounds);
       const absolutePositions = engine.modules.map((m) => ({
         x: m.position.x + offset.x,
         y: m.position.y + offset.y,
       }));
-      const canvasBounds = computeEngineBoundsFromPositions(absolutePositions);
       const masterTopicSectors =
         seed.setup?.topicSectors && seed.setup.topicSectors.length > 0
           ? seed.setup.topicSectors

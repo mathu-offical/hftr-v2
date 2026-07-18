@@ -1,6 +1,9 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { BrokerAdapter, LiveGateEvidence, Venue } from '@hftr/contracts';
-import { LiveGateEvidence as LiveGateEvidenceSchema } from '@hftr/contracts';
+import {
+  isLiveDispatchAllowed,
+  LiveGateEvidence as LiveGateEvidenceSchema,
+} from '@hftr/contracts';
 import { resolveBrokerAdapter, type BrokerConnectionResolveInput } from '@hftr/adapters';
 import type { Db } from '@hftr/db';
 import { brokerConnections, companies, liveGateEvidence } from '@hftr/db/schema';
@@ -16,6 +19,14 @@ export interface ResolvedExecutionContext {
   adapter: BrokerAdapter;
   venue: Venue;
   virtualBalanceCents: bigint;
+  /** Epoch ms when operator armed live; null when unarmed. */
+  liveArmedAtMs: number | null;
+  /**
+   * True when live dispatch must stay blocked (gap analysis #1).
+   * Paper mode always false. Live mode uses isLiveDispatchAllowed
+   * (armed + fresh overallPass evidence) — never hardcoded.
+   */
+  liveGateBlocked: boolean;
 }
 
 function parseStoredCredentials(plain: string): unknown {
@@ -130,6 +141,11 @@ export async function resolveExecutionContext(
     },
   });
 
+  const liveGateBlocked =
+    company.mode === 'live'
+      ? !isLiveDispatchAllowed(evidence, nowMs, armedAtMs)
+      : false;
+
   return {
     companyId,
     companyMode: company.mode,
@@ -137,5 +153,7 @@ export async function resolveExecutionContext(
     adapter,
     venue: adapter.venue,
     virtualBalanceCents,
+    liveArmedAtMs: armedAtMs,
+    liveGateBlocked,
   };
 }

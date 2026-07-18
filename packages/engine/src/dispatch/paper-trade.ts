@@ -26,7 +26,10 @@ import { evaluateGuardrails } from '../guardrails/evaluate';
 import { computeOperatingLimits } from '../limits/compute';
 import type { LimitContext } from '../limits/context';
 import { enqueue } from '../queue/queue';
-import { getCompanyBalanceCents } from './balances';
+import {
+  getCompanyBalanceCents,
+  getCompanyRealizedLossCents,
+} from './balances';
 import { resolveExecutionContext } from './execution-context';
 import { preDispatchGauntlet } from './pre-dispatch';
 import { applyFill, getPosition } from './positions';
@@ -85,6 +88,11 @@ const DEFAULT_GUARDRAIL_PACKAGE_IDS = ['grd-001', 'grd-003'] as const;
 const ORDER_FREQ_WINDOW_MS = 60_000;
 
 export { getCompanyBalanceCents } from './balances';
+export {
+  getCompanyRealizedLossCents,
+  getModuleBalanceCents,
+  resolveCompileBalanceCents,
+} from './balances';
 
 /**
  * Promote/compile dispatch path: resolve `action_instructions` ValueRefs then
@@ -193,10 +201,7 @@ export async function executePaperTrade(
   const envelope: HandoffEnvelope = compiled
     ? {
         ...compiled.envelope,
-        causationRefs: [
-          ...compiled.envelope.causationRefs,
-          ...(req.jobId ? [req.jobId] : []),
-        ],
+        causationRefs: [...compiled.envelope.causationRefs, ...(req.jobId ? [req.jobId] : [])],
       }
     : {
         contractVersion: '1.0.0',
@@ -439,6 +444,7 @@ export async function executePaperTrade(
       nowMs,
     );
     const activeGuardrailPackageIds = await resolveActiveGuardrailPackageIds(db, req.moduleId);
+    const realizedLossCents = await getCompanyRealizedLossCents(db, req.companyId);
     const limitCtx: LimitContext = {
       companyId: req.companyId,
       moduleId: req.moduleId,
@@ -447,7 +453,7 @@ export async function executePaperTrade(
       sessionPhase: phase,
       virtualBalanceCents: execCtx.virtualBalanceCents,
       equityCents: execCtx.virtualBalanceCents,
-      realizedLossCents: 0n,
+      realizedLossCents,
       brokerEnvelopeId: DEFAULT_BROKER_ENVELOPE_ID,
       recentTraceTimestampsMs,
     };
@@ -492,7 +498,8 @@ export async function executePaperTrade(
     sessionPhase: phase,
     effectiveCapCents,
     priceCents: referenceCentsForGauntlet,
-    liveGateBlocked: true, // fail-closed: live not armed in v2; blocks live mode in gauntlet
+    // D-085: wire from resolveExecutionContext (isLiveDispatchAllowed) — not hardcoded.
+    liveGateBlocked: execCtx.liveGateBlocked,
     maxQuantity: MAX_QUANTITY,
     limitsSnapshot,
     guardrailEvaluations,

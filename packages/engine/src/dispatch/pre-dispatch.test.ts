@@ -38,6 +38,16 @@ function baseCtx() {
   };
 }
 
+function liveCtx() {
+  return {
+    mode: 'live' as const,
+    sessionPhase: 'open' as const,
+    effectiveCapCents: 1_000_000n,
+    priceCents: 15_000,
+    liveGateBlocked: true,
+  };
+}
+
 function limitsSnapshot(overrides: Partial<LimitsSnapshot> = {}): LimitsSnapshot {
   return {
     schemaVersion: 1,
@@ -170,11 +180,19 @@ describe('preDispatchGauntlet', () => {
 
   it('blocks live when gate is not armed', () => {
     const result = preDispatchGauntlet(task(), {
-      ...baseCtx(),
-      mode: 'live',
+      ...liveCtx(),
+      liveGateBlocked: true,
     });
     expect(result.ok).toBe(false);
     expect(result.failureCode).toBe('live_gate_blocked');
+  });
+
+  it('allows live when liveGateBlocked is false and session is open', () => {
+    const result = preDispatchGauntlet(task(), {
+      ...liveCtx(),
+      liveGateBlocked: false,
+    });
+    expect(result.ok).toBe(true);
   });
 
   it('blocks buys that exceed effective cap', () => {

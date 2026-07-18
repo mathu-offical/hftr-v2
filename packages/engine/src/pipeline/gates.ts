@@ -3,9 +3,9 @@ import type { SessionPhase, Venue } from '@hftr/contracts';
 /**
  * Six-gate admission (v1 activation-validation.md). Pure and deterministic:
  * every gate returns explicit evidence text so admission truth is persisted,
- * never reinterpreted downstream. Regime, broker, and market-structure gates
- * are deterministic placeholders until the model tiers land — their evidence
- * strings say so honestly.
+ * never reinterpreted downstream. When `regimeTrendUp` is supplied (promote
+ * wires seed_synthetic or live_bars), regime_fit is numeric alignment — not a
+ * blanket placeholder pass. Broker/market-structure gates use venue + feedClass.
  */
 
 export type GateName =

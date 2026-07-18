@@ -852,11 +852,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   tables require GitHub Flavored Markdown. `ResearchMarkdown` now runs `remark-gfm`
   with scrollable table chrome; concept inspector sets `omitLeadingH1`. List previews
   use prose-only excerpts (`excerptResearchMarkdownBody`) instead of raw mid-table
-  slices. Galaxy folder/article hull wireframes and labels are quieter so nested
-  hierarchy stays readable. Bootstrap `skipIfSeeded` short-circuit still
-  **rematerializes** catalog_seed bodies/tags + seeded topic synopsis so companies
-  created before D-079 pick up rich articles on the next graph/libraries GET. Docs:
-  ui-spec § floating inspector. **Status: implemented.**
+  slices. `urlTransform` preserves `hftr-sys:` chip hrefs (react-markdown otherwise
+  strips unknown protocols to `""`). Galaxy folder/article hull wireframes and labels
+  are quieter so nested hierarchy stays readable. Bootstrap `skipIfSeeded` short-circuit
+  still **rematerializes** stale catalog_seed bodies (skips already-rich D-079 articles)
+  so companies created before D-079 pick up rich articles on the next graph/libraries
+  GET. Docs: ui-spec § floating inspector. **Status: implemented.**
 
 - **D-081 (Market posture left hub, 2026-07-18):** Left panel gains always-present
   **Market posture** tab (between Research + Libraries and Data sources). Composite
@@ -874,6 +875,18 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   directive text into `ResearchDirective.operatorDirectives`. Distinct from editable
   `philosophy_prompt`. Migration `0035`. **Status: implemented.**
 
+- **D-083 (justification hover expansion, 2026-07-18):** Notebook “JUSTIFICATION POP UPS”
+  beyond BottomPanel Trends/Scenario. Shared `Justification` wraps research concept
+  inspector titles, TraceTimeline pipeline stages (stage→sourceClass map), Market
+  posture movers/watchlists/trends/pipeline rows, and Scenario six-gate cells. Source
+  labels stay honest (`system_seal`, model vs deterministic). **Status: implemented.**
+
+- **D-084 (15s equity refresh cadence, 2026-07-18):** Company-equity plan Task 6.
+  Pure planners in `packages/engine/src/equity/refresh.ts`; `maintenance.sweep`
+  enqueues idempotent `equity.refresh` per active paper company when XNYS session is
+  open/midday/power_hour (15s window keys). Closed/overnight/pre_market deferred.
+  Handler recomputes via `recomputeCompanyEquity(…, 'schedule')`. **Status: implemented.**
+
 - **D-085 (Market posture dashboard overlay, 2026-07-18):** Market posture opens a
   canvas overlay (galaxy-style) with equity chart that refocuses on selected
   holdings (accent mark path), sector movers, report nav into Research concepts,
@@ -882,6 +895,26 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   (positions / watchlists / trends / plans). Hub API adds `equity`, `sectorFocuses`,
   `reports`, and `engines[]` on positions/watchlists/trends. **Status: implemented.**
 
+- **D-086 (granular seeded research directives, 2026-07-18):** Topics are
+  **research-module directives** (module-side). Concepts, tags, trends, and functions
+  remain **library-side**. Bootstrap no longer dumps every catalog concept into one
+  mega-topic. It seeds a parent program **Seeded trading mechanisms** plus child
+  directives: Strategy families Tier A/B/C, Compound strategies, Recovery ladders,
+  Guardrails, Session constraints, Broker policy, Trend lead patterns, Compliance
+  packages, Event archetypes, Macro triggers, and Sector knowledge. Each child owns
+  filtered `topic_concepts` membership; the program synopsis links children. Topics
+  may spawn further articles/libraries during agent work. Archive protects the full
+  seeded title set. Pages list renders `parent_topic_id` as an indented tree. Docs:
+  research-galaxy-topic-view-design, ui-spec, data-model. **Status: implemented.**
+
+- **D-087 (paper-spine correctness hardening, 2026-07-18):** Gap analysis top risks:
+  (1) `liveGateBlocked` from `isLiveDispatchAllowed` via `resolveExecutionContext`
+  (paper always unblocked; live fail-closed until armed + fresh overallPass evidence)
+  — no longer hardcoded `true`. (3) `realizedLossCents` from company position book
+  loss magnitude. (5) promote wires `buildRegimeSynthetic` → `regimeTrendUp` so
+  regime_fit is numeric. (7) compile sizing prefers trading-module ledger →
+  holding_fund → company pool (`resolveCompileBalanceCents`). Justification hover
+  expansion remains D-083; equity refresh D-084. **Status: implemented.**
 
 ## Open questions
 

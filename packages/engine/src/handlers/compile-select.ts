@@ -11,6 +11,7 @@ import {
 } from '@hftr/db/schema';
 import { record } from '../calc/store';
 import { getCompanyBalanceCents } from '../dispatch/paper-trade';
+import { resolveCompileBalanceCents } from '../dispatch/balances';
 import { getSyntheticQuote } from '../dispatch/quotes';
 import { compileInstruction, computeQuantity } from '../pipeline/compile';
 import { mergeCompileSelection, modelBlockReasonToCompile } from '../pipeline/compile-selection';
@@ -147,7 +148,12 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
   }
 
   const quote = getSyntheticQuote(tree.symbol, clock);
-  const balanceCents = await getCompanyBalanceCents(db, payload.companyId);
+  const tradingModuleId = payload.targetModuleId ?? payload.moduleId;
+  const { balanceCents, source: balanceSource } = await resolveCompileBalanceCents(
+    db,
+    payload.companyId,
+    tradingModuleId,
+  );
   const priceCents = quote.askCents ?? quote.lastCents ?? 0;
 
   const baseOutcome = compileInstruction(
@@ -199,7 +205,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
     scale: 0,
     valueInt: BigInt(instruction.quantity),
     sourceClass: 'derived',
-    sourceId: `compile:sizing:${payload.leadId}:bps_${merged.adjustedSizingBasisBps}`,
+    sourceId: `compile:sizing:${payload.leadId}:bps_${merged.adjustedSizingBasisBps}:${balanceSource}`,
     ttlMs: 10 * 60_000,
     sanity: { minInt: '1', maxInt: '100', maxAgeMs: null, mustBePositive: true },
     companyId: payload.companyId,
@@ -280,6 +286,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
       stage: 'execution_agent_compile',
       provider,
       tacticalProvider: payload.tacticalProvider ?? 'deterministic_placeholder',
+      balanceSource,
     },
   });
 

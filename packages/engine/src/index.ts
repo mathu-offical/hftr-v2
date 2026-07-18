@@ -244,3 +244,16 @@ export {
   type TransferDecision,
   type FundTransferStatus,
 } from './fund-transfers/transfer';
+export {
+  proposeFundRouteTransfers,
+  type FundRouteHop,
+  type FundRoutePathProposal,
+  type FundRouteWalkerError,
+  type FundRouteWalkerErrorCode,
+  type FundRouteWalkerLink,
+  type FundRouteWalkerModule,
+  type FundTransferProposal,
+  type ProposeFundRouteTransfersInput,
+  type ProposeFundRouteTransfersOutcome,
+  type ProposeFundRouteTransfersResult,
+} from './fund-transfers/fund-route-walker';

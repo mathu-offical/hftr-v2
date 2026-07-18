@@ -16,6 +16,18 @@ export {
   type AlpacaBarsCredentials,
 } from './alpaca/bars';
 export {
+  fetchAlpacaNews,
+  AlpacaNewsError,
+  type FetchAlpacaNewsParams,
+  type AlpacaNewsCredentials,
+} from './alpaca/news';
+export {
+  gatherAlpacaBarsEvidence,
+  AlpacaBarsEvidenceError,
+  extractTickerFromQuery,
+  type GatherAlpacaBarsEvidenceOptions,
+} from './research/alpaca-bars-evidence';
+export {
   resolveBrokerAdapter,
   adapterCapabilitiesForConnection,
   BrokerResolveError,
@@ -55,6 +67,16 @@ export {
   MarketNewsError,
   type FetchMarketNewsOptions,
 } from './research/market-news';
+export {
+  fetchFinnhubNews,
+  FinnhubNewsError,
+  type FetchFinnhubNewsParams,
+} from './research/finnhub-news';
+export {
+  fetchPolygonNews,
+  PolygonNewsError,
+  type FetchPolygonNewsParams,
+} from './research/polygon-news';
 export { filterSourceKinds } from './research/source-matrix';
 export {
   evidenceFromLibraryConcepts,

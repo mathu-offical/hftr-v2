@@ -1,10 +1,17 @@
 import type { EvidencePackage, ResearchSourceKind } from '@hftr/contracts';
+import { AlpacaNewsError, fetchAlpacaNews } from '../alpaca/news';
 import { BraveSearchError, searchBrave } from './brave-search';
+import {
+  AlpacaBarsEvidenceError,
+  gatherAlpacaBarsEvidence,
+} from './alpaca-bars-evidence';
 import {
   evidenceFromLibraryConcepts,
   type LibraryConceptEvidenceInput,
 } from './library-concepts';
+import { fetchFinnhubNews, FinnhubNewsError } from './finnhub-news';
 import { fetchMarketNews, MarketNewsError } from './market-news';
+import { fetchPolygonNews, PolygonNewsError } from './polygon-news';
 import { searchSecFilings, SecFilingsError } from './sec-filings';
 import { filterSourceKinds } from './source-matrix';
 
@@ -21,6 +28,10 @@ export interface GatherEvidencePackagesOptions {
   maxEvidence: number;
   braveApiKey?: string | null;
   marketNewsApiKey?: string | null;
+  alpacaKeyId?: string | null;
+  alpacaSecret?: string | null;
+  finnhubApiKey?: string | null;
+  polygonApiKey?: string | null;
   fetchImpl?: typeof fetch;
   /** Passed to SEC adapter for test resilience. */
   secAllowEmptyOnError?: boolean;
@@ -35,6 +46,10 @@ function errorCode(err: unknown): string {
   if (err instanceof BraveSearchError) return err.code;
   if (err instanceof SecFilingsError) return err.code;
   if (err instanceof MarketNewsError) return err.code;
+  if (err instanceof AlpacaNewsError) return err.code;
+  if (err instanceof AlpacaBarsEvidenceError) return err.code;
+  if (err instanceof FinnhubNewsError) return err.code;
+  if (err instanceof PolygonNewsError) return err.code;
   if (err instanceof Error && err.message.startsWith('unsupported_source')) {
     return 'unsupported_source';
   }
@@ -75,11 +90,43 @@ async function gatherFromSource(
         ...(opts.marketNewsFeedUrl ? { feedUrl: opts.marketNewsFeedUrl } : {}),
         allowDeterministicFallback: opts.marketNewsAllowDeterministicFallback ?? true,
       });
+    case 'alpaca_news':
+      return fetchAlpacaNews({
+        query: opts.query,
+        limit: perSourceMax,
+        credentials: {
+          keyId: opts.alpacaKeyId ?? '',
+          secret: opts.alpacaSecret ?? '',
+        },
+        ...(fetchImpl ? { fetchImpl } : {}),
+      });
+    case 'alpaca_bars':
+      return gatherAlpacaBarsEvidence({
+        query: opts.query,
+        credentials: {
+          keyId: opts.alpacaKeyId ?? '',
+          secret: opts.alpacaSecret ?? '',
+        },
+        ...(fetchImpl ? { fetchImpl } : {}),
+      });
+    case 'finnhub_news':
+      return fetchFinnhubNews({
+        query: opts.query,
+        limit: perSourceMax,
+        apiKey: opts.finnhubApiKey ?? '',
+        ...(fetchImpl ? { fetchImpl } : {}),
+      });
+    case 'polygon_news':
+      return fetchPolygonNews({
+        query: opts.query,
+        limit: perSourceMax,
+        apiKey: opts.polygonApiKey ?? '',
+        ...(fetchImpl ? { fetchImpl } : {}),
+      });
     case 'library':
       return evidenceFromLibraryConcepts(opts.libraryConcepts ?? [], {
         maxResults: perSourceMax,
       });
-    case 'alpaca_bars':
     case 'catalog':
     case 'operator':
       throw new Error('unsupported_source');

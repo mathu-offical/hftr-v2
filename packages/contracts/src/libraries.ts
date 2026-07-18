@@ -20,6 +20,10 @@ export const CurationStatus = z.enum([
 ]);
 export type CurationStatus = z.infer<typeof CurationStatus>;
 
+/** Qualitative operator confidence for concepts and topics (NRA — no numeric scores). */
+export const ConfidenceBand = z.enum(['low', 'medium', 'high']);
+export type ConfidenceBand = z.infer<typeof ConfidenceBand>;
+
 export const Library = z.object({
   id: z.string().uuid(),
   companyId: z.string().uuid(),
@@ -186,8 +190,27 @@ export const ResearchGraphNode = z.object({
   referenceCount: z.number().int().nonnegative().optional(),
   lastQueriedAt: z.string().nullable().optional(),
   lastReferencedAt: z.string().nullable().optional(),
+  confidenceBand: ConfidenceBand.optional(),
 });
 export type ResearchGraphNode = z.infer<typeof ResearchGraphNode>;
+
+export const ArchiveResearchInput = z.object({
+  action: z.enum([
+    'archive_runtime',
+    'clear_archive',
+    'archive_object',
+    'restore_object',
+    'verify_object',
+    'refine_object',
+  ]),
+  objectKind: z.enum(['concept', 'topic', 'library']).optional(),
+  objectId: z.string().uuid().optional(),
+  /** Optional refined concept body (refine_object + concept). Leak-linted server-side. */
+  body: z.string().max(50_000).optional(),
+  /** Optional refined topic synopsis (refine_object + topic). Leak-linted server-side. */
+  synopsisMd: z.string().max(50_000).optional(),
+});
+export type ArchiveResearchInput = z.infer<typeof ArchiveResearchInput>;
 
 export const ResearchGraphLink = z.object({
   id: z.string().uuid(),

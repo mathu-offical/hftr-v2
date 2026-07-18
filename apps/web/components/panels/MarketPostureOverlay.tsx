@@ -7,6 +7,9 @@ import { useResearchView } from '@/components/research/ResearchViewContext';
 import { MarketPostureEquityChart } from '@/components/panels/MarketPostureEquityChart';
 import { MarketPostureFreshnessStrip } from '@/components/panels/MarketPostureFreshnessStrip';
 import { MarketPostureSourcesStrip } from '@/components/panels/MarketPostureSourcesStrip';
+import { SymbolTicker } from '@/components/market/SymbolTicker';
+import { MarketPosturePieChart } from '@/components/market/MarketPosturePieChart';
+import { MarketPostureMetricBars } from '@/components/market/MarketPostureMetricBars';
 import { useMarketPostureView } from '@/components/panels/MarketPostureViewContext';
 import { Justification } from '@/components/panels/Justification';
 import {
@@ -225,26 +228,40 @@ export function MarketPostureOverlay() {
                   </p>
                 ) : (
                   <ul className="space-y-1.5">
-                    {hub.movers.items.slice(0, 8).map((item, i) => (
-                      <li key={`${item.symbolOrSector ?? 'm'}-${i}`}>
-                        <Justification
-                          sourceClass="system_seal"
-                          lines={[
-                            item.headline ?? 'Sealed movers board item',
-                            `Bands: ${[item.directionBand, item.strengthBand].filter(Boolean).join(' · ') || 'n/a'}`,
-                          ]}
-                        >
-                          <div className="flex items-start justify-between gap-2 text-xs">
-                            <span className="font-medium text-[var(--color-ink)]">
-                              {item.symbolOrSector ?? 'Cluster'}
-                            </span>
-                            <span className="shrink-0 text-[10px] uppercase text-[var(--color-ink-faint)]">
-                              {[item.directionBand, item.strengthBand].filter(Boolean).join(' · ')}
-                            </span>
-                          </div>
-                        </Justification>
-                      </li>
-                    ))}
+                    {hub.movers.items.slice(0, 8).map((item, i) => {
+                      const viz =
+                        hub.movers.itemViz.find(
+                          (v) =>
+                            v.symbol ===
+                            item.symbolOrSector?.trim().replace(/^\$/, '').toUpperCase(),
+                        ) ?? null;
+                      return (
+                        <li key={`${item.symbolOrSector ?? 'm'}-${i}`}>
+                          <Justification
+                            sourceClass="system_seal"
+                            lines={[
+                              item.headline ?? 'Sealed movers board item',
+                              `Bands: ${[item.directionBand, item.strengthBand].filter(Boolean).join(' · ') || 'n/a'}`,
+                            ]}
+                          >
+                            {viz ? (
+                              <SymbolTicker viz={viz} density="compact" />
+                            ) : (
+                              <div className="flex items-start justify-between gap-2 text-xs">
+                                <span className="font-medium text-[var(--color-ink)]">
+                                  {item.symbolOrSector ?? 'Cluster'}
+                                </span>
+                                <span className="shrink-0 text-[10px] uppercase text-[var(--color-ink-faint)]">
+                                  {[item.directionBand, item.strengthBand]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                                </span>
+                              </div>
+                            )}
+                          </Justification>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
                 <div className="flex flex-wrap gap-1.5 border-t border-[var(--color-line)] pt-2">
@@ -322,32 +339,25 @@ export function MarketPostureOverlay() {
                               'Position row from paper fill book joined with module context.',
                               'Mark and unrealized PnL use synthetic marks until live broker marks are wired.',
                               `Module: ${p.moduleName}${p.moduleType ? ` (${p.moduleType})` : ''}.`,
+                              p.viz.heldVsCost
+                                ? `Held vs cost: ${p.viz.heldVsCost} (P&L color wins).`
+                                : 'No held tone.',
                             ]}
                           >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-medium text-[var(--color-ink)]">
-                                {p.symbol}
-                              </span>
-                              <span className="font-mono text-xs tabular-nums text-[var(--color-ink-dim)]">
-                                qty {p.qty}
-                              </span>
+                            <div className="flex items-start justify-between gap-2">
+                              <SymbolTicker
+                                viz={p.viz}
+                                meta={
+                                  <span className="font-mono text-[10px] text-[var(--color-ink-faint)]">
+                                    qty {p.qty}
+                                    {p.realizedPnlCents != null
+                                      ? ` · rPnL ${pnlLabel(p.realizedPnlCents)}`
+                                      : ''}
+                                    {` · ${p.moduleName}`}
+                                  </span>
+                                }
+                              />
                             </div>
-                            <div className="mt-1 flex flex-wrap justify-between gap-1 text-[10px] text-[var(--color-ink-faint)]">
-                              <span>
-                                avg {dollarsFromCents(p.avgCostCents)} · mark{' '}
-                                {dollarsFromCents(p.markCents)}
-                              </span>
-                              <span className="font-mono tabular-nums">
-                                uPnL {pnlLabel(p.unrealizedPnlCents)}
-                                {p.realizedPnlCents != null ? (
-                                  <> · rPnL {pnlLabel(p.realizedPnlCents)}</>
-                                ) : null}
-                              </span>
-                            </div>
-                            <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
-                              {p.moduleName}
-                              {p.moduleType ? ` · ${p.moduleType}` : ''}
-                            </p>
                             <div className="mt-1.5">
                               <EngineChips engines={p.engines} />
                             </div>
@@ -435,6 +445,34 @@ export function MarketPostureOverlay() {
               </section>
             ) : null}
 
+            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <MarketPosturePieChart
+                title="Allocation by symbol"
+                slices={hub.charts.allocation}
+                empty="No open position notionals"
+              />
+              <MarketPosturePieChart
+                title="Watchlist tiers"
+                slices={hub.charts.watchlistTiers}
+                empty="No watchlist rows"
+              />
+              <MarketPostureMetricBars
+                title="Trend strength"
+                slices={hub.charts.trendStrength}
+                empty="No trend candidates"
+              />
+              <MarketPostureMetricBars
+                title="Mover directions"
+                slices={hub.charts.moverDirections}
+                empty="No sealed movers"
+              />
+              <MarketPosturePieChart
+                title="Provider surfaces"
+                slices={hub.charts.sourceReady}
+                empty="No lane inventory"
+              />
+            </section>
+
             <section className="grid gap-3 md:grid-cols-3">
               <CategoryBlock
                 title="Watchlists"
@@ -461,6 +499,9 @@ export function MarketPostureOverlay() {
                         lines={[
                           w.note || 'Watchlist row',
                           `Source: ${w.sourceClass} · status ${w.status}`,
+                          w.viz?.heldVsCost
+                            ? `Also held — P&L color wins (${w.viz.heldVsCost}).`
+                            : `Relevance ${w.viz?.relevanceBand ?? 'n/a'} (non-color ticks).`,
                         ]}
                       >
                         <button
@@ -475,15 +516,24 @@ export function MarketPostureOverlay() {
                             })
                           }
                         >
-                          <span className="font-medium">{w.symbol}</span>
-                          <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
-                            {w.bias} · {w.status} · {w.sourceClass} · {w.moduleName}
-                          </span>
-                          {w.note ? (
-                            <p className="mt-0.5 truncate text-[10px] text-[var(--color-ink-faint)]">
-                              {w.note}
-                            </p>
-                          ) : null}
+                          {w.viz ? (
+                            <SymbolTicker
+                              viz={w.viz}
+                              density="compact"
+                              meta={
+                                <span className="text-[10px] text-[var(--color-ink-faint)]">
+                                  {w.bias} · {w.status} · {w.sourceClass}
+                                </span>
+                              }
+                            />
+                          ) : (
+                            <>
+                              <span className="font-medium">{w.symbol}</span>
+                              <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
+                                {w.bias} · {w.status} · {w.sourceClass} · {w.moduleName}
+                              </span>
+                            </>
+                          )}
                         </button>
                       </Justification>
                       <div className="mt-0.5 flex items-center justify-between gap-1">
@@ -526,10 +576,24 @@ export function MarketPostureOverlay() {
                           })
                         }
                       >
-                        <span className="font-medium">{t.symbol}</span>
-                        <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
-                          {t.direction} · {t.strengthBand} · {t.status}
-                        </span>
+                        {t.viz ? (
+                          <SymbolTicker
+                            viz={t.viz}
+                            density="compact"
+                            meta={
+                              <span className="text-[10px] text-[var(--color-ink-faint)]">
+                                {t.status}
+                              </span>
+                            }
+                          />
+                        ) : (
+                          <>
+                            <span className="font-medium">{t.symbol}</span>
+                            <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
+                              {t.direction} · {t.strengthBand} · {t.status}
+                            </span>
+                          </>
+                        )}
                       </button>
                       <div className="mt-0.5">
                         <EngineChips engines={t.engines} />

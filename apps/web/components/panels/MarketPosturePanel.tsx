@@ -8,6 +8,7 @@ import {
 } from '@/components/panels/MarketPostureViewContext';
 import { MarketPostureFreshnessStrip } from '@/components/panels/MarketPostureFreshnessStrip';
 import { MarketPostureSourcesStrip } from '@/components/panels/MarketPostureSourcesStrip';
+import { SymbolTicker } from '@/components/market/SymbolTicker';
 import { Justification } from '@/components/panels/Justification';
 import { PanelTabs } from '@/components/panels/PanelTabs';
 import {
@@ -19,7 +20,6 @@ import {
   dollarsFromCents,
   equityStatusLabel,
   formatOrientation,
-  pnlLabel,
 } from '@/components/panels/market-posture-format';
 import { api } from '@/lib/client';
 import { invalidateMarketHub } from '@/lib/market-hub-cache';
@@ -147,15 +147,24 @@ export function MarketPosturePanel(props: { companyId: string }) {
                         })
                       }
                     >
-                      <span className="font-medium">{w.symbol}</span>
-                      <span className="ml-1 font-mono text-[10px] text-[var(--color-ink-faint)]">
-                        {w.bias} · {w.status} · {w.sourceClass} · {w.moduleName}
-                      </span>
-                      {w.note ? (
-                        <p className="mt-0.5 truncate text-[10px] text-[var(--color-ink-faint)]">
-                          {w.note}
-                        </p>
-                      ) : null}
+                      {w.viz ? (
+                        <SymbolTicker
+                          viz={w.viz}
+                          density="compact"
+                          meta={
+                            <span className="font-mono text-[10px] text-[var(--color-ink-faint)]">
+                              {w.bias} · {w.status} · {w.moduleName}
+                            </span>
+                          }
+                        />
+                      ) : (
+                        <>
+                          <span className="font-medium">{w.symbol}</span>
+                          <span className="ml-1 font-mono text-[10px] text-[var(--color-ink-faint)]">
+                            {w.bias} · {w.status} · {w.sourceClass} · {w.moduleName}
+                          </span>
+                        </>
+                      )}
                     </button>
                   </Justification>
                   {w.status === 'suggested_search' || w.status === 'suggested_verified' ? (
@@ -200,6 +209,11 @@ export function MarketPosturePanel(props: { companyId: string }) {
                   <span className="ml-1 font-mono text-[10px] text-[var(--color-ink-faint)]">
                     {t.direction} · {t.strengthBand} · {t.status}
                   </span>
+                  {t.viz ? (
+                    <div className="mt-1">
+                      <SymbolTicker viz={t.viz} density="compact" />
+                    </div>
+                  ) : null}
                   {t.engines.length > 0 ? (
                     <p className="mt-0.5 truncate font-mono text-[10px] text-[var(--color-ink-faint)]">
                       {t.engines.map((e) => e.label).join(' · ')}
@@ -290,21 +304,18 @@ function PositionList(props: {
                 : 'border-[var(--color-line)] hover:border-[var(--color-ink-faint)]'
             }`}
           >
-            <div className="flex justify-between gap-2">
-              <span className="font-medium">{p.symbol}</span>
-              <span className="font-mono tabular-nums text-[var(--color-ink-faint)]">
-                qty {p.qty}
-              </span>
-            </div>
-            <p className="mt-0.5 font-mono text-[10px] tabular-nums text-[var(--color-ink-faint)]">
-              uPnL {pnlLabel(p.unrealizedPnlCents)}
-              {p.realizedPnlCents != null ? ` · rPnL ${pnlLabel(p.realizedPnlCents)}` : ''}
-            </p>
-            {p.engines.length > 0 ? (
-              <p className="mt-0.5 truncate font-mono text-[10px] text-[var(--color-ink-faint)]">
-                {p.engines.map((e) => e.label).join(' · ')}
-              </p>
-            ) : null}
+            <SymbolTicker
+              viz={p.viz}
+              density="compact"
+              meta={
+                <span className="font-mono text-[10px] text-[var(--color-ink-faint)]">
+                  qty {p.qty}
+                  {p.engines.length > 0
+                    ? ` · ${p.engines.map((e) => e.label).join(' · ')}`
+                    : ''}
+                </span>
+              }
+            />
           </button>
         </li>
       ))}

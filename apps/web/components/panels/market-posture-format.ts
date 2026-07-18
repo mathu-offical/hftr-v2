@@ -66,3 +66,76 @@ export function moversAreStale(opts: {
   if (!Number.isFinite(exp)) return false;
   return exp <= (opts.nowMs ?? Date.now());
 }
+
+/** Non-color direction glyph (D-109). */
+export function directionGlyph(direction: 'up' | 'down' | 'flat'): string {
+  switch (direction) {
+    case 'up':
+      return '▲';
+    case 'down':
+      return '▼';
+    case 'flat':
+      return '—';
+    default: {
+      const _exhaustive: never = direction;
+      return _exhaustive;
+    }
+  }
+}
+
+/** Strength as filled/empty ticks — readable without color. */
+export function strengthTicksDisplay(ticks: number): string {
+  const n = Math.max(0, Math.min(3, Math.round(ticks)));
+  return '●'.repeat(n) + '○'.repeat(3 - n);
+}
+
+export function heldSparkStroke(heldVsCost: 'up' | 'down' | 'flat' | null): string {
+  switch (heldVsCost) {
+    case 'up':
+      return 'var(--color-ok)';
+    case 'down':
+      return 'var(--color-block)';
+    case 'flat':
+      return 'var(--color-ink-dim)';
+    case null:
+      return 'var(--color-ink-dim)';
+    default: {
+      const _exhaustive: never = heldVsCost;
+      return _exhaustive;
+    }
+  }
+}
+
+/** Orange→lime relevance tick fill when not held (D-109). */
+export function relevanceTickFill(band: 'low' | 'medium' | 'high'): string {
+  switch (band) {
+    case 'low':
+      return 'var(--color-relevance-low, #f0a04b)';
+    case 'medium':
+      return 'var(--color-warn)';
+    case 'high':
+      return 'var(--color-relevance-high, #9be15d)';
+    default: {
+      const _exhaustive: never = band;
+      return _exhaustive;
+    }
+  }
+}
+
+/** PnL text tone — only when heldVsCost is set. */
+export function pnlToneClass(heldVsCost: 'up' | 'down' | 'flat' | null): string {
+  switch (heldVsCost) {
+    case 'up':
+      return 'text-[var(--color-ok)]';
+    case 'down':
+      return 'text-[var(--color-block)]';
+    case 'flat':
+    case null:
+      return 'text-[var(--color-ink-faint)]';
+    default: {
+      const _exhaustive: never = heldVsCost;
+      return _exhaustive;
+    }
+  }
+}
+

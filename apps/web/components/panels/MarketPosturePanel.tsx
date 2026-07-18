@@ -18,8 +18,10 @@ function capitalKindLabel(kind: MarketHubCapitalSource['kind']): string {
       return 'Fund';
     case 'trading_desk':
       return 'Desk';
-    case 'math_hub':
-      return 'Math';
+    case 'fund_router':
+      return 'Router';
+    case 'engine_envelope':
+      return 'Engine';
     case 'other':
       return 'Capital';
     default: {
@@ -29,9 +31,33 @@ function capitalKindLabel(kind: MarketHubCapitalSource['kind']): string {
   }
 }
 
+function allocationAmountLabel(s: MarketHubCapitalSource): string {
+  if (s.allocationCents) {
+    const share =
+      s.allocationShareBps != null
+        ? ` · ${(s.allocationShareBps / 100).toFixed(1)}% pool`
+        : '';
+    return `${dollarsFromCents(s.allocationCents)}${share}`;
+  }
+  switch (s.allocationStatus) {
+    case 'missing_base':
+      return 'Need company pool';
+    case 'missing_ref':
+      return 'Ref unresolved';
+    case 'unconfigured':
+      return 'Not allocated';
+    case 'resolved':
+      return '—';
+    default: {
+      const _exhaustive: never = s.allocationStatus;
+      return _exhaustive;
+    }
+  }
+}
+
 /**
- * Left-rail Market posture inventory (D-131): company holdings + capital sources only.
- * Day quant / recommendations / synthesis live on the canvas overlay.
+ * Left-rail Market posture inventory (D-131 / D-138): open positions +
+ * fund/engine/router allocations with resolved amounts.
  */
 export function MarketPosturePanel(props: { companyId: string }) {
   const mp = useMarketPostureView();
@@ -64,7 +90,7 @@ export function MarketPosturePanel(props: { companyId: string }) {
     <div className="space-y-3" data-testid="market-posture-panel">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] text-[var(--color-ink-faint)]">
-          Holdings inventory · day tape on canvas
+          Funds + positions · day tape on canvas
         </p>
         <div className="flex shrink-0 items-center gap-1.5">
           {(refreshing || analyzing) && (
@@ -95,16 +121,16 @@ export function MarketPosturePanel(props: { companyId: string }) {
 
       <section className="space-y-1.5">
         <h3 className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]">
-          Positions · {hub.positions.length}
+          Funds · sources · {hub.capitalSources.length}
         </h3>
-        <PositionList hub={hub} />
+        <CapitalSourcesList sources={hub.capitalSources} />
       </section>
 
       <section className="space-y-1.5">
         <h3 className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]">
-          Capital sources · {hub.capitalSources.length}
+          Open positions · {hub.positions.length}
         </h3>
-        <CapitalSourcesList sources={hub.capitalSources} />
+        <PositionList hub={hub} />
       </section>
 
       <div className="border-t border-[var(--color-line)] pt-2">
@@ -122,35 +148,43 @@ function CapitalSourcesList(props: { sources: MarketHubCapitalSource[] }) {
   if (props.sources.length === 0) {
     return (
       <p className="text-xs text-[var(--color-ink-faint)]">
-        No holding funds or capital-bearing desks yet
+        No holding funds, desks, routers, or engine envelopes yet
       </p>
     );
   }
   return (
     <ul className="space-y-1 text-xs" data-testid="market-posture-capital-sources">
       {props.sources.map((s) => (
-        <li
-          key={s.id}
-          className="rounded border border-[var(--color-line)] px-2 py-1.5"
-        >
+        <li key={s.id} className="rounded border border-[var(--color-line)] px-2 py-1.5">
           <Justification
             sourceClass="operator"
             block
             lines={[
-              `${capitalKindLabel(s.kind)} · ${s.moduleType}`,
+              `${capitalKindLabel(s.kind)} · ${s.entityType}`,
               `Source: ${s.sourceLabel}`,
+              s.engineLabel ? `Engine: ${s.engineLabel}` : 'No engine binding',
               s.allocationRef ? `Allocation ref: ${s.allocationRef}` : 'No allocation ref',
-              `Status: ${s.status}`,
+              `Allocation: ${allocationAmountLabel(s)} (${s.allocationStatus})`,
+              s.ledgerBalanceCents
+                ? `Ledger: ${dollarsFromCents(s.ledgerBalanceCents)}`
+                : 'No module ledger balance',
             ]}
           >
             <div className="flex items-baseline justify-between gap-2">
               <span className="font-medium text-[var(--color-ink)]">{s.name}</span>
               <span className="shrink-0 font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-                {capitalKindLabel(s.kind)} · {s.status}
+                {capitalKindLabel(s.kind)}
               </span>
             </div>
-            <p className="mt-0.5 font-mono text-[10px] text-[var(--color-ink-faint)]">
+            <p className="mt-0.5 font-mono text-[10px] tabular-nums text-[var(--color-ink)]">
+              {allocationAmountLabel(s)}
+            </p>
+            <p className="mt-0.5 font-mono text-[9px] text-[var(--color-ink-faint)]">
               {s.sourceLabel}
+              {s.engineLabel ? ` · ${s.engineLabel}` : ''}
+              {s.ledgerBalanceCents
+                ? ` · ledger ${dollarsFromCents(s.ledgerBalanceCents)}`
+                : ''}
             </p>
           </Justification>
         </li>
@@ -174,6 +208,7 @@ function PositionList(props: { hub: MarketHubResponse }) {
             onClick={() => {
               const clear = mp.selectedPositionId === p.id;
               mp.selectPosition(clear ? null : p.id, clear ? null : p.symbol);
+              mp.openOverlay();
             }}
             className={`w-full rounded border px-2 py-1.5 text-left text-xs ${
               mp.selectedPositionId === p.id

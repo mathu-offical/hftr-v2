@@ -72,6 +72,7 @@ export function MarketPostureOverlay() {
   );
   const synthesis = useMarketHubSynthesis(mp.companyId, { enabled: mp.overlayOpen });
   const [watchlistTierFilter, setWatchlistTierFilter] = useState<WatchlistTierFilter>('default');
+  const [dayLens, setDayLens] = useState<'both' | 'stock' | 'news'>('both');
   const lastTerminalRunId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -161,7 +162,7 @@ export function MarketPostureOverlay() {
               type="button"
               onClick={() => void onAnalyze()}
               disabled={analyzing || refreshing}
-              title="Full posture analysis with live synthesis stages on Model"
+              title="Analyze reseals stock movers (bars+news compound) and sector news in parallel, then daily + narrative"
               className="border border-[var(--color-accent)] bg-[var(--color-accent)]/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/20 disabled:opacity-50"
               data-testid="market-posture-analyze"
             >
@@ -230,7 +231,10 @@ export function MarketPostureOverlay() {
           <p className="text-[10px] text-[var(--color-ink-faint)]">No posture data</p>
         ) : (
           <div className="mx-auto flex max-w-5xl flex-col gap-4">
-            <section className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
+            <section className="space-y-2" data-testid="market-posture-master-equity">
+              <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+                Master equity
+              </h3>
               <MarketPostureEquityChart
                 series={hub.equity.series}
                 selectedQty={null}
@@ -241,107 +245,211 @@ export function MarketPostureOverlay() {
                 asOfIso={hub.equity.asOfIso}
                 version={hub.equity.version}
               />
-              <div
-                className={`space-y-2 rounded border bg-[var(--color-surface-1)] p-2.5 ${
-                  moversStale
-                    ? 'border-[var(--color-warn,var(--color-ink-faint))]'
-                    : 'border-[var(--color-line)]'
-                }`}
-              >
-                <div className="flex flex-wrap items-baseline justify-between gap-1">
-                  <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                    {hub.movers.title ?? 'Top movers in sector'}
-                  </h3>
-                  <span className="font-mono text-[9px] uppercase text-[var(--color-ink-faint)]">
-                    {hub.movers.status}
-                    {hub.movers.corroborationBand
-                      ? ` · ${hub.movers.corroborationBand}`
-                      : ''}
-                  </span>
-                </div>
-                <p className="font-mono text-[9px] text-[var(--color-ink-faint)]">
-                  Verified {formatOrientation(hub.movers.verifiedAt)} · expires{' '}
-                  {formatOrientation(hub.movers.expiresAt)}
-                  {moversStale ? ' · stale' : ''}
-                </p>
-                {hub.movers.items.length === 0 ? (
-                  <p className="text-xs text-[var(--color-ink-faint)]">
-                    No movers seal yet ({hub.movers.status}).
+            </section>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+                Live streams
+              </span>
+              {(
+                [
+                  ['both', 'Stock + news'],
+                  ['stock', 'Stock'],
+                  ['news', 'News'],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setDayLens(id)}
+                  className={`border px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider ${
+                    dayLens === id
+                      ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
+                      : 'border-[var(--color-line)] text-[var(--color-ink-dim)]'
+                  }`}
+                  data-testid={`market-posture-lens-${id}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <section
+              className={`grid gap-3 ${dayLens === 'both' ? 'lg:grid-cols-2' : 'grid-cols-1'}`}
+            >
+              {dayLens !== 'news' ? (
+                <div
+                  className={`space-y-2 rounded border bg-[var(--color-surface-1)] p-2.5 ${
+                    moversStale
+                      ? 'border-[var(--color-warn,var(--color-ink-faint))]'
+                      : 'border-[var(--color-line)]'
+                  }`}
+                  data-testid="market-posture-stock-board"
+                >
+                  <div className="flex flex-wrap items-baseline justify-between gap-1">
+                    <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+                      Stock · {hub.movers.title ?? 'Top movers'}
+                    </h3>
+                    <span className="font-mono text-[9px] uppercase text-[var(--color-ink-faint)]">
+                      {hub.movers.status}
+                      {hub.movers.corroborationBand
+                        ? ` · ${hub.movers.corroborationBand}`
+                        : ''}
+                    </span>
+                  </div>
+                  <p className="font-mono text-[9px] text-[var(--color-ink-faint)]">
+                    Verified {formatOrientation(hub.movers.verifiedAt)} · expires{' '}
+                    {formatOrientation(hub.movers.expiresAt)}
+                    {moversStale ? ' · stale' : ''}
                   </p>
-                ) : (
-                  <ul className="space-y-1.5">
-                    {hub.movers.items.slice(0, 8).map((item, i) => {
-                      const viz =
-                        hub.movers.itemViz.find(
-                          (v) =>
-                            v.symbol ===
-                            item.symbolOrSector?.trim().replace(/^\$/, '').toUpperCase(),
-                        ) ?? null;
-                      return (
-                        <li key={`${item.symbolOrSector ?? 'm'}-${i}`}>
+                  {hub.movers.items.length === 0 ? (
+                    <p className="text-xs text-[var(--color-ink-faint)]">
+                      No movers seal yet — Analyze reseals stock compound (bars + news).
+                    </p>
+                  ) : (
+                    <ul className="max-h-64 space-y-1.5 overflow-y-auto">
+                      {hub.movers.items.slice(0, 12).map((item, i) => {
+                        const viz =
+                          hub.movers.itemViz.find(
+                            (v) =>
+                              v.symbol ===
+                              item.symbolOrSector?.trim().replace(/^\$/, '').toUpperCase(),
+                          ) ?? null;
+                        return (
+                          <li key={`${item.symbolOrSector ?? 'm'}-${i}`}>
+                            <Justification
+                              sourceClass="system_seal"
+                              lines={[
+                                item.headline ?? 'Sealed movers board item',
+                                `Bands: ${[item.directionBand, item.strengthBand].filter(Boolean).join(' · ') || 'n/a'}`,
+                              ]}
+                            >
+                              {viz ? (
+                                <SymbolTicker viz={viz} density="compact" />
+                              ) : (
+                                <div className="flex items-start justify-between gap-2 text-xs">
+                                  <span className="font-medium text-[var(--color-ink)]">
+                                    {item.symbolOrSector ?? 'Cluster'}
+                                  </span>
+                                  <span className="shrink-0 text-[10px] uppercase text-[var(--color-ink-faint)]">
+                                    {[item.directionBand, item.strengthBand]
+                                      .filter(Boolean)
+                                      .join(' · ')}
+                                  </span>
+                                </div>
+                              )}
+                            </Justification>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                  {hub.movers.reportConceptId ? (
+                    <button
+                      type="button"
+                      onClick={() => openReport(hub.movers.reportConceptId!)}
+                      className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-accent)] hover:underline"
+                    >
+                      Open movers report
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {dayLens !== 'stock' ? (
+                <div
+                  className="space-y-2 rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2.5"
+                  data-testid="market-posture-news-board"
+                >
+                  <div className="flex flex-wrap items-baseline justify-between gap-1">
+                    <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+                      News · {hub.news.title ?? 'Sector bulletin'}
+                    </h3>
+                    <span className="font-mono text-[9px] uppercase text-[var(--color-ink-faint)]">
+                      {hub.news.status}
+                      {hub.news.corroborationBand
+                        ? ` · ${hub.news.corroborationBand}`
+                        : ''}
+                    </span>
+                  </div>
+                  <p className="font-mono text-[9px] text-[var(--color-ink-faint)]">
+                    Verified {formatOrientation(hub.news.verifiedAt)} · expires{' '}
+                    {formatOrientation(hub.news.expiresAt)}
+                  </p>
+                  {hub.news.items.length === 0 ? (
+                    <p className="text-xs text-[var(--color-ink-faint)]">
+                      No sector news seal yet — Analyze reseals news lanes in parallel.
+                    </p>
+                  ) : (
+                    <ul className="max-h-64 space-y-1.5 overflow-y-auto">
+                      {hub.news.items.slice(0, 12).map((item, i) => (
+                        <li
+                          key={`${item.symbolOrSector ?? 'n'}-${i}`}
+                          className="rounded border border-[var(--color-line)] px-1.5 py-1 text-xs"
+                        >
                           <Justification
                             sourceClass="system_seal"
                             lines={[
-                              item.headline ?? 'Sealed movers board item',
+                              item.headline ?? 'Sector news item',
+                              item.symbolOrSector
+                                ? `Sector/symbol: ${item.symbolOrSector}`
+                                : 'No sector label',
                               `Bands: ${[item.directionBand, item.strengthBand].filter(Boolean).join(' · ') || 'n/a'}`,
                             ]}
                           >
-                            {viz ? (
-                              <SymbolTicker viz={viz} density="compact" />
-                            ) : (
-                              <div className="flex items-start justify-between gap-2 text-xs">
-                                <span className="font-medium text-[var(--color-ink)]">
-                                  {item.symbolOrSector ?? 'Cluster'}
-                                </span>
-                                <span className="shrink-0 text-[10px] uppercase text-[var(--color-ink-faint)]">
-                                  {[item.directionBand, item.strengthBand]
-                                    .filter(Boolean)
-                                    .join(' · ')}
-                                </span>
-                              </div>
-                            )}
+                            <p className="font-medium text-[var(--color-ink)]">
+                              {item.headline ?? item.symbolOrSector ?? 'Headline'}
+                            </p>
+                            <p className="mt-0.5 font-mono text-[9px] uppercase text-[var(--color-ink-faint)]">
+                              {[item.symbolOrSector, item.directionBand, item.strengthBand]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </p>
                           </Justification>
                         </li>
-                      );
-                    })}
-                  </ul>
-                )}
-                <div className="flex flex-wrap gap-1.5 border-t border-[var(--color-line)] pt-2">
-                  <span className="w-full text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                    Reports
-                  </span>
-                  {hub.reports.length === 0 ? (
-                    <span className="text-[10px] text-[var(--color-ink-faint)]">
-                      No sealed reports yet
-                    </span>
-                  ) : (
-                    hub.reports.map((r) => (
-                      <button
-                        key={r.id}
-                        type="button"
-                        onClick={() => openReport(r.id)}
-                        className="rounded border border-[var(--color-line)] px-2 py-1 text-left text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
-                        title={
-                          r.expiresAt
-                            ? `Expires ${formatOrientation(r.expiresAt)}`
-                            : reportKindLabel(r.kind)
-                        }
-                      >
-                        <span className="mr-1 uppercase tracking-wider text-[var(--color-ink-faint)]">
-                          {reportKindLabel(r.kind)}
-                        </span>
-                        {r.title}
-                        {r.expiresAt ? (
-                          <span className="mt-0.5 block font-mono text-[8px] text-[var(--color-ink-faint)]">
-                            exp {formatOrientation(r.expiresAt)}
-                          </span>
-                        ) : null}
-                      </button>
-                    ))
+                      ))}
+                    </ul>
                   )}
+                  {hub.news.reportConceptId ? (
+                    <button
+                      type="button"
+                      onClick={() => openReport(hub.news.reportConceptId!)}
+                      className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-accent)] hover:underline"
+                    >
+                      Open sector news report
+                    </button>
+                  ) : null}
                 </div>
-              </div>
+              ) : null}
             </section>
+
+            <div className="flex flex-wrap gap-1.5">
+              <span className="w-full text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+                Sealed reports
+              </span>
+              {hub.reports.length === 0 ? (
+                <span className="text-[10px] text-[var(--color-ink-faint)]">No sealed reports yet</span>
+              ) : (
+                hub.reports.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => openReport(r.id)}
+                    className="rounded border border-[var(--color-line)] px-2 py-1 text-left text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+                    title={
+                      r.expiresAt
+                        ? `Expires ${formatOrientation(r.expiresAt)}`
+                        : reportKindLabel(r.kind)
+                    }
+                  >
+                    <span className="mr-1 uppercase tracking-wider text-[var(--color-ink-faint)]">
+                      {reportKindLabel(r.kind)}
+                    </span>
+                    {r.title}
+                  </button>
+                ))
+              )}
+            </div>
 
             <section
               id="market-posture-model-section"
@@ -349,11 +457,12 @@ export function MarketPostureOverlay() {
               data-testid="market-posture-overlay-model"
             >
               <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                Synthesis model · day awareness
+                Synthesis model · stock + news
               </h3>
               <p className="text-[10px] text-[var(--color-ink-dim)]">
-                Analyze reseals movers / sector / daily and records every stage. Holdings stay on
-                the left Posture rail.
+                Analyze runs stock movers (compound bars + news) and sector news seals in
+                parallel, then daily summaries and posture narrative. Funds stay on the left
+                rail.
               </p>
               <MarketPostureModelCanvas run={synthesis.run} />
               <MarketPostureAwarenessDock hub={hub} onOpenConcept={openReport} />

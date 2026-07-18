@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { CreateModuleInput, MODULE_CONFIG_SCHEMAS, moduleRequiresMath } from '@hftr/contracts';
 import { libraries, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
-import { createSystemClock } from '@hftr/engine';
+import { bootstrapCompanyKnowledge, createSystemClock } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import { recordModuleSetup } from '@/lib/module-setup';
 import { provisionDedicatedMathTools } from '@/lib/math-provision';
@@ -99,6 +99,7 @@ export async function POST(req: Request, ctx: Ctx) {
           masterLibrary: false,
         })
         .onConflictDoNothing({ target: [libraries.companyId, libraries.name] });
+      await bootstrapCompanyKnowledge({ db, companyId });
     }
 
     const dedicatedMath = await provisionDedicatedMathTools(db, companyId, [

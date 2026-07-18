@@ -10,7 +10,11 @@ import {
 } from '@hftr/contracts';
 import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
-import { createSystemClock, loadSessionConstraints } from '@hftr/engine';
+import {
+  bootstrapCompanyKnowledge,
+  createSystemClock,
+  loadSessionConstraints,
+} from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import {
   cascadeEngineSetup,
@@ -297,6 +301,13 @@ export async function POST(req: Request) {
     }
 
     await refreshGeneratedModuleNames(db, company.id, createdModuleIds);
+
+    // Compile-time catalog mechanisms → libraries + galaxy concepts + hybrid topic (D-044).
+    try {
+      await bootstrapCompanyKnowledge({ db, companyId: company.id });
+    } catch (err) {
+      console.error('bootstrapCompanyKnowledge failed on company create', err);
+    }
 
     return { company };
   });

@@ -2,6 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { scoping } from '@hftr/db';
 import { conceptLinks, concepts, libraryConcepts } from '@hftr/db/schema';
+import { bootstrapCompanyKnowledge } from '@hftr/engine';
 import { withAuth } from '@/lib/api';
 import { bumpConceptQueries, listLibraryNests } from '@/lib/research-topics';
 
@@ -22,6 +23,12 @@ export async function GET(req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
     const { companyId } = Params.parse(await ctx.params);
     await scoping.getOwnedCompany(db, clerkUserId, companyId);
+    // Idempotent backfill so existing companies get seeded mechanisms in galaxy (D-044).
+    try {
+      await bootstrapCompanyKnowledge({ db, companyId });
+    } catch (err) {
+      console.error('bootstrapCompanyKnowledge failed on graph GET', err);
+    }
     const url = new URL(req.url);
     const moduleId = z.string().uuid().nullable().parse(url.searchParams.get('moduleId'));
     const bumpQueries = url.searchParams.get('bumpQueries') === '1';

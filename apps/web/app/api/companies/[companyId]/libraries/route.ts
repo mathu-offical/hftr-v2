@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { CreateLibraryInput } from '@hftr/contracts';
 import { scoping } from '@hftr/db';
 import { libraries } from '@hftr/db/schema';
+import { bootstrapCompanyKnowledge } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
@@ -23,6 +24,11 @@ export async function GET(_req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
     const { companyId } = Params.parse(await ctx.params);
     await scoping.getOwnedCompany(db, clerkUserId, companyId);
+    try {
+      await bootstrapCompanyKnowledge({ db, companyId });
+    } catch (err) {
+      console.error('bootstrapCompanyKnowledge failed on libraries GET', err);
+    }
     const rows = await db
       .select()
       .from(libraries)

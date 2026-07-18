@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { CreateResearchTopicInput } from '@hftr/contracts';
 import { scoping } from '@hftr/db';
 import { researchTopics } from '@hftr/db/schema';
+import { bootstrapCompanyKnowledge } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import { serializeTopic, topicConceptCounts } from '@/lib/research-topics';
 
@@ -15,6 +16,11 @@ export async function GET(req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
     const { companyId } = Params.parse(await ctx.params);
     await scoping.getOwnedCompany(db, clerkUserId, companyId);
+    try {
+      await bootstrapCompanyKnowledge({ db, companyId });
+    } catch (err) {
+      console.error('bootstrapCompanyKnowledge failed on topics GET', err);
+    }
     const moduleId = z
       .string()
       .uuid()

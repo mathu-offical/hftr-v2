@@ -260,6 +260,20 @@
       "when": 1784336700000,
       "tag": "0037_engine_utility_links",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1784336800000,
+      "tag": "0038_watchlist_suggestion_tiers",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1784350000000,
+      "tag": "0039_module_service_research_keys",
+      "breakpoints": true
     }
   ]
 }

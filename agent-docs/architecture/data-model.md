@@ -14,7 +14,8 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 
 ## Companies & modules
 
-- **companies** — clerk_user_id, name, philosophy_prompt, philosophy_profile jsonb (slideable
+- **companies** — clerk_user_id, name, philosophy_prompt, sector_focuses text[] (D-045 presets),
+  philosophy_profile jsonb (slideable
   axes → LeverSetting; D-025), llm_policy jsonb (privacy mode, tier model ids, profile;
   D-027), goals jsonb, reinvestment_policy jsonb, scoping_policies jsonb, mode `paper|live`,
   seed_credits_cents (paper),   broker_connection_id nullable unique FK → broker_connections,
@@ -86,9 +87,10 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   `proposed|accepted|auto_admitted|rejected|archived`). **D-040:** primary library membership
   drives hard nested galaxy nests; secondary memberships are badges, not duplicate nodes.
   **D-044:** `bootstrapCompanyKnowledge` ensures library rows for every `library` module,
-  promotes/creates a master nest (`Company knowledge graph` fallback), and seeds compile-time
-  catalog mechanism concepts into the mechanisms/master library with `auto_admitted`
-  membership so galaxy + Page surfaces are never empty of baseline knowledge.
+  creates a dedicated **Seeded trading mechanisms** library, and seeds full vendored
+  catalog families (`strategy_families`, `guardrail_packages`, `session_constraints`,
+  `broker_policy_envelopes`, `trend_lead_patterns`) as `catalog_seed` concepts with
+  operator-readable bodies from catalog payloads (not placeholder stubs).
 - **knowledge_access_events** — **D-040 (optional/specified):** append-only access log
   `(company_id, entity_kind topic|concept, entity_id, access_kind query|reference, actor, created_at)`
   when denormalized counters are insufficient under contention.

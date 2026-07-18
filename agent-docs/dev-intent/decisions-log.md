@@ -474,6 +474,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Company **duplicate** batches Math tool rows after owners (Neon HTTP FK order).
   **Status: implemented** (contracts + POST `/api/companies` + `CreateCompanyForm` + e2e/docs).
 
+- **D-045 (company sector focus presets, 2026-07-17):**
+  Company create exposes optional multi-select **sector focuses** from a wide predefined
+  catalog (`SECTOR_FOCUS_PRESETS` in contracts — tech, finance, healthcare, energy, consumer,
+  industrial, macro, alt). Max 12 labels; persisted as `companies.sector_focuses` (migration
+  `0024`). Selecting focuses pre-seeds engine and topic-scoped module drafts and, on create,
+  fills `masterTopicSectors` when engine setup omits topics. Operators can still edit per-engine
+  topic text. **Status: implemented.**
+
 - **D-036 (auto-disarm + drain latency, 2026-07-17):**
   `autoDisarmCompany` clears `live_armed_at` and `live_gate_evidence_id` on broker verify
   failure, stale evidence while armed (`live-gates/status`), and `resolveExecutionContext` block.
@@ -504,14 +512,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 - **D-044 (compile-time catalog → company libraries/galaxy bootstrap, 2026-07-17):**
   Vendored `catalog_entries` alone are not operator-visible. `bootstrapCompanyKnowledge`
   (`packages/engine/src/libraries/bootstrap.ts`) idempotently: (1) ensures `libraries` rows for
-  every `library` module and a master nest (`Company knowledge graph` fallback), (2) upserts
-  `SEED_CATALOG_TARGETS` as leak-lint-safe `concepts` with `auto_admitted` library membership
-  and typed links, (3) when a research module exists, creates hybrid topic **Seeded trading
-  mechanisms** with `[[wikilink]]` synopsis for the Page tab. Wired on company create, library
-  module create, and GET ensure paths for libraries / research graph / topics so existing
-  companies backfill on first research view. Deterministic curate also calls
-  `attachConceptsToLibraries`. Daily system-curated libraries (movers/trends/policy) remain
-  deferred. Aligns with DevSpecs research-library philosophy (compile-time seeded mechanisms).
+  every `library` module plus a dedicated **Seeded trading mechanisms** nest, (2) upserts all
+  rows in `SEED_CATALOG_NAMES` as leak-lint-safe, catalog-payload-derived `concepts` with
+  `sourceClass: catalog_seed` (not placeholder stubs), `auto_admitted` membership, and typed
+  links, (3) when a research module exists, creates hybrid topic **Seeded trading mechanisms**
+  with `[[wikilink]]` synopsis for the Page tab. Wired on company create, library module create,
+  and GET ensure paths for libraries / research graph / topics so existing companies backfill
+  (and refresh former placeholder bodies once into `catalog_seed`). Deterministic curate uses
+  the same body builder. Daily system-curated libraries (movers/trends/policy) remain deferred.
+  Aligns with DevSpecs research-library philosophy (compile-time seeded mechanisms).
 
 ## Open questions
 

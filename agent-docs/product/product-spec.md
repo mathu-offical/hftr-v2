@@ -113,8 +113,9 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   `archived`. Views: browse/tag/search, **hard-nested galaxy nests** (D-040), markdown preview /
   hybrid topic articles.
   **Bootstrap (D-044):** company create and research graph/topics/libraries ensure paths call
-  `bootstrapCompanyKnowledge` so compile-time catalog mechanisms appear as galaxy concepts and
-  an operator Page topic without waiting for a research run.
+  `bootstrapCompanyKnowledge` so compile-time catalog mechanisms appear as readable
+  `catalog_seed` galaxy concepts (payload-derived bodies, not placeholders) and an operator
+  Page topic without waiting for a research run.
   **Export: Obsidian-optimized folder of .md files** (frontmatter: tags, links as wikilinks,
   provenance; topic articles as linked notes) — zip download per library or whole company.
 - **Live APIs:** deterministic feed managers (Alpaca data, Kalshi books, future venues).

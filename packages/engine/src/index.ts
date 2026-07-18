@@ -288,6 +288,10 @@ export {
   type ServiceSourceKind,
 } from './services/resolve-module-services';
 export { resolveCompanyServiceBindings } from './services/resolve-company-service-bindings';
+export {
+  summarizeCompanyServiceCoverage,
+  type ServiceCoverageSummary,
+} from './services/summarize-company-service-coverage';
 
 // Calc / NRA
 export * as calcStore from './calc/store';

@@ -18,6 +18,12 @@ export interface CompanyCardEquity {
   asOfIso: string | null;
 }
 
+export interface CompanyCardServiceCoverage {
+  modulesWithRequiredGaps: number;
+  missingRequiredCapabilities: string[];
+  boundCapabilityCount: number;
+}
+
 export interface CompanyCardProps {
   id: string;
   name: string;
@@ -26,6 +32,7 @@ export interface CompanyCardProps {
   engines: CompanyCardEngine[];
   seedCreditsCents: string;
   equity: CompanyCardEquity;
+  serviceCoverage?: CompanyCardServiceCoverage;
 }
 
 /**
@@ -231,6 +238,23 @@ export function CompanyCard(props: CompanyCardProps) {
                   <span className={`ml-2 ${equityStatusTone}`}>Unavailable</span>
                 )}
               </p>
+              {props.serviceCoverage && (
+                <p data-testid="company-card-service-coverage" className="text-[var(--color-ink-faint)]">
+                  {props.serviceCoverage.modulesWithRequiredGaps > 0 ? (
+                    <span className="text-[var(--color-warn)]">
+                      Service gaps · {props.serviceCoverage.modulesWithRequiredGaps} module
+                      {props.serviceCoverage.modulesWithRequiredGaps === 1 ? '' : 's'} missing{' '}
+                      {props.serviceCoverage.missingRequiredCapabilities.join(', ') ||
+                        'required capabilities'}
+                    </span>
+                  ) : (
+                    <span>
+                      Services bound · {props.serviceCoverage.boundCapabilityCount} capacit
+                      {props.serviceCoverage.boundCapabilityCount === 1 ? 'y' : 'ies'}
+                    </span>
+                  )}
+                </p>
+              )}
             </div>
             <p className="line-clamp-2 text-sm text-[var(--color-ink-dim)]">
               {props.philosophyPrompt}

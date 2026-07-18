@@ -47,6 +47,8 @@
   (`llm: n/6`) plus the same **User settings** launcher next to the user menu (LLM /
   Research / Brokers) so credentials are reachable before opening a company. Card grid with paper (cyan) / live (red) text-first
   mode badges, listed engine labels, **Seed $…** / **Current value $…** (tabular-nums;
+  stale/unavailable text-first), and **Services bound** or **Service gaps** line from
+  persisted `module_service_bindings` (D-090; required-capability gaps listed by name),
   text status `Stale` / `Unavailable` when equity projection is not fresh), link into the
   company canvas, and a ⋯ menu for rename, duplicate (always a zero-capital paper copy of
   topology with non-Math modules reset to draft), and archive/delete (fail-closed: leaves

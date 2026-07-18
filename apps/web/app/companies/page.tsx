@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getDb, scoping } from '@hftr/db';
+import { summarizeCompanyServiceCoverage } from '@hftr/engine';
 import { CompanyCard } from '@/components/CompanyCard';
 import { CreateCompanyForm } from '@/components/CreateCompanyForm';
 import { CompaniesDirectoryStatus } from '@/components/shell/CompaniesDirectoryShell';
@@ -17,10 +18,22 @@ export default async function CompaniesPage() {
   if (!userId) return null; // middleware guarantees auth; defensive only
 
   let companies: Awaited<ReturnType<typeof scoping.listCompaniesDirectory>> = [];
+  let coverageByCompany = new Map<
+    string,
+    Awaited<ReturnType<typeof summarizeCompanyServiceCoverage>>
+  >();
   let dbError = false;
   try {
     await ensureProfile(userId);
-    companies = await scoping.listCompaniesDirectory(getDb(), userId);
+    const db = getDb();
+    companies = await scoping.listCompaniesDirectory(db, userId);
+    const summaries = await Promise.all(
+      companies.map(async (c) => {
+        const summary = await summarizeCompanyServiceCoverage(db, c.id);
+        return [c.id, summary] as const;
+      }),
+    );
+    coverageByCompany = new Map(summaries);
   } catch {
     dbError = true;
   }
@@ -57,23 +70,35 @@ export default async function CompaniesPage() {
             </div>
           ) : (
             <ul className="grid gap-4 sm:grid-cols-2">
-              {companies.map((c) => (
-                <li key={c.id}>
-                  <CompanyCard
-                    id={c.id}
-                    name={c.name}
-                    mode={c.mode}
-                    philosophyPrompt={c.philosophyPrompt}
-                    engines={c.engines}
-                    seedCreditsCents={c.seedCreditsCents.toString()}
-                    equity={{
-                      equityCents: c.equityCents?.toString() ?? null,
-                      status: c.equityStatus,
-                      asOfIso: c.equityAsOf?.toISOString() ?? null,
-                    }}
-                  />
-                </li>
-              ))}
+              {companies.map((c) => {
+                const coverage = coverageByCompany.get(c.id);
+                return (
+                  <li key={c.id}>
+                    <CompanyCard
+                      id={c.id}
+                      name={c.name}
+                      mode={c.mode}
+                      philosophyPrompt={c.philosophyPrompt}
+                      engines={c.engines}
+                      seedCreditsCents={c.seedCreditsCents.toString()}
+                      equity={{
+                        equityCents: c.equityCents?.toString() ?? null,
+                        status: c.equityStatus,
+                        asOfIso: c.equityAsOf?.toISOString() ?? null,
+                      }}
+                      serviceCoverage={
+                        coverage
+                          ? {
+                              modulesWithRequiredGaps: coverage.modulesWithRequiredGaps,
+                              missingRequiredCapabilities: coverage.missingRequiredCapabilities,
+                              boundCapabilityCount: coverage.boundCapabilityCount,
+                            }
+                          : undefined
+                      }
+                    />
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

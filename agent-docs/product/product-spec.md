@@ -39,13 +39,17 @@ watches, steers, and approves through the canvas + three panels + the assistant.
   **Required · label** chips and warning borders; confirmed fields use neutral borders and
   subtle in-field green checks. **Skip setup & open canvas** still applies default capital/
   exit cascades; topic/sector stays operator-required on-canvas until filled.
-- Day trading / trend research appear as **Quick add** buttons that insert the matching
-  `ENGINE_TEMPLATES` card (not a separate company-template graph seed). The API seeds solely
-  from `engines` (+ optional `extraModules`) after provisioning the company Math hub.
-  Module store remains the path for insertable engines after create (crypto/prediction/HFT
-  listed with honest gating reasons). Scope fields use `pending_operator_scope` until operator
-  setup. Allocation and exit resolve through ValueRefs and temporal refs per
-  `architecture/number-handling.md`.
+- Day trading / trend research / specialty packs appear as **add buttons** in a compact
+  two-column **Research | Execution** strip above a create-form **canvas preview** (template
+  module graph + links; dashed edges for research deps). Choosing an **execution** engine
+  auto-adds research dependency packs and **cascades topic/capital/exit live** into those
+  seeds (`cascadedFromKey`). Gated engines appear as **Locked · …**. Setup edits happen in the
+  selected-engine inspector. `EXECUTION_ENGINE_RESEARCH_DEPENDENCIES` drives auto-add. The API
+  seeds solely from `engines` (+ optional `extraModules`) after provisioning the company Math
+  hub. Module store remains the path for insertable engines after create
+  (crypto/prediction/HFT listed with honest gating reasons). Scope fields use
+  `pending_operator_scope` until operator setup. Allocation and exit resolve through
+  ValueRefs and temporal refs per `architecture/number-handling.md`.
 - **ENGINE groups (D-028):** each inserted engine persists as an `engine_instances` row with
   `master_topic_sectors` that cascade to member modules (`engine_instance_id`) unless a member
   overrides (`topic_sectors_overridden`). React Flow renders a structural parent group chrome

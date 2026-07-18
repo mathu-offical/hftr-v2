@@ -116,11 +116,17 @@
   (connection-safe layout) and **Clear canvas…** (confirm modal → cascade-delete every engine
   group and delete every remaining module/Math tool/link). Clear is disabled when the graph is
   empty; Escape / backdrop dismisses the confirm while not busy.
-- **Company create (D-043):** bounded scrollable form; **Engines** section requires ≥1 card.
-  Quick-add Day trading / Trend research; Add engine… for other available templates; Remove
-  freely (Create/Skip disabled at zero). Each engine card: template inputs + shared
-  topic/capital/exit (module-store parity). Optional standalone modules below. User settings
-  modal chrome is **fixed height** (`min(36rem, 90vh)`) with a scrollable tab panel only.
+- **Company create (D-043):** viewport-bounded dialog (`fixed` overlay, `h-full` within
+  padded inset, body scroll locked). Sticky header + footer actions; middle column is
+  `min-h-0 flex-1` with **no outer page scroll**. Scroll regions: capped catalog strips,
+  left list / right inspector (`overflow-y-auto`), optional standalone modules (max ~30%
+  height). **Engines** uses Research | Execution add strips (repeatable instances), then a
+  three-pane workspace: **left** nested engine list, **center** React Flow preview (research
+  left of execution; dashed research→exec bridges only), **right** cascade-family inspector
+  (primary + deps in one frame; canvas dep click keeps family open with that dep focused).
+  Execution setup **cascades live** into that instance’s auto research deps. Gated templates
+  show as **Locked · …**. Optional standalone modules via dropdown. User settings modal
+  chrome is **fixed height** (`min(36rem, 90vh)`) with a scrollable tab panel only.
 - **Inline setup validation (D-024, refined D-026):** company and engine forms render
   topic/sector, trading-capital allocation (USD or percentage), and target-exit. Engine cards
   use shared envelope fields (cascade to members); canvas nodes keep per-module controls. The

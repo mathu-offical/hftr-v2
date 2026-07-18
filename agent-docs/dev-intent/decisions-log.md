@@ -320,8 +320,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `isMathToolAttachment` (math→consumer `data_feed` only); Math never an engine member; company
   creation still seeds one Math module but additional Math modules may be created and deleted.
   n8n-style TOOL chrome on consumers deferred in canvas UI. Contracts tests in
-  `describe('engine instances (D-028)')`. Playwright `canvas-engine-groups.spec.ts` and
-  IronBee (Engine chrome + master topic field on day-trading canvas) verified.
+  `describe('engine instances (D-028)')`. Playwright `canvas-engine-groups.spec.ts`
+  verifies chrome + topic cascade + second-engine insert + ungroup (API-assisted where
+  shell overlays intercept RF pointer events). IronBee: Engine chrome on canvas.
   **Status: implemented and verified.**
 
 - **D-029 (dynamic safety limits foundation, 2026-07-17):**
@@ -463,10 +464,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Company create requires **≥1 engine**. Operators compose engines as cards (add/remove freely);
   each card holds template inputs + shared topic/capital/exit (module-store parity). API
   `CreateCompanyInput.engines` is `min(1)`; graph seed is Math hub + engines (+ optional
-  standalone `extraModules`). Create UI splits **Research** vs **Execution** add-button
-  catalogs; execution engines auto-add research dependency packs via
-  `EXECUTION_ENGINE_RESEARCH_DEPENDENCIES`. Former company templates are no longer a separate
+  standalone `extraModules`). Create UI: **Research | Execution** add strips, React Flow
+  **canvas preview** (template links + dashed research-dep edges), seed chips, selected-engine
+  inspector; execution setup **cascades live** into auto research deps (`cascadedFromKey`).
+  Gated engines render as **Locked · …**. Former company templates are no longer a separate
   POST graph seed. User settings modal stays fixed-height with scrollable tab panel.
+  Company **duplicate** batches Math tool rows after owners (Neon HTTP FK order).
   **Status: implemented** (contracts + POST `/api/companies` + `CreateCompanyForm` + e2e/docs).
 
 - **D-036 (auto-disarm + drain latency, 2026-07-17):**

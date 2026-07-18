@@ -54,12 +54,18 @@ export async function GET(_req: Request, ctx: Ctx) {
     const nowMs = clock.nowMs();
     const fetchedAt = new Date(nowMs).toISOString();
 
-    const seal = await loadLatestValidSeal(db, {
-      companyId,
-      kind: 'movers_board',
-      subjectKey: 'daily',
-      nowMs,
-    });
+    let seal = null;
+    try {
+      seal = await loadLatestValidSeal(db, {
+        companyId,
+        kind: 'movers_board',
+        subjectKey: 'daily',
+        nowMs,
+      });
+    } catch {
+      // Table may be unmigrated in some envs — hub still serves other sections.
+      seal = null;
+    }
 
     let movers: MarketHubResponse['movers'];
     if (seal) {
@@ -74,36 +80,43 @@ export async function GET(_req: Request, ctx: Ctx) {
         reportConceptId: seal.reportConceptId ?? null,
       };
     } else {
-      // Surface expired seals as status=expired (D-081 freshness honesty).
-      const [stale] = await db
-        .select({
-          bundle: systemNormalizedViews.bundle,
-          expiresAt: systemNormalizedViews.expiresAt,
-        })
-        .from(systemNormalizedViews)
-        .where(
-          and(
-            eq(systemNormalizedViews.companyId, companyId),
-            eq(systemNormalizedViews.kind, 'movers_board'),
-            eq(systemNormalizedViews.subjectKey, 'daily'),
-          ),
-        )
-        .orderBy(desc(systemNormalizedViews.expiresAt))
-        .limit(1);
-      const parsed = stale ? VerifiedNormalizedBundle.safeParse(stale.bundle) : null;
-      if (parsed?.success && stale && stale.expiresAt.getTime() <= nowMs) {
-        movers = {
-          status: 'expired',
-          title: parsed.data.view.title,
-          sealId: parsed.data.sealId,
-          corroborationBand: parsed.data.corroborationBand,
-          items: parsed.data.view.items,
-          verifiedAt: parsed.data.verifiedAt,
-          expiresAt: parsed.data.expiresAt,
-          reportConceptId: parsed.data.reportConceptId ?? null,
-        };
-      } else {
-        movers = {
+      let expiredMovers: MarketHubResponse['movers'] | null = null;
+      try {
+        // Surface expired seals as status=expired (D-081 freshness honesty).
+        const [stale] = await db
+          .select({
+            bundle: systemNormalizedViews.bundle,
+            expiresAt: systemNormalizedViews.expiresAt,
+          })
+          .from(systemNormalizedViews)
+          .where(
+            and(
+              eq(systemNormalizedViews.companyId, companyId),
+              eq(systemNormalizedViews.kind, 'movers_board'),
+              eq(systemNormalizedViews.subjectKey, 'daily'),
+            ),
+          )
+          .orderBy(desc(systemNormalizedViews.expiresAt))
+          .limit(1);
+        const parsed = stale ? VerifiedNormalizedBundle.safeParse(stale.bundle) : null;
+        if (parsed?.success && stale && stale.expiresAt.getTime() <= nowMs) {
+          expiredMovers = {
+            status: 'expired',
+            title: parsed.data.view.title,
+            sealId: parsed.data.sealId,
+            corroborationBand: parsed.data.corroborationBand,
+            items: parsed.data.view.items,
+            verifiedAt: parsed.data.verifiedAt,
+            expiresAt: parsed.data.expiresAt,
+            reportConceptId: parsed.data.reportConceptId ?? null,
+          };
+        }
+      } catch {
+        expiredMovers = null;
+      }
+      movers =
+        expiredMovers ??
+        ({
           status: 'missing',
           title: null,
           sealId: null,
@@ -112,8 +125,7 @@ export async function GET(_req: Request, ctx: Ctx) {
           verifiedAt: null,
           expiresAt: null,
           reportConceptId: null,
-        };
-      }
+        } as const);
     }
 
     const [watchRows, trendRows, positionRows, leadRows, treeRows] = await Promise.all([

@@ -32,6 +32,75 @@ export {
 const MECHANISMS_LIBRARY_NAME = 'Seeded trading mechanisms';
 const SEEDED_TOPIC_TITLE = 'Seeded trading mechanisms';
 
+/**
+ * Refresh catalog_seed concept bodies/tags from current builders (D-079 / D-080).
+ * Runs even when skipIfSeeded short-circuits the full first-time seed path.
+ */
+async function rematerializeCatalogSeedBodies(
+  db: Db,
+  companyId: string,
+  now: Date,
+): Promise<number> {
+  const catalogRows = await db
+    .select()
+    .from(catalogEntries)
+    .where(inArray(catalogEntries.catalog, [...SEED_CATALOG_NAMES]))
+    .orderBy(catalogEntries.catalog, catalogEntries.entryKey);
+
+  let updated = 0;
+  for (const entry of catalogRows) {
+    const bodyEntry: SeededCatalogEntry = {
+      catalog: entry.catalog,
+      entryKey: entry.entryKey,
+      title: entry.title,
+      tier: entry.tier,
+      payload: entry.payload,
+    };
+    const tags = collectSeededConceptTags(bodyEntry);
+    const body = buildSeededConceptBody(bodyEntry);
+    const sourceRef = `${entry.catalog}/${entry.entryKey}`;
+
+    const result = await db
+      .update(concepts)
+      .set({
+        body,
+        tags,
+        status: 'active',
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(concepts.companyId, companyId),
+          eq(concepts.sourceClass, 'catalog_seed'),
+          eq(concepts.sourceRef, sourceRef),
+        ),
+      );
+    // drizzle neon returns rowCount on some drivers; treat any completed update as progress
+    void result;
+    updated += 1;
+  }
+
+  // Keep the seeded topic synopsis aligned with current catalog membership.
+  const members = catalogRows.map((entry) => ({
+    title: entry.title,
+    catalog: entry.catalog,
+  }));
+  if (members.length > 0) {
+    const synopsisMd = buildSeededTopicSynopsisMd(members);
+    await db
+      .update(researchTopics)
+      .set({ synopsisMd, status: 'active', updatedAt: now })
+      .where(
+        and(
+          eq(researchTopics.companyId, companyId),
+          eq(researchTopics.title, SEEDED_TOPIC_TITLE),
+        ),
+      );
+  }
+
+  return updated;
+}
+
 /** Catalog families materialized into the compile-time mechanisms library. */
 export const SEED_CATALOG_NAMES = [
   'strategy_families',
@@ -294,11 +363,16 @@ export async function bootstrapCompanyKnowledge(opts: {
         )
         .limit(1);
       if (mechLib) {
-        // Mechanisms already seeded — still ensure sector knowledge for current focuses.
+        // Mechanisms already seeded — rematerialize article bodies, then sector knowledge.
+        const rematerialized = await rematerializeCatalogSeedBodies(
+          opts.db,
+          opts.companyId,
+          now,
+        );
         const sector = await ensureSectorKnowledge(opts.db, opts.companyId, now);
         return {
           librariesEnsured: 0,
-          conceptsUpserted: sector.conceptsUpserted,
+          conceptsUpserted: rematerialized + sector.conceptsUpserted,
           topicId: null,
         };
       }

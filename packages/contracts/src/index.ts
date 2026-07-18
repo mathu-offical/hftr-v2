@@ -15,6 +15,7 @@ export * from './qualitative-normalize';
 export * from './qualitative-relevance';
 export * from './llm';
 export * from './research-artifacts';
+export * from './research-articles';
 export * from './research-bus';
 export * from './research-source-registry';
 export * from './system-libraries';

@@ -1600,7 +1600,11 @@ describe('Research bus (D-039)', () => {
 
 describe('live data sources contracts', () => {
   it('resolveLiveDataSourceStatus maps implementation and readiness', async () => {
-    const { resolveLiveDataSourceStatus } = await import('./live-data-sources');
+    const {
+      resolveLiveDataSourceStatus,
+      defaultBrowseQueryForDomain,
+      LiveDataSourceQueryRequest,
+    } = await import('./live-data-sources');
     const { RESEARCH_SOURCE_REGISTRY } = await import('./research-source-registry');
 
     expect(
@@ -1612,6 +1616,8 @@ describe('live data sources contracts', () => {
     expect(
       resolveLiveDataSourceStatus(RESEARCH_SOURCE_REGISTRY.fred_macro, false),
     ).toBe('missing_key');
+    expect(defaultBrowseQueryForDomain('filings')).toBe('10-K');
+    expect(LiveDataSourceQueryRequest.parse({}).mode).toBe('search');
   });
 });
 

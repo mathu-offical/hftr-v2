@@ -219,8 +219,9 @@ export const InitiateTopicResearchResult = z.object({
 export type InitiateTopicResearchResult = z.infer<typeof InitiateTopicResearchResult>;
 
 /**
- * Operator article ingest (D-079) — link URL and/or raw text.
- * Model-free; concepts get sourceClass `operator`. Link fetch deferred (OQ).
+ * Operator article ingest (D-079 / D-127) — link URL and/or raw text.
+ * Model-free; concepts get sourceClass `operator` + `hftr:article` marker.
+ * Must save into a company library; 1–3 display tags become chips in Articles.
  */
 export const SubmitResearchArticleInput = z
   .object({
@@ -231,9 +232,11 @@ export const SubmitResearchArticleInput = z
     title: z.string().min(1).max(200).optional(),
     /** Optional notes when kind=link (stored as concept body prefix). */
     notes: z.string().max(20_000).optional(),
-    libraryId: z.string().uuid().optional(),
+    /** Required target library for the article (D-127). */
+    libraryId: z.string().uuid(),
     topicId: z.string().uuid().optional(),
-    tags: z.array(z.string().min(1).max(64)).max(16).optional(),
+    /** 1–3 display tags shown as chips on the Articles line. */
+    tags: z.array(z.string().trim().min(1).max(64)).max(3).optional(),
   })
   .superRefine((val, ctx) => {
     if (val.kind === 'link') {

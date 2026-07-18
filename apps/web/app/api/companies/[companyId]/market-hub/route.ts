@@ -33,11 +33,28 @@ import {
   resolveResearchGatherCredentials,
   MOVERS_LANE_SOURCE_KINDS,
   researchAvailabilityFromCredentials,
+  buildSymbolViz,
+  buildMarketHubCharts,
+  mapTrendStrengthToBand,
 } from '@hftr/engine';
+import type { MarketHubSymbolViz, QualitativeBand } from '@hftr/contracts';
 import { withAuth } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 90;
+
+function looksLikeTicker(label: string | undefined): label is string {
+  if (!label) return false;
+  const s = label.trim().replace(/^\$/, '').toUpperCase();
+  return /^[A-Z]{1,5}$/.test(s);
+}
+
+function watchRelevance(status: string, sourceClass: string): QualitativeBand {
+  if (sourceClass === 'movers_rank') return 'high';
+  if (status === 'suggested_verified' || status === 'triggered') return 'high';
+  if (status === 'watching') return 'medium';
+  return 'low';
+}
 
 const Params = z.object({ companyId: z.string().uuid() });
 type Ctx = { params: Promise<{ companyId: string }> };
@@ -328,8 +345,8 @@ export async function GET(_req: Request, ctx: Ctx) {
         id: r.id,
         moduleId: r.moduleId,
         symbol: r.symbol,
-        direction: r.direction,
-        strengthBand: r.strengthBand,
+        direction: r.direction as 'up' | 'down' | 'flat',
+        strengthBand: r.strengthBand as 'weak' | 'moderate' | 'strong',
         status: r.status,
         tradingModuleId: r.tradingModuleId ?? null,
         engineInstanceId: r.engineInstanceId ?? null,
@@ -346,16 +363,35 @@ export async function GET(_req: Request, ctx: Ctx) {
       enginesBySymbol.set(t.symbol, uniqEngines([...prev, ...t.engines]));
     }
 
+    const heldBySymbol = new Map<
+      string,
+      { markCents: number; avgCostCents: number; unrealizedPnlCents: string }
+    >();
+
     const positionProjection = positionRows.map((p) => {
       const quote = getSyntheticQuote(p.symbol, clock);
       const markCents = quote.lastCents ?? p.avgCostCents;
       const unrealized = p.qty * BigInt(markCents - p.avgCostCents);
+      const unrealizedPnlCents = unrealized.toString();
       const chips: MarketHubEngineChip[] = [];
       if (p.engineInstanceId) {
         const label = engineById.get(p.engineInstanceId);
         if (label) chips.push({ id: p.engineInstanceId, label });
       }
       chips.push(...(enginesBySymbol.get(p.symbol) ?? []));
+      const held = {
+        markCents,
+        avgCostCents: p.avgCostCents,
+        unrealizedPnlCents,
+      };
+      heldBySymbol.set(p.symbol.toUpperCase(), held);
+      const viz = buildSymbolViz({
+        symbol: p.symbol,
+        clock,
+        strengthBand: 'medium',
+        relevanceBand: 'medium',
+        held,
+      });
       return {
         id: p.id,
         moduleId: p.moduleId,
@@ -365,12 +401,77 @@ export async function GET(_req: Request, ctx: Ctx) {
         qty: p.qty.toString(),
         avgCostCents: p.avgCostCents,
         markCents,
-        unrealizedPnlCents: unrealized.toString(),
+        unrealizedPnlCents,
         realizedPnlCents: p.realizedPnlCents.toString(),
         engines: uniqEngines(chips),
         updatedAt: p.updatedAt.toISOString(),
+        viz,
       };
     });
+
+    const watchlistsWithViz = watchlists.map((w) => {
+      const held = heldBySymbol.get(w.symbol.toUpperCase());
+      const relevance = watchRelevance(w.status, w.sourceClass);
+      const viz = buildSymbolViz({
+        symbol: w.symbol,
+        clock,
+        strengthBand: relevance,
+        relevanceBand: relevance,
+        held: held
+          ? {
+              markCents: held.markCents,
+              avgCostCents: held.avgCostCents,
+              unrealizedPnlCents: held.unrealizedPnlCents,
+            }
+          : undefined,
+      });
+      return { ...w, viz };
+    });
+
+    const trendsWithViz = trendCandidateRows.map((t) => {
+      const held = heldBySymbol.get(t.symbol.toUpperCase());
+      const strength = mapTrendStrengthToBand(t.strengthBand);
+      const viz = buildSymbolViz({
+        symbol: t.symbol,
+        clock,
+        direction: t.direction,
+        strengthBand: strength,
+        relevanceBand: strength,
+        held: held
+          ? {
+              markCents: held.markCents,
+              avgCostCents: held.avgCostCents,
+              unrealizedPnlCents: held.unrealizedPnlCents,
+            }
+          : undefined,
+      });
+      return { ...t, viz };
+    });
+
+    const moversItemViz: MarketHubSymbolViz[] = [];
+    for (const item of movers.items) {
+      if (!looksLikeTicker(item.symbolOrSector)) continue;
+      const sym = item.symbolOrSector.trim().replace(/^\$/, '').toUpperCase();
+      const held = heldBySymbol.get(sym);
+      const strength = (item.strengthBand ?? 'medium') as QualitativeBand;
+      const relevance = (item.directionBand ?? strength) as QualitativeBand;
+      moversItemViz.push(
+        buildSymbolViz({
+          symbol: sym,
+          clock,
+          strengthBand: strength,
+          relevanceBand: relevance,
+          held: held
+            ? {
+                markCents: held.markCents,
+                avgCostCents: held.avgCostCents,
+                unrealizedPnlCents: held.unrealizedPnlCents,
+              }
+            : undefined,
+        }),
+      );
+    }
+    movers = { ...movers, itemViz: moversItemViz };
 
     const equityRow = companyEquity[0];
     const equityStatus = (equityRow?.equityStatus ?? 'unavailable') as
@@ -532,6 +633,14 @@ export async function GET(_req: Request, ctx: Ctx) {
       };
     });
 
+    const charts = buildMarketHubCharts({
+      positions: positionProjection,
+      watchlists: watchlistsWithViz,
+      trends: trendsWithViz,
+      moverDirections: moversItemViz.map((v) => v.direction),
+      sourceLanes: sourceLanes.map((l) => ({ status: l.status })),
+    });
+
     const body = MarketHubResponse.parse({
       sectorFocuses,
       universeExcludes,
@@ -544,8 +653,8 @@ export async function GET(_req: Request, ctx: Ctx) {
       },
       movers,
       reports,
-      watchlists,
-      trendCandidates: trendCandidateRows,
+      watchlists: watchlistsWithViz,
+      trendCandidates: trendsWithViz,
       positions: positionProjection,
       pipeline,
       freshness: {
@@ -558,6 +667,7 @@ export async function GET(_req: Request, ctx: Ctx) {
         markFeedClass: 'synthetic',
         scannedAt: sourcesScannedAt,
       },
+      charts,
     });
 
     return body;

@@ -120,11 +120,41 @@ const COMPILE_V1 = {
   },
 } as const satisfies Record<string, unknown>;
 
+const SUGGESTION_THRESHOLD_PROFILE_V1 = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'driftFlatPreset',
+    'driftStrongPreset',
+    'universeCapPreset',
+    'suggestionCapPreset',
+    'libraryFitFloor',
+    'corroborationFloor',
+    'freshnessPreset',
+    'rationaleLines',
+  ],
+  properties: {
+    driftFlatPreset: { type: 'string', enum: ['tight', 'typical', 'wide'] },
+    driftStrongPreset: { type: 'string', enum: ['tight', 'typical', 'wide'] },
+    universeCapPreset: { type: 'string', enum: ['narrow', 'typical', 'broad'] },
+    suggestionCapPreset: { type: 'string', enum: ['narrow', 'typical', 'broad'] },
+    libraryFitFloor: { type: 'string', enum: ['low', 'medium', 'high'] },
+    corroborationFloor: { type: 'string', enum: ['single', 'dual', 'multi'] },
+    freshnessPreset: { type: 'string', enum: ['strict_12h', 'default_24h'] },
+    rationaleLines: {
+      type: 'array',
+      maxItems: 8,
+      items: { type: 'string', maxLength: 240 },
+    },
+  },
+} as const satisfies Record<string, unknown>;
+
 const JSON_SCHEMA_REGISTRY: Record<string, Record<string, unknown>> = {
   'concept_batch.v1': CONCEPT_BATCH_V1,
   'tree_expand.v1': TREE_EXPAND_V1,
   'compile.v1': COMPILE_V1,
   'assistant_proposal.v1': ASSISTANT_PROPOSAL_JSON_SCHEMA as Record<string, unknown>,
+  'suggestion_threshold_profile.v1': SUGGESTION_THRESHOLD_PROFILE_V1,
 };
 
 export function jsonSchemaForRef(schemaRef: string): Record<string, unknown> | undefined {

@@ -26,10 +26,19 @@ If the branch cannot compile safely, populate blockReasons and still return vali
 
 Output strict JSON only.`;
 
+export const SUGGESTION_THRESHOLD_PROFILE_V1 = `You propose envelope-bound watchlist suggestion thresholds for a multi-source movers scan.
+
+Select ONLY discrete presets (tight|typical|wide, narrow|typical|broad, low|medium|high, single|dual|multi, freshness presets). Never invent symbols, prices, bps, percentages, or free-form financial floats.
+
+Rationale lines are qualitative text only (no digits). Respect philosophy axis labels and lane presence bands.
+
+Output strict JSON matching SuggestionThresholdProfile.`;
+
 export const PROMPT_BY_ID: Record<string, string> = {
   'research_synthesize.v1': RESEARCH_SYNTHESIZE_V1,
   'tree_expand.v1': TREE_EXPAND_V1,
   'compile.v1': COMPILE_V1,
+  'suggestion_threshold_profile.v1': SUGGESTION_THRESHOLD_PROFILE_V1,
 };
 
 export function promptForId(systemPromptId: string): string | undefined {

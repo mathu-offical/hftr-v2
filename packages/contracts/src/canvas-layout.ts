@@ -1,11 +1,18 @@
 import { z } from 'zod';
 import type { LinkKind, ModuleType } from './modules';
-import { MODULE_COLUMN, MODULE_LANE_ROW } from './modules';
+import {
+  ENGINE_CHIP_ZONE,
+  ENGINE_PROCESS_ZONE_COLUMN,
+  isEngineProcessZoneMember,
+  MODULE_COLUMN,
+  MODULE_LANE_ROW,
+} from './modules';
 import { isMathToolAttachment } from './engines';
 
 /**
  * Connection-safe canvas layout constants and pure reflow helpers (D-033 / D-064).
- * Columns prefer type lanes (research/data left → execution/verify right); unused lanes compress.
+ * Engine chip zones (2026-07-18): research → data → trend → execution → verification;
+ * funds shelf + clock bus below. Unused process lanes compress.
  * Ordinary drag stays freeform; Reflow buttons call these deterministically.
  */
 
@@ -20,7 +27,9 @@ export const CANVAS_LAYOUT = {
   mathAttachmentGap: 12,
   mathToolWidth: 180,
   mathToolHeight: 40,
-  /** Gap above the engine Time hub rail (below member/Math envelopes). */
+  /** Gap above the funds shelf (below process/Math envelopes). */
+  engineFundsShelfGap: 48,
+  /** Gap above the engine Time hub rail (below member/Math/funds envelopes). */
   engineTimeHubGap: 40,
   topLevelGutter: 120,
   originX: 40,
@@ -160,25 +169,32 @@ function computeMemberTopoOrder(
 }
 
 /**
- * Type-preferred pipeline ranks from MODULE_COLUMN (compressed), not pure topology.
+ * Chip-zone pipeline ranks from ENGINE_PROCESS_ZONE_COLUMN (compressed).
  * Within a lane: MODULE_LANE_ROW, then topo order, then id; barycenter sweeps refine rows.
+ * Funds + clock + math are excluded (vertical bands / docks).
  */
 export function rankEngineMembers(
   memberIds: readonly string[],
   modulesById: ReadonlyMap<string, LayoutModule>,
   links: readonly LayoutLink[],
 ): RankedMember[] {
-  // Math docks under owners; Time hubs pin to the engine bottom rail — neither
-  // participates in pipeline lane ranking (D-091).
   const members = memberIds
     .map((id) => modulesById.get(id))
-    .filter((m): m is LayoutModule => !!m && m.type !== 'math' && m.type !== 'time');
+    .filter((m): m is LayoutModule => !!m && isEngineProcessZoneMember(m.type));
 
   if (members.length === 0) return [];
 
-  const laneById = new Map(members.map((m) => [m.id, MODULE_COLUMN[m.type]]));
+  const processColumn = (type: ModuleType): number => {
+    const zone = ENGINE_CHIP_ZONE[type];
+    if (zone === 'funds' || zone === 'clock') return 0;
+    return ENGINE_PROCESS_ZONE_COLUMN[zone];
+  };
+
+  const laneById = new Map(members.map((m) => [m.id, processColumn(m.type)]));
   const laneCompress = compressModuleLanes(laneById.values());
-  const rank = new Map(members.map((m) => [m.id, laneCompress.get(MODULE_COLUMN[m.type]) ?? 0]));
+  const rank = new Map(
+    members.map((m) => [m.id, laneCompress.get(processColumn(m.type)) ?? 0]),
+  );
 
   const topoOrder = computeMemberTopoOrder(members, links);
   const memberSet = new Set(members.map((m) => m.id));
@@ -330,10 +346,29 @@ export function placeEngineTimeHubPosition(
   };
 }
 
+/** Y for the funds shelf under the process/Math envelope (absolute). */
+export function placeEngineFundsShelfY(
+  processPositions: readonly {
+    x: number;
+    y: number;
+    width?: number;
+    height?: number;
+  }[],
+): number {
+  if (processPositions.length === 0) return 0;
+  let maxBottom = -Infinity;
+  for (const pos of processPositions) {
+    const height = pos.height ?? CANVAS_LAYOUT.moduleHeight;
+    maxBottom = Math.max(maxBottom, pos.y + height);
+  }
+  return maxBottom + CANVAS_LAYOUT.engineFundsShelfGap;
+}
+
 /**
- * Place engine members in rank columns with connection-safe gutters.
+ * Place engine members in chip zones with connection-safe gutters.
  * Returns absolute positions and group bounds. Origin is the desired group top-left.
- * Engine Time hubs pin to the bottom-left of the member envelope (D-091).
+ * Process: research → data → trend → execution → verification.
+ * Funds shelf under process; Time hubs pin bottom-left under the full envelope.
  */
 export function layoutEngineGroup(
   _engineId: string,
@@ -393,7 +428,72 @@ export function layoutEngineGroup(
     });
   }
 
-  // D-091: pin engine Time hub(s) to bottom-left under the member/Math envelope.
+  // Funds shelf: holding → router under the process/Math envelope (not mid-lane).
+  const processBoxes = [...positions.entries()].map(([id, pos]) => {
+    const mod = modulesById.get(id);
+    const isMath = mod?.type === 'math';
+    return {
+      id,
+      x: pos.x,
+      y: pos.y,
+      width: isMath
+        ? CANVAS_LAYOUT.mathToolWidth
+        : Math.max(mod?.width ?? CANVAS_LAYOUT.moduleWidth, CANVAS_LAYOUT.moduleWidth),
+      height: isMath
+        ? CANVAS_LAYOUT.mathToolHeight
+        : Math.max(mod?.height ?? CANVAS_LAYOUT.moduleHeight, CANVAS_LAYOUT.moduleHeight),
+    };
+  });
+  const fundsMembers = memberIds
+    .map((id) => modulesById.get(id))
+    .filter((m): m is LayoutModule => !!m && ENGINE_CHIP_ZONE[m.type] === 'funds')
+    .sort((a, b) => {
+      const rowDiff = MODULE_LANE_ROW[a.type] - MODULE_LANE_ROW[b.type];
+      if (rowDiff !== 0) return rowDiff;
+      return a.id.localeCompare(b.id);
+    });
+  if (fundsMembers.length > 0) {
+    const shelfY =
+      processBoxes.length > 0
+        ? placeEngineFundsShelfY(processBoxes)
+        : origin.y + padding.top;
+    const minProcessX =
+      processBoxes.length > 0
+        ? Math.min(...processBoxes.map((b) => b.x))
+        : origin.x + padding.left;
+    const execMember = ranked.find((r) => ENGINE_CHIP_ZONE[r.type] === 'execution');
+    const execX = execMember ? positions.get(execMember.id)?.x : undefined;
+    const holdings = fundsMembers.filter((m) => m.type === 'holding_fund');
+    const routers = fundsMembers.filter((m) => m.type === 'fund_router');
+    const otherFunds = fundsMembers.filter(
+      (m) => m.type !== 'holding_fund' && m.type !== 'fund_router',
+    );
+    holdings.forEach((m, index) => {
+      positions.set(m.id, {
+        x: minProcessX + index * LAYOUT_COLUMN_STEP,
+        y: shelfY,
+      });
+    });
+    const routerBaseX =
+      execX ??
+      (holdings.length > 0
+        ? minProcessX + holdings.length * LAYOUT_COLUMN_STEP
+        : minProcessX + LAYOUT_COLUMN_STEP);
+    routers.forEach((m, index) => {
+      positions.set(m.id, {
+        x: routerBaseX + index * LAYOUT_COLUMN_STEP,
+        y: shelfY,
+      });
+    });
+    otherFunds.forEach((m, index) => {
+      positions.set(m.id, {
+        x: minProcessX + (holdings.length + routers.length + index) * LAYOUT_COLUMN_STEP,
+        y: shelfY,
+      });
+    });
+  }
+
+  // D-091: pin engine Time hub(s) to bottom-left under the full member envelope.
   const envelopeBoxes = [...positions.entries()].map(([id, pos]) => {
     const mod = modulesById.get(id);
     const isMath = mod?.type === 'math';
@@ -426,7 +526,7 @@ export function layoutEngineGroup(
     });
   });
 
-  // Include dedicated Math docks + Time rail so group chrome covers the full envelope.
+  // Include dedicated Math docks + funds + Time rail so group chrome covers the full envelope.
   const allLayoutPositions = [...positions.values()];
   const bounds = computePaddedBounds(allLayoutPositions, padding);
 

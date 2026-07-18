@@ -79,13 +79,30 @@ Layout uses measured React Flow node dimensions when available and conservative 
 | Math tool | 180 × 40 px |
 | Owner → Math attachment gap | 12 px |
 | Horizontal / vertical gutters | 152 / 104 px (edge clearance between columns / stacked envelopes) |
-| Time hub gap under envelope | 40 px (`engineTimeHubGap`; Time pinned bottom-left, D-091) |
+| Engine chip process zones | research → data → trend → execution → verification (unused compress) |
+| Funds shelf gap under process | 48 px (`engineFundsShelfGap`) |
+| Time hub gap under envelope | 40 px (`engineTimeHubGap`; Time pinned bottom-left under funds when present) |
 | Group left/right padding | 88 px (utility ports + side handles) |
 | Group header/top padding | 92 px (D-089 inline bounded header fields) |
-| Group bottom padding | 132 px (Math docks + Time rail) |
+| Group bottom padding | 132 px (Math docks + funds + Time rail) |
 | Top-level engine gutter | 120 px — create/insert/reflow/drag-stop via `placeNextEngineOrigin` |
 | Canvas min zoom | 0.15 (fit large multi-engine graphs) |
 | Math attachment | Single **Calc ref** (`math → owner` `data_feed`); info-type port labels (D-088) |
+
+### Engine chip snap zones (2026-07-18)
+
+Layout-only snapping (no required painted stage chrome). See
+`docs/superpowers/specs/2026-07-18-engine-chip-zone-layout-design.md`.
+
+| Zone / band | Types |
+|-------------|-------|
+| Research | `research`, `librarian` |
+| Data | `library` (process row), `live_api` (stacked under) |
+| Trend | `trend` |
+| Execution | `trading`, `simulator`, `generator` |
+| Verification | `analyzer`, `policy`, `display` |
+| Funds shelf | `holding_fund`, `fund_router` (below process) |
+| Clock bus | engine `time` (bottom-left) |
 
 An **owner/tool envelope** includes the module card, its labeled side ports, its dedicated Math tool, and the attachment gap. Layout collision checks and `LAYOUT_ROW_STEP` use envelopes rather than module card rectangles alone. Engine bounds include dedicated Math docks so group chrome covers the full envelope.
 

@@ -60,7 +60,9 @@ On engine insert (company create, module-store insert, template duplicate), the 
    **bottom-left** of the ENGINE envelope (`placeEngineTimeHubPosition` /
    `engineTimeHubGap` 40px under member/Math boxes); excluded from pipeline lane ranking.
    In-engine gutters: horizontal 152px, vertical 104px; group L/R 88px, bottom 132px
-   (`canvas-layout-and-dedicated-math-design.md`). Insert auto-reflows; page heal uses
+   (`canvas-layout-and-dedicated-math-design.md`). Process snap zones:
+   research → data → trend → execution → verification; funds shelf under process;
+   Time bus under the full envelope. Insert auto-reflows; page heal uses
    `repositionAllEngineTimeHubs`. `clock → time` and `time →` each time-bearing member
    (`provisionEngineTimeHub`). Activation requires Time inbound for `TIME_BEARING_MODULE_TYPES`.
 4. **Clock utility bind** — `engine_utility_links` row: `bus=clock`, `from_module_id` → company

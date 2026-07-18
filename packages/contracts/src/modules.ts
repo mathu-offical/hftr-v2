@@ -575,8 +575,10 @@ export function linkKindForHandlePair(
 
 /**
  * Preferred canvas lane per module type (left → right, D-064 / ui-spec §3).
- * Research + data sources left; sense-making mid; execution then verification right.
- * Reflow compresses unused lanes so sparse engines stay compact.
+ * Engine chip process stages (2026-07-18): research → data → trend → execution → verification.
+ * Funds / clock are vertical bands (see ENGINE_CHIP_ZONE); their MODULE_COLUMN values are for
+ * peer-stream ordering only and are excluded from process ranking.
+ * Reflow compresses unused process lanes so sparse engines stay compact.
  */
 export const MODULE_COLUMN: Record<ModuleType, number> = {
   research: 0,
@@ -587,19 +589,72 @@ export const MODULE_COLUMN: Record<ModuleType, number> = {
   clock: 1,
   time: 1,
   trend: 2,
-  holding_fund: 2,
   trading: 3,
   simulator: 3,
   generator: 3,
-  fund_router: 3,
+  /** Peer-order only; funds shelf is a vertical band under process. */
+  holding_fund: 5,
+  fund_router: 6,
   analyzer: 4,
   policy: 4,
   display: 4,
 };
 
 /**
+ * Engine chip snap zone (layout). Process zones map to compressed columns;
+ * funds + clock are placed as vertical bands under the process envelope.
+ */
+export const EngineChipZone = z.enum([
+  'research',
+  'data',
+  'trend',
+  'execution',
+  'verification',
+  'funds',
+  'clock',
+]);
+export type EngineChipZone = z.infer<typeof EngineChipZone>;
+
+/** Stable process column index before unused-lane compression (research=0 … verification=4). */
+export const ENGINE_PROCESS_ZONE_COLUMN: Record<
+  Exclude<EngineChipZone, 'funds' | 'clock'>,
+  number
+> = {
+  research: 0,
+  data: 1,
+  trend: 2,
+  execution: 3,
+  verification: 4,
+};
+
+export const ENGINE_CHIP_ZONE: Record<ModuleType, EngineChipZone> = {
+  research: 'research',
+  librarian: 'research',
+  library: 'data',
+  live_api: 'data',
+  math: 'data',
+  clock: 'clock',
+  time: 'clock',
+  trend: 'trend',
+  trading: 'execution',
+  simulator: 'execution',
+  generator: 'execution',
+  holding_fund: 'funds',
+  fund_router: 'funds',
+  analyzer: 'verification',
+  policy: 'verification',
+  display: 'verification',
+};
+
+export function isEngineProcessZoneMember(type: ModuleType): boolean {
+  const zone = ENGINE_CHIP_ZONE[type];
+  return zone !== 'funds' && zone !== 'clock' && type !== 'math';
+}
+
+/**
  * Preferred vertical order within a lane (top → bottom) when multiple types share a column.
  * Connection-aware barycenter may still refine row placement.
+ * Data zone: libraries on the process line; live_api stacked under as feed rail.
  */
 export const MODULE_LANE_ROW: Record<ModuleType, number> = {
   research: 0,
@@ -610,11 +665,11 @@ export const MODULE_LANE_ROW: Record<ModuleType, number> = {
   clock: 2,
   time: 3,
   trend: 0,
-  holding_fund: 1,
+  holding_fund: 0,
   trading: 0,
-  simulator: 0,
-  generator: 1,
-  fund_router: 2,
+  simulator: 1,
+  generator: 2,
+  fund_router: 1,
   analyzer: 0,
   policy: 1,
   display: 2,

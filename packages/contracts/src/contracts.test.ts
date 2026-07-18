@@ -1531,6 +1531,75 @@ describe('canvas layout (D-033)', () => {
     expect(rankOf(policyId)).toBeGreaterThan(rankOf(tradingId));
   });
 
+  it('snaps chip zones research → data → trend → execution → verification', () => {
+    const research = '00000000-0000-4000-8000-0000000000z1';
+    const library = '00000000-0000-4000-8000-0000000000z2';
+    const live = '00000000-0000-4000-8000-0000000000z3';
+    const trend = '00000000-0000-4000-8000-0000000000z4';
+    const trading = '00000000-0000-4000-8000-0000000000z5';
+    const analyzer = '00000000-0000-4000-8000-0000000000z6';
+    const modulesById = new Map([
+      [research, mkModule(research, 'research')],
+      [library, mkModule(library, 'library')],
+      [live, mkModule(live, 'live_api')],
+      [trend, mkModule(trend, 'trend')],
+      [trading, mkModule(trading, 'trading')],
+      [analyzer, mkModule(analyzer, 'analyzer')],
+    ]);
+    const ranked = rankEngineMembers(
+      [research, library, live, trend, trading, analyzer],
+      modulesById,
+      [],
+    );
+    const rankOf = (id: string) => ranked.find((r) => r.id === id)!.rank;
+    const orderOf = (id: string) => ranked.find((r) => r.id === id)!.order;
+    expect(rankOf(research)).toBeLessThan(rankOf(library));
+    expect(rankOf(library)).toBe(rankOf(live));
+    expect(orderOf(library)).toBeLessThan(orderOf(live));
+    expect(rankOf(library)).toBeLessThan(rankOf(trend));
+    expect(rankOf(trend)).toBeLessThan(rankOf(trading));
+    expect(rankOf(trading)).toBeLessThan(rankOf(analyzer));
+  });
+
+  it('excludes funds from process ranks and shelves them under the process envelope', () => {
+    const research = '00000000-0000-4000-8000-0000000000f1';
+    const trend = '00000000-0000-4000-8000-0000000000f2';
+    const trading = '00000000-0000-4000-8000-0000000000f3';
+    const fund = '00000000-0000-4000-8000-0000000000f4';
+    const router = '00000000-0000-4000-8000-0000000000f5';
+    const timeHub = '00000000-0000-4000-8000-0000000000f6';
+    const modules = [
+      mkModule(research, 'research'),
+      mkModule(trend, 'trend'),
+      mkModule(trading, 'trading'),
+      mkModule(fund, 'holding_fund'),
+      mkModule(router, 'fund_router'),
+      mkModule(timeHub, 'time'),
+    ];
+    const ranked = rankEngineMembers(
+      [research, trend, trading, fund, router, timeHub],
+      new Map(modules.map((m) => [m.id, m])),
+      [],
+    );
+    expect(ranked.every((r) => r.id !== fund && r.id !== router && r.id !== timeHub)).toBe(true);
+
+    const laid = layoutEngineGroup(
+      engineId,
+      [research, trend, trading, fund, router, timeHub],
+      new Map(modules.map((m) => [m.id, m])),
+      [],
+      { x: 40, y: 40 },
+      ENGINE_GROUP_PADDING,
+    );
+    const pos = (id: string) => laid.modules.find((m) => m.id === id)!.canvasPosition;
+    const trendBottom = pos(trend).y + CANVAS_LAYOUT.moduleHeight;
+    expect(pos(fund).y).toBeGreaterThanOrEqual(trendBottom + CANVAS_LAYOUT.engineFundsShelfGap);
+    expect(pos(router).y).toBe(pos(fund).y);
+    expect(pos(timeHub).y).toBeGreaterThanOrEqual(
+      pos(fund).y + CANVAS_LAYOUT.moduleHeight + CANVAS_LAYOUT.engineTimeHubGap,
+    );
+  });
+
   it('aligns producers with their specific consumers (barycenter crossing reduction)', () => {
     // p (research) → y (trading); q (research) → x (trading). Pure id ordering would
     // place x above y and cross the edges. Connection-aware ordering must instead put

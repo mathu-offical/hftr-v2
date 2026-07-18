@@ -56,11 +56,16 @@
 
 ## 3. Canvas (React Flow)
 
-- Modules as nodes, laid out left→right by **type lane** (D-066 / `MODULE_COLUMN`): research +
-  librarian | data (libraries, live APIs; Math tools dock under owners) | trend + holding fund |
-  execution (trading, simulator, generator, fund router) | verification/control (analyzer, policy,
-  display). Unused lanes compress on Reflow; peers stack on multiple rows within a lane
-  (`MODULE_LANE_ROW` + barycenter). Create/insert defaults use the same lane layout as Reflow.
+- Modules as nodes, laid out left→right by **engine chip zones** (research → data →
+  trend → execution → verification; funds shelf + clock bus below). See
+  `canvas-layout-and-dedicated-math-design.md` and
+  `docs/superpowers/specs/2026-07-18-engine-chip-zone-layout-design.md`.
+  Research/librarian | data (`library` on process row, `live_api` under) | trend |
+  execution (trading / simulator / generator) | verification (analyzer / policy / display).
+  Unused process zones compress on Reflow; peers stack within a zone (`MODULE_LANE_ROW` +
+  barycenter). Funds (`holding_fund`, `fund_router`) snap to a shelf under the process;
+  engine Time hubs pin to the clock bus under the full envelope. Create/insert defaults use
+  the same zone layout as Reflow.
   Edges = `module_links`, rendered
   as **rounded elbow** `smoothstep` paths (DevSpecs/ui-ux.spec.md §Connections), animated when
   data is flowing (projection of job activity), colored by link kind. Policy nodes (rightmost)

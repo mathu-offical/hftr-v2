@@ -229,7 +229,7 @@ export const EngineGroupNode = memo(function EngineGroupNode({
         style={{ background: engineVisual.hue, opacity: 0.7 }}
         aria-hidden
       />
-      {/* D-091 motherboard utility ports */}
+      {/* D-091 motherboard utility ports (unique in/out handle ids) */}
       {inboundBuses.map((bus, index) => {
         const bound = (linksByBus.get(bus) ?? []).length > 0;
         const top = `${18 + index * 16}%`;
@@ -250,7 +250,7 @@ export const EngineGroupNode = memo(function EngineGroupNode({
         return (
           <Handle
             key={`out-${bus}`}
-            id={`engine-util-${bus}`}
+            id={`engine-util-${bus}-out`}
             type="source"
             position={Position.Right}
             style={{ top, background: bound ? engineVisual.hue : 'var(--color-line)' }}

@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import {
   CANVAS_LAYOUT,
   CreateCompanyInput,
@@ -17,7 +17,8 @@ import {
 } from '@hftr/contracts';
 import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
-import { bootstrapCompanyKnowledge, createSystemClock, loadSessionConstraints, resolveCompanyServiceBindings, ensureEngineClockUtilityBind, hydrateEngineMembersFromUtilities } from '@hftr/engine';
+import { bootstrapCompanyKnowledge, createSystemClock, loadSessionConstraints, resolveCompanyServiceBindings, ensureEngineMotherboardUtilities } from '@hftr/engine';
+import { provisionEngineTimeHub } from '@/lib/time-provision';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import {
   cascadeEngineSetup,
@@ -377,8 +378,27 @@ export async function POST(req: Request) {
     await refreshGeneratedModuleNames(db, company.id, createdModuleIds);
 
     for (const engineId of createdEngineIds) {
-      await ensureEngineClockUtilityBind(db, company.id, engineId);
-      await hydrateEngineMembersFromUtilities(db, company.id, engineId);
+      const engineMembers = await db
+        .select({
+          id: modules.id,
+          type: modules.type,
+          name: modules.name,
+          canvasPosition: modules.canvasPosition,
+        })
+        .from(modules)
+        .where(and(eq(modules.companyId, company.id), eq(modules.engineInstanceId, engineId)));
+      await provisionEngineTimeHub(
+        db,
+        company.id,
+        engineId,
+        engineMembers.map((m) => ({
+          id: m.id,
+          type: m.type,
+          name: m.name,
+          position: (m.canvasPosition as { x: number; y: number }) ?? { x: 0, y: 0 },
+        })),
+      );
+      await ensureEngineMotherboardUtilities(db, company.id, engineId);
     }
 
     // Compile-time catalog mechanisms → libraries + galaxy concepts + hybrid topic (D-045).

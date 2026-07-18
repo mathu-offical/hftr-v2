@@ -5,6 +5,7 @@ import {
 } from '@hftr/contracts';
 import {
   createEngineUtilityLink,
+  deleteEngineUtilityLink,
   listEngineUtilityLinks,
 } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
@@ -13,6 +14,28 @@ export const dynamic = 'force-dynamic';
 
 const Params = z.object({ companyId: z.string().uuid() });
 type Ctx = { params: Promise<{ companyId: string }> };
+
+function serializeUtilityLink(row: {
+  id: string;
+  companyId: string;
+  toEngineId: string;
+  bus: string;
+  fromEngineId: string | null;
+  fromModuleId: string | null;
+  streamId: string | null;
+  streamDescriptor: string | null;
+}) {
+  return {
+    id: row.id,
+    companyId: row.companyId,
+    toEngineId: row.toEngineId,
+    bus: EngineUtilityBus.parse(row.bus),
+    fromEngineId: row.fromEngineId,
+    fromModuleId: row.fromModuleId,
+    streamId: row.streamId,
+    streamDescriptor: row.streamDescriptor,
+  };
+}
 
 export async function GET(_req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId: _clerkUserId }) => {
@@ -24,16 +47,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     }
     const rows = await listEngineUtilityLinks(db, companyId, engineId);
     return {
-      utilityLinks: rows.map((row) => ({
-        id: row.id,
-        companyId: row.companyId,
-        toEngineId: row.toEngineId,
-        bus: EngineUtilityBus.parse(row.bus),
-        fromEngineId: row.fromEngineId,
-        fromModuleId: row.fromModuleId,
-        streamId: row.streamId,
-        streamDescriptor: row.streamDescriptor,
-      })),
+      utilityLinks: rows.map(serializeUtilityLink),
     };
   });
 }
@@ -55,17 +69,19 @@ export async function POST(req: Request, ctx: Ctx) {
       ...(body.streamDescriptor ? { streamDescriptor: body.streamDescriptor } : {}),
     });
     if (!row) throw new ApiError(500, 'engine_utility_link_create_failed');
-    return {
-      utilityLink: {
-        id: row.id,
-        companyId: row.companyId,
-        toEngineId: row.toEngineId,
-        bus: EngineUtilityBus.parse(row.bus),
-        fromEngineId: row.fromEngineId,
-        fromModuleId: row.fromModuleId,
-        streamId: row.streamId,
-        streamDescriptor: row.streamDescriptor,
-      },
-    };
+    return { utilityLink: serializeUtilityLink(row) };
+  });
+}
+
+export async function DELETE(req: Request, ctx: Ctx) {
+  return withAuth(async ({ db, clerkUserId: _clerkUserId }) => {
+    const { companyId } = Params.parse(await ctx.params);
+    const url = new URL(req.url);
+    const linkId = url.searchParams.get('id');
+    if (!linkId) throw new ApiError(400, 'engine_utility_link_id_required');
+    z.string().uuid().parse(linkId);
+    const ok = await deleteEngineUtilityLink(db, companyId, linkId);
+    if (!ok) throw new ApiError(404, 'engine_utility_link_not_found');
+    return { deleted: true, id: linkId };
   });
 }

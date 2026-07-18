@@ -21,6 +21,8 @@ import {
   computeEngineBoundsFromPositions,
   engineCanvasOffsetForOrigin,
   ENGINE_GROUP_PADDING,
+  engineUtilitySourceHandleId,
+  engineUtilityTargetHandleId,
   handleIdForStream,
   handleIdForTrendCandidate,
   isMathToolAttachment,
@@ -29,12 +31,14 @@ import {
   LAYOUT_ROW_STEP,
   missingModuleSetupFields,
   MODULE_COLUMN,
+  parseEngineUtilityHandle,
   parseTrendCandidateHandle,
   placeNextEngineOrigin,
   reflowEngineAtOrigin,
   translateLayoutResultToOrigin,
   type DeleteEngineMode,
   type EngineTemplate,
+  type EngineUtilityBus,
   type LayoutLink,
   type LayoutModule,
   type LayoutRect,
@@ -622,6 +626,108 @@ function toEdge(l: CanvasLink): Edge {
   };
 }
 
+type UtilityLinkEdgeInput = {
+  id: string;
+  bus: EngineUtilityBus;
+  toEngineId: string;
+  fromEngineId?: string | null;
+  fromModuleId?: string | null;
+  streamDescriptor?: string | null;
+};
+
+/** D-091: React Flow edges for motherboard utility binds (not module_links). */
+function toUtilityEdge(link: UtilityLinkEdgeInput): Edge | null {
+  const label =
+    link.streamDescriptor?.trim() ||
+    link.bus.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
+  const style = {
+    stroke: 'var(--color-accent, #5b9fd4)',
+    strokeWidth: 1.5,
+    strokeDasharray: '4 3',
+  } as const;
+  const labelStyle = { fill: 'var(--color-ink-faint)', fontSize: 9 };
+  const labelBgStyle = { fill: 'var(--color-surface-0)' };
+
+  if (link.fromEngineId) {
+    return {
+      id: `util-${link.id}`,
+      source: link.fromEngineId,
+      target: link.toEngineId,
+      type: 'smoothstep',
+      sourceHandle: engineUtilitySourceHandleId('data_out'),
+      targetHandle: engineUtilityTargetHandleId(link.bus),
+      label,
+      style,
+      labelStyle,
+      labelBgStyle,
+      animated: false,
+      className: `hftr-edge hftr-edge-utility hftr-edge-utility-${link.bus}`,
+      data: { utilityLinkId: link.id, bus: link.bus },
+    };
+  }
+
+  if (
+    link.fromModuleId &&
+    (link.bus === 'clock' || link.bus === 'funds' || link.bus === 'system_control')
+  ) {
+    return {
+      id: `util-${link.id}`,
+      source: link.fromModuleId,
+      target: link.toEngineId,
+      type: 'smoothstep',
+      sourceHandle: handleIdForStream('data_feed', 'out', link.toEngineId),
+      targetHandle: engineUtilityTargetHandleId(link.bus),
+      label,
+      style,
+      labelStyle,
+      labelBgStyle,
+      animated: false,
+      className: `hftr-edge hftr-edge-utility hftr-edge-utility-${link.bus}`,
+      data: { utilityLinkId: link.id, bus: link.bus },
+    };
+  }
+
+  // Internal data_out stubs (analyzer → chrome) stay chip-only, not edges.
+  return null;
+}
+
+function utilityEdgesFromEngines(engines: readonly CanvasEngineGroup[]): Edge[] {
+  const edges: Edge[] = [];
+  for (const engine of engines) {
+    for (const link of engine.utilityLinks ?? []) {
+      const edge = toUtilityEdge({ ...link, toEngineId: engine.id });
+      if (edge) edges.push(edge);
+    }
+  }
+  return edges;
+}
+
+function appendUtilityLinkToEngineNodes(
+  nodes: CanvasFlowNode[],
+  engineId: string,
+  link: {
+    id: string;
+    bus: EngineUtilityBus;
+    fromEngineId?: string | null;
+    fromModuleId?: string | null;
+    streamId?: string | null;
+    streamDescriptor?: string | null;
+  },
+): CanvasFlowNode[] {
+  return nodes.map((node) => {
+    if (!isEngineGroupNode(node) || node.id !== engineId) return node;
+    const existing = node.data.utilityLinks ?? [];
+    if (existing.some((row) => row.id === link.id)) return node;
+    return {
+      ...node,
+      data: {
+        ...node.data,
+        utilityLinks: [...existing, link],
+      },
+    };
+  });
+}
+
 /**
  * D-088: when legacy reciprocal owner↔Math data_feed pairs exist, draw only the
  * Math→owner Calc-ref edge so the dock shows one connection.
@@ -778,9 +884,10 @@ export function CompanyCanvas(props: {
       stableEngineCallbacks,
     ),
   );
-  const [edges, setEdges] = useEdgesState<Edge>(
-    dedupeMathCalcRefLinks(props.initialLinks, props.initialModules).map(toEdge),
-  );
+  const [edges, setEdges] = useEdgesState<Edge>([
+    ...dedupeMathCalcRefLinks(props.initialLinks, props.initialModules).map(toEdge),
+    ...utilityEdgesFromEngines(props.initialEngines),
+  ]);
   const ownerDragOriginRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
   const handleRequestDelete = useCallback((engineId: string) => {
@@ -1346,7 +1453,115 @@ export function CompanyCanvas(props: {
     async (connection: Connection) => {
       const from = nodes.find((n) => n.id === connection.source);
       const to = nodes.find((n) => n.id === connection.target);
-      if (!from || !to || !isGraphModuleNode(from) || !isGraphModuleNode(to)) return;
+      if (!from || !to) return;
+
+      const sourceUtil = parseEngineUtilityHandle(connection.sourceHandle);
+      const targetUtil = parseEngineUtilityHandle(connection.targetHandle);
+
+      // D-091: engine data_out → peer data_in (or system_control cascade).
+      if (
+        isEngineGroupNode(from) &&
+        isEngineGroupNode(to) &&
+        sourceUtil?.direction === 'out' &&
+        targetUtil?.direction === 'in'
+      ) {
+        if (from.id === to.id) {
+          flash('An engine cannot link to itself.');
+          return;
+        }
+        if (sourceUtil.bus === 'data_out' && targetUtil.bus !== 'data_in') {
+          flash('Connect Data out to Data in.');
+          return;
+        }
+        if (sourceUtil.bus === 'system_control' && targetUtil.bus !== 'system_control') {
+          flash('Connect Control out to Control in.');
+          return;
+        }
+        try {
+          const { utilityLink } = await api<{
+            utilityLink: {
+              id: string;
+              bus: EngineUtilityBus;
+              fromEngineId?: string | null;
+              fromModuleId?: string | null;
+              streamId?: string | null;
+              streamDescriptor?: string | null;
+            };
+          }>(`/api/companies/${props.companyId}/engine-utility-links`, {
+            method: 'POST',
+            body: {
+              toEngineId: to.id,
+              bus: targetUtil.bus,
+              fromEngineId: from.id,
+            },
+          });
+          setNodes((current) => appendUtilityLinkToEngineNodes(current, to.id, utilityLink));
+          const edge = toUtilityEdge({ ...utilityLink, toEngineId: to.id });
+          if (edge) {
+            setEdges((current) => [...current, edge]);
+          }
+        } catch {
+          flash('Could not create engine utility link.');
+        }
+        return;
+      }
+
+      // D-091: company module → engine utility bus (clock / funds / data_in).
+      if (isGraphModuleNode(from) && isEngineGroupNode(to) && targetUtil?.direction === 'in') {
+        const moduleType = from.data.moduleType;
+        const bus = targetUtil.bus;
+        if (bus === 'clock' && moduleType !== 'clock') {
+          flash('Only Master Clock can bind to the Clock utility.');
+          return;
+        }
+        if (bus === 'funds' && moduleType !== 'holding_fund' && moduleType !== 'math') {
+          flash('Funds utility accepts Holding Fund or Math.');
+          return;
+        }
+        if (
+          bus === 'data_in' &&
+          moduleType !== 'library' &&
+          moduleType !== 'live_api' &&
+          moduleType !== 'research' &&
+          moduleType !== 'librarian'
+        ) {
+          flash('Data in accepts library, live API, research, or librarian modules.');
+          return;
+        }
+        if (bus === 'data_out') {
+          flash('Data out is an engine export port — connect from it, not to it.');
+          return;
+        }
+        try {
+          const { utilityLink } = await api<{
+            utilityLink: {
+              id: string;
+              bus: EngineUtilityBus;
+              fromEngineId?: string | null;
+              fromModuleId?: string | null;
+              streamId?: string | null;
+              streamDescriptor?: string | null;
+            };
+          }>(`/api/companies/${props.companyId}/engine-utility-links`, {
+            method: 'POST',
+            body: {
+              toEngineId: to.id,
+              bus,
+              fromModuleId: from.id,
+            },
+          });
+          setNodes((current) => appendUtilityLinkToEngineNodes(current, to.id, utilityLink));
+          const edge = toUtilityEdge({ ...utilityLink, toEngineId: to.id });
+          if (edge) {
+            setEdges((current) => [...current, edge]);
+          }
+        } catch {
+          flash('Could not bind that module to the engine utility.');
+        }
+        return;
+      }
+
+      if (!isGraphModuleNode(from) || !isGraphModuleNode(to)) return;
 
       const trendCandidateId = parseTrendCandidateHandle(connection.sourceHandle);
       if (trendCandidateId) {
@@ -1440,6 +1655,67 @@ export function CompanyCanvas(props: {
       }
     },
     [nodes, props.companyId, setEdges, setNodes],
+  );
+
+  const isValidConnection = useCallback(
+    (connection: Connection | Edge) => {
+      const sourceId = 'source' in connection ? connection.source : null;
+      const targetId = 'target' in connection ? connection.target : null;
+      if (!sourceId || !targetId) return false;
+      const from = nodes.find((n) => n.id === sourceId);
+      const to = nodes.find((n) => n.id === targetId);
+      if (!from || !to) return false;
+      const sourceUtil = parseEngineUtilityHandle(
+        'sourceHandle' in connection ? connection.sourceHandle : null,
+      );
+      const targetUtil = parseEngineUtilityHandle(
+        'targetHandle' in connection ? connection.targetHandle : null,
+      );
+      if (isEngineGroupNode(from) && isEngineGroupNode(to)) {
+        if (from.id === to.id) return false;
+        return (
+          sourceUtil?.direction === 'out' &&
+          targetUtil?.direction === 'in' &&
+          ((sourceUtil.bus === 'data_out' && targetUtil.bus === 'data_in') ||
+            (sourceUtil.bus === 'system_control' && targetUtil.bus === 'system_control'))
+        );
+      }
+      if (isGraphModuleNode(from) && isEngineGroupNode(to) && targetUtil?.direction === 'in') {
+        const moduleType = from.data.moduleType;
+        if (targetUtil.bus === 'clock') return moduleType === 'clock';
+        if (targetUtil.bus === 'funds') {
+          return moduleType === 'holding_fund' || moduleType === 'math';
+        }
+        if (targetUtil.bus === 'data_in') {
+          return (
+            moduleType === 'library' ||
+            moduleType === 'live_api' ||
+            moduleType === 'research' ||
+            moduleType === 'librarian'
+          );
+        }
+        if (targetUtil.bus === 'system_control') return true;
+        return false;
+      }
+      if (!isGraphModuleNode(from) || !isGraphModuleNode(to)) return false;
+      if (parseTrendCandidateHandle(connection.sourceHandle)) {
+        return (
+          isModuleNode(from) &&
+          from.data.moduleType === 'trend' &&
+          isModuleNode(to) &&
+          to.data.moduleType === 'trading'
+        );
+      }
+      const linkKind = edgeKindForHandles(
+        connection.sourceHandle,
+        connection.targetHandle,
+        from.data.moduleType,
+        to.data.moduleType,
+      );
+      if (!linkKind) return false;
+      return allowedLinkKinds(from.data.moduleType, to.data.moduleType).includes(linkKind);
+    },
+    [nodes],
   );
 
   const addModule = useCallback(
@@ -1583,6 +1859,14 @@ export function CompanyCanvas(props: {
             topicSectorsOverridden: boolean;
           }>;
           links: CanvasLink[];
+          utilityLinks?: Array<{
+            id: string;
+            bus: EngineUtilityBus;
+            fromEngineId?: string | null;
+            fromModuleId?: string | null;
+            streamId?: string | null;
+            streamDescriptor?: string | null;
+          }>;
         }>(`/api/companies/${props.companyId}/engines`, {
           method: 'POST',
           body: {
@@ -1601,7 +1885,21 @@ export function CompanyCanvas(props: {
               .map((m) => (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number }),
           );
 
-        const newEdges = response.links.map(toEdge);
+        const utilityLinks = response.utilityLinks ?? [];
+        const newEdges = [
+          ...response.links.map(toEdge),
+          ...utilityEdgesFromEngines([
+            {
+              id: response.engine.id,
+              templateId: response.engine.templateId,
+              label: response.engine.label,
+              masterTopicSectors: response.engine.masterTopicSectors,
+              canvasBounds: bounds,
+              memberModuleIds: response.engine.memberModuleIds,
+              utilityLinks,
+            },
+          ]),
+        ];
         const insertedNodes = buildInitialGraph(
           response.modules.map((row) => moduleRowToCanvas(row)),
           [
@@ -1616,6 +1914,7 @@ export function CompanyCanvas(props: {
               templateInputs: response.engine.templateInputs ?? inputs,
               canvasBounds: bounds,
               memberModuleIds: response.engine.memberModuleIds,
+              utilityLinks,
             },
           ],
           response.links,
@@ -1922,6 +2221,7 @@ export function CompanyCanvas(props: {
           onNodeDrag={onOwnerDrag}
           onNodeDragStop={persistNodeDragStop}
           onConnect={onConnect}
+          isValidConnection={isValidConnection}
           connectionLineType={ConnectionLineType.SmoothStep}
           onEdgesDelete={onEdgesDelete}
           deleteKeyCode={['Backspace', 'Delete']}

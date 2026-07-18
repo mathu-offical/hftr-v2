@@ -16,7 +16,14 @@ import {
   type LayoutRect,
   type ModuleType,
 } from '@hftr/contracts';
-import { loadSessionConstraints, createSystemClock, resolveCompanyServiceBindings, ensureEngineClockUtilityBind, hydrateEngineMembersFromUtilities } from '@hftr/engine';
+import {
+  loadSessionConstraints,
+  createSystemClock,
+  resolveCompanyServiceBindings,
+  ensureEngineMotherboardUtilities,
+  listEngineUtilityLinks,
+} from '@hftr/engine';
+import { provisionEngineTimeHub } from '@/lib/time-provision';
 import { engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
@@ -272,8 +279,33 @@ export async function POST(req: Request, ctx: Ctx) {
       ...dedicatedMath.map((tool) => tool.id),
     ]);
 
-    await ensureEngineClockUtilityBind(db, companyId, engineRow.id);
-    await hydrateEngineMembersFromUtilities(db, companyId, engineRow.id);
+    const timeHub = await provisionEngineTimeHub(
+      db,
+      companyId,
+      engineRow.id,
+      created.map((row) => ({
+        id: row.id,
+        type: row.type,
+        name: row.name,
+        position: (row.canvasPosition as { x: number; y: number }) ?? { x: 0, y: 0 },
+      })),
+    );
+    if (timeHub) {
+      createdLinks.push(
+        ...timeHub.links.map((link) => ({
+          id: link.id,
+          companyId,
+          fromModuleId: link.fromModuleId,
+          toModuleId: link.toModuleId,
+          linkKind: link.linkKind as 'data_feed',
+          config: {},
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })),
+      );
+    }
+
+    await ensureEngineMotherboardUtilities(db, companyId, engineRow.id);
 
     try {
       await resolveCompanyServiceBindings(db, clerkUserId, companyId);
@@ -281,14 +313,27 @@ export async function POST(req: Request, ctx: Ctx) {
       console.error('resolveCompanyServiceBindings failed on engine create', err);
     }
 
+    const utilityLinks = await listEngineUtilityLinks(db, companyId, engineRow.id);
     const refreshedModules = await scoping.listModules(db, clerkUserId, companyId);
     const memberIds = new Set(created.map((m) => m.id));
+    if (timeHub) memberIds.add(timeHub.id);
     return {
       engine: serializeEngine(persistedEngine, [...memberIds]),
       modules: refreshedModules.filter(
-        (m) => memberIds.has(m.id) || dedicatedMath.some((tool) => tool.id === m.id),
+        (m) =>
+          memberIds.has(m.id) ||
+          dedicatedMath.some((tool) => tool.id === m.id) ||
+          (timeHub != null && m.id === timeHub.id),
       ),
       links: createdLinks,
+      utilityLinks: utilityLinks.map((row) => ({
+        id: row.id,
+        bus: row.bus,
+        fromEngineId: row.fromEngineId,
+        fromModuleId: row.fromModuleId,
+        streamId: row.streamId,
+        streamDescriptor: row.streamDescriptor,
+      })),
     };
   });
 }

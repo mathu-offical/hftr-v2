@@ -430,7 +430,14 @@ describe('canvas link port helpers', () => {
   });
 
   it('exposes analyzer emit modes and engine utility buses (D-091)', async () => {
-    const { EngineUtilityBus, engineUtilityBusesForCategory } = await import('./engines');
+    const {
+      EngineUtilityBus,
+      engineUtilityBusesForCategory,
+      parseEngineUtilityHandle,
+      engineUtilitySourceHandleId,
+      engineUtilityTargetHandleId,
+      engineCategoryExposesFunds,
+    } = await import('./engines');
     const { AnalyzerModuleConfig, deriveLibraryDisplayName } = await import('./modules');
     expect(AnalyzerModuleConfig.parse({}).emitMode).toBe('verify_loopback');
     expect(AnalyzerModuleConfig.parse({ emitMode: 'to_desk_stream' }).emitMode).toBe(
@@ -440,7 +447,17 @@ describe('canvas link port helpers', () => {
     expect(allowedLinkKinds('analyzer', 'library')).toEqual(['data_feed']);
     expect(engineUtilityBusesForCategory('research')).toContain('data_out');
     expect(engineUtilityBusesForCategory('day_trading')).toContain('funds');
+    expect(engineCategoryExposesFunds('day_trading')).toBe(true);
+    expect(engineCategoryExposesFunds('research')).toBe(false);
     expect(EngineUtilityBus.options).toContain('clock');
+    expect(parseEngineUtilityHandle(engineUtilityTargetHandleId('data_in'))).toEqual({
+      bus: 'data_in',
+      direction: 'in',
+    });
+    expect(parseEngineUtilityHandle(engineUtilitySourceHandleId('data_out'))).toEqual({
+      bus: 'data_out',
+      direction: 'out',
+    });
     expect(
       deriveLibraryDisplayName({
         topicSectors: ['Semiconductors'],

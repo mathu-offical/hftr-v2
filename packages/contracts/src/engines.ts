@@ -81,6 +81,41 @@ export const CreateEngineUtilityLinkInput = z
   });
 export type CreateEngineUtilityLinkInput = z.infer<typeof CreateEngineUtilityLinkInput>;
 
+/** React Flow handle id for an inbound (target) engine utility bus. */
+export function engineUtilityTargetHandleId(bus: EngineUtilityBus): string {
+  return `engine-util-${bus}`;
+}
+
+/** React Flow handle id for an outbound (source) engine utility bus. */
+export function engineUtilitySourceHandleId(bus: EngineUtilityBus): string {
+  return `engine-util-${bus}-out`;
+}
+
+/**
+ * Parse an engine utility handle id into bus + direction.
+ * Accepts legacy `engine-util-${bus}` as target for all buses, and
+ * `engine-util-${bus}-out` as source (data_out / system_control).
+ */
+export function parseEngineUtilityHandle(
+  handleId: string | null | undefined,
+): { bus: EngineUtilityBus; direction: 'in' | 'out' } | null {
+  if (!handleId || !handleId.startsWith('engine-util-')) return null;
+  const rest = handleId.slice('engine-util-'.length);
+  if (rest.endsWith('-out')) {
+    const busName = rest.slice(0, -'-out'.length);
+    const bus = EngineUtilityBus.safeParse(busName);
+    if (!bus.success) return null;
+    return { bus: bus.data, direction: 'out' };
+  }
+  const bus = EngineUtilityBus.safeParse(rest);
+  if (!bus.success) return null;
+  return { bus: bus.data, direction: 'in' };
+}
+
+/** Categories that expose a funds utility bus (execution desks). */
+export function engineCategoryExposesFunds(category: string): boolean {
+  return engineUtilityBusesForCategory(category).includes('funds');
+}
 
 export const DeleteEngineMode = z.enum(['cascade', 'ungroup']);
 export type DeleteEngineMode = z.infer<typeof DeleteEngineMode>;

@@ -1,0 +1,2 @@
+-- research_evidence.source_kind: alpaca_news added for Alpaca historical news gather.
+-- Column is unconstrained text; validation lives in @hftr/contracts ResearchSourceKind.

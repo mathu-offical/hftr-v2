@@ -1,0 +1,3 @@
+-- research_evidence.source_kind: finnhub_news, polygon_news for Finnhub/Polygon news gather.
+-- user_research_keys.provider: finnhub, polygon operator API keys.
+-- Columns are unconstrained text; validation lives in @hftr/contracts ResearchSourceKind / ResearchKeyProvider.

@@ -1,6 +1,15 @@
 import { z } from 'zod';
 import { ConceptLinkRelation } from './research-artifacts';
 
+/** Provenance for curated concepts / concept links (honest; never dresses seeds as model output). */
+export const ConceptSourceClass = z.enum([
+  'catalog_seed',
+  'deterministic_placeholder',
+  'model_generated',
+  'operator',
+]);
+export type ConceptSourceClass = z.infer<typeof ConceptSourceClass>;
+
 /** Curation lifecycle for a concept inside a library. */
 export const CurationStatus = z.enum([
   'proposed',
@@ -50,7 +59,7 @@ export const LibraryConcept = z.object({
   title: z.string().optional(),
   body: z.string().optional(),
   tags: z.array(z.string()).optional(),
-  sourceClass: z.enum(['deterministic_placeholder', 'model_generated', 'operator']).optional(),
+  sourceClass: ConceptSourceClass.optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -155,7 +164,7 @@ export const ResearchGraphNode = z.object({
   title: z.string(),
   body: z.string(),
   tags: z.array(z.string()),
-  sourceClass: z.enum(['deterministic_placeholder', 'model_generated', 'operator']),
+  sourceClass: ConceptSourceClass,
   status: z.string(),
   /** Opaque source handle (evidence/catalog/operator) when known. */
   sourceRef: z.string().nullable().optional(),
@@ -186,7 +195,7 @@ export const ResearchGraphLink = z.object({
   toConceptId: z.string().uuid(),
   relation: ConceptLinkRelation,
   weightBand: z.enum(['weak', 'typical', 'strong']),
-  sourceClass: z.enum(['deterministic_placeholder', 'model_generated', 'operator']),
+  sourceClass: ConceptSourceClass,
 });
 export type ResearchGraphLink = z.infer<typeof ResearchGraphLink>;
 

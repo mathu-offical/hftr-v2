@@ -78,6 +78,7 @@ export async function POST(req: Request) {
       throw new ApiError(422, 'module_limit_reached');
     }
 
+    const seedCents = BigInt(input.seedCreditsCents);
     const inserted = await db
       .insert(companies)
       .values({
@@ -87,7 +88,12 @@ export async function POST(req: Request) {
         sectorFocuses: input.sectorFocuses,
         philosophyProfile: DEFAULT_PHILOSOPHY_PROFILE,
         mode: input.mode,
-        seedCreditsCents: BigInt(input.seedCreditsCents),
+        seedCreditsCents: seedCents,
+        // Cash-only opening projection until mark-aware recompute runs.
+        equityCents: seedCents,
+        equityStatus: 'fresh',
+        equityAsOf: new Date(),
+        equityVersion: 0,
       })
       .returning();
     const company = inserted[0]!;

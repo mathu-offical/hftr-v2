@@ -19,7 +19,10 @@ watches, steers, and approves through the canvas + three panels + the assistant.
   promote/compile sizing and control snapshots; free-text never supplies raw sizes or times.
 - A user can own many companies; each company is one canvas.
 - **Companies directory (implemented):** each card shows **paper|live** mode (text-first badge),
-  included **engine** labels (`engine_instances`), and navigates to `/companies/:id`. Card menu:
+  included **engine** labels (`engine_instances`), **Seed** and **Current value** equity lines
+  (tabular numerals; `Stale` / `Unavailable` text when applicable — color reinforces only), and
+  navigates to `/companies/:id`. Equity is the materialized `companies.equity_*` projection
+  (hard cash + confirmed open marks); cards never call brokers. Card menu:
   rename (`PATCH`), soft-delete/archive (`DELETE`), and **duplicate**
   (`POST .../duplicate`) which copies canvas topology (engines, modules, links) into a new
   **paper** company in one atomic database batch. Duplication never copies capital, allocations,

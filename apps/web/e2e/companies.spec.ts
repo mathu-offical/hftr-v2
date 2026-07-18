@@ -269,6 +269,11 @@ test.describe('Companies directory', () => {
     await expect(card.getByText('paper', { exact: true })).toBeVisible();
     await expect(card.getByText(/Engines ·/)).toBeVisible();
     await expect(card.getByText(/Day trading/i)).toBeVisible();
+    await expect(card.getByTestId('company-card-seed')).toHaveText('Seed $10,000.00');
+    await expect(card.getByTestId('company-card-equity')).toContainText('Current value');
+    await expect(card.getByTestId('company-card-equity')).toContainText(
+      /Current value (\$10,000\.00|Unavailable)/,
+    );
 
     await card.getByRole('link', { name: `Open ${name}` }).click();
     await page.waitForURL(new RegExp(`/companies/${companyId}$`));

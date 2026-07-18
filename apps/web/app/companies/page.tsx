@@ -65,6 +65,12 @@ export default async function CompaniesPage() {
                     mode={c.mode}
                     philosophyPrompt={c.philosophyPrompt}
                     engines={c.engines}
+                    seedCreditsCents={c.seedCreditsCents.toString()}
+                    equity={{
+                      equityCents: c.equityCents?.toString() ?? null,
+                      status: c.equityStatus,
+                      asOfIso: c.equityAsOf?.toISOString() ?? null,
+                    }}
                   />
                 </li>
               ))}

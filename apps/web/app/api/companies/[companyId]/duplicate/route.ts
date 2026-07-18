@@ -59,6 +59,10 @@ export async function POST(_req: Request, ctx: Ctx) {
       // Fail-closed: a topology copy never mints capital or inherits automation,
       // broker binding, live arming, or live-gate evidence.
       seedCreditsCents: 0n,
+      equityCents: 0n,
+      equityStatus: 'fresh',
+      equityAsOf: new Date(),
+      equityVersion: 0,
       autoFundPolicy: {},
       brokerConnectionId: null,
       liveArmedAt: null,

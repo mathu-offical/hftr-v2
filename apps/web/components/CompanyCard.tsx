@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { formatUsdFromCents, type EquityStatus } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 
 export interface CompanyCardEngine {
@@ -11,17 +12,25 @@ export interface CompanyCardEngine {
   templateId: string;
 }
 
+export interface CompanyCardEquity {
+  equityCents: string | null;
+  status: EquityStatus;
+  asOfIso: string | null;
+}
+
 export interface CompanyCardProps {
   id: string;
   name: string;
   mode: 'paper' | 'live' | string;
   philosophyPrompt: string;
   engines: CompanyCardEngine[];
+  seedCreditsCents: string;
+  equity: CompanyCardEquity;
 }
 
 /**
- * Companies directory card: paper/live badge, engine labels, navigate to
- * canvas, and rename / duplicate / archive actions.
+ * Companies directory card: paper/live badge, seed/equity, engine labels,
+ * navigate to canvas, and rename / duplicate / archive actions.
  */
 export function CompanyCard(props: CompanyCardProps) {
   const router = useRouter();
@@ -117,6 +126,15 @@ export function CompanyCard(props: CompanyCardProps) {
     props.engines.length > 0
       ? props.engines.map((e) => e.label).join(' · ')
       : 'No engines (Math only)';
+  const seedLabel = formatUsdFromCents(props.seedCreditsCents);
+  const equityLabel =
+    props.equity.equityCents !== null ? formatUsdFromCents(props.equity.equityCents) : null;
+  const equityStatusTone =
+    props.equity.status === 'stale'
+      ? 'text-[var(--color-warn)]'
+      : props.equity.status === 'unavailable'
+        ? 'text-[var(--color-block)]'
+        : 'text-[var(--color-ink-faint)]';
 
   return (
     <article
@@ -194,6 +212,26 @@ export function CompanyCard(props: CompanyCardProps) {
               <span className="text-[var(--color-ink-faint)]">Engines · </span>
               {engineLabels}
             </p>
+            <div className="mb-2 space-y-0.5 text-xs text-[var(--color-ink-dim)]">
+              {seedLabel && (
+                <p data-testid="company-card-seed" className="tabular-nums">
+                  Seed {seedLabel}
+                </p>
+              )}
+              <p data-testid="company-card-equity" className="tabular-nums">
+                {equityLabel ? (
+                  <>Current value {equityLabel}</>
+                ) : (
+                  <span className={equityStatusTone}>Current value Unavailable</span>
+                )}
+                {props.equity.status === 'stale' && (
+                  <span className={`ml-2 ${equityStatusTone}`}>Stale</span>
+                )}
+                {props.equity.status === 'unavailable' && equityLabel && (
+                  <span className={`ml-2 ${equityStatusTone}`}>Unavailable</span>
+                )}
+              </p>
+            </div>
             <p className="line-clamp-2 text-sm text-[var(--color-ink-dim)]">
               {props.philosophyPrompt}
             </p>

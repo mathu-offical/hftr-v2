@@ -64,6 +64,8 @@ interface ModuleOption {
   name: string;
   type: string;
   engineInstanceId: string | null;
+  /** Trend modules only — from TrendModuleConfig (default 10). */
+  maxActiveTrends?: number;
 }
 
 interface EngineOption {
@@ -428,7 +430,7 @@ export function BottomPanel(props: {
             companyId={props.companyId}
             trends={byEngine(trends)}
             modules={scopedModules()}
-            moduleName={moduleName}
+            engines={props.engines}
             onRefetch={load}
           />
         )}
@@ -647,17 +649,33 @@ function Table(props: { head: string[]; rows: React.ReactNode[][]; empty: string
   );
 }
 
-/** Trends table with per-row promotion of candidate trends into leads. */
+/**
+ * Trends tab (D-104): one list per trend module in the selected engine scope
+ * (multiple lists when the engine has multiple trend modules). Rows are the
+ * same `trend_candidates` the canvas TrendListChrome shows (candidate +
+ * promoted, capped by maxActiveTrends).
+ */
 function TrendsView(props: {
   companyId: string;
   trends: TrendRow[];
   modules: ModuleOption[];
-  moduleName: (id: string) => string;
+  engines: EngineOption[];
   onRefetch: () => Promise<void>;
 }) {
   const [promotingId, setPromotingId] = useState<string | null>(null);
   const [promoted, setPromoted] = useState<Record<string, string>>({});
-  const trendModules = props.modules.filter((m) => m.type === 'trend');
+  const trendModules = props.modules
+    .filter((m) => m.type === 'trend')
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const engineLabel = useCallback(
+    (engineInstanceId: string | null) => {
+      if (!engineInstanceId) return 'Unscoped';
+      return props.engines.find((e) => e.id === engineInstanceId)?.label ?? 'Unknown engine';
+    },
+    [props.engines],
+  );
 
   async function promote(trend: TrendRow) {
     setPromotingId(trend.id);
@@ -682,11 +700,22 @@ function TrendsView(props: {
     }
   }
 
+  function listRowsForModule(moduleId: string, maxActive: number): TrendRow[] {
+    return props.trends
+      .filter(
+        (t) => t.moduleId === moduleId && (t.status === 'candidate' || t.status === 'promoted'),
+      )
+      .slice()
+      .sort((a, b) => new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime())
+      .slice(0, maxActive);
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[10px] text-[var(--color-ink-faint)]">
-          Promote uses tactical + compile LLM tiers.
+          Trend lists from each trend module in the selected engine. Promote uses tactical + compile
+          LLM tiers.
         </p>
         <LlmAvailabilityChips tiers={['tactical', 'execution']} />
       </div>
@@ -695,56 +724,104 @@ function TrendsView(props: {
         trendModules={trendModules}
         onCreated={props.onRefetch}
       />
-      <Table
-        head={['Symbol', 'Direction', 'Strength', 'Source', 'Module', 'Scanned', 'Action']}
-        rows={props.trends.map((t) => [
-          <span key="s" className="font-mono">
-            {t.symbol}
-          </span>,
-          <Justification
-            key="d"
-            sourceClass={t.sourceClass}
-            lines={[
-              `Direction "${t.direction}" and strength "${t.strengthBand}" derive from quote drift over the scan lookback window.`,
-              `Scanned ${new Date(t.scannedAt).toLocaleString()} by ${props.moduleName(t.moduleId)}.`,
-              'The drift value is recorded as an auditable ValueRef (right panel → Values).',
-            ]}
-          >
-            <span className="capitalize" style={{ color: toneFor(t.direction) }}>
-              {t.direction}
-            </span>
-          </Justification>,
-          t.strengthBand,
-          t.sourceClass === 'deterministic_scan' ? 'scan' : 'model',
-          props.moduleName(t.moduleId),
-          new Date(t.scannedAt).toLocaleTimeString(),
-          promoted[t.id] ? (
-            <span
-              key="p"
-              style={{
-                color: promoted[t.id] === 'promoted' ? 'var(--color-ok)' : 'var(--color-warn)',
-              }}
-            >
-              {promoted[t.id]}
-            </span>
-          ) : t.status === 'candidate' ? (
-            <button
-              key="p"
-              onClick={() => promote(t)}
-              disabled={promotingId !== null}
-              aria-label={`Promote trend ${t.symbol} to a lead`}
-              className="rounded-md border border-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
-            >
-              {promotingId === t.id ? 'Promoting…' : 'Promote'}
-            </button>
-          ) : (
-            <span key="p" className="text-[var(--color-ink-faint)]">
-              {t.status}
-            </span>
-          ),
-        ])}
-        empty="No trend candidates. Run a scan from a trend module, or add one above."
-      />
+
+      {trendModules.length === 0 ? (
+        <p className="py-3 text-xs text-[var(--color-ink-faint)]">
+          No trend modules in this engine scope. Add a trend module on the canvas, or select All
+          engines.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {trendModules.map((mod) => {
+            const maxActive = mod.maxActiveTrends ?? 10;
+            const rows = listRowsForModule(mod.id, maxActive);
+            return (
+              <section
+                key={mod.id}
+                className="overflow-hidden rounded-lg border border-[var(--color-line)]"
+                aria-label={`Trend list ${mod.name}`}
+              >
+                <header className="flex flex-wrap items-center gap-2 border-b border-[var(--color-line)] bg-[var(--color-surface-0)] px-3 py-1.5">
+                  <h3 className="text-xs font-medium text-[var(--color-ink)]">{mod.name}</h3>
+                  <span className="font-mono text-[10px] text-[var(--color-ink-faint)]">
+                    {engineLabel(mod.engineInstanceId)}
+                  </span>
+                  <span className="ml-auto font-mono text-[10px] tabular-nums text-[var(--color-ink-dim)]">
+                    {rows.length}/{maxActive}
+                  </span>
+                </header>
+                <div className="px-3 py-2">
+                  <Table
+                    head={[
+                      'Symbol',
+                      'Direction',
+                      'Strength',
+                      'Source',
+                      'Status',
+                      'Scanned',
+                      'Action',
+                    ]}
+                    rows={rows.map((t) => [
+                      <span key="s" className="font-mono">
+                        {t.symbol}
+                      </span>,
+                      <Justification
+                        key="d"
+                        sourceClass={t.sourceClass}
+                        lines={[
+                          t.sourceClass === 'deterministic_scan'
+                            ? `Direction "${t.direction}" and strength "${t.strengthBand}" come from this module's trend list (scan or operator add).`
+                            : `Direction "${t.direction}" nominated with strength "${t.strengthBand}".`,
+                          `Scanned ${new Date(t.scannedAt).toLocaleString()} by ${mod.name}.`,
+                          'The drift value is recorded as an auditable ValueRef (right panel → Values).',
+                        ]}
+                      >
+                        <span className="capitalize" style={{ color: toneFor(t.direction) }}>
+                          {t.direction}
+                        </span>
+                      </Justification>,
+                      t.strengthBand,
+                      t.sourceClass === 'deterministic_scan' ? 'scan' : 'model',
+                      <span key="st" className="font-mono text-[10px]">
+                        {t.status}
+                      </span>,
+                      new Date(t.scannedAt).toLocaleTimeString(),
+                      promoted[t.id] ? (
+                        <span
+                          key="p"
+                          style={{
+                            color:
+                              promoted[t.id] === 'promoted'
+                                ? 'var(--color-ok)'
+                                : 'var(--color-warn)',
+                          }}
+                        >
+                          {promoted[t.id]}
+                        </span>
+                      ) : t.status === 'candidate' ? (
+                        <button
+                          key="p"
+                          onClick={() => promote(t)}
+                          disabled={promotingId !== null}
+                          aria-label={`Promote trend ${t.symbol} to a lead`}
+                          className="rounded-md border border-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+                        >
+                          {promotingId === t.id ? 'Promoting…' : 'Promote'}
+                        </button>
+                      ) : (
+                        <span key="p" className="text-[var(--color-ink-faint)]">
+                          {t.status}
+                        </span>
+                      ),
+                    ])}
+                    empty="No trend candidates on this list yet. Run Scan on the module, or add a candidate above."
+                  />
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

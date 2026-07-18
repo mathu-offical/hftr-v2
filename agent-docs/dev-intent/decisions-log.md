@@ -1088,6 +1088,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   providers the last scan pulled from. Marks stay synthetic until live broker marks. Docs:
   ui-spec §4. **Status: implemented.**
 
+- **D-104 (bottom Trends tab = per-module trend lists, 2026-07-18):** Bottom panel Trends
+  renders **one list card per trend module** in the selected execution-engine scope (multiple
+  cards when an engine has multiple trend modules). Lists show that module's
+  `trend_candidates` (candidate + promoted, capped by `maxActiveTrends`) matching canvas
+  `TrendListChrome`. Empty modules still appear. `GET …/trends` raises limit and orders by
+  `scannedAt`. Docs: ui-spec §4 middle-bottom. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

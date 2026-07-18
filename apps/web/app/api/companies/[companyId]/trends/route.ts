@@ -30,8 +30,8 @@ export async function GET(_req: Request, ctx: Ctx) {
       .select()
       .from(trendCandidates)
       .where(eq(trendCandidates.companyId, companyId))
-      .orderBy(desc(trendCandidates.createdAt))
-      .limit(50);
+      .orderBy(desc(trendCandidates.scannedAt))
+      .limit(200);
     return { trends: rows };
   });
 }

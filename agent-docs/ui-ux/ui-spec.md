@@ -313,6 +313,10 @@ suppressed in editable fields.
   (trends, leads/trees, watchlists, executions/decisions, lineage columns, approvals that
   touch member modules, dead letters with a member `moduleId`). Company-scoped rows with no
   module binding appear only under **All engines**.
+- **Trends tab lists (D-104):** one list card per **trend module** in the selected engine
+  (multiple cards when the engine has multiple trend modules). Each list shows that module's
+  `trend_candidates` (candidate + promoted, capped by `maxActiveTrends`) — the same rows as
+  canvas `TrendListChrome`. Empty modules still render so operators see every list slot.
 - Shows the trend→policy→decision translation dynamically: columns Trends → Directives/Policies
   → Candidate decisions → Queued instructions, with lineage lines between selected items
   (click a trade to highlight its full ancestry).

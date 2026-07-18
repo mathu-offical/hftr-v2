@@ -958,15 +958,19 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `clock`, `funds`, `system_control`) persisted on `engine_utility_links` — distinct from
   `module_links`. Research/trend_research categories expose data + clock + control; execution
   categories also expose `funds`. Inter-engine qualitative streams pair `data_out→data_in` via
-  opaque `stream_id` + descriptor (no raw numbers/datetimes). **Auto-hydration** on insert:
-  clock utility bind from company Master Clock singleton; project topics into non-overridden
-  members; terminal **analyzer** as the last step on research ENGINEs; library display names
-  from topic + inbound sources (`deriveLibraryDisplayName`). **AnalyzerModuleConfig** `emitMode`:
-  `to_library` | `to_desk_stream` | `verify_loopback`. Direct `clock→consumer` module links
-  deprecated (clock→time|math only); layout pins Clock/Time to a bottom cadence rail. Setup
-  stays D-089 header inline fields. Docs: `architecture/engine-motherboard-io-design.md`,
-  data-model, engine-node-family-design, number-handling §8a, canvas-engine-group-design,
-  ui-spec §3, product-spec, plans, requirements-matrix. Migration `0037`.
+  opaque `stream_id` + descriptor (no raw numbers/datetimes). **Auto-hydration** on insert via
+  `ensureEngineMotherboardUtilities`: clock utility bind; funds bind when category exposes it
+  and a `holding_fund` exists; analyzer `data_out` stub; topic project into non-overridden
+  members; **Time hub** (`provisionEngineTimeHub`) with clock→time→time-bearing members;
+  terminal **analyzer** as the last step on research ENGINEs; library display names from topic
+  + inbound sources (`deriveLibraryDisplayName`). Canvas: unique in/out utility handles,
+  engine↔engine and module→engine utility edges, DELETE API. **AnalyzerModuleConfig** `emitMode`:
+  `to_library` | `to_desk_stream` | `verify_loopback`. Direct `clock→consumer` deprecated;
+  activation requires Time inbound for `TIME_BEARING_MODULE_TYPES`. Layout pins Clock/Time to
+  a bottom cadence rail. Setup stays D-089 header inline fields. Docs:
+  `architecture/engine-motherboard-io-design.md`, data-model, engine-node-family-design,
+  number-handling §8a, canvas-engine-group-design, ui-spec §3, product-spec, plans,
+  requirements-matrix. Migration `0037`.
   **Status: implemented.**
 
 - **D-092 (compound movers / watchlist suggestion algorithm, 2026-07-18):** Master

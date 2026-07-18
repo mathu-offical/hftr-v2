@@ -29,6 +29,15 @@ export interface ResolvedExecutionContext {
   liveGateBlocked: boolean;
 }
 
+export interface ResolveExecutionContextOpts {
+  /**
+   * Optional dedicated broker connection from TradingModuleConfig.executionBinding.
+   * When set, overrides `companies.broker_connection_id`. When omitted/undefined,
+   * inherit the company bind (D-122).
+   */
+  brokerConnectionId?: string;
+}
+
 function parseStoredCredentials(plain: string): unknown {
   return JSON.parse(plain) as unknown;
 }
@@ -62,10 +71,40 @@ async function loadLiveGateEvidence(
   return parsed.success ? parsed.data : null;
 }
 
+async function loadConnectionInput(
+  db: Db,
+  connectionId: string,
+): Promise<BrokerConnectionResolveInput | null> {
+  const connRows = await db
+    .select()
+    .from(brokerConnections)
+    .where(eq(brokerConnections.id, connectionId))
+    .limit(1);
+  const conn = connRows[0];
+  if (!conn) return null;
+  const plain = decryptSecret(conn.ciphertext, 'broker_credentials');
+  const credentials = parseStoredCredentials(plain);
+  return {
+    venue: conn.venue,
+    mode: conn.mode,
+    status: conn.status,
+    credentials,
+    ...(conn.venue === 'kalshi' && typeof credentials === 'object' && credentials !== null
+      ? {
+          demoMode:
+            'demoMode' in credentials
+              ? Boolean((credentials as { demoMode?: boolean }).demoMode)
+              : true,
+        }
+      : {}),
+  };
+}
+
 export async function resolveExecutionContext(
   db: Db,
   clock: Clock,
   companyId: string,
+  opts?: ResolveExecutionContextOpts,
 ): Promise<ResolvedExecutionContext> {
   const companyRows = await db
     .select({
@@ -89,31 +128,14 @@ export async function resolveExecutionContext(
     throw new Error('live_gate_blocked');
   }
 
+  const effectiveConnectionId = opts?.brokerConnectionId ?? company.brokerConnectionId;
+
   let connectionInput: BrokerConnectionResolveInput | null = null;
-  if (company.brokerConnectionId) {
-    const connRows = await db
-      .select()
-      .from(brokerConnections)
-      .where(eq(brokerConnections.id, company.brokerConnectionId))
-      .limit(1);
-    const conn = connRows[0];
-    if (conn) {
-      const plain = decryptSecret(conn.ciphertext, 'broker_credentials');
-      const credentials = parseStoredCredentials(plain);
-      connectionInput = {
-        venue: conn.venue,
-        mode: conn.mode,
-        status: conn.status,
-        credentials,
-        ...(conn.venue === 'kalshi' && typeof credentials === 'object' && credentials !== null
-          ? {
-              demoMode:
-                'demoMode' in credentials
-                  ? Boolean((credentials as { demoMode?: boolean }).demoMode)
-                  : true,
-            }
-          : {}),
-      };
+  if (effectiveConnectionId) {
+    connectionInput = await loadConnectionInput(db, effectiveConnectionId);
+    if (!connectionInput && opts?.brokerConnectionId) {
+      // Dedicated module bind missing/invalid — fail closed (do not silently fall back).
+      throw new Error('broker_connection_not_connected');
     }
   }
 
@@ -149,7 +171,7 @@ export async function resolveExecutionContext(
   return {
     companyId,
     companyMode: company.mode,
-    brokerConnectionId: company.brokerConnectionId,
+    brokerConnectionId: effectiveConnectionId,
     adapter,
     venue: adapter.venue,
     virtualBalanceCents,

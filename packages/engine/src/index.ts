@@ -331,6 +331,11 @@ export {
   linkBookDeltaTrainingFeedback,
 } from './paper/book-delta';
 export {
+  computeInternalPaperCoreFill,
+  computeInternalPaperFill,
+  DEFAULT_INTERNAL_PAPER_SLIPPAGE_BPS,
+} from './paper/internal-paper-core';
+export {
   projectMarketModelToAwareness,
   type AwarenessSurfaceId,
   type MarketAwarenessProjection,

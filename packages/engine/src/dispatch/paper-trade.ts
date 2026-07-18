@@ -58,6 +58,7 @@ import {
 } from './instruction-finalizer';
 import { recomputeCompanyEquity } from '../equity/recompute';
 import { shadowVerifyAndPersistBookDelta } from '../paper/book-delta';
+import { computeInternalPaperCoreFill } from '../paper/internal-paper-core';
 import { resolveMarketQuote, loadAdapterMarketQuote } from '../paper/market-model';
 
 /**
@@ -179,18 +180,6 @@ export async function executePaperTrade(
   req: PaperTradeRequest & { compiled?: ResolvedInstruction },
 ): Promise<PaperTradeResult> {
   const compiled = req.compiled;
-  let execCtx;
-  try {
-    execCtx = await resolveExecutionContext(db, clock, req.companyId);
-  } catch (err) {
-    const code = err instanceof Error ? err.message : 'dispatch_error';
-    if (code === 'live_gate_blocked' || code === 'broker_connection_not_connected') {
-      return blockedSimple(db, req, code, code);
-    }
-    throw err;
-  }
-
-  const { adapter, venue, brokerConnectionId } = execCtx;
 
   const moduleRows = await db
     .select({ config: modules.config, type: modules.type })
@@ -210,6 +199,26 @@ export async function executePaperTrade(
   const routingMode: PaperRoutingMode = executionBinding.routingMode;
   const primaryOnProvider = usesProviderAsPrimaryBook(routingMode);
   const shadowVerify = shouldShadowVerifyOnProvider(routingMode);
+
+  let execCtx;
+  try {
+    execCtx = await resolveExecutionContext(
+      db,
+      clock,
+      req.companyId,
+      executionBinding.brokerConnectionId
+        ? { brokerConnectionId: executionBinding.brokerConnectionId }
+        : undefined,
+    );
+  } catch (err) {
+    const code = err instanceof Error ? err.message : 'dispatch_error';
+    if (code === 'live_gate_blocked' || code === 'broker_connection_not_connected') {
+      return blockedSimple(db, req, code, code);
+    }
+    throw err;
+  }
+
+  const { adapter, venue, brokerConnectionId } = execCtx;
 
   const envelope: HandoffEnvelope = compiled
     ? {
@@ -235,6 +244,18 @@ export async function executePaperTrade(
 
   if (!Number.isInteger(req.quantity) || req.quantity <= 0 || req.quantity > MAX_QUANTITY) {
     return blockedSimple(db, req, 'numeric_sanity_block', 'quantity out of bounds', venue);
+  }
+
+  if ((primaryOnProvider || shadowVerify) && venue === 'paper_sim') {
+    return blockedSimple(
+      db,
+      req,
+      'broker_policy_block',
+      primaryOnProvider
+        ? 'execute_on_service requires a connected paper service'
+        : 'both_verify requires a connected paper service',
+      venue,
+    );
   }
 
   let liveQuote: QuoteSnapshot | null = null;
@@ -1210,17 +1231,7 @@ function computeFill(
   task: DeterministicActionTask,
   quote: QuoteSnapshot,
 ): { ok: true; priceCents: number; venueOrderId: string } | { ok: false; reason: string } {
-  const isBuy = task.actionVerb === 'buy';
-  const side = isBuy ? quote.askCents : quote.bidCents;
-  const reference = side ?? quote.lastCents;
-  if (reference === null) return { ok: false, reason: 'no_quote' };
-  const slip = Math.max(0, Math.round((reference * 2) / 10_000));
-  const priceCents = isBuy ? reference + slip : reference - slip;
-  if (task.orderType === 'limit' && task.limitPriceCents !== null) {
-    if (isBuy && priceCents > task.limitPriceCents) return { ok: false, reason: 'unmarketable' };
-    if (!isBuy && priceCents < task.limitPriceCents) return { ok: false, reason: 'unmarketable' };
-  }
-  return { ok: true, priceCents, venueOrderId: `psim_${task.idempotencyKey.slice(7, 19)}` };
+  return computeInternalPaperCoreFill(task, quote);
 }
 
 function internalPaperFillGapTags(args: {

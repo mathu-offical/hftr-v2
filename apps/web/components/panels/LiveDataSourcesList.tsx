@@ -1,7 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { LiveDataSourceRow, LiveDataSourcesResponse } from '@hftr/contracts';
+import {
+  isActiveLiveDataSource,
+  type LiveDataSourceRow,
+  type LiveDataSourcesResponse,
+} from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import { useDataView } from '@/components/panels/DataViewContext';
 import {
@@ -10,8 +14,12 @@ import {
   peekLiveDataSources,
 } from '@/lib/live-data-sources-cache';
 
+function activeSources(rows: LiveDataSourceRow[]): LiveDataSourceRow[] {
+  return rows.filter(isActiveLiveDataSource);
+}
+
 /**
- * DATA tab inventory — all registry hydrators with readiness (D-121).
+ * DATA tab — credential-ready / public API sources only (D-121).
  * Metadata is SWR-cached; live query happens in Data Explorer.
  */
 export function LiveDataSourcesList(props: {
@@ -26,12 +34,11 @@ export function LiveDataSourcesList(props: {
       : null;
   const [sources, setSources] = useState<LiveDataSourceRow[]>(() => {
     const peek = peekLiveDataSources({ companyId: props.companyId });
-    return peek?.sources ?? [];
+    return peek ? activeSources(peek.sources) : [];
   });
   const [loaded, setLoaded] = useState(
     () => peekLiveDataSources({ companyId: props.companyId }) !== null,
   );
-  const [fromCache, setFromCache] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [placingKind, setPlacingKind] = useState<string | null>(null);
   const [placeMessage, setPlaceMessage] = useState<string | null>(null);
@@ -49,11 +56,10 @@ export function LiveDataSourcesList(props: {
           {
             force,
             allowStale: true,
-            onUpdate: (data) => setSources(data.sources),
+            onUpdate: (data) => setSources(activeSources(data.sources)),
           },
         );
-        setSources(result.data.sources);
-        setFromCache(result.fromCache);
+        setSources(activeSources(result.data.sources));
         setError(null);
       } catch {
         setError('Could not load live data sources.');
@@ -72,14 +78,6 @@ export function LiveDataSourcesList(props: {
   }, [load]);
 
   async function placeOnCanvas(source: LiveDataSourceRow) {
-    if (source.status === 'missing_key' || source.status === 'stub' || source.status === 'researched') {
-      setPlaceMessage(
-        source.status === 'missing_key'
-          ? 'Add the provider key in Settings before placing this hydrator.'
-          : 'This hydrator is not implemented for canvas placement yet.',
-      );
-      return;
-    }
     setPlacingKind(source.kind);
     setPlaceMessage(null);
     const venue = source.kind.startsWith('alpaca') ? 'alpaca' : 'paper_sim';
@@ -113,16 +111,10 @@ export function LiveDataSourcesList(props: {
 
   return (
     <section data-testid="live-data-sources" aria-label="Live data sources">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-ink-faint)]">
-            Live data sources
-          </p>
-          <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">
-            Cached inventory · select to query in Data Explorer
-            {fromCache ? ' · from cache' : ''}
-          </p>
-        </div>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-ink-faint)]">
+          Live data sources
+        </p>
         <button
           type="button"
           onClick={() => void load(true)}
@@ -135,15 +127,16 @@ export function LiveDataSourcesList(props: {
         <p className="mt-2 text-[10px] text-[var(--color-ink-dim)]">{placeMessage}</p>
       ) : null}
       {!loaded ? (
-        <p className="mt-3 text-[11px] text-[var(--color-ink-faint)]">Loading sources…</p>
+        <p className="mt-3 text-[11px] text-[var(--color-ink-faint)]">Loading…</p>
       ) : error ? (
         <p className="mt-3 text-[11px] text-[var(--color-ink-faint)]">{error}</p>
       ) : sources.length === 0 ? (
-        <p className="mt-3 text-[11px] text-[var(--color-ink-faint)]">No external sources registered.</p>
+        <p className="mt-3 text-[11px] text-[var(--color-ink-faint)]">
+          No active sources. Add and verify API keys in Settings.
+        </p>
       ) : (
-        <ul className="mt-3 space-y-2" role="listbox" aria-label="Live API providers">
+        <ul className="mt-3 space-y-2" role="listbox" aria-label="Active API sources">
           {sources.map((s) => {
-            const onCanvas = s.canvasModuleIds.length > 0;
             const selected = selectedKind === s.kind;
             return (
               <li
@@ -161,33 +154,17 @@ export function LiveDataSourcesList(props: {
                   data-testid={`live-data-source-${s.kind}`}
                   data-selected={selected ? 'true' : 'false'}
                   onClick={() => dataView.selectLiveSource(s.kind, s.label)}
-                  className="flex w-full items-start justify-between gap-2 text-left"
+                  className="w-full text-left"
                 >
-                  <span className="min-w-0">
-                    <span className="flex items-center gap-1.5">
-                      <span className="block truncate text-xs font-medium text-[var(--color-ink)]">
-                        {s.label}
-                      </span>
-                      {selected ? (
-                        <span className="shrink-0 text-[9px] font-medium uppercase tracking-wider text-[var(--color-accent)]">
-                          Selected
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="mt-0.5 block text-[10px] text-[var(--color-ink-faint)]">
-                      {s.domain} · {s.feedClass}
-                      {onCanvas ? ` · on canvas (${s.canvasModuleIds.length})` : ''}
-                    </span>
+                  <span className="block truncate text-xs font-medium text-[var(--color-ink)]">
+                    {s.label}
                   </span>
-                  <span
-                    className={`shrink-0 text-[10px] uppercase tracking-wide ${
-                      selected ? 'text-[var(--color-ink-dim)]' : 'text-[var(--color-ink-faint)]'
-                    }`}
-                  >
-                    {s.status.replace(/_/g, ' ')}
+                  <span className="mt-0.5 block text-[10px] text-[var(--color-ink-faint)]">
+                    {s.domain}
+                    {s.canvasModuleIds.length > 0 ? ' · on canvas' : ''}
                   </span>
                 </button>
-                <div className="mt-2 flex items-center gap-2">
+                <div className="mt-2">
                   <button
                     type="button"
                     disabled={placingKind === s.kind}

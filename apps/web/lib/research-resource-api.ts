@@ -19,6 +19,8 @@ export type ResearchConceptRow = {
   sourceRef: string;
   status: string;
   createdAt: string;
+  /** Home library for articles (D-127); may be null for non-article concepts. */
+  primaryLibraryId?: string | null;
 };
 
 export type LibraryConceptPageRow = {

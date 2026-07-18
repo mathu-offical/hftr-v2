@@ -393,6 +393,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
           {
             id: 'research',
             label: 'Research',
+            abbrev: 'RSH',
             icon: Orbit,
             meta:
               concepts.length + topics.length > 0
@@ -402,11 +403,13 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
           {
             id: 'market_posture',
             label: 'Market posture',
+            abbrev: 'PST',
             icon: Activity,
           },
           {
             id: 'data',
             label: 'Live data sources',
+            abbrev: 'DAT',
             icon: Database,
             meta: liveApiModules.length > 0 ? String(liveApiModules.length) : undefined,
           },

@@ -44,7 +44,7 @@ export const concepts = pgTable(
     body: text('body').notNull(),
     tags: jsonb('tags').notNull().default([]),
     sourceClass: text('source_class', {
-      enum: ['deterministic_placeholder', 'model_generated', 'operator'],
+      enum: ['catalog_seed', 'deterministic_placeholder', 'model_generated', 'operator'],
     })
       .notNull()
       .default('deterministic_placeholder'),
@@ -94,7 +94,7 @@ export const conceptLinks = pgTable(
       .notNull()
       .default('typical'),
     sourceClass: text('source_class', {
-      enum: ['deterministic_placeholder', 'model_generated', 'operator'],
+      enum: ['catalog_seed', 'deterministic_placeholder', 'model_generated', 'operator'],
     })
       .notNull()
       .default('model_generated'),
@@ -169,7 +169,7 @@ export const decisionTrees = pgTable(
     /** Accumulated LeverSetting map from philosophy / tier jobs. */
     leverState: jsonb('lever_state').notNull().default({}),
     sourceClass: text('source_class', {
-      enum: ['deterministic_placeholder', 'model_generated', 'operator'],
+      enum: ['catalog_seed', 'deterministic_placeholder', 'model_generated', 'operator'],
     })
       .notNull()
       .default('deterministic_placeholder'),

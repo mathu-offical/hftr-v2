@@ -27,6 +27,7 @@ export interface ResearchPagesListProps {
   linkedTopicIds: string[];
   linkedTopicTitles: string[];
   onSelectTopic: (topicId: string) => void;
+  loading?: boolean;
 }
 
 type TopicNode = {
@@ -243,7 +244,7 @@ function ResearchPagesListInner(props: ResearchPagesListProps) {
     >
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          Research topics
+          Topics
         </p>
         <div className="flex items-center gap-1.5">
           <span className="tabular-nums text-[9px] text-[var(--color-ink-faint)]">{topicCount}</span>
@@ -262,7 +263,7 @@ function ResearchPagesListInner(props: ResearchPagesListProps) {
         </div>
       </div>
       <p className="mt-0.5 text-[9px] text-[var(--color-ink-faint)]">
-        Module directives · library research queue (separate from posture / execution)
+        Planned and in progress · library research queue
       </p>
       {queueMessage ? (
         <p className="mt-1 text-[10px] text-[var(--color-ink-dim)]" role="status">
@@ -279,7 +280,9 @@ function ResearchPagesListInner(props: ResearchPagesListProps) {
         />
       ) : null}
       {!props.topics.length ? (
-        <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">No research topics yet.</p>
+        <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
+          {props.loading ? 'Loading research topics…' : 'No research topics yet.'}
+        </p>
       ) : filteredForest.length === 0 ? (
         <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">No matching topics.</p>
       ) : (

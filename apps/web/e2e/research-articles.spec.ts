@@ -105,7 +105,8 @@ test.describe('Research articles (D-127)', () => {
     await expect(page.getByTestId(`research-article-${submitBody.conceptId}`)).toContainText(
       'Macro',
     );
-    await expect(page.getByTestId('research-submit-article')).toBeVisible();
+    await expect(page.getByTestId('research-pages-list')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('research-new-topic')).toBeVisible({ timeout: 15_000 });
 
     // Soft-refresh shell so the API-created runtime library appears in the dock.
     await page.reload();

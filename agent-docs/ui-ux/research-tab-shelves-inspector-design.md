@@ -4,34 +4,29 @@ Living design for the left Research tab layout and floating in-galaxy inspector.
 
 ## Left Research tab layout
 
-Two regions: a **scroll column** (topics + agent activity) and a **bottom-anchored Libraries
-dock** (show/hide). Dock is **first-class left-panel chrome** (D-121) — visible on Research,
-Market posture, and Data. Open/closed persists on `hftr:{companyId}:panel:left` as
-`librariesDockOpen` (D-095). Content browse opens Data Explorer; Galaxy stays Research-owned
-for topic/connection tracing.
+Two regions: a **scroll column** (create + topics + articles) and a **bottom-anchored Libraries
+dock** (show/hide). Dock is **first-class left-panel chrome** (D-121 / D-128) — visible on
+Research, Market posture, and Data. Open/closed persists on `hftr:{companyId}:panel:left` as
+`librariesDockOpen` (D-095); full-height via rail **LIB**. Content browse opens Data Explorer;
+Galaxy stays Research-owned for topic/connection tracing and **entity search** (D-130).
 
 ### Scroll column (top → bottom)
 
-1. **Submit new topic** — primary control at top; creates a research topic (module picker when multiple research modules exist).
-2. **Submit research article** (D-079 / D-127) — link URL (+ optional notes) or raw text/markdown; model-free; requires a target **library**; 1–3 display tags; lands as `sourceClass: operator` + `hftr:article` concept.
-3. **Entity search** — single search field; entity-type buttons switch the corpus:
-   - `Topics` · `Concepts` · `Tags` · `Libraries`
-4. **Research topics** — company research-module **research points** as a collapsible forest:
-   **Current awareness** (+ children) and **Sector · {focus}** from `sectorFocuses` (D-126),
-   plus a thin Seeded trading mechanisms library overview. Nested leaves show shortened
-   display titles; rows show concept count + Program/Group/Research point kind. Each row has
-   **Research** (enqueue that topic on the **LIBRARY_RESEARCH** lane); the section header has
-   **Research all**. Library research is separate from **POSTURE_RESEARCH** and from
-   execution/other LLM lanes (D-098). Filter appears when the list is large. Selection opens
-   the Page inspector / galaxy focus.
-5. **Articles** (D-127) — agent/operator research articles (`hftr:article`), library-backed but
-   listed here with **tag chips** (1–3) and short library label. Selecting opens the concept
-   inspector. Distinct from topics (directives) and from catalog seed pages on shelves.
-6. **Agent activity** — per research-module run / evidence / admission controls (moved out of
-   Modules & tools so module work sits under topics).
-7. **Archive** (D-047) — soft-deleted research; Restore / Clear archive.
-8. **Modules & tools** (collapsed) — new module form, company sweep, module inventory (no
-   duplicate run actions; libraries create/export live in the dock).
+1. **Submit new topic** — creates a research topic (module picker when multiple research modules exist).
+2. **Topics** — planned / in progress only (`active` + `deferred`; archived hidden). Collapsible
+   forest of research points (D-126 awareness + sector). Per-topic **Research** + header
+   **Research all** on the **LIBRARY_RESEARCH** lane (D-098). Selection opens Page inspector /
+   galaxy focus.
+3. **Articles** (D-127) — agent/operator research articles (`hftr:article`) with tag chips;
+   library-backed, listed here for flexible browse.
+
+Entity search, agent activity, archive, and Modules & tools are **not** in this column (D-130).
+
+### Galaxy overlay chrome
+
+- **Entity search** (D-130) — Topics / Concepts / Tags / Libraries; default Concepts; drives
+  inspector + galaxy focus.
+- Library nest filter chips; floating inspector unchanged.
 
 ### Libraries dock (bottom-anchored)
 

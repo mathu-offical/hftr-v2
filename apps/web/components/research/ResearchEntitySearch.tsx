@@ -34,6 +34,8 @@ export interface ResearchEntitySearchProps {
   onSelectTag: (tag: string) => void;
   onSelectLibrary: (libraryId: string) => void;
   highlightedTopicIds?: string[];
+  /** Galaxy chrome is compact; panel uses bordered block (legacy). */
+  variant?: 'panel' | 'galaxy';
 }
 
 function normalizeQuery(q: string): string {
@@ -42,7 +44,8 @@ function normalizeQuery(q: string): string {
 
 function ResearchEntitySearchInner(props: ResearchEntitySearchProps) {
   const [query, setQuery] = useState('');
-  const [entityType, setEntityType] = useState<ResearchEntityType>('topics');
+  const [entityType, setEntityType] = useState<ResearchEntityType>('concepts');
+  const galaxy = props.variant === 'galaxy';
 
   const normalizedQuery = normalizeQuery(query);
 
@@ -125,36 +128,50 @@ function ResearchEntitySearchInner(props: ResearchEntitySearchProps) {
   return (
     <div
       data-testid="research-entity-search"
-      className="rounded-lg border border-[var(--color-line)] p-2.5"
+      className={
+        galaxy
+          ? 'min-w-0'
+          : 'rounded-lg border border-[var(--color-line)] p-2.5'
+      }
     >
-      <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-        Entity search
-      </p>
-      <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder={`Search ${ENTITY_LABELS[entityType].toLowerCase()}…`}
-        aria-label="Research entity search"
-        className="mt-1.5 w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)]"
-      />
-      <div className="mt-1.5 flex flex-wrap gap-1" role="group" aria-label="Entity type">
-        {ENTITY_TYPES.map((type) => (
-          <button
-            key={type}
-            type="button"
-            aria-pressed={entityType === type}
-            onClick={() => setEntityType(type)}
-            className={`rounded border px-1.5 py-0.5 text-[9px] uppercase tracking-wide ${
-              entityType === type
-                ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
-                : 'border-[var(--color-line)] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
-            }`}
-          >
-            {ENTITY_LABELS[type]}
-          </button>
-        ))}
+      {!galaxy ? (
+        <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+          Entity search
+        </p>
+      ) : null}
+      <div className={galaxy ? 'flex flex-wrap items-center gap-2' : undefined}>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`Search ${ENTITY_LABELS[entityType].toLowerCase()}…`}
+          aria-label="Research entity search"
+          className={`${galaxy ? 'min-w-[12rem] flex-1' : 'mt-1.5 w-full'} rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)]`}
+        />
+        <div
+          className={`${galaxy ? '' : 'mt-1.5'} flex flex-wrap gap-1`}
+          role="group"
+          aria-label="Entity type"
+        >
+          {ENTITY_TYPES.map((type) => (
+            <button
+              key={type}
+              type="button"
+              aria-pressed={entityType === type}
+              onClick={() => setEntityType(type)}
+              className={`rounded border px-1.5 py-0.5 text-[9px] uppercase tracking-wide ${
+                entityType === type
+                  ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
+                  : 'border-[var(--color-line)] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
+              }`}
+            >
+              {ENTITY_LABELS[type]}
+            </button>
+          ))}
+        </div>
       </div>
-      <ul className="mt-1.5 max-h-48 space-y-0.5 overflow-y-auto">
+      <ul
+        className={`${galaxy ? 'mt-1.5 max-h-36' : 'mt-1.5 max-h-48'} space-y-0.5 overflow-y-auto`}
+      >
         {results.length === 0 ? (
           <li className="text-[10px] text-[var(--color-ink-faint)]">No matches.</li>
         ) : (

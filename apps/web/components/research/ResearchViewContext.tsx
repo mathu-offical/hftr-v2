@@ -58,9 +58,9 @@ export interface ResearchViewContextValue {
   closePageInspector: () => void;
   setActiveTab: (tab: ResearchOverlayTab) => void;
   selectTopic: (topicId: string) => Promise<void>;
-  /** Open concept in floating inspector + galaxy trace (no left-panel expand). */
+  /** Open concept in floating shell inspector (does not switch left-tab overlay). */
   inspectConcept: (conceptId: string) => void;
-  /** Open library in inspector + filter galaxy nest. */
+  /** Open library in shell inspector (+ nest filter when Galaxy is already open). */
   inspectLibrary: (libraryId: string, libraryName: string) => void;
   /** Clear library inspector + nest filter selection. */
   clearLibrarySelection: () => void;
@@ -167,9 +167,8 @@ export function ResearchViewProvider(props: { companyId: string; children: React
     setFocusConceptIds([conceptId]);
   }, []);
 
+  /** Open inspector without forcing Research overlay (D-133 — keep last tab background). */
   const inspectConcept = useCallback((conceptId: string) => {
-    setOverlayOpen(true);
-    setActiveTab('galaxy');
     setPageInspectorOpen(true);
     setInspectorTarget({ kind: 'concept', conceptId });
     setSelectedConceptId(conceptId);
@@ -184,8 +183,6 @@ export function ResearchViewProvider(props: { companyId: string; children: React
   }, []);
 
   const inspectLibrary = useCallback((libraryId: string, libraryName: string) => {
-    setOverlayOpen(true);
-    setActiveTab('galaxy');
     setPageInspectorOpen(true);
     setInspectorTarget({ kind: 'library', libraryId, libraryName });
     setSelectedLibraryId(libraryId);
@@ -196,7 +193,7 @@ export function ResearchViewProvider(props: { companyId: string; children: React
     setLinkedTopicIds([]);
     setLinkedTopicTitles([]);
     setHighlightConceptId(null);
-    // Galaxy nest filter is applied by overlay via selectedLibraryId.
+    // Galaxy nest filter applies when Research overlay is already open.
     setFocusConceptIds(null);
   }, []);
 
@@ -206,8 +203,6 @@ export function ResearchViewProvider(props: { companyId: string; children: React
   }, []);
 
   const inspectTag = useCallback((tag: string, conceptIds: string[]) => {
-    setOverlayOpen(true);
-    setActiveTab('galaxy');
     setPageInspectorOpen(true);
     setInspectorTarget({ kind: 'tag', tag });
     setSelectedTag(tag);
@@ -224,8 +219,6 @@ export function ResearchViewProvider(props: { companyId: string; children: React
   const selectTopic = useCallback(
     async (topicId: string) => {
       setSelectedTopicId(topicId);
-      setOverlayOpen(true);
-      setActiveTab('galaxy');
       setPageInspectorOpen(true);
       setInspectorTarget({ kind: 'topic', topicId });
       setSelectedConceptId(null);

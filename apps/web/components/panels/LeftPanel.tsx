@@ -5,16 +5,11 @@ import { useParams } from 'next/navigation';
 import type { CurationStatus, Library, ResearchTopic } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import { useResearchView } from '@/components/research/ResearchViewContext';
-import { ResearchArchiveSection } from '@/components/research/ResearchArchiveSection';
-import { ResearchEntitySearch } from '@/components/research/ResearchEntitySearch';
 import { ResearchLibraryShelves } from '@/components/research/ResearchLibraryShelves';
 import { ResearchNewTopicButton } from '@/components/research/ResearchNewTopicButton';
 import { ResearchArticlesList } from '@/components/research/ResearchArticlesList';
-import { ResearchSubmitArticle } from '@/components/research/ResearchSubmitArticle';
 import { ResearchPagesList } from '@/components/research/ResearchPagesList';
-import { ResearchRunStatus, type ResearchRunSnapshot } from '@/components/panels/ResearchRunStatus';
-import { provenanceChip, snippet, toneFor } from './format';
-import { LlmAvailabilityChips } from '@/components/shell/LlmConnectionStatus';
+import { snippet, toneFor } from './format';
 import {
   fetchCompanyConcepts,
   fetchCompanyLibraries,
@@ -29,6 +24,7 @@ import { MarketPosturePanel } from '@/components/panels/MarketPosturePanel';
 import { useMarketPostureView } from '@/components/panels/MarketPostureViewContext';
 import { useDataView } from '@/components/panels/DataViewContext';
 import { LiveDataSourcesList } from '@/components/panels/LiveDataSourcesList';
+import { CompanyLibrarySourcesList } from '@/components/panels/CompanyLibrarySourcesList';
 import { PanelTabs } from '@/components/panels/PanelTabs';
 import { PanelEdgeRail } from '@/components/panels/PanelEdgeRail';
 import { Activity, Database, Library as LibraryIcon, Orbit } from 'lucide-react';
@@ -343,39 +339,45 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
     dataView.closeOverlay,
   ]);
 
-  const research = props.modules.filter(
-    (m) => m.type === 'research' || m.type === 'librarian' || m.type === 'trend',
-  );
   const researchModules = props.modules.filter(
     (m) => m.type === 'research' || m.type === 'librarian',
   );
   const topicOwnerModules = props.modules.filter((m) => m.type === 'research');
-  const [admissionOverrides, setAdmissionOverrides] = useState<
-    Record<string, 'auto_admit_validated' | 'require_operator_approval'>
-  >({});
-  const requiresOperatorApproval = researchModules.some((m) => {
-    const mode =
-      admissionOverrides[m.id] ??
-      (m.config.admissionMode === 'require_operator_approval'
-        ? 'require_operator_approval'
-        : 'auto_admit_validated');
-    return mode === 'require_operator_approval';
-  });
+  const requiresOperatorApproval = researchModules.some(
+    (m) => m.config.admissionMode === 'require_operator_approval',
+  );
   const companyLibraryModules = props.modules.filter((m) => m.type === 'library');
   const liveApiModules = props.modules.filter((m) => m.type === 'live_api');
   const nameOf = (id: string) => props.modules.find((m) => m.id === id)?.name ?? 'unknown';
 
   function browseLibrary(libraryId: string, libraryName: string) {
-    setTab('data');
-    dataView.selectLibrary(libraryId, libraryName);
+    setOpen(true);
+    researchView.inspectLibrary(libraryId, libraryName);
   }
 
-  function browseConcept(conceptId: string, title?: string) {
-    setTab('data');
-    dataView.selectConcept(conceptId, title);
+  function browseConcept(conceptId: string, _title?: string) {
+    setOpen(true);
+    researchView.inspectConcept(conceptId);
   }
 
-  function browseCompanyModule(moduleId: string, moduleName: string) {
+  async function browseCompanyModule(moduleId: string, moduleName: string) {
+    setOpen(true);
+    const mod = companyLibraryModules.find((m) => m.id === moduleId);
+    const topicScope =
+      mod && typeof mod.config.topicScope === 'string' ? mod.config.topicScope : '';
+    try {
+      const libs = await fetchCompanyLibraries(companyId, { force: false });
+      const match =
+        (topicScope ? libs.find((l) => l.topicScope === topicScope) : undefined) ??
+        libs.find((l) => l.name === moduleName) ??
+        null;
+      if (match) {
+        researchView.inspectLibrary(match.id, match.name);
+        return;
+      }
+    } catch {
+      // fall through
+    }
     setTab('data');
     dataView.selectCompanyModule(moduleId, moduleName);
   }
@@ -484,87 +486,47 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
             {tab === 'research' && (
               <>
                 {topicOwnerModules.length > 0 ? (
-                  <>
-                    <ResearchNewTopicButton
-                      companyId={companyId}
-                      modules={topicOwnerModules.map((m) => ({ id: m.id, name: m.name }))}
-                      onCreated={() => {
-                        invalidateAfterResearchMutation(companyId, 'topics');
-                        void loadTopics(true);
-                      }}
-                    />
-                    <ResearchSubmitArticle
-                      companyId={companyId}
-                      modules={topicOwnerModules.map((m) => ({ id: m.id, name: m.name }))}
-                      libraries={libraries.map((l) => ({ id: l.id, name: l.name }))}
-                      onCreated={(conceptId) => {
-                        invalidateAfterResearchMutation(companyId, 'concepts');
-                        invalidateAfterResearchMutation(companyId, 'libraryPages');
-                        void loadConcepts(true);
-                        void loadLibraries(true);
-                        researchView.inspectConcept(conceptId);
-                      }}
-                    />
-                  </>
+                  <ResearchNewTopicButton
+                    companyId={companyId}
+                    modules={topicOwnerModules.map((m) => ({ id: m.id, name: m.name }))}
+                    onCreated={() => {
+                      invalidateAfterResearchMutation(companyId, 'topics');
+                      void loadTopics(true);
+                    }}
+                  />
                 ) : (
                   <p className="px-1 text-xs text-[var(--color-ink-faint)]">
-                    No research modules yet. Add one below or from the canvas palette to create
-                    topics.
+                    No research modules yet. Add one from the canvas palette to create topics.
                   </p>
                 )}
 
                 <div className="mt-3">
-                  <ResearchEntitySearch
+                  <ResearchPagesList
                     companyId={companyId}
-                    concepts={concepts.map((c) => ({
-                      id: c.id,
-                      title: c.title,
-                      tags: c.tags,
-                      body: c.body,
-                      sourceClass: c.sourceClass,
-                    }))}
-                    topics={topics.map((t) => ({ id: t.id, title: t.title }))}
-                    libraries={libraries.map((l) => ({ id: l.id, name: l.name }))}
-                    highlightedTopicIds={researchView.linkedTopicIds}
-                    onSelectConcept={(conceptId) => researchView.inspectConcept(conceptId)}
+                    topics={
+                      topicsLoaded
+                        ? topics
+                            .filter((t) => t.status === 'active' || t.status === 'deferred')
+                            .map((t) => ({
+                              id: t.id,
+                              title: t.title,
+                              moduleId: t.moduleId,
+                              parentTopicId: t.parentTopicId ?? null,
+                              ...(typeof t.conceptCount === 'number'
+                                ? { conceptCount: t.conceptCount }
+                                : {}),
+                              status: t.status,
+                              priority: t.priority,
+                              provenance: t.provenance ?? null,
+                            }))
+                        : []
+                    }
+                    selectedTopicId={researchView.selectedTopicId}
+                    linkedTopicIds={researchView.linkedTopicIds}
+                    linkedTopicTitles={researchView.linkedTopicTitles}
                     onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
-                    onSelectTag={(tag) => {
-                      const ids = concepts.filter((c) => c.tags.includes(tag)).map((c) => c.id);
-                      researchView.inspectTag(tag, ids);
-                    }}
-                    onSelectLibrary={(libraryId) => {
-                      const lib = libraries.find((l) => l.id === libraryId);
-                      researchView.inspectLibrary(libraryId, lib?.name ?? 'Library');
-                    }}
+                    loading={!topicsLoaded}
                   />
-                </div>
-
-                <div className="mt-3">
-                  {!topicsLoaded ? (
-                    <p className="text-[10px] text-[var(--color-ink-faint)]">
-                      Loading research topics…
-                    </p>
-                  ) : (
-                    <ResearchPagesList
-                      companyId={companyId}
-                      topics={topics.map((t) => ({
-                        id: t.id,
-                        title: t.title,
-                        moduleId: t.moduleId,
-                        parentTopicId: t.parentTopicId ?? null,
-                        ...(typeof t.conceptCount === 'number'
-                          ? { conceptCount: t.conceptCount }
-                          : {}),
-                        status: t.status,
-                        priority: t.priority,
-                        provenance: t.provenance ?? null,
-                      }))}
-                      selectedTopicId={researchView.selectedTopicId}
-                      linkedTopicIds={researchView.linkedTopicIds}
-                      linkedTopicTitles={researchView.linkedTopicTitles}
-                      onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
-                    />
-                  )}
                 </div>
 
                 <div className="mt-3">
@@ -582,115 +544,23 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                     loading={!conceptsLoaded}
                   />
                 </div>
-
-                <div
-                  data-testid="research-agent-activity"
-                  className="mt-3 rounded-lg border border-[var(--color-line)] p-2.5"
-                >
-                  <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-ink-faint)]">
-                    Agent activity
-                  </p>
-                  <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">
-                    Research module runs · evidence · admission
-                  </p>
-                  {topicOwnerModules.length === 0 ? (
-                    <p className="mt-2 text-[11px] text-[var(--color-ink-faint)]">
-                      No research modules yet. Add one under Modules & tools.
-                    </p>
-                  ) : (
-                    <ul className="mt-2 space-y-2">
-                      {topicOwnerModules.map((m) => (
-                        <li key={m.id} className="rounded-md border border-[var(--color-line)] p-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="truncate text-xs font-medium">{m.name}</span>
-                            <span className="shrink-0 text-[10px] text-[var(--color-ink-faint)]">
-                              {m.status}
-                            </span>
-                          </div>
-                          <ResearchActions
-                            companyId={companyId}
-                            moduleId={m.id}
-                            topicScope={String(m.config.topicScope ?? m.config.focus ?? '')}
-                            moduleConfig={m.config}
-                            admissionMode={
-                              admissionOverrides[m.id] ??
-                              (m.config.admissionMode === 'require_operator_approval'
-                                ? 'require_operator_approval'
-                                : 'auto_admit_validated')
-                            }
-                            onAdmissionChange={(mode) =>
-                              setAdmissionOverrides((prev) => ({ ...prev, [m.id]: mode }))
-                            }
-                            onDone={() => {
-                              invalidateAfterResearchMutation(companyId, 'all');
-                              void refreshShell(true);
-                            }}
-                          />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                <ResearchArchiveSection
-                  companyId={companyId}
-                  onChanged={() => {
-                    invalidateAfterResearchMutation(companyId, 'all');
-                    void refreshShell(true);
-                  }}
-                />
-
-                <details className="mt-3 rounded-lg border border-[var(--color-line)] p-2.5">
-                  <summary className="cursor-pointer text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                    Modules & tools
-                  </summary>
-                  <div className="mt-2">
-                    <NewResearchModuleForm companyId={companyId} />
-                  </div>
-                  {researchModules.length > 0 && (
-                    <CompanySweepAction
-                      companyId={companyId}
-                      onDone={() => {
-                        invalidateAfterResearchMutation(companyId, 'concepts');
-                        void loadConcepts(true);
-                      }}
-                    />
-                  )}
-                  {research.length === 0 ? (
-                    <p className="mt-3 px-1 text-xs text-[var(--color-ink-faint)]">
-                      No research or trend modules yet. Create one above or add from the canvas
-                      palette.
-                    </p>
-                  ) : (
-                    <ul className="mt-3 space-y-3">
-                      {research.map((m) => (
-                        <li key={m.id} className="rounded-lg border border-[var(--color-line)] p-2.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium">{m.name}</span>
-                            <span className="text-[10px] uppercase text-[var(--color-ink-faint)]">
-                              {m.type}
-                            </span>
-                          </div>
-                          <div className="mt-1 text-[11px] text-[var(--color-ink-dim)]">
-                            {String(
-                              m.config.topicScope ?? m.config.focus ?? 'scope not configured yet',
-                            )}
-                          </div>
-                          <div className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
-                            {m.status}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </details>
               </>
             )}
 
             {tab === 'market_posture' && <MarketPosturePanel companyId={companyId} />}
 
             {tab === 'data' && (
-              <LiveDataSourcesList companyId={companyId} liveApiModules={liveApiModules} />
+              <>
+                <LiveDataSourcesList companyId={companyId} liveApiModules={liveApiModules} />
+                <CompanyLibrarySourcesList
+                  companyId={companyId}
+                  modules={companyLibraryModules.map((m) => ({
+                    id: m.id,
+                    name: m.name,
+                    config: m.config,
+                  }))}
+                />
+              </>
             )}
           </div>
 
@@ -713,7 +583,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                   <p className="text-[9px] text-[var(--color-ink-faint)]">
                     {librariesFull
                       ? 'Full height · other tabs restore dock size'
-                      : 'Shared · all tabs · browse in Data Explorer'}
+                      : 'Shared · all tabs · open in inspector'}
                   </p>
                 </div>
                 <button
@@ -984,128 +854,6 @@ function LibrariesSection(props: {
   );
 }
 
-/** Compact form to create a research module from the left panel. */
-function NewResearchModuleForm(props: { companyId: string }) {
-  const [name, setName] = useState('');
-  const [topicScope, setTopicScope] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-
-  async function create() {
-    const trimmedName = name.trim();
-    const trimmedScope = topicScope.trim();
-    if (!trimmedName || !trimmedScope || !props.companyId) return;
-    setBusy(true);
-    setMessage(null);
-    try {
-      await api(`/api/companies/${props.companyId}/modules`, {
-        method: 'POST',
-        body: {
-          type: 'research',
-          name: trimmedName,
-          config: { topicScope: trimmedScope, curiosity: 'balanced' },
-          canvasPosition: { x: 80, y: 200 + Math.random() * 40 },
-        },
-      });
-      setMessage('Created — reloading canvas…');
-      setTimeout(() => window.location.reload(), 800);
-    } catch (err) {
-      setMessage(err instanceof RequestError ? `Create failed (${err.status}).` : 'Create failed.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        void create();
-      }}
-      className="rounded-lg border border-[var(--color-line)] p-2.5"
-      aria-label="Create new research module"
-    >
-      <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-        New research module
-      </p>
-      <div className="mt-2 space-y-1.5">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Module name"
-          aria-label="Research module name"
-          className={compactInput}
-        />
-        <input
-          value={topicScope}
-          onChange={(e) => setTopicScope(e.target.value)}
-          placeholder="Topic scope"
-          aria-label="Research topic scope"
-          className={compactInput}
-        />
-      </div>
-      <div className="mt-2 flex items-center gap-2">
-        <button
-          type="submit"
-          disabled={busy || !name.trim() || !topicScope.trim()}
-          aria-label="Create research module"
-          className="rounded-md border border-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
-        >
-          {busy ? 'Creating…' : 'Create'}
-        </button>
-        {message && <span className="text-[10px] text-[var(--color-ink-faint)]">{message}</span>}
-      </div>
-    </form>
-  );
-}
-
-/** Company-wide research sweep across all research modules. */
-function CompanySweepAction(props: { companyId: string; onDone: () => void }) {
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [pollToken, setPollToken] = useState(0);
-
-  async function sweep() {
-    setBusy(true);
-    setMessage(null);
-    try {
-      await api(`/api/companies/${props.companyId}/research/sweep`, { method: 'POST', body: {} });
-      setMessage('Company sweep queued.');
-      setPollToken((n) => n + 1);
-      props.onDone();
-    } catch (err) {
-      setMessage(
-        err instanceof RequestError && err.status === 404
-          ? 'Sweep API not available yet.'
-          : 'Company sweep failed.',
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="mt-3 rounded-lg border border-[var(--color-line)] px-2.5 py-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          Company research
-        </span>
-        <button
-          type="button"
-          onClick={() => void sweep()}
-          disabled={busy}
-          aria-label="Run company-wide research sweep"
-          className="rounded-md border border-[var(--color-accent)] px-2 py-0.5 text-[10px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
-        >
-          {busy ? 'Sweeping…' : 'Company sweep'}
-        </button>
-      </div>
-      {message && <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">{message}</p>}
-      <ResearchRunStatus companyId={props.companyId} pollToken={pollToken} />
-    </div>
-  );
-}
-
 type CurationFilter = 'all' | CurationStatus;
 
 const CURATION_FILTERS: { id: CurationFilter; label: string }[] = [
@@ -1329,262 +1077,6 @@ function LibraryConceptsPanel(props: {
           {message && <p className="text-[10px] text-[var(--color-ink-faint)]">{message}</p>}
         </div>
       )}
-    </div>
-  );
-}
-
-interface EvidenceRow {
-  id: string;
-  title: string;
-  sourceKind: string;
-  feedClass: string;
-  summary: string;
-}
-
-interface ValidationGateRow {
-  gateId: string;
-  passed: boolean;
-  scoreBand: string;
-  reason: string;
-}
-
-/** Manual query, opportunistic curate, evidence, admission, and run status for research modules. */
-function ResearchActions(props: {
-  companyId: string;
-  moduleId: string;
-  topicScope: string;
-  moduleConfig: Record<string, unknown>;
-  admissionMode: 'auto_admit_validated' | 'require_operator_approval';
-  onAdmissionChange: (mode: 'auto_admit_validated' | 'require_operator_approval') => void;
-  onDone: () => void;
-}) {
-  const [queryText, setQueryText] = useState('');
-  const [busy, setBusy] = useState<'research' | 'curate' | 'admission' | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [pollToken, setPollToken] = useState(0);
-  const [evidence, setEvidence] = useState<EvidenceRow[]>([]);
-  const [evidenceLoaded, setEvidenceLoaded] = useState(false);
-  const [gates, setGates] = useState<ValidationGateRow[]>([]);
-  const lastTerminalRequestId = useRef<string | null>(null);
-
-  const loadEvidence = useCallback(async () => {
-    if (!props.companyId || !props.moduleId) return;
-    try {
-      const data = await api<{ evidence: EvidenceRow[] }>(
-        `/api/companies/${props.companyId}/modules/${props.moduleId}/research/evidence`,
-      );
-      setEvidence(data.evidence);
-    } catch {
-      setEvidence([]);
-    } finally {
-      setEvidenceLoaded(true);
-    }
-  }, [props.companyId, props.moduleId]);
-
-  useEffect(() => {
-    void loadEvidence();
-  }, [loadEvidence]);
-
-  async function loadRequestDetail(requestId: string) {
-    if (!requestId) return;
-    try {
-      const data = await api<{ validation?: { gates?: ValidationGateRow[] } }>(
-        `/api/companies/${props.companyId}/research/requests/${requestId}`,
-      );
-      setGates(data.validation?.gates ?? []);
-    } catch {
-      setGates([]);
-    }
-  }
-
-  async function setAdmissionMode(next: 'auto_admit_validated' | 'require_operator_approval') {
-    if (next === props.admissionMode) return;
-    setBusy('admission');
-    setMessage(null);
-    try {
-      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}`, {
-        method: 'PATCH',
-        body: {
-          config: {
-            ...props.moduleConfig,
-            admissionMode: next,
-          },
-        },
-      });
-      props.onAdmissionChange(next);
-      setMessage(
-        next === 'require_operator_approval'
-          ? 'Admission: operator approval required.'
-          : 'Admission: auto-admit after validation.',
-      );
-    } catch {
-      setMessage('Could not update admission mode.');
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function runManualResearch() {
-    const trimmed = queryText.trim();
-    if (!trimmed) {
-      setMessage('Enter a research query.');
-      return;
-    }
-    setBusy('research');
-    setMessage(null);
-    lastTerminalRequestId.current = null;
-    try {
-      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}/curate`, {
-        method: 'POST',
-        body: { queryText: trimmed, mode: 'manual' },
-      });
-      setMessage('Research queued.');
-      setPollToken((n) => n + 1);
-    } catch (err) {
-      setMessage(
-        err instanceof RequestError && err.status === 404
-          ? 'Research API not available yet.'
-          : 'Research request failed.',
-      );
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function curateNow() {
-    setBusy('curate');
-    setMessage(null);
-    lastTerminalRequestId.current = null;
-    try {
-      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}/curate`, {
-        method: 'POST',
-        body: {
-          mode: 'opportunistic',
-          topicScope: props.topicScope || undefined,
-        },
-      });
-      setMessage('Curation queued.');
-      setPollToken((n) => n + 1);
-    } catch (err) {
-      setMessage(
-        err instanceof RequestError && err.status === 404
-          ? 'Curation not available yet.'
-          : 'Curation request failed.',
-      );
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  function handleRunSnapshot(run: ResearchRunSnapshot) {
-    void loadRequestDetail(run.requestId);
-    if (run.phase !== 'done' && run.phase !== 'failed') return;
-    if (lastTerminalRequestId.current === run.requestId) return;
-    lastTerminalRequestId.current = run.requestId;
-    void loadEvidence();
-    props.onDone();
-  }
-
-  return (
-    <div className="mt-1.5 space-y-1.5 border-t border-[var(--color-line)] pt-1.5">
-      <label className="block space-y-1">
-        <span className="text-[10px] text-[var(--color-ink-faint)]">Admission mode</span>
-        <select
-          value={props.admissionMode}
-          disabled={busy !== null}
-          onChange={(e) =>
-            void setAdmissionMode(
-              e.target.value as 'auto_admit_validated' | 'require_operator_approval',
-            )
-          }
-          aria-label="Research admission mode"
-          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
-        >
-          <option value="auto_admit_validated">Auto-admit after validation</option>
-          <option value="require_operator_approval">Require operator approval</option>
-        </select>
-      </label>
-      <label className="block space-y-1">
-        <span className="text-[10px] text-[var(--color-ink-faint)]">Research query</span>
-        <textarea
-          value={queryText}
-          onChange={(e) => setQueryText(e.target.value)}
-          rows={2}
-          placeholder="What should this module investigate?"
-          aria-label="Manual research query"
-          className="w-full resize-none rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)]"
-        />
-      </label>
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => void runManualResearch()}
-          disabled={busy !== null}
-          aria-label="Run manual research query"
-          className="rounded-md border border-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
-        >
-          {busy === 'research' ? 'Researching…' : 'Research'}
-        </button>
-        <button
-          type="button"
-          onClick={() => void curateNow()}
-          disabled={busy !== null}
-          aria-label="Curate this research module now"
-          className="rounded-md border border-[var(--color-line)] px-2 py-0.5 text-[11px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50"
-        >
-          {busy === 'curate' ? 'Curating…' : 'Curate now'}
-        </button>
-        <LlmAvailabilityChips tiers={['strategic', 'tactical']} />
-      </div>
-      {message && <span className="text-[10px] text-[var(--color-ink-faint)]">{message}</span>}
-      <ResearchRunStatus
-        companyId={props.companyId}
-        moduleId={props.moduleId}
-        pollToken={pollToken}
-        onRun={handleRunSnapshot}
-      />
-      {gates.length > 0 && (
-        <ul
-          className="space-y-1 rounded-md border border-[var(--color-line)] px-2 py-1.5"
-          aria-label="Validation gate scores"
-        >
-          {gates.map((g) => (
-            <li key={g.gateId} className="flex flex-wrap items-baseline gap-x-2 text-[10px]">
-              <span className="text-[var(--color-ink)]">{g.gateId}</span>
-              <span style={{ color: toneFor(g.passed ? 'pass' : 'fail') }}>
-                {g.passed ? 'passed' : 'failed'}
-              </span>
-              <span className="text-[var(--color-ink-faint)]">{g.scoreBand}</span>
-              {g.reason && <span className="text-[var(--color-ink-dim)]">{g.reason}</span>}
-            </li>
-          ))}
-        </ul>
-      )}
-      <div>
-        <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          Evidence
-        </p>
-        {!evidenceLoaded ? (
-          <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">Loading evidence…</p>
-        ) : evidence.length === 0 ? (
-          <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">No evidence yet.</p>
-        ) : (
-          <ul className="mt-1 space-y-1">
-            {evidence.map((e) => (
-              <li
-                key={e.id}
-                className="rounded border border-[var(--color-line)] px-2 py-1 text-[10px]"
-              >
-                <div className="font-medium text-[var(--color-ink)]">{e.title}</div>
-                <div className="text-[var(--color-ink-faint)]">
-                  {e.sourceKind.replace(/_/g, ' ')} · {e.feedClass}
-                </div>
-                <p className="mt-0.5 text-[var(--color-ink-dim)]">{snippet(e.summary, 120)}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
     </div>
   );
 }

@@ -82,21 +82,26 @@ test.describe('Research bus (D-039)', () => {
     expect(sweepRes.ok()).toBeTruthy();
 
     await page.getByRole('button', { name: /Expand left panel/ }).click();
-    await expect(page.getByRole('tab', { name: 'Research + Libraries', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Research', exact: true })).toBeVisible();
+    await expect(page.getByTestId('research-new-topic')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('research-pages-list')).toBeVisible();
+    await expect(page.getByTestId('research-articles-panel')).toBeVisible();
+    await expect(page.getByTestId('research-overlay')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('research-entity-search')).toBeVisible();
 
-    await expect(
-      page.getByRole('button', { name: /Company sweep|Curate now|Research/ }).first(),
-    ).toBeVisible({ timeout: 15_000 });
-
-    await expect(page.getByRole('combobox', { name: /Research admission mode/i })).toBeVisible({
-      timeout: 10_000,
-    });
-    await page.getByRole('combobox', { name: /Research admission mode/i }).selectOption({
-      label: 'Require operator approval',
-    });
-    await expect(page.getByRole('combobox', { name: /Research admission mode/i })).toHaveValue(
-      'require_operator_approval',
+    // Admission mode lives on the canvas module controls (D-130 removed left-panel agent activity).
+    const admissionPatch = await request.patch(
+      `/api/companies/${companyId}/modules/${moduleId}`,
+      {
+        data: {
+          config: {
+            ...research!.config,
+            admissionMode: 'require_operator_approval',
+          },
+        },
+      },
     );
+    expect(admissionPatch.ok()).toBeTruthy();
 
     await archiveCompany(request, companyId);
     createdCompanyIds.length = 0;

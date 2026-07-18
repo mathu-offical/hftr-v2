@@ -2,20 +2,19 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import type { ResearchGraphResponse, ResearchTopicDetail } from '@hftr/contracts';
+import type { ResearchGraphResponse, ResearchTopic } from '@hftr/contracts';
 import { api } from '@/lib/client';
 import { shortLibraryLabel } from '@/lib/research-library-shelves';
 import { GalaxyView } from '@/components/research/GalaxyView';
-import { ResearchInspector } from '@/components/research/ResearchInspector';
+import { ResearchEntitySearch } from '@/components/research/ResearchEntitySearch';
 import { useResearchView } from '@/components/research/ResearchViewContext';
 
 function ResearchOverlayInner() {
   const rv = useResearchView();
   const [graph, setGraph] = useState<ResearchGraphResponse | null>(null);
   const [graphLoading, setGraphLoading] = useState(false);
-  const [topicLoading, setTopicLoading] = useState(false);
-  const [topicForInspector, setTopicForInspector] = useState<ResearchTopicDetail | null>(null);
   const [selectedLibraryIds, setSelectedLibraryIds] = useState<string[]>([]);
+  const [searchTopics, setSearchTopics] = useState<Array<{ id: string; title: string }>>([]);
   const bumpQueriesDoneRef = useRef(false);
 
   const effectiveFocusConceptIds = useMemo(() => {
@@ -72,70 +71,32 @@ function ResearchOverlayInner() {
   }, [rv.overlayOpen, loadGraph]);
 
   useEffect(() => {
+    if (!rv.overlayOpen || !rv.companyId) return;
+    let cancelled = false;
+    void api<{ topics: ResearchTopic[] }>(`/api/companies/${rv.companyId}/research/topics`)
+      .then((data) => {
+        if (cancelled) return;
+        setSearchTopics(
+          data.topics
+            .filter((t) => t.status === 'active' || t.status === 'deferred')
+            .map((t) => ({ id: t.id, title: t.title })),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setSearchTopics([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [rv.overlayOpen, rv.companyId, graph?.nodes?.length]);
+
+  useEffect(() => {
     if (rv.selectedLibraryId) {
       setSelectedLibraryIds([rv.selectedLibraryId]);
     } else {
       setSelectedLibraryIds([]);
     }
   }, [rv.selectedLibraryId]);
-
-  useEffect(() => {
-    if (!rv.overlayOpen || !rv.pageInspectorOpen) {
-      if (!rv.pageInspectorOpen) setTopicForInspector(null);
-      return;
-    }
-    if (rv.inspectorTarget?.kind !== 'topic' || !rv.selectedTopicId) {
-      setTopicForInspector(null);
-      return;
-    }
-    if (rv.selectedTopic && rv.selectedTopic.id === rv.selectedTopicId) {
-      setTopicForInspector(rv.selectedTopic);
-      return;
-    }
-    let cancelled = false;
-    setTopicLoading(true);
-    void api<{ topic: ResearchTopicDetail }>(
-      `/api/companies/${rv.companyId}/research/topics/${rv.selectedTopicId}`,
-    )
-      .then((data) => {
-        if (!cancelled) setTopicForInspector(data.topic);
-      })
-      .catch(() => {
-        if (!cancelled) setTopicForInspector(null);
-      })
-      .finally(() => {
-        if (!cancelled) setTopicLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    rv.overlayOpen,
-    rv.pageInspectorOpen,
-    rv.inspectorTarget,
-    rv.selectedTopicId,
-    rv.selectedTopic,
-    rv.companyId,
-  ]);
-
-  const inspectorLabel = useMemo(() => {
-    const t = rv.inspectorTarget;
-    if (!t) return 'Inspector';
-    switch (t.kind) {
-      case 'topic':
-        return 'Page';
-      case 'concept':
-        return 'Concept';
-      case 'library':
-        return 'Library';
-      case 'tag':
-        return 'Tag';
-      default: {
-        const _exhaustive: never = t;
-        return _exhaustive;
-      }
-    }
-  }, [rv.inspectorTarget]);
 
   if (!rv.overlayOpen) return null;
 
@@ -192,6 +153,35 @@ function ResearchOverlayInner() {
           </button>
         </div>
       </header>
+
+      <div className="shrink-0 border-b border-[var(--color-line)] px-3 py-2">
+        <ResearchEntitySearch
+          companyId={rv.companyId}
+          variant="galaxy"
+          concepts={(graph?.nodes ?? []).map((n) => ({
+            id: n.id,
+            title: n.title,
+            tags: n.tags,
+            body: n.body,
+            sourceClass: n.sourceClass,
+          }))}
+          topics={searchTopics}
+          libraries={(graph?.libraries ?? []).map((l) => ({ id: l.id, name: l.name }))}
+          highlightedTopicIds={rv.linkedTopicIds}
+          onSelectConcept={(conceptId) => rv.inspectConcept(conceptId)}
+          onSelectTopic={(topicId) => void rv.selectTopic(topicId)}
+          onSelectTag={(tag) => {
+            const ids = (graph?.nodes ?? [])
+              .filter((n) => n.tags.includes(tag))
+              .map((n) => n.id);
+            rv.inspectTag(tag, ids);
+          }}
+          onSelectLibrary={(libraryId) => {
+            const lib = (graph?.libraries ?? []).find((l) => l.id === libraryId);
+            rv.inspectLibrary(libraryId, lib?.name ?? 'Library');
+          }}
+        />
+      </div>
 
       {(graph?.libraries?.length ?? 0) > 0 && (
         <div
@@ -262,42 +252,6 @@ function ResearchOverlayInner() {
           onInspectConcept={(id) => rv.inspectConcept(id)}
           onGraphInvalidated={() => void loadGraph({ bumpQueries: false })}
         />
-
-        {rv.pageInspectorOpen && (
-          <aside
-            data-testid="research-page-inspector"
-            className="absolute bottom-2 right-2 top-2 z-30 flex w-[min(420px,42%)] max-w-[calc(100%-1rem)] flex-col overflow-hidden rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)]/95 shadow-xl backdrop-blur-sm"
-            aria-label={`${inspectorLabel} inspector`}
-          >
-            <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-line)] px-2.5 py-1.5">
-              <span className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                {inspectorLabel}
-              </span>
-              <button
-                type="button"
-                onClick={rv.closePageInspector}
-                aria-label="Close inspector"
-                className="rounded p-1 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-              >
-                <X size={14} aria-hidden />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              <ResearchInspector
-                companyId={rv.companyId}
-                target={rv.inspectorTarget}
-                topic={topicForInspector ?? rv.selectedTopic}
-                topicLoading={topicLoading && !topicForInspector && !rv.selectedTopic}
-                graphNodes={graph?.nodes ?? []}
-                onTopicPatched={(partial) => {
-                  rv.patchSelectedTopic(partial);
-                  setTopicForInspector((prev) => (prev ? { ...prev, ...partial } : prev));
-                }}
-                onGraphInvalidated={() => void loadGraph({ bumpQueries: false })}
-              />
-            </div>
-          </aside>
-        )}
       </div>
     </div>
   );

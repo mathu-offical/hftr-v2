@@ -13,6 +13,7 @@ import { ResearchConceptPreview } from '@/components/research/ResearchConceptPre
 import { ResearchMarkdown } from '@/components/research/ResearchMarkdown';
 import { useResearchView, type InspectorTarget } from '@/components/research/ResearchViewContext';
 import { Justification } from '@/components/panels/Justification';
+import { fetchCompanyConcepts } from '@/lib/research-resource-api';
 
 function usageLine(queryCount: number, referenceCount: number): string {
   return `Queried ${queryCount} · Referenced ${referenceCount}`;
@@ -239,6 +240,7 @@ function TopicInspector(props: {
 
 function ConceptInspector(props: {
   companyId: string;
+  conceptId: string;
   concept: ResearchGraphNode | null;
   loading: boolean;
   onChanged?: () => void;
@@ -246,11 +248,49 @@ function ConceptInspector(props: {
   const [actionBusy, setActionBusy] = useState<'verify' | 'delete' | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [local, setLocal] = useState<ResearchGraphNode | null>(props.concept);
+  const [fetchLoading, setFetchLoading] = useState(false);
 
   useEffect(() => {
     setLocal(props.concept);
     setActionMessage(null);
-  }, [props.concept]);
+    if (props.concept || props.loading) return;
+    let cancelled = false;
+    setFetchLoading(true);
+    void fetchCompanyConcepts(props.companyId, { force: false })
+      .then((rows) => {
+        if (cancelled) return;
+        const row = rows.find((c) => c.id === props.conceptId);
+        if (!row) {
+          setLocal(null);
+          return;
+        }
+        setLocal({
+          id: row.id,
+          moduleId: row.moduleId,
+          title: row.title,
+          body: row.body,
+          tags: row.tags,
+          sourceClass: row.sourceClass,
+          sourceRef: row.sourceRef,
+          status: row.status,
+          queryCount: 0,
+          referenceCount: 0,
+          primaryLibraryId: row.primaryLibraryId ?? null,
+          secondaryLibraryIds: [],
+          confidenceBand: undefined,
+          curationStatus: null,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setLocal(null);
+      })
+      .finally(() => {
+        if (!cancelled) setFetchLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [props.concept, props.conceptId, props.companyId, props.loading]);
 
   const runAction = useCallback(
     async (action: 'verify_object' | 'archive_object') => {
@@ -288,13 +328,13 @@ function ConceptInspector(props: {
     [local, props],
   );
 
-  if (props.loading) {
+  if (props.loading || fetchLoading) {
     return <p className="p-4 text-[11px] text-[var(--color-ink-faint)]">Loading concept…</p>;
   }
   if (!local) {
     return (
       <p className="p-4 text-center text-[11px] text-[var(--color-ink-faint)]">
-        Concept not found in the current galaxy.
+        Concept not found.
       </p>
     );
   }
@@ -483,6 +523,7 @@ function ResearchInspectorInner(props: ResearchInspectorProps) {
       return (
         <ConceptInspector
           companyId={props.companyId}
+          conceptId={target.conceptId}
           concept={concept}
           loading={false}
           {...(props.onGraphInvalidated ? { onChanged: props.onGraphInvalidated } : {})}

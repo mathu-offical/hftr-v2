@@ -297,3 +297,25 @@ export const MarketHubAnalyzeResponse = z.object({
   drainError: z.string().optional(),
 });
 export type MarketHubAnalyzeResponse = z.infer<typeof MarketHubAnalyzeResponse>;
+
+/**
+ * Lightweight live projection (D-112) — equity + position marks only.
+ * Polled silently; does not replace seals, reports, charts, or Model canvas.
+ */
+export const MarketHubLivePosition = z.object({
+  id: z.string().uuid(),
+  symbol: z.string().max(12),
+  qty: z.string(),
+  avgCostCents: z.union([z.number().int(), z.string()]),
+  markCents: z.union([z.number().int(), z.string()]),
+  unrealizedPnlCents: z.string(),
+  viz: MarketHubSymbolViz,
+});
+export type MarketHubLivePosition = z.infer<typeof MarketHubLivePosition>;
+
+export const MarketHubLiveResponse = z.object({
+  fetchedAt: z.string().datetime(),
+  equity: MarketHubEquity,
+  positions: z.array(MarketHubLivePosition).max(100),
+});
+export type MarketHubLiveResponse = z.infer<typeof MarketHubLiveResponse>;

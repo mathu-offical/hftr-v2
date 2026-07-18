@@ -28,8 +28,13 @@ export const companies = pgTable(
     clerkUserId: text('clerk_user_id').notNull(),
     name: text('name').notNull(),
     philosophyPrompt: text('philosophy_prompt').notNull(),
-    /** Multi-select from SECTOR_FOCUS_PRESETS; pre-seeds engine topic/sectors. */
+    /** Active refined specifics from SECTOR_FOCUS_PRESETS; pre-seeds engine topic/sectors. */
     sectorFocuses: text('sector_focuses').array().notNull().default([]),
+    /**
+     * Operator-curated ticker carve-outs (D-106). Separate from sector_focuses —
+     * further narrows the company universe after group/specific selection.
+     */
+    universeExcludes: text('universe_excludes').array().notNull().default([]),
     /** Structured slideable philosophy axes → LeverSetting band positions. */
     philosophyProfile: jsonb('philosophy_profile').notNull().default({}),
     /** Company LLM tier model + privacy policy (allowlisted model ids only). */

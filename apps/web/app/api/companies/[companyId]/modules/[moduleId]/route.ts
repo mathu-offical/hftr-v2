@@ -63,25 +63,35 @@ export async function PATCH(req: Request, ctx: Ctx) {
     }
 
     if (targetStatus === 'active') {
-      const incidentLinks = await db
-        .select({
-          fromModuleId: moduleLinks.fromModuleId,
-          toModuleId: moduleLinks.toModuleId,
-          linkKind: moduleLinks.linkKind,
-        })
-        .from(moduleLinks)
-        .where(
-          and(
-            eq(moduleLinks.companyId, companyId),
-            or(eq(moduleLinks.fromModuleId, moduleId), eq(moduleLinks.toModuleId, moduleId)),
+      const [incidentLinks, companyModules] = await Promise.all([
+        db
+          .select({
+            fromModuleId: moduleLinks.fromModuleId,
+            toModuleId: moduleLinks.toModuleId,
+            linkKind: moduleLinks.linkKind,
+          })
+          .from(moduleLinks)
+          .where(
+            and(
+              eq(moduleLinks.companyId, companyId),
+              or(eq(moduleLinks.fromModuleId, moduleId), eq(moduleLinks.toModuleId, moduleId)),
+            ),
           ),
-        );
+        db
+          .select({ id: modules.id, type: modules.type })
+          .from(modules)
+          .where(eq(modules.companyId, companyId)),
+      ]);
       const graphBlockers = activationGraphBlockers(
         { id: moduleId, type: existing.type as ModuleType },
         incidentLinks.map((row) => ({
           fromModuleId: row.fromModuleId,
           toModuleId: row.toModuleId,
           linkKind: row.linkKind as LinkKind,
+        })),
+        companyModules.map((row) => ({
+          id: row.id,
+          type: row.type as ModuleType,
         })),
       );
       if (graphBlockers.length > 0) {

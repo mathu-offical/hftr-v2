@@ -592,6 +592,22 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `MAX_ENGINES_PER_COMPANY=16` (shared contracts constant; create form preflights
   projected slots). See `architecture/job-orchestration.md`. **Status: implemented.**
 
+- **D-053 (compact canvas node labels, 2026-07-17):** Replace path-style generated
+  titles (`longBase ← neighborBase · …`) with **`{Fn} · {Focus}`** primary identity
+  plus optional muted **`←`/`→` neighbor Fn** connection refs (cap 2+2, `+N`
+  overflow). `generatedNameBase` stores the short function lexicon only. Math stays
+  primary-only. Customized names unchanged. Contracts:
+  `moduleFunctionLabel`, `moduleFocusToken`, `deriveGeneratedModuleName`,
+  `splitCompactModuleName`. UI: two-line card title. **Status: implemented.**
+
+- **D-054 (settings Save & verify fail-closed, 2026-07-17):**
+  LLM and research key entry show a text-first verify status badge. **Save &
+  verify** pings the provider (draft key) before encrypt/persist; failed verify
+  blocks save. Anthropic remains format-ok / deferred live ping. LLM verify
+  route accepts optional draft `apiKey` (parity with research). Alpaca paper and
+  Kalshi demo Save & verify delete provisional credentials if handshake fails.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

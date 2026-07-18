@@ -7,6 +7,8 @@ import { notifyLlmCredentialsChanged } from '@/components/shell/LlmConnectionSta
 
 type RetentionAttested = 'none' | 'org_zdr';
 type SettingsTab = 'llm' | 'research' | 'brokers';
+/** Operator-visible verify outcome for a key row (text-first; color reinforces). */
+type KeyVerifyUiStatus = 'idle' | 'verified' | 'verified_deferred' | 'failed' | 'unknown';
 
 function formatSaveError(err: unknown): string {
   if (!(err instanceof RequestError)) return 'Save failed.';
@@ -23,9 +25,41 @@ function formatSaveError(err: unknown): string {
     }
     case 'unauthorized':
       return 'Not signed in.';
+    case 'decrypt_failed':
+      return 'Cannot decrypt saved key — Delete and re-enter after checking SETTINGS_ENCRYPTION_KEY.';
+    case 'key_not_configured':
+      return 'No key saved yet — paste a key and Save & verify.';
     default:
       return `Save failed (${err.code}).`;
   }
+}
+
+function VerifyStatusBadge(props: { status: KeyVerifyUiStatus }) {
+  const label =
+    props.status === 'verified'
+      ? 'Verified'
+      : props.status === 'verified_deferred'
+        ? 'Format ok'
+        : props.status === 'failed'
+          ? 'Verify failed'
+          : props.status === 'unknown'
+            ? 'Not verified'
+            : '—';
+  const tone =
+    props.status === 'verified' || props.status === 'verified_deferred'
+      ? 'text-[var(--color-ok)]'
+      : props.status === 'failed'
+        ? 'text-[var(--color-block)]'
+        : 'text-[var(--color-ink-faint)]';
+  return (
+    <span
+      className={`text-[10px] uppercase tracking-wider ${tone}`}
+      data-testid="key-verify-status"
+      data-status={props.status}
+    >
+      {label}
+    </span>
+  );
 }
 const RESEARCH_KEY_PROVIDERS: { id: ResearchKeyProvider; label: string; hint: string }[] = [
   { id: 'brave', label: 'Brave Search', hint: 'Web search for research gather' },
@@ -116,6 +150,9 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
   const [messages, setMessages] = useState<
     Partial<Record<LlmProvider | ResearchKeyProvider | 'brokers', string>>
   >({});
+  const [verifyStatus, setVerifyStatus] = useState<
+    Partial<Record<LlmProvider | ResearchKeyProvider, KeyVerifyUiStatus>>
+  >({});
   const [busy, setBusy] = useState<LlmProvider | ResearchKeyProvider | 'brokers' | null>(null);
 
   const load = useCallback(async () => {
@@ -159,10 +196,12 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
 
     if (!hasKey && !saved) {
       setMessages((m) => ({ ...m, [provider]: 'Key must be at least 8 characters.' }));
+      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
       return;
     }
     if (hasKey && apiKey.length > 512) {
       setMessages((m) => ({ ...m, [provider]: 'Key must be at most 512 characters.' }));
+      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
       return;
     }
     if (hasKey && provider === 'anthropic' && !apiKey.startsWith('sk-ant-')) {
@@ -170,26 +209,58 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         ...m,
         [provider]: 'Anthropic keys must start with sk-ant-.',
       }));
+      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+      return;
+    }
+
+    // New or replacement key material must verify before persist (fail-closed).
+    if (!hasKey) {
+      setMessages((m) => ({
+        ...m,
+        [provider]: 'Paste a key to Save & verify (attestation-only updates use the checkbox).',
+      }));
       return;
     }
 
     setBusy(provider);
     try {
+      const check = await api<{ ok: boolean; failure: string | null; deferred?: boolean }>(
+        `/api/settings/keys/${provider}/verify`,
+        { method: 'POST', body: { apiKey } },
+      );
+      if (!check.ok) {
+        setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+        setMessages((m) => ({
+          ...m,
+          [provider]: `Not saved — verify failed: ${check.failure ?? 'unknown'}`,
+        }));
+        return;
+      }
+
       const body: {
         provider: LlmProvider;
-        apiKey?: string;
+        apiKey: string;
         retentionAttested?: RetentionAttested;
-      } = { provider };
-      if (hasKey) body.apiKey = apiKey;
+      } = { provider, apiKey };
       if (provider === 'anthropic') {
         body.retentionAttested = anthropicZdr ? 'org_zdr' : 'none';
       }
       await api('/api/settings/keys', { method: 'PUT', body });
       setDrafts((d) => ({ ...d, [provider]: '' }));
-      setMessages((m) => ({ ...m, [provider]: 'Saved.' }));
+      setVerifyStatus((s) => ({
+        ...s,
+        [provider]: check.deferred ? 'verified_deferred' : 'verified',
+      }));
+      setMessages((m) => ({
+        ...m,
+        [provider]: check.deferred
+          ? 'Saved — format ok (live ping deferred for Anthropic).'
+          : 'Saved and verified with provider.',
+      }));
       notifyLlmCredentialsChanged();
       await load();
     } catch (err) {
+      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
       setMessages((m) => ({ ...m, [provider]: formatSaveError(err) }));
     } finally {
       setBusy(null);
@@ -236,24 +307,45 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
   }
 
   async function verify(provider: LlmProvider) {
+    const draft = drafts[provider].trim();
+    const saved = keys.find((k) => k.provider === provider);
+    if (draft.length < 8 && !saved) {
+      setMessages((m) => ({
+        ...m,
+        [provider]: 'Enter a key (8+ chars) or save one before verify.',
+      }));
+      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+      return;
+    }
+
     setBusy(provider);
     try {
       const res = await api<{ ok: boolean; failure: string | null; deferred?: boolean }>(
         `/api/settings/keys/${provider}/verify`,
-        { method: 'POST' },
+        {
+          method: 'POST',
+          ...(draft.length >= 8 ? { body: { apiKey: draft } } : {}),
+        },
       );
       if (res.ok && res.deferred) {
+        setVerifyStatus((s) => ({ ...s, [provider]: 'verified_deferred' }));
         setMessages((m) => ({ ...m, [provider]: 'Format ok — live ping deferred.' }));
       } else if (res.ok) {
+        setVerifyStatus((s) => ({ ...s, [provider]: 'verified' }));
         setMessages((m) => ({ ...m, [provider]: 'Verified with provider.' }));
       } else {
+        setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
         setMessages((m) => ({
           ...m,
           [provider]: `Verify failed: ${res.failure ?? 'unknown'}`,
         }));
       }
-    } catch {
-      setMessages((m) => ({ ...m, [provider]: 'Verify failed.' }));
+    } catch (err) {
+      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+      setMessages((m) => ({
+        ...m,
+        [provider]: err instanceof RequestError ? formatSaveError(err) : 'Verify failed.',
+      }));
     } finally {
       setBusy(null);
     }
@@ -267,6 +359,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         ...m,
         [provider]: 'Enter a key (8+ chars) or save one before verify.',
       }));
+      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
       return;
     }
 
@@ -280,15 +373,21 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         },
       );
       if (res.ok) {
+        setVerifyStatus((s) => ({ ...s, [provider]: 'verified' }));
         setMessages((m) => ({ ...m, [provider]: 'Verified with provider.' }));
       } else {
+        setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
         setMessages((m) => ({
           ...m,
           [provider]: `Verify failed: ${res.failure ?? 'unknown'}`,
         }));
       }
-    } catch {
-      setMessages((m) => ({ ...m, [provider]: 'Verify failed.' }));
+    } catch (err) {
+      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+      setMessages((m) => ({
+        ...m,
+        [provider]: err instanceof RequestError ? formatSaveError(err) : 'Verify failed.',
+      }));
     } finally {
       setBusy(null);
     }
@@ -296,21 +395,38 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
 
   async function saveResearchKey(provider: ResearchKeyProvider) {
     const apiKey = researchDrafts[provider].trim();
-    const saved = researchKeys.find((k) => k.provider === provider);
-    if (apiKey.length < 8 && !saved) {
-      setMessages((m) => ({ ...m, [provider]: 'Key must be at least 8 characters.' }));
+    if (apiKey.length < 8) {
+      setMessages((m) => ({
+        ...m,
+        [provider]: 'Paste a key (8+ chars) to Save & verify.',
+      }));
+      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
       return;
     }
     setBusy(provider);
     try {
+      const check = await api<{ ok: boolean; failure: string | null }>(
+        `/api/settings/research-keys/${provider}/verify`,
+        { method: 'POST', body: { apiKey } },
+      );
+      if (!check.ok) {
+        setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+        setMessages((m) => ({
+          ...m,
+          [provider]: `Not saved — verify failed: ${check.failure ?? 'unknown'}`,
+        }));
+        return;
+      }
       await api('/api/settings/research-keys', {
         method: 'PUT',
-        body: apiKey.length >= 8 ? { provider, apiKey } : { provider },
+        body: { provider, apiKey },
       });
       setResearchDrafts((d) => ({ ...d, [provider]: '' }));
-      setMessages((m) => ({ ...m, [provider]: 'Saved.' }));
+      setVerifyStatus((s) => ({ ...s, [provider]: 'verified' }));
+      setMessages((m) => ({ ...m, [provider]: 'Saved and verified with provider.' }));
       await load();
     } catch (err) {
+      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
       setMessages((m) => ({ ...m, [provider]: formatSaveError(err) }));
     } finally {
       setBusy(null);
@@ -403,11 +519,16 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
             <ul className="space-y-4">
               {PROVIDERS.map((p) => {
                 const saved = keys.find((k) => k.provider === p.id);
+                const status: KeyVerifyUiStatus =
+                  verifyStatus[p.id] ?? (saved ? 'unknown' : 'idle');
                 return (
                   <li key={p.id} className="space-y-1.5">
-                    <div className="flex items-baseline justify-between">
+                    <div className="flex items-baseline justify-between gap-2">
                       <span className="text-xs font-medium text-[var(--color-ink)]">{p.label}</span>
-                      <span className="text-[10px] text-[var(--color-ink-faint)]">{p.tier}</span>
+                      <span className="flex items-center gap-2">
+                        <VerifyStatusBadge status={status} />
+                        <span className="text-[10px] text-[var(--color-ink-faint)]">{p.tier}</span>
+                      </span>
                     </div>
                     {saved ? (
                       <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--color-ink-dim)]">
@@ -420,7 +541,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                         <span className="flex gap-2">
                           <button
                             type="button"
-                            onClick={() => verify(p.id)}
+                            onClick={() => void verify(p.id)}
                             disabled={busy === p.id}
                             className="text-[var(--color-accent)] hover:underline disabled:opacity-50"
                           >
@@ -428,7 +549,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                           </button>
                           <button
                             type="button"
-                            onClick={() => remove(p.id)}
+                            onClick={() => void remove(p.id)}
                             disabled={busy === p.id}
                             className="text-[var(--color-block)] hover:underline disabled:opacity-50"
                           >
@@ -454,23 +575,45 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                       <input
                         type="password"
                         value={drafts[p.id]}
-                        onChange={(e) => setDrafts((d) => ({ ...d, [p.id]: e.target.value }))}
+                        onChange={(e) => {
+                          setDrafts((d) => ({ ...d, [p.id]: e.target.value }));
+                          setVerifyStatus((s) => ({ ...s, [p.id]: 'idle' }));
+                        }}
                         placeholder={saved ? 'Replace key…' : 'Paste API key'}
                         aria-label={`${p.label} API key`}
                         autoComplete="off"
                         className="min-w-0 flex-1 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
                       />
+                      {drafts[p.id].trim().length >= 8 && (
+                        <button
+                          type="button"
+                          onClick={() => void verify(p.id)}
+                          disabled={busy === p.id}
+                          className="shrink-0 rounded-md border border-[var(--color-line)] px-2.5 py-1.5 text-xs text-[var(--color-ink-dim)] hover:bg-[var(--color-surface-2)] disabled:opacity-50"
+                        >
+                          Verify
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => save(p.id)}
+                        onClick={() => void save(p.id)}
                         disabled={busy === p.id}
                         className="shrink-0 rounded-md border border-[var(--color-accent)] px-2.5 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
                       >
-                        Save
+                        Save & verify
                       </button>
                     </div>
                     {messages[p.id] && (
-                      <p className="text-[10px] text-[var(--color-ink-faint)]">{messages[p.id]}</p>
+                      <p
+                        className={`text-[10px] ${
+                          verifyStatus[p.id] === 'failed'
+                            ? 'text-[var(--color-block)]'
+                            : 'text-[var(--color-ink-faint)]'
+                        }`}
+                        role="status"
+                      >
+                        {messages[p.id]}
+                      </p>
                     )}
                   </li>
                 );
@@ -492,11 +635,16 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
               <ul className="space-y-4">
                 {RESEARCH_KEY_PROVIDERS.map((p) => {
                   const saved = researchKeys.find((k) => k.provider === p.id);
+                  const status: KeyVerifyUiStatus =
+                    verifyStatus[p.id] ?? (saved ? 'unknown' : 'idle');
                   return (
                     <li key={p.id} className="space-y-1.5">
-                      <div className="flex items-baseline justify-between">
+                      <div className="flex items-baseline justify-between gap-2">
                         <span className="text-xs text-[var(--color-ink)]">{p.label}</span>
-                        <span className="text-[10px] text-[var(--color-ink-faint)]">{p.hint}</span>
+                        <span className="flex items-center gap-2">
+                          <VerifyStatusBadge status={status} />
+                          <span className="text-[10px] text-[var(--color-ink-faint)]">{p.hint}</span>
+                        </span>
                       </div>
                       {saved ? (
                         <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--color-ink-dim)]">
@@ -532,15 +680,16 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                         <input
                           type="password"
                           value={researchDrafts[p.id]}
-                          onChange={(e) =>
-                            setResearchDrafts((d) => ({ ...d, [p.id]: e.target.value }))
-                          }
+                          onChange={(e) => {
+                            setResearchDrafts((d) => ({ ...d, [p.id]: e.target.value }));
+                            setVerifyStatus((s) => ({ ...s, [p.id]: 'idle' }));
+                          }}
                           placeholder={saved ? 'Replace key…' : 'Paste API key'}
                           aria-label={`${p.label} API key`}
                           autoComplete="off"
                           className="min-w-0 flex-1 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
                         />
-                        {!saved && researchDrafts[p.id].trim().length >= 8 && (
+                        {researchDrafts[p.id].trim().length >= 8 && (
                           <button
                             type="button"
                             onClick={() => void verifyResearchKey(p.id)}
@@ -556,11 +705,18 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                           disabled={busy === p.id}
                           className="shrink-0 rounded-md border border-[var(--color-accent)] px-2.5 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
                         >
-                          Save
+                          Save & verify
                         </button>
                       </div>
                       {messages[p.id] && (
-                        <p className="text-[10px] text-[var(--color-ink-faint)]">
+                        <p
+                          className={`text-[10px] ${
+                            verifyStatus[p.id] === 'failed'
+                              ? 'text-[var(--color-block)]'
+                              : 'text-[var(--color-ink-faint)]'
+                          }`}
+                          role="status"
+                        >
                           {messages[p.id]}
                         </p>
                       )}
@@ -624,7 +780,7 @@ function AlpacaBrokerSection(props: {
     void load();
   }, [load]);
 
-  /** Most direct path: paste Key ID + Secret, then encrypt + handshake in one action. */
+  /** Most direct path: paste Key ID + Secret, verify handshake, only keep if connected. */
   async function saveAndVerify() {
     if (keyId.trim().length < 8 || secret.trim().length < 8) {
       props.onMessage(
@@ -638,10 +794,17 @@ function AlpacaBrokerSection(props: {
         method: 'PUT',
         body: { keyId: keyId.trim(), secret: secret.trim(), mode: 'paper' },
       });
+      try {
+        await api(`/api/settings/brokers/${saved.id}/verify`, { method: 'POST' });
+      } catch {
+        await api(`/api/settings/brokers/${saved.id}`, { method: 'DELETE' }).catch(() => undefined);
+        props.onMessage('Not saved — Alpaca verify failed. Check Key ID and Secret.');
+        await load();
+        return;
+      }
       setKeyId('');
       setSecret('');
-      await api(`/api/settings/brokers/${saved.id}/verify`, { method: 'POST' });
-      props.onMessage('Alpaca paper connected.');
+      props.onMessage('Alpaca paper connected and verified.');
       await load();
     } catch {
       props.onMessage('Connect failed. Check Key ID and Secret, then try again.');
@@ -806,14 +969,14 @@ function KalshiBrokerSection(props: {
     void load();
   }, [load]);
 
-  async function save() {
+  async function saveAndVerify() {
     if (apiKeyId.trim().length < 8 || privateKeyPem.trim().length < 32) {
       setLocalMessage('API key ID and private key PEM are required (PEM at least 32 characters).');
       return;
     }
     props.onBusy('brokers');
     try {
-      await api('/api/settings/brokers/kalshi', {
+      const saved = await api<{ id: string }>('/api/settings/brokers/kalshi', {
         method: 'PUT',
         body: {
           apiKeyId: apiKeyId.trim(),
@@ -822,10 +985,31 @@ function KalshiBrokerSection(props: {
           demoMode: true,
         },
       });
+      try {
+        const result = await api<{ status: string }>(
+          `/api/settings/brokers/${saved.id}/verify`,
+          { method: 'POST' },
+        );
+        if (result.status !== 'connected') {
+          await api(`/api/settings/brokers/${saved.id}`, { method: 'DELETE' }).catch(
+            () => undefined,
+          );
+          setLocalMessage(`Not saved — Kalshi verify status: ${result.status}.`);
+          props.onMessage('Kalshi verify failed — credentials not kept.');
+          await load();
+          return;
+        }
+      } catch {
+        await api(`/api/settings/brokers/${saved.id}`, { method: 'DELETE' }).catch(() => undefined);
+        setLocalMessage('Not saved — Kalshi verify failed.');
+        props.onMessage('Kalshi verify failed — credentials not kept.');
+        await load();
+        return;
+      }
       setApiKeyId('');
       setPrivateKeyPem('');
-      setLocalMessage('Kalshi demo credentials saved — verify to connect.');
-      props.onMessage('Kalshi demo credentials saved.');
+      setLocalMessage('Kalshi demo credentials saved and verified.');
+      props.onMessage('Kalshi demo connected and verified.');
       await load();
     } catch {
       setLocalMessage('Save failed.');
@@ -950,11 +1134,11 @@ function KalshiBrokerSection(props: {
           />
         </label>
         <button
-          onClick={() => void save()}
+          onClick={() => void saveAndVerify()}
           disabled={props.busy}
           className="rounded-md border border-[var(--color-accent)] px-3 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
         >
-          Save credentials
+          Save & verify
         </button>
       </div>
 

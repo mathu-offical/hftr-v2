@@ -33,8 +33,10 @@
   loads), company `llm_policy` with tier
   model cost/privacy labels from `MODEL_CAPABILITY_REGISTRY`, broker bind + feed entitlement,
   recent `llm_calls` metadata (request id truncated, retention class — no prompts/outputs).
-  User settings modal chrome is **fixed height** (`min(36rem, 90vh)`) with a scrollable tab panel only — short tabs do not shrink the dialog. User settings: per-provider **Verify** (`POST /api/settings/keys/:provider/verify`) and
+  User settings modal chrome is **fixed height** (`min(36rem, 90vh)`) with a scrollable tab panel only — short tabs do not shrink the dialog. User settings: per-provider **Verify** status badge + **Save & verify** (`POST …/verify` before persist — fail-closed; Anthropic format-ok deferred ping). Research gather keys use the same Save & verify gate. Alpaca paper / Kalshi demo: **Save & verify** rolls back credentials if handshake fails.
+  (`POST /api/settings/keys/:provider/verify` accepts draft `apiKey` or saved decrypt);
   Alpaca paper: paste API Key ID + Secret Key, one **Save & verify** action (no OAuth);
+
   capability readout + bound company id after handshake.
 - **Canvas-centric layout** per company beneath the ribbon: slim collapsible strips on the
   left (Research · Data), bottom (Trends · Scenarios · Watch lists · Decisions), and right
@@ -98,9 +100,10 @@
   handles for each link kind the module type can use (`data_feed`, `directive`, `verification`,
   `fund_route`), each with a visible text label. Connections require matching kind +
   `LINK_RULES`. (Replaces the prior four anonymous data/control/tools handles.)
-- **Names:** auto-derived from function base + connected neighbors until the operator
-  customizes; inspector offers **Restore generated name**. Seeded/palette bases stay
-  function-specific (D-023).
+- **Names (compact Fn · Focus):** auto-derived as `{moduleFunctionLabel} · {focusToken}` plus
+  muted connection refs (`←`/`→` neighbor Fn codes, capped) until the operator customizes;
+  inspector offers **Restore generated name**. Focus prefers topic/sector; unset shows `—`.
+  Seeded/palette bases use the short function lexicon (D-023 refined).
 - **Inspector:** always available when a node is selected (including incomplete setup). Owns
   rename/restore, status, delete, and type-specific advanced controls. **Supersedes D-024 §(c)**
   expand-selected-node / suppress-inspector-while-incomplete for setup UX.
@@ -259,16 +262,19 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
 - **Libraries** — hard nested sub-circles inside the company galaxy (stable when scope shrinks).
 
 ### Galaxy tab
-- `react-force-graph-3d` (2D fallback per TD-09): concepts as nodes (size blends degree +
-  reference-band; color = dominant tag), typed links, background starfield + bloom.
-- **Hard nested library hulls** (default): each library is a bounded nest; primary membership
-  keeps concepts inside; cross-library edges may cross boundaries. Master library = company
-  outer nest.
+- `react-force-graph-3d` + `d3-force-3d` (**canonical 3D physics space**, TD-09): concepts as
+  nodes (size blends degree + reference-band; color = dominant tag); every `concept_links`
+  edge is a spring (distance/strength from qualitative weight band + relation); many-body
+  charge, collision, and soft library-nest attractors. Directional particles on links
+  (neural-style). 2D fallback only on WebGL failure or explicit toggle.
+- **Library nests (default):** soft 3D spherical clusters per library (primary membership
+  pulls/restores inside the nest); cross-library edges may span nests. Master library =
+  company outer cloud.
 - **Rotating info-tag layer** over the graph (subtle orbit of tag chips; static under
   `prefers-reduced-motion`); chips double as filters.
-- **Topic focus** (left-panel select): dim non-member concepts/edges; draw darker, subtly
-  animated path/hull for the topic trace; camera fly-to / fit members. Clear focus restores
-  brightness without destroying nests.
+- **Topic focus** (left-panel select): dim non-member concepts/edges; stronger particles on
+  focused paths; camera fly-to / fit members. Clear focus restores brightness without
+  destroying nests.
 - Filters / zoom / library multi-select re-scope visible nests and nodes; layout reorganizes
   from UI selection state (session-stable positions preferred).
 - Click concept → floating inspector (body markdown, tags, libraries, provenance, usage);
@@ -284,9 +290,8 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
 - Linked pages highlighted in the left Pages list when a page is open.
 
 ### Performance
-- Ladder in TD-09; >200 concepts force 2D; LOD may hide tag orbit / simplify hulls when
-  zoomed out.
-
+- Ladder in TD-09; prefer 3D; 2D only on WebGL fail / toggle. LOD may hide tag orbit when
+  zoomed out at very large graphs.
 ## 7. Key flows (must be Playwright-covered)
 
 **M1 coverage (shipped 2026-07-17, D-022; expanded topology D-023):** `apps/web/e2e/` runs

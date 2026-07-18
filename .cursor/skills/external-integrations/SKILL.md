@@ -51,13 +51,17 @@ Full matrix: `agent-docs/research/integrations-matrix.md`.
 1. **User settings** → LLM / Research / Brokers.
 2. Encrypt at rest (`SETTINGS_ENCRYPTION_KEY` / `CREDENTIALS_ENCRYPTION_KEY`).
 3. Research keys: brave, market_news, finnhub, polygon, fred, alpha_vantage,
-   twelve_data, marketstack. **Verify** drafts or saved keys via
-   `POST /api/settings/research-keys/[provider]/verify` (`withDecryptedSecret`).
-4. Never authorize runtime from `process.env.*_API_KEY` (D-027).
-- **Saved-key Verify `decrypt_failed`:** usually `SETTINGS_ENCRYPTION_KEY` drift vs
-  ciphertext written under a prior key. Draft Verify still works. Operator fix:
-  align `.env.local` `SETTINGS_ENCRYPTION_KEY` with the key used at save time, or
-  Delete + re-Save research/LLM keys.
+   twelve_data, marketstack. **Save & verify** runs provider ping first and
+   **does not persist** on failure. Status badge: Verified / Verify failed /
+   Not verified / Format ok (Anthropic deferred). Draft or saved verify via
+   `POST /api/settings/research-keys/[provider]/verify` and
+   `POST /api/settings/keys/[provider]/verify` (`withDecryptedSecret` for saved).
+4. Brokers: Alpaca / Kalshi **Save & verify** — revoke/delete credentials if
+   handshake fails after provisional save.
+5. Never authorize runtime from `process.env.*_API_KEY` (D-027).
+6. If Verify returns `decrypt_failed`, operator encryption key likely drifted —
+   Delete + re-Save after aligning `SETTINGS_ENCRYPTION_KEY`.
+
 
 ### CI / smoke (env only)
 
@@ -103,4 +107,4 @@ fallback when bars missing.
 
 - Workflow: `.cursor/workflows/credentialed-integrations.md`
 - Rule: `.cursor/rules/external-integrations.mdc`
-- Decisions: D-027, D-039, D-046, D-048, D-050
+- Decisions: D-027, D-039, D-046, D-048, D-050, D-054

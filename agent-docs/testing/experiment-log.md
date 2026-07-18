@@ -134,6 +134,20 @@ Scoring: `intent-alignment-scoring.md`
 | Hypothesis | After evidence mirror + limits table fix, promote admits and paper fills; risk ladder sizes qty |
 | Observed | Operator buy/sell ladder filled at qty 1/5/20 (round-trip −12¢/share). Promote: `evidence_fit` pass. Risk ladder at $100k seed + ~$388 synth F: qty **1 / 1 / 2** (min/typical/max). Inline drain `failed` often from deferred posture movers, not compile |
 | System fixes | Applied missing `realized_pnl_events`; evidence shelf mirror; compile allocation cap; position exits; synthetic regime **directionBias**; promote drain execution-spine-only; movers deferred 30s LOW |
-| Alignment | **partial** — core cash loop + promote fills work; risk ladder differentiates at high seed; RR/ATR exits still stub |
+| Alignment | **partial** — core cash loop + promote fills work; risk ladder differentiates at high seed; catalog ATR/RR/session_close exits wired (synthetic ATR) |
 | Follow-up (same day) | After regime directionBias + spine-only promote drain: **3/3** single-attempt promote fills, `failed:0`, regime/evidence pass |
-| Not verified | Alpaca paper; ATR stops; full RR ladder scale-outs |
+| Not verified | Alpaca paper; live atr_stream; IronBee UI (browser closed) |
+
+---
+
+## EXP-2026-07-18-002 — Full user-flow observe + automate refinement
+
+| Field | Value |
+|---|---|
+| Status | pass with fixes |
+| Mode | paper only |
+| Hypothesis | End-to-end create→setup→hub→sweep→promote→trade→scan surfaces automated jobs cleanly |
+| Observed | Promote fill + gates pass; live gates fail-closed (expected paper); canvas returns `modules` (18); operator trade previously drained **21** jobs (cross-queue); market-hub refresh hung without drained ack; **service-coverage 500** from legacy Neon CHECK `module_service_bindings_source_check` rejecting `user_research_key` |
+| System fixes | Migration **0040** drop legacy CHECK + reinstall XOR; trade drain DISPATCH-only; scan RESEARCH-only; market-hub returns `drained`/`drainError` |
+| Re-verify | coverage 200 (18 modules); trade claimed 1; scan claimed 1 no deadlineHit; hub_refresh drained 3/3 failed 0 |
+| Alignment | **aligned** for observed operator paths after fixes |

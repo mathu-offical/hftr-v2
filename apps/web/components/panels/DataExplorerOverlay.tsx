@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { ResearchMarkdown } from '@/components/research/ResearchMarkdown';
 import { useDataView } from '@/components/panels/DataViewContext';
@@ -11,19 +11,13 @@ import {
   type LibraryConceptPageRow,
   type ResearchConceptRow,
 } from '@/lib/research-resource-api';
+import type { LiveDataSourceRow as ContractLiveRow, LiveDataSourcesResponse } from '@hftr/contracts';
+import { loadLiveDataSources } from '@/lib/live-data-sources-cache';
 
-type LiveDataSourceRow = {
-  kind: string;
-  label: string;
-  domain: string;
-  authMode: string;
-  status: string;
-  feedClass: string;
-  docsUrl?: string;
-  notes?: string;
-  sample?: unknown;
-  canvasModuleIds?: string[];
-};
+type LiveDataSourceRow = Pick<
+  ContractLiveRow,
+  'kind' | 'label' | 'domain' | 'authMode' | 'status' | 'feedClass' | 'docsUrl' | 'notes' | 'canvasModuleIds'
+>;
 
 type ModuleRow = {
   id: string;
@@ -96,43 +90,152 @@ function LiveSourceBody(props: {
   viewMode: 'markdown' | 'json';
 }) {
   const [row, setRow] = useState<LiveDataSourceRow | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [metaLoading, setMetaLoading] = useState(true);
+  const [metaError, setMetaError] = useState<string | null>(null);
+  const [queryText, setQueryText] = useState('');
+  const [widgets, setWidgets] = useState<
+    Array<{
+      id: string;
+      title: string;
+      summary: string;
+      feedClass: string;
+      authorityClass: string;
+      externalRef: string | null;
+      expiresAt: string | null;
+    }>
+  >([]);
+  const [queryBusy, setQueryBusy] = useState(false);
+  const [queryError, setQueryError] = useState<string | null>(null);
+  const [lastQuery, setLastQuery] = useState<string | null>(null);
+  const [queriedStatus, setQueriedStatus] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    void api<{ sources: LiveDataSourceRow[] }>(
-      `/api/companies/${props.companyId}/live-data-sources`,
+    setMetaLoading(true);
+    setMetaError(null);
+    setWidgets([]);
+    setQueryError(null);
+    setLastQuery(null);
+    setQueryText('');
+
+    void loadLiveDataSources(
+      { companyId: props.companyId },
+      () =>
+        api<LiveDataSourcesResponse>(
+          `/api/companies/${props.companyId}/live-data-sources`,
+        ),
+      { force: false, allowStale: true },
     )
-      .then((data) => {
+      .then((result) => {
         if (cancelled) return;
         const match =
-          data.sources.find((s) => s.kind === props.kind) ??
-          data.sources.find((s) => s.label === props.label) ??
+          result.data.sources.find((s) => s.kind === props.kind) ??
+          result.data.sources.find((s) => s.label === props.label) ??
           null;
         setRow(match);
-        if (!match) setError('Source not found in inventory');
+        if (!match) setMetaError('Source not found in inventory');
       })
       .catch(() => {
         if (!cancelled) {
           setRow(null);
-          setError('Live source inventory unavailable');
+          setMetaError('Live source inventory unavailable');
         }
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setMetaLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
   }, [props.companyId, props.kind, props.label]);
 
-  if (loading) {
+  // Auto-browse public/current data once metadata is ready.
+  useEffect(() => {
+    if (!row) return;
+    if (row.status === 'missing_key' || row.status === 'stub' || row.status === 'researched') {
+      return;
+    }
+    let cancelled = false;
+    setQueryBusy(true);
+    setQueryError(null);
+    void api<{
+      query: string;
+      status: string;
+      widgets: Array<{
+        id: string;
+        title: string;
+        summary: string;
+        feedClass: string;
+        authorityClass: string;
+        externalRef: string | null;
+        expiresAt: string | null;
+      }>;
+      errors: Array<{ code: string }>;
+    }>(`/api/companies/${props.companyId}/live-data-sources/${props.kind}/query`, {
+      method: 'POST',
+      body: { mode: 'browse', query: '', maxResults: 8 },
+    })
+      .then((res) => {
+        if (cancelled) return;
+        setWidgets(res.widgets);
+        setLastQuery(res.query);
+        setQueriedStatus(res.status);
+        if (res.errors.length > 0 && res.widgets.length === 0) {
+          setQueryError(res.errors.map((e) => e.code).join(' · '));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setQueryError('Query failed');
+      })
+      .finally(() => {
+        if (!cancelled) setQueryBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [props.companyId, props.kind, row]);
+
+  async function runSearch(e?: FormEvent) {
+    e?.preventDefault();
+    if (!row) return;
+    setQueryBusy(true);
+    setQueryError(null);
+    try {
+      const res = await api<{
+        query: string;
+        status: string;
+        widgets: Array<{
+          id: string;
+          title: string;
+          summary: string;
+          feedClass: string;
+          authorityClass: string;
+          externalRef: string | null;
+          expiresAt: string | null;
+        }>;
+        errors: Array<{ code: string }>;
+      }>(`/api/companies/${props.companyId}/live-data-sources/${props.kind}/query`, {
+        method: 'POST',
+        body: { mode: 'search', query: queryText.trim(), maxResults: 8 },
+      });
+      setWidgets(res.widgets);
+      setLastQuery(res.query);
+      setQueriedStatus(res.status);
+      if (res.errors.length > 0 && res.widgets.length === 0) {
+        setQueryError(res.errors.map((err) => err.code).join(' · '));
+      }
+    } catch {
+      setQueryError('Query failed');
+    } finally {
+      setQueryBusy(false);
+    }
+  }
+
+  if (metaLoading) {
     return (
       <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-        Loading source details…
+        Loading source metadata…
       </p>
     );
   }
@@ -147,13 +250,23 @@ function LiveSourceBody(props: {
   };
 
   if (props.viewMode === 'json') {
-    return <JsonBlock value={display} />;
+    return (
+      <JsonBlock
+        value={{
+          metadata: display,
+          lastQuery,
+          status: queriedStatus,
+          widgets,
+          queryError,
+        }}
+      />
+    );
   }
 
   return (
-    <div className="space-y-3 text-xs text-[var(--color-ink-dim)]">
-      {error ? <p className="text-[var(--color-warn,var(--color-ink-faint))]">{error}</p> : null}
-      <dl className="grid gap-2 sm:grid-cols-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden text-xs text-[var(--color-ink-dim)]">
+      {metaError ? <p className="text-[var(--color-warn,var(--color-ink-faint))]">{metaError}</p> : null}
+      <dl className="grid shrink-0 gap-2 sm:grid-cols-2">
         <div>
           <dt className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
             Readiness
@@ -179,13 +292,10 @@ function LiveSourceBody(props: {
           <dd className="font-mono text-[10px]">{display.feedClass}</dd>
         </div>
       </dl>
-      {display.docsUrl ? (
-        <p>
-          <span className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-            Docs{' '}
-          </span>
+      {row?.docsUrl ? (
+        <p className="shrink-0">
           <a
-            href={display.docsUrl}
+            href={row.docsUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-[var(--color-accent)] hover:underline"
@@ -194,21 +304,127 @@ function LiveSourceBody(props: {
           </a>
         </p>
       ) : null}
-      {display.notes ? (
-        <p className="rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2.5 text-[11px]">
-          {display.notes}
+      {row?.notes ? (
+        <p className="shrink-0 rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2.5 text-[11px]">
+          {row.notes}
         </p>
       ) : null}
-      <section className="rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2.5">
-        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          Sample payload
-        </h3>
-        {display.sample !== undefined && display.sample !== null ? (
-          <pre className="mt-2 overflow-x-auto font-mono text-[10px] text-[var(--color-ink-dim)]">
-            {JSON.stringify(display.sample, null, 2)}
-          </pre>
+
+      <form
+        onSubmit={(e) => void runSearch(e)}
+        className="flex shrink-0 flex-wrap items-center gap-2 border-t border-[var(--color-line)] pt-3"
+        aria-label="Query this data source"
+      >
+        <input
+          value={queryText}
+          onChange={(e) => setQueryText(e.target.value)}
+          placeholder="Search this service…"
+          aria-label="Search query"
+          data-testid="data-explorer-live-query"
+          className="min-w-[12rem] flex-1 rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[11px] text-[var(--color-ink)] outline-none focus:border-[var(--color-accent)]"
+        />
+        <button
+          type="submit"
+          disabled={queryBusy}
+          data-testid="data-explorer-live-search"
+          className="rounded border border-[var(--color-accent)] px-2 py-1 text-[10px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+        >
+          {queryBusy ? 'Querying…' : 'Search'}
+        </button>
+        <button
+          type="button"
+          disabled={queryBusy}
+          onClick={() => {
+            setQueryText('');
+            void (async () => {
+              setQueryBusy(true);
+              setQueryError(null);
+              try {
+                const res = await api<{
+                  query: string;
+                  status: string;
+                  widgets: typeof widgets;
+                  errors: Array<{ code: string }>;
+                }>(`/api/companies/${props.companyId}/live-data-sources/${props.kind}/query`, {
+                  method: 'POST',
+                  body: { mode: 'browse', query: '', maxResults: 8 },
+                });
+                setWidgets(res.widgets);
+                setLastQuery(res.query);
+                setQueriedStatus(res.status);
+                if (res.errors.length > 0 && res.widgets.length === 0) {
+                  setQueryError(res.errors.map((err) => err.code).join(' · '));
+                }
+              } catch {
+                setQueryError('Browse failed');
+              } finally {
+                setQueryBusy(false);
+              }
+            })();
+          }}
+          className="rounded border border-[var(--color-line)] px-2 py-1 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          Browse current
+        </button>
+      </form>
+
+      {lastQuery ? (
+        <p className="shrink-0 font-mono text-[9px] text-[var(--color-ink-faint)]">
+          Query · {lastQuery}
+          {queriedStatus ? ` · ${queriedStatus}` : ''}
+        </p>
+      ) : null}
+      {queryError ? (
+        <p className="shrink-0 text-[11px] text-[var(--color-ink-faint)]">{queryError}</p>
+      ) : null}
+
+      <section
+        className="min-h-0 flex-1 overflow-y-auto"
+        aria-label="Service data widgets"
+        data-testid="data-explorer-live-widgets"
+      >
+        {queryBusy && widgets.length === 0 ? (
+          <p className="text-[11px] text-[var(--color-ink-faint)]">Loading service data…</p>
+        ) : widgets.length === 0 ? (
+          <p className="text-[11px] text-[var(--color-ink-faint)]">
+            No widgets yet. Search or browse current public/ready data for this service.
+          </p>
         ) : (
-          <p className="mt-2 text-[11px] text-[var(--color-ink-faint)]">Sample payload pending</p>
+          <ul className="space-y-2">
+            {widgets.map((w) => (
+              <li
+                key={w.id}
+                className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2.5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[11px] font-medium text-[var(--color-ink)]">{w.title}</p>
+                  <span className="shrink-0 font-mono text-[9px] text-[var(--color-ink-faint)]">
+                    {w.feedClass}
+                  </span>
+                </div>
+                <p className="mt-1 text-[10px] leading-relaxed text-[var(--color-ink-dim)]">
+                  {w.summary}
+                </p>
+                <div className="mt-1.5 flex flex-wrap gap-2 text-[9px] text-[var(--color-ink-faint)]">
+                  <span>{w.authorityClass.replace(/_/g, ' ')}</span>
+                  {w.externalRef ? (
+                    <a
+                      href={w.externalRef.startsWith('http') ? w.externalRef : undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={
+                        w.externalRef.startsWith('http')
+                          ? 'text-[var(--color-accent)] hover:underline'
+                          : undefined
+                      }
+                    >
+                      {w.externalRef.startsWith('http') ? 'Open source' : w.externalRef}
+                    </a>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
     </div>

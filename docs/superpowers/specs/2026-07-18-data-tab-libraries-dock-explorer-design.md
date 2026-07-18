@@ -98,14 +98,15 @@ Company `library` canvas modules appear under dock **Company**, not as the main 
 
 | Target | Browse content |
 |---|---|
-| Live hydrator | Sample / latest payload fields, schema summary, readiness, docs URL; stub → honest empty state |
+| Live hydrator | Cached **metadata** (existence, readiness, domain, feed class, docs); lazy **Search** / **Browse current** → service **widget cards** (title, summary, feed/authority, external ref). Stub / missing key → honest empty + code |
 | Library (any shelf) | Pages / concepts — default **semantic markdown**; toggle **JSON** for sealed/raw shapes |
 | Company library module | Same library viewer scoped to that module’s store |
 
 ### Chrome
 
 - Title = hydrator or library name · readiness / scope chips
-- **Search** over titles + bodies · **Filter** (kind, admission, freshness, domain)
+- Live hydrator: **Search this service** + **Browse current** (domain default query) → widget list
+- Library targets: **Search** over titles + bodies · **Filter** (kind, admission, freshness, domain)
 - View toggle **Markdown | JSON**
 - Navigable list/tree + detail pane (read-only browse; no freeform query language in this slice)
 
@@ -146,11 +147,13 @@ further.
 ## 7. API / contracts (implementation slice)
 
 - Extend `LiveApiModuleConfig` with `sourceKind` (Zod); update labels / incomplete chips.
-- Readiness list: reuse or thin-wrap existing provider readiness projection used by Market
-  posture sources strip (no secrets in GET).
+- **Inventory GET** `…/live-data-sources`: existence + readiness metadata only (no live
+  payloads). Client SWR cache (`live-data-sources-cache.ts`: 5m fresh / 30m stale,
+  sessionStorage) + shell warm prefetch.
+- **Lazy query POST** `…/live-data-sources/[kind]/query`: `{ mode: search|browse, query,
+  maxResults }` → widgets via `gatherEvidencePackages` (secrets at call time; no DB write;
+  no invented bars). Contracts: `LiveDataSourceQueryRequest/Response`, `LiveDataSourceWidget`.
 - Library browse: reuse existing library/concept GET routes; Explorer is a UI consumer.
-- Live sample browse: if no safe sample API exists yet, Explorer shows readiness + docs +
-  “sample pending” — do not fake payloads.
 
 ## 8. Docs to update (same change as code)
 

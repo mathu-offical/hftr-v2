@@ -9,13 +9,22 @@ import {
   useRef,
   useState,
   type ComponentType,
-  type CSSProperties,
 } from 'react';
+import { forceCollide, forceManyBody } from 'd3-force-3d';
 import type {
   ResearchGraphLibraryNest,
   ResearchGraphLink,
   ResearchGraphNode,
 } from '@hftr/contracts';
+import {
+  chargeStrengthForGraphSize,
+  computeLibraryCenters3D,
+  createLibraryNestForce,
+  hashSpread3D,
+  linkDistanceForWeight,
+  linkStrengthForWeight,
+  type GalaxySimNode,
+} from '@/lib/galaxy-physics';
 import {
   humanizeConceptTitle,
   shortLibraryLabel,
@@ -30,6 +39,15 @@ type ForceGraphHandle = {
     padding?: number,
     nodeFilter?: (node: { id?: string | number }) => boolean,
   ) => void;
+  d3Force?: (name: string, force?: unknown) => unknown;
+  d3ReheatSimulation?: () => void;
+  width?: (w?: number) => number | ForceGraphHandle;
+  height?: (h?: number) => number | ForceGraphHandle;
+  cameraPosition?: (
+    pos?: { x: number; y: number; z: number },
+    lookAt?: { x: number; y: number; z: number },
+    transitionMs?: number,
+  ) => void;
 };
 
 type ForceGraph3DComponent = ComponentType<Record<string, unknown>>;
@@ -43,69 +61,11 @@ function loadForceGraph3D(): Promise<{ default: ForceGraph3DComponent }> {
   return forceGraph3DPromise;
 }
 
-const TAG_COLORS = [
-  'var(--color-accent)',
-  '#7aa2f7',
-  '#9ece6a',
-  '#e0af68',
-  '#bb9af7',
-  '#7dcfff',
-  '#f7768e',
-];
+const TAG_COLORS = ['#7aa2f7', '#9ece6a', '#e0af68', '#bb9af7', '#7dcfff', '#f7768e', '#c0caf5'];
 
 function tagColor(tag: string, tags: readonly string[]): string {
   const idx = tags.indexOf(tag);
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? '#7aa2f7';
-}
-
-interface LibraryCenter {
-  x: number;
-  y: number;
-  radius: number;
-  name: string;
-}
-
-function hashSpread(id: string): { dx: number; dy: number } {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
-  const angle = ((h % 360) * Math.PI) / 180;
-  const r = 12 + (Math.abs(h) % 28);
-  return { dx: Math.cos(angle) * r, dy: Math.sin(angle) * r };
-}
-
-const NEST_BOUNDARY_RATIO = 0.85;
-
-function computeLibraryCenters(
-  nests: ResearchGraphLibraryNest[],
-  nodes: ResearchGraphNode[],
-): Map<string, LibraryCenter> {
-  const libMeta = new Map(nests.map((l) => [l.id, l]));
-  const libIds =
-    nests.length > 0
-      ? nests.map((l) => l.id)
-      : [
-          ...new Set(
-            nodes.map((n) => n.primaryLibraryId).filter((id): id is string => Boolean(id)),
-          ),
-        ];
-
-  const count = Math.max(libIds.length, 1);
-  const ringRadius = Math.min(220, 70 + count * 36);
-  const centers = new Map<string, LibraryCenter>();
-
-  libIds.forEach((id, i) => {
-    const angle = (2 * Math.PI * i) / count - Math.PI / 2;
-    const meta = libMeta.get(id);
-    const conceptCount = meta?.conceptCount ?? 3;
-    centers.set(id, {
-      x: Math.cos(angle) * ringRadius,
-      y: Math.sin(angle) * ringRadius,
-      radius: 48 + Math.min(56, conceptCount * 1.6),
-      name: meta?.name ?? 'Library',
-    });
-  });
-
-  return centers;
 }
 
 export interface GalaxyViewProps {
@@ -115,72 +75,52 @@ export interface GalaxyViewProps {
   tags: string[];
   libraries?: ResearchGraphLibraryNest[];
   focusConceptIds?: string[] | null;
-  /** Fly-to and emphasize when set (inspect / wikilink). */
   highlightConceptId?: string | null;
   selectedLibraryIds?: string[] | null;
   className?: string;
-  /** Open concept in floating inspector (D-049) — preferred over inline drawer. */
   onInspectConcept?: (conceptId: string) => void;
-  /** Called after verify / archive so the overlay can reload the graph (D-047). */
   onGraphInvalidated?: () => void;
 }
 
 function useGraphDimensions() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ width: 320, height: 220 });
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      const { width, height } = entry.contentRect;
-      if (width > 0 && height > 0) setSize({ width, height });
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
+  const applySize = useCallback((width: number, height: number) => {
+    const w = Math.max(1, Math.round(width));
+    const h = Math.max(1, Math.round(height));
+    setSize((prev) => (prev.width === w && prev.height === h ? prev : { width: w, height: h }));
   }, []);
 
-  return { ref, ...size };
-}
+  // Callback ref: container mounts only after concepts load — effect([]) would miss it.
+  const setRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      observerRef.current?.disconnect();
+      observerRef.current = null;
+      if (!el) return;
 
-type SimNode = {
-  x?: number;
-  y?: number;
-  z?: number;
-  vx?: number;
-  vy?: number;
-  vz?: number;
-  primaryLibraryId?: string | null;
-};
+      const measure = () => {
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) applySize(rect.width, rect.height);
+      };
+      measure();
 
-function clampNodeToLibraryNest(node: SimNode, centers: Map<string, LibraryCenter>): void {
-  const libId = node.primaryLibraryId;
-  if (!libId) return;
-  const center = centers.get(libId);
-  if (!center) return;
+      const ro = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) applySize(width, height);
+        else measure();
+      });
+      ro.observe(el);
+      observerRef.current = ro;
+    },
+    [applySize],
+  );
 
-  const nx = node.x ?? 0;
-  const ny = node.y ?? 0;
-  const dx = nx - center.x;
-  const dy = ny - center.y;
-  const dist = Math.hypot(dx, dy);
-  const maxR = center.radius * NEST_BOUNDARY_RATIO;
-  if (dist <= maxR || dist === 0) return;
+  useEffect(() => () => observerRef.current?.disconnect(), []);
 
-  const scale = maxR / dist;
-  node.x = center.x + dx * scale;
-  node.y = center.y + dy * scale;
-
-  const vx = node.vx ?? 0;
-  const vy = node.vy ?? 0;
-  const outward = (dx * vx + dy * vy) / dist;
-  if (outward > 0) {
-    const damp = 0.35;
-    node.vx = vx - (dx / dist) * outward * damp;
-    node.vy = vy - (dy / dist) * outward * damp;
-  }
+  return { ref: setRef, ...size };
 }
 
 function GalaxyViewInner(props: GalaxyViewProps) {
@@ -197,21 +137,21 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     [props.selectedLibraryIds],
   );
 
-  const [mode3d, setMode3d] = useState(false);
+  const [mode3d, setMode3d] = useState(true);
   const [threeAvailable, setThreeAvailable] = useState<boolean | null>(null);
   const [ForceGraph3D, setForceGraph3D] = useState<ForceGraph3DComponent | null>(null);
   const [query, setQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string | null>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [physicsReady, setPhysicsReady] = useState(false);
   const graphBox = useGraphDimensions();
   const graphHandleRef = useRef<ForceGraphHandle | null>(null);
+  const physicsSignatureRef = useRef('');
+  const layoutCommittedRef = useRef(new Set<string>());
 
-  const captureGraphRef = useCallback((instance: ForceGraphHandle | null) => {
-    graphHandleRef.current = instance;
-  }, []);
-
-  const force2d = props.nodes.length > 200;
+  /** Prefer 3D always; 2D only for WebGL failure or explicit toggle (TD-09). */
+  const prefer2dFallback = false;
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -222,34 +162,32 @@ function GalaxyViewInner(props: GalaxyViewProps) {
   }, []);
 
   useEffect(() => {
-    if (force2d) {
-      setMode3d(false);
-      setStatusText(`Large graph (${props.nodes.length} concepts) — 2D mode for performance.`);
-    }
-  }, [force2d, props.nodes.length]);
-
-  useEffect(() => {
-    if (force2d) return;
+    if (prefer2dFallback) return;
     let cancelled = false;
     void loadForceGraph3D()
       .then((mod) => {
         if (cancelled) return;
         setForceGraph3D(() => mod.default);
         setThreeAvailable(true);
+        setMode3d(true);
       })
       .catch(() => {
         if (cancelled) return;
         setThreeAvailable(false);
         setMode3d(false);
-        setStatusText('3D renderer unavailable — showing 2D graph.');
+        setStatusText('3D renderer unavailable — showing 2D physics fallback.');
       });
     return () => {
       cancelled = true;
     };
-  }, [force2d]);
+  }, [prefer2dFallback]);
 
   const libraryCenters = useMemo(
-    () => computeLibraryCenters(libraryNests, props.nodes),
+    () =>
+      computeLibraryCenters3D(
+        libraryNests,
+        props.nodes.map((n) => ({ primaryLibraryId: n.primaryLibraryId ?? null })),
+      ),
     [libraryNests, props.nodes],
   );
 
@@ -280,24 +218,32 @@ function GalaxyViewInner(props: GalaxyViewProps) {
   }, [props.nodes, query, activeTag, libraryFilter]);
 
   const graphData = useMemo(() => {
+    const liveIds = new Set<string>();
     const nodes = props.nodes
       .filter((n) => filteredNodeIds.has(n.id))
       .map((n) => {
+        liveIds.add(n.id);
         const degree = degreeById.get(n.id) ?? 0;
         const refs = n.referenceCount ?? 0;
         const libId = n.primaryLibraryId;
         const center = libId ? libraryCenters.get(libId) : null;
-        const spread = hashSpread(n.id);
-        const x = center ? center.x + spread.dx : spread.dx * 0.4;
-        const y = center ? center.y + spread.dy : spread.dy * 0.4;
         const focused = !focusSet || focusSet.has(n.id);
-        return {
+        const base = {
           ...n,
-          x,
-          y,
-          val: Math.max(1, degree * 0.6 + refs * 0.35 + 1),
+          val: Math.max(1.2, degree * 0.7 + refs * 0.4 + 1),
           __focused: focused,
         };
+        // Seed nest coordinates until the sim has committed this id (keeps d3 positions).
+        if (!layoutCommittedRef.current.has(n.id)) {
+          const spread = hashSpread3D(n.id);
+          return {
+            ...base,
+            x: center ? center.x + spread.dx : spread.dx * 0.5,
+            y: center ? center.y + spread.dy : spread.dy * 0.5,
+            z: center ? center.z + spread.dz : spread.dz * 0.5,
+          };
+        }
+        return base;
       });
     const nodeSet = new Set(nodes.map((n) => n.id));
     const links = props.links
@@ -313,55 +259,137 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           target: l.toConceptId,
           __bothFocused: bothFocused,
           __eitherFocused: eitherFocused,
+          __distance: linkDistanceForWeight(l.weightBand, l.relation),
+          __strength: linkStrengthForWeight(l.weightBand),
+          __directed:
+            l.relation === 'causes' ||
+            l.relation === 'supports' ||
+            l.relation === 'derived_from',
         };
       });
-    return { nodes, links };
+    return { nodes, links, liveIds };
   }, [props.nodes, props.links, filteredNodeIds, degreeById, libraryCenters, focusSet]);
 
-  const use3dRenderer = !force2d && mode3d && threeAvailable === true && ForceGraph3D !== null;
+  useEffect(() => {
+    for (const n of graphData.nodes) {
+      layoutCommittedRef.current.add(n.id);
+    }
+    for (const id of [...layoutCommittedRef.current]) {
+      if (!graphData.liveIds.has(id)) layoutCommittedRef.current.delete(id);
+    }
+  }, [graphData]);
+
+  const use3dRenderer = mode3d && threeAvailable === true && ForceGraph3D !== null;
   const hasTopicFocus = focusSet !== null && focusSet.size > 0;
+  const graphWidth = graphBox.width > 0 ? graphBox.width : undefined;
+  const graphHeight = graphBox.height > 0 ? graphBox.height : undefined;
+
+  const configurePhysics = useCallback(
+    (fg: ForceGraphHandle) => {
+      if (!fg.d3Force) return;
+      try {
+        const linkForce = fg.d3Force('link') as
+          | {
+              distance?: (fn: (l: { __distance?: number }) => number) => unknown;
+              strength?: (fn: (l: { __strength?: number }) => number) => unknown;
+              iterations?: (n: number) => unknown;
+            }
+          | undefined;
+        linkForce?.distance?.((l) => l.__distance ?? 48);
+        linkForce?.strength?.((l) => l.__strength ?? 0.5);
+        linkForce?.iterations?.(2);
+
+        fg.d3Force(
+          'charge',
+          forceManyBody()
+            .strength(chargeStrengthForGraphSize(graphData.nodes.length))
+            .distanceMax(420),
+        );
+
+        const center = fg.d3Force('center') as { strength?: (n: number) => unknown } | undefined;
+        center?.strength?.(0.05);
+
+        fg.d3Force(
+          'collide',
+          forceCollide((node: GalaxySimNode) => Math.cbrt(node.val ?? 1) * 4.2)
+            .strength(0.85)
+            .iterations(2),
+        );
+        fg.d3Force('nest', createLibraryNestForce(libraryCenters));
+
+        fg.d3ReheatSimulation?.();
+        setPhysicsReady(true);
+      } catch {
+        setStatusText('Physics reheat deferred — layout still settling.');
+      }
+    },
+    [graphData.nodes.length, libraryCenters],
+  );
+
+  // Stable imperative handle — avoid callback-ref identity churn (causes tick races).
+  const bindGraphRef = useCallback((instance: ForceGraphHandle | null) => {
+    graphHandleRef.current = instance;
+    if (!instance) setPhysicsReady(false);
+  }, []);
+
+  useEffect(() => {
+    const fg = graphHandleRef.current;
+    if (!fg?.d3Force) return;
+    const sig = `${graphData.nodes.length}:${graphData.links.length}:${libraryCenters.size}:${use3dRenderer}`;
+    if (physicsSignatureRef.current === sig && physicsReady) return;
+    physicsSignatureRef.current = sig;
+    const frame = requestAnimationFrame(() => {
+      if (graphHandleRef.current === fg) configurePhysics(fg);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [
+    configurePhysics,
+    graphData.links.length,
+    graphData.nodes.length,
+    libraryCenters.size,
+    physicsReady,
+    use3dRenderer,
+  ]);
+
+  useEffect(() => {
+    const fg = graphHandleRef.current;
+    if (!fg || graphWidth === undefined || graphHeight === undefined) return;
+    try {
+      fg.width?.(graphWidth);
+      fg.height?.(graphHeight);
+    } catch {
+      // Renderer may not expose size methods until mounted.
+    }
+  }, [graphWidth, graphHeight, use3dRenderer]);
 
   const fitFocusedNodes = useCallback(() => {
     if (!focusSet || focusSet.size === 0) return;
     const fg = graphHandleRef.current;
     if (!fg?.zoomToFit) return;
-    const durationMs = reducedMotion ? 0 : 400;
-    fg.zoomToFit(durationMs, 48, (node) => {
+    const durationMs = reducedMotion ? 0 : 500;
+    fg.zoomToFit(durationMs, 56, (node) => {
       if (node.id === undefined) return false;
       return focusSet.has(String(node.id));
     });
   }, [focusSet, reducedMotion]);
 
   useEffect(() => {
-    if (!hasTopicFocus) return;
-    const frame = requestAnimationFrame(() => {
-      fitFocusedNodes();
-    });
+    if (!hasTopicFocus || !physicsReady) return;
+    const frame = requestAnimationFrame(() => fitFocusedNodes());
     return () => cancelAnimationFrame(frame);
-  }, [hasTopicFocus, fitFocusedNodes, use3dRenderer, graphData.nodes.length]);
-
-  const onEngineStop = useCallback(() => {
-    if (hasTopicFocus) fitFocusedNodes();
-  }, [hasTopicFocus, fitFocusedNodes]);
-
-  const onEngineTick = useCallback(() => {
-    for (const node of graphData.nodes) {
-      clampNodeToLibraryNest(node as SimNode, libraryCenters);
-    }
-  }, [graphData.nodes, libraryCenters]);
+  }, [hasTopicFocus, fitFocusedNodes, use3dRenderer, graphData.nodes.length, physicsReady]);
 
   useEffect(() => {
     const id = props.highlightConceptId;
-    if (!id) return;
+    if (!id || !physicsReady) return;
     const fg = graphHandleRef.current;
     if (!fg?.zoomToFit) return;
-    const durationMs = reducedMotion ? 0 : 600;
-    // Slight delay so layout/focus flags settle before camera move.
+    const durationMs = reducedMotion ? 0 : 650;
     const t = window.setTimeout(() => {
-      fg.zoomToFit?.(durationMs, 80, (n) => String(n.id) === id);
-    }, reducedMotion ? 0 : 80);
+      fg.zoomToFit?.(durationMs, 72, (n) => String(n.id) === id);
+    }, reducedMotion ? 0 : 120);
     return () => window.clearTimeout(t);
-  }, [props.highlightConceptId, props.nodes, reducedMotion]);
+  }, [props.highlightConceptId, props.nodes, reducedMotion, physicsReady]);
 
   const onNodeClick = useCallback(
     (node: { id?: string | number }) => {
@@ -379,14 +407,14 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         return '#7aa2f7';
       }
       if (hasTopicFocus && node.__focused === false) {
-        return 'rgba(120, 130, 150, 0.35)';
+        return 'rgba(120, 130, 150, 0.28)';
       }
       return base;
     },
     [props.tags, props.highlightConceptId, hasTopicFocus],
   );
 
-  const paintNode = useCallback(
+  const paintNode2d = useCallback(
     (
       node: {
         id?: string | number;
@@ -408,19 +436,6 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       const r = (isHighlight ? 7 : isFocused ? 4.5 : 3) / Math.max(globalScale * 0.35, 0.5);
       const fill = nodeColor(node);
 
-      if (isHighlight) {
-        ctx.beginPath();
-        ctx.arc(x, y, r * 1.85, 0, 2 * Math.PI);
-        ctx.strokeStyle = 'rgba(122, 162, 247, 0.55)';
-        ctx.lineWidth = 2 / globalScale;
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(x, y, r * 2.4, 0, 2 * Math.PI);
-        ctx.strokeStyle = 'rgba(122, 162, 247, 0.22)';
-        ctx.lineWidth = 1.5 / globalScale;
-        ctx.stroke();
-      }
-
       ctx.beginPath();
       ctx.arc(x, y, r, 0, 2 * Math.PI);
       ctx.fillStyle = isHighlight ? '#7aa2f7' : fill;
@@ -429,25 +444,24 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       ctx.globalAlpha = 1;
 
       if (isHighlight || (isFocused && globalScale > 1.35)) {
-        const raw = node.title ?? '';
-        const label = humanizeConceptTitle(raw);
+        const label = humanizeConceptTitle(node.title ?? '');
         if (label) {
           const fontSize = Math.max(8 / globalScale, 2);
           const maxChars = isHighlight ? 36 : 22;
+          const text = label.length > maxChars ? `${label.slice(0, maxChars - 1)}…` : label;
           ctx.font = `${isHighlight ? 600 : 400} ${fontSize}px sans-serif`;
-          ctx.fillStyle = isHighlight ? '#e8ecf4' : 'rgba(200, 210, 230, 0.8)';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'top';
-          const text =
-            label.length > maxChars ? `${label.slice(0, maxChars - 1)}…` : label;
-          // Soft backdrop so overlapping labels stay readable.
           const metrics = ctx.measureText(text);
           const pad = 2 / globalScale;
-          const tw = metrics.width + pad * 2;
-          const th = fontSize + pad * 2;
           ctx.fillStyle = 'rgba(12, 16, 24, 0.72)';
-          ctx.fillRect(x - tw / 2, y + r + 1 / globalScale, tw, th);
+          ctx.fillRect(
+            x - (metrics.width + pad * 2) / 2,
+            y + r + 1 / globalScale,
+            metrics.width + pad * 2,
+            fontSize + pad * 2,
+          );
           ctx.fillStyle = isHighlight ? '#e8ecf4' : 'rgba(200, 210, 230, 0.9)';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
           ctx.fillText(text, x, y + r + pad + 1 / globalScale);
         }
       }
@@ -455,76 +469,57 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     [hasTopicFocus, nodeColor, props.highlightConceptId],
   );
 
-  const nodeColorAccessor = nodeColor as (node: object) => string;
-
   const linkColor = useCallback(
-    (link: { __bothFocused?: boolean; __eitherFocused?: boolean }) => {
+    (link: { __bothFocused?: boolean; __eitherFocused?: boolean; weightBand?: string }) => {
       if (hasTopicFocus) {
-        if (link.__bothFocused) return 'var(--color-accent)';
-        if (link.__eitherFocused) return 'rgba(122, 162, 247, 0.25)';
-        return 'rgba(80, 90, 110, 0.12)';
+        if (link.__bothFocused) return '#7aa2f7';
+        if (link.__eitherFocused) return 'rgba(122, 162, 247, 0.28)';
+        return 'rgba(80, 90, 110, 0.1)';
       }
-      return 'var(--color-line)';
+      if (link.weightBand === 'strong') return 'rgba(122, 162, 247, 0.55)';
+      if (link.weightBand === 'weak') return 'rgba(120, 130, 150, 0.22)';
+      return 'rgba(140, 150, 170, 0.35)';
     },
     [hasTopicFocus],
   );
 
-  const linkColorAccessor = linkColor as (link: object) => string;
-
-  const linkWidth = useCallback((link: { __bothFocused?: boolean }) => {
-    return link.__bothFocused ? 2.2 : 0.8;
-  }, []);
-
-  const linkWidthAccessor = linkWidth as (link: object) => number;
-
-  const nodeOpacity = useCallback(
-    (node: { __focused?: boolean }) => {
-      if (!hasTopicFocus) return 0.92;
-      return node.__focused === false ? 0.28 : 1;
+  const linkWidth = useCallback(
+    (link: { __bothFocused?: boolean; weightBand?: string }) => {
+      if (link.__bothFocused) return 2.4;
+      if (link.weightBand === 'strong') return 1.6;
+      if (link.weightBand === 'weak') return 0.6;
+      return 1;
     },
-    [hasTopicFocus],
+    [],
   );
-
-  const nodeOpacityAccessor = nodeOpacity as (node: object) => number;
 
   const linkParticles = useCallback(
-    (link: { __bothFocused?: boolean }) => (hasTopicFocus && link.__bothFocused ? 2 : 1),
-    [hasTopicFocus],
+    (link: { __bothFocused?: boolean; weightBand?: string }) => {
+      if (reducedMotion) return 0;
+      if (link.__bothFocused) return 3;
+      if (link.weightBand === 'strong') return 2;
+      return 1;
+    },
+    [reducedMotion],
   );
+
   const linkParticleWidth = useCallback(
-    (link: { __bothFocused?: boolean }) => (hasTopicFocus && link.__bothFocused ? 2 : 1),
-    [hasTopicFocus],
+    (link: { __bothFocused?: boolean; weightBand?: string }) => {
+      if (link.__bothFocused) return 2.2;
+      if (link.weightBand === 'strong') return 1.6;
+      return 1;
+    },
+    [],
   );
-  const linkParticlesAccessor = linkParticles as (link: object) => number;
-  const linkParticleWidthAccessor = linkParticleWidth as (link: object) => number;
 
-  const graphCommon = {
-    graphData,
-    backgroundColor: 'rgba(0,0,0,0)',
-    nodeLabel: 'title' as const,
-    linkDirectionalParticles: linkParticlesAccessor,
-    linkDirectionalParticleWidth: linkParticleWidthAccessor,
-    onNodeClick,
-    nodeColor: nodeColorAccessor,
-    linkColor: linkColorAccessor,
-  };
-
-  const hullOverlays = useMemo(() => {
-    if (libraryCenters.size === 0) return [];
-    return [...libraryCenters.entries()].map(([id, c]) => ({
-      id,
-      name: shortLibraryLabel(c.name, 24),
-      fullName: c.name,
-      style: {
-        left: `calc(50% + ${c.x}px)`,
-        top: `calc(50% + ${c.y}px)`,
-        width: c.radius * 2,
-        height: c.radius * 2,
-        marginLeft: -c.radius,
-        marginTop: -c.radius,
-      } as CSSProperties,
-    }));
-  }, [libraryCenters]);
+  const linkParticleSpeed = useCallback(
+    (link: { __bothFocused?: boolean; weightBand?: string }) => {
+      if (link.__bothFocused) return 0.008;
+      if (link.weightBand === 'strong') return 0.006;
+      return 0.004;
+    },
+    [],
+  );
 
   const rootClass =
     props.className ??
@@ -536,6 +531,8 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       role="region"
       className={`${rootClass} flex min-h-0 flex-col overflow-hidden`}
       aria-label="Research galaxy graph"
+      data-physics={physicsReady ? 'ready' : 'warming'}
+      data-renderer={use3dRenderer ? '3d' : '2d'}
     >
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--color-line)] px-2 py-2">
         <input
@@ -549,20 +546,13 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           <button
             type="button"
             onClick={() => {
-              if (force2d) {
-                setStatusText(
-                  `Large graph (${props.nodes.length} concepts) — 2D mode for performance.`,
-                );
-                return;
-              }
               if (threeAvailable === false) {
-                setStatusText('3D renderer unavailable — showing 2D graph.');
+                setStatusText('3D renderer unavailable — showing 2D physics fallback.');
                 return;
               }
               setMode3d(true);
               setStatusText(null);
             }}
-            disabled={force2d}
             aria-pressed={use3dRenderer}
             className={`rounded px-2 py-0.5 text-[10px] uppercase tracking-wide ${
               use3dRenderer
@@ -576,7 +566,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             type="button"
             onClick={() => {
               setMode3d(false);
-              setStatusText(null);
+              setStatusText('2D fallback — springs + charge still apply in plane.');
             }}
             aria-pressed={!use3dRenderer}
             className={`rounded px-2 py-0.5 text-[10px] uppercase tracking-wide ${
@@ -590,15 +580,31 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         </div>
       </div>
 
-      {(hasTopicFocus || statusText) && (
+      {(hasTopicFocus || statusText || use3dRenderer) && (
         <p
           className="shrink-0 px-2 py-1 text-[10px] text-[var(--color-ink-faint)]"
           aria-live="polite"
         >
+          {use3dRenderer && !statusText ? '3D physics space · link springs · nest attractors' : null}
+          {use3dRenderer && (hasTopicFocus || statusText) ? ' · ' : null}
           {hasTopicFocus && `Focused ${focusSet!.size} concepts`}
           {hasTopicFocus && statusText ? ' · ' : null}
           {statusText}
         </p>
+      )}
+
+      {libraryCenters.size > 0 && (
+        <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--color-line)] px-2 py-1">
+          {[...libraryCenters.entries()].map(([id, c]) => (
+            <span
+              key={id}
+              title={c.name}
+              className="shrink-0 rounded-full border border-[var(--color-line)] px-1.5 py-0.5 text-[9px] text-[var(--color-ink-faint)]"
+            >
+              {shortLibraryLabel(c.name, 18)}
+            </span>
+          ))}
+        </div>
       )}
 
       {graphData.nodes.length === 0 ? (
@@ -606,29 +612,9 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           No concepts match the current filters.
         </p>
       ) : (
-        <div ref={graphBox.ref} className="relative min-h-0 flex-1 overflow-hidden">
-          {hullOverlays.map((hull) => (
-            <div
-              key={hull.id}
-              className="pointer-events-none absolute rounded-full border border-[var(--color-line)]/35 bg-[var(--color-surface-1)]/5"
-              style={hull.style}
-              aria-hidden
-              title={hull.fullName}
-            >
-              <span
-                className="absolute left-1/2 top-2 max-w-[85%] -translate-x-1/2 truncate rounded bg-[var(--color-surface-0)]/80 px-1.5 py-0.5 text-center text-[8px] uppercase tracking-wider text-[var(--color-ink-faint)]"
-                title={hull.fullName}
-              >
-                {hull.name}
-              </span>
-            </div>
-          ))}
-
+        <div ref={graphBox.ref} className="relative min-h-0 flex-1 overflow-hidden bg-[#070a10]">
           {props.tags.length > 0 && (
-            <div
-              className={`${styles.orbitRing} overflow-hidden`}
-              aria-label="Tag filter orbit"
-            >
+            <div className={`${styles.orbitRing} overflow-hidden`} aria-label="Tag filter orbit">
               {props.tags.map((t, i) => {
                 const count = props.tags.length;
                 const angle = (360 / count) * i;
@@ -640,6 +626,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
                     onClick={() => setActiveTag(activeTag === t ? null : t)}
                     aria-pressed={activeTag === t}
                     aria-label={`Filter galaxy by tag ${t}`}
+                    title={t}
                     className={`${styles.orbitChip} max-w-[7rem] truncate rounded-full border px-1.5 py-0.5 text-[9px] ${
                       activeTag === t
                         ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
@@ -648,7 +635,6 @@ function GalaxyViewInner(props: GalaxyViewProps) {
                     style={{
                       transform: `rotate(${angle}deg) translateY(-${radius}px) rotate(-${angle}deg)`,
                     }}
-                    title={t}
                   >
                     {t}
                   </button>
@@ -657,65 +643,82 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             </div>
           )}
 
-          {use3dRenderer && ForceGraph3D ? (
+          {!graphWidth || !graphHeight ? (
+            <p className="flex h-full items-center justify-center text-[10px] text-[var(--color-ink-faint)]">
+              Measuring galaxy viewport…
+            </p>
+          ) : use3dRenderer && ForceGraph3D ? (
             <ForceGraph3D
-              ref={captureGraphRef as never}
-              {...graphCommon}
+              ref={bindGraphRef as never}
+              graphData={graphData}
+              width={graphWidth}
+              height={graphHeight}
+              backgroundColor="#070a10"
+              numDimensions={3}
+              forceEngine="d3"
+              controlType="orbit"
+              warmupTicks={reducedMotion ? 0 : 80}
+              cooldownTicks={reducedMotion ? 0 : 120}
+              d3AlphaDecay={0.022}
+              d3VelocityDecay={0.32}
               nodeLabel={(n: { title?: string }) =>
-                humanizeConceptTitle(String(n.title ?? '')).slice(0, 28)
+                humanizeConceptTitle(String(n.title ?? '')).slice(0, 40)
               }
-              width={graphBox.width}
-              height={graphBox.height}
+              nodeVal="val"
+              nodeRelSize={4.2}
+              nodeOpacity={hasTopicFocus ? 0.95 : 0.9}
+              nodeColor={nodeColor as (node: object) => string}
+              linkColor={linkColor as (link: object) => string}
+              linkWidth={linkWidth as (link: object) => number}
+              linkOpacity={0.55}
+              linkCurvature={0.12}
+              linkDirectionalArrowLength={(link: { __directed?: boolean }) =>
+                link.__directed ? 3.2 : 0
+              }
+              linkDirectionalArrowRelPos={1}
+              linkDirectionalParticles={linkParticles as (link: object) => number}
+              linkDirectionalParticleWidth={linkParticleWidth as (link: object) => number}
+              linkDirectionalParticleSpeed={linkParticleSpeed as (link: object) => number}
+              linkDirectionalParticleColor={() => '#7aa2f7'}
               showNavInfo={false}
-              nodeOpacity={nodeOpacityAccessor}
-              linkOpacity={hasTopicFocus ? 0.55 : 0.35}
-              linkWidth={linkWidthAccessor}
-              onEngineStop={onEngineStop}
-              onEngineTick={onEngineTick}
+              enableNodeDrag={!reducedMotion}
+              onNodeClick={onNodeClick}
+              onEngineStop={() => {
+                if (hasTopicFocus) fitFocusedNodes();
+              }}
             />
-          ) : (
+          ) : threeAvailable === false || !mode3d ? (
             <ForceGraph2D
-              ref={captureGraphRef as never}
-              {...graphCommon}
-              width={graphBox.width}
-              height={graphBox.height}
+              ref={bindGraphRef as never}
+              graphData={graphData}
+              width={graphWidth}
+              height={graphHeight}
+              backgroundColor="#070a10"
+              warmupTicks={reducedMotion ? 0 : 40}
+              cooldownTicks={reducedMotion ? 0 : 80}
+              d3AlphaDecay={0.025}
+              d3VelocityDecay={0.35}
+              nodeLabel="title"
               nodeRelSize={4}
-              linkWidth={linkWidthAccessor}
-              onEngineStop={onEngineStop}
-              onEngineTick={onEngineTick}
+              nodeColor={nodeColor as (node: object) => string}
+              linkColor={linkColor as (link: object) => string}
+              linkWidth={linkWidth as (link: object) => number}
+              linkDirectionalParticles={linkParticles as (link: object) => number}
+              linkDirectionalParticleWidth={linkParticleWidth as (link: object) => number}
+              onNodeClick={onNodeClick}
               nodeCanvasObjectMode={() => 'replace'}
               nodeCanvasObject={
-                paintNode as (
+                paintNode2d as (
                   node: object,
                   ctx: CanvasRenderingContext2D,
                   globalScale: number,
                 ) => void
               }
-              linkCanvasObjectMode={() => 'after'}
-              linkCanvasObject={(link, ctx, globalScale) => {
-                const l = link as {
-                  source: { x?: number; y?: number };
-                  target: { x?: number; y?: number };
-                  __bothFocused?: boolean;
-                };
-                const sx = l.source.x ?? 0;
-                const sy = l.source.y ?? 0;
-                const tx = l.target.x ?? 0;
-                const ty = l.target.y ?? 0;
-                ctx.beginPath();
-                ctx.moveTo(sx, sy);
-                ctx.lineTo(tx, ty);
-                ctx.strokeStyle = linkColorAccessor(l);
-                ctx.lineWidth = linkWidthAccessor(l) / globalScale;
-                if (l.__bothFocused && !reducedMotion) {
-                  ctx.setLineDash([4 / globalScale, 3 / globalScale]);
-                  ctx.lineDashOffset = (Date.now() / 80) % 14;
-                } else {
-                  ctx.setLineDash([]);
-                }
-                ctx.stroke();
-              }}
             />
+          ) : (
+            <p className="flex h-full items-center justify-center text-[10px] text-[var(--color-ink-faint)]">
+              Loading 3D physics engine…
+            </p>
           )}
         </div>
       )}

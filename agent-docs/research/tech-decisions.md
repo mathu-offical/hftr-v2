@@ -105,17 +105,28 @@ Order of integration (per-adapter detail in `architecture/broker-integration.md`
   in-app funding UX, but it requires a broker-dealer relationship — logged as an open question,
   not an MVP dependency. MVP funding UX = connect account → show balances → deep-link funding.
 
-## TD-09 — Research galaxy: `react-force-graph-3d` (MVP, user decision)
+## TD-09 — Research galaxy: `react-force-graph-3d` + `d3-force-3d` (canonical 3D)
 
-- Three.js/WebGL 3D force-directed graph; d3-force-3d engine; supports node/link hover/click,
-  dagMode layouts, custom node objects. Proven to ~4k elements out of the box.
-- Scale plan: research libraries start small (hundreds of concepts); if we exceed ~2–3k visible
-  nodes, adopt the documented escalation path — cluster-collapse LOD, InstancedMesh custom
-  rendering, Web Worker layout (graphier/galaxy-nodes patterns studied as references).
-- 2D fallback (`react-force-graph-2d`, same API) for low-power devices and large graphs (>200).
-- **D-040 layout contract:** hard nested library hulls (force constraints / radial bounds),
-  topic focus overlays (dim + animated path), rotating tag chip layer, Article tab sibling —
-  see `ui-ux/research-galaxy-topic-view-design.md`. Library nests remain in 2D fallback.
+- **Canonical mode is 3D.** Three.js/WebGL force-directed space via `react-force-graph-3d`
+  with explicit `d3-force-3d` physics (same engine family as neural / knowledge-graph explorers).
+- **Forces (all connections):**
+  - `link` springs — distance/strength from qualitative `weightBand` + `relation`
+    (`apps/web/lib/galaxy-physics.ts`); no model-path floats.
+  - `charge` (many-body) — size-scaled repulsion.
+  - `collide` — volume separation so nodes do not occupy the same point.
+  - `nest` — soft spherical library attractors / restore (D-040 nests without hard 2D clamps).
+  - soft `center` — keeps the company cloud framed.
+- **Neural affordances:** directional particles on every link (stronger / focused links carry
+  more); arrows on directed relations (`causes` / `supports` / `derived_from`); slight link
+  curvature; orbit camera; dark space background; node drag.
+- **Layout stability:** nest seed coordinates applied once per node id; subsequent focus/filter
+  updates omit xyz so `d3-force-3d` keeps simulated positions.
+- **2D fallback** only when WebGL fails or the operator toggles 2D — same spring/charge
+  parameters projected to the plane. Performance ladder above ~2–3k nodes remains:
+  cluster-collapse LOD, InstancedMesh, worker layout (unchanged).
+- **D-040 layout contract:** library nests as soft 3D force clusters; topic focus
+  (dim + particle emphasis + camera fit); tag chip filters; floating inspector (D-049).
+  See `ui-ux/research-galaxy-topic-view-design.md`.
 
 ## TD-10 — Styling & design system
 

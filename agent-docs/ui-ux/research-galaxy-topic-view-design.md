@@ -102,18 +102,18 @@ chips drawn from visible concepts’ tags (and optionally topic-level keywords).
 
 ## 4. Galaxy organization
 
-### 4.1 Hard nested library circles (default)
+### 4.1 Soft nested library clusters (3D physics default)
 
-- Company galaxy = outer container.
-- Each **library** is a **hard nested sub-circle** (bounded region). Concepts with primary
-  membership in that library are force-constrained to stay inside their library hull.
-- Cross-library concept links may cross nest boundaries (drawn as longer edges; still typed).
+- Company galaxy = outer 3D force space (`react-force-graph-3d` + `d3-force-3d`).
+- Each **library** is a **soft spherical nest** (attractor + restore force). Concepts with
+  primary membership are pulled toward / restored into their library volume.
+- Cross-library concept links may span nests (spring length still set by weight band + relation).
 - Concepts in multiple libraries: **primary membership** determines nest; secondary
   memberships shown as badges on the concept card / node label, not duplicated nodes.
-- Master library (if flagged) may render as the outermost company nest or a dedicated inner
-  ring — default: **master = company outer**, curated libraries = inner nests.
-- Reducing scope (library filter, zoom into one nest) is stable because nests are hard
-  boundaries, not soft clustering.
+- Master library (if flagged) may render as the outermost company cloud or a dedicated nest —
+  default: **master = company outer**, curated libraries = inner nests.
+- Reducing scope (library filter, zoom into one nest) remains stable because nest forces
+  reheat with the filtered subgraph.
 
 ### 4.2 Zoom, filters, re-layout
 
@@ -143,10 +143,12 @@ On topic select (left panel or deep-link):
 
 Clearing topic focus restores full brightness; nest layout stays.
 
-### 4.4 Performance (TD-09 unchanged)
+### 4.4 Performance (TD-09)
 
-- >200 concepts → 2D fallback; nests still apply in 2D.
-- LOD ladder: hide tag orbit → simplify hulls → aggregate small libraries when zoomed out.
+- Prefer 3D physics space; 2D fallback only on WebGL failure or explicit operator toggle.
+  Soft nest forces still apply in 2D (planar projection).
+- Preserve simulation node positions across focus/filter updates (seed nest coords once).
+- LOD ladder: hide tag orbit → simplify labels → aggregate small libraries when zoomed out.
 
 ## 5. Hybrid article (wiki) view
 

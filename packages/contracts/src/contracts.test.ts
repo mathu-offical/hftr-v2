@@ -1642,6 +1642,42 @@ describe('live data sources contracts', () => {
   });
 });
 
+describe('paper engine binding (D-122)', () => {
+  it('defaults routing to funds_only', async () => {
+    const { EngineExecutionBinding, resolveTradingExecutionBinding, shouldSubmitToProvider } =
+      await import('./paper-engine');
+    const b = EngineExecutionBinding.parse({});
+    expect(b.routingMode).toBe('funds_only');
+    expect(b.useProviderLedgerAsFundsSource).toBe(true);
+    expect(resolveTradingExecutionBinding({}).routingMode).toBe('funds_only');
+    expect(shouldSubmitToProvider('funds_only')).toBe(false);
+    expect(shouldSubmitToProvider('execute_on_service')).toBe(true);
+    expect(shouldSubmitToProvider('both_verify')).toBe(true);
+  });
+
+  it('parses BookDelta with dimensions', async () => {
+    const { BookDelta } = await import('./paper-engine');
+    const d = BookDelta.parse({
+      companyId: '00000000-0000-4000-8000-000000000001',
+      engineModuleId: '00000000-0000-4000-8000-000000000002',
+      instructionId: '00000000-0000-4000-8000-000000000003',
+      routingMode: 'both_verify',
+      dimensions: [
+        { kind: 'fill_price_bps', internalValue: 10, referenceValue: 25, unit: 'bps' },
+      ],
+    });
+    expect(d.dimensions[0]?.kind).toBe('fill_price_bps');
+  });
+
+  it('TradingModuleConfig accepts executionBinding', () => {
+    const parsed = MODULE_CONFIG_SCHEMAS.trading.parse({
+      subtype: 'day',
+      executionBinding: { routingMode: 'execute_on_service' },
+    });
+    expect(parsed.executionBinding?.routingMode).toBe('execute_on_service');
+  });
+});
+
 describe('research source registry', () => {
   it('selectReadySourceKinds returns public shipped sources without keys', async () => {
     const { selectReadySourceKinds, RESEARCH_SOURCE_REGISTRY, listSourcesByDomain } =

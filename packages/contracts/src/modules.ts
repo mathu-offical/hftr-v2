@@ -13,6 +13,7 @@ import {
   type PortNature,
   type PortSlot,
 } from './port-channels';
+import { EngineExecutionBinding } from './paper-engine';
 
 /**
  * Company + module domain contracts (agent-docs/product/product-spec.md,
@@ -1098,6 +1099,8 @@ export const TradingModuleConfig = z.object({
   exitTimelineDays: z.number().int().min(0).max(3650).default(1),
   cadenceMinutes: z.number().int().min(1).max(60).default(5),
   manualControl: z.boolean().default(false),
+  /** D-122: per-engine service binding + routing (default funds_only when omitted). */
+  executionBinding: EngineExecutionBinding.optional(),
 });
 
 export const PolicyModuleConfig = z.object({

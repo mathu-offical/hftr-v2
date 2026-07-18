@@ -9,6 +9,7 @@ export * from './pipeline';
 export * from './philosophy';
 export * from './broker';
 export * from './broker-connection';
+export * from './paper-engine';
 export * from './credentials';
 export * from './leak-lint';
 export * from './qualitative-normalize';

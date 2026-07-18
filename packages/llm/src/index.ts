@@ -34,3 +34,14 @@ export {
   ASSISTANT_PROPOSAL_JSON_SCHEMA,
   ASSISTANT_PROPOSAL_SYSTEM_PROMPT,
 } from './assistant-tools';
+export {
+  auditLlmCallArtifacts,
+  buildCompanyLeakAuditReport,
+  type CompanyLeakAuditReport,
+  type LeakAuditArtifact,
+  type LeakAuditCallMeta,
+  type LeakAuditFailure,
+  type LeakAuditFailureReason,
+  type LeakAuditScanMode,
+  type StoredLlmArtifactOutput,
+} from './audit/leak-audit';

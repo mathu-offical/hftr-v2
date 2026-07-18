@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { auditLlmCallArtifacts } from './leak-audit';
+import { auditLlmCallArtifacts, buildCompanyLeakAuditReport } from './leak-audit';
 
 describe('auditLlmCallArtifacts', () => {
   it('passes ref-only artifact payloads', () => {
@@ -37,5 +37,37 @@ describe('auditLlmCallArtifacts', () => {
       ['$.display'],
     );
     expect(result.ok).toBe(true);
+  });
+});
+
+describe('buildCompanyLeakAuditReport', () => {
+  it('aggregates metadata-only when no artifacts are stored', () => {
+    const report = buildCompanyLeakAuditReport(
+      [
+        { id: 'c1', schemaValid: true, leakLintPassed: true, failure: null },
+        { id: 'c2', schemaValid: true, leakLintPassed: false, failure: null },
+      ],
+      [],
+      '2026-07-17T00:00:00.000Z',
+    );
+    expect(report.scanMode).toBe('metadata');
+    expect(report.ok).toBe(false);
+    expect(report.sampleSize).toBe(2);
+    expect(report.leakCleanCount).toBe(1);
+    expect(report.leakFailCount).toBe(1);
+    expect(report.failures).toEqual([{ id: 'c2' }]);
+    expect(report.note).toContain('llm_artifacts');
+  });
+
+  it('re-scans stored artifact payloads when present', () => {
+    const report = buildCompanyLeakAuditReport(
+      [{ id: 'c1', schemaValid: true, leakLintPassed: true, failure: null }],
+      [{ llmCallId: 'c1', output: { sizing: 'allocate 500 shares' } }],
+      '2026-07-17T00:00:00.000Z',
+    );
+    expect(report.scanMode).toBe('artifacts');
+    expect(report.ok).toBe(false);
+    expect(report.leakFailCount).toBe(1);
+    expect(report.failures[0]?.reasons?.[0]?.reason).toBe('numeric');
   });
 });

@@ -10,7 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { companies, modules } from './companies';
+import { companies, engineInstances, modules } from './companies';
 
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -102,8 +102,21 @@ export const trendCandidates = pgTable(
       .default('candidate'),
     /** Opaque admitted library / evidence refs copied at promote (D-039). */
     artifactRefs: jsonb('artifact_refs').notNull().default([]),
+    /**
+     * D-077: optional per-trend binding to an execution engine / trading module
+     * (canvas trend-item ports). Topology + UI truth; compile wiring is follow-up.
+     */
+    engineInstanceId: uuid('engine_instance_id').references(() => engineInstances.id, {
+      onDelete: 'set null',
+    }),
+    tradingModuleId: uuid('trading_module_id').references(() => modules.id, {
+      onDelete: 'set null',
+    }),
     scannedAt: timestamp('scanned_at', { withTimezone: true }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('trend_candidates_company_idx').on(t.companyId, t.createdAt)],
+  (t) => [
+    index('trend_candidates_company_idx').on(t.companyId, t.createdAt),
+    index('trend_candidates_module_idx').on(t.moduleId, t.status),
+  ],
 );

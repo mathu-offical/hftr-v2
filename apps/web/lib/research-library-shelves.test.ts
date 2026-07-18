@@ -112,4 +112,35 @@ describe('groupSeededPagesIntoCatalogShelves', () => {
     expect(guardrails?.showOverview).toBe(false);
     expect(guardrails?.flatPages).toHaveLength(1);
   });
+
+  it('puts sector_seeds into Sector knowledge with per-sector subfolders', () => {
+    const groups = groupSeededPagesIntoCatalogShelves([
+      {
+        conceptId: 's1',
+        title: 'sector_technology',
+        tags: ['sector_seeds', 'sector_technology', 'baseline_sector'],
+      },
+      {
+        conceptId: 's2',
+        title: 'subsector_semiconductors',
+        tags: ['sector_seeds', 'sector_technology', 'subsector_semiconductors', 'baseline_sector'],
+      },
+      {
+        conceptId: 's3',
+        title: 'sector_financials',
+        tags: ['sector_seeds', 'sector_financials', 'baseline_sector'],
+      },
+    ]);
+
+    const sector = groups.find((g) => g.catalog === 'sector_seeds');
+    expect(sector?.label).toBe('Sector knowledge');
+    expect(seedCatalogForPage(['sector_seeds', 'sector_technology'])).toBe('sector_seeds');
+    expect(humanizeSeedTag('sector_technology')).toBe('Technology');
+    expect(sector?.flatPages).toBeNull();
+    expect(sector?.subfolders.map((s) => s.id)).toEqual([
+      'sector_financials',
+      'sector_technology',
+    ]);
+    expect(sector?.subfolders.find((s) => s.id === 'sector_technology')?.pages).toHaveLength(2);
+  });
 });

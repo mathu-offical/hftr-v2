@@ -211,6 +211,9 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
       if (!companyId) return;
       setShellRefreshing(true);
       try {
+        if (force) {
+          invalidateAfterResearchMutation(companyId, 'libraryPages');
+        }
         await Promise.all([loadLibraries(force), loadTopics(force), loadConcepts(force)]);
       } finally {
         setShellRefreshing(false);

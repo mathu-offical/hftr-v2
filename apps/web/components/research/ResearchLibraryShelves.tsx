@@ -494,7 +494,11 @@ function RuntimeShelfSection(props: {
   );
 }
 
-function useBaselineSeededPages(companyId: string, libraryId: string | null) {
+function useBaselineSeededPages(
+  companyId: string,
+  libraryId: string | null,
+  refreshKey = 0,
+) {
   const cached =
     libraryId != null
       ? peekResearchResource<SeededPageRow[]>({
@@ -516,19 +520,22 @@ function useBaselineSeededPages(companyId: string, libraryId: string | null) {
       return;
     }
     let cancelled = false;
+    const force = refreshKey > 0;
     const had = peekResearchResource<SeededPageRow[]>({
       kind: 'libraryConcepts',
       companyId,
       libraryId,
     });
-    if (had) {
+    if (had && !force) {
       setPages(had);
       setLoading(false);
       setRefreshing(true);
-    } else {
+    } else if (!had) {
       setLoading(true);
+    } else {
+      setRefreshing(true);
     }
-    void fetchLibraryConceptPages(companyId, libraryId, { force: false })
+    void fetchLibraryConceptPages(companyId, libraryId, { force })
       .then((next) => {
         if (!cancelled) setPages(next);
       })
@@ -544,7 +551,7 @@ function useBaselineSeededPages(companyId: string, libraryId: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [companyId, libraryId]);
+  }, [companyId, libraryId, refreshKey]);
 
   return { pages, loading, refreshing };
 }
@@ -559,6 +566,7 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
   const [shelfUi, setShelfUi] = useState<ResearchShelfUiState>(() =>
     readResearchShelfUiState(props.companyId),
   );
+  const [baselineRefreshKey, setBaselineRefreshKey] = useState(0);
 
   useEffect(() => {
     setShelfUi(readResearchShelfUiState(props.companyId));
@@ -603,7 +611,11 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
     pages: seededPages,
     loading: seededLoading,
     refreshing: seededRefreshing,
-  } = useBaselineSeededPages(props.companyId, primaryBaseline?.id ?? null);
+  } = useBaselineSeededPages(
+    props.companyId,
+    primaryBaseline?.id ?? null,
+    baselineRefreshKey,
+  );
 
   const seededGroups = useMemo(
     () => groupSeededPagesIntoCatalogShelves(seededPages ?? []),
@@ -646,7 +658,10 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
             data-testid="research-library-shelves-refresh"
             aria-label="Refresh library shelves"
             title="Refresh library lists"
-            onClick={() => props.onRefreshShell?.()}
+            onClick={() => {
+              setBaselineRefreshKey((k) => k + 1);
+              props.onRefreshShell?.();
+            }}
             className="rounded p-0.5 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
           >
             <RefreshCw

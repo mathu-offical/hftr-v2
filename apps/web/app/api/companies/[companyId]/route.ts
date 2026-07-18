@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { UpdateCompanyInput } from '@hftr/contracts';
 import { companies, jobSchedules, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
+import { bootstrapCompanyKnowledge } from '@hftr/engine';
 import { parseBody, withAuth } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
@@ -25,12 +26,23 @@ export async function PATCH(req: Request, ctx: Ctx) {
     const { companyId } = Params.parse(await ctx.params);
     await scoping.getOwnedCompany(db, clerkUserId, companyId);
     const input = await parseBody(req, UpdateCompanyInput);
+    const now = new Date();
 
     const updated = await db
       .update(companies)
-      .set({ ...input, updatedAt: new Date() })
+      .set({ ...input, updatedAt: now })
       .where(and(eq(companies.id, companyId), eq(companies.clerkUserId, clerkUserId)))
       .returning();
+
+    // Re-materialize baseline Sector knowledge for new/changed focuses (idempotent).
+    if (input.sectorFocuses !== undefined) {
+      try {
+        await bootstrapCompanyKnowledge({ db, companyId, now });
+      } catch (err) {
+        console.error('sector knowledge re-seed failed on company PATCH', err);
+      }
+    }
+
     return { company: updated[0] };
   });
 }

@@ -31,6 +31,11 @@ export const SEED_CATALOG_SHELVES = [
     shelfId: 'baseline_trend_leads',
     label: 'Trend lead patterns',
   },
+  {
+    catalog: 'sector_seeds',
+    shelfId: 'baseline_sector_knowledge',
+    label: 'Sector knowledge',
+  },
 ] as const;
 
 export type SeedCatalogId = (typeof SEED_CATALOG_SHELVES)[number]['catalog'];
@@ -103,6 +108,13 @@ export function humanizeSeedTag(tag: string): string {
   if (tag.startsWith('tier_')) {
     return `Tier ${tag.slice('tier_'.length).toUpperCase()}`;
   }
+  if (tag.startsWith('sector_') && tag !== 'sector_seeds') {
+    return tag
+      .slice('sector_'.length)
+      .split('_')
+      .map((part) => (part.length ? part[0]!.toUpperCase() + part.slice(1) : part))
+      .join(' ');
+  }
   return tag
     .split('_')
     .map((part) => (part.length ? part[0]!.toUpperCase() + part.slice(1) : part))
@@ -121,6 +133,12 @@ export function seedCatalogForPage(tags: readonly string[]): SeedCatalogId | nul
 export function seedTierForPage(tags: readonly string[]): string | null {
   const tier = tags.find((t) => t.startsWith('tier_'));
   return tier ?? null;
+}
+
+/** Sector folder tag (`sector_technology` …) for Sector knowledge subfolders. */
+export function seedSectorFolderForPage(tags: readonly string[]): string | null {
+  const sector = tags.find((t) => t.startsWith('sector_') && t !== 'sector_seeds');
+  return sector ?? null;
 }
 
 /**
@@ -150,7 +168,10 @@ export function groupSeededPagesIntoCatalogShelves(
     const catalogPages = [...(byCatalog.get(def.catalog) ?? [])].sort((a, b) =>
       a.title.localeCompare(b.title),
     );
-    const { subfolders, flatPages } = splitPagesIntoTier(catalogPages);
+    const { subfolders, flatPages } =
+      def.catalog === 'sector_seeds'
+        ? splitPagesIntoSectorFolders(catalogPages)
+        : splitPagesIntoTier(catalogPages);
     groups.push({
       catalog: def.catalog,
       shelfId: def.shelfId,
@@ -221,6 +242,47 @@ function splitPagesIntoTier(pages: SeededPageRow[]): {
       id: 'general',
       label: 'General',
       pages: byTier.get(null) ?? [],
+    });
+  }
+
+  return { subfolders, flatPages: null };
+}
+
+/** Sector knowledge: one subfolder per coarse sector (`sector_technology`, …). */
+function splitPagesIntoSectorFolders(pages: SeededPageRow[]): {
+  subfolders: SeededSubfolder[];
+  flatPages: SeededPageRow[] | null;
+} {
+  if (pages.length === 0) {
+    return { subfolders: [], flatPages: [] };
+  }
+
+  const bySector = new Map<string | null, SeededPageRow[]>();
+  for (const page of pages) {
+    const sector = seedSectorFolderForPage(page.tags);
+    const list = bySector.get(sector) ?? [];
+    list.push(page);
+    bySector.set(sector, list);
+  }
+
+  if (bySector.size <= 1) {
+    return { subfolders: [], flatPages: pages };
+  }
+
+  const sectorKeys = [...bySector.keys()].filter((k): k is string => k !== null).sort();
+  const subfolders: SeededSubfolder[] = [];
+  for (const sector of sectorKeys) {
+    subfolders.push({
+      id: sector,
+      label: humanizeSeedTag(sector),
+      pages: (bySector.get(sector) ?? []).sort((a, b) => a.title.localeCompare(b.title)),
+    });
+  }
+  if (bySector.has(null)) {
+    subfolders.push({
+      id: 'general',
+      label: 'General',
+      pages: bySector.get(null) ?? [],
     });
   }
 

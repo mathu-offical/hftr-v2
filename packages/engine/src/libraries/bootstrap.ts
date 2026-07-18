@@ -1,4 +1,4 @@
-import { and, eq, ilike, inArray, or } from 'drizzle-orm';
+import { and, eq, ilike, inArray } from 'drizzle-orm';
 import type { Db } from '@hftr/db';
 import {
   catalogEntries,
@@ -12,10 +12,22 @@ import {
 } from '@hftr/db/schema';
 import { leakLint } from '../calc/leak-lint';
 
-const MASTER_FALLBACK_NAME = 'Company knowledge graph';
+const MECHANISMS_LIBRARY_NAME = 'Seeded trading mechanisms';
 const SEEDED_TOPIC_TITLE = 'Seeded trading mechanisms';
 
-/** Catalog pairs seeded into company knowledge on bootstrap (compile-time mechanisms). */
+/** Catalog families materialized into the compile-time mechanisms library. */
+export const SEED_CATALOG_NAMES = [
+  'strategy_families',
+  'guardrail_packages',
+  'session_constraints',
+  'broker_policy_envelopes',
+  'trend_lead_patterns',
+] as const;
+
+/**
+ * Representative pairs kept for link coverage in tests and curated edges.
+ * Full bootstrap seeds every row in {@link SEED_CATALOG_NAMES}.
+ */
 export const SEED_CATALOG_TARGETS = [
   { catalog: 'strategy_families', entryKey: 'strat-001' },
   { catalog: 'strategy_families', entryKey: 'strat-003' },
@@ -36,6 +48,7 @@ export type SeededCatalogEntry = {
   entryKey: string;
   title: string;
   tier: string | null;
+  payload?: unknown;
 };
 
 const SEED_CONCEPT_LINKS: ReadonlyArray<{
@@ -87,20 +100,117 @@ function assertLeakClean(body: string): void {
   }
 }
 
-/** Build qualitative, leak-lint-safe concept body for a seeded catalog entry. */
+function humanize(value: string): string {
+  return value.replace(/_/g, ' ').trim();
+}
+
+/** Drop strings that would fail leak lint (raw digits / clock patterns). */
+function isLeakSafeText(value: string): boolean {
+  return leakLint(value, []).ok;
+}
+
+/** Operator-facing label; strips digit runs when needed so bodies stay leak-clean. */
+function leakSafeLabel(value: string): string {
+  const human = humanize(value);
+  if (isLeakSafeText(human)) return human;
+  const stripped = human.replace(/\d+/g, ' ').replace(/\s+/g, ' ').trim();
+  return stripped.length > 0 ? stripped : 'catalog mechanism';
+}
+
+function asStringList(value: unknown, max = 8): string[] {
+  if (!Array.isArray(value)) return [];
+  const out: string[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string') continue;
+    const text = leakSafeLabel(item);
+    if (!text || !isLeakSafeText(text)) continue;
+    out.push(text);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+function pushSection(lines: string[], heading: string, items: string[]): void {
+  if (items.length === 0) return;
+  lines.push('', `## ${heading}`, ...items.map((item) => `- ${item}`));
+}
+
+/**
+ * Build operator-readable concept body from vendored catalog payload fields.
+ * Qualitative only — no raw financial numbers or clock literals (leak-lint clean).
+ */
 export function buildSeededConceptBody(entry: SeededCatalogEntry): string {
-  const catalogLabel = entry.catalog.replace(/_/g, ' ');
-  const titleLabel = entry.title.replace(/_/g, ' ');
-  const tierPhrase = entry.tier
-    ? ` Activation tier is described qualitatively as ${entry.tier.replace(/_/g, ' ')}.`
-    : '';
+  const payload =
+    entry.payload && typeof entry.payload === 'object' && !Array.isArray(entry.payload)
+      ? (entry.payload as Record<string, unknown>)
+      : {};
 
-  const body =
-    `Deterministic catalog concept from the ${catalogLabel} catalog covering ${titleLabel}. ` +
-    'This placeholder summarizes a seeded compile-time mechanism for galaxy visibility — ' +
-    'not model-generated research. Full authoritative details live in the cited catalog source reference.' +
-    tierPhrase;
+  const titleLabel = leakSafeLabel(entry.title);
+  const catalogLabel = leakSafeLabel(entry.catalog);
+  const lines: string[] = [`# ${titleLabel}`, '', `Seeded from the ${catalogLabel} catalog.`];
 
+  const summary = typeof payload.summary === 'string' ? payload.summary.trim() : '';
+  if (summary && isLeakSafeText(summary)) {
+    lines.push('', summary);
+  }
+
+  const mechanismClass =
+    typeof payload.class === 'string'
+      ? payload.class
+      : typeof payload.assetClass === 'string'
+        ? payload.assetClass
+        : null;
+  if (mechanismClass && isLeakSafeText(leakSafeLabel(mechanismClass))) {
+    lines.push('', `Mechanism class: ${leakSafeLabel(mechanismClass)}.`);
+  }
+
+  if (entry.tier && isLeakSafeText(leakSafeLabel(entry.tier))) {
+    lines.push(`Activation tier: ${leakSafeLabel(entry.tier)}.`);
+  }
+
+  const horizon = typeof payload.horizon === 'string' ? leakSafeLabel(payload.horizon) : '';
+  if (horizon && isLeakSafeText(horizon)) {
+    lines.push(`Horizon: ${horizon}.`);
+  }
+
+  pushSection(lines, 'Sessions', asStringList(payload.sessions));
+  pushSection(lines, 'Regime tags', asStringList(payload.regimeTags));
+  pushSection(lines, 'Primary triggers', asStringList(payload.primaryTriggers));
+  pushSection(lines, 'Failure codes', asStringList(payload.failureCodes));
+  pushSection(lines, 'Recovery ladder', asStringList(payload.recoveryLadder));
+  pushSection(lines, 'Bound strategies', asStringList(payload.boundStrategies));
+  pushSection(lines, 'Inputs', asStringList(payload.inputs));
+  pushSection(lines, 'Confirmation signals', asStringList(payload.confirmationSignals));
+  pushSection(lines, 'Suppress when', asStringList(payload.suppressWhen));
+  pushSection(lines, 'Preferred families', asStringList(payload.preferredFamilies));
+  pushSection(lines, 'Routing scope', asStringList(payload.routingScope));
+  pushSection(lines, 'Order workflows', asStringList(payload.orderWorkflowCompatibility));
+  pushSection(lines, 'Modes', asStringList(payload.modes));
+  pushSection(lines, 'Failure handling', asStringList(payload.failureHandling));
+  pushSection(lines, 'Platform guardrails', asStringList(payload.platformGuardrails));
+  pushSection(lines, 'Special rules', asStringList(payload.specialRules, 5));
+  pushSection(lines, 'Verification signals', asStringList(payload.verificationSignals));
+  pushSection(lines, 'Operator visibility', asStringList(payload.operatorVisibility));
+
+  const handoff =
+    payload.trendLeadBindings &&
+    typeof payload.trendLeadBindings === 'object' &&
+    !Array.isArray(payload.trendLeadBindings)
+      ? (payload.trendLeadBindings as Record<string, unknown>).handoffExpectation
+      : null;
+  if (typeof handoff === 'string' && isLeakSafeText(handoff)) {
+    lines.push('', '## Handoff expectation', handoff);
+  }
+
+  const outcome =
+    typeof payload.deterministicOutcome === 'string'
+      ? leakSafeLabel(payload.deterministicOutcome)
+      : '';
+  if (outcome && isLeakSafeText(outcome)) {
+    lines.push('', `Deterministic outcome: ${outcome}.`);
+  }
+
+  const body = lines.join('\n').trim();
   assertLeakClean(body);
   return body;
 }
@@ -109,8 +219,8 @@ function buildTopicSynopsisMd(conceptTitles: string[]): string {
   const lines = [
     '## Seeded trading mechanisms',
     '',
-    'Compile-time catalog mechanisms surfaced into the company knowledge graph for operator orientation.',
-    'Member concepts are deterministic placeholders linked to vendored catalog entries.',
+    'Compile-time baseline of stock trading mechanisms from vendored catalogs.',
+    'Each member is a readable catalog concept (strategies, guardrails, sessions, broker policy, trend leads) admitted into the company knowledge graph.',
     '',
     '### Member concepts',
     '',
@@ -155,10 +265,53 @@ async function ensureLibraryForModule(
   }
 }
 
+async function ensureMechanismsLibrary(
+  db: Db,
+  companyId: string,
+  libraryModules: Array<{ id: string; config: unknown }>,
+  now: Date,
+): Promise<string> {
+  const seededModule = libraryModules.find(
+    (m) => parseLibraryConfig(m.config).libraryClass === 'seeded_mechanisms',
+  );
+
+  await db
+    .insert(libraries)
+    .values({
+      companyId,
+      moduleId: seededModule?.id ?? null,
+      name: MECHANISMS_LIBRARY_NAME,
+      topicScope: 'compile_time_mechanisms',
+      masterLibrary: false,
+      status: 'active',
+    })
+    .onConflictDoNothing({ target: [libraries.companyId, libraries.name] });
+
+  const [row] = await db
+    .select({ id: libraries.id, moduleId: libraries.moduleId })
+    .from(libraries)
+    .where(and(eq(libraries.companyId, companyId), eq(libraries.name, MECHANISMS_LIBRARY_NAME)))
+    .limit(1);
+
+  if (!row) {
+    throw new Error('mechanisms_library_missing');
+  }
+
+  if (seededModule && row.moduleId === null) {
+    await db
+      .update(libraries)
+      .set({ moduleId: seededModule.id, updatedAt: now })
+      .where(eq(libraries.id, row.id));
+  }
+
+  return row.id;
+}
+
 async function ensureMasterLibrary(
   db: Db,
   companyId: string,
   libraryModules: Array<{ id: string; config: unknown }>,
+  mechanismsLibraryId: string,
   now: Date,
 ): Promise<void> {
   const [existingMaster] = await db
@@ -173,75 +326,17 @@ async function ensureMasterLibrary(
   );
 
   if (seededModule) {
-    const [bound] = await db
-      .select({ id: libraries.id })
-      .from(libraries)
-      .where(and(eq(libraries.companyId, companyId), eq(libraries.moduleId, seededModule.id)))
-      .limit(1);
-    if (bound) {
-      await db
-        .update(libraries)
-        .set({ masterLibrary: true, updatedAt: now })
-        .where(eq(libraries.id, bound.id));
-      return;
-    }
-  }
-
-  const [firstLib] = await db
-    .select({ id: libraries.id })
-    .from(libraries)
-    .where(eq(libraries.companyId, companyId))
-    .orderBy(libraries.createdAt)
-    .limit(1);
-
-  if (firstLib) {
     await db
       .update(libraries)
       .set({ masterLibrary: true, updatedAt: now })
-      .where(eq(libraries.id, firstLib.id));
+      .where(eq(libraries.id, mechanismsLibraryId));
     return;
   }
 
-  await db.insert(libraries).values({
-    companyId,
-    moduleId: null,
-    name: MASTER_FALLBACK_NAME,
-    topicScope: '',
-    masterLibrary: true,
-    status: 'active',
-  });
-}
-
-async function resolveMechanismsLibraryId(
-  db: Db,
-  companyId: string,
-  libraryModules: Array<{ id: string; config: unknown }>,
-): Promise<string | null> {
-  const seededModule = libraryModules.find(
-    (m) => parseLibraryConfig(m.config).libraryClass === 'seeded_mechanisms',
-  );
-  if (seededModule) {
-    const [bound] = await db
-      .select({ id: libraries.id })
-      .from(libraries)
-      .where(and(eq(libraries.companyId, companyId), eq(libraries.moduleId, seededModule.id)))
-      .limit(1);
-    if (bound) return bound.id;
-  }
-
-  const [mechanismNamed] = await db
-    .select({ id: libraries.id })
-    .from(libraries)
-    .where(and(eq(libraries.companyId, companyId), ilike(libraries.name, '%mechanism%')))
-    .limit(1);
-  if (mechanismNamed) return mechanismNamed.id;
-
-  const [master] = await db
-    .select({ id: libraries.id })
-    .from(libraries)
-    .where(and(eq(libraries.companyId, companyId), eq(libraries.masterLibrary, true)))
-    .limit(1);
-  return master?.id ?? null;
+  await db
+    .update(libraries)
+    .set({ masterLibrary: true, updatedAt: now })
+    .where(eq(libraries.id, mechanismsLibraryId));
 }
 
 function resolveOwnerModuleId(
@@ -253,7 +348,6 @@ function resolveOwnerModuleId(
   if (librarian) return librarian.id;
   const library = companyModules.find((m) => m.type === 'library');
   if (library) return library.id;
-  // Every company has a Math module (D-008); use it when no research/library module exists yet.
   const math = companyModules.find((m) => m.type === 'math');
   return math?.id ?? null;
 }
@@ -266,8 +360,39 @@ export async function bootstrapCompanyKnowledge(opts: {
   db: Db;
   companyId: string;
   now?: Date;
+  /** When true, skip work if catalog_seed concepts already exist. Default true. */
+  skipIfSeeded?: boolean;
 }): Promise<{ librariesEnsured: number; conceptsUpserted: number; topicId: string | null }> {
   const now = opts.now ?? new Date();
+
+  if (opts.skipIfSeeded !== false) {
+    const [existingSeed] = await opts.db
+      .select({ id: concepts.id })
+      .from(concepts)
+      .where(
+        and(
+          eq(concepts.companyId, opts.companyId),
+          eq(concepts.sourceClass, 'catalog_seed'),
+          ilike(concepts.sourceRef, 'strategy_families/%'),
+        ),
+      )
+      .limit(1);
+    if (existingSeed) {
+      const [mechLib] = await opts.db
+        .select({ id: libraries.id })
+        .from(libraries)
+        .where(
+          and(
+            eq(libraries.companyId, opts.companyId),
+            eq(libraries.name, MECHANISMS_LIBRARY_NAME),
+          ),
+        )
+        .limit(1);
+      if (mechLib) {
+        return { librariesEnsured: 0, conceptsUpserted: 0, topicId: null };
+      }
+    }
+  }
 
   const companyModules = await opts.db
     .select({ id: modules.id, type: modules.type, name: modules.name, config: modules.config })
@@ -283,16 +408,21 @@ export async function bootstrapCompanyKnowledge(opts: {
     librariesEnsured += 1;
   }
 
-  await ensureMasterLibrary(opts.db, opts.companyId, libraryModules, now);
-
-  const mechanismsLibraryId = await resolveMechanismsLibraryId(
+  const mechanismsLibraryId = await ensureMechanismsLibrary(
     opts.db,
     opts.companyId,
     libraryModules,
+    now,
   );
-  if (!mechanismsLibraryId) {
-    return { librariesEnsured, conceptsUpserted: 0, topicId: null };
-  }
+  librariesEnsured += 1;
+
+  await ensureMasterLibrary(
+    opts.db,
+    opts.companyId,
+    libraryModules,
+    mechanismsLibraryId,
+    now,
+  );
 
   const ownerModuleId = resolveOwnerModuleId(companyModules);
   if (!ownerModuleId) {
@@ -302,31 +432,20 @@ export async function bootstrapCompanyKnowledge(opts: {
   const catalogRows = await opts.db
     .select()
     .from(catalogEntries)
-    .where(
-      or(
-        ...SEED_CATALOG_TARGETS.map((t) =>
-          and(eq(catalogEntries.catalog, t.catalog), eq(catalogEntries.entryKey, t.entryKey)),
-        ),
-      ),
-    );
-
-  const catalogByKey = new Map(
-    catalogRows.map((row) => [`${row.catalog}/${row.entryKey}`, row] as const),
-  );
+    .where(inArray(catalogEntries.catalog, [...SEED_CATALOG_NAMES]))
+    .orderBy(catalogEntries.catalog, catalogEntries.entryKey);
 
   const seededTitles: string[] = [];
   let conceptsUpserted = 0;
 
-  for (const target of SEED_CATALOG_TARGETS) {
-    const entry = catalogByKey.get(`${target.catalog}/${target.entryKey}`);
-    if (!entry) continue;
-
+  for (const entry of catalogRows) {
     const tags = [entry.catalog, entry.tier].filter((t): t is string => Boolean(t));
     const body = buildSeededConceptBody({
       catalog: entry.catalog,
       entryKey: entry.entryKey,
       title: entry.title,
       tier: entry.tier,
+      payload: entry.payload,
     });
     const sourceRef = `${entry.catalog}/${entry.entryKey}`;
 
@@ -338,7 +457,7 @@ export async function bootstrapCompanyKnowledge(opts: {
         title: entry.title,
         body,
         tags,
-        sourceClass: 'deterministic_placeholder',
+        sourceClass: 'catalog_seed',
         sourceRef,
         status: 'active',
         primaryLibraryId: mechanismsLibraryId,
@@ -348,6 +467,7 @@ export async function bootstrapCompanyKnowledge(opts: {
         set: {
           body,
           tags,
+          sourceClass: 'catalog_seed',
           sourceRef,
           primaryLibraryId: mechanismsLibraryId,
           status: 'active',
@@ -405,7 +525,7 @@ export async function bootstrapCompanyKnowledge(opts: {
         toConceptId: toId,
         relation: link.relation,
         weightBand: 'typical',
-        sourceClass: 'deterministic_placeholder',
+        sourceClass: 'catalog_seed',
       })
       .onConflictDoNothing({
         target: [conceptLinks.fromConceptId, conceptLinks.toConceptId, conceptLinks.relation],

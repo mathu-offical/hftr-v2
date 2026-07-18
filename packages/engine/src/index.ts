@@ -48,6 +48,7 @@ export { attachConceptsToTopic } from './libraries/topic-attach';
 export {
   bootstrapCompanyKnowledge,
   buildSeededConceptBody,
+  SEED_CATALOG_NAMES,
   SEED_CATALOG_TARGETS,
   type SeededCatalogEntry,
 } from './libraries/bootstrap';

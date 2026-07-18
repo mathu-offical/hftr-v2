@@ -2,6 +2,7 @@ import { and, eq, ilike, inArray, or, type SQL } from 'drizzle-orm';
 import type { Db } from '@hftr/db';
 import { catalogEntries, concepts } from '@hftr/db/schema';
 import { attachConceptsToLibraries } from '../libraries/attach';
+import { buildSeededConceptBody } from '../libraries/bootstrap';
 
 const CURATED_CATALOGS = ['strategy_families', 'guardrail_packages'];
 export const MAX_CONCEPTS_PER_RUN = 8;
@@ -35,12 +36,13 @@ export async function curateDeterministic(opts: {
 
   for (const entry of entries) {
     const tags = [entry.catalog, ...(entry.tier ? [entry.tier] : [])];
-    const body =
-      `Catalog reference: "${entry.title}" from the ${entry.catalog} catalog ` +
-      `(entry ${entry.entryKey}, version ${entry.catalogVersion}` +
-      `${entry.tier ? `, tier ${entry.tier}` : ''}). ` +
-      'Selected deterministically for this module by catalog relevance — ' +
-      'not model-generated research. Full details live in the cited catalog entry.';
+    const body = buildSeededConceptBody({
+      catalog: entry.catalog,
+      entryKey: entry.entryKey,
+      title: entry.title,
+      tier: entry.tier,
+      payload: entry.payload,
+    });
 
     await opts.db
       .insert(concepts)
@@ -50,7 +52,7 @@ export async function curateDeterministic(opts: {
         title: entry.title,
         body,
         tags,
-        sourceClass: 'deterministic_placeholder',
+        sourceClass: 'catalog_seed',
         sourceRef: `${entry.catalog}/${entry.entryKey}`,
         status: 'active',
       })
@@ -59,6 +61,7 @@ export async function curateDeterministic(opts: {
         set: {
           body,
           tags,
+          sourceClass: 'catalog_seed',
           sourceRef: `${entry.catalog}/${entry.entryKey}`,
           status: 'active',
           updatedAt: opts.now,

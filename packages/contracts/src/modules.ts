@@ -583,7 +583,7 @@ export const CreateCompanyInput = z.object({
    * Required ENGINE seeds (min 1). Sole graph seed path — company Math hub
    * is always auto-provisioned; standalone extras are optional.
    */
-  engines: z.array(CreateCompanyEngine).min(1, 'at least one engine required').max(5),
+  engines: z.array(CreateCompanyEngine).min(1, 'at least one engine required').max(10),
   /** Optional standalone modules outside engines. */
   extraModules: z.array(CreateCompanyExtraModule).max(40).optional(),
 });

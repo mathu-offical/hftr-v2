@@ -1288,6 +1288,52 @@ export function getEngineTemplateById(id: string): EngineTemplate | undefined {
   return ENGINE_TEMPLATES.find((template) => template.id === id);
 }
 
+/** Create-form sections: research engines vs execution (full-spine) engines. */
+export type EngineCreateSection = 'research' | 'execution';
+
+const EXECUTION_CATEGORIES = new Set<EngineTemplate['category']>([
+  'day_trading',
+  'crypto',
+  'prediction',
+  'long_term',
+  'high_frequency',
+]);
+
+/**
+ * When an execution ENGINE is added at company create, also seed these research
+ * ENGINE templates if not already present (D-042 specialty packs + D-043 UX).
+ */
+export const EXECUTION_ENGINE_RESEARCH_DEPENDENCIES: Readonly<Record<string, readonly string[]>> = {
+  engine_day_trading: ['research_market_regime_lab', 'research_desk_aligned'],
+  engine_crypto: ['research_crypto_context'],
+  engine_prediction: ['research_prediction_niche'],
+  engine_long_term: ['research_filings_fundamentals', 'research_desk_aligned'],
+  engine_hft: ['research_market_regime_lab'],
+};
+
+export function engineCreateSection(template: EngineTemplate): EngineCreateSection {
+  if (template.category === 'research' || template.category === 'trend_research') {
+    return 'research';
+  }
+  if (EXECUTION_CATEGORIES.has(template.category)) {
+    return 'execution';
+  }
+  return 'research';
+}
+
+export function listEngineTemplatesForCreateSection(
+  section: EngineCreateSection,
+  sessionEnvelopeIds: ReadonlySet<string> = new Set(),
+): EngineTemplate[] {
+  return listResolvedEngineTemplates(sessionEnvelopeIds).filter(
+    (template) => engineCreateSection(template) === section,
+  );
+}
+
+export function researchDependenciesForExecutionEngine(templateId: string): string[] {
+  return [...(EXECUTION_ENGINE_RESEARCH_DEPENDENCIES[templateId] ?? [])];
+}
+
 export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
   blank: {
     id: 'blank',

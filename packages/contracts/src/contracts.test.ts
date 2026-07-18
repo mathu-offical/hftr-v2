@@ -65,7 +65,11 @@ import {
   UpdateEngineInstanceInput,
   withDefaultEngineSetup,
 } from './engines';
-import { COMPANY_TEMPLATES, ENGINE_TEMPLATES } from './templates';
+import {
+  COMPANY_TEMPLATES,
+  ENGINE_TEMPLATES,
+  researchDependenciesForExecutionEngine,
+} from './templates';
 import {
   CANVAS_LAYOUT,
   LAYOUT_COLUMN_STEP,
@@ -1057,5 +1061,15 @@ describe('CreateCompanyInput (D-043)', () => {
       engines: [{ templateId: 'engine_day_trading', inputs: {} }],
     });
     expect(ok.success).toBe(true);
+  });
+
+  it('maps execution engines to research dependency packs', () => {
+    const deps = researchDependenciesForExecutionEngine('engine_day_trading');
+    expect(deps).toEqual(
+      expect.arrayContaining(['research_market_regime_lab', 'research_desk_aligned']),
+    );
+    for (const dep of deps) {
+      expect(ENGINE_TEMPLATES.some((engine) => engine.id === dep)).toBe(true);
+    }
   });
 });

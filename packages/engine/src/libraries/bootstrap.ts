@@ -318,12 +318,20 @@ async function ensureLibraryForModule(
   topicScope: string,
   now: Date,
 ): Promise<void> {
+  // Prefer human shelf name from topic scope when module still carries compact canvas label.
+  const shelfName =
+    topicScope && topicScope !== 'pending_operator_scope' && !name.includes('←')
+      ? name
+      : topicScope && topicScope !== 'pending_operator_scope'
+        ? topicScope.slice(0, 120)
+        : name;
+
   await db
     .insert(libraries)
     .values({
       companyId,
       moduleId,
-      name,
+      name: shelfName,
       topicScope,
       masterLibrary: false,
       status: 'active',
@@ -333,7 +341,7 @@ async function ensureLibraryForModule(
   const [row] = await db
     .select({ id: libraries.id, moduleId: libraries.moduleId })
     .from(libraries)
-    .where(and(eq(libraries.companyId, companyId), eq(libraries.name, name)))
+    .where(and(eq(libraries.companyId, companyId), eq(libraries.name, shelfName)))
     .limit(1);
 
   if (row && row.moduleId === null) {

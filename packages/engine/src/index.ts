@@ -179,6 +179,15 @@ export {
   type ActivationGraphModule,
 } from './graph/activation-graph-blockers';
 
+// D-091 engine motherboard utilities
+export {
+  ensureEngineClockUtilityBind,
+  ensureAllEngineClockBinds,
+  hydrateEngineMembersFromUtilities,
+  listEngineUtilityLinks,
+  createEngineUtilityLink,
+} from './engines/utility-links';
+
 // Handlers (importing registers built-ins)
 export { registerHandler, getHandler, registeredKinds } from './handlers/registry';
 export type {
@@ -203,6 +212,7 @@ import './handlers/research-company-sweep';
 import './handlers/reconcile';
 import './handlers/simulation';
 import './handlers/analyzer';
+import './handlers/analyzer-concat';
 import './handlers/library-system-movers';
 import './handlers/library-system-sector-news';
 import './handlers/library-system-daily-summaries';

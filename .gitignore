@@ -20,11 +20,16 @@ out/
 *.log
 .cursor/runtime/
 .worktrees/
+.superpowers/
 
 # Test / coverage
 coverage/
 playwright-report/
+blob-report/
 test-results/
+
+# IronBee DevTools — local Chromium user-data (cookies, cache, metrics)
+.ironbee-browser-profile/
 
 # Vercel
 .vercel

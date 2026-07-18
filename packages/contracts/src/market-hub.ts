@@ -244,21 +244,59 @@ export const MarketHubSources = z.object({
 export type MarketHubSources = z.infer<typeof MarketHubSources>;
 
 /**
- * Company capital inventory for Posture left rail (D-131).
- * Holding funds + capital-bearing desks — not market-data provider lanes.
+ * Company capital inventory for Posture left rail (D-131 / D-138).
+ * Amounts are ValueRef-resolved or ledger-derived — never LLM-emitted.
  */
 export const MarketHubCapitalSource = z.object({
   id: z.string().uuid(),
   name: z.string().max(120),
-  moduleType: z.string().max(40),
-  kind: z.enum(['holding_fund', 'trading_desk', 'math_hub', 'other']),
-  /** Orientation label (fund source enum or setup state) — no raw dollars. */
+  /** Module row vs engine envelope row. */
+  entityType: z.enum(['module', 'engine']),
+  moduleType: z.string().max(40).nullable(),
+  kind: z.enum([
+    'holding_fund',
+    'trading_desk',
+    'fund_router',
+    'engine_envelope',
+    'other',
+  ]),
+  /** Orientation label (fund source enum or setup state). */
   sourceLabel: z.string().max(80),
   status: z.enum(['configured', 'draft', 'unavailable']),
   /** Policy / ValueRef id when present — orientation only. */
   allocationRef: z.string().max(120).nullable(),
+  /** Resolved allocation in USD cents (string bigint). */
+  allocationCents: z.string().nullable(),
+  /** Share of company pool when resolvable (0–10000 bps). */
+  allocationShareBps: z.number().int().min(0).max(10_000).nullable(),
+  allocationStatus: z.enum([
+    'resolved',
+    'missing_ref',
+    'missing_base',
+    'unconfigured',
+  ]),
+  /** Latest module ledger balance-after when scoped. */
+  ledgerBalanceCents: z.string().nullable(),
+  engineId: z.string().uuid().nullable(),
+  engineLabel: z.string().max(120).nullable(),
 });
 export type MarketHubCapitalSource = z.infer<typeof MarketHubCapitalSource>;
+
+/**
+ * Sector / news seal board for day overlay (D-138).
+ * Parallel to movers — Analyze reseals stock compound + news lanes together.
+ */
+export const MarketHubNews = z.object({
+  status: z.enum(['ready', 'missing', 'expired']),
+  title: z.string().max(300).nullable(),
+  sealId: z.string().max(128).nullable(),
+  corroborationBand: QualitativeBand.nullable(),
+  items: z.array(MarketHubMoversItem).max(48).default([]),
+  verifiedAt: z.string().datetime().nullable(),
+  expiresAt: z.string().datetime().nullable(),
+  reportConceptId: z.string().uuid().nullable(),
+});
+export type MarketHubNews = z.infer<typeof MarketHubNews>;
 
 /**
  * MarketModel awareness projection for the day overlay (D-122 / D-131).
@@ -284,8 +322,19 @@ export const MarketHubResponse = z.object({
   trendCandidates: z.array(MarketHubTrendCandidate).max(50),
   positions: z.array(MarketHubPosition).max(100),
   pipeline: z.array(MarketHubPipelineBySymbol).max(100),
-  /** Holding funds / capital-bearing modules for left-rail inventory (D-131). */
+  /** Holding funds / routers / engines / desks with resolved amounts (D-138). */
   capitalSources: z.array(MarketHubCapitalSource).max(64).default([]),
+  /** Sector news seal board — stock movers live under `movers` (D-138). */
+  news: MarketHubNews.default({
+    status: 'missing',
+    title: null,
+    sealId: null,
+    corroborationBand: null,
+    items: [],
+    verifiedAt: null,
+    expiresAt: null,
+    reportConceptId: null,
+  }),
   freshness: MarketHubFreshness,
   /** Latest Analyze synthesis run for Model awareness dock (D-120). */
   synthesis: MarketHubSynthesisSnapshot.optional(),

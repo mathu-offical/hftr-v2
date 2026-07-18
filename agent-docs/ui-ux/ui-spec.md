@@ -307,7 +307,9 @@ suppressed in editable fields.
 - **Persistent ribbon (D-097):** always-visible tab buttons (Trends · Scenarios · Watch ·
   Decisions · Lineage · Approvals · Dead) plus an **Execution engine** dropdown and
   expand/collapse chevron. Clicking a tab opens the panel on that section; `` ` `` / Esc /
-  chevron still toggle open height. Content (~256px) sits above the ribbon when expanded.
+  chevron still toggle open height. Content defaults to **~70vh** (capped at 48rem, floor
+  16rem) above the ribbon when expanded (D-105) — restores the middle-bottom control panel as
+  a primary working surface rather than a slim strip.
 - **Engine scope (D-097):** dropdown selects `All engines` or one `engine_instances` row.
   Every tab filters durable API projections to modules whose `engine_instance_id` matches
   (trends, leads/trees, watchlists, executions/decisions, lineage columns, approvals that

@@ -1095,6 +1095,11 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `TrendListChrome`. Empty modules still appear. `GET …/trends` raises limit and orders by
   `scannedAt`. Docs: ui-spec §4 middle-bottom. **Status: implemented.**
 
+- **D-105 (bottom panel taller expanded height, 2026-07-18):** Expanded middle-bottom control
+  panel content grows from fixed `h-64` (~256px) to **`min(70vh, 48rem)`** with a 16rem floor
+  so Trends / Scenario / Lineage have a primary working surface while the ribbon stays docked.
+  Docs: ui-spec §4 middle-bottom. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

@@ -424,7 +424,7 @@ export function BottomPanel(props: {
 
   return (
     <section className="flex shrink-0 flex-col bg-[var(--color-surface-1)]">
-      <div className="h-64 min-h-0 overflow-y-auto border-t border-[var(--color-line)] px-4 py-2 text-sm">
+      <div className="h-[min(70vh,48rem)] min-h-[16rem] overflow-y-auto border-t border-[var(--color-line)] px-4 py-2 text-sm">
         {tab === 'trends' && (
           <TrendsView
             companyId={props.companyId}

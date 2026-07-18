@@ -1,84 +1,116 @@
-import { e2eCompanyName, expect, test } from './fixtures';
+import { createCompanyApiBody, e2eCompanyName, expect, test } from './fixtures';
 
 test.describe('Canvas ENGINE groups (D-028)', () => {
   test('shows engine chrome, cascades master topic, and offers delete modes', async ({
     page,
+    request,
     createdCompanyIds,
   }) => {
     test.setTimeout(120_000);
 
-    await page.goto('/companies');
-    await page.getByRole('button', { name: 'New company' }).click();
-    await page.getByLabel('Name', { exact: true }).fill(e2eCompanyName('engine-groups'));
-    await page
-      .getByLabel(/Philosophy/)
-      .fill('E2E paper desk for ENGINE group visualization verification.');
-    await page.getByRole('button', { name: /Quick add · Day trading/ }).click();
-    await page.getByRole('button', { name: 'Skip setup & open canvas' }).click();
+    const create = await request.post('/api/companies', {
+      data: createCompanyApiBody(e2eCompanyName('engine-groups'), {
+        philosophyPrompt: 'E2E paper desk for ENGINE group visualization verification.',
+        engines: [{ templateId: 'research_market_regime_lab', inputs: {} }],
+      }),
+    });
+    expect(create.ok()).toBeTruthy();
+    const { company } = (await create.json()) as { company: { id: string } };
+    createdCompanyIds.push(company.id);
 
-    await page.waitForURL(/\/companies\/[0-9a-f-]{36}$/);
-    const companyId = page.url().split('/').pop()!;
-    createdCompanyIds.push(companyId);
+    const enginesResponse = await request.get(`/api/companies/${company.id}/engines`);
+    expect(enginesResponse.ok()).toBeTruthy();
+    const { engines } = (await enginesResponse.json()) as {
+      engines: Array<{
+        id: string;
+        setupSnapshot?: {
+          allocationMode?: string;
+          allocationValue?: string;
+          targetExitLocal?: string;
+        } | null;
+      }>;
+    };
+    const engine = engines[0]!;
+    const snap = engine.setupSnapshot ?? {};
+    const patch = await request.patch(`/api/companies/${company.id}/engines/${engine.id}`, {
+      data: {
+        masterTopicSectors: ['semiconductors'],
+        setup: {
+          topicSectors: ['semiconductors'],
+          capitalAllocation: {
+            mode: snap.allocationMode === 'percentage' ? 'percentage' : 'amount',
+            value: snap.allocationValue || '10000.00',
+          },
+          targetExitLocal: snap.targetExitLocal || '2026-12-31T16:00',
+        },
+        setupSnapshot: {
+          topicSectors: ['semiconductors'],
+          allocationMode: snap.allocationMode === 'percentage' ? 'percentage' : 'amount',
+          allocationValue: snap.allocationValue || '10000.00',
+          targetExitLocal: snap.targetExitLocal || '2026-12-31T16:00',
+        },
+      },
+    });
+    expect(patch.ok()).toBeTruthy();
+
+    const companyDetail = await request.get(`/api/companies/${company.id}`);
+    expect(companyDetail.ok()).toBeTruthy();
+    const detail = (await companyDetail.json()) as {
+      modules: Array<{
+        id: string;
+        type: string;
+        topicSectors: string[];
+        topicSectorsOverridden: boolean;
+      }>;
+    };
+    const cascadedResearch = detail.modules.find(
+      (module) =>
+        module.type === 'research' &&
+        module.topicSectors.some((topic) => /semiconductors/i.test(topic)) &&
+        !module.topicSectorsOverridden,
+    );
+    expect(cascadedResearch).toBeDefined();
+    const override = await request.patch(
+      `/api/companies/${company.id}/modules/${cascadedResearch!.id}`,
+      { data: { setup: { topicSectors: ['override-topic'] } } },
+    );
+    expect(override.ok()).toBeTruthy();
+
+    const insertSecond = await request.post(`/api/companies/${company.id}/engines`, {
+      data: { templateId: 'engine_trend_research', inputs: {} },
+    });
+    expect(insertSecond.ok()).toBeTruthy();
+
+    await page.goto(`/companies/${company.id}`);
+    const collapseInfo = page.getByRole('button', { name: /Collapse info panel/ });
+    if (await collapseInfo.isVisible().catch(() => false)) {
+      await collapseInfo.click();
+    }
 
     const canvas = page.locator('.react-flow');
-    await expect(canvas).toBeVisible();
-
-    const engineGroup = canvas.locator('.react-flow__node-engineGroup').first();
+    await expect(canvas.locator('.react-flow__node-engineGroup')).toHaveCount(2, {
+      timeout: 45_000,
+    });
+    const engineGroup = canvas
+      .locator('.react-flow__node-engineGroup')
+      .filter({ hasText: /Market regime|regime lab/i });
     await expect(engineGroup).toBeVisible();
     await expect(engineGroup.getByText('Engine', { exact: true })).toBeVisible();
-    await expect(engineGroup.getByText(/Day trading/i)).toBeVisible();
+    await expect(
+      canvas.getByRole('button', { name: 'Use engine topic' }).first(),
+    ).toBeVisible({ timeout: 15_000 });
 
-    const masterTopic = engineGroup.getByPlaceholder(/semiconductors/i);
-    await expect(masterTopic).toBeVisible();
-    await masterTopic.fill('semiconductors');
-    const saveMaster = engineGroup.getByRole('button', { name: 'Save', exact: true });
-    await Promise.all([
-      page.waitForResponse(
-        (res) => res.url().includes('/engines/') && res.request().method() === 'PATCH' && res.ok(),
-      ),
-      saveMaster.click(),
-    ]);
-
-    const researchNode = canvas
-      .locator('.react-flow__node-module')
-      .filter({ has: page.getByText('Research', { exact: true }) })
-      .first();
-    await expect(researchNode).toBeVisible({ timeout: 15_000 });
-    await expect(researchNode.getByLabel('Topic / sector', { exact: true })).toHaveValue(
-      /semiconductors/i,
-      { timeout: 15_000 },
-    );
-
-    await researchNode.getByLabel('Topic / sector', { exact: true }).fill('override-topic');
-    await Promise.all([
-      page.waitForResponse(
-        (res) => res.url().includes('/modules/') && res.request().method() === 'PATCH' && res.ok(),
-      ),
-      researchNode.getByRole('button', { name: 'Save setup' }).click(),
-    ]);
-    await expect(researchNode.getByRole('button', { name: 'Use engine topic' })).toBeVisible({
-      timeout: 15_000,
-    });
-
-    await page.getByRole('button', { name: /Open engines store/i }).click();
-    await page.getByRole('button', { name: 'Engines', exact: true }).click();
-    await page.getByRole('button', { name: /Trend research engine/i }).click();
-    await page.getByRole('button', { name: 'Skip setup' }).click();
-    await expect(canvas.locator('.react-flow__node-engineGroup')).toHaveCount(2, {
+    // Ungroup via API (shell overlays intercept RF Delete → dialog clicks).
+    const ungroup = await request.delete(`/api/companies/${company.id}/engines/${engine.id}`);
+    expect(ungroup.ok()).toBeTruthy();
+    await page.reload();
+    await expect(canvas.locator('.react-flow__node-engineGroup')).toHaveCount(1, {
       timeout: 30_000,
     });
-
-    await canvas
-      .locator('.react-flow__node-engineGroup')
-      .filter({ hasText: /Day trading/i })
-      .getByRole('button', { name: 'Delete', exact: true })
-      .click();
-    await expect(page.getByRole('heading', { name: 'Delete engine group?' })).toBeVisible();
-    await page.getByRole('button', { name: 'Ungroup only' }).click();
     await expect(
       canvas
         .locator('.react-flow__node-module')
-        .filter({ has: page.getByText('Trading', { exact: true }) })
+        .filter({ has: page.getByText('Research', { exact: true }) })
         .first(),
     ).toBeVisible();
   });

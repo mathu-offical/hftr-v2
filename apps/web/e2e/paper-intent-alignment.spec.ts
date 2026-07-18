@@ -1,5 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
-import { e2eCompanyName, expect, test } from './fixtures';
+import { createCompanyApiBody, e2eCompanyName, expect, test } from './fixtures';
 
 type CompanyModule = {
   id: string;
@@ -38,13 +38,9 @@ async function createPaperCompany(
   suffix: string,
 ): Promise<CompanyResponse> {
   const create = await request.post('/api/companies', {
-    data: {
-      name: e2eCompanyName(suffix),
+    data: createCompanyApiBody(e2eCompanyName(suffix), {
       philosophyPrompt: `E2E ${suffix} paper-only intent alignment.`,
-      mode: 'paper',
-      seedCreditsCents: 10_000_000,
-      template: 'day_trading_starter',
-    },
+    }),
   });
   expect(create.ok()).toBeTruthy();
   const created = (await create.json()) as { company: { id: string } };

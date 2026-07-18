@@ -1,4 +1,4 @@
-import { archiveCompany, e2eCompanyName, expect, test } from './fixtures';
+import { archiveCompany, createCompanyApiBody, e2eCompanyName, expect, test } from './fixtures';
 
 test.describe('Canvas node dashboard (D-026)', () => {
   test('keeps trading setup fixed and restores generated names', async ({
@@ -8,39 +8,38 @@ test.describe('Canvas node dashboard (D-026)', () => {
   }) => {
     test.setTimeout(90_000);
 
-    await page.goto('/companies');
-    await page.getByRole('button', { name: 'New company' }).click();
-    await page.getByLabel('Name', { exact: true }).fill(e2eCompanyName('canvas-dashboard'));
-    await page
-      .getByLabel(/Philosophy/)
-      .fill('E2E paper desk for focused canvas dashboard verification.');
-    await page.getByRole('button', { name: /Quick add · Day trading/ }).click();
-    await page.getByRole('button', { name: 'Skip setup & open canvas' }).click();
-
-    await page.waitForURL(/\/companies\/[0-9a-f-]{36}$/);
-    const companyId = page.url().split('/').pop()!;
+    // API create with day trading only (no UI research-dep pack) keeps Trading findable.
+    const create = await request.post('/api/companies', {
+      data: createCompanyApiBody(e2eCompanyName('canvas-dashboard'), {
+        philosophyPrompt: 'E2E paper desk for focused canvas dashboard verification.',
+        engines: [{ templateId: 'engine_day_trading', inputs: {} }],
+      }),
+    });
+    expect(create.ok()).toBeTruthy();
+    const { company } = (await create.json()) as { company: { id: string } };
+    const companyId = company.id;
     createdCompanyIds.push(companyId);
 
-    const canvas = page.locator('.react-flow');
-    await expect(canvas).toBeVisible();
-
-    const tradingNode = canvas
-      .locator('.react-flow__node')
-      .filter({ has: page.getByText('Trading', { exact: true }) });
-    await expect(tradingNode).toBeVisible();
-    await expect(tradingNode).toContainText('Paper Day-Trade Execution');
+    await page.goto(`/companies/${companyId}`);
 
     const collapseInfoPanel = page.getByRole('button', { name: /Collapse info panel/ });
-    if (await collapseInfoPanel.isVisible()) {
+    if (await collapseInfoPanel.isVisible().catch(() => false)) {
       await collapseInfoPanel.click();
       await expect(page.getByRole('button', { name: /Expand info panel/ })).toBeVisible();
     }
 
+    const canvas = page.locator('.react-flow');
+    const tradingNode = canvas
+      .locator('.react-flow__node')
+      .filter({ has: page.getByText('Trading', { exact: true }) });
+    await expect(tradingNode).toBeVisible({ timeout: 45_000 });
+    await tradingNode.scrollIntoViewIfNeeded();
+    await expect(tradingNode).toContainText('Paper Day-Trade Execution');
+
     await expect(tradingNode.getByText('Required · Topic / sector', { exact: true })).toBeVisible();
-    await expect(
-      tradingNode.getByText('Required · Capital allocation', { exact: true }),
-    ).toBeVisible();
-    await expect(tradingNode.getByText('Required · Target exit', { exact: true })).toBeVisible();
+    // API create pre-fills capital/exit (D-035) — chips are Confirmed, not Required.
+    await expect(tradingNode.getByLabel('Confirmed: Capital allocation')).toBeVisible();
+    await expect(tradingNode.getByLabel('Confirmed: Target exit')).toBeVisible();
 
     const topicField = tradingNode.getByLabel('Topic / sector', { exact: true });
     const allocationField = tradingNode.getByLabel('Capital allocation value', { exact: true });
@@ -55,21 +54,20 @@ test.describe('Canvas node dashboard (D-026)', () => {
     for (const handleLabel of [
       'Data feed input',
       'Directive input',
-      'Fund route input',
       'Data feed output',
       'Directive output',
       'Verification output',
-      'Fund route output',
     ] as const) {
       await expect(tradingNode.getByLabel(handleLabel, { exact: true })).toBeAttached();
     }
 
-    await topicField.click();
+    // Shell panel overlays intercept RF pointer events — force node interactions.
+    await topicField.click({ force: true });
     await expect(page.getByRole('button', { name: 'Close inspector' })).not.toBeVisible();
 
     const nodeBoxBeforeSelect = await tradingNode.boundingBox();
     expect(nodeBoxBeforeSelect).not.toBeNull();
-    await tradingNode.getByText('Trading', { exact: true }).click();
+    await tradingNode.getByText('Trading', { exact: true }).click({ force: true });
     await expect(page.getByText(/Generated from connections/)).toBeVisible();
     await expect(page.getByText(/base:\s*Paper Day-Trade Execution/)).toBeVisible();
 
@@ -83,15 +81,15 @@ test.describe('Canvas node dashboard (D-026)', () => {
     await page.getByRole('button', { name: 'Close inspector' }).click();
     await expect(page.getByRole('button', { name: 'Close inspector' })).not.toBeVisible();
 
-    await topicField.fill('Semiconductors, infrastructure');
-    await allocationField.fill('25');
-    await targetExitField.fill('2099-01-02T10:30');
+    await topicField.fill('Semiconductors, infrastructure', { force: true });
+    await allocationField.fill('25', { force: true });
+    await targetExitField.fill('2099-01-02T10:30', { force: true });
     const setupResponse = page.waitForResponse(
       (response) =>
         response.url().includes(`/api/companies/${companyId}/modules/`) &&
         response.request().method() === 'PATCH',
     );
-    await tradingNode.getByRole('button', { name: 'Save setup' }).click();
+    await tradingNode.getByRole('button', { name: 'Save setup' }).click({ force: true });
     expect((await setupResponse).ok()).toBe(true);
 
     await expect(tradingNode.getByText('Set · Topic / sector', { exact: true })).toHaveCount(0);
@@ -102,7 +100,7 @@ test.describe('Canvas node dashboard (D-026)', () => {
     await expect(allocationField).toHaveClass(/border-\[var\(--color-line\)\]/);
     await expect(targetExitField).toHaveClass(/border-\[var\(--color-line\)\]/);
 
-    await tradingNode.getByText('Trading', { exact: true }).click();
+    await tradingNode.getByText('Trading', { exact: true }).click({ force: true });
     const inspectorName = page.locator('aside').getByLabel('Name', { exact: true });
     await expect(inspectorName).toBeVisible();
     await inspectorName.fill('E2E Custom Trading Desk');

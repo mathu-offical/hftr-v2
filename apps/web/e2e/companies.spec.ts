@@ -12,7 +12,15 @@ async function openNewCompanyForm(page: Page): Promise<void> {
 }
 
 async function createDayTradingCompany(page: Page): Promise<void> {
-  await page.getByRole('button', { name: /Quick add · Day trading/ }).click();
+  const nameField = page.getByRole('textbox', { name: 'Name', exact: true });
+  if (!(await nameField.inputValue()).trim()) {
+    await nameField.fill(e2eCompanyName('day-trading'));
+  }
+  const philosophy = page.getByRole('textbox', { name: /Philosophy/ });
+  if (!(await philosophy.inputValue()).trim()) {
+    await philosophy.fill('E2E day-trading company philosophy.');
+  }
+  await page.getByRole('button', { name: 'Add Day trading engine' }).click();
   await expect(page.getByTestId('engine-seed-card').first()).toBeVisible({
     timeout: CREATE_FORM_TIMEOUT_MS,
   });
@@ -38,56 +46,102 @@ test.describe('Companies directory', () => {
     await page.getByRole('button', { name: 'Close settings' }).click();
   });
 
-  test('engine-centric create: quick-add, remove, ≥1 gate, and inline definition', async ({
-    page,
-  }) => {
+  test('engine-centric create: section add buttons, research deps, ≥1 gate', async ({ page }) => {
     await openNewCompanyForm(page);
     await expect(page.getByRole('heading', { name: 'Engines' })).toBeVisible();
     await expect(page.getByTestId('engines-empty-hint')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Create (paper mode)' })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Skip setup & open canvas' })).toBeDisabled();
 
-    await expect(page.getByRole('button', { name: /Quick add · Day trading/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Quick add · Trend research/ })).toBeVisible();
+    await expect(page.getByTestId('engine-section-research')).toBeVisible();
+    await expect(page.getByTestId('engine-section-execution')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add Day trading engine' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add Trend research engine' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Locked · Crypto engine' })).toBeDisabled();
+    await expect(
+      page.getByRole('button', { name: 'Locked · High-frequency engine' }),
+    ).toBeDisabled();
 
-    await page.getByRole('button', { name: /Quick add · Day trading/ }).click();
-    const engineCard = page.getByTestId('engine-seed-card').first();
-    await expect(engineCard).toBeVisible();
+    await page.getByRole('button', { name: 'Add Day trading engine' }).click();
+    // Execution + auto research deps (market regime lab, desk-aligned).
+    await expect(page.getByTestId('engine-seed-card')).toHaveCount(3);
+    // Skip is type=button — must still require name + philosophy (API CreateCompanyInput).
+    await expect(page.getByRole('button', { name: 'Skip setup & open canvas' })).toBeDisabled();
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(e2eCompanyName('create-gate'));
+    await page.getByRole('textbox', { name: /Philosophy/ }).fill('E2E create-gate philosophy.');
+    await expect(page.getByRole('button', { name: 'Skip setup & open canvas' })).toBeEnabled();
+    await expect(page.getByTestId('engine-canvas-preview')).toBeVisible();
+    await expect(page.getByTestId('engine-workspace')).toBeVisible();
+    await expect(page.getByTestId('engine-inspector-panel')).toBeVisible();
+    await expect(page.getByTestId('engine-preview-group')).toHaveCount(3);
+    await expect(page.getByTestId('engine-auto-dep').first()).toBeVisible();
+    await expect(
+      page.getByTestId('engine-seed-card').filter({ hasText: 'Day trading engine' }),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId('engine-seed-card').filter({ hasText: 'dep' }),
+    ).toHaveCount(2);
+    // Add buttons stay available for another instance of the same type.
+    await expect(page.getByRole('button', { name: 'Add Day trading engine' })).toBeEnabled();
+
+    const dayCard = page.getByTestId('engine-inspector-focus');
+    await expect(page.getByTestId('engine-seed-inspector')).toHaveAttribute(
+      'data-inspector-mode',
+      'family',
+    );
+    await expect(dayCard.getByRole('heading', { name: 'Day trading engine' })).toBeVisible();
     // Topic stays operator-required; capital/exit are prefilled defaults (D-035).
-    await expect(page.getByText(/Required · Topic \/ sector/).first()).toBeVisible();
-    await expect(page.getByLabel('Confirmed: Capital allocation').first()).toBeVisible();
+    await expect(dayCard.getByText(/Required · Topic \/ sector/).first()).toBeVisible();
+    await expect(dayCard.getByLabel('Confirmed: Capital allocation').first()).toBeVisible();
 
-    const allocationMode = page.getByLabel('Capital allocation mode').first();
-    const allocationValue = page.getByLabel('Capital allocation value').first();
+    const allocationMode = dayCard.getByLabel('Capital allocation mode').first();
+    const allocationValue = dayCard.getByLabel('Capital allocation value').first();
     await expect(allocationMode).toBeVisible();
     await expect(allocationValue).toBeVisible();
-    // Full seed envelope on the engine card (cascade splits on create).
     await expect(allocationValue).toHaveValue('10000.00');
-    const modeBox = await allocationMode.boundingBox();
-    const valueBox = await allocationValue.boundingBox();
-    expect(modeBox).toBeTruthy();
-    expect(valueBox).toBeTruthy();
-    expect(valueBox!.width).toBeGreaterThan(80);
-    expect(modeBox!.width).toBeLessThan(valueBox!.width);
     await allocationValue.fill('2500.00');
     await expect(allocationValue).toHaveValue('2500.00');
 
-    await page.getByRole('button', { name: /Quick add · Trend research/ }).click();
-    await expect(page.getByTestId('engine-seed-card')).toHaveCount(2);
+    // Live cascade: research dep seeds inherit execution capital; family stays open with dep focused.
+    await page.getByRole('button', { name: /Select Market regime lab/ }).click();
+    await expect(page.getByTestId('engine-seed-inspector')).toHaveAttribute(
+      'data-inspector-mode',
+      'family',
+    );
+    await expect(
+      page.getByTestId('engine-inspector-focus').getByLabel('Capital allocation value').first(),
+    ).toHaveValue('2500.00');
+    await expect(
+      page.getByTestId('engine-inspector-focus').getByRole('heading', { name: 'Market regime lab' }),
+    ).toBeVisible();
+
+    await page.getByRole('button', { name: 'Add Trend research engine' }).click();
+    await expect(page.getByTestId('engine-seed-card')).toHaveCount(4);
     await page
       .getByTestId('engine-seed-card')
-      .nth(1)
-      .getByRole('button', { name: 'Remove' })
+      .filter({ hasText: 'Trend research engine' })
+      .getByRole('button', { name: /Remove Trend research engine/ })
       .click();
-    await expect(page.getByTestId('engine-seed-card')).toHaveCount(1);
+    await expect(page.getByTestId('engine-seed-card')).toHaveCount(3);
+
+    // Multi-add same execution type.
+    await page.getByRole('button', { name: 'Add Day trading engine' }).click();
+    await expect(page.getByTestId('engine-seed-card')).toHaveCount(6);
+    await expect(page.getByRole('heading', { name: 'Day trading engine (2)' })).toBeVisible();
 
     await page.getByLabel('Add module').selectOption('research');
     await expect(page.getByTestId('extra-seed-module')).toBeVisible();
 
     await expect(page.getByRole('button', { name: 'Skip setup & open canvas' })).toBeEnabled();
 
-    // Removing the last engine re-blocks create.
-    await page.getByTestId('engine-seed-card').getByRole('button', { name: 'Remove' }).click();
+    // Removing all engines from the nav list re-blocks create.
+    while ((await page.getByTestId('engine-seed-card').count()) > 0) {
+      await page
+        .getByTestId('engine-seed-card')
+        .first()
+        .getByRole('button', { name: /^Remove / })
+        .click();
+    }
     await expect(page.getByTestId('engines-empty-hint')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Create (paper mode)' })).toBeDisabled();
   });
@@ -119,7 +173,9 @@ test.describe('Companies directory', () => {
       }>;
     };
     const requiredOwners = source.modules.filter((module) =>
-      ['research', 'trend', 'trading', 'analyzer', 'simulator', 'generator'].includes(module.type),
+      ['research', 'librarian', 'trend', 'trading', 'analyzer', 'simulator', 'generator'].includes(
+        module.type,
+      ),
     );
     const ownedMath = source.modules.filter(
       (module) => module.type === 'math' && module.toolOwnerModuleId,
@@ -181,7 +237,7 @@ test.describe('Companies directory', () => {
     await expect(renameInput).toBeVisible({ timeout: 10_000 });
     const renamed = `${name} Renamed`.slice(0, 80);
     await renameInput.fill(renamed);
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByRole('button', { name: 'Save company name' }).click();
     await expect(
       page.locator('[data-testid="company-card"]').filter({ hasText: renamed }),
     ).toBeVisible();

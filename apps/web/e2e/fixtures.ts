@@ -18,7 +18,7 @@ export async function openNewCompanyForm(page: Page): Promise<void> {
 }
 
 /**
- * Quick-adds a day-trading engine (D-043) and opens the canvas.
+ * Adds a day-trading execution engine (auto-seeds research deps) and opens canvas.
  * Prefer skipSetup (default) so topic can be completed on-canvas.
  */
 export async function createCompanyFromTemplate(
@@ -26,7 +26,15 @@ export async function createCompanyFromTemplate(
   _templateButton?: RegExp | string,
   options?: { skipSetup?: boolean },
 ): Promise<void> {
-  await page.getByRole('button', { name: /Quick add · Day trading/ }).click();
+  const nameField = page.getByRole('textbox', { name: 'Name', exact: true });
+  if (!(await nameField.inputValue()).trim()) {
+    await nameField.fill(e2eCompanyName('from-template'));
+  }
+  const philosophy = page.getByRole('textbox', { name: /Philosophy/ });
+  if (!(await philosophy.inputValue()).trim()) {
+    await philosophy.fill('E2E day-trading company philosophy.');
+  }
+  await page.getByRole('button', { name: 'Add Day trading engine' }).click();
   await expect(page.getByTestId('engine-seed-card').first()).toBeVisible({
     timeout: CREATE_FORM_TIMEOUT_MS,
   });
@@ -45,6 +53,33 @@ export async function createCompanyFromTemplate(
 /** Company create form name field (avoids colliding with company-list aria-labels). */
 export function companyNameField(page: Page) {
   return page.getByRole('textbox', { name: 'Name', exact: true });
+}
+
+/**
+ * API body for POST /api/companies (D-043): always includes ≥1 engine.
+ * Defaults to day-trading execution engine; callers may override `engines`.
+ */
+export function createCompanyApiBody(
+  name: string,
+  overrides?: {
+    philosophyPrompt?: string;
+    seedCreditsCents?: number;
+    engines?: Array<{
+      templateId: string;
+      inputs?: Record<string, string>;
+      setup?: unknown;
+    }>;
+    extraModules?: unknown[];
+  },
+) {
+  return {
+    name,
+    philosophyPrompt: overrides?.philosophyPrompt ?? 'E2E paper company philosophy.',
+    mode: 'paper' as const,
+    seedCreditsCents: overrides?.seedCreditsCents ?? 1_000_000,
+    engines: overrides?.engines ?? [{ templateId: 'engine_day_trading', inputs: {} }],
+    extraModules: overrides?.extraModules,
+  };
 }
 
 type CompanyFixtures = {

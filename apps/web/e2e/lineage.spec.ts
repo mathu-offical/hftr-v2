@@ -1,5 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
-import { e2eCompanyName, expect, test } from './fixtures';
+import { createCompanyApiBody, e2eCompanyName, expect, test } from './fixtures';
 
 type CompanyModule = { id: string; type: string };
 
@@ -37,13 +37,9 @@ async function createPaperCompany(
   createdCompanyIds: string[],
 ): Promise<CompanyResponse> {
   const create = await request.post('/api/companies', {
-    data: {
-      name: e2eCompanyName('lineage'),
+    data: createCompanyApiBody(e2eCompanyName('lineage'), {
       philosophyPrompt: 'E2E flow 7 — ValueRef lineage audit.',
-      mode: 'paper',
-      seedCreditsCents: 10_000_000,
-      template: 'day_trading_starter',
-    },
+    }),
   });
   expect(create.ok()).toBeTruthy();
   const created = (await create.json()) as { company: { id: string } };
@@ -95,12 +91,15 @@ async function activateAndPromote(
   expect(promote.ok()).toBeTruthy();
 
   await expect
-    .poll(async () => {
-      const activity = await request.get(`/api/companies/${company.company.id}/activity`);
-      if (!activity.ok()) return null;
-      const body = (await activity.json()) as { traces: Array<{ outcome: string }> };
-      return body.traces.find((t) => t.outcome === 'filled') ?? null;
-    }, { timeout: 30_000 })
+    .poll(
+      async () => {
+        const activity = await request.get(`/api/companies/${company.company.id}/activity`);
+        if (!activity.ok()) return null;
+        const body = (await activity.json()) as { traces: Array<{ outcome: string }> };
+        return body.traces.find((t) => t.outcome === 'filled') ?? null;
+      },
+      { timeout: 30_000 },
+    )
     .not.toBeNull();
 }
 
@@ -120,17 +119,14 @@ test.describe('Value lineage (flow 7)', () => {
     const { values } = (await valuesResponse.json()) as { values: ValueRow[] };
     expect(values.length).toBeGreaterThan(0);
 
-    const withLineage =
-      values.find((v) => (v.parentRefs?.length ?? 0) > 0) ?? values[0]!;
+    const withLineage = values.find((v) => (v.parentRefs?.length ?? 0) > 0) ?? values[0]!;
     const lineageResponse = await request.get(
       `/api/companies/${company.company.id}/values/${encodeURIComponent(withLineage.ref)}/lineage`,
     );
     expect(lineageResponse.ok()).toBeTruthy();
     const lineage = (await lineageResponse.json()) as LineageResponse;
     expect(lineage.chain.length).toBeGreaterThan(0);
-    expect(
-      lineage.chain.some((node) => ROOTISH.has(node.sourceClass)),
-    ).toBeTruthy();
+    expect(lineage.chain.some((node) => ROOTISH.has(node.sourceClass))).toBeTruthy();
 
     await page.goto(`/companies/${company.company.id}`);
     const expandInfo = page.getByRole('button', { name: /Expand info panel/ });
@@ -139,7 +135,10 @@ test.describe('Value lineage (flow 7)', () => {
     }
     await page.getByRole('button', { name: 'Values', exact: true }).click();
     await expect(page.getByText('No recorded values yet')).toHaveCount(0);
-    await page.getByRole('button', { name: /Show lineage for value/ }).first().click();
+    await page
+      .getByRole('button', { name: /Show lineage for value/ })
+      .first()
+      .click();
     await expect(page.getByText('Lineage chain')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(/depth 0/)).toBeVisible();
   });

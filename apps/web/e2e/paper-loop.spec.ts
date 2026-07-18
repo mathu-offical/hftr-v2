@@ -1,5 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
-import { e2eCompanyName, expect, test } from './fixtures';
+import { createCompanyApiBody, e2eCompanyName, expect, test } from './fixtures';
 
 type CompanyModule = { id: string; type: string; status: string };
 
@@ -22,13 +22,9 @@ async function createPaperCompany(
   createdCompanyIds: string[],
 ): Promise<CompanyResponse> {
   const create = await request.post('/api/companies', {
-    data: {
-      name: e2eCompanyName('paper-loop'),
+    data: createCompanyApiBody(e2eCompanyName('paper-loop'), {
       philosophyPrompt: 'E2E flow 3 — full paper promote to fill.',
-      mode: 'paper',
-      seedCreditsCents: 10_000_000,
-      template: 'day_trading_starter',
-    },
+    }),
   });
   expect(create.ok()).toBeTruthy();
   const created = (await create.json()) as { company: { id: string } };
@@ -106,12 +102,15 @@ async function waitForFilledActivity(
   companyId: string,
 ): Promise<ActivityResponse> {
   await expect
-    .poll(async () => {
-      const response = await request.get(`/api/companies/${companyId}/activity`);
-      if (!response.ok()) return null;
-      const activity = (await response.json()) as ActivityResponse;
-      return activity.traces.find((t) => t.outcome === 'filled') ?? null;
-    }, { timeout: 30_000 })
+    .poll(
+      async () => {
+        const response = await request.get(`/api/companies/${companyId}/activity`);
+        if (!response.ok()) return null;
+        const activity = (await response.json()) as ActivityResponse;
+        return activity.traces.find((t) => t.outcome === 'filled') ?? null;
+      },
+      { timeout: 30_000 },
+    )
     .not.toBeNull();
 
   const response = await request.get(`/api/companies/${companyId}/activity`);
@@ -146,7 +145,9 @@ test.describe('Paper trading loop (flow 3)', () => {
     }
     await page.getByRole('button', { name: 'Executions', exact: true }).click();
     await expect(page.getByText(/paper_sim/i).first()).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText(new RegExp(`buy ${quantity} AAPL @ paper_sim fill`)).first()).toBeVisible();
+    await expect(
+      page.getByText(new RegExp(`buy ${quantity} AAPL @ paper_sim fill`)).first(),
+    ).toBeVisible();
 
     const expandBottom = page.getByRole('button', { name: /Expand bottom panel/ });
     if (await expandBottom.isVisible()) {

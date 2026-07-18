@@ -182,10 +182,14 @@ export {
 // D-091 engine motherboard utilities
 export {
   ensureEngineClockUtilityBind,
+  ensureEngineFundsUtilityBind,
+  ensureEngineAnalyzerDataOut,
   ensureAllEngineClockBinds,
+  ensureEngineMotherboardUtilities,
   hydrateEngineMembersFromUtilities,
   listEngineUtilityLinks,
   createEngineUtilityLink,
+  deleteEngineUtilityLink,
 } from './engines/utility-links';
 
 // Handlers (importing registers built-ins)
@@ -450,6 +454,7 @@ export {
   type ProposeFundRouteTransfersOutcome,
   type ProposeFundRouteTransfersResult,
 } from './fund-transfers/fund-route-walker';
+export { maybeAutoProposeFundRoutes } from './fund-transfers/auto-propose';
 
 // D-092 compound movers / watchlist suggestion algorithm
 export {

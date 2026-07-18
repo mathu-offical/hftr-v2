@@ -17,7 +17,7 @@ const timestamps = {
 };
 
 /**
- * Persisted module↔verified service source bindings (D-090 / D-092).
+ * Persisted module↔verified service source bindings (D-090 / D-093).
  * Exactly one of broker_connection_id / user_api_key_id / user_research_key_id (DB CHECK).
  */
 export const moduleServiceBindings = pgTable(

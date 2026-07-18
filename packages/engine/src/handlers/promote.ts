@@ -16,13 +16,12 @@ import {
 } from '../graph/module-links';
 import { DEFAULT_FRESHNESS_WINDOW_MS, evaluateGates, gatesPass } from '../pipeline/gates';
 import { resolvePhilosophyControl } from '../pipeline/philosophy-control';
-import { buildRegimeSynthetic } from '../pipeline/regime';
+import { resolvePromoteRegime } from '../pipeline/resolve-promote-regime';
 import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
 import { estimateLlmJobCost } from '../queue/llm-cost-estimate';
 import { enqueueLinkedResearchCurate } from '../research/enqueue-linked';
 import { loadAdmittedArtifactRefs } from '../research/admitted-evidence';
-import { record } from '../calc/store';
 
 const PromotePayload = z.object({
   companyId: z.string().uuid(),
@@ -142,22 +141,15 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
       .where(eq(trendCandidates.id, trend.id));
   }
 
-  // D-085: seed_synthetic regime until live bars are bound — still numeric, not placeholder pass.
-  const regimeAsOfRef = await record(db, clock, {
-    kind: 'timestamp_ms',
-    unit: 'ms',
-    scale: 0,
-    valueInt: BigInt(clock.nowMs()),
-    timezone: 'UTC',
-    sourceClass: 'clock',
-    sourceId: `promote:regime_as_of:${trend.symbol}`,
-    ttlMs: 10 * 60_000,
+  // D-093: Alpaca OHLC bars when connected; else deterministic synthetic (still numeric).
+  const { regime } = await resolvePromoteRegime({
+    db,
+    clock,
     companyId: payload.companyId,
     moduleId: payload.moduleId,
-  });
-  const regime = buildRegimeSynthetic({
-    seed: `${trend.symbol}:${payload.companyId}:${venue ?? 'paper_sim'}`,
-    asOfRef: { ref: regimeAsOfRef },
+    symbol: trend.symbol,
+    brokerConnectionId: company.brokerConnectionId,
+    venue,
   });
 
   const gates = evaluateGates({

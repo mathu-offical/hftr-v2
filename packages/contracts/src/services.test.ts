@@ -6,6 +6,7 @@ import {
   MODULE_SERVICE_REQUIREMENTS,
   ModuleServiceCoverage,
   normalizeAdapterServiceCapabilities,
+  normalizeResearchKeyServiceCapabilities,
   requirementsForEngine,
   ServiceCapability,
   ServiceRequirement,
@@ -204,6 +205,17 @@ describe('normalizeAdapterServiceCapabilities', () => {
     expect(quotesOnly).not.toContain('trade_execution');
     expect(quotesOnly).not.toContain('historical_bars');
     expect(quotesOnly).not.toContain('open_positions');
+  });
+});
+
+describe('normalizeResearchKeyServiceCapabilities', () => {
+  it('maps gather providers to research_provider and optional bars', () => {
+    expect(normalizeResearchKeyServiceCapabilities('finnhub')).toEqual(['research_provider']);
+    expect(normalizeResearchKeyServiceCapabilities('polygon')).toEqual([
+      'historical_bars',
+      'research_provider',
+    ]);
+    expect(normalizeResearchKeyServiceCapabilities(null)).toEqual([]);
   });
 });
 

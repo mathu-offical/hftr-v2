@@ -1,4 +1,4 @@
--- D-092: bind research gather keys as service sources (research_provider).
+-- D-093: bind research gather keys as service sources (research_provider).
 -- Extends module_service_bindings with user_research_key_id and source_kind value.
 
 ALTER TABLE "module_service_bindings"

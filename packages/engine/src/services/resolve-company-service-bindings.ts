@@ -22,7 +22,7 @@ import {
 
 /**
  * Load verified user sources, resolve coverage per company module, and replace
- * persisted `module_service_bindings` rows (D-090 / D-092).
+ * persisted `module_service_bindings` rows (D-090 / D-093).
  *
  * Sources: connected brokers (stored capabilities JSON) + research gather keys.
  * LLM BYOK keys are not market/research service sources.
@@ -113,7 +113,7 @@ export async function resolveCompanyServiceBindings(
   return coverage;
 }
 
-/** Re-resolve bindings for every active company owned by the user (D-092). */
+/** Re-resolve bindings for every active company owned by the user (D-093). */
 export async function resolveAllOwnedCompanyServiceBindings(
   db: Db,
   clerkUserId: string,

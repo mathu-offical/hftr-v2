@@ -152,7 +152,7 @@ export function normalizeAdapterServiceCapabilities(
 }
 
 /**
- * Map saved research-gather providers to service capabilities (D-092).
+ * Map saved research-gather providers to service capabilities (D-093).
  * All configured research keys imply research_provider; market-data providers
  * that also expose OHLC also imply historical_bars.
  */

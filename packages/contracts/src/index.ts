@@ -24,6 +24,7 @@ export * from './libraries';
 export * from './env';
 export * from './templates';
 export * from './services';
+export * from './auto-fund-policy';
 export * from './money';
 export * from './engines';
 export * from './process-layers';

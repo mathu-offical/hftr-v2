@@ -19,7 +19,8 @@
 
 - **Top ribbon (L→R, implemented 2026-07-17 per DevSpecs/ui-ux.spec.md):** logo → company
   switcher dropdown (`CompanySwitcher`) → top-drawer toggle (`TopDrawer`: Ledger/PnL,
-  Trading profile, Settings, Philosophy tabs) → executions ticker tape (`ExecutionTicker`,
+  Trading profile, LLM/operating, Settings, Philosophy, **Sectors** tabs — D-106; drawer is
+  near-fullscreen under the ribbon `h-[min(92vh,calc(100vh-ribbon))]`) → executions ticker tape (`ExecutionTicker`,
   marquee of recent fills/blocks with amounts, pauses on hover) → paper/live master switch
   (`ModeSwitch`, live gated with an explanation popover — fails closed until the broker
   milestone) → **LLM connection chip** (`LlmRibbonStatusChip`: `llm: n/6` from shell
@@ -27,7 +28,9 @@
   queue chip → **User settings** modal (`UserSettingsLauncher`: tabs **LLM
   providers** | **Research** | **Brokers** — six LLM providers + Anthropic ZDR attestation,
   research gather keys, Alpaca paper Key ID + Secret via **Save & verify** — D-027) → Clerk
-  user button. TopDrawer LLM/operating tab: **trading capital caps** (virtual / broker buying
+  user button. TopDrawer **Sectors** tab: add/remove broad groups (defaults all specifics on),
+  deselect specifics to narrow, curate separate `universe_excludes` tickers; overlaps shown as
+  text-first peer hints. TopDrawer LLM/operating tab: **trading capital caps** (virtual / broker buying
   power / effective min when bound, else paper sim), provider budgets + **provider health**
   chips (same shell connection status; last failure from recent calls when operating tab
   loads), company `llm_policy` with tier
@@ -120,19 +123,21 @@
   `directive-out__trend:{candidateId}`; connecting to a trading module persists
   `trading_module_id` / `engine_instance_id` on the candidate (binding topology; compile wiring
   follow-up). Binding edges render dashed directive strokes from the item handle.
-- **Labeled ports + stream pins (D-056 / D-057 / D-075 / D-088):** each allowed `LinkKind`
+- **Labeled ports + stream pins (D-056 / D-057 / D-075 / D-088 / D-108):** each allowed `LinkKind`
   exposes a free **bus** handle (new links) plus one **stream** handle per existing peer
-  dependency (`{kind}-{in|out}__{peerId}`), labeled by **info type / role** (Market feed,
-  Trade directive, Calc ref, Now, Duration — not `← Peer` / `→ Peer`). Math: top Calc-ref /
-  fund streams. Owner cards attach dedicated Math on the **bottom** as a single **Calc ref**
-  pin (`math → owner` `data_feed`). Edges attach to stream pins; kind color + dash pattern.
-  Validation remains `LinkKind` + `LINK_RULES`. Trend-item handles use the same parse path
-  with synthetic peer `trend:{uuid}`.
-- **Master Clock + Time (D-088 / D-091):** company singleton `clock` (auto-seeded) and repeatable
-  `time` processors under Tools in the module store. Tool-family chrome; Clock/Time cannot
-  join ENGINE membership. Port roles: Now / Duration / Schedule. **D-091:** engines receive
-  clock authority via motherboard `clock` utility bind (bottom rail); direct `clock→member`
-  module edges deprecated on reflow for new engines.
+  dependency (`{kind}-{in|out}__{peerId}`), labeled by **info type / role** (Findings, Curation,
+  Trade directive, Calc ref, Schedule, Time bus, Clock in — not `← Peer` / `→ Peer`). Ports carry
+  **edge / slot / nature** (`data` | `system` | `fund` | `time`); rails and edges style by nature.
+  Time hub: Schedule (top) + Time bus (right) + Authority in (left). Clock-in recipients
+  (`TIME_BEARING ∪ {library, display}`) get additive bottom-left **Clock in** (never replaces
+  data/system). Math: top Calc-ref / fund streams; owner Calc-ref docks bottom, right of clock_in.
+  Inspector may hide unlocked **delivery** outs only. Connect validation: schedule/time_bus →
+  clock_in only. Audit: `ui-ux/canvas-connection-point-audit.md`.
+- **Master Clock + Time (D-088 / D-091 / D-108):** company singleton `clock` (auto-seeded) and
+  engine Time hubs. Tool-family chrome; Clock cannot join ENGINE membership; Time hubs pin
+  bottom-left under the member envelope. Port roles: Now / Authority in / Schedule / Time bus /
+  Clock in. Engines receive clock authority via motherboard `clock` utility bind; Time → members
+  land on clock_in.
 - **Node families (D-056 / D-068 / D-073 / D-088):** cards distinguish **Data source** (`library` shelves /
   book-spine silhouette; `live_api` aperture + signal bars — dashed border), **Agent** (solid +
   left bar), **Vault** / fund (`holding_fund`, `fund_router` — vault door, rivets, dial chrome;
@@ -171,10 +176,10 @@
   padded inset, body scroll locked). Sticky header + footer actions; middle column is
   `min-h-0 flex-1` with **no outer page scroll**.   Identity row (name / seed aligned, philosophy
   full-width) stays expanded until the operator clicks **Confirm**; then it **condenses to a
-  one-line summary** (Edit re-expands). **Sector focus** sits on the same row as philosophy as a
-  searchable combobox (`SECTOR_FOCUS_PRESETS`, max 12; type to filter, Enter / click to add)
-  and **pre-seeds** engine / topic-scoped module `topicSectors` (also persisted on
-  `companies.sector_focuses` and applied server-side when engine setup omits topics).
+  one-line summary** (Edit re-expands). **Sector groups** (D-106) sit on the same row as
+  philosophy as multi-select group chips (all groups allowed; selecting a group expands to
+  all group specifics into `companies.sector_focuses` and pre-seeds engine / topic-scoped
+  module `topicSectors`). Refine specifics + curate `universe_excludes` in Company → Sectors.
   **Engines** uses compact **+ Research** / **+ Execution**
   store buttons that open scrollable option popovers (locked templates listed inside; Escape
   closes the store without dismissing the dialog).
@@ -382,8 +387,13 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
   (neural-style). 2D fallback only on WebGL failure or explicit toggle.
 - **Library nests (default):** soft 3D spherical clusters per library (primary membership
   pulls/restores inside the nest) with **visible sphere outlines** (wireframe + translucent
-  shell + equatorial rings). A company envelope sphere bounds the visible nests.
-  Cross-library edges may span nests. Master library = company outer cloud.
+  shell + equatorial rings) and **always-on nest labels** (library/folder sprites in 3D).
+  Folder hulls use an octahedron wire cue; articles stay quieter dashed shells (shown under
+  topic focus only). Default LOD shows the heaviest folder per library so the view stays
+  readable. A company envelope sphere bounds the visible nests. Cross-library edges may
+  span nests. Master library = company outer cloud. Layout uses size-ranked spiral library
+  centers, folder cohesion, and foreign-nest repel so clusters do not look like a uniform
+  cloud (D-107).
 - **Rotating info-tag layer** over the graph (subtle orbit of tag chips; static under
   `prefers-reduced-motion`); chips double as filters.
 - **Topic focus** (left-panel select): dim non-member concepts/edges; stronger particles on

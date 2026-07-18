@@ -1100,6 +1100,38 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   so Trends / Scenario / Lineage have a primary working surface while the ribbon stays docked.
   Docs: ui-spec §4 middle-bottom. **Status: implemented.**
 
+- **D-106 (sector groups + refine-down + universe excludes, 2026-07-18):** Company create
+  selects **broad sector groups** only (all 10 groups allowed: technology, finance,
+  healthcare, energy, materials, consumer, industrial, communication, macro, alt). Selecting
+  a group expands to **all** preset specifics in `companies.sector_focuses` (cap = catalog
+  size; prior 12-label ceiling removed). Company drawer gains a **Sectors** tab to add/remove
+  groups and **deselect specifics** (refine-down only — reduces data). Separate curated field
+  `companies.universe_excludes` (migration `0041`) holds ticker carve-outs; create optional,
+  PATCH/duplicate/market-hub wired. Catalog granularized with `overlapPeers` + shared seed
+  targets as intentional confirmation signals for early picks. TopDrawer is near-fullscreen
+  under the ribbon. Docs: ui-spec §2, product-spec, data-model, contracts `sector-focus.ts`.
+  Supersedes create UX of D-044 (presets remain the persisted labels). **Status: implemented.**
+
+- **D-107 (galaxy nest clarity — non-uniform physics + labeled hierarchy, 2026-07-18):**
+  Addresses uniform-cloud / unclear pattern feedback. Physics: softer global charge;
+  size-ranked golden-spiral library centers; folder nest dominates when folder key present;
+  mass-weighted folder rings; folder cohesion force; foreign-library keep-out; article
+  orbits spiral inside parents. Visual: always-on library/folder 3D sprite labels; dual-ring
+  library shells; folder octahedron cue; quieter article shells; **LOD** — one heaviest folder
+  hull per library by default (all folders when library-filtered), article hulls only under
+  topic focus; larger default concept spheres (`nodeRelSize`). Docs:
+  research-galaxy-topic-view-design §4.3.1, ui-spec §6. **Status: implemented.**
+
+- **D-108 (canvas connection-point audit + default engines, 2026-07-18):** Full ModuleType
+  port audit (`canvas-connection-point-audit.md`). Ports gain edge/slot/nature; Time hub
+  splits Schedule (top) + Time bus (right); clock_in additive on
+  `TIME_BEARING ∪ {library, display}` (bottom far-left); natures style rails/edges;
+  connect + links API fail-closed for schedule/time_bus → clock_in; inspector may hide
+  unlocked delivery outs only (analyzer Concat); ENGINE spines add research→librarian
+  ingest; time-provision wires clock-in recipients. Spec:
+  `docs/superpowers/specs/2026-07-18-canvas-connection-point-audit-design.md`.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

@@ -3,11 +3,11 @@
 **Status:** implemented (contracts, migration `0037`, chrome ports, clock/funds/data_out binds,
 member hydration, research terminal analyzer templates, analyzer.concat, library name sync,
 cadence rail layout, canvas engine↔engine utility edges, Time hub provision, Time activation
-gates)  
-**Decision:** D-091  
+gates; **D-108** nature-styled utility edges + Time→clock_in member wiring)  
+**Decision:** D-091 (ports/natures extended by D-108)  
 **Related:** D-028/D-035/D-089 (ENGINE group chrome); D-088 (Master Clock + Time); D-041
-(module_links graph authority); D-042 (node families); DevSpecs `engine-philosophy.spec.md`
-(read-only)
+(module_links graph authority); D-042 (node families); D-108 (connection-point audit);
+DevSpecs `engine-philosophy.spec.md` (read-only)
 
 ## Goal
 

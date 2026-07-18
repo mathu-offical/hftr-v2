@@ -1006,6 +1006,83 @@ describe('engine templates', () => {
       }
     }
   });
+
+  function linkEndpointTypes(
+    engine: (typeof ENGINE_TEMPLATES)[number],
+    link: (typeof ENGINE_TEMPLATES)[number]['links'][number],
+  ): { from: string | undefined; to: string | undefined } {
+    const from =
+      link.fromIndex === 'math'
+        ? 'math'
+        : typeof link.fromIndex === 'number'
+          ? engine.modules[link.fromIndex]?.type
+          : undefined;
+    const to =
+      link.toIndex === 'math'
+        ? 'math'
+        : typeof link.toIndex === 'number'
+          ? engine.modules[link.toIndex]?.type
+          : undefined;
+    return { from, to };
+  }
+
+  it('requires librarian spine when research and library both present (D-109)', () => {
+    for (const engine of ENGINE_TEMPLATES) {
+      if (engine.id === 'engine_hft' || engine.modules.length === 0) continue;
+      const types = engine.modules.map((m) => m.type);
+      if (!types.includes('research') || !types.includes('library')) continue;
+
+      expect(
+        types.filter((t) => t === 'librarian').length,
+        `${engine.id} missing librarian`,
+      ).toBeGreaterThanOrEqual(1);
+
+      const hasResearchToLibrarian = engine.links.some((link) => {
+        if (link.linkKind !== 'data_feed') return false;
+        const { from, to } = linkEndpointTypes(engine, link);
+        return from === 'research' && to === 'librarian';
+      });
+      const hasLibrarianToLibrary = engine.links.some((link) => {
+        if (link.linkKind !== 'data_feed') return false;
+        const { from, to } = linkEndpointTypes(engine, link);
+        return from === 'librarian' && to === 'library';
+      });
+
+      expect(hasResearchToLibrarian, `${engine.id} research→librarian`).toBe(true);
+      expect(hasLibrarianToLibrary, `${engine.id} librarian→library`).toBe(true);
+    }
+  });
+
+  it('wires every non-fund module into at least one link (D-109)', () => {
+    const fundTypes = new Set(['holding_fund', 'fund_router', 'math']);
+    for (const engine of ENGINE_TEMPLATES) {
+      if (engine.id === 'engine_hft' || engine.modules.length === 0) continue;
+
+      for (let i = 0; i < engine.modules.length; i++) {
+        const mod = engine.modules[i]!;
+        if (fundTypes.has(mod.type)) continue;
+
+        const linked = engine.links.some(
+          (link) => link.fromIndex === i || link.toIndex === i,
+        );
+        expect(linked, `${engine.id} orphan ${mod.type} idx ${i} (${mod.name})`).toBe(true);
+      }
+    }
+  });
+
+  it('uses context-specific analyzer and fund-router prose names (D-109)', () => {
+    const banned = ['Research Concat', 'Deterministic Fund Router'];
+    for (const engine of ENGINE_TEMPLATES) {
+      for (const m of engine.modules) {
+        expect(banned, `${engine.id}/${m.name}`).not.toContain(m.name);
+      }
+    }
+    for (const template of Object.values(COMPANY_TEMPLATES)) {
+      for (const m of template.modules) {
+        expect(banned, `${template.id}/${m.name}`).not.toContain(m.name);
+      }
+    }
+  });
 });
 
 describe('engine instances (D-028)', () => {

@@ -11,23 +11,81 @@ import { SystemNormalizedViewItem } from './verified-normalize';
 export const MarketHubMoversItem = SystemNormalizedViewItem;
 export type MarketHubMoversItem = z.infer<typeof MarketHubMoversItem>;
 
+export const MarketHubEngineChip = z.object({
+  id: z.string().uuid(),
+  label: z.string().max(120),
+});
+export type MarketHubEngineChip = z.infer<typeof MarketHubEngineChip>;
+
+/**
+ * Universal symbol visualization payload (D-109).
+ * Seeded by baseline market-awareness (synthetic quote walk + qualitative bands).
+ * Held rows set heldVsCost; non-held leave it null so relevance cues may apply.
+ */
+export const MarketHubSparkPoint = z.object({
+  t: z.string().datetime(),
+  valueCents: z.string(),
+});
+export type MarketHubSparkPoint = z.infer<typeof MarketHubSparkPoint>;
+
+export const MarketHubSparkSeries = z.object({
+  points: z.array(MarketHubSparkPoint).max(64),
+  feedClass: z.enum(['synthetic_sim', 'broker_paper']),
+});
+export type MarketHubSparkSeries = z.infer<typeof MarketHubSparkSeries>;
+
+export const MarketHubSymbolViz = z.object({
+  symbol: z.string().max(12),
+  spark: MarketHubSparkSeries,
+  /** Algorithm direction (spark endpoints or trend/movers band). */
+  direction: z.enum(['up', 'down', 'flat']),
+  strengthBand: QualitativeBand,
+  /** Non-color strength: 0–3 filled ticks. */
+  strengthTicks: z.number().int().min(0).max(3),
+  /** Operator relevance / leadership band (orange→lime ticks when not held). */
+  relevanceBand: QualitativeBand,
+  /**
+   * Mark vs avg cost. Non-null ⇒ held P&L color wins; suppress relevance color.
+   */
+  heldVsCost: z.enum(['up', 'down', 'flat']).nullable(),
+  markCents: z.union([z.number().int(), z.string()]).nullable(),
+  avgCostCents: z.union([z.number().int(), z.string()]).nullable(),
+  unrealizedPnlCents: z.string().nullable(),
+});
+export type MarketHubSymbolViz = z.infer<typeof MarketHubSymbolViz>;
+
+export const MarketHubChartSlice = z.object({
+  id: z.string().max(40),
+  label: z.string().max(80),
+  /** Share in basis points of the parent series (0–10000). */
+  shareBps: z.number().int().min(0).max(10_000),
+  /** Optional absolute count or notional cents as string for tooltips. */
+  valueLabel: z.string().max(40),
+});
+export type MarketHubChartSlice = z.infer<typeof MarketHubChartSlice>;
+
+export const MarketHubCharts = z.object({
+  allocation: z.array(MarketHubChartSlice).max(24).default([]),
+  watchlistTiers: z.array(MarketHubChartSlice).max(12).default([]),
+  trendStrength: z.array(MarketHubChartSlice).max(8).default([]),
+  moverDirections: z.array(MarketHubChartSlice).max(8).default([]),
+  sourceReady: z.array(MarketHubChartSlice).max(8).default([]),
+});
+export type MarketHubCharts = z.infer<typeof MarketHubCharts>;
+
 export const MarketHubMovers = z.object({
   status: z.enum(['ready', 'missing', 'expired']),
   title: z.string().max(300).nullable(),
   sealId: z.string().max(128).nullable(),
   corroborationBand: QualitativeBand.nullable(),
   items: z.array(MarketHubMoversItem).max(48),
+  /** Parallel ticker viz for symbol-bearing movers items (D-109). */
+  itemViz: z.array(MarketHubSymbolViz).max(48).default([]),
   verifiedAt: z.string().datetime().nullable(),
   expiresAt: z.string().datetime().nullable(),
   reportConceptId: z.string().uuid().nullable(),
 });
 export type MarketHubMovers = z.infer<typeof MarketHubMovers>;
-
-export const MarketHubEngineChip = z.object({
-  id: z.string().uuid(),
-  label: z.string().max(120),
-});
-export type MarketHubEngineChip = z.infer<typeof MarketHubEngineChip>;
 
 export const MarketHubWatchlistItem = z.object({
   id: z.string().uuid(),
@@ -41,6 +99,7 @@ export const MarketHubWatchlistItem = z.object({
   status: z.string().max(40),
   updatedAt: z.string().datetime(),
   engines: z.array(MarketHubEngineChip).max(12).default([]),
+  viz: MarketHubSymbolViz.optional(),
 });
 export type MarketHubWatchlistItem = z.infer<typeof MarketHubWatchlistItem>;
 
@@ -56,6 +115,7 @@ export const MarketHubTrendCandidate = z.object({
   engines: z.array(MarketHubEngineChip).max(12).default([]),
   scannedAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),
+  viz: MarketHubSymbolViz.optional(),
 });
 export type MarketHubTrendCandidate = z.infer<typeof MarketHubTrendCandidate>;
 
@@ -73,6 +133,7 @@ export const MarketHubPosition = z.object({
   /** Engines whose member modules preside over this holding. */
   engines: z.array(MarketHubEngineChip).max(12).default([]),
   updatedAt: z.string().datetime(),
+  viz: MarketHubSymbolViz,
 });
 export type MarketHubPosition = z.infer<typeof MarketHubPosition>;
 
@@ -176,6 +237,13 @@ export const MarketHubResponse = z.object({
     contributedKinds: [],
     markFeedClass: 'synthetic',
     scannedAt: null,
+  }),
+  charts: MarketHubCharts.default({
+    allocation: [],
+    watchlistTiers: [],
+    trendStrength: [],
+    moverDirections: [],
+    sourceReady: [],
   }),
 });
 export type MarketHubResponse = z.infer<typeof MarketHubResponse>;

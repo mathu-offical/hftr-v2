@@ -23,7 +23,7 @@ export async function GET(req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
     const { companyId } = Params.parse(await ctx.params);
     await scoping.getOwnedCompany(db, clerkUserId, companyId);
-    // Idempotent backfill so existing companies get seeded mechanisms in galaxy (D-044).
+    // Idempotent backfill so existing companies get seeded mechanisms in galaxy (D-045).
     try {
       await bootstrapCompanyKnowledge({ db, companyId });
     } catch (err) {

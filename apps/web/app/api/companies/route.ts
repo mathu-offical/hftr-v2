@@ -84,6 +84,7 @@ export async function POST(req: Request) {
         clerkUserId,
         name: input.name,
         philosophyPrompt: input.philosophyPrompt,
+        sectorFocuses: input.sectorFocuses,
         philosophyProfile: DEFAULT_PHILOSOPHY_PROFILE,
         mode: input.mode,
         seedCreditsCents: BigInt(input.seedCreditsCents),
@@ -141,8 +142,17 @@ export async function POST(req: Request) {
         y: m.position.y + offset.y,
       }));
       const canvasBounds = computeEngineBoundsFromPositions(absolutePositions);
-      const masterTopicSectors = seed.setup?.topicSectors ?? [];
-      const engineSetup = withDefaultEngineSetup(seed.setup, Number(input.seedCreditsCents));
+      const masterTopicSectors =
+        seed.setup?.topicSectors && seed.setup.topicSectors.length > 0
+          ? seed.setup.topicSectors
+          : input.sectorFocuses;
+      const engineSetup = withDefaultEngineSetup(
+        {
+          ...seed.setup,
+          ...(masterTopicSectors.length > 0 ? { topicSectors: masterTopicSectors } : {}),
+        },
+        Number(input.seedCreditsCents),
+      );
       const setupSnapshot = engineSetupSnapshotFromInput(engineSetup);
 
       const [engineRow] = await db
@@ -302,7 +312,7 @@ export async function POST(req: Request) {
 
     await refreshGeneratedModuleNames(db, company.id, createdModuleIds);
 
-    // Compile-time catalog mechanisms → libraries + galaxy concepts + hybrid topic (D-044).
+    // Compile-time catalog mechanisms → libraries + galaxy concepts + hybrid topic (D-045).
     try {
       await bootstrapCompanyKnowledge({ db, companyId: company.id });
     } catch (err) {

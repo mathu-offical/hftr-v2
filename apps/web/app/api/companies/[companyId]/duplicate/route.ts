@@ -49,6 +49,7 @@ export async function POST(_req: Request, ctx: Ctx) {
       clerkUserId,
       name: truncateName(`${source.name} (copy)`),
       philosophyPrompt: source.philosophyPrompt,
+      sectorFocuses: source.sectorFocuses,
       philosophyProfile: source.philosophyProfile,
       llmPolicy: source.llmPolicy,
       goals: source.goals,

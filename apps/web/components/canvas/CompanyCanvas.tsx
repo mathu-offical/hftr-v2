@@ -24,6 +24,8 @@ import {
   handleIdForStream,
   isMathToolAttachment,
   layoutCanvas,
+  LAYOUT_COLUMN_STEP,
+  LAYOUT_ROW_STEP,
   missingModuleSetupFields,
   MODULE_COLUMN,
   placeNextEngineOrigin,
@@ -1310,7 +1312,10 @@ export function CompanyCanvas(props: {
       const inColumn = moduleNodes.filter(
         (n) => MODULE_COLUMN[n.data.moduleType] === column,
       ).length;
-      const position = { x: 80 + column * 260, y: 60 + inColumn * 140 };
+      const position = {
+        x: CANVAS_LAYOUT.originX + column * LAYOUT_COLUMN_STEP,
+        y: CANVAS_LAYOUT.originY + inColumn * LAYOUT_ROW_STEP,
+      };
       try {
         const { module, dedicatedMath } = await api<{
           module: {

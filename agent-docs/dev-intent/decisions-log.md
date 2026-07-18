@@ -713,6 +713,16 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `library.system_movers` (`every:1440`) schedule firing (closes gap noted after D-062).
   **Status: implemented.**
 
+- **D-066 (type-lane default placement, 2026-07-17):** Operator asked for better
+  default placement by type: research + data sources left, execution + verification right,
+  multi-row within lanes, beautiful by default. `rankEngineMembers` now uses `MODULE_COLUMN`
+  lanes (compressed when sparse) instead of pure link topology; within-lane order uses
+  `MODULE_LANE_ROW` + topo + barycenter crossing reduction. Lanes: research/librarian →
+  library/live_api → trend/holding_fund → trading/simulator/generator/fund_router →
+  analyzer/policy/display. Company create + engine insert use `layoutEngineTemplateAtOrigin`
+  so defaults match Reflow. Docs: ui-spec §3, canvas-layout-and-dedicated-math-design.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

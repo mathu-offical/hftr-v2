@@ -54,8 +54,12 @@
 
 ## 3. Canvas (React Flow)
 
-- Modules as nodes, laid out left→right by column: research | data (libraries, live APIs, math,
-  holding fund) | trend | trading (incl. fund router) | policy. Edges = `module_links`, rendered
+- Modules as nodes, laid out left→right by **type lane** (D-066 / `MODULE_COLUMN`): research +
+  librarian | data (libraries, live APIs; Math tools dock under owners) | trend + holding fund |
+  execution (trading, simulator, generator, fund router) | verification/control (analyzer, policy,
+  display). Unused lanes compress on Reflow; peers stack on multiple rows within a lane
+  (`MODULE_LANE_ROW` + barycenter). Create/insert defaults use the same lane layout as Reflow.
+  Edges = `module_links`, rendered
   as **rounded elbow** `smoothstep` paths (DevSpecs/ui-ux.spec.md §Connections), animated when
   data is flowing (projection of job activity), colored by link kind. Policy nodes (rightmost)
   bind policy envelopes to the trading modules linked into them. Company creation seeds one Math

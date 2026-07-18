@@ -1,12 +1,11 @@
 import { eq } from 'drizzle-orm';
 import {
   CANVAS_LAYOUT,
-  computeEngineBoundsFromPositions,
   CreateCompanyInput,
   DEFAULT_PHILOSOPHY_PROFILE,
   deriveGeneratedModuleName,
-  engineCanvasOffsetForOrigin,
   ENGINE_GROUP_PADDING,
+  layoutEngineTemplateAtOrigin,
   listResolvedEngineTemplates,
   MAX_MODULES_PER_COMPANY,
   MODULE_CONFIG_SCHEMAS,
@@ -142,29 +141,36 @@ export async function POST(req: Request) {
         configs[Number(idx)]![configKey] = values.join(' — ');
       }
 
-      const templatePositions = engine.modules.map((m) => m.position);
-      const relativeBounds = computeEngineBoundsFromPositions(templatePositions);
+      const preview = layoutEngineTemplateAtOrigin(
+        engine.modules,
+        engine.links,
+        { x: 0, y: 0 },
+        ENGINE_GROUP_PADDING,
+      );
+      const size = {
+        width: preview.canvasBounds.width,
+        height: preview.canvasBounds.height,
+      };
       const origin = seed.canvasOffset
-        ? placeNextEngineOrigin(occupiedEngineBounds, relativeBounds, {
+        ? placeNextEngineOrigin(occupiedEngineBounds, size, {
             preferred: {
-              x: seed.canvasOffset.x + relativeBounds.x,
-              y: seed.canvasOffset.y + relativeBounds.y,
+              x: seed.canvasOffset.x,
+              y: seed.canvasOffset.y,
             },
           })
-        : placeNextEngineOrigin(occupiedEngineBounds, relativeBounds, {
+        : placeNextEngineOrigin(occupiedEngineBounds, size, {
             originX: CANVAS_LAYOUT.originX,
             originY: CANVAS_LAYOUT.originY,
           });
-      const { offset, bounds: canvasBounds } = engineCanvasOffsetForOrigin(
-        templatePositions,
+      const laid = layoutEngineTemplateAtOrigin(
+        engine.modules,
+        engine.links,
         origin,
         ENGINE_GROUP_PADDING,
       );
+      const canvasBounds = laid.canvasBounds;
       occupiedEngineBounds.push(canvasBounds);
-      const absolutePositions = engine.modules.map((m) => ({
-        x: m.position.x + offset.x,
-        y: m.position.y + offset.y,
-      }));
+      const absolutePositions = laid.modulePositions;
       const masterTopicSectors =
         seed.setup?.topicSectors && seed.setup.topicSectors.length > 0
           ? seed.setup.topicSectors

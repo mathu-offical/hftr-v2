@@ -1,7 +1,7 @@
 # Canvas spacing, reflow, and dedicated Math tools (2026-07-17)
 
 **Status:** Implemented and runtime-verified (2026-07-17); Math tools independently movable; default seeds do not double shared + dedicated Math on fund paths  
-**Decision:** D-033 (`dev-intent/decisions-log.md`)  
+**Decision:** D-033; type-lane placement D-066 (`dev-intent/decisions-log.md`)  
 **Related:** D-028 (`canvas-engine-group-design.md`); D-026 (`canvas-node-dashboard-design.md`)
 
 ## Goal
@@ -100,8 +100,10 @@ Each `EngineGroupNode` header exposes a **Reflow** button.
 1. Read persisted engine membership.
 2. Return escaped member nodes to that engine.
 3. Return dedicated Math tools to their owners.
-4. Compute stable pipeline ranks from internal links, excluding Math tools from rank calculation.
-5. Place ranks left-to-right; place nodes within a rank top-to-bottom using owner/tool envelopes.
+4. Assign **type lanes** from `MODULE_COLUMN` (research/data left → execution/verify right),
+   compress unused lanes, exclude Math from ranking (D-066).
+5. Place lanes left-to-right; stack nodes within a lane on multiple rows (`MODULE_LANE_ROW` +
+   topo + barycenter) using owner/tool envelopes.
 6. Place each dedicated Math tool below its owner.
 7. Recompute group bounds with connection-safe padding.
 8. Persist all changed positions and bounds atomically.

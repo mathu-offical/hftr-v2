@@ -2,11 +2,10 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   CANVAS_LAYOUT,
-  computeEngineBoundsFromPositions,
   deriveGeneratedModuleName,
-  engineCanvasOffsetForOrigin,
   ENGINE_GROUP_PADDING,
   InsertEngineInput,
+  layoutEngineTemplateAtOrigin,
   listResolvedEngineTemplates,
   MAX_MODULES_PER_COMPANY,
   MODULE_CONFIG_SCHEMAS,
@@ -121,29 +120,37 @@ export async function POST(req: Request, ctx: Ctx) {
     const occupied: LayoutRect[] = existingEngines
       .map((row) => row.canvasBounds)
       .filter((bounds): bounds is LayoutRect => bounds != null);
-    const templatePositions = engine.modules.map((m) => m.position);
-    const relativeBounds = computeEngineBoundsFromPositions(templatePositions);
-    const origin = placeNextEngineOrigin(occupied, relativeBounds, {
-      ...(input.canvasOffset
-        ? {
-            preferred: {
-              x: relativeBounds.x + input.canvasOffset.x,
-              y: relativeBounds.y + input.canvasOffset.y,
-            },
-          }
-        : {}),
-      originX: CANVAS_LAYOUT.originX,
-      originY: CANVAS_LAYOUT.originY,
-    });
-    const { offset, bounds: canvasBounds } = engineCanvasOffsetForOrigin(
-      templatePositions,
+    // Preview at origin 0 to measure the type-lane envelope, then place without overlap.
+    const preview = layoutEngineTemplateAtOrigin(
+      engine.modules,
+      engine.links,
+      { x: 0, y: 0 },
+      ENGINE_GROUP_PADDING,
+    );
+    const origin = placeNextEngineOrigin(
+      occupied,
+      { width: preview.canvasBounds.width, height: preview.canvasBounds.height },
+      {
+        ...(input.canvasOffset
+          ? {
+              preferred: {
+                x: input.canvasOffset.x,
+                y: input.canvasOffset.y,
+              },
+            }
+          : {}),
+        originX: CANVAS_LAYOUT.originX,
+        originY: CANVAS_LAYOUT.originY,
+      },
+    );
+    const laid = layoutEngineTemplateAtOrigin(
+      engine.modules,
+      engine.links,
       origin,
       ENGINE_GROUP_PADDING,
     );
-    const absolutePositions = engine.modules.map((m) => ({
-      x: m.position.x + offset.x,
-      y: m.position.y + offset.y,
-    }));
+    const canvasBounds = laid.canvasBounds;
+    const absolutePositions = laid.modulePositions;
     const masterTopicSectors = input.setup?.topicSectors ?? [];
     const setup = withDefaultEngineSetup(input.setup);
     const setupSnapshot = engineSetupSnapshotFromInput(setup);

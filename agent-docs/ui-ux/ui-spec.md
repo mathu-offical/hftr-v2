@@ -100,10 +100,11 @@
   on blur/Enter. Activity / status line remains text-first. Clicking card chrome opens the
   floating inspector (full / secondary settings); interacting with inline fields does not open
   the inspector or change card geometry.
-- **Labeled ports + stream pins (D-056 / D-057):** each allowed `LinkKind` exposes a free
+- **Labeled ports + stream pins (D-056 / D-057 / D-075):** each allowed `LinkKind` exposes a free
   **bus** handle (new links) plus one **stream** handle per existing peer dependency
   (`{kind}-{in|out}__{peerId}`), labeled `← Peer` / `→ Peer` with role context (Corpus,
-  Market feed, Trade directive, …). Math: top data streams + side fund streams. Edges attach
+  Market feed, Trade directive, …). Math: top data streams + side fund streams. Owner cards
+  attach dedicated Math on the **bottom** edge (`data_feed` ↔ math streams). Edges attach
   to stream pins; kind color + dash pattern. Validation remains `LinkKind` + `LINK_RULES`.
 - **Node families (D-056 / D-068 / D-073):** cards distinguish **Data source** (`library` shelves /
   book-spine silhouette; `live_api` aperture + signal bars — dashed border), **Agent** (solid +
@@ -204,9 +205,10 @@ editable fields.
 - Research tab (**D-040**, **D-047**, **D-049**): **Submit new topic** at top; **entity
   search** with Topics / Concepts / Tags / Libraries toggles; expandable **library shelves**
   as folders of pages — system/runtime shelves plus one **Baseline seeded** shelf with
-  inline catalog folders (strategy / guardrails / session / broker / trend leads) and
-  optional **tier subfolders**; caret expands page leaves; Overview opens Seeded trading
-  mechanisms; **Pages** list (topics) with linked-page highlight;
+  inline catalog folders (strategy / guardrails / session / broker / trend leads /
+  **sector knowledge** per D-076) and optional **tier** / **sector** subfolders; caret
+  expands page leaves; Overview opens Seeded trading mechanisms; **Pages** list (topics)
+  with linked-page highlight;
   **Archive** (D-047); collapsed Modules & tools. Opening Research opens the Galaxy overlay
   only — detail lives in a right floating inspector over the galaxy (no Galaxy|Page tab strip).
   Library shell lists use client SWR cache (D-063) so shelf chrome returns from

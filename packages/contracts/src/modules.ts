@@ -296,8 +296,15 @@ export type StreamPortSpec = {
   /** null = free bus for new links */
   peerModuleId: string | null;
   peerLabel: string | null;
+  /** Peer module type when known (drives Math dock edge placement — D-075). */
+  peerType?: ModuleType | null;
   role: 'bus' | 'stream';
 };
+
+/** True when this stream should sit on the parent card bottom (Math tool dock). */
+export function isMathDockStreamPort(port: StreamPortSpec): boolean {
+  return port.role === 'stream' && port.kind === 'data_feed' && port.peerType === 'math';
+}
 
 /**
  * Stable handle id for a bus or per-peer stream port.
@@ -379,6 +386,7 @@ export function moduleStreamPorts(input: {
         direction,
         peerModuleId: null,
         peerLabel: null,
+        peerType: null,
         role: 'bus',
       });
 
@@ -398,6 +406,7 @@ export function moduleStreamPorts(input: {
               direction,
               peerModuleId: link.fromModuleId,
               peerLabel: link.fromLabel,
+              peerType: link.fromType ?? null,
               role: 'stream',
             },
           });
@@ -410,6 +419,7 @@ export function moduleStreamPorts(input: {
               direction,
               peerModuleId: link.toModuleId,
               peerLabel: link.toLabel,
+              peerType: link.toType ?? null,
               role: 'stream',
             },
           });
@@ -991,6 +1001,8 @@ export type CreateCompanyInput = z.infer<typeof CreateCompanyInput>;
 export const UpdateCompanyInput = z.object({
   name: z.string().min(1).max(80).optional(),
   philosophyPrompt: z.string().min(1).max(4000).optional(),
+  /** Company-wide sector focuses — re-seeds Baseline → Sector knowledge on change. */
+  sectorFocuses: CompanySectorFocuses.optional(),
   /** Structured slideable philosophy axes (see philosophy.ts). */
   philosophyProfile: z
     .object({

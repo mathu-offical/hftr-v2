@@ -33,6 +33,7 @@ Each `ModuleType` declares allowed **inbound** and **outbound** ports as subsets
 |-----------|-------------|-----------|
 | Inbound kinds | `target` | Left stack, top→bottom |
 | Outbound kinds | `source` | Right stack, top→bottom |
+| Math dock `data_feed` streams (D-075) | `source` / `target` | Parent **bottom** edge (outs to Math, then inns from Math) |
 
 Handle ids: `{kind}-in` / `{kind}-out` (e.g. `data_feed-in`, `fund_route-out`).
 
@@ -48,7 +49,8 @@ Visible label next to each handle (text-first; color reinforces). Default kind l
 **D-056:** each type may show a **role label** describing the nature of data on that bus
 (e.g. library → Corpus out, live_api → Market feed, trend → Trade directive). A vertical
 colored rail on the node edge groups inbound/outbound kinds as separate visual buses.
-Math: top data bus + horizontal fund bus.
+Math: top data bus + horizontal fund bus. Parent cards place Math-peer `data_feed`
+streams on the **bottom** so dedicated tools dock downward (D-075).
 
 **D-068 / D-073:** fund cards render as **vault** silhouettes; `library` as **shelf/book**
 chrome; `live_api` as a **feed aperture** with signal bars (`FamilyShapeChrome`). Structure

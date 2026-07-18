@@ -3,7 +3,7 @@
 import { Handle, Position } from '@xyflow/react';
 import {
   handleIdForStream,
-  type LinkKind,
+  isMathDockStreamPort,
   type ModuleType,
   type StreamPortSpec,
 } from '@hftr/contracts';
@@ -32,19 +32,28 @@ function streamLabel(
 /**
  * Per-stream + bus connection points with a vertical rail on the node edge.
  * Bus ports accept new links; stream ports bind one existing dependency peer.
+ * Math tool dock streams (`data_feed` ↔ math) render on the bottom edge (D-075).
  */
 export function NodePortBuses(props: {
   moduleType: ModuleType;
   inbound: readonly StreamPortSpec[];
   outbound: readonly StreamPortSpec[];
 }) {
+  const sideInbound = props.inbound.filter((port) => !isMathDockStreamPort(port));
+  const sideOutbound = props.outbound.filter((port) => !isMathDockStreamPort(port));
+  // Bottom L→R: outs to Math (owner → tool) then inns from Math (tool → owner).
+  const bottomPorts = [
+    ...props.outbound.filter(isMathDockStreamPort),
+    ...props.inbound.filter(isMathDockStreamPort),
+  ];
+
   const sides: Array<{
     ports: readonly StreamPortSpec[];
     direction: 'in' | 'out';
     position: Position.Left | Position.Right;
   }> = [
-    { ports: props.inbound, direction: 'in', position: Position.Left },
-    { ports: props.outbound, direction: 'out', position: Position.Right },
+    { ports: sideInbound, direction: 'in', position: Position.Left },
+    { ports: sideOutbound, direction: 'out', position: Position.Right },
   ];
 
   return (
@@ -118,6 +127,56 @@ export function NodePortBuses(props: {
           </div>
         );
       })}
+
+      {bottomPorts.length > 0 ? (
+        <div key="math-dock-bottom">
+          <div
+            className="pointer-events-none absolute bottom-0 left-4 right-4 h-[3px] overflow-hidden rounded-full"
+            style={{ display: 'flex', gap: 2, transform: 'translateY(1px)' }}
+            aria-hidden
+          >
+            {bottomPorts.map((port) => (
+              <div
+                key={`bottom-rail-${port.handleId}`}
+                className="min-w-[8px] flex-1"
+                style={{ background: LINK_PORT_VISUALS.data_feed.color, opacity: 0.45 }}
+              />
+            ))}
+          </div>
+
+          {bottomPorts.map((port, index) => {
+            const label = streamLabel(props.moduleType, port);
+            const left = portLeftPercent(index, bottomPorts.length);
+            const isOut = port.direction === 'out';
+            return (
+              <div key={port.handleId}>
+                <Handle
+                  id={port.handleId}
+                  type={isOut ? 'source' : 'target'}
+                  position={Position.Bottom}
+                  className="hftr-handle"
+                  aria-label={`${label} (Math dock)`}
+                  title={label}
+                  style={{
+                    left,
+                    width: 8,
+                    height: 8,
+                    background: LINK_PORT_VISUALS.data_feed.color,
+                    border: '1px solid var(--color-surface-0)',
+                  }}
+                />
+                <span
+                  className="pointer-events-none absolute -bottom-3.5 max-w-[3.5rem] truncate text-[7px] text-[var(--color-ink-dim)]"
+                  style={{ left, transform: 'translateX(-50%)' }}
+                  aria-hidden
+                >
+                  {label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
     </>
   );
 }
@@ -138,6 +197,7 @@ export function MathPortBuses(props: {
     direction: 'in',
     peerModuleId: null,
     peerLabel: null,
+    peerType: null,
     role: 'bus',
   };
   const fallbackOut: StreamPortSpec = {
@@ -146,6 +206,7 @@ export function MathPortBuses(props: {
     direction: 'out',
     peerModuleId: null,
     peerLabel: null,
+    peerType: null,
     role: 'bus',
   };
   const fallbackFundIn: StreamPortSpec = {
@@ -154,6 +215,7 @@ export function MathPortBuses(props: {
     direction: 'in',
     peerModuleId: null,
     peerLabel: null,
+    peerType: null,
     role: 'bus',
   };
   const fallbackFundOut: StreamPortSpec = {
@@ -162,6 +224,7 @@ export function MathPortBuses(props: {
     direction: 'out',
     peerModuleId: null,
     peerLabel: null,
+    peerType: null,
     role: 'bus',
   };
 

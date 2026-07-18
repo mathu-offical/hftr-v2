@@ -41,6 +41,7 @@ import {
   MODULE_CONFIG_SCHEMAS,
   moduleLinkPorts,
   moduleStreamPorts,
+  isMathDockStreamPort,
   parseStreamHandle,
   ModuleType,
   MAX_MODULES_PER_COMPANY,
@@ -349,6 +350,53 @@ describe('canvas link port helpers', () => {
     const fundOut = ports.outbound.filter((p) => p.kind === 'fund_route' && p.role === 'stream');
     expect(fundIn.map((p) => p.peerModuleId)).toEqual([fundId]);
     expect(fundOut.map((p) => p.peerModuleId)).toEqual([routerId]);
+  });
+
+  it('marks owner↔Math data_feed streams as Math dock ports (bottom edge)', () => {
+    const tradingId = '00000000-0000-4000-8000-0000000000t1';
+    const mathId = '00000000-0000-4000-8000-0000000000m1';
+    const trendId = '00000000-0000-4000-8000-0000000000r2';
+    const ports = moduleStreamPorts({
+      type: 'trading',
+      moduleId: tradingId,
+      links: [
+        {
+          fromModuleId: tradingId,
+          toModuleId: mathId,
+          linkKind: 'data_feed',
+          fromLabel: 'Trade',
+          toLabel: 'Math',
+          fromType: 'trading',
+          toType: 'math',
+        },
+        {
+          fromModuleId: mathId,
+          toModuleId: tradingId,
+          linkKind: 'data_feed',
+          fromLabel: 'Math',
+          toLabel: 'Trade',
+          fromType: 'math',
+          toType: 'trading',
+        },
+        {
+          fromModuleId: trendId,
+          toModuleId: tradingId,
+          linkKind: 'data_feed',
+          fromLabel: 'Trend',
+          toLabel: 'Trade',
+          fromType: 'trend',
+          toType: 'trading',
+        },
+      ],
+    });
+    const mathOut = ports.outbound.find((p) => p.peerModuleId === mathId);
+    const mathIn = ports.inbound.find((p) => p.peerModuleId === mathId);
+    const trendIn = ports.inbound.find((p) => p.peerModuleId === trendId);
+    expect(mathOut?.peerType).toBe('math');
+    expect(mathIn?.peerType).toBe('math');
+    expect(isMathDockStreamPort(mathOut!)).toBe(true);
+    expect(isMathDockStreamPort(mathIn!)).toBe(true);
+    expect(isMathDockStreamPort(trendIn!)).toBe(false);
   });
 
   it('orders engine template Math fund_route links into-Math then out-of-Math', () => {

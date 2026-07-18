@@ -752,6 +752,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `fund-route-links.ts`, `MathPortBuses`. Docs: ui-spec §3, canvas-node-dashboard-design.
   **Status: implemented.**
 
+
+- **D-075 (Math dock on parent bottom, 2026-07-18):** Operator asked for Math tools to
+  attach to connection points on the **bottom** of parent nodes. Owner cards render
+  `data_feed` streams whose peer is `math` on `Position.Bottom` (outs to Math, then inns
+  from Math, L→R); Math tools keep data ports on top. Side buses stay for non-Math peers.
+  `StreamPortSpec.peerType` + `isMathDockStreamPort`. Docs: ui-spec §3,
+  canvas-layout-and-dedicated-math-design, canvas-node-dashboard-design.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

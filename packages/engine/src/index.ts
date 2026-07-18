@@ -326,6 +326,11 @@ export {
   type ResolveMarketQuoteOpts,
 } from './paper/market-model';
 export {
+  persistBookDelta,
+  shadowVerifyAndPersistBookDelta,
+  linkBookDeltaTrainingFeedback,
+} from './paper/book-delta';
+export {
   projectMarketModelToAwareness,
   type AwarenessSurfaceId,
   type MarketAwarenessProjection,

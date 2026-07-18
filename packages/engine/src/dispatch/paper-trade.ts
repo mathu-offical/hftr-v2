@@ -11,8 +11,9 @@ import type {
 } from '@hftr/contracts';
 import {
   resolveTradingExecutionBinding,
-  shouldSubmitToProvider,
+  shouldShadowVerifyOnProvider,
   TradingModuleConfig,
+  usesProviderAsPrimaryBook,
   type PaperRoutingMode,
 } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
@@ -56,6 +57,7 @@ import {
   type ResolvedInstruction,
 } from './instruction-finalizer';
 import { recomputeCompanyEquity } from '../equity/recompute';
+import { shadowVerifyAndPersistBookDelta } from '../paper/book-delta';
 import { resolveMarketQuote, loadAdapterMarketQuote } from '../paper/market-model';
 
 /**
@@ -206,7 +208,8 @@ export async function executePaperTrade(
       : {},
   );
   const routingMode: PaperRoutingMode = executionBinding.routingMode;
-  const submitToProvider = shouldSubmitToProvider(routingMode);
+  const primaryOnProvider = usesProviderAsPrimaryBook(routingMode);
+  const shadowVerify = shouldShadowVerifyOnProvider(routingMode);
 
   const envelope: HandoffEnvelope = compiled
     ? {
@@ -237,7 +240,7 @@ export async function executePaperTrade(
   let liveQuote: QuoteSnapshot | null = null;
   if (venue !== 'paper_sim') {
     liveQuote = await loadAdapterMarketQuote(adapter, req.symbol);
-    if (!liveQuote && submitToProvider) {
+    if (!liveQuote && primaryOnProvider) {
       return blockedSimple(db, req, 'broker_policy_block', 'quote unavailable', venue);
     }
   }
@@ -550,7 +553,7 @@ export async function executePaperTrade(
     );
   }
 
-  if (submitToProvider && venue !== 'paper_sim') {
+  if (primaryOnProvider && venue !== 'paper_sim') {
     return executeVenueTrade(db, clock, req, {
       adapter,
       venue,
@@ -633,6 +636,7 @@ export async function executePaperTrade(
       urgencyScalar,
       usedLiveMarketQuote: usesLiveMarketQuote,
       routingMode,
+      shadowVerify: shadowVerify && venue !== 'paper_sim',
     });
   }
 
@@ -645,7 +649,7 @@ export async function executePaperTrade(
     venueOrderId: fill.venueOrderId,
   });
 
-  return finalizeFilledTrade(db, clock, req, {
+  const result = await finalizeFilledTrade(db, clock, req, {
     task,
     taskId,
     instructionId,
@@ -663,8 +667,36 @@ export async function executePaperTrade(
       usedLiveMarketQuote: usesLiveMarketQuote,
       routingMode,
       usedChildDrain: childMaterialized.usedChildDrain,
+      shadowVerifyAttempted: shadowVerify && venue !== 'paper_sim',
     }),
   });
+
+  if (
+    shadowVerify &&
+    venue !== 'paper_sim' &&
+    result.outcome === 'filled' &&
+    result.fillPriceCents != null
+  ) {
+    try {
+      await shadowVerifyAndPersistBookDelta(db, clock, {
+        adapter,
+        task,
+        shadowClientOrderId: `bv_${clientOrderId}`.slice(0, 48),
+        internalPriceCents: result.fillPriceCents,
+        companyId: req.companyId,
+        engineModuleId: req.moduleId,
+        instructionId,
+        traceId: result.traceId,
+        routingMode,
+        feedClassInternal: usesLiveMarketQuote ? 'live_market_quote' : 'synthetic_quote',
+        fillTimeoutMs: task.fillTimeoutMs,
+      });
+    } catch {
+      // Shadow verify must not fail the authoritative internal fill.
+    }
+  }
+
+  return result;
 }
 
 async function loadCompileDrainPlan(
@@ -1196,6 +1228,7 @@ function internalPaperFillGapTags(args: {
   usedLiveMarketQuote: boolean;
   routingMode: PaperRoutingMode;
   usedChildDrain?: boolean;
+  shadowVerifyAttempted?: boolean;
 }): string[] {
   if (args.outcome !== 'filled') {
     return args.usedLiveMarketQuote
@@ -1207,10 +1240,23 @@ function internalPaperFillGapTags(args: {
     'inline_fill_model',
     'no_venue_latency',
     args.usedChildDrain ? 'child_slice_drain' : 'no_partial_fills',
-    'funds_only_routing',
   ];
-  if (args.routingMode === 'both_verify') {
-    tags.push('both_verify_deferred');
+  switch (args.routingMode) {
+    case 'funds_only':
+      tags.push('funds_only_routing');
+      break;
+    case 'both_verify':
+      tags.push(
+        args.shadowVerifyAttempted ? 'both_verify_linked' : 'both_verify_no_provider',
+      );
+      break;
+    case 'execute_on_service':
+      tags.push('execute_on_service_routing');
+      break;
+    default: {
+      const _exhaustive: never = args.routingMode;
+      void _exhaustive;
+    }
   }
   return tags;
 }

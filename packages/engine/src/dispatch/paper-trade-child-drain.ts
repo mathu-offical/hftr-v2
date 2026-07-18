@@ -26,6 +26,8 @@ import {
 } from './child-slice-fills';
 import { feeCentsFromNotional } from './fees';
 import { buildFillVerificationFields } from './fill-verification';
+import { shadowVerifyAndPersistBookDelta } from '../paper/book-delta';
+import { resolveExecutionContext } from './execution-context';
 import type { PaperTradeRequest, PaperTradeResult } from './paper-trade-types';
 import { applyFill } from './positions';
 
@@ -52,6 +54,10 @@ export interface ChildDrainState {
   quoteLastCents: number | null;
   usedLiveMarketQuote: boolean;
   routingMode: PaperRoutingMode;
+  /** When true, finalize runs provider shadow verify for BookDelta. */
+  shadowVerify?: boolean;
+  /** Serialized task for shadow submit (no secrets). */
+  shadowTask?: DeterministicActionTask | null;
 }
 
 export interface ChildSliceDrainPayload {
@@ -64,6 +70,7 @@ export interface ChildSliceDrainPayload {
 export function childDrainGapTags(args: {
   usedLiveMarketQuote: boolean;
   routingMode: PaperRoutingMode;
+  shadowVerifyAttempted?: boolean;
 }): string[] {
   const tags = [
     args.usedLiveMarketQuote ? 'live_market_quote' : 'synthetic_quote',
@@ -71,10 +78,23 @@ export function childDrainGapTags(args: {
     'no_venue_latency',
     'child_slice_drain',
     'time_spaced_child_drain',
-    'funds_only_routing',
   ];
-  if (args.routingMode === 'both_verify') {
-    tags.push('both_verify_deferred');
+  switch (args.routingMode) {
+    case 'funds_only':
+      tags.push('funds_only_routing');
+      break;
+    case 'both_verify':
+      tags.push(
+        args.shadowVerifyAttempted ? 'both_verify_linked' : 'both_verify_no_provider',
+      );
+      break;
+    case 'execute_on_service':
+      tags.push('execute_on_service_routing');
+      break;
+    default: {
+      const _exhaustive: never = args.routingMode;
+      void _exhaustive;
+    }
   }
   return tags;
 }
@@ -155,6 +175,7 @@ async function finalizeTimeSpacedChildDrain(
   const simulatorGapTags = childDrainGapTags({
     usedLiveMarketQuote: state.usedLiveMarketQuote,
     routingMode: state.routingMode,
+    shadowVerifyAttempted: state.shadowVerify === true,
   });
 
   await db
@@ -238,6 +259,32 @@ async function finalizeTimeSpacedChildDrain(
     // Fill must succeed even if equity projection write fails.
   }
 
+  if (state.shadowVerify && state.shadowTask) {
+    try {
+      const execCtx = await resolveExecutionContext(db, clock, state.companyId);
+      if (execCtx.adapter && execCtx.venue !== 'paper_sim') {
+        const clientOrderId = state.shadowTask.clientOrderId ?? `drain_${taskId.slice(0, 12)}`;
+        await shadowVerifyAndPersistBookDelta(db, clock, {
+          adapter: execCtx.adapter,
+          task: state.shadowTask,
+          shadowClientOrderId: `bv_${clientOrderId}`.slice(0, 48),
+          internalPriceCents: vwapCents,
+          companyId: state.companyId,
+          engineModuleId: state.moduleId,
+          instructionId: state.instructionId,
+          traceId,
+          routingMode: state.routingMode,
+          feedClassInternal: state.usedLiveMarketQuote
+            ? 'live_market_quote'
+            : 'synthetic_quote',
+          fillTimeoutMs: state.shadowTask.fillTimeoutMs,
+        });
+      }
+    } catch {
+      // Shadow verify must not fail the authoritative internal fill.
+    }
+  }
+
   return traceId;
 }
 
@@ -280,6 +327,8 @@ export interface StartTimeSpacedChildDrainContext {
   urgencyScalar: number;
   usedLiveMarketQuote: boolean;
   routingMode: PaperRoutingMode;
+  /** D-122 Phase 4: shadow-verify on drain complete. */
+  shadowVerify?: boolean;
 }
 
 /** Fill slice[0], persist drain_state, enqueue slice[1] with runAfterMs. */
@@ -329,6 +378,8 @@ export async function startTimeSpacedChildDrain(
     quoteLastCents: ctx.quote.lastCents,
     usedLiveMarketQuote: ctx.usedLiveMarketQuote,
     routingMode: ctx.routingMode,
+    shadowVerify: ctx.shadowVerify === true,
+    shadowTask: ctx.shadowVerify === true ? ctx.task : null,
   };
 
   await db

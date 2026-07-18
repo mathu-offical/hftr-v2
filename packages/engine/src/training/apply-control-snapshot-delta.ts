@@ -85,6 +85,9 @@ export function applyControlSnapshotDelta(args: {
         applied: delta,
       };
     }
+    case 'book_delta':
+      // Observation-only (D-122 Phase 4); valve training is a separate job.
+      return { ok: false, reason: 'unsupported_mutation' };
     default: {
       const _exhaustive: never = args.delta;
       return _exhaustive;

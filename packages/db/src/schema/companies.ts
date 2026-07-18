@@ -161,6 +161,47 @@ export const modules = pgTable(
   ],
 );
 
+/**
+ * D-091: engine motherboard utility bindings (chrome buses).
+ * Exactly one of from_engine_id / from_module_id (DB CHECK).
+ */
+export const engineUtilityLinks = pgTable(
+  'engine_utility_links',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id),
+    toEngineId: uuid('to_engine_id')
+      .notNull()
+      .references(() => engineInstances.id, { onDelete: 'cascade' }),
+    bus: text('bus', {
+      enum: ['data_in', 'data_out', 'clock', 'funds', 'system_control'],
+    }).notNull(),
+    fromEngineId: uuid('from_engine_id').references(() => engineInstances.id, {
+      onDelete: 'cascade',
+    }),
+    fromModuleId: uuid('from_module_id').references(() => modules.id, {
+      onDelete: 'cascade',
+    }),
+    streamId: text('stream_id'),
+    streamDescriptor: text('stream_descriptor'),
+    ...timestamps,
+  },
+  (t) => [
+    index('engine_utility_links_company_idx').on(t.companyId),
+    index('engine_utility_links_to_engine_idx').on(t.toEngineId),
+    uniqueIndex('engine_utility_links_bus_unique').on(
+      t.toEngineId,
+      t.bus,
+      t.fromEngineId,
+      t.fromModuleId,
+    ),
+  ],
+);
+
 export const moduleLinks = pgTable(
   'module_links',
   {

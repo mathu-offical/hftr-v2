@@ -18,8 +18,11 @@ Environment (automation path):
   ALPACA_PAPER_SECRET             Optional — alias key id: ALPACA_PAPER_KEY_ID
   FINNHUB_API_KEY                 Optional — Finnhub company/general news
   POLYGON_API_KEY                 Optional — Polygon.io reference news
+  FRED_API_KEY                    Optional — St. Louis Fed macro series search
+  ALPHA_VANTAGE_API_KEY           Optional — Alpha Vantage news sentiment
 
 Runtime gather uses user-saved research keys (D-039). Env keys are CI/smoke only.
+Frankfurter FX and CoinGecko public endpoints are pinged without keys when smoke runs.
 
 Exits 0 when all present keys pass or none are set; non-zero if any present key fails auth.
 `;
@@ -204,8 +207,138 @@ async function verifyPolygon(apiKey) {
   }
 }
 
+async function verifyFrankfurter() {
+  const url = 'https://api.frankfurter.dev/v2/rates?base=USD';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) {
+      return { ok: false, failure: `http_${res.status}` };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, failure: 'ping_timeout' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function verifyWorldBank() {
+  const url = 'https://api.worldbank.org/v2/indicator?format=json&per_page=1';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) {
+      return { ok: false, failure: `http_${res.status}` };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, failure: 'ping_timeout' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function verifyCoinGecko() {
+  const url =
+    'https://api.coingecko.com/api/v3/coins/markets' +
+    '?vs_currency=usd&order=market_cap_desc&per_page=1&page=1';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'hftr-v2-research-smoke/1.0',
+      },
+    });
+    if (!res.ok) {
+      return { ok: false, failure: `http_${res.status}` };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, failure: 'ping_timeout' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function verifyFred(apiKey) {
+  const url =
+    'https://api.stlouisfed.org/fred/series/search' +
+    `?search_text=gdp&api_key=${encodeURIComponent(apiKey)}&file_type=json&limit=1`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, failure: 'auth_rejected' };
+    }
+    if (!res.ok) {
+      return { ok: false, failure: `http_${res.status}` };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, failure: 'ping_timeout' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function verifyAlphaVantage(apiKey) {
+  const url =
+    'https://www.alphavantage.co/query' +
+    `?function=NEWS_SENTIMENT&limit=1&apikey=${encodeURIComponent(apiKey)}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, failure: 'auth_rejected' };
+    }
+    if (!res.ok) {
+      return { ok: false, failure: `http_${res.status}` };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, failure: 'ping_timeout' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 let anyPresent = false;
 let anyFailed = false;
+
+const frankfurterOk = await runCheck('frankfurter_fx', () => verifyFrankfurter());
+anyPresent = true;
+if (!frankfurterOk) anyFailed = true;
+
+const coingeckoOk = await runCheck('coingecko_crypto', () => verifyCoinGecko());
+if (!coingeckoOk) anyFailed = true;
+
+const worldBankOk = await runCheck('world_bank_indicator', () => verifyWorldBank());
+if (!worldBankOk) anyFailed = true;
 
 const braveKey = (process.env.BRAVE_API_KEY ?? '').trim();
 if (braveKey) {
@@ -259,6 +392,24 @@ if (polygonKey) {
   if (!ok) anyFailed = true;
 } else {
   console.log('polygon_news: skip (no POLYGON_API_KEY)');
+}
+
+const fredKey = (process.env.FRED_API_KEY ?? '').trim();
+if (fredKey) {
+  anyPresent = true;
+  const ok = await runCheck('fred_macro', () => verifyFred(fredKey));
+  if (!ok) anyFailed = true;
+} else {
+  console.log('fred_macro: skip (no FRED_API_KEY)');
+}
+
+const alphaVantageKey = (process.env.ALPHA_VANTAGE_API_KEY ?? '').trim();
+if (alphaVantageKey) {
+  anyPresent = true;
+  const ok = await runCheck('alpha_vantage_news', () => verifyAlphaVantage(alphaVantageKey));
+  if (!ok) anyFailed = true;
+} else {
+  console.log('alpha_vantage_news: skip (no ALPHA_VANTAGE_API_KEY)');
 }
 
 if (!anyPresent) {

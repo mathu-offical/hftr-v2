@@ -1021,7 +1021,7 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Guardrails / Events) whose membership ORs sector_seeds with the matching catalog.
   Topic sync attaches to any research module even when catalog concepts are librarian-owned.
   Archive protects desk-focus titles. Docs: ui-spec, data-model, research-galaxy-topic-view-design.
-  **Status: implemented.**
+  **Status: superseded by D-126** (catalog mirrors removed from research topics).
 
 - **D-097 (bottom ribbon tabs + execution-engine scope, 2026-07-18):** Bottom control panel
   keeps **persistent ribbon tab buttons** (Trends · Scenarios · Watch · Decisions · Lineage ·
@@ -1241,22 +1241,34 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   (not Research-owned). DATA tab primary list is **LIVE DATA SOURCES** (full
   `RESEARCH_SOURCE_REGISTRY` inventory with readiness via `GET …/live-data-sources`).
   Company canvas `library` modules appear under dock **Company**. Center **Data Explorer**
-  overlay browses live hydrators and library contents (markdown / JSON). Canvas `live_api`
+  overlay browses live hydrators and library contents (markdown / JSON). Live-source
+  **inventory** is client SWR-cached (metadata only); **Search / Browse current** lazy-loads
+  service widgets via `POST …/live-data-sources/[kind]/query`. Canvas `live_api`
   identity uses optional `sourceKind` hydrator (legacy venue map). Galaxy stays Research-owned
   for topic/connection **trace**; Explorer is content **read**. Spec:
   `docs/superpowers/specs/2026-07-18-data-tab-libraries-dock-explorer-design.md`.
   Docs: ui-spec §4, research-tab-shelves-inspector-design, product-spec §Data modules.
-  **Status: implemented** (elevated Libraries sheet chrome; contracts + web typecheck verified).
+  **Status: implemented** (elevated Libraries sheet; inventory cache + query widgets; contracts
+  + web typecheck verified).
 
-- **D-122 (dual paper books + delta training, 2026-07-18):** Paper execution uses **explicit
-  dual books** — an internal hftr paper engine book and optional provider paper books
-  (Alpaca paper, Kalshi demo, …). Books stay linked; neither silently replaces the other.
-  **Deltas** between books (fill price, latency, partials, cash/position marks, reject codes)
-  are first-class artifacts used to **train / weight** the internal sim (and related
-  realism parameters), not discarded reconciliation noise. Provider paper remains available
-  on top of the internal engine; operators may toggle real/provider accounts without
-  abandoning the internal book. Full design pending brainstorm (architecture doc + plan to
-  follow). Related: D-002, D-014, D-025, D-027; OQ-13. **Status: decided (design pending).**
+- **D-122 (dual paper books + engine→service binding + delta training, 2026-07-18):**
+  Paper execution uses **explicit dual books** with linked delta resolution, plus a
+  **per-engine service binding** model:
+
+  1. **Operator binds each trading engine** (canvas trading module / engine group) to a
+     **real service** (Alpaca paper, Kalshi demo, …) when available. Binding is user-defined —
+     not an automatic “company has one broker” override of every engine.
+  2. **If no real service is bound** for that engine, dispatch uses **internal paper
+     functions** (hftr paper engine / `paper_sim` realism layer).
+  3. The **hybrid combination** of those bindings **hydrates the company’s main book**
+     (cash, positions, equity, capital admission for that company). Main book is one
+     company ledger/position set composed from whatever each engine executed against.
+
+  Dual books remain linked for **delta** artifacts (fill price, latency, partials, marks,
+  reject codes) used to **train / weight** the internal sim. Provider paper stays available
+  on top of internal paper functions; operators may bind/unbind without abandoning the
+  learning loop. Full design pending brainstorm. Related: D-002, D-014, D-025, D-027;
+  OQ-13. **Status: decided (design pending).**
 
 - **D-124 (complex-signal polarization → capital leverage, 2026-07-18):** No v1 term
   `polarization`; v2 defines it as agreement strength of a complex signal (trend
@@ -1273,6 +1285,33 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   collapsed states. Clicking a symbol selects that tab and expands the panel; a bottom
   chevron remains the explicit show/hide control (`[` / `]` labels preserved for e2e).
   Active tab gets accent stroke + edge bar. Shared `PanelEdgeRail`. Docs: ui-spec §4.
+  **Status: implemented.**
+
+- **D-125 (Positions home = right panel, 2026-07-18):** Open positions move from the bottom
+  ribbon (D-114) into a dedicated **RightPanel Positions** tab (Verify | Executions |
+  Positions | Ledger | Sims | Values). Inspector shows stability (held-vs-cost), automatic
+  recovery (tree ladder + next model-free exit candidate on `GET …/positions`), and agent
+  actions (lead/tree + recent executions → TraceTimeline). Ledger is entries-only; Market
+  posture Positions category stays as overlay navigator. Legacy bottom `openTabs`/`collapsedPanes`
+  values of `positions` are dropped on read. Docs: ui-spec §4. **Status: implemented.**
+
+- **D-126 (seeded research topics = awareness + sector points, 2026-07-18):** Seeded
+  **research topics** are distinct from seeded **library knowledge**. Company bootstrap no
+  longer mirrors catalog domains (Strategy families / Guardrails / …) as research topics —
+  those stay on the Seeded trading mechanisms library shelf. Topics seed: **Current
+  awareness** (regime & breadth, macro & policy, news & event readthrough) plus one
+  **Sector · {label}** research point per `sectorFocuses` (light `sector_seeds` membership
+  when the label maps), and a thin **Seeded trading mechanisms** overview for Libraries
+  Overview. Legacy D-096 catalog-directive / Desk focus trees prune on next
+  `ensureSeededResearchTopics`. Docs: product-spec, ui-spec §6, research-galaxy-topic-view-design,
+  research-tab-shelves-inspector-design. **Status: implemented.**
+
+- **D-127 (research articles list + librarian actions, 2026-07-18):** Research **articles**
+  are library-backed concepts stamped with `hftr:article` (1–3 display tags; system tags
+  like `catalog` hidden from chips). Left Research tab shows an Articles list; concepts
+  GET supports `?kind=article`. Library shelves expose curate/verify/refresh via
+  `POST …/libraries/[libraryId]/actions`. Distinct from research **topics** (D-126) and
+  catalog seed knowledge. Docs: ui-spec §4, research-tab-shelves-inspector-design.
   **Status: implemented.**
 
 ## Open questions
@@ -1308,7 +1347,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 - **OQ-5 (open):** Polymarket wallet/key custody design before that adapter ships.
 - **OQ-6 (open):** Dashboard/diagnostics slide direction conflict from v1 DevSpecs (top vs
   bottom) — v2 resolves via the three-panel model; confirm no separate diagnostics slide needed.
-- **OQ-13 (open, D-122):** Dual paper books — which book is authoritative for capital
-  admission, risk limits, position exits, and company UI equity while both books run; which
-  delta dimensions feed the weighting system first; whether provider shadow is always-on when
-  connected or opt-in per company/module. Resolve in paper-engine design brainstorm.
+- **OQ-13 (open, D-122):** Dual paper books + engine→service binding. **Resolved so far:**
+  user binds each engine to a real service or falls back to paper functions; hybrid
+  hydrates the company **main book**. **Still open:** when an engine *is* bound to a
+  real service, does the internal paper twin still run in parallel for deltas (always /
+  opt-in), or only when unbound? Which delta dimensions feed weighting first? How do
+  multi-engine / multi-venue fills stay consistent in one main book (symbol conflicts,
+  cash pool)? Resolve in paper-engine design brainstorm.

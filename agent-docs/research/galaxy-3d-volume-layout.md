@@ -1,7 +1,7 @@
 # Galaxy 3D volume layout research (D-116)
 
-**Status:** implemented baseline (2026-07-18)  
-**Owns:** nest-center packing, force tuning for volumetric neural galaxy  
+**Status:** implemented + refined (2026-07-18)  
+**Owns:** nest-center packing, force tuning for volumetric neural galaxy, volume camera framing  
 **Related:** TD-09, D-040, D-107, `ui-ux/research-galaxy-topic-view-design.md`, `apps/web/lib/galaxy-physics.ts`
 
 ## 1. Problem (observed)
@@ -17,7 +17,7 @@ Root cause analysis of D-107 layout:
 | Folders | XY ring + tiny Z jitter | Nested flat discs |
 | Articles | planar spiral + tiny Z | Same |
 | `forceCenter` | strength 0.012 | Compresses cloud toward origin |
-| Camera | default / light `zoomToFit` | Frames pancake as “full” |
+| Camera | default / light `zoomToFit` | Frames pancake as “full”; elev hacks could land *inside* envelope |
 
 Result: orbit camera still looked like a **flat necklace of nests**, not a volumetric neural cloud.
 
@@ -51,40 +51,61 @@ Result: orbit camera still looked like a **flat necklace of nests**, not a volum
 1. **Library centers:** Fibonacci sphere on concentric shells (`computeLibraryCenters3D`), not XY spiral.
 2. **Folder / article centers:** Fibonacci sphere *inside* parent hull (not planar rings).
 3. **Forces:** weaken `center` (~0.004); raise charge `distanceMax`; slightly longer spring rest lengths; longer warmup/cooldown.
-4. **Camera:** auto `zoomToFit` with larger padding after physics ready so volume fills the viewport.
-5. **Do not** adopt hyperbolic or force-in-a-box yet; document as follow-ups if volume still reads flat after camera + packing.
+4. **Nest / folder fill:** `createNestShellRadialForce` + `createFolderShellRadialForce` push members onto hashed radial bands so balls are not hollow cores.
+5. **Camera:** packing-derived `computeVolumeCameraPose` (elevated orbit outside company envelope) + **Fit** control; gentle idle auto-rotate (paused on pointer). Prefer this over `zoomToFit`+elev hacks that could frame from inside the envelope.
+6. **Do not** adopt hyperbolic or force-in-a-box yet; document as follow-ups if volume still reads flat after camera + packing.
 
 ## 4. Implementation map
 
 | File | Change |
 |------|--------|
-| `apps/web/lib/galaxy-physics.ts` | `fibonacciSpherePoint`, `scaleSpherePoint`; rewrite center placers; spring/charge tunings |
-| `apps/web/lib/galaxy-physics.test.ts` | Assert Z span ≈ XY (volume packing) |
-| `apps/web/components/research/GalaxyView.tsx` | center strength, charge distanceMax, zoomToFit padding, warmup |
+| `apps/web/lib/galaxy-physics.ts` | Fibonacci packing; nest/folder shell radials; `computeCompanyEnvelopeBounds` / `computeVolumeCameraPose` |
+| `apps/web/lib/galaxy-physics.test.ts` | Volume packing + camera + folder shell tests |
+| `apps/web/lib/galaxy-nest-hulls.ts` | Company envelope sized via shared bounds helper |
+| `apps/web/components/research/GalaxyView.tsx` | Wire forces; Fit volume; idle orbit; DEV `layoutStats` (+ camera) |
 | `agent-docs/ui-ux/research-galaxy-topic-view-design.md` | §4.1 volume contract + plan |
 | `agent-docs/research/tech-decisions.md` | TD-09 amendment |
 | `agent-docs/dev-intent/decisions-log.md` | D-116 |
+
+### Force / packing summary
+
+| Nest centers | `fibonacciSpherePoint(i, N)` on radius `baseShell + tier*shellStep` (large shells) |
+| Folders / articles | Fibonacci sphere *inside* nest radius (`folderOrbR`, `articleOrbR`) |
+| Nest fill | `createNestShellRadialForce` — soft radial spring so nest members leave the center and fill the ball |
+| Folder fill | `createFolderShellRadialForce` — same for folder members (articles still own article orbits) |
+| Springs | Longer nest↔folder / folder↔article distances |
+| Charge | Softer; `distanceMax` raised so Z repulsion is not clipped early |
+| Center force | Weakened so Z packing is not crushed toward the midplane |
+| Layout commit | Cleared when `nestPackingSignature` changes so new packing is not overridden by stale FG coords |
+| Camera | `computeVolumeCameraPose` (~22° elev, ~38° azim, distance ≈ envelope×2.55) + Fit button + idle orbit |
 
 ## 5. Follow-up plan
 
 | Priority | Item | Trigger |
 |----------|------|---------|
-| P1 | Live IronBee orbit check — confirm Z depth while rotating | After HMR; IronBee MCP available |
-| P1b | Clear `layoutCommittedRef` / remount when nest packing signature changes | If operators still see old pancake until hard refresh |
-| P2 | Optional `forceRadial` shells for concepts inside library | If members still collapse to midplane |
+| ~~P1~~ | Live layout AABB — `zOverX ≈ 0.88` on 8-lib company | **Done 2026-07-18** (`layoutStats`) |
+| ~~P1b~~ | Clear `layoutCommittedRef` on `nestPackingSignature` change | **Done** |
+| ~~P2~~ | `createNestShellRadialForce` fills nest ball volume | **Done** |
+| ~~P2b~~ | Folder shell radial + packing-derived camera / Fit / idle orbit | **Done 2026-07-18** |
 | P3 | `d3-force-clustering` for live nest centers | If pinned `fx/fy/fz` hulls fight volume |
 | P4 | Hyperbolic focus mode for >2k concepts | TD-09 LOD ladder stage |
 | P5 | Persist camera bookmarks | Product nice-to-have (design § out of scope) |
+| P6 | Faster graph GET / warm cache | Graph still ~3m cold — UX lag unrelated to packing |
 
 ## 6. Verification
 
-- Unit: `fibonacciSpherePoint` Z span; library centers Z/XY ratio; folder still inside parent.
-  **Verified:** `pnpm --filter @hftr/web exec vitest run lib/galaxy-physics.test.ts` — 13/13 pass.
-- Browser: open galaxy → wait graph → orbit camera — nests above/below midplane; company envelope not a thin disc.
-  **Unverified this session:** IronBee MCP call failed (`server does not exist` despite catalog ready);
-  Playwright left-panel open timed out under heavy Next compile. Re-check after hard refresh once
-  `:3001` is idle (P1).
-- Console: no Application errors after settle — pending browser pass.
+- Unit: `fibonacciSpherePoint` Z span; library centers Z/XY ratio; folder still inside parent;
+  packing signature; nest/folder shell radial; volume camera outside envelope.
+  **Verified:** `vitest run lib/galaxy-physics.test.ts` — see latest run.
+- Browser: open Research galaxy → `window.__hftrGalaxyHoverTest.layoutStats()`.
+  **Verified (Playwright, 2026-07-18):** 8 libraries, AABB
+  `xSpan≈1098`, `ySpan≈1348`, `zSpan≈967`, **`zOverX≈0.88`** (was ~0.05–0.1 on pancake).
+  Re-verify after camera pose + Fit: same AABB; `camera.envelopeRadius≈1024`;
+  camera distance outside envelope; Fit control frames volume; status
+  “Framed Fibonacci volume · company envelope”. Screenshot:
+  `/tmp/hftr-galaxy-obs/galaxy-d116-volume-fit.png`.
+- Unit suite: **16/16** pass (`vitest run lib/galaxy-physics.test.ts`).
+- Console: no Application errors after settle — pending IronBee o11y when MCP reconnects.
 
 ## 7. Citations (external)
 

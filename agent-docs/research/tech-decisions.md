@@ -119,10 +119,11 @@ Order of integration (per-adapter detail in `architecture/broker-integration.md`
     avoid collapsing the galaxy into a pancake.
 - **Nest packing (D-116):** library / folder / article centers use **Fibonacci-sphere**
   samples on concentric shells (see `research/galaxy-3d-volume-layout.md`). XY-only spirals
-  and tiny Z jitter are rejected — they under-use 3D volume.
+  and tiny Z jitter are rejected — they under-use 3D volume. Nest/folder shell radials fill
+  balls; camera uses packing-derived elevated orbit + Fit control (not pancake `zoomToFit`).
 - **Neural affordances:** directional particles on every link (stronger / focused links carry
   more); arrows on directed relations (`causes` / `supports` / `derived_from`); slight link
-  curvature; orbit camera; dark space background; node drag.
+  curvature; orbit camera with optional idle auto-rotate; dark space background; node drag.
 - **Layout stability:** nest seed coordinates applied once per node id; subsequent focus/filter
   updates omit xyz so `d3-force-3d` keeps simulated positions.
 - **2D fallback** only when WebGL fails or the operator toggles 2D — same spring/charge

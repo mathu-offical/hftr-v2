@@ -233,9 +233,9 @@
 
 Implemented today as docked collapsible panels (`components/panels/`): `LeftPanel`
 (Research + Libraries | Market posture | Data sources), `BottomPanel` (Trends | Scenario engine | Watch lists |
-Decisions + traces | Lineage | Approvals | Dead letters — persistent ribbon tabs +
-execution-engine scope, D-097), `RightPanel` (Verify | Executions |
-Ledger — with open positions — | Sims | Values). Full slide-over behavior with deep-link
+Policies | Decisions + traces | Lineage | Approvals | Dead letters — persistent ribbon tabs +
+execution-engine scope, D-097), `RightPanel` (Verify | Executions | **Positions** | Ledger |
+Sims | Values — D-125). Full slide-over behavior with deep-link
 routes remains the target below.
 
 **Panel tab chrome:** shared `PanelTabs` — mono uppercase rail labels, hairline base,
@@ -334,9 +334,10 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   **evidence ref**, **research run** provenance, **usage**, **confidence**, Verify / Delete.
   Bodies render via `ResearchMarkdown` with optional `[[sys:…]]` chips (D-047).
 - Data tab (D-121): **LIVE DATA SOURCES** via `GET …/live-data-sources` (registry + readiness);
-  place-on-canvas for entitled hydrators; **Data Explorer** overlay (browse / filter / search;
-  markdown | JSON). Canvas `live_api` uses `config.sourceKind`. Overlays mutually exclusive
-  with Galaxy and Market posture.
+  client **SWR cache** for inventory metadata (existence / status / canvas binds — live payloads
+  not cached). Selecting a source opens **Data Explorer** with **Search** + **Browse current**
+  against `POST …/live-data-sources/[kind]/query` (lazy gather → widget cards). Canvas
+  `live_api` uses `config.sourceKind`. Overlays mutually exclusive with Galaxy and Market posture.
 
 ### MIDDLE BOTTOM — Exploration + Analysis + Choice (the main control panel)
 - **Persistent ribbon (D-097 / D-113 / D-114 / D-118):** collapsed view keeps tab buttons +
@@ -345,18 +346,18 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   chevron (same screen area as the collapsed expand target); `` ` `` / Esc / edge chevron still
   toggle height. Content defaults to **~70vh** (capped at 48rem, floor adjusted for the edge
   strip) below the top chrome (D-105).
-  **Multi-open panes (D-114 / D-117):** ribbon tabs toggle independently (`aria-pressed`); several
+  **Multi-open panes (D-114 / D-117 / D-125):** ribbon tabs toggle independently (`aria-pressed`); several
   condensed side-by-side panes can be open at once in a **horizontally scrollable** row
-  (Trends, Scenarios, Watch, **Open positions**, **Policies**, Decisions, Lineage, Approvals,
+  (Trends, Scenarios, Watch, **Policies**, Decisions, Lineage, Approvals,
   Dead). Pane headers show **item counts**, collapse/expand or hide independently of whole-panel
   show/hide; a sole expanded pane stretches. Closing the last open pane (or having none selected)
   **auto-collapses** the panel to the ribbon. Lists cap at 48 rows with a “showing N of M”
-  footer. `openTabs` + `collapsedPanes` persist per company (legacy single `tab` migrates).
-  Positions list non-zero qty from `GET …/positions`; Policies list canvas policy modules
+  footer. `openTabs` + `collapsedPanes` persist per company (legacy single `tab` migrates;
+  legacy `positions` pane ids are dropped). Policies list canvas policy modules
   (envelope / notes / status). Ribbon and left/right panel tabs show count meta when > 0.
 - **Engine scope (D-097):** dropdown selects `All engines` or one `engine_instances` row.
   Every tab filters durable API projections to modules whose `engine_instance_id` matches
-  (trends, leads/trees, watchlists, positions, policies, executions/decisions, lineage columns,
+  (trends, leads/trees, watchlists, policies, executions/decisions, lineage columns,
   approvals that touch member modules, dead letters with a member `moduleId`). Company-scoped
   rows with no module binding appear only under **All engines**.
 - **Trends tab lists (D-104):** one list card per **trend module** in the selected engine
@@ -377,10 +378,16 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   letters; engine-scoped like other tabs. Scenario/Lineage prefer execution `leadId`/`treeId`
   from the executions API (timeline causation walk) over symbol heuristics.
 
-### RIGHT — Execution + Verification + Simulation results
+### RIGHT — Execution + Verification + Positions + Simulation results
+- **Positions (D-125):** dedicated tab listing open holdings (market-hub live marks +
+  `SymbolTicker` stability). Select a row for the inspector: held-vs-cost stability,
+  automatic recovery (tree `recoveryLadder` + next model-free exit candidate from
+  `GET …/positions`), lead/tree status, and recent agent executions (open `TraceTimeline`).
+  Market posture Positions category remains the overlay navigator — not removed.
 - Ledger of all trades/results/responses: filterable table (module, venue, mode, outcome),
   immutable trace rows → trace inspector modal (full ActionTrace lineage: lead → tree →
-  instruction → task → fills → verification, rendered as a vertical timeline).
+  instruction → task → fills → verification, rendered as a vertical timeline). Ledger is
+  entries-only (open holdings live under Positions).
 - Simulation results: run groups, side-by-side comparisons (PnL/drawdown/slippage), divergence
   tags, "feed results to module" action.
 - Verification dashboard: pass-rate, blocked reasons breakdown, recovery ladder activity.
@@ -404,14 +411,14 @@ Mistral conversational chat lands with the research/assistant LLM budget work (M
 Full design: `ui-ux/research-galaxy-topic-view-design.md`.
 
 ### Objects
-- **Topics** — research-**module** directives / work programs (agent-created or seeded). They
-  organize focus and can spawn multiple articles or libraries; they are **not** galaxy nodes
-  and are distinct from library-side concepts/tags/trends/functions. **D-045** / **D-086** /
-  **D-096** seed **separate top-level** catalog directives (Strategy families, Guardrails,
-  Session constraints, Broker policy, Trend leads, Compliance, Events, Macro, Sector knowledge,
-  …) plus an overview **Seeded trading mechanisms** index; company `sectorFocuses` add
-  **Desk focus · {label}** combination topics. Concepts stay in the mechanisms library (and
-  other seeded nests) so galaxy/Article have baseline catalog content without a research run.
+- **Topics** — research-**module** points / work programs (agent-created or seeded). They
+  organize focus and can spawn articles or libraries; they are **not** galaxy nodes and are
+  distinct from library-side concepts/tags/trends/functions. **D-126:** company bootstrap
+  seeds **Current awareness** (regime, macro, news/event readthrough) plus **Sector · {label}**
+  research points from `sectorFocuses`, and a thin **Seeded trading mechanisms** library
+  overview topic — **not** catalog class mirrors (those stay on the library shelf). Legacy
+  D-096 desk-focus / catalog-directive topics prune on next bootstrap. Concepts remain in the
+  mechanisms library so galaxy/Article have baseline catalog content without a research run.
 - **Galaxy nodes** — concepts (primary) and tags (secondary / color / filter). Typed
   `concept_links` remain edges. **D-045** materializes compile-time catalog targets into
   company concepts + library nests on create/ensure so galaxy is never empty of baseline

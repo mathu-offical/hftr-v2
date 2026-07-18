@@ -106,13 +106,11 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   priority, provenance. Implemented (migration `0012`). **D-040 (specified):** add
   `synopsis_md` (hybrid article agent synopsis), usage counters
   (`query_count`, `last_queried_at`, `reference_count`, `last_referenced_at`). Topics are
-  **module-side directives** (work programs that may spawn articles/libraries) — not galaxy
-  nodes and not library entities.   **D-086 / D-096:** seeded forest of **separate top-level
-  catalog roots** (Strategy families, Guardrails, …, Sector knowledge) plus overview
-  **Seeded trading mechanisms**; company sector focuses add **Desk focus** combination topics;
-  class/tier/sector leaves nest under their catalog group via `parent_topic_id`;
-  membership via `topic_concepts` is organizational focus, while concepts remain
-  library-side.
+  **module-side research points** (may spawn articles/libraries) — not galaxy nodes and not
+  library entities. **D-126:** seeded **Current awareness** (+ children) and **Sector ·
+  {focus}** points from `sector_focuses`, plus a thin **Seeded trading mechanisms** library
+  overview topic — **not** catalog class mirrors (catalog knowledge stays library-side).
+  Membership via `topic_concepts` is organizational focus.
 - **topic_concepts** — **D-040 (specified):** join `(topic_id, concept_id, sort_order, role?)`
   unique `(topic_id, concept_id)`; defines topic membership / galaxy focus subgraph and
   Article tab section order.

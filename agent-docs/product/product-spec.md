@@ -93,11 +93,13 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   company-wide sweep, research cadence schedule.
 - Output: evidence packages → validated concepts + tags + typed links (galaxy graph); library
   curation as `auto_admitted` or `proposed` per admission mode.
-- **Topics (D-040):** agent-created organizations that compose multiple concepts from company
-  data, seeded knowledgebases, and external gather. Topics are not galaxy nodes; they own
-  ordered concept memberships and a **hybrid article** (semantic synopsis with inline links +
-  expandable member concept sections). Research and librarian curation must keep saved
-  research in system-usable, operator-viewable form (graph + article + library membership).
+- **Topics (D-040 / D-126):** agent-created (or seeded) **research points** that organize
+  focus and may spawn articles/libraries. They are **not** galaxy nodes and are **distinct
+  from seeded library knowledge** (catalog concepts live in the Seeded trading mechanisms
+  nest). Company bootstrap seeds **Current awareness** (regime / macro / news) plus one
+  **Sector · {focus}** point per `sectorFocuses`, and a thin library-overview topic for the
+  Libraries Overview link — not catalog class mirrors. Topics own ordered memberships and a
+  hybrid article; research/librarian curation keep graph + article + library membership coherent.
 - **Usage telemetry (D-040):** topics and concepts track `query_count` / `last_queried_at` and
   `reference_count` / `last_referenced_at` for retrieval ranking, librarian prioritization,
   cadence, and visual weight — not display-only.
@@ -229,6 +231,8 @@ Model algorithm canvas stay stable and Analyze is never blocked by UI refresh.
   one account). "Add funds" deep-links to venue funding (see broker-integration.md).
 - Module fund requests + inter-module borrowing → approval inbox (or auto policy within caps).
 - Ledger (right panel) is canonical: every trade, fee, transfer, simulation result.
+- Positions (right panel, D-125) list open holdings with stability, recovery, and agent-action
+  inspection; Market posture keeps a Positions navigator for the overlay dashboard.
 
 ## 5. Built-in assistant
 

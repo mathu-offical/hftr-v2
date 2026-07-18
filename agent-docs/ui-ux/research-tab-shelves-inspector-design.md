@@ -16,14 +16,14 @@ for topic/connection tracing.
 2. **Submit research article** (D-079) — link URL (+ optional notes) or raw text/markdown; model-free; lands as `sourceClass: operator` concept on Runtime shelf (optional library picker).
 3. **Entity search** — single search field; entity-type buttons switch the corpus:
    - `Topics` · `Concepts` · `Tags` · `Libraries`
-4. **Research topics** — company research-module directives as a collapsible forest of
-   **separate top-level roots** (catalog domains + desk focuses; D-096). Nested seeded
-   leaves show shortened display titles under group parents; rows show concept count +
-   Program/Group/Directive kind. Each row has **Research** (enqueue that topic on the
-   **LIBRARY_RESEARCH** lane); the section header has **Research all** (fan-out all active
-   topics). Library research is separate from **POSTURE_RESEARCH** and from execution/other
-   LLM lanes (D-098). Filter appears when the list is large. Selection opens the Page
-   inspector / galaxy focus.
+4. **Research topics** — company research-module **research points** as a collapsible forest:
+   **Current awareness** (+ children) and **Sector · {focus}** from `sectorFocuses` (D-126),
+   plus a thin Seeded trading mechanisms library overview. Nested leaves show shortened
+   display titles; rows show concept count + Program/Group/Research point kind. Each row has
+   **Research** (enqueue that topic on the **LIBRARY_RESEARCH** lane); the section header has
+   **Research all**. Library research is separate from **POSTURE_RESEARCH** and from
+   execution/other LLM lanes (D-098). Filter appears when the list is large. Selection opens
+   the Page inspector / galaxy focus.
 5. **Agent activity** — per research-module run / evidence / admission controls (moved out of
    Modules & tools so module work sits under topics).
 6. **Archive** (D-047) — soft-deleted research; Restore / Clear archive.

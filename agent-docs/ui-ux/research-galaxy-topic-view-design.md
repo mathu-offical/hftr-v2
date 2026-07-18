@@ -54,11 +54,11 @@ Topics may link concepts whose provenance spans:
 
 1. **Company space** — prior research runs, admitted library concepts, module outputs  
 2. **Seeded knowledgebase** — compile-time / catalog seed libraries (**D-045** /
-   **D-081** / **D-086** / **D-096** `bootstrapCompanyKnowledge` materializes `SEED_CATALOG_NAMES`
-   into `catalog_seed` concepts in the **Seeded trading mechanisms** library, plus
-   **separate top-level** catalog directive topics, optional **Desk focus** combination
-   topics from company `sectorFocuses`, and class/tier/sector child directives on the
-   research module)  
+   **D-081** / **D-086** `bootstrapCompanyKnowledge` materializes `SEED_CATALOG_NAMES`
+   into `catalog_seed` concepts in the **Seeded trading mechanisms** library). **D-126**
+   seeds research topics separately: **Current awareness** + **Sector · {focus}** points
+   (not catalog class mirrors). A thin overview topic shares the library nest title for
+   Libraries Overview.  
 3. **External gather** — Brave / SEC / market-news evidence → validated → synthesized concepts (D-039)
 
 Librarian agents score relevance across resources; research agents create/update topics and
@@ -132,7 +132,9 @@ chips drawn from visible concepts’ tags (and optionally topic-level keywords).
   library nests).
 - **Volume packing (D-116):** library / folder / article centers use **Fibonacci-sphere**
   samples on concentric shells so XYZ volume is used — not an XY spiral or planar ring
-  (`research/galaxy-3d-volume-layout.md`).
+  (`research/galaxy-3d-volume-layout.md`). Nest + folder **shell radial** forces fill ball
+  volume; camera frames via packing-derived elevated orbit (**Fit** control) with gentle
+  idle auto-rotate (reduced-motion → static).
 - Cross-library concept links may span nests (spring length still set by weight band + relation).
 - Concepts in multiple libraries: **primary membership** determines nest; secondary
   memberships shown as badges on the concept card / node label, not duplicated nodes.

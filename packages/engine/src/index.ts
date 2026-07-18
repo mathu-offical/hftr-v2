@@ -256,6 +256,7 @@ export type {
   SuggestionThresholdProposeInput,
 } from './handlers/model-gateway';
 import './handlers/maintenance';
+import './handlers/atr-stream';
 import './handlers/position-exits';
 import './handlers/equity-refresh';
 import './handlers/dispatch';
@@ -302,11 +303,13 @@ export {
   getDailyRealizedLossCents,
   resolveCompileBalanceCents,
   resolveCompileSizingBudget,
+  resolveDispatchSpendAuthority,
   resolveEquityCentsForLimits,
   type CompileBalanceSource,
   type CompileBalanceResolution,
   type CompileSizingBudgetSource,
   type CompileSizingBudgetResolution,
+  type DispatchSpendAuthority,
   type EquityLimitSource,
 } from './dispatch/balances';
 export {
@@ -549,6 +552,11 @@ export {
 } from './pipeline/weighted-valves';
 export { computeAtrCents, trueRangeCents, atrStreamSourceId, type OhlcBarCents } from './calc/atr';
 export { resolveAtrCents } from './calc/resolve-atr';
+export {
+  refreshAtrStreamForCompany,
+  mapOhlcBarsToCents,
+  type RefreshAtrStreamDeps,
+} from './calc/refresh-atr-stream';
 export { planChildSlices, normalizeChildSliceFraction } from './dispatch/child-order-scheduler';
 export {
   materializeChildSliceFills,
@@ -556,6 +564,13 @@ export {
 } from './dispatch/child-slice-fills';
 export { feeCentsFromNotional, roundTripFeeBpsFromAmounts } from './dispatch/fees';
 export { applyControlSnapshotDelta } from './training/apply-control-snapshot-delta';
+export {
+  canonicalControlSnapshotJson,
+  controlSnapshotContentHash,
+  persistControlSnapshot,
+  type ControlSnapshotWithoutHash,
+  type PersistControlSnapshotArgs,
+} from './control-snapshot/persist';
 export { loadLatestBySourceId } from './calc/store';
 export {
   walkValueLineage,

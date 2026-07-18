@@ -1,7 +1,9 @@
-import { and, eq, gte, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, sql } from 'drizzle-orm';
+import { computeEngineSpendCapCents, type EngineSpendSource } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import {
   companies,
+  engineInstances,
   ledgerEntries,
   modules,
   positions,
@@ -199,5 +201,98 @@ export async function resolveCompileSizingBudget(
     balanceSource,
     allocationCapCents: allocationCap,
     source: balanceSource,
+  };
+}
+
+export type DispatchSpendAuthority = {
+  spendCapCents: bigint;
+  companyPoolCents: bigint;
+  engineLedgerCents: bigint;
+  allocationCapCents: bigint | null;
+  engineInstanceId: string | null;
+  source: EngineSpendSource;
+  isolationActive: boolean;
+};
+
+/**
+ * D-122 Phase 3: resolve how much a trading module may spend at dispatch.
+ * Engine members are capped by engine (or module) capitalAllocationRef and/or
+ * sum of member module ledger credits. Company pool remains the hard ceiling.
+ */
+export async function resolveDispatchSpendAuthority(
+  db: Db,
+  companyId: string,
+  tradingModuleId: string,
+): Promise<DispatchSpendAuthority> {
+  const companyPoolCents = await getCompanyBalanceCents(db, companyId);
+
+  const moduleRows = await db
+    .select({
+      engineInstanceId: modules.engineInstanceId,
+      capitalAllocationRef: modules.capitalAllocationRef,
+    })
+    .from(modules)
+    .where(and(eq(modules.id, tradingModuleId), eq(modules.companyId, companyId)))
+    .limit(1);
+  const mod = moduleRows[0];
+  if (!mod?.engineInstanceId) {
+    const computed = computeEngineSpendCapCents({
+      companyPoolCents,
+      engineLedgerCents: 0n,
+      allocationCapCents: null,
+      engineScoped: false,
+    });
+    return {
+      ...computed,
+      companyPoolCents,
+      engineLedgerCents: 0n,
+      allocationCapCents: null,
+      engineInstanceId: null,
+    };
+  }
+
+  const engineId = mod.engineInstanceId;
+  const engineRows = await db
+    .select({ capitalAllocationRef: engineInstances.capitalAllocationRef })
+    .from(engineInstances)
+    .where(and(eq(engineInstances.id, engineId), eq(engineInstances.companyId, companyId)))
+    .limit(1);
+  const allocationRef =
+    engineRows[0]?.capitalAllocationRef ?? mod.capitalAllocationRef ?? null;
+
+  let allocationCapCents: bigint | null = null;
+  if (allocationRef) {
+    allocationCapCents = await resolveCapitalAllocationUsdCents(db, allocationRef, {
+      baseBalanceCents: companyPoolCents,
+    });
+  }
+
+  const memberIds = await db
+    .select({ id: modules.id })
+    .from(modules)
+    .where(and(eq(modules.companyId, companyId), eq(modules.engineInstanceId, engineId)));
+  const ids = memberIds.map((r) => r.id);
+  let engineLedgerCents = 0n;
+  if (ids.length > 0) {
+    const sums = await db
+      .select({ total: sql<string>`coalesce(sum(amount_cents), 0)::text` })
+      .from(ledgerEntries)
+      .where(and(eq(ledgerEntries.companyId, companyId), inArray(ledgerEntries.moduleId, ids)));
+    engineLedgerCents = BigInt(sums[0]?.total ?? '0');
+  }
+
+  const computed = computeEngineSpendCapCents({
+    companyPoolCents,
+    engineLedgerCents,
+    allocationCapCents,
+    engineScoped: true,
+  });
+
+  return {
+    ...computed,
+    companyPoolCents,
+    engineLedgerCents,
+    allocationCapCents,
+    engineInstanceId: engineId,
   };
 }

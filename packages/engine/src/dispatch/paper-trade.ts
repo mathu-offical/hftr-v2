@@ -36,6 +36,7 @@ import { enqueue } from '../queue/queue';
 import {
   getCompanyBalanceCents,
   getDailyRealizedLossCents,
+  resolveDispatchSpendAuthority,
   resolveEquityCentsForLimits,
 } from './balances';
 import { materializeChildSliceFills } from './child-slice-fills';
@@ -392,14 +393,18 @@ export async function executePaperTrade(
 
   const referenceCents = quote.askCents ?? quote.lastCents ?? 0;
   const notionalCents = req.quantity * referenceCents;
+  const spendAuthority = await resolveDispatchSpendAuthority(db, req.companyId, req.moduleId);
   if (req.actionVerb === 'buy') {
-    let effectiveBalance = execCtx.virtualBalanceCents;
+    let effectiveBalance = spendAuthority.spendCapCents;
     if (venue !== 'paper_sim') {
       const brokerBalances = await adapter.getBalances();
       const brokerBp = BigInt(brokerBalances.buyingPowerCents);
       effectiveBalance = effectiveBalance < brokerBp ? effectiveBalance : brokerBp;
     }
     if (BigInt(notionalCents) > effectiveBalance) {
+      const isolation =
+        spendAuthority.isolationActive &&
+        BigInt(notionalCents) <= spendAuthority.companyPoolCents;
       await db
         .update(actionInstructions)
         .set({ status: 'blocked', updatedAt: new Date(clock.nowMs()) })
@@ -409,8 +414,10 @@ export async function executePaperTrade(
         clock,
         req,
         envelope,
-        'capital_limit_block',
-        'notional exceeds effective buying power',
+        isolation ? 'capital_isolation_block' : 'capital_limit_block',
+        isolation
+          ? 'notional exceeds this engine’s allocated capital (explicit share required)'
+          : 'notional exceeds effective buying power',
         sessionSnapshot,
         venue,
       );
@@ -439,7 +446,7 @@ export async function executePaperTrade(
   const taskId = taskRows[0]!.id;
 
   const referenceCentsForGauntlet = quote.askCents ?? quote.lastCents ?? 0;
-  let effectiveCapCents = execCtx.virtualBalanceCents;
+  let effectiveCapCents = spendAuthority.spendCapCents;
   let brokerBuyingPowerCents: bigint | undefined;
   if (venue !== 'paper_sim') {
     try {

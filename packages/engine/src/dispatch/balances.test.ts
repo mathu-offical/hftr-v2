@@ -23,6 +23,33 @@ function pickCompileBalance(args: {
   return { balanceCents: args.companyPoolCents, source: 'company_pool' };
 }
 
+describe('engine spend isolation (D-122 Phase 3)', () => {
+  it('caps engine spend below company pool when envelope set', async () => {
+    const { computeEngineSpendCapCents } = await import('@hftr/contracts');
+    const isolated = computeEngineSpendCapCents({
+      companyPoolCents: 2_000_000n,
+      engineLedgerCents: 0n,
+      allocationCapCents: 400_000n,
+      engineScoped: true,
+    });
+    expect(isolated.spendCapCents).toBe(400_000n);
+    expect(isolated.isolationActive).toBe(true);
+    expect(isolated.source).toBe('engine_allocation');
+  });
+
+  it('prefers funded engine ledger under the envelope', async () => {
+    const { computeEngineSpendCapCents } = await import('@hftr/contracts');
+    expect(
+      computeEngineSpendCapCents({
+        companyPoolCents: 2_000_000n,
+        engineLedgerCents: 120_000n,
+        allocationCapCents: 400_000n,
+        engineScoped: true,
+      }).spendCapCents,
+    ).toBe(120_000n);
+  });
+});
+
 describe('compile balance preference', () => {
   it('prefers trading module ledger when funded', () => {
     expect(

@@ -38,6 +38,9 @@ import {
   buildSymbolViz,
   buildMarketHubCharts,
   mapTrendStrengthToBand,
+  projectMarketModelToAwareness,
+  resolveExecutionContext,
+  resolveMarketQuoteWithAdapter,
 } from '@hftr/engine';
 import type { MarketHubSymbolViz, QualitativeBand } from '@hftr/contracts';
 import { withAuth } from '@/lib/api';
@@ -782,6 +785,75 @@ export async function GET(_req: Request, ctx: Ctx) {
       sourceLanes: sourceLanes.map((l) => ({ status: l.status })),
     });
 
+    // Shared MarketModel awareness for day overlay (D-122) — same quote path as dispatch/exits.
+    const awarenessSymbols = new Set<string>();
+    for (const p of positionProjection) awarenessSymbols.add(p.symbol.toUpperCase());
+    for (const w of watchlistsWithViz.slice(0, 24)) awarenessSymbols.add(w.symbol.toUpperCase());
+    for (const t of trendsWithViz.slice(0, 12)) awarenessSymbols.add(t.symbol.toUpperCase());
+    for (const m of movers.items.slice(0, 24)) {
+      if (looksLikeTicker(m.symbolOrSector)) {
+        awarenessSymbols.add(m.symbolOrSector.trim().replace(/^\$/, '').toUpperCase());
+      }
+    }
+    const awarenessSymbolList = [...awarenessSymbols].slice(0, 32);
+
+    let marketModelAwareness: {
+      symbols: string[];
+      feedClasses: string[];
+      usedLiveCount: number;
+      syntheticCount: number;
+      asOfIso: string;
+      notes: string[];
+    };
+    let markFeedClass: 'synthetic' | 'broker_paper' = 'synthetic';
+    if (awarenessSymbolList.length === 0) {
+      marketModelAwareness = {
+        symbols: [],
+        feedClasses: [],
+        usedLiveCount: 0,
+        syntheticCount: 0,
+        asOfIso: clock.nowIso(),
+        notes: [
+          'No held, watch, trend, or mover tickers to mark yet — MarketModel idle',
+          'Day overlay shares this substrate with paper dispatch and exits',
+        ],
+      };
+    } else {
+      let adapter = null as Awaited<
+        ReturnType<typeof resolveExecutionContext>
+      >['adapter'] | null;
+      try {
+        const execCtx = await resolveExecutionContext(db, clock, companyId);
+        adapter = execCtx.adapter;
+      } catch {
+        adapter = null;
+      }
+      const resolved = [];
+      for (const symbol of awarenessSymbolList) {
+        resolved.push(await resolveMarketQuoteWithAdapter({ symbol, clock, adapter }));
+      }
+      const projections = projectMarketModelToAwareness(resolved, clock);
+      const posture = projections.find((p) => p.surface === 'market_posture_hub');
+      marketModelAwareness = posture
+        ? {
+            symbols: posture.symbols.slice(0, 64),
+            feedClasses: posture.feedClasses.slice(0, 16),
+            usedLiveCount: posture.usedLiveCount,
+            syntheticCount: posture.syntheticCount,
+            asOfIso: posture.asOfIso,
+            notes: posture.notes.slice(0, 8),
+          }
+        : {
+            symbols: awarenessSymbolList.slice(0, 64),
+            feedClasses: [],
+            usedLiveCount: 0,
+            syntheticCount: awarenessSymbolList.length,
+            asOfIso: clock.nowIso(),
+            notes: ['MarketModel projection unavailable — synthetic fallback implied'],
+          };
+      if (marketModelAwareness.usedLiveCount > 0) markFeedClass = 'broker_paper';
+    }
+
     const body = MarketHubResponse.parse({
       sectorFocuses,
       universeExcludes,
@@ -806,10 +878,11 @@ export async function GET(_req: Request, ctx: Ctx) {
         fetchedAt,
       },
       synthesis,
+      marketModelAwareness,
       sources: {
         lanes: sourceLanes,
         contributedKinds,
-        markFeedClass: 'synthetic',
+        markFeedClass,
         scannedAt: sourcesScannedAt,
       },
       charts,

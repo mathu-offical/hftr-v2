@@ -8,8 +8,8 @@ import {
 } from '@/components/panels/market-posture-format';
 
 /**
- * Compact seal + narrative awareness under the Model canvas (D-120).
- * Surfaces what Analyze sealed without leaving the Model tab.
+ * Compact seal + MarketModel awareness under the Model canvas (D-120 / D-122).
+ * Surfaces what Analyze sealed and shared MarketModel feed honesty on the day overlay.
  */
 export function MarketPostureAwarenessDock(props: {
   hub: MarketHubResponse;
@@ -59,6 +59,28 @@ export function MarketPostureAwarenessDock(props: {
             </span>
           </Justification>
         </li>
+        {hub.marketModelAwareness ? (
+          <li data-testid="market-posture-market-model-awareness">
+            <Justification
+              sourceClass="derived"
+              block
+              lines={[
+                ...hub.marketModelAwareness.notes,
+                hub.marketModelAwareness.feedClasses.length > 0
+                  ? `Feed classes: ${hub.marketModelAwareness.feedClasses.join(', ')}`
+                  : 'No feed classes reported',
+                `As of ${formatOrientation(hub.marketModelAwareness.asOfIso)}`,
+              ]}
+            >
+              <span className="font-medium">Market model</span>
+              <span className="ml-1 font-mono text-[10px] text-[var(--color-ink-faint)]">
+                {hub.marketModelAwareness.usedLiveCount} live ·{' '}
+                {hub.marketModelAwareness.syntheticCount} synthetic ·{' '}
+                {hub.marketModelAwareness.symbols.length} symbols
+              </span>
+            </Justification>
+          </li>
+        ) : null}
         <li className="font-mono text-[10px] text-[var(--color-ink-faint)]">
           Freshness · movers {hub.freshness.moversExpiresAt ? formatOrientation(hub.freshness.moversExpiresAt) : '—'}
           {hub.freshness.sectorExpiresAt

@@ -260,6 +260,20 @@ export const MarketHubCapitalSource = z.object({
 });
 export type MarketHubCapitalSource = z.infer<typeof MarketHubCapitalSource>;
 
+/**
+ * MarketModel awareness projection for the day overlay (D-122 / D-131).
+ * Orientation only — feedClass honesty, no raw dollars for LLM paths.
+ */
+export const MarketHubMarketModelAwareness = z.object({
+  symbols: z.array(z.string().max(12)).max(64).default([]),
+  feedClasses: z.array(z.string().max(40)).max(16).default([]),
+  usedLiveCount: z.number().int().min(0),
+  syntheticCount: z.number().int().min(0),
+  asOfIso: z.string().datetime(),
+  notes: z.array(z.string().max(200)).max(8).default([]),
+});
+export type MarketHubMarketModelAwareness = z.infer<typeof MarketHubMarketModelAwareness>;
+
 export const MarketHubResponse = z.object({
   sectorFocuses: z.array(z.string().max(80)).max(64).default([]),
   universeExcludes: z.array(z.string().max(12)).max(200).default([]),
@@ -275,6 +289,11 @@ export const MarketHubResponse = z.object({
   freshness: MarketHubFreshness,
   /** Latest Analyze synthesis run for Model awareness dock (D-120). */
   synthesis: MarketHubSynthesisSnapshot.optional(),
+  /**
+   * Shared MarketModel substrate for day overlay (D-122 Phase 2).
+   * Same quote path as paper dispatch / exits — posture hub consumer.
+   */
+  marketModelAwareness: MarketHubMarketModelAwareness.optional(),
   sources: MarketHubSources.default({
     lanes: [],
     contributedKinds: [],

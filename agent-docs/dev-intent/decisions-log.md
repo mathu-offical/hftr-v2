@@ -1295,7 +1295,7 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Related: D-002, D-014, D-023, D-025, D-027, D-059, D-061, D-120, D-125, D-126; OQ-13
   (resolved). Spec: `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-design.md`.
   Plan: `docs/superpowers/plans/2026-07-18-internal-paper-trade-engine.md`.
-  **Status: implementing (Phase 2 — MarketModel fusion + awareness adapters).**
+  **Status: implementing (Phase 2 — MarketModel fused into posture hub GET + exits).**
 
 - **D-129 (POV child-slice drain + operator exit scan, 2026-07-18):** Completes the
   paper POV follow-on from the post-fill lifecycle workstream. Paper dispatch drains
@@ -1390,11 +1390,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   to blend concepts into one cloud. Refine: (1) `separateLibraryCenters` after packing so
   hulls stay ≥1.38×(r₁+r₂) apart with capped radii; (2) stronger library nest restore +
   foreign keep-out + `createLibraryCohereForce`; (3) cross-library link distance↑ / strength↓;
-  (4) tighter nest seed jitter; (5) higher library hull shell/wire opacity; (6) remount
-  force-graph on packing signature so seeds apply; (7) show multiple folder shells inside
-  large libraries (catalog folders are the real clusters when one lib owns ~90% of concepts)
-  with stronger folder nest/cohere. DEV `layoutStats` reports `clusterSeparation` +
-  `nestMembership`. Docs: `research/galaxy-3d-volume-layout.md`. **Status: implemented.**
+  (4) tighter nest seed jitter; (5) higher library/folder hull opacities; (6) live FG coords
+  reseeded when packing signature changes (avoid remount Loading stall); (7) show multiple
+  folder shells inside large libraries — catalog folders are the real clusters when one lib
+  owns ~90% of concepts; (8) wire nest forces synchronously on graph mount so warmup cannot
+  collapse to origin first. DEV `layoutStats` reports `clusterSeparation` + `nestMembership`.
+  Docs: `research/galaxy-3d-volume-layout.md`. **Status: implemented.**
 
 - **D-133 (DATA company libraries + shell-persistent inspector, 2026-07-18):** DATA tab
   lists **company canvas `library` modules** (engine-created or manual) below active live

@@ -120,6 +120,12 @@ export {
   type PollQuotesOptions,
   type QuotePollStatus,
 } from './live-api/poll-quotes';
+export {
+  resolveLookbackQuotes,
+  type ResolveLookbackQuotesResult,
+  type ResolveLookbackQuotesOptions,
+  type LookbackQuoteStatus,
+} from './live-api/lookback-quotes';
 export { applyFill, getPosition, type PositionRow } from './dispatch/positions';
 export {
   calculateCompanyEquity,

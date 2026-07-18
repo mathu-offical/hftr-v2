@@ -554,12 +554,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Marketstack completed in D-050. Live WebSocket feeds catalogued as candidates
   (not trading path). Matrix: `research/integrations-matrix.md`. **Status: implemented.**
 
-- **D-049 (research tab shelves + floating Page inspector, 2026-07-17):**
+- **D-049 (research tab shelves + floating inspector, 2026-07-17):**
   Left Research tab reorders to: **Submit new topic** → entity search (Topics / Concepts /
   Tags / Libraries) → three expandable library shelves (system curated runtime, user/engine
-  runtime, baseline seeded) as file trees → Pages (topics) list with linked-page highlight →
-  Archive → collapsed modules. Galaxy is the sole overlay surface; **Page** moves to a
-  right floating inspector over the galaxy (no Galaxy|Page tab strip). Design:
+  runtime, baseline seeded) as navigator trees → Pages (topics) list with linked-page
+  highlight → Archive → collapsed modules. Galaxy is the sole overlay surface; detail for
+  Page / Concept / Library / Tag opens in a **right floating inspector** (no Galaxy|Page tab
+  strip, no left/galaxy inline expand). Library caret expands children; library name click
+  inspects. Concept selection traces/highlights in the galaxy. Design:
   `ui-ux/research-tab-shelves-inspector-design.md`.
 
 - **D-050 (complete research provider connect + live_api Alpaca poll, 2026-07-17):**
@@ -571,6 +573,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   (`feedClass: alpaca_iex_paper`, ValueRef provenance). Migration `0029`.
   Updates D-048 stub notes — GDELT/Twelve/Marketstack now shipped. Matrix:
   `research/integrations-matrix.md`. **Status: implemented.**
+
+- **D-051 (live_api lookback via Alpaca 1Min bars, 2026-07-17):**
+  `BrokerAdapter.getQuoteAt` optional; Alpaca paper implements via `fetchBars`
+  window around lookback. `trend.scan` uses `resolveLookbackQuotes` so drift is
+  live→lookback with honest feedClass provenance (`alpaca_iex_paper` both legs
+  when bars available). Synthetic remains fallback. WebSocket streaming still
+  researched-only. **Status: implemented.**
 
 ## Open questions
 

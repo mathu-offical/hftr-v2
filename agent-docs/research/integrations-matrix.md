@@ -33,11 +33,15 @@ Evidence is leak-linted — never raw OHLC/FX/quote digits in model-facing text.
 Providers: brave, market_news, finnhub, polygon, fred, alpha_vantage, twelve_data, marketstack.
 Saved key or draft (≥8 chars). Returns `{ ok, failure }` — no plaintext.
 
-## live_api → trend quotes (D-050)
+## live_api → trend quotes (D-050 / D-051)
 
 When `live_api→trend` edges exist and company has **Alpaca paper** binding,
-`trend.scan` uses `pollQuotes()` for up to 8 IEX quotes (`feedClass: alpaca_iex_paper`).
-Otherwise `synthetic_sim`. Lookback comparison still synthetic (bars path separate).
+`trend.scan` uses:
+- `pollQuotes()` for latest IEX quotes (`feedClass: alpaca_iex_paper`)
+- `resolveLookbackQuotes()` via adapter `getQuoteAt` (1Min bars near lookback)
+  for drift denominator — falls back to `synthetic_sim` / `lookback_unavailable`
+
+Otherwise both legs use `synthetic_sim`.
 
 ## LLM + broker
 
@@ -67,5 +71,5 @@ Alpaca / Finnhub / Polygon WebSockets — researched only. Research gather stays
 | Registry | `packages/contracts/src/research-source-registry.ts` |
 | Gather | `packages/adapters/src/research/gather.ts` |
 | Research verify | `apps/web/lib/research-verify.ts` |
-| live_api poll | `packages/engine/src/live-api/poll-quotes.ts` |
+| live_api poll + lookback | `packages/engine/src/live-api/poll-quotes.ts`, `lookback-quotes.ts` |
 | Skill | `.cursor/skills/external-integrations/SKILL.md` |

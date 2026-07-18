@@ -67,11 +67,14 @@ ALPACA_PAPER_SMOKE=1 pnpm smoke:alpaca-paper
 
 Without flags, scripts exit 0 with `skip:`.
 
-## live_api poll (D-050)
+## live_api poll (D-050 / D-051)
 
 `packages/engine/src/live-api/poll-quotes.ts` — when `trend.scan` has inbound
 `live_api` modules, poll Alpaca **paper** quotes (`feedClass: alpaca_iex_paper`).
-Lookback bars may still be synthetic until a separate bars path ships.
+
+`packages/engine/src/live-api/lookback-quotes.ts` — lookback leg via optional
+`BrokerAdapter.getQuoteAt` (Alpaca 1Min bars). Synthetic / `lookback_unavailable`
+fallback when bars missing.
 
 ## Safety
 

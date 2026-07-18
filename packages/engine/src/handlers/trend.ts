@@ -9,6 +9,7 @@ import {
   loadCompanyLinkGraph,
   resolveInboundLiveApiModules,
 } from '../graph/module-links';
+import { resolveLookbackQuotes } from '../live-api/lookback-quotes';
 import { pollQuotes } from '../live-api/poll-quotes';
 import { enqueueLinkedResearchCurate } from '../research/enqueue-linked';
 import { registerHandler } from './registry';
@@ -68,15 +69,26 @@ registerHandler('trend.scan', async ({ db, clock, job }) => {
 
   const nowMs = clock.nowMs();
   const thenMs = nowMs - payload.lookbackMinutes * 60_000;
+  const lookbackPoll = await resolveLookbackQuotes({
+    instruments: symbols,
+    atMs: thenMs,
+    clock,
+    adapter: quoteAdapter,
+    maxSymbols: 8,
+  });
   const scannedAt = new Date(nowMs);
   let hasNonFlat = false;
 
   for (const symbol of symbols) {
     const pollStatus = quotePoll.statuses.find((s) => s.symbol === symbol);
+    const lookbackStatus = lookbackPoll.statuses.find((s) => s.symbol === symbol);
     const liveFeedClass = pollStatus?.feedClass ?? 'synthetic_sim';
+    const lookbackFeedClass = lookbackStatus?.feedClass ?? 'synthetic_sim';
     const nowQuote =
       quotePoll.quotes.get(symbol) ?? getSyntheticQuote(symbol, clock);
-    const thenQuote = getSyntheticQuote(symbol, createFixedClock(thenMs));
+    const thenQuote =
+      lookbackPoll.quotes.get(symbol) ??
+      getSyntheticQuote(symbol, createFixedClock(thenMs));
     const nowPx = nowQuote.lastCents ?? 0;
     const thenPx = thenQuote.lastCents ?? 0;
     if (nowPx === 0 || thenPx === 0) continue;
@@ -88,7 +100,7 @@ registerHandler('trend.scan', async ({ db, clock, job }) => {
       scale: 0,
       valueInt: BigInt(driftBps),
       sourceClass: 'derived',
-      sourceId: `trend_scan:${liveFeedClass}:${nowQuote.symbol}:${payload.lookbackMinutes}m`,
+      sourceId: `trend_scan:${liveFeedClass}->${lookbackFeedClass}:${nowQuote.symbol}:${payload.lookbackMinutes}m`,
       ttlMs: payload.lookbackMinutes * 60_000,
       companyId: payload.companyId,
       moduleId: payload.moduleId,

@@ -24,14 +24,15 @@ export type UseMarketHubResult = {
   loading: boolean;
   /** Manual Sync (full hub) in flight — not set by silent live poll. */
   refreshing: boolean;
-  /** Master Analyze (POST) in flight — live poll paused (shared across panel/overlay). */
+  /** Master Analyze POST in flight — live poll paused (shared across panel/overlay). */
   analyzing: boolean;
   error: string | null;
   /** Full hub GET (mount / manual Sync). */
   refresh: (force?: boolean) => Promise<void>;
   /** @deprecated Alias of analyze(). */
-  refreshMovers: () => Promise<void>;
-  analyze: () => Promise<void>;
+  refreshMovers: () => Promise<string | null>;
+  /** Returns synthesis runId for live Model poll (D-120). */
+  analyze: () => Promise<string | null>;
 };
 
 /**
@@ -96,22 +97,25 @@ export function useMarketHub(
   );
 
   const analyze = useCallback(async () => {
-    if (!companyId || !key || analyzeBusy.current) return;
+    if (!companyId || !key || analyzeBusy.current) return null;
     analyzeBusy.current = true;
     beginMarketHubAnalyze(companyId);
     try {
-      await api<MarketHubAnalyzeResponse>(`/api/companies/${companyId}/market-hub/analyze`, {
-        method: 'POST',
-      });
+      const res = await api<MarketHubAnalyzeResponse>(
+        `/api/companies/${companyId}/market-hub/analyze`,
+        { method: 'POST' },
+      );
+      // Hub seals may still be finishing via poll — soft invalidate only.
       invalidateMarketHub(key);
-      await refresh(true);
+      return res.runId;
     } catch (err) {
       setError(err instanceof RequestError ? err.message : 'Analyze failed');
+      return null;
     } finally {
       endMarketHubAnalyze(companyId);
       analyzeBusy.current = false;
     }
-  }, [companyId, key, refresh]);
+  }, [companyId, key]);
 
   const refreshMovers = analyze;
 

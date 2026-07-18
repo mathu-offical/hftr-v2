@@ -27,6 +27,9 @@ import {
 import { api } from '@/lib/client';
 import { invalidateMarketHub } from '@/lib/market-hub-cache';
 import { useMarketHub } from '@/lib/use-market-hub';
+import { useMarketHubSynthesis } from '@/lib/use-market-hub-synthesis';
+
+const SYNTHESIS_TERMINAL = new Set(['succeeded', 'failed', 'partial']);
 
 function EngineChips(props: { engines: { id: string; label: string }[] }) {
   if (props.engines.length === 0) {
@@ -67,8 +70,23 @@ export function MarketPostureOverlay() {
       poll: mp.overlayOpen,
     },
   );
+  const synthesis = useMarketHubSynthesis(mp.companyId, { enabled: mp.overlayOpen });
   const [watchlistTierFilter, setWatchlistTierFilter] = useState<WatchlistTierFilter>('default');
   const detailRef = useRef<HTMLElement | null>(null);
+  const lastTerminalRunId = useRef<string | null>(null);
+
+  useEffect(() => {
+    const run = synthesis.run;
+    if (!run || !SYNTHESIS_TERMINAL.has(run.status)) return;
+    if (lastTerminalRunId.current === run.id) return;
+    lastTerminalRunId.current = run.id;
+    void refresh(true);
+  }, [synthesis.run, refresh]);
+
+  const onAnalyze = useCallback(async () => {
+    const runId = await analyze();
+    if (runId) synthesis.setActiveRunId(runId);
+  }, [analyze, synthesis.setActiveRunId]);
 
   const selectedPosition: MarketHubPosition | null = useMemo(() => {
     if (!hub || !mp.selectedPositionId) return null;
@@ -151,12 +169,12 @@ export function MarketPostureOverlay() {
             ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {(refreshing || analyzing) && (
+            {(refreshing || analyzing || synthesis.activeRunId) && (
               <span
                 className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]"
                 data-testid="market-posture-sync-state"
               >
-                {analyzing ? 'Analyzing…' : 'Syncing…'}
+                {analyzing || synthesis.activeRunId ? 'Analyzing…' : 'Syncing…'}
               </span>
             )}
             <button
@@ -170,9 +188,9 @@ export function MarketPostureOverlay() {
             </button>
             <button
               type="button"
-              onClick={() => void analyze()}
+              onClick={() => void onAnalyze()}
               disabled={analyzing || refreshing}
-              title="Full posture analysis: gather, tactical LLM thresholds, force reseal movers/sector/daily"
+              title="Full posture analysis with live synthesis stages on Model"
               className="border border-[var(--color-accent)] bg-[var(--color-accent)]/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/20 disabled:opacity-50"
               data-testid="market-posture-analyze"
             >
@@ -188,6 +206,36 @@ export function MarketPostureOverlay() {
             </button>
           </div>
         </div>
+        {synthesis.run &&
+        (synthesis.activeRunId ||
+          synthesis.run.status === 'running' ||
+          synthesis.run.status === 'pending') ? (
+          <div
+            className="flex items-center justify-between gap-2 px-0 pt-1"
+            data-testid="market-posture-overlay-synthesis-strip"
+          >
+            <p className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]">
+              Synthesis {synthesis.run.status}
+              {synthesis.run.stages.length > 0
+                ? ` · ${
+                    synthesis.run.stages.filter(
+                      (s) =>
+                        s.status === 'succeeded' ||
+                        s.status === 'skipped' ||
+                        s.status === 'failed',
+                    ).length
+                  }/${synthesis.run.stages.length} stages`
+                : ''}
+            </p>
+            <button
+              type="button"
+              onClick={() => mp.setCategory('model')}
+              className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-accent)] hover:underline"
+            >
+              Open Model
+            </button>
+          </div>
+        ) : null}
         {hub ? <MarketPostureFreshnessStrip freshness={hub.freshness} /> : null}
         {hub ? (
           <div className="px-3 pb-2">

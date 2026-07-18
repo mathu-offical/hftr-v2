@@ -1,12 +1,16 @@
 /**
- * Static React Flow graph for Market posture baseline algorithm (D-111).
- * Documents gather → tactical LLM thresholds → compound rank → seal → hub viz.
+ * Market posture algorithm graph for live synthesis hub (D-111 / D-120).
+ * Node ids match MarketHubSynthesisStageId.
  */
+
+import type { MarketHubSynthesisStageId, MarketHubSynthesisStageKind } from '@hftr/contracts';
+import { MARKET_HUB_SYNTHESIS_STAGE_META } from '@hftr/contracts';
 
 export type PostureAlgoNodeData = {
   label: string;
   detail: string;
-  kind: 'data' | 'llm' | 'deterministic' | 'output';
+  kind: MarketHubSynthesisStageKind;
+  stageId: MarketHubSynthesisStageId;
 };
 
 export type PostureAlgoGraph = {
@@ -24,103 +28,37 @@ export type PostureAlgoGraph = {
   }>;
 };
 
-const STAGES: Array<{
-  id: string;
-  label: string;
-  detail: string;
-  kind: PostureAlgoNodeData['kind'];
-  x: number;
-  y: number;
-}> = [
-  {
-    id: 'providers',
-    label: 'Provider surfaces',
-    detail: 'Credential-ready / public lanes (D-103)',
-    kind: 'data',
-    x: 0,
-    y: 80,
-  },
-  {
-    id: 'gather',
-    label: 'Gather evidence',
-    detail: 'News · bars · macro · web · library corpus',
-    kind: 'data',
-    x: 200,
-    y: 80,
-  },
-  {
-    id: 'thresholds',
-    label: 'Threshold profile',
-    detail: 'Tactical LLM presets → resolved ints (Analyze)',
-    kind: 'llm',
-    x: 400,
-    y: 0,
-  },
-  {
-    id: 'defaults',
-    label: 'Typical defaults',
-    detail: 'Fail-closed when LLM unavailable',
-    kind: 'deterministic',
-    x: 400,
-    y: 160,
-  },
-  {
-    id: 'universe',
-    label: 'Universe build',
-    detail: 'Evidence + trends + book + liquid fallback',
-    kind: 'deterministic',
-    x: 600,
-    y: 80,
-  },
-  {
-    id: 'rs',
-    label: 'Rel-strength / volume',
-    detail: 'Model-free bars vs SPY · synthetic marks',
-    kind: 'deterministic',
-    x: 800,
-    y: 80,
-  },
-  {
-    id: 'compound',
-    label: 'Compound score',
-    detail: 'Leadership · fit · corroboration bands',
-    kind: 'deterministic',
-    x: 1000,
-    y: 80,
-  },
-  {
-    id: 'verify',
-    label: 'Verify gates',
-    detail: 'Suggestion verify → watchlist promote',
-    kind: 'deterministic',
-    x: 1200,
-    y: 80,
-  },
-  {
-    id: 'seal',
-    label: 'Seal movers board',
-    detail: 'Verified normalize · report concept',
-    kind: 'deterministic',
-    x: 1400,
-    y: 80,
-  },
-  {
-    id: 'hub',
-    label: 'Market hub / ticker',
-    detail: 'SymbolTicker · charts · auto Sync GET',
-    kind: 'output',
-    x: 1600,
-    y: 80,
-  },
+const LAYOUT: Array<{ id: MarketHubSynthesisStageId; x: number; y: number; detail: string }> = [
+  { id: 'providers', x: 0, y: 100, detail: 'Credential-ready / public lanes (D-103)' },
+  { id: 'gather', x: 180, y: 100, detail: 'News · bars · macro · web · library corpus' },
+  { id: 'thresholds', x: 360, y: 20, detail: 'Tactical LLM presets → resolved ints' },
+  { id: 'defaults', x: 360, y: 180, detail: 'Fail-closed when LLM unavailable' },
+  { id: 'universe', x: 540, y: 100, detail: 'Evidence + trends + book + liquid fallback' },
+  { id: 'rs', x: 720, y: 100, detail: 'Model-free bars vs SPY · synthetic marks' },
+  { id: 'rank', x: 900, y: 100, detail: 'Leadership · fit · corroboration bands' },
+  { id: 'verify', x: 1080, y: 100, detail: 'Suggestion verify → watchlist promote' },
+  { id: 'seal_movers', x: 1260, y: 100, detail: 'Verified normalize · report concept' },
+  { id: 'sector', x: 1260, y: 220, detail: 'Sector bulletin seal' },
+  { id: 'daily', x: 1440, y: 160, detail: 'Calendar-phase daily summary seal' },
+  { id: 'narrative', x: 1620, y: 100, detail: 'Seal-grounded posture narrative' },
+  { id: 'hub_ready', x: 1800, y: 100, detail: 'Hub projection ready' },
 ];
 
 export function buildMarketPostureAlgorithmGraph(): PostureAlgoGraph {
-  const nodes = STAGES.map((s) => ({
-    id: s.id,
-    type: 'postureAlgo' as const,
-    position: { x: s.x, y: s.y },
-    data: { label: s.label, detail: s.detail, kind: s.kind },
-  }));
+  const nodes = LAYOUT.map((s) => {
+    const meta = MARKET_HUB_SYNTHESIS_STAGE_META[s.id];
+    return {
+      id: s.id,
+      type: 'postureAlgo' as const,
+      position: { x: s.x, y: s.y },
+      data: {
+        label: meta.label,
+        detail: s.detail,
+        kind: meta.kind,
+        stageId: s.id,
+      },
+    };
+  });
 
   const edges = [
     { id: 'e-prov-gather', source: 'providers', target: 'gather' },
@@ -129,10 +67,13 @@ export function buildMarketPostureAlgorithmGraph(): PostureAlgoGraph {
     { id: 'e-llm-uni', source: 'thresholds', target: 'universe' },
     { id: 'e-def-uni', source: 'defaults', target: 'universe' },
     { id: 'e-uni-rs', source: 'universe', target: 'rs' },
-    { id: 'e-rs-cmp', source: 'rs', target: 'compound' },
-    { id: 'e-cmp-ver', source: 'compound', target: 'verify' },
-    { id: 'e-ver-seal', source: 'verify', target: 'seal' },
-    { id: 'e-seal-hub', source: 'seal', target: 'hub' },
+    { id: 'e-rs-rank', source: 'rs', target: 'rank' },
+    { id: 'e-rank-ver', source: 'rank', target: 'verify' },
+    { id: 'e-ver-seal', source: 'verify', target: 'seal_movers' },
+    { id: 'e-seal-sector', source: 'seal_movers', target: 'sector' },
+    { id: 'e-sector-daily', source: 'sector', target: 'daily' },
+    { id: 'e-daily-narr', source: 'daily', target: 'narrative' },
+    { id: 'e-narr-hub', source: 'narrative', target: 'hub_ready' },
   ];
 
   return { nodes, edges };

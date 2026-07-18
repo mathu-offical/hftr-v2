@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MarketHubResponse } from '@hftr/contracts';
 import {
   useMarketPostureView,
@@ -25,6 +25,7 @@ import {
 import { api } from '@/lib/client';
 import { invalidateMarketHub } from '@/lib/market-hub-cache';
 import { useMarketHub } from '@/lib/use-market-hub';
+import { useMarketHubSynthesis } from '@/lib/use-market-hub-synthesis';
 
 const CATEGORIES: { id: MarketPostureCategory; label: string }[] = [
   { id: 'positions', label: 'Positions' },
@@ -34,9 +35,11 @@ const CATEGORIES: { id: MarketPostureCategory; label: string }[] = [
   { id: 'model', label: 'Model' },
 ];
 
+const SYNTHESIS_TERMINAL = new Set(['succeeded', 'failed', 'partial']);
+
 /**
- * Left-panel navigator for Market posture (D-081 / D-085 / D-092 / D-101 / D-111).
- * Rail lists company-wide categories; Model shows baseline algorithm canvas.
+ * Left-panel navigator for Market posture (D-081 / D-085 / D-092 / D-101 / D-111 / D-120).
+ * Rail lists company-wide categories; Model shows live synthesis hub.
  */
 export function MarketPosturePanel(props: { companyId: string }) {
   const mp = useMarketPostureView();
@@ -46,7 +49,22 @@ export function MarketPosturePanel(props: { companyId: string }) {
       poll: true,
     },
   );
+  const synthesis = useMarketHubSynthesis(props.companyId);
   const [watchlistTierFilter, setWatchlistTierFilter] = useState<WatchlistTierFilter>('default');
+  const lastTerminalRunId = useRef<string | null>(null);
+
+  useEffect(() => {
+    const run = synthesis.run;
+    if (!run || !SYNTHESIS_TERMINAL.has(run.status)) return;
+    if (lastTerminalRunId.current === run.id) return;
+    lastTerminalRunId.current = run.id;
+    void refresh(true);
+  }, [synthesis.run, refresh]);
+
+  const onAnalyze = useCallback(async () => {
+    const runId = await analyze();
+    if (runId) synthesis.setActiveRunId(runId);
+  }, [analyze, synthesis.setActiveRunId]);
 
   const confirmWatchlist = useCallback(
     async (itemId: string) => {
@@ -95,12 +113,12 @@ export function MarketPosturePanel(props: { companyId: string }) {
           Dashboard over canvas · select a row to focus
         </p>
         <div className="flex shrink-0 items-center gap-1.5">
-          {(refreshing || analyzing) && (
+          {(refreshing || analyzing || synthesis.activeRunId) && (
             <span
               className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]"
               data-testid="market-posture-panel-sync"
             >
-              {analyzing ? 'Analyzing' : 'Sync'}
+              {analyzing || synthesis.activeRunId ? 'Analyzing' : 'Sync'}
             </span>
           )}
           <button
@@ -114,11 +132,11 @@ export function MarketPosturePanel(props: { companyId: string }) {
           </button>
           <button
             type="button"
-            onClick={() => void analyze()}
+            onClick={() => void onAnalyze()}
             disabled={analyzing || refreshing}
             className="border border-[var(--color-accent)] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-accent)] disabled:opacity-50"
             data-testid="market-posture-panel-analyze"
-            title="Full analysis with LLM thresholds"
+            title="Full analysis with synthesis stages (Model tab)"
           >
             Analyze
           </button>
@@ -142,16 +160,13 @@ export function MarketPosturePanel(props: { companyId: string }) {
       {mp.category === 'model' && (
         <div className="space-y-2" data-testid="market-posture-model">
           <p className="text-[10px] text-[var(--color-ink-dim)]">
-            Baseline market-awareness path (no engines). LLM stage is tactical threshold
-            presets on Analyze; Sync only reloads the hub projection.
+            Live synthesis hub. Analyze force-reseals movers/sector/daily and records every
+            stage; Sync only reloads the hub projection.
           </p>
-          <MarketPostureModelCanvas />
-          <ul className="space-y-1 font-mono text-[9px] text-[var(--color-ink-faint)]">
-            <li>DATA — provider gather</li>
-            <li>LLM — suggestion threshold profile (Analyze)</li>
-            <li>DET — universe · RS · compound · verify · seal</li>
-            <li>OUT — market hub SymbolTicker / charts</li>
-          </ul>
+          {synthesis.error ? (
+            <p className="text-[10px] text-[var(--color-block)]">{synthesis.error}</p>
+          ) : null}
+          <MarketPostureModelCanvas run={synthesis.run} />
         </div>
       )}
       {mp.category === 'watchlists' && (

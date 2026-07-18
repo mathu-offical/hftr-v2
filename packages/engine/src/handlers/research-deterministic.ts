@@ -1,6 +1,7 @@
-import { ilike, inArray, or, type SQL } from 'drizzle-orm';
+import { and, eq, ilike, inArray, or, type SQL } from 'drizzle-orm';
 import type { Db } from '@hftr/db';
 import { catalogEntries, concepts } from '@hftr/db/schema';
+import { attachConceptsToLibraries } from '../libraries/attach';
 
 const CURATED_CATALOGS = ['strategy_families', 'guardrail_packages'];
 export const MAX_CONCEPTS_PER_RUN = 8;
@@ -29,6 +30,8 @@ export async function curateDeterministic(opts: {
     .where(or(...filters))
     .orderBy(catalogEntries.catalog, catalogEntries.entryKey)
     .limit(MAX_CONCEPTS_PER_RUN);
+
+  const upsertedTitles: string[] = [];
 
   for (const entry of entries) {
     const tags = [entry.catalog, ...(entry.tier ? [entry.tier] : [])];
@@ -61,6 +64,24 @@ export async function curateDeterministic(opts: {
           updatedAt: opts.now,
         },
       });
+
+    upsertedTitles.push(entry.title);
+  }
+
+  if (upsertedTitles.length > 0) {
+    const conceptRows = await opts.db
+      .select({ id: concepts.id })
+      .from(concepts)
+      .where(and(eq(concepts.moduleId, opts.moduleId), inArray(concepts.title, upsertedTitles)));
+
+    await attachConceptsToLibraries({
+      db: opts.db,
+      companyId: opts.companyId,
+      moduleId: opts.moduleId,
+      conceptIds: conceptRows.map((r) => r.id),
+      now: opts.now,
+      curationStatus: 'auto_admitted',
+    });
   }
 
   return entries.length;

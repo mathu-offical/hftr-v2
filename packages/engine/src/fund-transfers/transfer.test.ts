@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   canDecideTransfer,
+  fundTransferRowsFromProposals,
   transferDescription,
   transferLedgerDeltaCents,
   validateTransferDecision,
@@ -37,5 +38,25 @@ describe('fund transfer decisions', () => {
     expect(desc).toContain('company_pool');
     expect(desc).toContain('module:11111111');
     expect(desc).toContain('50000');
+  });
+
+  it('maps walker proposals to requested insert rows', () => {
+    const proposals = [
+      {
+        fromKind: 'module' as const,
+        fromModuleId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        toKind: 'module' as const,
+        toModuleId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+        amountCents: 25_000n,
+      },
+    ];
+    expect(fundTransferRowsFromProposals(proposals)).toEqual([
+      {
+        ...proposals[0],
+        status: 'requested',
+        requestedBy: 'module',
+      },
+    ]);
+    expect(fundTransferRowsFromProposals(proposals, 'policy')[0]!.requestedBy).toBe('policy');
   });
 });

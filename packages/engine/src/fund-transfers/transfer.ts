@@ -1,8 +1,21 @@
 import type { fundTransfers } from '@hftr/db/schema';
+import type { FundTransferProposal } from './fund-route-walker';
 
 export type FundTransferRow = typeof fundTransfers.$inferSelect;
 export type FundTransferStatus = FundTransferRow['status'];
 export type FundEndpointKind = FundTransferRow['fromKind'];
+export type FundTransferRequestedBy = FundTransferRow['requestedBy'];
+
+/** Row shape for inserting walker proposals — always `requested`; approval via inbox. */
+export interface FundTransferInsertFromProposal {
+  fromKind: FundTransferProposal['fromKind'];
+  fromModuleId: string;
+  toKind: FundTransferProposal['toKind'];
+  toModuleId: string;
+  amountCents: bigint;
+  status: 'requested';
+  requestedBy: FundTransferRequestedBy;
+}
 
 export type TransferDecision = 'approve' | 'reject';
 
@@ -76,4 +89,24 @@ export function transferDescription(
 
 export function isTerminalTransferStatus(status: FundTransferStatus): boolean {
   return TERMINAL.has(status);
+}
+
+/**
+ * Map fund-route walker proposals to fund_transfers insert rows.
+ * Uses `requestedBy: 'module'` (schema enum) for fund-router/system-initiated hops.
+ * Does not auto-approve or settle — operator inbox still required.
+ */
+export function fundTransferRowsFromProposals(
+  proposals: readonly FundTransferProposal[],
+  requestedBy: FundTransferRequestedBy = 'module',
+): FundTransferInsertFromProposal[] {
+  return proposals.map((proposal) => ({
+    fromKind: proposal.fromKind,
+    fromModuleId: proposal.fromModuleId,
+    toKind: proposal.toKind,
+    toModuleId: proposal.toModuleId,
+    amountCents: proposal.amountCents,
+    status: 'requested' as const,
+    requestedBy,
+  }));
 }

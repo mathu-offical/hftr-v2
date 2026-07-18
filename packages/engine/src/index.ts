@@ -46,6 +46,12 @@ export {
 export { attachConceptsToLibraries } from './libraries/attach';
 export { attachConceptsToTopic } from './libraries/topic-attach';
 export {
+  bootstrapCompanyKnowledge,
+  buildSeededConceptBody,
+  SEED_CATALOG_TARGETS,
+  type SeededCatalogEntry,
+} from './libraries/bootstrap';
+export {
   loadCompanyLinkGraph,
   neighborIds,
   resolveDirectiveTradingTarget,
@@ -241,8 +247,11 @@ export {
   transferLedgerDeltaCents,
   transferDescription,
   isTerminalTransferStatus,
+  fundTransferRowsFromProposals,
   type TransferDecision,
   type FundTransferStatus,
+  type FundTransferRequestedBy,
+  type FundTransferInsertFromProposal,
 } from './fund-transfers/transfer';
 export {
   proposeFundRouteTransfers,

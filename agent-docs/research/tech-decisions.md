@@ -124,7 +124,8 @@ Order of integration (per-adapter detail in `architecture/broker-integration.md`
 - **2D fallback** only when WebGL fails or the operator toggles 2D — same spring/charge
   parameters projected to the plane. Performance ladder above ~2–3k nodes remains:
   cluster-collapse LOD, InstancedMesh, worker layout (unchanged).
-- **D-040 layout contract:** library nests as soft 3D force clusters; topic focus
+- **D-040 layout contract:** library nests as soft 3D force clusters **with visible sphere
+  outlines** (company envelope + per-library wireframe shells); topic focus
   (dim + particle emphasis + camera fit); tag chip filters; floating inspector (D-049).
   See `ui-ux/research-galaxy-topic-view-design.md`.
 

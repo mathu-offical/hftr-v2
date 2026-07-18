@@ -26,6 +26,13 @@ import {
   type GalaxySimNode,
 } from '@/lib/galaxy-physics';
 import {
+  buildCompanyHullNode,
+  buildLibraryHullNodes,
+  isNestHullNode,
+  type NestHullNode,
+} from '@/lib/galaxy-nest-hulls';
+import { createNestHullObject3d, paintNestHull2d } from '@/lib/galaxy-nest-mesh';
+import {
   humanizeConceptTitle,
   shortLibraryLabel,
 } from '@/lib/research-library-shelves';
@@ -219,7 +226,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
 
   const graphData = useMemo(() => {
     const liveIds = new Set<string>();
-    const nodes = props.nodes
+    const conceptNodes = props.nodes
       .filter((n) => filteredNodeIds.has(n.id))
       .map((n) => {
         liveIds.add(n.id);
@@ -245,7 +252,15 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         }
         return base;
       });
-    const nodeSet = new Set(nodes.map((n) => n.id));
+
+    const libraryHulls = buildLibraryHullNodes(libraryCenters, libraryFilter);
+    const companyHull = buildCompanyHullNode(libraryCenters, libraryFilter);
+    const hullNodes: NestHullNode[] = companyHull
+      ? [companyHull, ...libraryHulls]
+      : libraryHulls;
+
+    const nodes = [...conceptNodes, ...hullNodes];
+    const nodeSet = new Set(conceptNodes.map((n) => n.id));
     const links = props.links
       .filter((l) => nodeSet.has(l.fromConceptId) && nodeSet.has(l.toConceptId))
       .map((l) => {
@@ -267,12 +282,20 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             l.relation === 'derived_from',
         };
       });
-    return { nodes, links, liveIds };
-  }, [props.nodes, props.links, filteredNodeIds, degreeById, libraryCenters, focusSet]);
+    return { nodes, links, liveIds, hullCount: hullNodes.length };
+  }, [
+    props.nodes,
+    props.links,
+    filteredNodeIds,
+    degreeById,
+    libraryCenters,
+    libraryFilter,
+    focusSet,
+  ]);
 
   useEffect(() => {
-    for (const n of graphData.nodes) {
-      layoutCommittedRef.current.add(n.id);
+    for (const id of graphData.liveIds) {
+      layoutCommittedRef.current.add(id);
     }
     for (const id of [...layoutCommittedRef.current]) {
       if (!graphData.liveIds.has(id)) layoutCommittedRef.current.delete(id);
@@ -302,7 +325,13 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         fg.d3Force(
           'charge',
           forceManyBody()
-            .strength(chargeStrengthForGraphSize(graphData.nodes.length))
+            .strength((node: unknown) => {
+              const n = node as GalaxySimNode & { __kind?: string };
+              if (n.__kind === 'nest-hull') return 0;
+              return chargeStrengthForGraphSize(
+                Math.max(1, graphData.nodes.length - graphData.hullCount),
+              );
+            })
             .distanceMax(420),
         );
 
@@ -311,7 +340,10 @@ function GalaxyViewInner(props: GalaxyViewProps) {
 
         fg.d3Force(
           'collide',
-          forceCollide((node: GalaxySimNode) => Math.cbrt(node.val ?? 1) * 4.2)
+          forceCollide((node: unknown) => {
+            const n = node as GalaxySimNode & { __kind?: string };
+            return n.__kind === 'nest-hull' ? 0 : Math.cbrt(n.val ?? 1) * 4.2;
+          })
             .strength(0.85)
             .iterations(2),
         );
@@ -323,7 +355,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         setStatusText('Physics reheat deferred — layout still settling.');
       }
     },
-    [graphData.nodes.length, libraryCenters],
+    [graphData.nodes.length, graphData.hullCount, libraryCenters],
   );
 
   // Stable imperative handle — avoid callback-ref identity churn (causes tick races).
@@ -368,7 +400,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     if (!fg?.zoomToFit) return;
     const durationMs = reducedMotion ? 0 : 500;
     fg.zoomToFit(durationMs, 56, (node) => {
-      if (node.id === undefined) return false;
+      if (node.id === undefined || isNestHullNode(node)) return false;
       return focusSet.has(String(node.id));
     });
   }, [focusSet, reducedMotion]);
@@ -392,15 +424,27 @@ function GalaxyViewInner(props: GalaxyViewProps) {
   }, [props.highlightConceptId, props.nodes, reducedMotion, physicsReady]);
 
   const onNodeClick = useCallback(
-    (node: { id?: string | number }) => {
-      if (node.id === undefined) return;
+    (node: { id?: string | number; __kind?: string }) => {
+      if (node.id === undefined || isNestHullNode(node)) return;
       props.onInspectConcept?.(String(node.id));
     },
     [props],
   );
 
+  const nodeThreeObject = useCallback((node: object) => {
+    if (!isNestHullNode(node as NestHullNode)) return undefined;
+    return createNestHullObject3d(node as NestHullNode);
+  }, []);
+
   const nodeColor = useCallback(
-    (node: { id?: string | number; tags?: string[]; __focused?: boolean }) => {
+    (node: {
+      id?: string | number;
+      tags?: string[];
+      __focused?: boolean;
+      __kind?: string;
+      __color?: string;
+    }) => {
+      if (isNestHullNode(node)) return node.__color ?? '#4a5568';
       const tag = node.tags?.[0];
       const base = tag ? tagColor(tag, props.tags) : '#9aa4b8';
       if (props.highlightConceptId && String(node.id) === props.highlightConceptId) {
@@ -423,10 +467,17 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         tags?: string[];
         __focused?: boolean;
         title?: string;
+        __kind?: string;
+        __hullKind?: string;
+        __radius?: number;
+        __color?: string;
+        __label?: string;
       },
       ctx: CanvasRenderingContext2D,
       globalScale: number,
     ) => {
+      if (paintNestHull2d(node, ctx, globalScale)) return;
+
       const x = node.x ?? 0;
       const y = node.y ?? 0;
       const isHighlight = Boolean(
@@ -585,7 +636,9 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           className="shrink-0 px-2 py-1 text-[10px] text-[var(--color-ink-faint)]"
           aria-live="polite"
         >
-          {use3dRenderer && !statusText ? '3D physics space · link springs · nest attractors' : null}
+          {use3dRenderer && !statusText
+            ? '3D physics space · nest sphere outlines · link springs'
+            : null}
           {use3dRenderer && (hasTopicFocus || statusText) ? ' · ' : null}
           {hasTopicFocus && `Focused ${focusSet!.size} concepts`}
           {hasTopicFocus && statusText ? ' · ' : null}
@@ -661,13 +714,17 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               cooldownTicks={reducedMotion ? 0 : 120}
               d3AlphaDecay={0.022}
               d3VelocityDecay={0.32}
-              nodeLabel={(n: { title?: string }) =>
-                humanizeConceptTitle(String(n.title ?? '')).slice(0, 40)
+              nodeLabel={(n: { title?: string; __kind?: string; __label?: string }) =>
+                isNestHullNode(n)
+                  ? String(n.__label ?? n.title ?? '')
+                  : humanizeConceptTitle(String(n.title ?? '')).slice(0, 40)
               }
               nodeVal="val"
               nodeRelSize={4.2}
               nodeOpacity={hasTopicFocus ? 0.95 : 0.9}
               nodeColor={nodeColor as (node: object) => string}
+              nodeThreeObject={nodeThreeObject as (node: object) => object | undefined}
+              nodeThreeObjectExtend={false}
               linkColor={linkColor as (link: object) => string}
               linkWidth={linkWidth as (link: object) => number}
               linkOpacity={0.55}

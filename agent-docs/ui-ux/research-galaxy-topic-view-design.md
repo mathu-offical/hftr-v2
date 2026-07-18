@@ -105,8 +105,11 @@ chips drawn from visible concepts’ tags (and optionally topic-level keywords).
 ### 4.1 Soft nested library clusters (3D physics default)
 
 - Company galaxy = outer 3D force space (`react-force-graph-3d` + `d3-force-3d`).
-- Each **library** is a **soft spherical nest** (attractor + restore force). Concepts with
+- Each **library** is a **soft spherical nest** (attractor + restore force) with a **visible
+  wireframe / translucent sphere outline** at the nest center and radius. Concepts with
   primary membership are pulled toward / restored into their library volume.
+- A larger **company envelope** sphere outlines the full organizational cloud (bounds visible
+  library nests).
 - Cross-library concept links may span nests (spring length still set by weight band + relation).
 - Concepts in multiple libraries: **primary membership** determines nest; secondary
   memberships shown as badges on the concept card / node label, not duplicated nodes.

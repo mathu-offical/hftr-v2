@@ -24,7 +24,7 @@ Living design for the left Research tab layout and floating in-galaxy inspector.
 
 - Opening the Research tab opens the **Galaxy** overlay only (no Galaxy | Page tab strip).
 - **Floating inspector** — panel on the **right** over the galaxy. Shows Page / Concept / Library / Tag detail. Detail never expands inline in the left panel or as a galaxy bottom drawer. Overlay + inspector + left Research tab are viewport-bounded; inspector body and folder page lists scroll independently.
-- Galaxy nodes: click opens the same inspector; highlighted node gets a ring + label fly-to. Library chips / nest labels use short names; default view is 2D with zoom-based label LOD.
+- Galaxy nodes: click opens the same inspector; highlighted node gets a ring + label fly-to. Library chips / nest labels use short names; default view is **3D** with visible nest sphere outlines.
 
 ## Selection behavior
 

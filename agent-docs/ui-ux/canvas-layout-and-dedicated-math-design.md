@@ -62,8 +62,8 @@ Trading receives calculated capital via `data_feed` from its dedicated Math. No 
 A dedicated Math module renders as a compact `MathToolNode`, not as both a full standalone card and a duplicate stub.
 
 - Default placement: centered below its owner.
-- The tool lane begins after the owner’s measured card height plus a 24 px attachment gap.
-- Compact tool minimum size: 220 × 48 px.
+- The tool lane begins after the owner’s measured card height plus a 12 px attachment gap.
+- Compact tool size floor: 180 × 40 px.
 - Data and fund handles remain text-labeled and connection-visible.
 - Moving/reflowing an owner moves its dedicated Math tool with it.
 - If the owner is in an engine, the Math tool is visually contained by the engine bounds but remains non-member domain data.
@@ -73,21 +73,16 @@ A dedicated Math module renders as a compact `MathToolNode`, not as both a full 
 
 Layout uses measured React Flow node dimensions when available and conservative minimums before measurement.
 
-| Constant | Minimum |
+| Constant | Value (`CANVAS_LAYOUT` / `ENGINE_GROUP_PADDING`) |
 |---|---:|
-| Module card width | 280 px |
-| Module card height (layout floor) | 320 px (setup-bearing cards) |
-| Horizontal edge/port gutter | 180 px between card bodies |
-| Vertical row gutter | 160 px between owner/tool envelopes |
-| Owner → Math attachment gap | 24 px |
-| Owner/tool envelope height | card + gap + Math tool (392 px at floor) |
-| Group left/right padding | 112 px |
-| Module card floor | 220 × 168 px (D-088 density; was 220 × 240 under D-057) |
+| Module card floor | 220 × 168 px (D-088 density) |
 | Math tool | 180 × 40 px |
-| Horizontal / vertical gutters | 120 / 80 px |
-| Group left/right padding | 72 px |
-| Group header/top padding | 92 px (D-089 inline bounded header fields; was 140 under D-035/D-057) |
-| Group bottom padding | 100 px |
+| Owner → Math attachment gap | 12 px |
+| Horizontal / vertical gutters | 152 / 104 px (edge clearance between columns / stacked envelopes) |
+| Time hub gap under envelope | 40 px (`engineTimeHubGap`; Time pinned bottom-left, D-091) |
+| Group left/right padding | 88 px (utility ports + side handles) |
+| Group header/top padding | 92 px (D-089 inline bounded header fields) |
+| Group bottom padding | 132 px (Math docks + Time rail) |
 | Top-level engine gutter | 120 px — create/insert/reflow/drag-stop via `placeNextEngineOrigin` |
 | Canvas min zoom | 0.15 (fit large multi-engine graphs) |
 | Math attachment | Single **Calc ref** (`math → owner` `data_feed`); info-type port labels (D-088) |

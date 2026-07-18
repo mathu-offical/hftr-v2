@@ -13,14 +13,15 @@ export const CANVAS_LAYOUT = {
   moduleWidth: 220,
   /** D-088: denser cards — floor matches compact ModuleNode chrome (~160–180). */
   moduleHeight: 168,
-  horizontalGutter: 120,
-  /** Clearance between owner/tool envelopes in the same rank. */
-  verticalGutter: 80,
+  /** Port/edge clearance between adjacent pipeline columns. */
+  horizontalGutter: 152,
+  /** Clearance between stacked owner/tool envelopes in the same rank. */
+  verticalGutter: 104,
   mathAttachmentGap: 12,
   mathToolWidth: 180,
   mathToolHeight: 40,
   /** Gap above the engine Time hub rail (below member/Math envelopes). */
-  engineTimeHubGap: 28,
+  engineTimeHubGap: 40,
   topLevelGutter: 120,
   originX: 40,
   originY: 40,
@@ -332,7 +333,7 @@ export function placeEngineTimeHubPosition(
 /**
  * Place engine members in rank columns with connection-safe gutters.
  * Returns absolute positions and group bounds. Origin is the desired group top-left.
- * Engine Time hubs pin to the bottom-middle of the member envelope (D-091).
+ * Engine Time hubs pin to the bottom-left of the member envelope (D-091).
  */
 export function layoutEngineGroup(
   _engineId: string,

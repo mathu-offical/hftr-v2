@@ -476,6 +476,56 @@ function gatherLayoutLinks(edges: readonly Edge[]): LayoutLink[] {
   return links;
 }
 
+/** Apply absolute layout positions onto RF nodes (engine-relative for members). */
+function applyLayoutToNodes(
+  current: readonly CanvasFlowNode[],
+  layout: LayoutResult,
+): CanvasFlowNode[] {
+  const modulePosById = new Map(layout.modules.map((m) => [m.id, m.canvasPosition]));
+  const engineBoundsById = new Map(layout.engines.map((e) => [e.id, e.canvasBounds]));
+
+  return current.map((node) => {
+    if (isEngineGroupNode(node)) {
+      const bounds = engineBoundsById.get(node.id);
+      if (!bounds) return node;
+      return {
+        ...node,
+        position: { x: bounds.x, y: bounds.y },
+        style: { ...node.style, width: bounds.width, height: bounds.height },
+      };
+    }
+    if (!isGraphModuleNode(node)) return node;
+
+    const abs = modulePosById.get(node.id);
+    if (!abs) return node;
+
+    const engineId = isMathToolNode(node)
+      ? node.data.ownerEngineInstanceId
+      : node.data.engineInstanceId;
+    if (engineId) {
+      const bounds = engineBoundsById.get(engineId);
+      if (bounds) {
+        return {
+          ...node,
+          parentId: engineId,
+          position: {
+            x: abs.x - bounds.x,
+            y: abs.y - bounds.y,
+          },
+          expandParent: false,
+        };
+      }
+    }
+
+    const { parentId: _parent, ...rest } = node;
+    return {
+      ...rest,
+      position: abs,
+      expandParent: false,
+    };
+  });
+}
+
 function buildInitialGraph(
   modules: CanvasModule[],
   engines: CanvasEngineGroup[],
@@ -1009,51 +1059,7 @@ export function CompanyCanvas(props: {
 
   const applyLayoutResult = useCallback(
     (layout: LayoutResult) => {
-      const modulePosById = new Map(layout.modules.map((m) => [m.id, m.canvasPosition]));
-      const engineBoundsById = new Map(layout.engines.map((e) => [e.id, e.canvasBounds]));
-
-      setNodes((current) =>
-        current.map((node) => {
-          if (isEngineGroupNode(node)) {
-            const bounds = engineBoundsById.get(node.id);
-            if (!bounds) return node;
-            return {
-              ...node,
-              position: { x: bounds.x, y: bounds.y },
-              style: { ...node.style, width: bounds.width, height: bounds.height },
-            };
-          }
-          if (!isGraphModuleNode(node)) return node;
-
-          const abs = modulePosById.get(node.id);
-          if (!abs) return node;
-
-          const engineId = isMathToolNode(node)
-            ? node.data.ownerEngineInstanceId
-            : node.data.engineInstanceId;
-          if (engineId) {
-            const bounds = engineBoundsById.get(engineId);
-            if (bounds) {
-              return {
-                ...node,
-                parentId: engineId,
-                position: {
-                  x: abs.x - bounds.x,
-                  y: abs.y - bounds.y,
-                },
-                expandParent: false,
-              };
-            }
-          }
-
-          const { parentId: _parent, ...rest } = node;
-          return {
-            ...rest,
-            position: abs,
-            expandParent: false,
-          };
-        }),
-      );
+      setNodes((current) => applyLayoutToNodes(current, layout));
     },
     [setNodes],
   );
@@ -1984,14 +1990,44 @@ export function CompanyCanvas(props: {
           stableEngineCallbacks,
         );
 
-        setNodes((current) => {
-          const merged = applyUtilityLinksToEngineNodes(
-            applyMathAttachments([...current, ...insertedNodes], [...edges, ...newModuleEdges]),
-            utilityLinks,
-          );
-          setEdges((edgeState) => mergeUtilityEdgesFromNodes([...edgeState, ...newModuleEdges], merged));
-          return merged;
-        });
+        const allEdges = [...edges, ...newModuleEdges];
+        let workingNodes = applyUtilityLinksToEngineNodes(
+          applyMathAttachments([...nodes, ...insertedNodes], allEdges),
+          utilityLinks,
+        );
+
+        // Apply current gutters / Time rail immediately (template seeds may be denser).
+        let layout = reflowEngineAtOrigin(
+          { id: response.engine.id, memberModuleIds: response.engine.memberModuleIds },
+          gatherLayoutModules(workingNodes),
+          gatherLayoutLinks(allEdges),
+          { x: origin.x, y: origin.y },
+          ENGINE_GROUP_PADDING,
+        );
+        const reflowedBounds = layout.engines[0]?.canvasBounds;
+        if (reflowedBounds) {
+          const others = nodes.filter(isEngineGroupNode).map(engineBounds);
+          const clearOrigin = placeNextEngineOrigin(others, reflowedBounds, {
+            preferred: { x: origin.x, y: origin.y },
+          });
+          layout = translateLayoutResultToOrigin(layout, response.engine.id, clearOrigin);
+        }
+        workingNodes = applyLayoutToNodes(workingNodes, layout);
+
+        try {
+          await api(`/api/companies/${props.companyId}/canvas/layout`, {
+            method: 'PATCH',
+            body: {
+              modules: layout.modules,
+              engines: layout.engines,
+            },
+          });
+        } catch {
+          // Insert succeeded; operator can still Reflow to persist spacing.
+        }
+
+        setNodes(workingNodes);
+        setEdges((edgeState) => mergeUtilityEdgesFromNodes([...edgeState, ...newModuleEdges], workingNodes));
         flash(`${engine.label} inserted — activate its modules to start.`);
       } catch {
         flash('Engine insert failed.');

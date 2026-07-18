@@ -212,12 +212,13 @@ export function isMathToolAttachment(
  * D-035 / D-089 shared setup in header as inline bounded fields).
  */
 export const ENGINE_GROUP_PADDING = {
-  left: 72,
-  right: 72,
+  /** Clears motherboard utility ports + labeled side handles. */
+  left: 88,
+  right: 88,
   /** Badge + title + one wrap row of bordered setup fields (D-089). */
   top: 92,
-  /** Clears Math docks + bottom Time hub rail (D-091). */
-  bottom: 120,
+  /** Clears Math docks + bottom-left Time hub rail (D-091). */
+  bottom: 132,
 } as const;
 
 export function computeEngineBoundsFromPositions(

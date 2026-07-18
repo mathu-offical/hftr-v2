@@ -1,6 +1,6 @@
 ---
-description: Credentialed external integrations — Alpaca, LLM providers, Brave, Marketaux, Finnhub, Polygon; smoke vs runtime auth
-globs: packages/adapters/**,packages/llm/**,apps/web/app/api/settings/**,scripts/smoke-*.mjs
+description: Credentialed external integrations — Alpaca, LLMs, multi-domain research keys; smoke vs runtime auth; Settings Verify
+globs: packages/adapters/**,packages/llm/**,packages/engine/src/live-api/**,apps/web/app/api/settings/**,apps/web/lib/research-verify.ts,scripts/smoke-*.mjs
 alwaysApply: false
 ---
 
@@ -12,23 +12,28 @@ Matrix: `agent-docs/research/integrations-matrix.md`
 ## Runtime auth (mandatory)
 
 - **LLM calls:** user-saved keys from `user_api_keys` only (D-027). Never `process.env.ANTHROPIC_API_KEY` (or siblings) to authorize inference.
-- **Research gather:** `user_research_keys` for Brave / market_news / finnhub / polygon /
-  fred / alpha_vantage (D-039, D-046, D-048). Public: SEC, Frankfurter, CoinGecko,
-  World Bank. Alpaca news/bars reuse paper broker creds. Registry:
+- **Research gather:** `user_research_keys` for brave / market_news / finnhub / polygon /
+  fred / alpha_vantage / twelve_data / marketstack (D-039, D-046, D-048, D-050).
+  Public: SEC, Frankfurter, CoinGecko, World Bank, GDELT. Alpaca news/bars and
+  live_api quote poll reuse paper broker creds. Registry:
   `packages/contracts/src/research-source-registry.ts`.
 - **Broker dispatch:** decrypted `broker_connections` for bound company only. Deterministic core is the only order submitter.
+- **Verify:** `POST /api/settings/research-keys/[provider]/verify` uses
+  `withDecryptedSecret` for saved keys; drafts may verify without save.
 
 ## Encryption
 
-- LLM keys: `SETTINGS_ENCRYPTION_KEY` (AES-GCM)
+- LLM / research keys: `SETTINGS_ENCRYPTION_KEY` (AES-GCM)
 - Broker creds: `CREDENTIALS_ENCRYPTION_KEY` (separate envelope)
 - Never log plaintext keys; UI shows last-four only after save
+- `decrypt_failed` on Verify usually means encryption key drift — re-save keys
 
 ## Smoke scripts (CI / operator only)
 
 - Opt-in gates: `HFTR_LLM_SMOKE`, `HFTR_RESEARCH_SMOKE`, `ALPACA_PAPER_SMOKE`
 - Scripts print `ok` / `fail` / `skip` — never secret values
 - Exit non-zero only when a **present** key fails auth
+- GDELT: treat `rate_limited` as ok in smoke
 
 ## Safety
 
@@ -36,6 +41,7 @@ Matrix: `agent-docs/research/integrations-matrix.md`
 - **Live fail-closed** until live gate checklist + `ARM LIVE TRADING` (D-031)
 - **Paper/live parity:** same adapter class; mode selects credentials and policy envelope
 - **Model boundary:** no LLM below Groq compile; gather/validate/admit stay model-free
+- **Qualitative bars:** Twelve Data / Marketstack — entitlement evidence only (no OHLC digits)
 - **Retention:** honor `admitsRetention` and `privacyMode` before provider calls
 
 ## Adding a provider

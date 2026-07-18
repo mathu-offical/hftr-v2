@@ -550,9 +550,26 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   auto-select shipped sources whose auth is satisfied (public, research key, or paper
   Alpaca). Max explicit `sourceKinds` raised to **24**; fan-out remains isolated
   `Promise.all`. Free/open domains shipped: Frankfurter FX, CoinGecko crypto, FRED
-  macro (key), Alpha Vantage news (key), World Bank indicators. GDELT verified then
-  rate-limited → stub. Twelve Data / Marketstack researched only. Live WebSocket
-  feeds catalogued as candidates (not trading path). Matrix:
+  macro (key), Alpha Vantage news (key), World Bank indicators. GDELT / Twelve Data /
+  Marketstack completed in D-050. Live WebSocket feeds catalogued as candidates
+  (not trading path). Matrix: `research/integrations-matrix.md`. **Status: implemented.**
+
+- **D-049 (research tab shelves + floating Page inspector, 2026-07-17):**
+  Left Research tab reorders to: **Submit new topic** → entity search (Topics / Concepts /
+  Tags / Libraries) → three expandable library shelves (system curated runtime, user/engine
+  runtime, baseline seeded) as file trees → Pages (topics) list with linked-page highlight →
+  Archive → collapsed modules. Galaxy is the sole overlay surface; **Page** moves to a
+  right floating inspector over the galaxy (no Galaxy|Page tab strip). Design:
+  `ui-ux/research-tab-shelves-inspector-design.md`.
+
+- **D-050 (complete research provider connect + live_api Alpaca poll, 2026-07-17):**
+  Finish remaining researched gather sources: GDELT DOC ArtList (one retry on 429;
+  smoke treats rate_limited as ok), Twelve Data + Marketstack qualitative bar/EOD
+  entitlement evidence (operator keys). Settings Research tab gains **Verify** for
+  all `ResearchKeyProvider` values (`research-verify.ts`). `trend.scan` polls bound
+  Alpaca paper quotes via `pollQuotes` when inbound `live_api` modules exist
+  (`feedClass: alpaca_iex_paper`, ValueRef provenance). Migration `0029`.
+  Updates D-048 stub notes — GDELT/Twelve/Marketstack now shipped. Matrix:
   `research/integrations-matrix.md`. **Status: implemented.**
 
 ## Open questions

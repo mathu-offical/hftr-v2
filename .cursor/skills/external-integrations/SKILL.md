@@ -1,6 +1,6 @@
 ---
 name: external-integrations
-description: Wire and verify Alpaca, LLM providers, and multi-domain research sources (Brave, Marketaux, Finnhub, Polygon, FRED, Alpha Vantage, Frankfurter, CoinGecko, World Bank, SEC) in hftr-v2. Covers RESEARCH_SOURCE_REGISTRY, credential-ready fan-out, smoke vs runtime auth, and IronBee settings verification.
+description: Wire and verify Alpaca, LLM providers, and multi-domain research sources (Brave, Marketaux, Finnhub, Polygon, FRED, Alpha Vantage, Frankfurter, CoinGecko, World Bank, SEC, GDELT, Twelve Data, Marketstack) in hftr-v2. Covers RESEARCH_SOURCE_REGISTRY, credential-ready fan-out, smoke vs runtime auth, Settings Verify, and IronBee settings verification.
 ---
 
 # External integrations (hftr-v2)
@@ -12,33 +12,34 @@ How to connect third-party services without breaking safety invariants.
 - Adding or changing broker adapters (`packages/adapters`)
 - LLM provider transport or settings (`packages/llm`, `apps/web/app/api/settings`)
 - Research gather sources (`packages/adapters/src/research`)
-- Extending `RESEARCH_SOURCE_REGISTRY` / free-open fan-out (D-048)
+- Extending `RESEARCH_SOURCE_REGISTRY` / free-open fan-out (D-048 / D-050)
+- Wiring `live_api` poll (`packages/engine/src/live-api`)
 - CI / operator smoke for credentialed connectivity
 
-## Any-source fan-out (D-048)
+## Any-source fan-out (D-048 / D-050)
 
 1. Register the source in `packages/contracts/src/research-source-registry.ts`
    (domain, authMode, implementation, liveMode, docsUrl).
 2. Add `ResearchSourceKind` (+ feed class) in `research-bus.ts`.
 3. Ship adapter under `packages/adapters/src/research/` with leak-linted evidence.
 4. Wire `gather.ts` switch + credential bag field if keyed.
-5. If keyed: `ResearchKeyProvider` + settings UI + `loadResearchGatherKeys`.
+5. If keyed: `ResearchKeyProvider` + settings UI + `loadResearchGatherKeys` +
+   `apps/web/lib/research-verify.ts` ping + Verify button.
 6. `selectReadySourceKinds` / `resolveDefaultSourceKinds` auto-include when auth ready.
 7. Smoke entry + matrix row. Max explicit kinds: **24**.
 
-Do **not** put raw prices/rates/OHLC into EvidencePackage text.
+Do **not** put raw prices/rates/OHLC into EvidencePackage text. Twelve Data and
+Marketstack emit **qualitative entitlement** evidence only.
 
 ## Integration inventory (high signal)
 
 | Integration | Runtime auth | Smoke | Status |
 |-------------|--------------|-------|--------|
 | LLM tier providers (6) | `user_api_keys` | `pnpm smoke:llm` | shipped |
-| Alpaca paper (+ news/bars gather) | `broker_connections` | `pnpm smoke:alpaca-paper` / research | shipped |
-| Brave / Marketaux / Finnhub / Polygon | `user_research_keys` | `pnpm smoke:research` | shipped |
-| FRED / Alpha Vantage | `user_research_keys` | `pnpm smoke:research` | shipped |
-| Frankfurter / CoinGecko / World Bank / SEC | none | research smoke / unit | shipped |
-| GDELT | none | — | stub (429 backoff) |
-| Twelve Data / Marketstack | researched | — | not wired |
+| Alpaca paper (+ news/bars gather + live_api poll) | `broker_connections` | `pnpm smoke:alpaca-paper` / research | shipped |
+| Brave / Marketaux / Finnhub / Polygon | `user_research_keys` + Verify | `pnpm smoke:research` | shipped |
+| FRED / Alpha Vantage / Twelve Data / Marketstack | `user_research_keys` + Verify | `pnpm smoke:research` | shipped |
+| Frankfurter / CoinGecko / World Bank / SEC / GDELT | none | research smoke / unit | shipped |
 | Live WS (Alpaca/Finnhub/Polygon) | broker/key | — | researched candidates |
 
 Full matrix: `agent-docs/research/integrations-matrix.md`.
@@ -49,8 +50,12 @@ Full matrix: `agent-docs/research/integrations-matrix.md`.
 
 1. **User settings** → LLM / Research / Brokers.
 2. Encrypt at rest (`SETTINGS_ENCRYPTION_KEY` / `CREDENTIALS_ENCRYPTION_KEY`).
-3. Research keys: brave, market_news, finnhub, polygon, fred, alpha_vantage.
+3. Research keys: brave, market_news, finnhub, polygon, fred, alpha_vantage,
+   twelve_data, marketstack. **Verify** drafts or saved keys via
+   `POST /api/settings/research-keys/[provider]/verify` (`withDecryptedSecret`).
 4. Never authorize runtime from `process.env.*_API_KEY` (D-027).
+5. If Verify returns `decrypt_failed`, operator encryption key likely drifted —
+   re-save keys after aligning `SETTINGS_ENCRYPTION_KEY`.
 
 ### CI / smoke (env only)
 
@@ -61,6 +66,12 @@ ALPACA_PAPER_SMOKE=1 pnpm smoke:alpaca-paper
 ```
 
 Without flags, scripts exit 0 with `skip:`.
+
+## live_api poll (D-050)
+
+`packages/engine/src/live-api/poll-quotes.ts` — when `trend.scan` has inbound
+`live_api` modules, poll Alpaca **paper** quotes (`feedClass: alpaca_iex_paper`).
+Lookback bars may still be synthetic until a separate bars path ships.
 
 ## Safety
 
@@ -79,10 +90,12 @@ Without flags, scripts exit 0 with `skip:`.
 | world_bank_indicator | `GET api.worldbank.org/v2/indicator?format=json&per_page=1` |
 | fred_macro | FRED series search + `FRED_API_KEY` |
 | alpha_vantage_news | NEWS_SENTIMENT + `ALPHA_VANTAGE_API_KEY` |
+| gdelt_news | DOC ArtList (treat `rate_limited` as ok in smoke) |
+| twelve_data / marketstack | entitlement ping + operator key |
 | alpaca_news | `data.alpaca.markets/v1beta1/news` + APCA headers |
 
 ## Related
 
 - Workflow: `.cursor/workflows/credentialed-integrations.md`
 - Rule: `.cursor/rules/external-integrations.mdc`
-- Decisions: D-027, D-039, D-046, D-048
+- Decisions: D-027, D-039, D-046, D-048, D-050

@@ -38,6 +38,8 @@ const RESEARCH_KEY_PROVIDERS: { id: ResearchKeyProvider; label: string; hint: st
     label: 'Alpha Vantage',
     hint: 'News sentiment feed (free tier available)',
   },
+  { id: 'twelve_data', label: 'Twelve Data', hint: 'Daily equity time-series entitlement check' },
+  { id: 'marketstack', label: 'Marketstack', hint: 'End-of-day equity data entitlement check' },
 ];
 
 const PROVIDERS: { id: LlmProvider; label: string; tier: string }[] = [
@@ -108,6 +110,8 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
     polygon: '',
     fred: '',
     alpha_vantage: '',
+    twelve_data: '',
+    marketstack: '',
   });
   const [messages, setMessages] = useState<
     Partial<Record<LlmProvider | ResearchKeyProvider | 'brokers', string>>
@@ -241,6 +245,41 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
       if (res.ok && res.deferred) {
         setMessages((m) => ({ ...m, [provider]: 'Format ok — live ping deferred.' }));
       } else if (res.ok) {
+        setMessages((m) => ({ ...m, [provider]: 'Verified with provider.' }));
+      } else {
+        setMessages((m) => ({
+          ...m,
+          [provider]: `Verify failed: ${res.failure ?? 'unknown'}`,
+        }));
+      }
+    } catch {
+      setMessages((m) => ({ ...m, [provider]: 'Verify failed.' }));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function verifyResearchKey(provider: ResearchKeyProvider) {
+    const draft = researchDrafts[provider].trim();
+    const saved = researchKeys.find((k) => k.provider === provider);
+    if (draft.length < 8 && !saved) {
+      setMessages((m) => ({
+        ...m,
+        [provider]: 'Enter a key (8+ chars) or save one before verify.',
+      }));
+      return;
+    }
+
+    setBusy(provider);
+    try {
+      const res = await api<{ ok: boolean; failure: string | null }>(
+        `/api/settings/research-keys/${provider}/verify`,
+        {
+          method: 'POST',
+          ...(draft.length >= 8 ? { body: { apiKey: draft } } : {}),
+        },
+      );
+      if (res.ok) {
         setMessages((m) => ({ ...m, [provider]: 'Verified with provider.' }));
       } else {
         setMessages((m) => ({
@@ -445,8 +484,9 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                 <p className="text-xs font-medium text-[var(--color-ink)]">Research gather keys</p>
                 <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">
                   Optional keys for external research sources (Brave, Marketaux, Finnhub,
-                  Polygon). Alpaca news uses paper broker credentials. SEC filings gather
-                  without a user key.
+                  Polygon, FRED, Alpha Vantage, Twelve Data, Marketstack). Alpaca news uses
+                  paper broker credentials. Public gather also includes SEC, Frankfurter,
+                  CoinGecko, World Bank, and GDELT when ready.
                 </p>
               </div>
               <ul className="space-y-4">
@@ -466,14 +506,24 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                               {new Date(saved.updatedAt).toLocaleDateString()}
                             </span>
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => void removeResearchKey(p.id)}
-                            disabled={busy === p.id}
-                            className="text-[var(--color-block)] hover:underline disabled:opacity-50"
-                          >
-                            Delete
-                          </button>
+                          <span className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void verifyResearchKey(p.id)}
+                              disabled={busy === p.id}
+                              className="text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                            >
+                              Verify
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void removeResearchKey(p.id)}
+                              disabled={busy === p.id}
+                              className="text-[var(--color-block)] hover:underline disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          </span>
                         </div>
                       ) : (
                         <p className="text-[11px] text-[var(--color-ink-faint)]">No key saved</p>
@@ -490,6 +540,16 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                           autoComplete="off"
                           className="min-w-0 flex-1 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
                         />
+                        {!saved && researchDrafts[p.id].trim().length >= 8 && (
+                          <button
+                            type="button"
+                            onClick={() => void verifyResearchKey(p.id)}
+                            disabled={busy === p.id}
+                            className="shrink-0 rounded-md border border-[var(--color-line)] px-2.5 py-1.5 text-xs text-[var(--color-ink-dim)] hover:bg-[var(--color-surface-2)] disabled:opacity-50"
+                          >
+                            Verify
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => void saveResearchKey(p.id)}

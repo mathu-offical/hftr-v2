@@ -10,6 +10,8 @@ export interface ResearchGatherKeys {
   polygonApiKey?: string;
   fredApiKey?: string;
   alphaVantageApiKey?: string;
+  twelveDataApiKey?: string;
+  marketstackApiKey?: string;
   alpacaKeyId?: string;
   alpacaSecret?: string;
 }
@@ -56,6 +58,10 @@ export async function loadResearchGatherKeys(
       keys.fredApiKey = plain;
     } else if (row.provider === 'alpha_vantage') {
       keys.alphaVantageApiKey = plain;
+    } else if (row.provider === 'twelve_data') {
+      keys.twelveDataApiKey = plain;
+    } else if (row.provider === 'marketstack') {
+      keys.marketstackApiKey = plain;
     }
   }
 

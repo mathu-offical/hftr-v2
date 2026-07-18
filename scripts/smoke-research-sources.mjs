@@ -20,9 +20,11 @@ Environment (automation path):
   POLYGON_API_KEY                 Optional — Polygon.io reference news
   FRED_API_KEY                    Optional — St. Louis Fed macro series search
   ALPHA_VANTAGE_API_KEY           Optional — Alpha Vantage news sentiment
+  TWELVE_DATA_API_KEY             Optional — Twelve Data daily time-series
+  MARKETSTACK_API_KEY             Optional — Marketstack EOD equity data
 
 Runtime gather uses user-saved research keys (D-039). Env keys are CI/smoke only.
-Frankfurter FX and CoinGecko public endpoints are pinged without keys when smoke runs.
+Frankfurter FX, CoinGecko, World Bank, and GDELT public endpoints are pinged without keys when smoke runs.
 
 Exits 0 when all present keys pass or none are set; non-zero if any present key fails auth.
 `;
@@ -327,6 +329,87 @@ async function verifyAlphaVantage(apiKey) {
   }
 }
 
+async function verifyGdelt() {
+  const url =
+    'https://api.gdeltproject.org/api/v2/doc/doc' +
+    `?query=${encodeURIComponent('markets')}&mode=ArtList&format=json&maxrecords=1`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'hftr-v2-research/1.0',
+      },
+    });
+    if (res.status === 429) {
+      return { ok: true, rateLimited: true };
+    }
+    if (!res.ok) {
+      return { ok: false, failure: `http_${res.status}` };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, failure: 'ping_timeout' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function verifyTwelveData(apiKey) {
+  const url =
+    'https://api.twelvedata.com/time_series' +
+    `?symbol=AAPL&interval=1day&outputsize=1&apikey=${encodeURIComponent(apiKey)}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, failure: 'auth_rejected' };
+    }
+    if (!res.ok) {
+      return { ok: false, failure: `http_${res.status}` };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, failure: 'ping_timeout' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function verifyMarketstack(apiKey) {
+  const url =
+    'https://api.marketstack.com/v1/eod' +
+    `?access_key=${encodeURIComponent(apiKey)}&symbols=AAPL&limit=1`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, failure: 'auth_rejected' };
+    }
+    if (!res.ok) {
+      return { ok: false, failure: `http_${res.status}` };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, failure: 'ping_timeout' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 let anyPresent = false;
 let anyFailed = false;
 
@@ -339,6 +422,22 @@ if (!coingeckoOk) anyFailed = true;
 
 const worldBankOk = await runCheck('world_bank_indicator', () => verifyWorldBank());
 if (!worldBankOk) anyFailed = true;
+
+try {
+  const gdeltOutcome = await verifyGdelt();
+  if (gdeltOutcome.ok) {
+    console.log(
+      gdeltOutcome.rateLimited ? 'gdelt_news: ok (rate_limited)' : 'gdelt_news: ok',
+    );
+  } else {
+    anyFailed = true;
+    console.log(`gdelt_news: fail (${gdeltOutcome.failure ?? 'unknown'})`);
+  }
+} catch {
+  anyFailed = true;
+  console.log('gdelt_news: fail (network_error)');
+}
+anyPresent = true;
 
 const braveKey = (process.env.BRAVE_API_KEY ?? '').trim();
 if (braveKey) {
@@ -410,6 +509,24 @@ if (alphaVantageKey) {
   if (!ok) anyFailed = true;
 } else {
   console.log('alpha_vantage_news: skip (no ALPHA_VANTAGE_API_KEY)');
+}
+
+const twelveDataKey = (process.env.TWELVE_DATA_API_KEY ?? '').trim();
+if (twelveDataKey) {
+  anyPresent = true;
+  const ok = await runCheck('twelve_data', () => verifyTwelveData(twelveDataKey));
+  if (!ok) anyFailed = true;
+} else {
+  console.log('twelve_data: skip (no TWELVE_DATA_API_KEY)');
+}
+
+const marketstackKey = (process.env.MARKETSTACK_API_KEY ?? '').trim();
+if (marketstackKey) {
+  anyPresent = true;
+  const ok = await runCheck('marketstack', () => verifyMarketstack(marketstackKey));
+  if (!ok) anyFailed = true;
+} else {
+  console.log('marketstack: skip (no MARKETSTACK_API_KEY)');
 }
 
 if (!anyPresent) {

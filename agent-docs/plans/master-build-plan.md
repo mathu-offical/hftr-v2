@@ -14,8 +14,8 @@ sprint specs are written when the prior gate passes, incorporating learnings).
 |------|--------|---------|-----------|
 | **G0** Foundation | **Passed** | Monorepo, Clerk, Drizzle migrations, Vercel skeleton, CI typecheck/lint/vitest | — |
 | **G1** Canvas + queue spine | **Passed (local)** | Company wizard, canvas CRUD, queue drain, panels, deterministic assistant, Playwright M1 flows | Remote CI e2e first green run |
-| **G2** Research stack | **Partial** | Libraries/topics, galaxy + D-040 overlay, Obsidian zip, research bus D-039, D-041 links, ARCH-005, D-042 librarian/process layers, D-043 engine-centric create | Credentialed provider soak; llm_calls ledger soak evidence under load |
-| **G3** Paper trading loop | **Partial** | ValueRef instruction finalizer **wired on promote→dispatch** (D-057); Alpaca bars→regime; v1-parity **327** engine tests; `paper-loop`/`lineage` Playwright flows 3+7 | Remote CI e2e first green; credentialed Alpaca paper fill (not paper_sim); fund-router settlement; trace→lineage deep links |
+| **G2** Research stack | **Partial** | Libraries/topics, galaxy + D-040 overlay, Obsidian zip, research bus D-039, **system:movers** shelf (D-058), ARCH-005, D-042/D-043 | Credentialed provider soak; llm_calls ledger soak; live movers replace placeholders |
+| **G3** Paper trading loop | **Partial** | ValueRef finalizer on promote (D-057); fund approve→**settled** + module ledger (D-059); **trace→Values lineage deep links** (D-060); Alpaca bars→regime; Playwright 3+7 | Remote CI e2e; credentialed Alpaca paper fill; pct fund resolve |
 | **G4** Brokers + billing | **Partial (non-billing)** | Full §7 assistant write tools + Mistral schema; deterministic sims + Analyzer stub; Alpaca/Kalshi settings UX | **Billing deferred (D-032)**; Stripe; operator-key Alpaca paper round-trip |
 | **G5** Multi-venue + live | **Partial** | Live-gate arming UI; real Kalshi demo HTTP client + settings/verify; crypto/prediction templates; Palette via `/api/engine-templates` | **Live Alpaca unverified**; live Kalshi blocked; OQ-2 dedicated-worker evidence |
 | **G6** Polish + ops | **Partial** | Dead-letter bulk-retry; archive-first retention `0017`; auto-disarm; drain `lastDrain`; security-audit checklist; CI `workflow_dispatch` smoke skeleton | Full a11y/perf pass; Polymarket (OQ-5); remote credentialed smoke green |
@@ -88,9 +88,12 @@ console errors. Remote CI e2e first run remains pending.
 **M2 / G2 candidate (2026-07-17):** D-027 service integration plus research product surfaces:
 libraries / library_concepts / research_topics (migration `0012`); graph + Obsidian zip export;
 galaxy MVP (`react-force-graph-3d` + 2D fallback); schedule materializer + budget-queued claim
-semantics; Playwright `research-library.spec.ts` (galaxy + API/UI Obsidian zip export). Remaining
-for formal G2 sign-off: live provider/Alpaca smoke with operator keys, autonomous cadence soak
-on a real topic, and default model-profile promotion after paper scenario suite.
+semantics; Playwright `research-library.spec.ts` (galaxy + API/UI Obsidian zip export).
+**D-058 movers slice:** `system:movers` library (**Daily movers watch**) seeds at bootstrap with
+three qualitative placeholders; `library.system_movers` handler reserved for daily refresh until
+live movers inputs ship. Remaining for formal G2 sign-off: live provider/Alpaca smoke with
+operator keys, autonomous cadence soak on a real topic, and default model-profile promotion
+after paper scenario suite.
 
 ## M2 — Research stack (Claude+Mistral) + libraries + galaxy MVP + numeric core
 
@@ -138,7 +141,8 @@ approve/reject + Approvals tab; ValueRef lineage walk API + Values tab. Engine t
    and right panel v1 (ledger, trace inspector with value-lineage links). **Approvals + lineage
    partial.**
 6. Fund model v1: seed allocations, fund router (calc-op resolved amounts), approval inbox.
-   **Approval inbox shipped; router transfers partial.**
+   **Approval inbox shipped; approve→`settled` with module↔module paired ledger (D-059); fixed
+   `usd_cents` allocation resolve on propose when `commit` + `sourceModuleId` (pct deferred).**
 Gate G3: full paper loop research→trade visible end-to-end on canvas + panels; every artifact
 schema-validated; live mode provably fail-closed; **numeric/temporal audit passes — an
 llm_calls scan of the demo run shows zero raw financial digits or authoritative datetimes in

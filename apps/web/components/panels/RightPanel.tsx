@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/client';
 import { ACTIVITY_REFRESH_EVENT } from '../canvas/PaperTradeForm';
+import {
+  VALUE_LINEAGE_FOCUS_EVENT,
+  type ValueLineageFocusDetail,
+} from '@/lib/value-lineage-focus';
 import { dollars, scaled, toneFor } from './format';
 
 type Tab = 'verification' | 'executions' | 'ledger' | 'simulation' | 'values';
@@ -129,6 +133,7 @@ export function RightPanel(props: { companyId: string }) {
   const [values, setValues] = useState<ValueRow[]>([]);
   const [simulations, setSimulations] = useState<SimulationRow[]>([]);
   const [simComparison, setSimComparison] = useState<string | null>(null);
+  const [focusedValueRef, setFocusedValueRef] = useState<string | null>(null);
 
   useEffect(() => {
     if (!storageKey) {
@@ -142,6 +147,18 @@ export function RightPanel(props: { companyId: string }) {
     }
     setPersistReady(true);
   }, [storageKey]);
+
+  useEffect(() => {
+    function onFocus(e: Event) {
+      const detail = (e as CustomEvent<ValueLineageFocusDetail>).detail;
+      if (!detail || detail.companyId !== props.companyId) return;
+      setOpen(true);
+      setTab('values');
+      setFocusedValueRef(detail.valueRef);
+    }
+    window.addEventListener(VALUE_LINEAGE_FOCUS_EVENT, onFocus);
+    return () => window.removeEventListener(VALUE_LINEAGE_FOCUS_EVENT, onFocus);
+  }, [props.companyId]);
 
   useEffect(() => {
     if (!storageKey || !persistReady) return;
@@ -255,7 +272,14 @@ export function RightPanel(props: { companyId: string }) {
         {tab === 'simulation' && (
           <SimulationTab runs={simulations} comparisonSummary={simComparison} />
         )}
-        {tab === 'values' && <ValuesTab companyId={props.companyId} values={values} />}
+        {tab === 'values' && (
+          <ValuesTab
+            companyId={props.companyId}
+            values={values}
+            focusedRef={focusedValueRef}
+            onFocusedRefConsumed={() => setFocusedValueRef(null)}
+          />
+        )}
       </div>
     </aside>
   );
@@ -459,7 +483,12 @@ function SimulationTab(props: { runs: SimulationRow[]; comparisonSummary: string
   );
 }
 
-function ValuesTab(props: { companyId: string; values: ValueRow[] }) {
+function ValuesTab(props: {
+  companyId: string;
+  values: ValueRow[];
+  focusedRef?: string | null;
+  onFocusedRefConsumed?: () => void;
+}) {
   const [selectedRef, setSelectedRef] = useState<string | null>(null);
   const [lineage, setLineage] = useState<
     Array<{
@@ -495,6 +524,14 @@ function ValuesTab(props: { companyId: string; values: ValueRow[] }) {
       setLineageError('Could not load lineage for this value.');
     }
   }
+
+  useEffect(() => {
+    if (!props.focusedRef) return;
+    void loadLineage(props.focusedRef);
+    props.onFocusedRefConsumed?.();
+    // Intentionally only react to focusedRef changes from TraceTimeline deep links.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadLineage is stable enough for focus trigger
+  }, [props.focusedRef, props.companyId]);
 
   if (props.values.length === 0) return <Empty text="No recorded values yet for this company." />;
   return (

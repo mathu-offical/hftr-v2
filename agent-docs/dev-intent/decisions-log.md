@@ -557,12 +557,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 - **D-049 (research tab shelves + floating inspector, 2026-07-17):**
   Left Research tab reorders to: **Submit new topic** → entity search (Topics / Concepts /
   Tags / Libraries) → expandable library shelves as **folders of pages** (system curated,
-  runtime, plus **multiple Baseline · {catalog}** shelves partitioned by bootstrap seed
-  tags — strategy / guardrails / session / broker / trend leads — with optional **tier
+  runtime, plus one **Baseline seeded** shelf with inline catalog folders by bootstrap
+  seed tags — strategy / guardrails / session / broker / trend leads — and optional **tier
   subfolders**) → Pages (topics) list with linked-page highlight → Archive → collapsed
   modules. Galaxy is the sole overlay surface; detail for Page / Concept / Library / Tag
   opens in a **right floating inspector** (no Galaxy|Page tab strip, no left/galaxy inline
-  expand). Folder caret expands page leaves; Overview on the first baseline shelf opens
+  expand). Folder caret expands page leaves; Overview at top of Baseline seeded opens
   Seeded trading mechanisms when present. Design:
   `ui-ux/research-tab-shelves-inspector-design.md`. **Status: implemented.**
 
@@ -655,6 +655,29 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `use-module-stream-ports.ts`, tightened Module/Engine/Math chrome. Docs: ui-spec §3,
   canvas-node-dashboard-design, canvas-layout-and-dedicated-math-design.
   **Status: implemented.**
+
+- **D-058 (system:movers bootstrap library, 2026-07-17):** First system-curated shelf slice
+  so Research tab **System curated** is non-empty after company bootstrap. Engine
+  `ensureSystemMoversLibrary` upserts company library **Daily movers watch**
+  (`topicScope=system:movers`, `moduleId` null); when empty seeds three leak-clean qualitative
+  placeholder concepts (`deterministic_placeholder`, tags `system_curated`/`movers`/`daily`,
+  `auto_admitted` `library_concepts`). Wired from `bootstrapCompanyKnowledge` and job handler
+  `library.system_movers` (idempotent placeholder refresh for v1 cadence). Live movers data
+  replaces placeholders in a later slice. **Status: implemented.**
+
+- **D-059 (fund transfer approve→settled + module ledger conservation, 2026-07-17):** G3 fund
+  settlement: operator approve on `fund_transfers` writes company-pool delta and/or paired
+  module↔module ledger rows (`moduleTransferLedgerEntries`, amounts sum to zero), sets
+  `approvedAt`, and terminal status **`settled`** (not `approved` alone). Propose API may omit
+  `amountCents` when `commit` + `sourceModuleId` if `capital_allocation_ref` resolves to
+  scale-0 `usd_cents` (`resolveCapitalAllocationUsdCents`); percentage allocations deferred.
+  **Status: implemented.**
+
+- **D-060 (trace timeline → Values lineage deep links, 2026-07-17):** Timeline API returns
+  `valueRefs` (quantity / limit / fill timeout) from task payload lineage or instruction
+  columns. TraceTimeline shows text-first lineage buttons; `hftr:value-lineage-focus`
+  opens the right-panel Values tab and loads `GET …/values/{ref}/lineage`. Closes G3 M3.5
+  partial for trace→lineage navigation (ui-spec flow 7). **Status: implemented.**
 
 ## Open questions
 

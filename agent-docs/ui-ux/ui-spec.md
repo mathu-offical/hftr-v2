@@ -195,10 +195,10 @@ editable fields.
 - Tabs: **Research** | **Data sources** | (contextual third tab when opened from a trend module).
 - Research tab (**D-040**, **D-047**, **D-049**): **Submit new topic** at top; **entity
   search** with Topics / Concepts / Tags / Libraries toggles; expandable **library shelves**
-  as folders of pages — runtime/system shelves plus **multiple Baseline · {catalog}**
-  shelves (strategy / guardrails / session / broker / trend leads) with optional **tier
-  subfolders** for seeded pages; caret expands page leaves; Overview on the first baseline
-  shelf opens Seeded trading mechanisms; **Pages** list (topics) with linked-page highlight;
+  as folders of pages — system/runtime shelves plus one **Baseline seeded** shelf with
+  inline catalog folders (strategy / guardrails / session / broker / trend leads) and
+  optional **tier subfolders**; caret expands page leaves; Overview opens Seeded trading
+  mechanisms; **Pages** list (topics) with linked-page highlight;
   **Archive** (D-047); collapsed Modules & tools. Opening Research opens the Galaxy overlay
   only — detail lives in a right floating inspector over the galaxy (no Galaxy|Page tab strip).
   Design: `ui-ux/research-tab-shelves-inspector-design.md`.
@@ -352,6 +352,8 @@ after applying SQL migrations.
 6. Live-gate attempt without passing checks → visibly blocked with text-first reasons.
 7. Math module: open node → k/v browser shows live values → click a trade's quantity in the
    right-panel trace inspector → lineage graph resolves to its live-source roots and calc ops.
+   *(Partial D-060: TraceTimeline lineage buttons open Values tab + `GET …/values/{ref}/lineage`;
+   full calc-graph visualization still open.)*
 
 ## 8. Accessibility & quality bar
 

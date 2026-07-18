@@ -1,5 +1,6 @@
 import { and, desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { DeterministicActionTask, TraceTimelineResponse } from '@hftr/contracts';
 import { scoping } from '@hftr/db';
 import {
   actionInstructions,
@@ -28,11 +29,32 @@ interface Stage {
   refId: string;
 }
 
+function resolveTraceValueRefs(
+  task: typeof deterministicTasks.$inferSelect | undefined,
+  instruction: typeof actionInstructions.$inferSelect | undefined,
+): z.infer<typeof TraceTimelineResponse>['valueRefs'] {
+  if (task?.payload) {
+    const parsed = DeterministicActionTask.safeParse(task.payload);
+    if (parsed.success) {
+      return parsed.data.lineage;
+    }
+  }
+  if (instruction) {
+    return {
+      quantityRef: instruction.quantityRef,
+      limitPriceRef: instruction.limitPriceRef,
+      fillTimeoutRef: instruction.fillTimeoutRef,
+    };
+  }
+  return null;
+}
+
 /**
  * Full pipeline timeline for one trace: walks task → instruction →
  * compile event → decision tree → lead package upstream, and verification +
  * ledger downstream. Stages the trace never reached are simply absent.
  * Summaries are text-first status strings (counts only, no raw values).
+ * `valueRefs` exposes quantity / limit / timeout handles for Values-tab deep links.
  */
 export async function GET(_req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
@@ -50,7 +72,6 @@ export async function GET(_req: Request, ctx: Ctx) {
 
     const timeline: Stage[] = [];
 
-    // ── Upstream walk: task → instruction → compile → tree → lead ──────────
     const task = trace.taskId
       ? (
           await db
@@ -76,10 +97,6 @@ export async function GET(_req: Request, ctx: Ctx) {
         )[0]
       : undefined;
 
-    // The dispatch-stage instruction is a separate row from the compile-stage
-    // instruction, so pipeline lineage flows through the promoting job: the
-    // dispatch instruction's envelope carries the job id in causationRefs and
-    // that job's payload carries leadId when it came from trend.promote.
     const envelope = (instruction?.envelope ?? {}) as { causationRefs?: string[] };
     const causationJobId = envelope.causationRefs?.[0];
     const promotingJob = causationJobId
@@ -204,6 +221,9 @@ export async function GET(_req: Request, ctx: Ctx) {
       });
     }
 
-    return { timeline };
+    return TraceTimelineResponse.parse({
+      timeline,
+      valueRefs: resolveTraceValueRefs(task, instruction),
+    });
   });
 }

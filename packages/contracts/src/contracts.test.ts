@@ -49,7 +49,7 @@ import {
   allowedLinkKinds,
 } from './modules';
 import { ValueRefHandle, CalcRequest } from './numeric';
-import { ActionInstruction } from './pipeline';
+import { ActionInstruction, TraceTimelineResponse } from './pipeline';
 import {
   DEFAULT_PHILOSOPHY_PROFILE,
   normalizePhilosophyProfile,
@@ -555,6 +555,26 @@ describe('NRA typing', () => {
   it('ActionInstruction quantity must be a ref, never a number', () => {
     const parsed = ActionInstruction.shape.quantityRef.safeParse(100);
     expect(parsed.success).toBe(false);
+  });
+
+  it('TraceTimelineResponse carries optional valueRefs for lineage deep links', () => {
+    const ok = TraceTimelineResponse.safeParse({
+      timeline: [
+        {
+          stage: 'trace',
+          at: '2026-07-17T00:00:00.000Z',
+          status: 'filled',
+          summary: 'paper fill',
+          refId: '00000000-0000-4000-8000-000000000099',
+        },
+      ],
+      valueRefs: {
+        quantityRef: 'nv_qty',
+        limitPriceRef: null,
+        fillTimeoutRef: 'nv_timeout',
+      },
+    });
+    expect(ok.success).toBe(true);
   });
 
   it('parses a nested calc expression', () => {

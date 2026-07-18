@@ -159,6 +159,28 @@ export const DeterministicActionTask = z.object({
 });
 export type DeterministicActionTask = z.infer<typeof DeterministicActionTask>;
 
+/** ValueRef handles exposed on a trace timeline for Values-tab deep links. */
+export const TraceValueRefs = z.object({
+  quantityRef: z.string().min(1),
+  limitPriceRef: z.string().min(1).nullable(),
+  fillTimeoutRef: z.string().min(1),
+});
+export type TraceValueRefs = z.infer<typeof TraceValueRefs>;
+
+export const TraceTimelineStage = z.object({
+  stage: z.enum(['lead', 'tree', 'compile', 'task', 'trace', 'verification', 'ledger']),
+  at: z.string(),
+  status: z.string(),
+  summary: z.string(),
+  refId: z.string(),
+});
+
+export const TraceTimelineResponse = z.object({
+  timeline: z.array(TraceTimelineStage),
+  valueRefs: TraceValueRefs.nullable(),
+});
+export type TraceTimelineResponse = z.infer<typeof TraceTimelineResponse>;
+
 export const TraceOutcome = z.enum([
   'filled',
   'partial',

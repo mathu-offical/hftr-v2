@@ -50,6 +50,10 @@ Visible label next to each handle (text-first; color reinforces). Default kind l
 colored rail on the node edge groups inbound/outbound kinds as separate visual buses.
 Math: top data bus + horizontal fund bus.
 
+**D-067:** fund cards render as **vault** silhouettes; `library` as **shelf/book**
+chrome; `live_api` as a **feed aperture** with signal bars (`FamilyShapeChrome`). Family chip
+for capital modules reads **Vault**.
+
 **D-057:** in addition to one free **bus** handle per kind, each existing peer dependency
 gets its own **stream** handle (`{kind}-{dir}__{peerId}`) labeled with the peer Fn
 (`← Library`, `→ DayTrade`). Edges persist on stream pins so overlapping data_feed links

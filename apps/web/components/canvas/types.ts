@@ -19,6 +19,7 @@ export {
   moduleSubtypeChip,
   portRoleLabel,
   type EngineCategoryVisual,
+  type FamilyShapeKind,
   type ModuleFamily,
   type ModuleVisual,
 } from './canvas-visuals';

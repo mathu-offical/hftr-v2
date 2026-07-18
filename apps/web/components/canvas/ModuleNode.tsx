@@ -19,6 +19,7 @@ import {
   type ModuleSetupDraft,
 } from './ModuleSetupFields';
 import { FAMILY_LABELS, MODULE_VISUALS } from './canvas-visuals';
+import { FamilyShapeChrome } from './FamilyShapeChrome';
 import { MathPortBuses, NodePortBuses } from './NodePortBuses';
 import { useModuleStreamPorts } from './use-module-stream-ports';
 
@@ -200,7 +201,8 @@ export const ModuleNode = memo(function ModuleNode({
 
   const familyLabel = FAMILY_LABELS[visual.family];
   const subtypeChip = data.subtypeChip?.trim() || null;
-  const borderWidth = visual.borderStyle === 'double' ? 3 : 1;
+  const borderWidth = visual.borderStyle === 'double' ? 3 : visual.shape ? 1.5 : 1;
+  const shaped = Boolean(visual.shape);
 
   return (
     <div className="relative" style={{ width: CARD_WIDTH_PX }}>
@@ -215,25 +217,37 @@ export const ModuleNode = memo(function ModuleNode({
       )}
 
       <div
-        className={`relative ${visual.radiusClass} border bg-[var(--color-surface-1)] px-2.5 py-1.5 shadow-lg transition-colors`}
+        className={`relative overflow-hidden ${visual.radiusClass} border bg-[var(--color-surface-1)] px-2.5 py-1.5 shadow-lg transition-colors ${
+          shaped ? 'min-h-[11.5rem]' : ''
+        }`}
         style={{
           width: CARD_WIDTH_PX,
           borderStyle: visual.borderStyle,
           borderWidth,
-          borderColor: selected ? visual.hue : 'var(--color-line)',
-          boxShadow: selected ? `0 0 0 1px ${visual.hue}` : undefined,
+          borderColor: selected
+            ? visual.hue
+            : shaped
+              ? `${visual.hue}99`
+              : 'var(--color-line)',
+          boxShadow: selected
+            ? `0 0 0 1px ${visual.hue}, 0 8px 24px ${visual.hue}22`
+            : shaped
+              ? `0 6px 18px rgba(0,0,0,0.35), inset 0 0 0 1px ${visual.hue}22`
+              : undefined,
           backgroundImage: `linear-gradient(${visual.wash}, ${visual.wash}), linear-gradient(var(--color-surface-1), var(--color-surface-1))`,
         }}
       >
-        {/* Family accent — distinct for data sources vs agents vs funds. */}
-        {visual.accent === 'bar' && (
+        <FamilyShapeChrome shape={visual.shape} hue={visual.hue} selected={selected} />
+
+        {/* Family accent — skipped when silhouette chrome already frames the card. */}
+        {!shaped && visual.accent === 'bar' && (
           <span
             className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-sm"
             style={{ background: visual.hue }}
             aria-hidden
           />
         )}
-        {visual.accent === 'stripe' && (
+        {!shaped && visual.accent === 'stripe' && (
           <span
             className="pointer-events-none absolute inset-x-0 top-0 h-1 opacity-80"
             style={{
@@ -242,7 +256,7 @@ export const ModuleNode = memo(function ModuleNode({
             aria-hidden
           />
         )}
-        {visual.accent === 'rail' && (
+        {!shaped && visual.accent === 'rail' && (
           <span
             className="pointer-events-none absolute left-0 top-0 bottom-0 w-1.5"
             style={{
@@ -253,6 +267,7 @@ export const ModuleNode = memo(function ModuleNode({
           />
         )}
 
+        <div className="relative z-[1]">
         <div className="mb-0.5 flex items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <span
@@ -368,6 +383,7 @@ export const ModuleNode = memo(function ModuleNode({
             )}
           </div>
         )}
+        </div>
       </div>
 
       {(data.attachedMathTools?.length ?? 0) > 0 && (

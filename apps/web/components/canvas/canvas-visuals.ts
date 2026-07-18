@@ -27,10 +27,14 @@ export const MODULE_FAMILY: Record<ModuleType, ModuleFamily> = {
 export const FAMILY_LABELS: Record<ModuleFamily, string> = {
   data_source: 'Data source',
   agent: 'Agent',
-  fund: 'Fund',
+  /** Capital nodes read as vaults (D-067 silhouette). */
+  fund: 'Vault',
   tool: 'Tool',
   control: 'Control',
 };
+
+/** Rudimentary card silhouette for fund / data-source families (D-067). */
+export type FamilyShapeKind = 'vault' | 'library' | 'live_feed';
 
 export type ModuleVisual = {
   label: string;
@@ -43,6 +47,8 @@ export type ModuleVisual = {
   accent: 'bar' | 'stripe' | 'rail' | 'dot';
   /** Soft fill wash over surface-1. */
   wash: string;
+  /** Optional vault / library / live-feed silhouette chrome. */
+  shape?: FamilyShapeKind;
 };
 
 export const MODULE_VISUALS: Record<ModuleType, ModuleVisual> = {
@@ -71,7 +77,8 @@ export const MODULE_VISUALS: Record<ModuleType, ModuleVisual> = {
     radiusClass: 'rounded-md',
     borderStyle: 'dashed',
     accent: 'stripe',
-    wash: 'rgba(158, 206, 106, 0.10)',
+    wash: 'rgba(158, 206, 106, 0.12)',
+    shape: 'library',
   },
   live_api: {
     label: 'Live API',
@@ -80,7 +87,8 @@ export const MODULE_VISUALS: Record<ModuleType, ModuleVisual> = {
     radiusClass: 'rounded-md',
     borderStyle: 'dashed',
     accent: 'rail',
-    wash: 'rgba(125, 207, 255, 0.10)',
+    wash: 'rgba(125, 207, 255, 0.12)',
+    shape: 'live_feed',
   },
   math: {
     label: 'Math',
@@ -143,7 +151,8 @@ export const MODULE_VISUALS: Record<ModuleType, ModuleVisual> = {
     radiusClass: 'rounded-xl',
     borderStyle: 'double',
     accent: 'rail',
-    wash: 'rgba(79, 214, 190, 0.10)',
+    wash: 'rgba(79, 214, 190, 0.14)',
+    shape: 'vault',
   },
   fund_router: {
     label: 'Fund router',
@@ -152,7 +161,8 @@ export const MODULE_VISUALS: Record<ModuleType, ModuleVisual> = {
     radiusClass: 'rounded-xl',
     borderStyle: 'double',
     accent: 'rail',
-    wash: 'rgba(115, 188, 218, 0.10)',
+    wash: 'rgba(115, 188, 218, 0.14)',
+    shape: 'vault',
   },
   policy: {
     label: 'Policy',

@@ -266,13 +266,13 @@ export function Palette(props: {
                           background: `${visual.hue}12`,
                         }}
                       >
-                        {visual.family === 'data_source'
-                          ? 'Data'
-                          : visual.family === 'agent'
-                            ? 'Agent'
-                            : visual.family === 'fund'
-                              ? 'Fund'
-                              : visual.family === 'tool'
+                          {visual.family === 'data_source'
+                            ? 'Data'
+                            : visual.family === 'agent'
+                              ? 'Agent'
+                              : visual.family === 'fund'
+                                ? 'Vault'
+                                : visual.family === 'tool'
                                 ? 'Tool'
                                 : 'Ctrl'}
                       </span>

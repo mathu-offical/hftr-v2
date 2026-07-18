@@ -47,7 +47,7 @@ export const PreviewModuleNode = memo(function PreviewModuleNode({
           {data.name}
         </p>
         <p className="truncate text-[8px] uppercase tracking-wide text-[var(--color-ink-faint)]">
-          {visual.family === 'data_source' ? 'Data · ' : visual.family === 'fund' ? 'Fund · ' : ''}
+          {visual.family === 'data_source' ? 'Data · ' : visual.family === 'fund' ? 'Vault · ' : ''}
           {visual.label}
         </p>
       </div>

@@ -58,8 +58,11 @@ Engine group header exposes comma-separated master topic editor + **Save** → `
 - Drag handle on group header bar (`engine-group-drag`); inline fields use `nodrag nowheel`.
 - Enterable fields sit in a **compact top strip** with visible human-readable labels; tap focuses the control for entry.
 - Create / insert / single-engine reflow / engine drag-stop use `placeNextEngineOrigin` so envelopes do not overlap.
+- **D-056:** category-colored background wash + diagonal stripe + left accent from
+  `ENGINE_TEMPLATES.category` (`engineVisualForTemplate`); badge shows `Engine · {category}`.
 
-**Shipped:** `EngineGroupNode.tsx`, `CanvasEngineGroup` type, non-overlapping placement helpers.
+**Shipped:** `EngineGroupNode.tsx`, `CanvasEngineGroup` type, non-overlapping placement helpers,
+category chrome.
 
 ## Delete modal
 

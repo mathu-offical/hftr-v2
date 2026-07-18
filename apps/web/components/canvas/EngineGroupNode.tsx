@@ -8,6 +8,7 @@ import {
   type ModuleSetupField,
 } from '@hftr/contracts';
 import { api } from '@/lib/client';
+import { engineVisualForTemplate } from './canvas-visuals';
 import {
   EMPTY_MODULE_SETUP_DRAFT,
   ModuleSetupFields,
@@ -169,18 +170,45 @@ export const EngineGroupNode = memo(function EngineGroupNode({
     }
   }
 
+  const engineVisual = engineVisualForTemplate(data.templateId);
+
   return (
     <div
-      className="h-full w-full rounded-xl border border-dashed bg-[var(--color-surface-1)]/40"
+      className="relative h-full w-full overflow-hidden rounded-xl border border-dashed"
       style={{
-        borderColor: selected ? 'var(--color-accent)' : 'var(--color-line)',
-        boxShadow: selected ? '0 0 0 1px var(--color-accent)' : undefined,
+        borderColor: selected ? engineVisual.hue : `${engineVisual.hue}99`,
+        boxShadow: selected
+          ? `0 0 0 1px ${engineVisual.hue}, inset 0 0 0 1px ${engineVisual.stripe}`
+          : `inset 0 0 0 1px ${engineVisual.stripe}`,
+        backgroundImage: `
+          linear-gradient(135deg, ${engineVisual.wash}, transparent 42%),
+          repeating-linear-gradient(
+            -18deg,
+            ${engineVisual.stripe} 0 1px,
+            transparent 1px 14px
+          ),
+          linear-gradient(var(--color-surface-1), var(--color-surface-1))
+        `,
       }}
     >
-      <div className="engine-group-drag flex items-start justify-between gap-2 border-b border-[var(--color-line)]/60 px-3 py-1.5">
+      <div
+        className="pointer-events-none absolute inset-y-0 left-0 w-1.5"
+        style={{ background: engineVisual.hue, opacity: 0.7 }}
+        aria-hidden
+      />
+      <div className="engine-group-drag flex items-start justify-between gap-2 border-b border-[var(--color-line)]/60 px-3 py-1.5 pl-4">
         <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-            Engine
+          <div className="flex items-center gap-1.5">
+            <span
+              className="rounded px-1 py-0.5 text-[8px] uppercase tracking-wider"
+              style={{
+                color: engineVisual.hue,
+                border: `1px solid ${engineVisual.hue}66`,
+                background: `${engineVisual.hue}18`,
+              }}
+            >
+              Engine · {engineVisual.label}
+            </span>
           </div>
           <div className="truncate text-sm font-medium text-[var(--color-ink)]">{data.label}</div>
         </div>

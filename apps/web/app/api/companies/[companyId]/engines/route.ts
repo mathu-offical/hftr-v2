@@ -123,14 +123,15 @@ export async function POST(req: Request, ctx: Ctx) {
       .filter((bounds): bounds is LayoutRect => bounds != null);
     const templatePositions = engine.modules.map((m) => m.position);
     const relativeBounds = computeEngineBoundsFromPositions(templatePositions);
-    const preferredOrigin = input.canvasOffset
-      ? {
-          x: relativeBounds.x + input.canvasOffset.x,
-          y: relativeBounds.y + input.canvasOffset.y,
-        }
-      : undefined;
     const origin = placeNextEngineOrigin(occupied, relativeBounds, {
-      preferred: preferredOrigin,
+      ...(input.canvasOffset
+        ? {
+            preferred: {
+              x: relativeBounds.x + input.canvasOffset.x,
+              y: relativeBounds.y + input.canvasOffset.y,
+            },
+          }
+        : {}),
       originX: CANVAS_LAYOUT.originX,
       originY: CANVAS_LAYOUT.originY,
     });

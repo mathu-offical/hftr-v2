@@ -257,7 +257,25 @@ export function Palette(props: {
                         className="h-2 w-2 shrink-0 rounded-full"
                         style={{ background: visual.hue }}
                       />
-                      {visual.label}
+                      <span className="min-w-0 truncate">{visual.label}</span>
+                      <span
+                        className="ml-auto shrink-0 rounded px-1 py-0.5 text-[8px] uppercase tracking-wider"
+                        style={{
+                          color: visual.hue,
+                          border: `1px solid ${visual.hue}55`,
+                          background: `${visual.hue}12`,
+                        }}
+                      >
+                        {visual.family === 'data_source'
+                          ? 'Data'
+                          : visual.family === 'agent'
+                            ? 'Agent'
+                            : visual.family === 'fund'
+                              ? 'Fund'
+                              : visual.family === 'tool'
+                                ? 'Tool'
+                                : 'Ctrl'}
+                      </span>
                     </span>
                     <span className="pl-4 text-[10px] leading-tight text-[var(--color-ink-faint)]">
                       {entry.hint}

@@ -71,3 +71,11 @@ body {
 .react-flow__edge.hftr-edge-active path.react-flow__edge-path {
   filter: drop-shadow(0 0 3px var(--color-accent-soft));
 }
+
+/* Kind-specific bus weight — dash patterns set inline via LINK_EDGE_DASH. */
+.react-flow__edge.hftr-edge-fund_route path.react-flow__edge-path {
+  stroke-width: 2;
+}
+.react-flow__edge.hftr-edge-verification path.react-flow__edge-path {
+  opacity: 0.92;
+}

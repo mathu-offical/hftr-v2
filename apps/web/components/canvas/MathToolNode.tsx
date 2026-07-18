@@ -1,8 +1,9 @@
 'use client';
 
 import { memo } from 'react';
-import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { handleIdForLink, splitCompactModuleName } from '@hftr/contracts';
+import { type Node, type NodeProps } from '@xyflow/react';
+import { splitCompactModuleName } from '@hftr/contracts';
+import { MathPortBuses } from './NodePortBuses';
 
 export type MathToolNodeData = {
   name: string;
@@ -17,12 +18,9 @@ export type MathToolNodeData = {
 
 export type MathToolFlowNode = Node<MathToolNodeData, 'mathTool'>;
 
-const DATA_COLOR = '#7aa2f7';
-const FUND_COLOR = '#73daca';
-
 /**
  * Compact deterministic tool lane.
- * - Data to/from owner modules: top handles
+ * - Data to/from owner modules: top bus
  * - Funds: left in → right out (never into LLM nodes)
  */
 export const MathToolNode = memo(function MathToolNode({
@@ -34,39 +32,21 @@ export const MathToolNode = memo(function MathToolNode({
     <div
       role="group"
       aria-label={`Dedicated Math tool for ${data.ownerName}`}
-      className="relative flex h-12 w-[220px] items-center gap-2 rounded-md border bg-[var(--color-surface-1)] px-3 shadow-lg"
-      style={{ borderColor: selected ? '#bb9af7' : 'rgba(187,154,247,0.55)' }}
+      className="relative flex h-12 w-[220px] items-center gap-2 rounded-md border px-3 shadow-lg"
+      style={{
+        borderColor: selected ? '#bb9af7' : 'rgba(187,154,247,0.55)',
+        backgroundImage:
+          'linear-gradient(rgba(187, 154, 247, 0.10), rgba(187, 154, 247, 0.10)), linear-gradient(var(--color-surface-1), var(--color-surface-1))',
+      }}
       title={`Dedicated deterministic Math tool for ${data.ownerName}`}
     >
-      <Handle
-        type="target"
-        position={Position.Top}
-        id={handleIdForLink('data_feed', 'in')}
-        aria-label="Data feed input"
-        style={{ background: DATA_COLOR, left: '32%', width: 8, height: 8 }}
-      />
-      <Handle
-        type="source"
-        position={Position.Top}
-        id={handleIdForLink('data_feed', 'out')}
-        aria-label="Data feed output"
-        style={{ background: DATA_COLOR, left: '68%', width: 8, height: 8 }}
-      />
-      <Handle
-        type="target"
-        position={Position.Left}
-        id={handleIdForLink('fund_route', 'in')}
-        aria-label="Fund route input"
-        style={{ background: FUND_COLOR, top: '50%', width: 8, height: 8 }}
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        id={handleIdForLink('fund_route', 'out')}
-        aria-label="Fund route output"
-        style={{ background: FUND_COLOR, top: '50%', width: 8, height: 8 }}
-      />
-      <span className="h-2 w-2 shrink-0 rounded-full bg-[#bb9af7]" />
+      <MathPortBuses />
+      <span
+        className="shrink-0 rounded px-1 py-0.5 text-[8px] uppercase tracking-wider text-[#bb9af7]"
+        style={{ border: '1px solid rgba(187,154,247,0.45)', background: 'rgba(187,154,247,0.12)' }}
+      >
+        Tool
+      </span>
       <div className="min-w-0">
         <div className="text-[8px] uppercase tracking-[0.16em] text-[#bb9af7]">Dedicated Math</div>
         <div className="truncate text-[10px] text-[var(--color-ink-dim)]" title={data.name}>

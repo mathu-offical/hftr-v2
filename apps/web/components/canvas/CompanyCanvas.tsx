@@ -52,6 +52,8 @@ import { Palette } from './Palette';
 import {
   edgeKindForHandles,
   LINK_COLORS,
+  LINK_EDGE_DASH,
+  moduleSubtypeChip,
   type CanvasEngineGroup,
   type CanvasLink,
   type CanvasModule,
@@ -360,6 +362,9 @@ function toModuleNode(
   companyId: string,
   attachedMathTools: { id: string; name: string }[] = [],
 ): ModuleFlowNode {
+  const subtypeChip =
+    m.subtypeChip ??
+    moduleSubtypeChip(m.type, m.config, m.generatedNameBase);
   return {
     id: m.id,
     type: 'module',
@@ -371,6 +376,7 @@ function toModuleNode(
       nameCustomized: m.nameCustomized,
       moduleType: m.type,
       status: m.status,
+      subtypeChip,
       companyId,
       topicSectors: m.topicSectors,
       capitalAllocationRef: m.capitalAllocationRef,
@@ -542,6 +548,7 @@ function buildInitialGraph(
 }
 
 function toEdge(l: CanvasLink): Edge {
+  const dash = LINK_EDGE_DASH[l.linkKind];
   return {
     id: l.id,
     source: l.fromModuleId,
@@ -550,10 +557,15 @@ function toEdge(l: CanvasLink): Edge {
     sourceHandle: handleIdForLink(l.linkKind, 'out'),
     targetHandle: handleIdForLink(l.linkKind, 'in'),
     label: l.linkKind.replace('_', ' '),
-    style: { stroke: LINK_COLORS[l.linkKind], strokeWidth: 1.5 },
+    style: {
+      stroke: LINK_COLORS[l.linkKind],
+      strokeWidth: l.linkKind === 'fund_route' ? 2 : 1.5,
+      ...(dash ? { strokeDasharray: dash } : {}),
+    },
     labelStyle: { fill: 'var(--color-ink-faint)', fontSize: 10 },
     labelBgStyle: { fill: 'var(--color-surface-0)' },
     animated: false,
+    className: `hftr-edge hftr-edge-${l.linkKind}`,
     data: { linkKind: l.linkKind },
   };
 }
@@ -572,8 +584,10 @@ function moduleRowToCanvas(row: {
   engineInstanceId: string | null;
   toolOwnerModuleId: string | null;
   topicSectorsOverridden: boolean;
+  config?: Record<string, unknown> | null;
 }): CanvasModule {
   const position = (row.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number };
+  const config = (row.config ?? {}) as Record<string, unknown>;
   return {
     id: row.id,
     type: row.type,
@@ -593,6 +607,8 @@ function moduleRowToCanvas(row: {
     engineInstanceId: row.engineInstanceId,
     toolOwnerModuleId: row.toolOwnerModuleId,
     topicSectorsOverridden: row.topicSectorsOverridden,
+    config,
+    subtypeChip: moduleSubtypeChip(row.type, config, row.generatedNameBase),
   };
 }
 
@@ -1331,6 +1347,9 @@ export function CompanyCanvas(props: {
               engineInstanceId: null,
               toolOwnerModuleId: null,
               topicSectorsOverridden: false,
+              config: (config && typeof config === 'object'
+                ? (config as Record<string, unknown>)
+                : {}) as Record<string, unknown>,
             },
             props.companyId,
           ),

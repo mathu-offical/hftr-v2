@@ -17,13 +17,29 @@ export const PreviewModuleNode = memo(function PreviewModuleNode({
   data,
 }: NodeProps<PreviewModuleFlowNode>) {
   const moduleType = data.moduleType as ModuleType;
-  const visual = MODULE_VISUALS[moduleType] ?? { label: data.moduleType, hue: '#a9b1d6' };
+  const visual = MODULE_VISUALS[moduleType] ?? {
+    label: data.moduleType,
+    hue: '#a9b1d6',
+    family: 'agent' as const,
+    radiusClass: 'rounded',
+    borderStyle: 'solid' as const,
+    accent: 'bar' as const,
+    wash: 'transparent',
+  };
   const ports = moduleLinkPorts(moduleType);
 
   return (
     <div
-      className="relative h-full w-full overflow-hidden rounded border border-[var(--color-line)] bg-[var(--color-surface-1)]"
-      style={{ borderLeftWidth: 3, borderLeftColor: visual.hue }}
+      className={`relative h-full w-full overflow-hidden border bg-[var(--color-surface-1)] ${visual.radiusClass ?? 'rounded'}`}
+      style={{
+        borderStyle: visual.borderStyle ?? 'solid',
+        borderColor: 'var(--color-line)',
+        borderLeftWidth: 3,
+        borderLeftColor: visual.hue,
+        backgroundImage: visual.wash
+          ? `linear-gradient(${visual.wash}, ${visual.wash}), linear-gradient(var(--color-surface-1), var(--color-surface-1))`
+          : undefined,
+      }}
       title={data.name}
     >
       <div className="px-1.5 py-1">
@@ -31,6 +47,7 @@ export const PreviewModuleNode = memo(function PreviewModuleNode({
           {data.name}
         </p>
         <p className="truncate text-[8px] uppercase tracking-wide text-[var(--color-ink-faint)]">
+          {visual.family === 'data_source' ? 'Data · ' : visual.family === 'fund' ? 'Fund · ' : ''}
           {visual.label}
         </p>
       </div>

@@ -608,6 +608,16 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Kalshi demo Save & verify delete provisional credentials if handshake fails.
   **Status: implemented.**
 
+- **D-056 (canvas visual families + role buses, 2026-07-17):** Operator asked for clear
+  distinction between data sources vs agents/modules, subtypes, engine backgrounds, and
+  connection points specific to the nature of transferred data. Canvas cards gain **family
+  chrome** (Data source / Agent / Fund / Tool / Control) with distinct border/accent/wash;
+  **subtype chips** from config (library class, venue, trading subtype, …); **engine groups**
+  get category-colored washes from `ENGINE_TEMPLATES.category`. Ports keep `LinkKind` as the
+  contract but show **role-specific labels** + edge bus rails; edges use kind dash patterns.
+  Implementation: `apps/web/components/canvas/canvas-visuals.ts`, `NodePortBuses.tsx`.
+  Docs: `ui-ux/ui-spec.md` §3, `canvas-node-dashboard-design.md`. **Status: implemented.**
+
 - **D-055 (integration resilience + Settings auto-probe, 2026-07-17):**
   Connected-service test pass found: (1) saved-key badges stayed **Not verified**
   until manual Verify; (2) one undecryptable research ciphertext aborted
@@ -616,6 +626,16 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   failure copy; gather key load soft-skips decrypt failures so public/ready
   sources still run. Operators must Delete + Save & verify after
   `SETTINGS_ENCRYPTION_KEY` drift. **Status: implemented.**
+
+- **D-056 (canvas visual families + role buses, 2026-07-17):** Operator asked for clear
+  distinction between data sources vs agents/modules, subtypes, engine backgrounds, and
+  connection points specific to the nature of transferred data. Canvas cards gain **family
+  chrome** (Data source / Agent / Fund / Tool / Control) with distinct border/accent/wash;
+  **subtype chips** from config (library class, venue, trading subtype, …); **engine groups**
+  get category-colored washes from `ENGINE_TEMPLATES.category`. Ports keep `LinkKind` as the
+  contract but show **role-specific labels** + edge bus rails; edges use kind dash patterns.
+  Implementation: `apps/web/components/canvas/canvas-visuals.ts`, `NodePortBuses.tsx`.
+  Docs: `ui-ux/ui-spec.md` §3, `canvas-node-dashboard-design.md`. **Status: implemented.**
 
 ## Open questions
 

@@ -184,7 +184,7 @@ export function ModuleSetupFields(props: {
             </div>
           )}
           <label className="block">
-            <FieldLabel field="topic_sector" showLabels={props.showLabels} />
+            <FieldLabel field="topic_sector" showLabels={props.showLabels ?? false} />
             <div className="relative">
               <input
                 ref={topicRef}
@@ -214,7 +214,7 @@ export function ModuleSetupFields(props: {
             </div>
           )}
           <label className="block space-y-0.5">
-            <FieldLabel field="capital_allocation" showLabels={props.showLabels} />
+            <FieldLabel field="capital_allocation" showLabels={props.showLabels ?? false} />
             <div className="flex items-stretch gap-1">
               <select
                 value={props.draft.allocationMode}
@@ -266,7 +266,7 @@ export function ModuleSetupFields(props: {
             </div>
           )}
           <label className="block">
-            <FieldLabel field="target_exit" showLabels={props.showLabels} />
+            <FieldLabel field="target_exit" showLabels={props.showLabels ?? false} />
             <div className="relative">
               <input
                 ref={exitRef}

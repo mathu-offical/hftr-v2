@@ -17,7 +17,9 @@ Make canvas modules feel like a compact, interactive dashboard:
 
 ## Non-goals
 
-- Per-module exotic port vocabularies beyond `LinkKind` (data_feed, directive, verification, fund_route).
+- New connection contracts beyond `LinkKind` (data_feed, directive, verification, fund_route) —
+  role-specific **labels** and visual buses are presentation-only (D-056); validation stays on
+  `LinkKind` + `LINK_RULES`.
 - Expanding the node into a large live-detail card on click (old ui-spec “expanded info view”).
 - Editing advanced type configs (scan cadence, display kind, paper trade form, etc.) on the node body.
 
@@ -34,14 +36,19 @@ Each `ModuleType` declares allowed **inbound** and **outbound** ports as subsets
 
 Handle ids: `{kind}-in` / `{kind}-out` (e.g. `data_feed-in`, `fund_route-out`).
 
-Visible label next to each handle (text-first; color reinforces):
+Visible label next to each handle (text-first; color reinforces). Default kind labels:
 
-| LinkKind | Label |
-|----------|-------|
-| `data_feed` | Data feed |
-| `directive` | Directive |
-| `verification` | Verification |
-| `fund_route` | Fund route |
+| LinkKind | Default label | Edge bus |
+|----------|---------------|----------|
+| `data_feed` | Data feed | Solid |
+| `directive` | Directive | Dashed |
+| `verification` | Verification | Dotted |
+| `fund_route` | Fund route | Long dash; square handles |
+
+**D-056:** each type may show a **role label** describing the nature of data on that bus
+(e.g. library → Corpus out, live_api → Market feed, trend → Trade directive). A vertical
+colored rail on the node edge groups inbound/outbound kinds as separate visual buses.
+Math: top data bus + horizontal fund bus.
 
 Only ports the type can actually use are rendered (empty side = no handles on that side).
 

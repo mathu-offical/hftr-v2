@@ -2,9 +2,8 @@
 
 import { memo, useEffect, useState } from 'react';
 import { Layers } from 'lucide-react';
-import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
+import { type NodeProps, type Node } from '@xyflow/react';
 import {
-  handleIdForLink,
   missingModuleSetupFields,
   moduleLinkPorts,
   requiredModuleSetupFields,
@@ -20,7 +19,8 @@ import {
   moduleSetupInputFromDraft,
   type ModuleSetupDraft,
 } from './ModuleSetupFields';
-import { LINK_PORT_VISUALS, MODULE_VISUALS } from './types';
+import { FAMILY_LABELS, MODULE_VISUALS } from './canvas-visuals';
+import { MathPortBuses, NodePortBuses } from './NodePortBuses';
 
 export type ModuleNodeData = {
   name: string;
@@ -35,6 +35,8 @@ export type ModuleNodeData = {
   budgetQueuedJobs?: number;
   /** Optional config summary for inline status (e.g. display kind). */
   configSnippet?: string;
+  /** Subtype chip (library class, venue, trading subtype, …). */
+  subtypeChip?: string | null;
   companyId: string;
   topicSectors: string[];
   capitalAllocationRef: string | null;
@@ -49,11 +51,6 @@ export type ModuleNodeData = {
 export type ModuleFlowNode = Node<ModuleNodeData, 'module'>;
 
 const CARD_WIDTH_PX = 280;
-
-function portTopPercent(index: number, total: number): string {
-  if (total <= 1) return '50%';
-  return `${((index + 1) / (total + 1)) * 100}%`;
-}
 
 
 /**
@@ -201,160 +198,84 @@ export const ModuleNode = memo(function ModuleNode({
       ? data.configSnippet
       : (data.statusText ?? data.status);
 
+  const familyLabel = FAMILY_LABELS[visual.family];
+  const subtypeChip = data.subtypeChip?.trim() || null;
+  const borderWidth = visual.borderStyle === 'double' ? 3 : 1;
+
   return (
     <div className="relative" style={{ width: CARD_WIDTH_PX }}>
       {data.moduleType === 'math' ? (
-        <>
-          {/* Data to/from owner modules attaches on the top edge. */}
-          <Handle
-            id={handleIdForLink('data_feed', 'in')}
-            type="target"
-            position={Position.Top}
-            className="hftr-handle"
-            aria-label="Data feed input"
-            style={{
-              left: '32%',
-              width: 8,
-              height: 8,
-              background: LINK_PORT_VISUALS.data_feed.color,
-              border: '1px solid var(--color-surface-0)',
-            }}
-          />
-          <Handle
-            id={handleIdForLink('data_feed', 'out')}
-            type="source"
-            position={Position.Top}
-            className="hftr-handle"
-            aria-label="Data feed output"
-            style={{
-              left: '68%',
-              width: 8,
-              height: 8,
-              background: LINK_PORT_VISUALS.data_feed.color,
-              border: '1px solid var(--color-surface-0)',
-            }}
-          />
-          <Handle
-            id={handleIdForLink('fund_route', 'in')}
-            type="target"
-            position={Position.Left}
-            className="hftr-handle"
-            aria-label="Fund route input"
-            style={{
-              top: '50%',
-              width: 8,
-              height: 8,
-              background: LINK_PORT_VISUALS.fund_route.color,
-              border: '1px solid var(--color-surface-0)',
-            }}
-          />
-          <span
-            className="pointer-events-none absolute -left-[4.5rem] top-1/2 w-16 -translate-y-1/2 text-right text-[8px] leading-tight text-[var(--color-ink-faint)]"
-            aria-hidden
-          >
-            Fund route
-          </span>
-          <Handle
-            id={handleIdForLink('fund_route', 'out')}
-            type="source"
-            position={Position.Right}
-            className="hftr-handle"
-            aria-label="Fund route output"
-            style={{
-              top: '50%',
-              width: 8,
-              height: 8,
-              background: LINK_PORT_VISUALS.fund_route.color,
-              border: '1px solid var(--color-surface-0)',
-            }}
-          />
-          <span
-            className="pointer-events-none absolute -right-[4.5rem] top-1/2 w-16 -translate-y-1/2 text-left text-[8px] leading-tight text-[var(--color-ink-faint)]"
-            aria-hidden
-          >
-            Fund route
-          </span>
-        </>
+        <MathPortBuses />
       ) : (
-        <>
-          {ports.inbound.map((kind, index) => {
-            const handleId = handleIdForLink(kind, 'in');
-            const port = LINK_PORT_VISUALS[kind];
-            const top = portTopPercent(index, ports.inbound.length);
-            return (
-              <div key={handleId}>
-                <Handle
-                  id={handleId}
-                  type="target"
-                  position={Position.Left}
-                  className="hftr-handle"
-                  aria-label={`${port.label} input`}
-                  style={{
-                    top,
-                    width: 8,
-                    height: 8,
-                    background: port.color,
-                    border: '1px solid var(--color-surface-0)',
-                  }}
-                />
-                <span
-                  className="pointer-events-none absolute -left-[4.5rem] w-16 text-right text-[8px] leading-tight text-[var(--color-ink-faint)]"
-                  style={{ top, transform: 'translateY(-50%)' }}
-                  aria-hidden
-                >
-                  {port.label}
-                </span>
-              </div>
-            );
-          })}
-
-          {ports.outbound.map((kind, index) => {
-            const handleId = handleIdForLink(kind, 'out');
-            const port = LINK_PORT_VISUALS[kind];
-            const top = portTopPercent(index, ports.outbound.length);
-            return (
-              <div key={handleId}>
-                <Handle
-                  id={handleId}
-                  type="source"
-                  position={Position.Right}
-                  className="hftr-handle"
-                  aria-label={`${port.label} output`}
-                  style={{
-                    top,
-                    width: 8,
-                    height: 8,
-                    background: port.color,
-                    border: '1px solid var(--color-surface-0)',
-                  }}
-                />
-                <span
-                  className="pointer-events-none absolute -right-[4.5rem] w-16 text-left text-[8px] leading-tight text-[var(--color-ink-faint)]"
-                  style={{ top, transform: 'translateY(-50%)' }}
-                  aria-hidden
-                >
-                  {port.label}
-                </span>
-              </div>
-            );
-          })}
-        </>
+        <NodePortBuses
+          moduleType={data.moduleType}
+          inbound={ports.inbound}
+          outbound={ports.outbound}
+        />
       )}
 
       <div
-        className="rounded-lg border bg-[var(--color-surface-1)] px-3.5 py-2.5 shadow-lg transition-colors"
+        className={`relative ${visual.radiusClass} border bg-[var(--color-surface-1)] px-3.5 py-2.5 shadow-lg transition-colors`}
         style={{
           width: CARD_WIDTH_PX,
+          borderStyle: visual.borderStyle,
+          borderWidth,
           borderColor: selected ? visual.hue : 'var(--color-line)',
           boxShadow: selected ? `0 0 0 1px ${visual.hue}` : undefined,
+          backgroundImage: `linear-gradient(${visual.wash}, ${visual.wash}), linear-gradient(var(--color-surface-1), var(--color-surface-1))`,
         }}
       >
+        {/* Family accent — distinct for data sources vs agents vs funds. */}
+        {visual.accent === 'bar' && (
+          <span
+            className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-sm"
+            style={{ background: visual.hue }}
+            aria-hidden
+          />
+        )}
+        {visual.accent === 'stripe' && (
+          <span
+            className="pointer-events-none absolute inset-x-0 top-0 h-1 opacity-80"
+            style={{
+              background: `repeating-linear-gradient(90deg, ${visual.hue} 0 6px, transparent 6px 10px)`,
+            }}
+            aria-hidden
+          />
+        )}
+        {visual.accent === 'rail' && (
+          <span
+            className="pointer-events-none absolute left-0 top-0 bottom-0 w-1.5"
+            style={{
+              background: `linear-gradient(180deg, ${visual.hue}, transparent)`,
+              opacity: 0.55,
+            }}
+            aria-hidden
+          />
+        )}
+
         <div className="mb-1 flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: visual.hue }} />
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span
+              className="shrink-0 rounded px-1 py-0.5 text-[8px] uppercase tracking-wider"
+              style={{
+                color: visual.hue,
+                border: `1px solid ${visual.hue}66`,
+                background: `${visual.hue}14`,
+              }}
+            >
+              {familyLabel}
+            </span>
             <span className="text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
               {visual.label}
             </span>
+            {subtypeChip && (
+              <span
+                className="max-w-[7rem] truncate rounded border border-[var(--color-line)] px-1 py-0.5 text-[8px] text-[var(--color-ink-dim)]"
+                title={subtypeChip}
+              >
+                {subtypeChip}
+              </span>
+            )}
           </div>
           <button
             type="button"

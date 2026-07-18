@@ -96,10 +96,17 @@
   on blur/Enter. Activity / status line remains text-first. Clicking card chrome opens the
   floating inspector (full / secondary settings); interacting with inline fields does not open
   the inspector or change card geometry.
-- **Labeled ports (per accepted `LinkKind`):** separate left (inbound) / right (outbound)
-  handles for each link kind the module type can use (`data_feed`, `directive`, `verification`,
-  `fund_route`), each with a visible text label. Connections require matching kind +
-  `LINK_RULES`. (Replaces the prior four anonymous data/control/tools handles.)
+- **Labeled ports + visual buses (per accepted `LinkKind`, D-056):** separate left (inbound) /
+  right (outbound) handles for each link kind the module type can use (`data_feed`, `directive`,
+  `verification`, `fund_route`), each with a **role-specific** text label (e.g. Corpus out,
+  Market feed, Trade directive, Capital out) and a colored edge bus rail. Math keeps **top
+  data bus** + **side fund bus**. Edges use kind color plus dash pattern (solid data, dashed
+  directive, dotted verification, long-dash fund). Connections still require matching kind +
+  `LINK_RULES`.
+- **Node families (D-056):** cards distinguish **Data source** (`library`, `live_api` — dashed
+  border, stripe/rail accent), **Agent** (solid + left bar), **Fund** (double border + rail),
+  **Tool** (Math), **Control** (policy). Subtype chips show library class, venue, trading
+  subtype, etc. Engine groups use **category-colored** washes/stripes from template category.
 - **Names (compact Fn · Focus):** auto-derived as `{moduleFunctionLabel} · {focusToken}` plus
   muted connection refs (`←`/`→` neighbor Fn codes, capped) until the operator customizes;
   inspector offers **Restore generated name**. Focus prefers topic/sector; unset shows `—`.
@@ -269,8 +276,9 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
   charge, collision, and soft library-nest attractors. Directional particles on links
   (neural-style). 2D fallback only on WebGL failure or explicit toggle.
 - **Library nests (default):** soft 3D spherical clusters per library (primary membership
-  pulls/restores inside the nest); cross-library edges may span nests. Master library =
-  company outer cloud.
+  pulls/restores inside the nest) with **visible sphere outlines** (wireframe + translucent
+  shell + equatorial rings). A company envelope sphere bounds the visible nests.
+  Cross-library edges may span nests. Master library = company outer cloud.
 - **Rotating info-tag layer** over the graph (subtle orbit of tag chips; static under
   `prefers-reduced-motion`); chips double as filters.
 - **Topic focus** (left-panel select): dim non-member concepts/edges; stronger particles on

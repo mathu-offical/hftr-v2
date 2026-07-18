@@ -103,26 +103,30 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
             <div className="relative min-h-0 flex-1">
               <CompanyCanvas
               companyId={companyId}
-              initialModules={moduleRows.map((m) => ({
-                id: m.id,
-                type: m.type,
-                name: m.name,
-                generatedNameBase: m.generatedNameBase,
-                nameCustomized: m.nameCustomized,
-                status: m.status,
-                position: (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number },
-                topicSectors: m.topicSectors,
-                capitalAllocationRef: m.capitalAllocationRef,
-                targetExitRef: m.targetExitRef,
-                missingSetupFields: missingModuleSetupFields(m.type, {
+              initialModules={moduleRows.map((m) => {
+                const config = (m.config ?? {}) as Record<string, unknown>;
+                return {
+                  id: m.id,
+                  type: m.type,
+                  name: m.name,
+                  generatedNameBase: m.generatedNameBase,
+                  nameCustomized: m.nameCustomized,
+                  status: m.status,
+                  position: (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number },
                   topicSectors: m.topicSectors,
                   capitalAllocationRef: m.capitalAllocationRef,
                   targetExitRef: m.targetExitRef,
-                }),
-                engineInstanceId: m.engineInstanceId,
-                toolOwnerModuleId: m.toolOwnerModuleId,
-                topicSectorsOverridden: m.topicSectorsOverridden,
-              }))}
+                  missingSetupFields: missingModuleSetupFields(m.type, {
+                    topicSectors: m.topicSectors,
+                    capitalAllocationRef: m.capitalAllocationRef,
+                    targetExitRef: m.targetExitRef,
+                  }),
+                  engineInstanceId: m.engineInstanceId,
+                  toolOwnerModuleId: m.toolOwnerModuleId,
+                  topicSectorsOverridden: m.topicSectorsOverridden,
+                  config,
+                };
+              })}
               initialEngines={engineRows.map((e) => ({
                 id: e.id,
                 templateId: e.templateId,

@@ -179,7 +179,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'fund_router',
-        name: 'Deterministic Fund Router',
+        name: 'Day-Trade Fund Router',
         config: {
           policyEnvelopeRef: 'paper_balanced_general_v1',
           approvalMode: 'manual',
@@ -256,6 +256,15 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         position: { x: 0, y: 0 },
       },
       {
+        type: 'librarian',
+        name: 'Trend Evidence Librarian',
+        config: {
+          topicScope: 'pending_operator_scope',
+          librarianSubtype: 'librarian_relevance',
+        },
+        position: { x: 0, y: 280 },
+      },
+      {
         type: 'library',
         name: 'Research Evidence Library',
         config: {
@@ -278,7 +287,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'analyzer',
-        name: 'Research Concat',
+        name: 'Trend Research Concat',
         config: {
           emitMode: 'to_desk_stream',
           streamDescriptor: 'trend_research_concat',
@@ -287,10 +296,13 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
     ],
     links: [
+      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
-      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
     ],
     inputs: [
       {
@@ -321,6 +333,15 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           curiosity: 'balanced',
         },
         position: { x: 40, y: 420 },
+      },
+      {
+        type: 'librarian',
+        name: 'Crypto Evidence Librarian',
+        config: {
+          topicScope: 'pending_operator_scope',
+          librarianSubtype: 'librarian_relevance',
+        },
+        position: { x: 40, y: 580 },
       },
       {
         type: 'library',
@@ -376,7 +397,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'fund_router',
-        name: 'Deterministic Fund Router',
+        name: 'Crypto Fund Router',
         config: {
           policyEnvelopeRef: 'paper_balanced_general_v1',
           approvalMode: 'manual',
@@ -404,15 +425,18 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
     ],
     links: [
-      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 3, toIndex: 4, linkKind: 'directive' },
-      { fromIndex: 5, toIndex: 'math', linkKind: 'fund_route' },
-      { fromIndex: 'math', toIndex: 6, linkKind: 'fund_route' },
+      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 4, toIndex: 5, linkKind: 'directive' },
+      { fromIndex: 6, toIndex: 'math', linkKind: 'fund_route' },
+      { fromIndex: 'math', toIndex: 7, linkKind: 'fund_route' },
       // fund_router → trading owner Math is provisioned at insert (not stubbed here).
-      { fromIndex: 4, toIndex: 7, linkKind: 'verification' },
-      { fromIndex: 7, toIndex: 8, linkKind: 'verification' },
-      { fromIndex: 4, toIndex: 8, linkKind: 'directive' },
+      { fromIndex: 5, toIndex: 8, linkKind: 'verification' },
+      { fromIndex: 8, toIndex: 9, linkKind: 'verification' },
+      { fromIndex: 5, toIndex: 9, linkKind: 'directive' },
     ],
     inputs: [
       {
@@ -420,7 +444,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         label: 'Crypto focus',
         kind: 'text',
         placeholder: 'e.g. BTC/ETH momentum pairs',
-        target: { moduleIndex: 3, configKey: 'focus' },
+        target: { moduleIndex: 4, configKey: 'focus' },
       },
       {
         key: 'philosophy',
@@ -448,6 +472,15 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           curiosity: 'balanced',
         },
         position: { x: 40, y: 420 },
+      },
+      {
+        type: 'librarian',
+        name: 'Event Evidence Librarian',
+        config: {
+          topicScope: 'pending_operator_scope',
+          librarianSubtype: 'librarian_relevance',
+        },
+        position: { x: 40, y: 580 },
       },
       {
         type: 'library',
@@ -503,7 +536,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'fund_router',
-        name: 'Deterministic Fund Router',
+        name: 'Prediction Fund Router',
         config: {
           policyEnvelopeRef: 'paper_balanced_general_v1',
           approvalMode: 'manual',
@@ -531,15 +564,18 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
     ],
     links: [
-      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 3, toIndex: 4, linkKind: 'directive' },
-      { fromIndex: 5, toIndex: 'math', linkKind: 'fund_route' },
-      { fromIndex: 'math', toIndex: 6, linkKind: 'fund_route' },
+      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 4, toIndex: 5, linkKind: 'directive' },
+      { fromIndex: 6, toIndex: 'math', linkKind: 'fund_route' },
+      { fromIndex: 'math', toIndex: 7, linkKind: 'fund_route' },
       // fund_router → trading owner Math is provisioned at insert (not stubbed here).
-      { fromIndex: 4, toIndex: 7, linkKind: 'verification' },
-      { fromIndex: 7, toIndex: 8, linkKind: 'verification' },
-      { fromIndex: 4, toIndex: 8, linkKind: 'directive' },
+      { fromIndex: 5, toIndex: 8, linkKind: 'verification' },
+      { fromIndex: 8, toIndex: 9, linkKind: 'verification' },
+      { fromIndex: 5, toIndex: 9, linkKind: 'directive' },
     ],
     inputs: [
       {
@@ -554,7 +590,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         label: 'Scanner focus',
         kind: 'text',
         placeholder: 'e.g. high-liquidity political markets',
-        target: { moduleIndex: 3, configKey: 'focus' },
+        target: { moduleIndex: 4, configKey: 'focus' },
       },
     ],
   },
@@ -648,7 +684,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'fund_router',
-        name: 'Deterministic Fund Router',
+        name: 'Horizon Fund Router',
         config: {
           policyEnvelopeRef: 'paper_balanced_general_v1',
           approvalMode: 'manual',
@@ -676,6 +712,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
     ],
     links: [
+      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
@@ -744,7 +782,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'analyzer',
-        name: 'Research Concat',
+        name: 'Web Fabric Concat',
         config: { emitMode: 'to_desk_stream' },
         position: { x: 920, y: 140 },
       },
@@ -806,7 +844,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'analyzer',
-        name: 'Research Concat',
+        name: 'Filings Fundamentals Concat',
         config: { emitMode: 'to_desk_stream' },
         position: { x: 920, y: 140 },
       },
@@ -868,12 +906,13 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'analyzer',
-        name: 'Research Concat',
+        name: 'Mechanisms Keeper Concat',
         config: { emitMode: 'to_library' },
         position: { x: 920, y: 140 },
       },
     ],
     links: [
+      { fromIndex: 1, toIndex: 0, linkKind: 'data_feed' },
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
@@ -920,7 +959,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'analyzer',
-        name: 'Research Concat',
+        name: 'Event Catalyst Concat',
         config: { emitMode: 'to_desk_stream' },
         position: { x: 920, y: 140 },
       },
@@ -1013,15 +1052,17 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'analyzer',
-        name: 'Research Concat',
+        name: 'Regime Lab Concat',
         config: { emitMode: 'to_desk_stream' },
         position: { x: 1380, y: 276 },
       },
     ],
     links: [
+      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 5, linkKind: 'data_feed' },
       { fromIndex: 4, toIndex: 5, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 6, linkKind: 'data_feed' },
@@ -1075,6 +1116,15 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         position: { x: 0, y: 280 },
       },
       {
+        type: 'librarian',
+        name: 'Crypto Context Librarian',
+        config: {
+          topicScope: 'pending_operator_scope',
+          librarianSubtype: 'librarian_relevance',
+        },
+        position: { x: 0, y: 560 },
+      },
+      {
         type: 'library',
         name: 'Crypto Knowledge Library',
         config: {
@@ -1108,7 +1158,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'analyzer',
-        name: 'Research Concat',
+        name: 'Crypto Context Concat',
         config: { emitMode: 'to_desk_stream' },
         position: { x: 1380, y: 276 },
       },
@@ -1116,12 +1166,15 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     links: [
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
-      { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
-      { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
-      { fromIndex: 2, toIndex: 5, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 5, linkKind: 'data_feed' },
-      { fromIndex: 1, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 5, linkKind: 'data_feed' },
       { fromIndex: 4, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 6, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 6, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 6, linkKind: 'data_feed' },
+      { fromIndex: 5, toIndex: 6, linkKind: 'data_feed' },
     ],
     inputs: [
       {
@@ -1129,7 +1182,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         label: 'Crypto focus',
         kind: 'text',
         placeholder: 'e.g. BTC/ETH regime + alts',
-        target: { moduleIndex: 4, configKey: 'focus' },
+        target: { moduleIndex: 5, configKey: 'focus' },
       },
     ],
   },
@@ -1160,6 +1213,15 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           curiosity: 'balanced',
         },
         position: { x: 0, y: 280 },
+      },
+      {
+        type: 'librarian',
+        name: 'Prediction Niche Librarian',
+        config: {
+          topicScope: 'pending_operator_scope',
+          librarianSubtype: 'librarian_relevance',
+        },
+        position: { x: 0, y: 560 },
       },
       {
         type: 'library',
@@ -1195,7 +1257,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'analyzer',
-        name: 'Research Concat',
+        name: 'Prediction Niche Concat',
         config: { emitMode: 'to_desk_stream' },
         position: { x: 1380, y: 276 },
       },
@@ -1203,12 +1265,15 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     links: [
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
-      { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
-      { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
-      { fromIndex: 2, toIndex: 5, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 5, linkKind: 'data_feed' },
-      { fromIndex: 1, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 5, linkKind: 'data_feed' },
       { fromIndex: 4, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 6, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 6, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 6, linkKind: 'data_feed' },
+      { fromIndex: 5, toIndex: 6, linkKind: 'data_feed' },
     ],
     inputs: [
       {
@@ -1281,7 +1346,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'analyzer',
-        name: 'Research Concat',
+        name: 'Desk Aligned Concat',
         config: { emitMode: 'to_desk_stream' },
         position: { x: 1380, y: 276 },
       },
@@ -1375,12 +1440,15 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'analyzer',
-        name: 'Research Concat',
+        name: 'Multi-curator Concat',
         config: { emitMode: 'to_desk_stream' },
         position: { x: 920, y: 700 },
       },
     ],
     links: [
+      { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 0, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 5, linkKind: 'data_feed' },
@@ -1594,7 +1662,7 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
       },
       {
         type: 'fund_router',
-        name: 'Deterministic Fund Router',
+        name: 'Day-Trade Fund Router',
         config: {
           policyEnvelopeRef: 'paper_balanced_general_v1',
           approvalMode: 'manual',
@@ -1653,6 +1721,15 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
         position: { x: 20, y: 240 },
       },
       {
+        type: 'librarian',
+        name: 'Trend Evidence Librarian',
+        config: {
+          topicScope: 'pending_operator_scope',
+          librarianSubtype: 'librarian_relevance',
+        },
+        position: { x: 20, y: 520 },
+      },
+      {
         type: 'library',
         name: 'Research Evidence Library',
         config: {
@@ -1675,16 +1752,19 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
       },
       {
         type: 'analyzer',
-        name: 'Research Concat',
+        name: 'Trend Research Concat',
         config: { emitMode: 'to_desk_stream' },
         position: { x: 800, y: 240 },
       },
     ],
     links: [
+      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
-      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
     ],
   },
 };

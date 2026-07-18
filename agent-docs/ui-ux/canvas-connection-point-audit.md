@@ -33,10 +33,12 @@ Info-type labels only (no peer names as primary). Distinct per nature on one car
 
 | Template | Zone fit | Link notes |
 |----------|----------|------------|
-| engine_day_trading | full spine + funds | research→librarian→library→trend→trading→policy; analyzer verify; funds via Math |
-| engine_trend_research | research/data/trend/verify | concat to_desk_stream |
-| research_* | research packs | librarian→library system-framed; dual research subtypes distinct; research→librarian where ordered |
-| engine_crypto / prediction / long_term | same spine specialty | explicit analyzer emitMode |
+| engine_day_trading | full spine + funds | research→librarian→library→trend→trading→policy; Day-Trade Fund Router; analyzer verify; funds via Math |
+| engine_trend_research | research/data/trend/verify | research→librarian→library→trend; Trend Research Concat to_desk_stream |
+| research_* | research packs | research→librarian→library data_feed spine; dual research subtypes distinct Fn labels; context-specific Concat names |
+| engine_crypto | execution specialty (gated) | research→librarian→library→trend→trading; Crypto Fund Router; wired even when `available:false` |
+| engine_prediction | execution specialty | research→librarian→library→trend→trading; Prediction Fund Router |
+| engine_long_term | full spine + funds | dual research→librarian→library; Horizon Fund Router |
 | engine_hft | empty stub | unchanged |
 
 ## Nature map

@@ -46,6 +46,7 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `number-handling.mdc` | `packages/{engine,llm,contracts}/**` |
 | `external-integrations.mdc` | `packages/adapters/**`, `packages/llm/**`, settings API, `scripts/smoke-*.mjs` |
 | `ironbee-devtools-use.mdc` | Always apply — browser verification via IronBee DevTools |
+| `secrets-hygiene.mdc` | Always apply — no BYOK/broker secrets in jobs, prompts, logs, public APIs (D-027, D-074) |
 
 ## Cursor skills
 
@@ -62,6 +63,7 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `paper-experiment` | Paper-only cohort runs with preflight, provenance, intent audits |
 | `intent-alignment-audit` | Score declared vs observed vectors; hard fail on cap violations |
 | `external-integrations` | Wire Alpaca/LLM/Brave/Marketaux; smoke scripts; settings verify |
+| `secrets-hygiene` | Audit/enforce API key & secret exposure; job payloads, LLM, settings APIs |
 
 ## Cursor workflows
 
@@ -75,6 +77,7 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `commit-session.md` | Alias of end-of-run commit phase |
 | `paper-experiment-run.md` | Paper cohort: session-start → paper-experiment → end-of-run |
 | `credentialed-integrations.md` | Settings UI + CLI smoke for Alpaca/LLM/research keys |
+| `secrets-hygiene-audit.md` | Grep + checklist: no secrets in jobs/prompts/public APIs |
 
 ## Slash commands
 
@@ -86,6 +89,7 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `/commit-session` | Chunked per-file Conventional Commits |
 | `/end-run` | Full end-of-run: verify → curate → commit |
 | `/paper-experiment` | Paper-only experimentation cohort workflow |
+| `/secrets-audit` | Secrets hygiene audit (D-027 / D-074) |
 
 ## Product goals (quick reference)
 

@@ -64,6 +64,19 @@ When closing a paper experiment run (`paper-experiment` skill):
 - [ ] Intent-alignment audit scored per `agent-docs/testing/intent-alignment-scoring.md`; hard fail on immutable cap violations
 - [ ] Console clean on any UI exercised during the run
 
+## 5b. Secrets hygiene (when credentials-adjacent)
+
+If the change touches enqueue, job handlers, settings APIs, LLM invoke, adapters, or
+dead-letter retry — invoke `.cursor/skills/secrets-hygiene/SKILL.md` and confirm:
+
+- [ ] No secrets in new/changed `jobs.payload` shapes (`assertNoSecretsInJobPayload`)
+- [ ] Credentials resolve at handler/call time only (not at enqueue)
+- [ ] GET settings / public APIs return `keyHint` only — never plaintext/ciphertext
+- [ ] LLM prompts contain no API keys; auth is header-only
+- [ ] Dead retry strips secrets; adapter errors do not put `errorBody` into `lastError`
+
+Workflow: `.cursor/workflows/secrets-hygiene-audit.md`
+
 ## 6. Doc sync
 
 If verification reveals doc drift: fix agent-docs in same session.

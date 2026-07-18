@@ -30,6 +30,8 @@ Read sources in this priority order when resolving intent vs implementation:
 | v1 carryover | `agent-docs/research/v1-carryover.md` |
 | Paper experiments | `agent-docs/research/paper-experimentation-protocol.md` |
 | Intent alignment | `agent-docs/testing/intent-alignment-scoring.md` |
+| Integrations matrix | `agent-docs/research/integrations-matrix.md` |
+| Security audit | `agent-docs/ops/security-audit.md` |
 | Tech decisions | `agent-docs/research/tech-decisions.md` (TD-nn) |
 | Decisions | `agent-docs/dev-intent/decisions-log.md` (D-nnn, OQ-n) |
 
@@ -48,5 +50,7 @@ Read sources in this priority order when resolving intent vs implementation:
 ## Cursor workspace
 
 Skills/workflows: `.cursor/README.md`. Invoke `session-start` at task start.
+Credentials/secrets work: invoke `secrets-hygiene` skill + rule
+`.cursor/rules/secrets-hygiene.mdc` (D-027, D-074).
 Close every implementation run: **verify → curate → invoke `commit-message` skill**
 (`.cursor/workflows/end-of-run.md` or `/end-run`). Per-file commit bodies required.

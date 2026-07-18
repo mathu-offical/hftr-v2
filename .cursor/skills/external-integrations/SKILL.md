@@ -23,8 +23,10 @@ How to connect third-party services without breaking safety invariants.
 2. Add `ResearchSourceKind` (+ feed class) in `research-bus.ts`.
 3. Ship adapter under `packages/adapters/src/research/` with leak-linted evidence.
 4. Wire `gather.ts` switch + credential bag field if keyed.
-5. If keyed: `ResearchKeyProvider` + settings UI + `loadResearchGatherKeys` +
+5. If keyed: `ResearchKeyProvider` + settings UI +
+   `resolveResearchGatherCredentials` (engine, handler-time) +
    `apps/web/lib/research-verify.ts` ping + Verify button.
+   **Never** put keys in `jobs.payload` (D-074).
 6. `selectReadySourceKinds` / `resolveDefaultSourceKinds` auto-include when auth ready.
 7. Smoke entry + matrix row. Max explicit kinds: **24**.
 
@@ -59,7 +61,11 @@ Full matrix: `agent-docs/research/integrations-matrix.md`.
 4. Brokers: Alpaca / Kalshi **Save & verify** — revoke/delete credentials if
    handshake fails after provisional save.
 5. Never authorize runtime from `process.env.*_API_KEY` (D-027).
-6. If Verify returns `decrypt_failed`, operator encryption key likely drifted —
+6. **Gather credentials resolve at handler time** via
+   `resolveResearchGatherCredentials(db, companyId)` inside `research.gather`
+   (and system sector-news). Job payloads carry identity + intent only;
+   `enqueue()` rejects known secret field names (D-074).
+7. If Verify returns `decrypt_failed`, operator encryption key likely drifted —
    Delete + re-Save after aligning `SETTINGS_ENCRYPTION_KEY`.
 
 
@@ -105,6 +111,9 @@ fallback when bars missing.
 
 ## Related
 
+- Secrets hygiene (mandatory with keyed work): `.cursor/skills/secrets-hygiene/SKILL.md`
 - Workflow: `.cursor/workflows/credentialed-integrations.md`
+- Secrets audit: `.cursor/workflows/secrets-hygiene-audit.md`
 - Rule: `.cursor/rules/external-integrations.mdc`
-- Decisions: D-027, D-039, D-046, D-048, D-050, D-054
+- Secrets rule: `.cursor/rules/secrets-hygiene.mdc`
+- Decisions: D-027, D-039, D-046, D-048, D-050, D-054, D-074

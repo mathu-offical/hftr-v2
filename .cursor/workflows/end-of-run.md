@@ -11,11 +11,14 @@ implement → verify → curate docs → INVOKE commit-message skill → report
 
 ## Step 1 — Verify
 
-`.cursor/skills/verify-change/SKILL.md` steps 1–5. Stop if failed.
+`.cursor/skills/verify-change/SKILL.md` steps 1–5 (+ §5b secrets if credentials-adjacent).
+Stop if failed. For key/enqueue/settings/LLM/adapter changes, also run
+`.cursor/workflows/secrets-hygiene-audit.md`.
 
 ## Step 2 — Curate
 
 Sync agent-docs, sprint specs, decisions-log with verified behavior.
+Secrets protocol changes → update `ops/security-audit.md` + decisions-log (D-074).
 
 ## Step 3 — Commit (non-optional)
 

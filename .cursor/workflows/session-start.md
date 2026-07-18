@@ -9,10 +9,13 @@ Load context before any substantial hftr-v2 work.
 3. Read active sprint spec (`m0-sprint-spec.md` or `m1-sprint-spec.md`)
 4. Read owning agent-docs for the task area
 5. Scan `dev-intent/decisions-log.md` for recent decisions and open OQ-n
-6. If v1 carryover involved: read `research/v1-carryover.md` + `.cursor/skills/v1-reference/SKILL.md`
+6. If touching credentials / enqueue / settings / LLM invoke / adapters: note
+   `.cursor/rules/secrets-hygiene.mdc` + invoke secrets-hygiene skill when changing those paths
+7. If v1 carryover involved: read `research/v1-carryover.md` + `.cursor/skills/v1-reference/SKILL.md`
 
 ## Output
 
-Brief statement of: active milestone, docs read, safety constraints relevant to task, any open OQ-n.
+Brief statement of: active milestone, docs read, safety constraints relevant to task
+(including secrets hygiene if credentials-adjacent), any open OQ-n.
 
 Then proceed to implementation or invoke `implement-milestone-slice` workflow.

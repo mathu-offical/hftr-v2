@@ -17,6 +17,8 @@ Matrix: `agent-docs/research/integrations-matrix.md`
   Public: SEC, Frankfurter, CoinGecko, World Bank, GDELT. Alpaca news/bars and
   live_api quote poll reuse paper broker creds. Registry:
   `packages/contracts/src/research-source-registry.ts`.
+  Resolve via `resolveResearchGatherCredentials` at handler time — never put
+  plaintext keys in `jobs.payload` (D-074).
 - **Broker dispatch:** decrypted `broker_connections` for bound company only. Deterministic core is the only order submitter.
 - **Verify:** `POST /api/settings/research-keys/[provider]/verify` uses
   `withDecryptedSecret` for saved keys; drafts may verify without save.
@@ -27,6 +29,8 @@ Matrix: `agent-docs/research/integrations-matrix.md`
 - Broker creds: `CREDENTIALS_ENCRYPTION_KEY` (separate envelope)
 - Never log plaintext keys; UI shows last-four only after save
 - `decrypt_failed` on Verify usually means encryption key drift — re-save keys
+- Job payloads: identity + intent only; `assertNoSecretsInJobPayload` (D-074)
+- Full secrets protocol: `.cursor/rules/secrets-hygiene.mdc` + skill `secrets-hygiene`
 
 ## Smoke scripts (CI / operator only)
 

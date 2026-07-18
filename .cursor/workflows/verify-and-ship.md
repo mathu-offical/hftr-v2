@@ -15,7 +15,8 @@ implement → verify → curate docs → INVOKE commit-message skill → report
 
 ### 1. Verify
 
-Follow `verify-change` skill steps 1–5. **Stop** if verification fails.
+Follow `verify-change` skill steps 1–5 (+ §5b if credentials-adjacent). **Stop** if verification fails.
+Run `/secrets-audit` when touching keys, enqueue, settings, LLM invoke, or adapters.
 
 ### 2. Curate
 

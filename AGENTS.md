@@ -43,6 +43,18 @@ These rules apply to any assistant or automation operating in the hftr-v2 worksp
   calendar service. (`agent-docs/architecture/number-handling.md`)
 - No guaranteed-returns language in code, docs, or UI copy.
 
+## Secrets & credentials (D-027, D-074)
+
+- Operator BYOK and broker secrets are AES-GCM encrypted at rest; never authorize
+  runtime inference/gather from deployment `*_API_KEY` env vars (smoke only).
+- **Never** serialize API keys or broker secrets into `jobs.payload`, LLM prompts,
+  HandoffEnvelope, action traces, or browser-visible GET responses (`keyHint` only).
+- Resolve credentials at handler/call time (`withUserApiKey`,
+  `resolveResearchGatherCredentials`, `resolveExecutionContext`).
+- `enqueue()` rejects known secret field names; dead-letter retry strips them.
+- Full protocol: `.cursor/rules/secrets-hygiene.mdc`,
+  `.cursor/skills/secrets-hygiene/SKILL.md`, `agent-docs/ops/security-audit.md`.
+
 ## Architecture & code standards
 
 - Stack decisions live in `agent-docs/research/tech-decisions.md` (TD-nn). Do not substitute

@@ -52,4 +52,11 @@ Use `.cursor/skills/paper-experiment/SKILL.md` and `agent-docs/research/paper-ex
 - No guaranteed-returns language in code, docs, or UI
 - Entitlement truthfulness; session legality; text-first status (color reinforces only)
 
+## Secrets & credentials (D-027, D-074)
+
+- Never put BYOK / broker secrets in `jobs.payload`, LLM prompts, logs, or public GET APIs
+- Resolve at handler/call time only; `enqueue()` fails closed on secret field names
+- Settings expose `keyHint` (last 4) only — never plaintext or ciphertext
+- Detail: `.cursor/rules/secrets-hygiene.mdc`, skill `secrets-hygiene`
+
 Full detail: `AGENTS.md`, `architecture/number-handling.md`, `architecture/llm-pipeline.md`.

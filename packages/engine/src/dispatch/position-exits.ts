@@ -13,6 +13,7 @@ import {
 } from '../pipeline/bands';
 import { resolveTrailMultiplier } from '../pipeline/lever-resolver';
 import { enqueue } from '../queue/queue';
+import { resolveAtrCents } from '../calc/resolve-atr';
 import { resolveMarketQuoteWithAdapter } from '../paper/market-model';
 import { resolveExecutionContext } from './execution-context';
 
@@ -337,6 +338,8 @@ export function resolvePositionExitReason(args: {
   trailMultiplier?: number;
   /** When true, use higher net edge (HFT-oriented turnover tax). */
   hftOriented?: boolean;
+  /** Resolved ATR cents (atr_stream / bars / synthetic via resolveAtrCents). */
+  atrCents?: number;
 }): PositionExitReason | null {
   if (args.markCents === null) return null;
 
@@ -346,7 +349,7 @@ export function resolvePositionExitReason(args: {
 
   if (args.catalogExitsEnabled !== false) {
     const atrMult = args.atrMultiplier ?? defaultAtrMultiplier();
-    const atr = syntheticAtrCents(args.avgCostCents);
+    const atr = args.atrCents ?? syntheticAtrCents(args.avgCostCents);
     const risk = riskDistanceCents(atr, atrMult);
     const ladder = getRrTargetLadder();
     const netBps = args.hftOriented ? HFT_MEASURABLE_GAIN_NET_BPS : MEASURABLE_GAIN_NET_BPS;
@@ -616,6 +619,15 @@ export async function scanPositionExitSignals(
       });
     }
 
+    const { atrCents } = await resolveAtrCents({
+      db,
+      clock,
+      symbol: row.symbol,
+      markCents,
+      companyId,
+      moduleId: row.moduleId,
+    });
+
     const reason = resolvePositionExitReason({
       avgCostCents: row.avgCostCents,
       markCents,
@@ -627,6 +639,7 @@ export async function scanPositionExitSignals(
       peakMarkCents,
       trailMultiplier,
       hftOriented,
+      atrCents,
       ...(opts?.timeStopEnabled !== undefined
         ? { timeStopEnabled: opts.timeStopEnabled }
         : {}),

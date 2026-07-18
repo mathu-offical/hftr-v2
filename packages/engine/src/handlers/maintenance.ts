@@ -45,6 +45,7 @@ registerHandler('maintenance.sweep', async ({ db, clock }) => {
   // D-084: 15s equity fallback while XNYS session is open (idempotent per window).
   await enqueueDueEquityRefreshJobs(db, clock);
   await enqueuePositionExitMaintenanceJobs(db, clock);
+  await enqueueAtrStreamMaintenanceJobs(db, clock);
 });
 
 /**
@@ -90,6 +91,27 @@ registerHandler('maintenance.materialize_schedules', async ({ db, clock }) => {
 
 function venueMinuteBucket(nowMs: number): string {
   return new Date(nowMs).toISOString().slice(0, 16);
+}
+
+/** Enqueue one idempotent atr_stream refresh per active paper company per minute. */
+async function enqueueAtrStreamMaintenanceJobs(db: Db, clock: Clock): Promise<number> {
+  const bucket = venueMinuteBucket(clock.nowMs());
+  const rows = await db
+    .select({ id: companies.id })
+    .from(companies)
+    .where(and(isNull(companies.archivedAt), eq(companies.mode, 'paper')));
+
+  for (const row of rows) {
+    await enqueue(db, clock, {
+      queueClass: 'MAINTENANCE',
+      kind: 'maintenance.atr_stream',
+      payload: { companyId: row.id },
+      idempotencyKey: `atr-stream-${row.id}-${bucket}`,
+      priority: 'LOW',
+      companyId: row.id,
+    });
+  }
+  return rows.length;
 }
 
 /** Enqueue one idempotent position-exit scan per active paper company per minute. */

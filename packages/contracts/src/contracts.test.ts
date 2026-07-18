@@ -53,6 +53,13 @@ import {
   UpdateModuleInput,
   allowedLinkKinds,
 } from './modules';
+import {
+  CLOCK_IN_MODULE_TYPES,
+  isLegalStreamPortPair,
+  MODULE_PORT_CHANNELS,
+  moduleHasClockIn,
+  resolveExposedChannels,
+} from './port-channels';
 import { ValueRefHandle, CalcRequest } from './numeric';
 import { ActionInstruction, TraceTimelineResponse } from './pipeline';
 import {
@@ -318,7 +325,9 @@ describe('canvas link port helpers', () => {
         },
       ],
     });
-    const dataInbound = ports.inbound.filter((port) => port.kind === 'data_feed');
+    const dataInbound = ports.inbound.filter(
+      (port) => port.kind === 'data_feed' && port.slot !== 'clock_in',
+    );
     expect(dataInbound).toHaveLength(4);
     expect(dataInbound[0]).toMatchObject({
       role: 'bus',
@@ -429,6 +438,102 @@ describe('canvas link port helpers', () => {
     });
     expect(moduleLinkPorts('clock').outbound).toContain('data_feed');
     expect(moduleLinkPorts('time').outbound).toContain('data_feed');
+  });
+
+  it('adds additive clock_in without reducing data/system rails (D-108)', () => {
+    const tradingId = '00000000-0000-4000-8000-0000000000t1';
+    const liveApiId = '00000000-0000-4000-8000-0000000000l1';
+    const ports = moduleStreamPorts({
+      type: 'trading',
+      moduleId: tradingId,
+      links: [
+        {
+          fromModuleId: liveApiId,
+          toModuleId: tradingId,
+          linkKind: 'data_feed',
+          fromLabel: 'Live',
+          toLabel: 'Trade',
+          fromType: 'live_api',
+          toType: 'trading',
+        },
+      ],
+    });
+    const dataIn = ports.inbound.filter((p) => p.kind === 'data_feed' && p.slot !== 'clock_in');
+    const clockIn = ports.inbound.filter((p) => p.slot === 'clock_in');
+    expect(dataIn.length).toBeGreaterThanOrEqual(2);
+    expect(clockIn.some((p) => p.role === 'bus')).toBe(true);
+    expect(ports.inbound.some((p) => p.kind === 'directive')).toBe(true);
+  });
+
+  it('splits Time hub into Schedule (top) + Time bus (right) (D-108)', () => {
+    const timeId = '00000000-0000-4000-8000-0000000000tm';
+    const ports = moduleStreamPorts({ type: 'time', moduleId: timeId, links: [] });
+    const schedule = ports.outbound.find((p) => p.slot === 'schedule_out');
+    const bus = ports.outbound.find((p) => p.slot === 'time_bus_out');
+    expect(schedule).toMatchObject({ edge: 'top', nature: 'time', label: 'Schedule' });
+    expect(bus).toMatchObject({ edge: 'right', nature: 'time', label: 'Time bus' });
+    expect(ports.inbound.every((p) => p.nature === 'time' && p.edge === 'left')).toBe(true);
+  });
+
+  it('covers every ModuleType in MODULE_PORT_CHANNELS and clock_in set (D-108)', () => {
+    for (const type of ModuleType.options) {
+      expect(MODULE_PORT_CHANNELS[type]?.length).toBeGreaterThan(0);
+    }
+    expect(moduleHasClockIn('trading')).toBe(true);
+    expect(moduleHasClockIn('library')).toBe(true);
+    expect(moduleHasClockIn('display')).toBe(true);
+    expect(moduleHasClockIn('math')).toBe(false);
+    expect(CLOCK_IN_MODULE_TYPES.has('math')).toBe(false);
+
+    const schedule = handleIdForStream('data_feed', 'out', 'slot:schedule_out');
+    const clockIn = handleIdForStream('data_feed', 'in', 'slot:clock_in');
+    const dataOut = handleIdForStream('data_feed', 'out');
+    const dataIn = handleIdForStream('data_feed', 'in');
+    expect(
+      isLegalStreamPortPair({
+        fromType: 'time',
+        toType: 'trading',
+        sourceHandle: schedule,
+        targetHandle: clockIn,
+        linkKind: 'data_feed',
+      }),
+    ).toBe(true);
+    expect(
+      isLegalStreamPortPair({
+        fromType: 'time',
+        toType: 'trading',
+        sourceHandle: schedule,
+        targetHandle: dataIn,
+        linkKind: 'data_feed',
+      }),
+    ).toBe(false);
+    expect(
+      isLegalStreamPortPair({
+        fromType: 'research',
+        toType: 'trading',
+        sourceHandle: dataOut,
+        targetHandle: clockIn,
+        linkKind: 'data_feed',
+      }),
+    ).toBe(false);
+
+    expect(resolveExposedChannels('analyzer', undefined).has('analyzer_concat')).toBe(true);
+    expect(resolveExposedChannels('analyzer', []).has('analyzer_concat')).toBe(false);
+    expect(resolveExposedChannels('analyzer', []).has('analyzer_clock')).toBe(true);
+
+    const withConcat = moduleStreamPorts({
+      type: 'analyzer',
+      moduleId: '00000000-0000-4000-8000-0000000000a1',
+      links: [],
+    });
+    expect(withConcat.outbound.some((p) => p.channelId === 'analyzer_concat')).toBe(true);
+    const hidden = moduleStreamPorts({
+      type: 'analyzer',
+      moduleId: '00000000-0000-4000-8000-0000000000a1',
+      links: [],
+      exposedOutputChannels: [],
+    });
+    expect(hidden.outbound.some((p) => p.channelId === 'analyzer_concat')).toBe(false);
   });
 
   it('exposes analyzer emit modes and engine utility buses (D-091)', async () => {

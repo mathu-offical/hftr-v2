@@ -1,6 +1,17 @@
 import { z } from 'zod';
 import { TradingMode } from './foundation';
-import { CompanySectorFocuses } from './sector-focus';
+import { CompanySectorFocuses, CompanyUniverseExcludes } from './sector-focus';
+import {
+  CLOCK_IN_MODULE_TYPES,
+  MODULE_PORT_CHANNELS,
+  natureForLinkKind,
+  parsePortSlotPeer,
+  resolveExposedChannels,
+  slotPeerId,
+  type PortEdge,
+  type PortNature,
+  type PortSlot,
+} from './port-channels';
 
 /**
  * Company + module domain contracts (agent-docs/product/product-spec.md,
@@ -326,7 +337,7 @@ function parseKindHandle(handle: string): { kind: LinkKind; direction: 'in' | 'o
   return { kind: parsed.data, direction: suffix };
 }
 
-/** Per-stream dependency port on the canvas (D-057). */
+/** Per-stream dependency port on the canvas (D-057 / D-105). */
 export type StreamPortSpec = {
   handleId: string;
   kind: LinkKind;
@@ -337,11 +348,45 @@ export type StreamPortSpec = {
   /** Peer module type when known (drives Math dock edge placement — D-075). */
   peerType?: ModuleType | null;
   role: 'bus' | 'stream';
+  /** Canvas edge placement (D-105). */
+  edge?: 'left' | 'right' | 'top' | 'bottom';
+  /** Semantic slot (clock_in, schedule_out, …). */
+  slot?:
+    | 'default'
+    | 'clock_in'
+    | 'math_dock'
+    | 'schedule_out'
+    | 'time_bus_out'
+    | 'master_out'
+    | 'delivery'
+    | 'system';
+  /** Visual/legal nature family. */
+  nature?: 'data' | 'system' | 'fund' | 'time';
+  /** Catalog channel id when known. */
+  channelId?: string | null;
+  /** Operator-facing label override. */
+  label?: string | null;
 };
 
 /** True when this stream should sit on the parent card bottom (Math Calc-ref dock). */
 export function isMathDockStreamPort(port: StreamPortSpec): boolean {
+  if (port.slot === 'math_dock') return true;
   return port.role === 'stream' && port.kind === 'data_feed' && port.peerType === 'math';
+}
+
+export function isClockInPort(port: StreamPortSpec): boolean {
+  return (
+    port.slot === 'clock_in' ||
+    (port.nature === 'time' && port.direction === 'in' && port.edge === 'bottom')
+  );
+}
+
+export function isScheduleOutPort(port: StreamPortSpec): boolean {
+  return port.slot === 'schedule_out';
+}
+
+export function isTimeBusOutPort(port: StreamPortSpec): boolean {
+  return port.slot === 'time_bus_out';
 }
 
 /**
@@ -458,6 +503,8 @@ export function moduleStreamPorts(input: {
     fromType?: ModuleType | undefined;
     toType?: ModuleType | undefined;
   }>;
+  /** Optional inspector delivery visibility (D-108). */
+  exposedOutputChannels?: readonly string[] | null;
 }): { inbound: StreamPortSpec[]; outbound: StreamPortSpec[] } {
   const ports = moduleLinkPorts(input.type);
 
@@ -540,10 +587,192 @@ export function moduleStreamPorts(input: {
   const inboundRaw = buildPorts(ports.inbound, 'in');
   const outboundRaw = buildPorts(ports.outbound, 'out');
   const collapsed = collapseMathCalcRefStreams([...inboundRaw, ...outboundRaw], input.type);
+  const enriched = enrichPortsWithPlacement(
+    collapsed,
+    input.type,
+    input.links,
+    input.exposedOutputChannels,
+  );
   return {
-    inbound: collapsed.filter((port) => port.direction === 'in'),
-    outbound: collapsed.filter((port) => port.direction === 'out'),
+    inbound: enriched.filter((port) => port.direction === 'in'),
+    outbound: enriched.filter((port) => port.direction === 'out'),
   };
+}
+
+function defaultEdgeForPort(
+  type: ModuleType,
+  kind: LinkKind,
+  direction: 'in' | 'out',
+  slot: PortSlot,
+): PortEdge {
+  if (slot === 'clock_in' || slot === 'math_dock') return 'bottom';
+  if (slot === 'schedule_out') return 'top';
+  if (slot === 'time_bus_out') return 'right';
+  if (type === 'math') {
+    if (kind === 'fund_route') return direction === 'in' ? 'left' : 'right';
+    return 'top';
+  }
+  return direction === 'in' ? 'left' : 'right';
+}
+
+function enrichPortsWithPlacement(
+  ports: readonly StreamPortSpec[],
+  type: ModuleType,
+  links: Array<{
+    fromModuleId: string;
+    toModuleId: string;
+    linkKind: LinkKind;
+    fromType?: ModuleType | undefined;
+    toType?: ModuleType | undefined;
+  }>,
+  exposedOutputChannels?: readonly string[] | null,
+): StreamPortSpec[] {
+  const result: StreamPortSpec[] = [];
+  const exposed = resolveExposedChannels(type, exposedOutputChannels);
+
+  for (const port of ports) {
+    let slot: PortSlot = parsePortSlotPeer(port.peerModuleId) ?? 'default';
+    let edge = defaultEdgeForPort(type, port.kind, port.direction, slot);
+    let nature: PortNature = natureForLinkKind(port.kind, slot === 'default' ? null : slot);
+    let label: string | null = null;
+
+    // Time hub: split generic data_feed-out bus into schedule (top) + time bus (right).
+    if (type === 'time' && port.kind === 'data_feed' && port.direction === 'out' && port.role === 'bus') {
+      result.push({
+        ...port,
+        handleId: handleIdForStream('data_feed', 'out', slotPeerId('schedule_out')),
+        peerModuleId: slotPeerId('schedule_out'),
+        edge: 'top',
+        slot: 'schedule_out',
+        nature: 'time',
+        label: 'Schedule',
+        channelId: 'time_schedule',
+      });
+      result.push({
+        ...port,
+        handleId: handleIdForStream('data_feed', 'out', slotPeerId('time_bus_out')),
+        peerModuleId: slotPeerId('time_bus_out'),
+        edge: 'right',
+        slot: 'time_bus_out',
+        nature: 'time',
+        label: 'Time bus',
+        channelId: 'time_bus',
+      });
+      continue;
+    }
+
+    // Time → consumer streams: right time bus (not left/right generic).
+    if (
+      type === 'time' &&
+      port.kind === 'data_feed' &&
+      port.direction === 'out' &&
+      port.role === 'stream'
+    ) {
+      slot = 'time_bus_out';
+      edge = 'right';
+      nature = 'time';
+      label = 'Time bus';
+    }
+
+    // Consumer ← Time streams land on bottom clock_in.
+    if (
+      CLOCK_IN_MODULE_TYPES.has(type) &&
+      port.kind === 'data_feed' &&
+      port.direction === 'in' &&
+      port.role === 'stream' &&
+      port.peerType === 'time'
+    ) {
+      slot = 'clock_in';
+      edge = 'bottom';
+      nature = 'time';
+      label = 'Clock in';
+    }
+
+    if (isMathDockStreamPort({ ...port, slot })) {
+      slot = 'math_dock';
+      edge = 'bottom';
+      nature = 'data';
+    }
+
+    // Librarian → library framed as system curation when peer is library.
+    if (
+      type === 'librarian' &&
+      port.kind === 'data_feed' &&
+      port.direction === 'out' &&
+      port.peerType === 'library'
+    ) {
+      nature = 'system';
+      slot = 'system';
+      label = 'Curation';
+    }
+
+    result.push({
+      ...port,
+      edge,
+      slot,
+      nature,
+      label,
+    });
+  }
+
+  // Additive clock_in bus (never replaces data/system rails).
+  if (CLOCK_IN_MODULE_TYPES.has(type) && type !== 'math') {
+    const hasClockBus = result.some(
+      (p) => p.slot === 'clock_in' && p.role === 'bus' && p.direction === 'in',
+    );
+    if (!hasClockBus) {
+      result.push({
+        handleId: handleIdForStream('data_feed', 'in', slotPeerId('clock_in')),
+        kind: 'data_feed',
+        direction: 'in',
+        peerModuleId: slotPeerId('clock_in'),
+        peerLabel: null,
+        peerType: null,
+        role: 'bus',
+        edge: 'bottom',
+        slot: 'clock_in',
+        nature: 'time',
+        label: 'Clock in',
+        channelId: `${type}_clock`,
+      });
+    }
+  }
+
+  // Time inbound authority stays left.
+  if (type === 'time') {
+    for (const p of result) {
+      if (p.kind === 'data_feed' && p.direction === 'in') {
+        p.edge = 'left';
+        p.nature = 'time';
+        p.label = p.label ?? 'Authority in';
+      }
+    }
+  }
+
+  // Additive typed delivery outs (inspector may hide; never replaces master).
+  for (const ch of MODULE_PORT_CHANNELS[type]) {
+    if (ch.slot !== 'delivery' || ch.direction !== 'out') continue;
+    if (!exposed.has(ch.id)) continue;
+    const already = result.some((p) => p.channelId === ch.id);
+    if (already) continue;
+    result.push({
+      handleId: handleIdForStream(ch.linkKind, 'out', slotPeerId('delivery')),
+      kind: ch.linkKind,
+      direction: 'out',
+      peerModuleId: slotPeerId('delivery'),
+      peerLabel: null,
+      peerType: null,
+      role: 'bus',
+      edge: ch.edge,
+      slot: 'delivery',
+      nature: ch.nature,
+      label: ch.label,
+      channelId: ch.id,
+    });
+  }
+
+  void links;
+  return result;
 }
 
 /**
@@ -1285,6 +1514,8 @@ export const AnalyzerModuleConfig = z.object({
   streamDescriptor: z.string().max(200).optional(),
   /** When to_library: prefer this library module id if set. */
   targetLibraryModuleId: z.string().uuid().optional(),
+  /** Unlocked delivery channel ids visible on the canvas (D-108). */
+  exposedOutputChannels: z.array(z.string().min(1).max(64)).max(32).optional(),
 });
 export type AnalyzerModuleConfig = z.infer<typeof AnalyzerModuleConfig>;
 
@@ -1341,10 +1572,15 @@ export const CreateCompanyInput = z.object({
   mode: TradingMode.default('paper'),
   seedCreditsCents: z.number().int().min(0).max(100_000_000_00).default(0),
   /**
-   * Optional multi-select from SECTOR_FOCUS_PRESETS. Persisted on the company
-   * and used to pre-seed engine master topic/sectors when engine setup omits them.
+   * Active refined specifics (D-106). Create UI selects broad groups and expands
+   * to all presets in those groups by default; drawer may narrow later.
    */
   sectorFocuses: CompanySectorFocuses,
+  /**
+   * Optional symbol carve-outs (D-106). Separate from sector focuses — further
+   * shapes the company universe after group/specific selection.
+   */
+  universeExcludes: CompanyUniverseExcludes.optional(),
   /**
    * Required ENGINE seeds (min 1). Sole graph seed path — company Math hub
    * is always auto-provisioned; standalone extras are optional.
@@ -1362,6 +1598,8 @@ export const UpdateCompanyInput = z.object({
   philosophyPrompt: z.string().min(1).max(4000).optional(),
   /** Company-wide sector focuses — re-seeds Baseline → Sector knowledge on change. */
   sectorFocuses: CompanySectorFocuses.optional(),
+  /** Operator-curated symbol excludes (D-106); does not re-seed sector knowledge. */
+  universeExcludes: CompanyUniverseExcludes.optional(),
   /** Structured slideable philosophy axes (see philosophy.ts). */
   philosophyProfile: z
     .object({
@@ -1401,5 +1639,8 @@ export const CreateLinkInput = z.object({
   fromModuleId: z.string().uuid(),
   toModuleId: z.string().uuid(),
   linkKind: LinkKind,
+  /** Optional canvas handles for D-108 slot validation (schedule/time_bus → clock_in). */
+  sourceHandle: z.string().min(1).max(200).optional(),
+  targetHandle: z.string().min(1).max(200).optional(),
 });
 export type CreateLinkInput = z.infer<typeof CreateLinkInput>;

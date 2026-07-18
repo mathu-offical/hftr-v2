@@ -207,6 +207,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
     ],
     links: [
+      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
@@ -286,7 +287,6 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
     ],
     links: [
-      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
@@ -404,7 +404,6 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
     ],
     links: [
-      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'directive' },
@@ -532,7 +531,6 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
     ],
     links: [
-      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'directive' },
@@ -752,6 +750,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
     ],
     links: [
+      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 1, linkKind: 'data_feed' },
@@ -813,6 +812,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
     ],
     links: [
+      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
@@ -926,6 +926,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
     ],
     links: [
+      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
@@ -1286,6 +1287,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
     ],
     links: [
+      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
@@ -1620,6 +1622,7 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
       },
     ],
     links: [
+      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
@@ -1678,7 +1681,6 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
       },
     ],
     links: [
-      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },

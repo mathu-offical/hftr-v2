@@ -1438,7 +1438,7 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `end-of-run` / `verify-and-ship` / `commit-session` workflows, `/end-run` `/verify`
   `/commit-session` commands, `.cursor/README.md`, `agent-docs/README.md`.
 
-- **D-135 (galaxy free-float + soft orbits/systems, 2026-07-18):** Concepts and tags
+- **D-136 (galaxy free-float + soft orbits/systems, 2026-07-18):** Concepts and tags
   **free-float** on semantic weight + similarity springs. Articles apply **soft orbital**
   radial bands; folders apply **loose system** bounds. Library framing is faint only.
   Hierarchy gently biases springs (`hierarchicalLinkScale`); cross-membership edges stay

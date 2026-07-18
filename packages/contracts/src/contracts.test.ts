@@ -852,8 +852,14 @@ describe('Research bus (D-039)', () => {
     expect(RESEARCH_SOURCE_FEED_CLASS.polygon_news).toBe('polygon_reference_news');
     expect(ResearchKeyProvider.options).toContain('finnhub');
     expect(ResearchKeyProvider.options).toContain('polygon');
+    expect(ResearchKeyProvider.options).toContain('fred');
+    expect(ResearchKeyProvider.options).toContain('alpha_vantage');
     expect(ResearchSourceKind.options).toContain('finnhub_news');
     expect(ResearchSourceKind.options).toContain('polygon_news');
+    expect(ResearchSourceKind.options).toContain('fred_macro');
+    expect(ResearchSourceKind.options).toContain('frankfurter_fx');
+    expect(ResearchSourceKind.options).toContain('coingecko_crypto');
+    expect(ResearchSourceKind.options).toContain('alpha_vantage_news');
 
     const envelope = HandoffEnvelope.parse({
       contractVersion: '1',
@@ -880,6 +886,29 @@ describe('Research bus (D-039)', () => {
       envelope,
     });
     expect(req.maxEvidence).toBe(8);
+
+    expect(
+      ResearchRequest.safeParse({
+        mode: 'manual',
+        companyId: envelope.companyId,
+        moduleId: envelope.moduleId,
+        queryText: 'test',
+        sourceKinds: Array.from({ length: 24 }, (_, i) =>
+          i % 2 === 0 ? 'sec_edgar' : 'frankfurter_fx',
+        ),
+        envelope,
+      }).success,
+    ).toBe(true);
+    expect(
+      ResearchRequest.safeParse({
+        mode: 'manual',
+        companyId: envelope.companyId,
+        moduleId: envelope.moduleId,
+        queryText: 'test',
+        sourceKinds: Array.from({ length: 25 }, () => 'sec_edgar'),
+        envelope,
+      }).success,
+    ).toBe(false);
 
     const evidence = EvidencePackage.parse({
       sourceKind: 'brave_search',
@@ -913,6 +942,46 @@ describe('Research bus (D-039)', () => {
         topicScope: 'chips',
       }).admissionMode,
     ).toBe('auto_admit_validated');
+  });
+});
+
+describe('research source registry', () => {
+  it('selectReadySourceKinds returns public shipped sources without keys', async () => {
+    const {
+      selectReadySourceKinds,
+      RESEARCH_SOURCE_REGISTRY,
+      listSourcesByDomain,
+    } = await import('./research-source-registry');
+
+    const ready = selectReadySourceKinds({ researchKeys: [], hasAlpacaPaper: false });
+    expect(ready).toContain('sec_edgar');
+    expect(ready).toContain('frankfurter_fx');
+    expect(ready).toContain('coingecko_crypto');
+    expect(ready).toContain('world_bank_indicator');
+    expect(ready).not.toContain('catalog');
+    expect(ready).not.toContain('library');
+    expect(ready).not.toContain('operator');
+    expect(ready).not.toContain('fred_macro');
+    expect(ready).not.toContain('gdelt_news');
+    expect(ready.length).toBeLessThanOrEqual(24);
+
+    const withFred = selectReadySourceKinds(
+      { researchKeys: ['fred'], hasAlpacaPaper: false },
+      undefined,
+    );
+    expect(withFred).toContain('fred_macro');
+
+    const explicitInternal = selectReadySourceKinds(
+      { researchKeys: [], hasAlpacaPaper: false },
+      ['catalog', 'sec_edgar'],
+    );
+    expect(explicitInternal).toContain('catalog');
+    expect(explicitInternal).toContain('sec_edgar');
+
+    expect(RESEARCH_SOURCE_REGISTRY.frankfurter_fx.implementation).toBe('shipped');
+    expect(RESEARCH_SOURCE_REGISTRY.world_bank_indicator.implementation).toBe('shipped');
+    expect(RESEARCH_SOURCE_REGISTRY.twelve_data.implementation).toBe('researched');
+    expect(listSourcesByDomain('fx').map((d) => d.kind)).toContain('frankfurter_fx');
   });
 });
 

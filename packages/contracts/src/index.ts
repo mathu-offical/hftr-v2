@@ -12,6 +12,7 @@ export * from './leak-lint';
 export * from './llm';
 export * from './research-artifacts';
 export * from './research-bus';
+export * from './research-source-registry';
 export * from './libraries';
 export * from './env';
 export * from './templates';

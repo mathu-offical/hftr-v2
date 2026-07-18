@@ -28,6 +28,14 @@ export const ResearchSourceKind = z.enum([
   'alpaca_bars',
   'finnhub_news',
   'polygon_news',
+  'fred_macro',
+  'frankfurter_fx',
+  'coingecko_crypto',
+  'alpha_vantage_news',
+  'gdelt_news',
+  'world_bank_indicator',
+  'twelve_data',
+  'marketstack',
   'catalog',
   'library',
   'operator',
@@ -113,7 +121,7 @@ export const ResearchRequest = z.object({
   topicId: z.string().uuid().nullable().default(null),
   topicScope: z.string().max(200).default(''),
   sourceModuleId: z.string().uuid().nullable().default(null),
-  sourceKinds: z.array(ResearchSourceKind).max(8).default([]),
+  sourceKinds: z.array(ResearchSourceKind).max(24).default([]),
   maxEvidence: z.number().int().min(1).max(24).default(8),
   envelope: HandoffEnvelope,
 });
@@ -153,6 +161,8 @@ export const ResearchKeyProvider = z.enum([
   'market_news',
   'finnhub',
   'polygon',
+  'fred',
+  'alpha_vantage',
 ]);
 export type ResearchKeyProvider = z.infer<typeof ResearchKeyProvider>;
 
@@ -162,7 +172,7 @@ export const CreateResearchQueryInput = z.object({
   queryText: z.string().min(1).max(500),
   topicId: z.string().uuid().optional(),
   topicScope: z.string().max(200).optional(),
-  sourceKinds: z.array(ResearchSourceKind).max(8).optional(),
+  sourceKinds: z.array(ResearchSourceKind).max(24).optional(),
 });
 export type CreateResearchQueryInput = z.infer<typeof CreateResearchQueryInput>;
 
@@ -174,6 +184,14 @@ export const RESEARCH_SOURCE_FEED_CLASS: Record<ResearchSourceKind, string> = {
   alpaca_bars: 'alpaca_iex_paper',
   finnhub_news: 'finnhub_company_news',
   polygon_news: 'polygon_reference_news',
+  fred_macro: 'fred_series_search',
+  frankfurter_fx: 'frankfurter_reference_rates',
+  coingecko_crypto: 'coingecko_markets_ranked',
+  alpha_vantage_news: 'alpha_vantage_news_sentiment',
+  gdelt_news: 'gdelt_event_feed',
+  world_bank_indicator: 'world_bank_indicators',
+  twelve_data: 'twelve_data_timeseries',
+  marketstack: 'marketstack_eod',
   catalog: 'seed_catalog',
   library: 'company_library',
   operator: 'operator_input',

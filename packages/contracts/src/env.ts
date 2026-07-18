@@ -72,6 +72,16 @@ export const ENVIRONMENT_REQUIREMENTS: readonly EnvRequirement[] = [
     requiredIn: [],
     consumer: 'CI smoke (D-039 runtime: user_research_keys)',
   },
+  {
+    name: 'FRED_API_KEY',
+    requiredIn: [],
+    consumer: 'CI smoke (D-039 runtime: user_research_keys)',
+  },
+  {
+    name: 'ALPHA_VANTAGE_API_KEY',
+    requiredIn: [],
+    consumer: 'CI smoke (D-039 runtime: user_research_keys)',
+  },
   { name: 'STRIPE_SECRET_KEY', requiredIn: [], consumer: 'apps/web (billing, M4)' },
   { name: 'STRIPE_WEBHOOK_SECRET', requiredIn: [], consumer: 'apps/web (billing, M4)' },
   { name: 'ALPACA_PAPER_KEY', requiredIn: [], consumer: '@hftr/adapters (CI smoke tests)' },

@@ -7,16 +7,17 @@ import { dollars, GATE_KEYS, gateLabel, gateTone, toneFor } from './format';
 import { Justification } from './Justification';
 import { TraceTimeline } from './TraceTimeline';
 import { LlmAvailabilityChips } from '@/components/shell/LlmConnectionStatus';
+import { PanelTabs } from './PanelTabs';
 
 type Tab = 'trends' | 'scenarios' | 'watchlists' | 'decisions' | 'lineage' | 'approvals' | 'dead';
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'trends', label: 'Trends' },
-  { id: 'scenarios', label: 'Scenario engine' },
-  { id: 'watchlists', label: 'Watch lists' },
-  { id: 'decisions', label: 'Decisions + traces' },
-  { id: 'lineage', label: 'Lineage' },
-  { id: 'approvals', label: 'Approvals' },
-  { id: 'dead', label: 'Dead letters' },
+const TABS: { id: Tab; label: string; rail: string }[] = [
+  { id: 'trends', label: 'Trends', rail: 'Trends' },
+  { id: 'scenarios', label: 'Scenario engine', rail: 'Scenarios' },
+  { id: 'watchlists', label: 'Watch lists', rail: 'Watch' },
+  { id: 'decisions', label: 'Decisions + traces', rail: 'Decisions' },
+  { id: 'lineage', label: 'Lineage', rail: 'Lineage' },
+  { id: 'approvals', label: 'Approvals', rail: 'Approvals' },
+  { id: 'dead', label: 'Dead letters', rail: 'Dead' },
 ];
 const BOTTOM_TABS: Tab[] = TABS.map((t) => t.id);
 
@@ -268,28 +269,24 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
 
   return (
     <section className="flex h-64 shrink-0 flex-col border-t border-[var(--color-line)] bg-[var(--color-surface-1)]">
-      <div className="flex items-center justify-between border-b border-[var(--color-line)] px-3 py-1.5">
-        <div className="flex items-center gap-1">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`rounded px-2 py-1 text-xs ${
-                tab === t.id
-                  ? 'bg-[var(--color-surface-2)] text-[var(--color-ink)]'
-                  : 'text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
+      <div className="flex items-stretch justify-between gap-2 border-b border-[var(--color-line)]">
+        <PanelTabs
+          aria-label="Bottom panel sections"
+          className="min-w-0 flex-1"
+          value={tab}
+          onChange={setTab}
+          tabs={TABS.map((t) => ({
+            id: t.id,
+            label: t.rail,
+            title: t.label,
+          }))}
+        />
+        <div className="flex shrink-0 items-center gap-2 px-2">
           <select
             value={moduleFilter}
             onChange={(e) => setModuleFilter(e.target.value)}
             aria-label="Filter by module"
-            className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-xs text-[var(--color-ink-dim)] outline-none"
+            className="border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 font-mono text-[10px] text-[var(--color-ink-dim)] outline-none"
           >
             <option value="all">All modules</option>
             {props.modules.map((m) => (

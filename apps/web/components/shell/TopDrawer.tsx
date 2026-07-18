@@ -111,15 +111,16 @@ export function TopDrawer(props: {
       {open && (
         <div className="absolute inset-x-0 top-full z-40 border-b border-[var(--color-line)] bg-[var(--color-surface-1)] shadow-2xl">
           <div className="mx-auto flex max-w-5xl gap-6 px-6 py-4">
-            <nav className="w-40 shrink-0 space-y-1">
+            <nav className="w-44 shrink-0 space-y-0.5 border-r border-[var(--color-line)] pr-4" aria-label="Company sections">
               {TABS.map((t) => (
                 <button
                   key={t.id}
+                  type="button"
                   onClick={() => setTab(t.id)}
-                  className={`block w-full rounded-md px-3 py-1.5 text-left text-sm ${
+                  className={`block w-full border-l-2 px-3 py-1.5 text-left font-mono text-[10px] uppercase tracking-[0.12em] transition-colors ${
                     tab === t.id
-                      ? 'bg-[var(--color-surface-2)] text-[var(--color-ink)]'
-                      : 'text-[var(--color-ink-dim)] hover:text-[var(--color-ink)]'
+                      ? 'border-[var(--color-accent)] text-[var(--color-ink)]'
+                      : 'border-transparent text-[var(--color-ink-faint)] hover:text-[var(--color-ink-dim)]'
                   }`}
                 >
                   {t.label}
@@ -1038,8 +1039,8 @@ function PhilosophyTab(props: {
           Operator directives (immutable)
         </h3>
         <p className="text-[10px] text-[var(--color-ink-faint)]">
-          Append-only constraints folded into research context. Agents cannot edit or delete
-          these rows.
+          Append-only constraints folded into research context. Agents cannot edit or delete these
+          rows.
         </p>
         <textarea
           value={directiveBody}

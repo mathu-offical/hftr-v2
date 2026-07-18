@@ -51,7 +51,7 @@ test.describe('Research library surfaces (M2)', () => {
     expect(exportRes.headers()['content-type']).toContain('application/zip');
 
     await page.getByRole('button', { name: /Expand left panel/ }).click();
-    await expect(page.getByRole('button', { name: 'Research + Libraries', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Research + Libraries', exact: true })).toBeVisible();
 
     await expect(page.getByTestId('research-new-topic')).toBeVisible();
     await expect(page.getByTestId('research-entity-search')).toBeVisible();

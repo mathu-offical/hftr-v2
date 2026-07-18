@@ -26,6 +26,7 @@ import { peekResearchResource } from '@/lib/research-resource-cache';
 import { isBaselineSeededLibrary } from '@/lib/research-library-shelves';
 import { MarketPosturePanel } from '@/components/panels/MarketPosturePanel';
 import { useMarketPostureView } from '@/components/panels/MarketPostureViewContext';
+import { PanelTabs } from '@/components/panels/PanelTabs';
 
 type Tab = 'research' | 'market_posture' | 'data';
 const LEFT_TABS: Tab[] = ['research', 'market_posture', 'data'];
@@ -325,31 +326,21 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
 
   return (
     <aside className="flex h-full min-h-0 w-80 shrink-0 flex-col overflow-hidden border-r border-[var(--color-line)] bg-[var(--color-surface-1)]">
-      <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-line)] px-3 py-2">
-        <div className="flex gap-1">
-          {(
-            [
-              { id: 'research', label: 'Research + Libraries' },
-              { id: 'market_posture', label: 'Market posture' },
-              { id: 'data', label: 'Data sources' },
-            ] as { id: Tab; label: string }[]
-          ).map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`rounded px-2 py-1 text-xs ${
-                tab === t.id
-                  ? 'bg-[var(--color-surface-2)] text-[var(--color-ink)]'
-                  : 'text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+      <div className="flex shrink-0 items-stretch justify-between gap-1 border-b border-[var(--color-line)]">
+        <PanelTabs
+          aria-label="Left panel sections"
+          className="min-w-0 flex-1"
+          value={tab}
+          onChange={setTab}
+          tabs={[
+            { id: 'research', label: 'Research', title: 'Research + Libraries' },
+            { id: 'market_posture', label: 'Posture', title: 'Market posture' },
+            { id: 'data', label: 'Data', title: 'Data sources' },
+          ]}
+        />
         <button
           onClick={() => setOpen(false)}
-          className="text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+          className="shrink-0 px-2 font-mono text-[11px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
           aria-label="Collapse left panel (keyboard shortcut [ or Escape)"
           title="Collapse ([ or Esc)"
         >
@@ -439,6 +430,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                     id: t.id,
                     title: t.title,
                     moduleId: t.moduleId,
+                    parentTopicId: t.parentTopicId ?? null,
                   }))}
                   selectedTopicId={researchView.selectedTopicId}
                   linkedTopicIds={researchView.linkedTopicIds}

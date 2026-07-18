@@ -203,6 +203,11 @@ Decisions + traces, with an all/per-module selector), `RightPanel` (Verify | Exe
 Ledger — with open positions — | Sims | Values). Full slide-over behavior with deep-link
 routes remains the target below.
 
+**Panel tab chrome:** shared `PanelTabs` — mono uppercase rail labels, hairline base,
+accent underline on the active tab (financial-terminal, not pill chips). Short rail
+labels use `aria-label` / `title` for full product names (e.g. Research → Research +
+Libraries). Nested category strips (Market posture) use `density="compact"`.
+
 **Keyboard + persistence (shipped 2026-07-17, D-022):** `[` toggles left, `]` toggles right,
 `` ` `` toggles bottom; `Esc` collapses the active panel (bottom defers when `TraceTimeline`
 is open). Per-company `localStorage` keys `hftr:{companyId}:panel:{left|bottom|right}` restore
@@ -229,9 +234,12 @@ editable fields.
   follows selected holding mark), sector top movers, report navigation buttons (open sealed
   report concepts in Research + Libraries), detailed holdings cards with **presiding engine
   chips**, and continuation/exit stubs. Hover justification (D-083) where wired.
-  Distinct from Research + Libraries (async corpus). Polls `GET …/market-hub`; **Refresh**
-  enqueues `library.system_movers`. Non-flat `trend.scan` and admitted `trend.promote` also
-  enqueue movers revalidation.
+  Distinct from Research + Libraries (async corpus). Hub data uses client **SWR cache**
+  (`market-hub-cache` + `useMarketHub`): memory + sessionStorage, 15s fresh / 10m stale,
+  inflight dedupe, shell warm-prefetch so tab/overlay navigation stays seamless.
+  Visible surfaces poll on the fresh cadence; **Refresh** enqueues `library.system_movers`
+  then force-revalidates. Non-flat `trend.scan` and admitted `trend.promote` also enqueue
+  movers revalidation.
 - Research concept inspector titles and TraceTimeline stage rows also use Justification hover
   (D-083) with honest source-class labels (model vs deterministic vs system seal).
 - Research overlay (main content, layered over canvas): **Galaxy** surface with optional

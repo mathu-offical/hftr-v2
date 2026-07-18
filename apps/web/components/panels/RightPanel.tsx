@@ -3,11 +3,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/client';
 import { ACTIVITY_REFRESH_EVENT } from '../canvas/PaperTradeForm';
-import {
-  VALUE_LINEAGE_FOCUS_EVENT,
-  type ValueLineageFocusDetail,
-} from '@/lib/value-lineage-focus';
+import { VALUE_LINEAGE_FOCUS_EVENT, type ValueLineageFocusDetail } from '@/lib/value-lineage-focus';
 import { dollars, scaled, toneFor } from './format';
+import { PanelTabs } from './PanelTabs';
 
 type Tab = 'verification' | 'executions' | 'ledger' | 'simulation' | 'values';
 const TABS: { id: Tab; label: string }[] = [
@@ -232,25 +230,17 @@ export function RightPanel(props: { companyId: string }) {
 
   return (
     <aside className="flex h-full min-h-0 w-96 shrink-0 flex-col overflow-hidden border-l border-[var(--color-line)] bg-[var(--color-surface-1)]">
-      <div className="flex items-center justify-between border-b border-[var(--color-line)] px-3 py-2">
-        <div className="flex gap-0.5">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`rounded px-1.5 py-1 text-xs ${
-                tab === t.id
-                  ? 'bg-[var(--color-surface-2)] text-[var(--color-ink)]'
-                  : 'text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+      <div className="flex items-stretch justify-between gap-1 border-b border-[var(--color-line)]">
+        <PanelTabs
+          aria-label="Info panel sections"
+          className="min-w-0 flex-1"
+          value={tab}
+          onChange={setTab}
+          tabs={TABS}
+        />
         <button
           onClick={() => setOpen(false)}
-          className="text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+          className="shrink-0 px-2 font-mono text-[11px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
           aria-label="Collapse info panel (keyboard shortcut ] or Escape)"
           title="Collapse (] or Esc)"
         >

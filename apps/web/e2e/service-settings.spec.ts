@@ -41,7 +41,7 @@ test.describe('Service settings & operating observability', () => {
     await expect(page.getByText('Brave Search')).toBeVisible();
 
     await page.getByRole('tab', { name: 'Brokers' }).click();
-    await expect(page.getByText('Alpaca paper')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Alpaca paper' })).toBeVisible();
     await expect(page.getByLabel('Alpaca key ID')).toBeVisible();
     await expect(page.getByLabel('Alpaca secret')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Save & verify' })).toBeVisible();

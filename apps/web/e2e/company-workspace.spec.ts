@@ -162,7 +162,7 @@ test.describe('Company workspace (M1 read flows)', () => {
     const expandLeft = page.getByRole('button', { name: /Expand left panel/ });
     await expect(expandLeft).toBeVisible();
     await expandLeft.click();
-    await expect(page.getByRole('button', { name: 'Research + Libraries', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Research + Libraries', exact: true })).toBeVisible();
     await page.getByRole('button', { name: /Collapse left panel/ }).click();
     await expect(expandLeft).toBeVisible();
 
@@ -178,14 +178,14 @@ test.describe('Company workspace (M1 read flows)', () => {
     const expandBottom = page.getByRole('button', { name: /Expand bottom panel/ });
     await expect(expandBottom).toBeVisible();
     await expandBottom.click();
-    await expect(page.getByRole('button', { name: 'Trends', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Trends', exact: true })).toBeVisible();
     // Right panel can overlay the bottom strip — force collapse when obstructed.
     await page.getByRole('button', { name: /Collapse bottom panel/ }).click({ force: true });
     await expect(expandBottom).toBeVisible();
 
     // Keyboard shortcuts per ui-spec §8 (`[`, `]`, backtick).
     await page.keyboard.press('[');
-    await expect(page.getByRole('button', { name: 'Research + Libraries', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Research + Libraries', exact: true })).toBeVisible();
     await page.keyboard.press('[');
     await expect(expandLeft).toBeVisible();
 
@@ -195,7 +195,7 @@ test.describe('Company workspace (M1 read flows)', () => {
     await expect(page.getByText('Paper balance')).toBeVisible();
 
     await page.keyboard.press('`');
-    await expect(page.getByRole('button', { name: 'Trends', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Trends', exact: true })).toBeVisible();
     await page.keyboard.press('`');
     await expect(expandBottom).toBeVisible();
 

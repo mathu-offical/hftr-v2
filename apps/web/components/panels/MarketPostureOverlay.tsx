@@ -1,13 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { X } from 'lucide-react';
-import type { MarketHubPosition, MarketHubResponse } from '@hftr/contracts';
-import { api, RequestError } from '@/lib/client';
+import type { MarketHubPosition } from '@hftr/contracts';
 import { useResearchView } from '@/components/research/ResearchViewContext';
 import { MarketPostureEquityChart } from '@/components/panels/MarketPostureEquityChart';
 import { useMarketPostureView } from '@/components/panels/MarketPostureViewContext';
 import { Justification } from '@/components/panels/Justification';
+import { useMarketHub } from '@/lib/use-market-hub';
 
 function dollarsFromCents(cents: number | string): string {
   const n = typeof cents === 'string' ? Number(cents) : cents;
@@ -48,27 +48,12 @@ function EngineChips(props: { engines: { id: string; label: string }[] }) {
 export function MarketPostureOverlay() {
   const mp = useMarketPostureView();
   const research = useResearchView();
-  const [hub, setHub] = useState<MarketHubResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const load = useCallback(async () => {
-    if (!mp.companyId) return;
-    try {
-      const data = await api<MarketHubResponse>(`/api/companies/${mp.companyId}/market-hub`);
-      setHub(data);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof RequestError ? err.message : 'Failed to load market posture');
-    }
-  }, [mp.companyId]);
-
-  useEffect(() => {
-    if (!mp.overlayOpen) return;
-    void load();
-    const interval = setInterval(() => void load(), 20_000);
-    return () => clearInterval(interval);
-  }, [mp.overlayOpen, load]);
+  // Always subscribed while shell is up so overlay opens on warm cache;
+  // poll only while overlay is visible (shell warm-prefetch covers background).
+  const { data: hub, loading, refreshing, error, refreshMovers } = useMarketHub(mp.companyId, {
+    enabled: true,
+    poll: mp.overlayOpen,
+  });
 
   const selectedPosition: MarketHubPosition | null = useMemo(() => {
     if (!hub || !mp.selectedPositionId) return null;
@@ -89,19 +74,6 @@ export function MarketPostureOverlay() {
     if (!hub || !selectedPosition) return null;
     return hub.pipeline.find((p) => p.symbol === selectedPosition.symbol) ?? null;
   }, [hub, selectedPosition]);
-
-  const onRefresh = async () => {
-    if (!mp.companyId || refreshing) return;
-    setRefreshing(true);
-    try {
-      await api(`/api/companies/${mp.companyId}/market-hub`, { method: 'POST' });
-      await load();
-    } catch (err) {
-      setError(err instanceof RequestError ? err.message : 'Refresh failed');
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   const openReport = (conceptId: string) => {
     research.openOverlay();
@@ -129,11 +101,11 @@ export function MarketPostureOverlay() {
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
-            onClick={() => void onRefresh()}
+            onClick={() => void refreshMovers()}
             disabled={refreshing}
-            className="rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] uppercase tracking-wider text-[var(--color-ink-dim)] hover:text-[var(--color-ink)] disabled:opacity-50"
+            className="border border-[var(--color-line)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--color-ink-dim)] hover:border-[var(--color-ink-faint)] hover:text-[var(--color-ink)] disabled:opacity-50"
           >
-            {refreshing ? 'Refreshing…' : 'Refresh'}
+            {refreshing ? 'Sync…' : 'Refresh'}
           </button>
           <button
             type="button"
@@ -148,9 +120,13 @@ export function MarketPostureOverlay() {
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
         {error && !hub ? (
-          <p className="text-xs text-[var(--color-negative)]">{error}</p>
+          <p className="text-xs text-[var(--color-block)]">{error}</p>
+        ) : !hub && loading ? (
+          <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+            Loading dashboard…
+          </p>
         ) : !hub ? (
-          <p className="text-[10px] text-[var(--color-ink-faint)]">Loading dashboard…</p>
+          <p className="text-[10px] text-[var(--color-ink-faint)]">No posture data</p>
         ) : (
           <div className="mx-auto flex max-w-5xl flex-col gap-4">
             <section className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { BrokerConnectionSummary, LlmProvider, ResearchKeyProvider } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import { notifyLlmCredentialsChanged } from '@/components/shell/LlmConnectionStatus';
+import { PanelTabs } from '@/components/panels/PanelTabs';
 
 type RetentionAttested = 'none' | 'org_zdr';
 type SettingsTab = 'llm' | 'research' | 'brokers';
@@ -100,7 +101,11 @@ function VerifyStatusBadge(props: { status: KeyVerifyUiStatus }) {
 const RESEARCH_KEY_PROVIDERS: { id: ResearchKeyProvider; label: string; hint: string }[] = [
   { id: 'brave', label: 'Brave Search', hint: 'Web search for research gather' },
   { id: 'market_news', label: 'Market news', hint: 'Marketaux public market news' },
-  { id: 'finnhub', label: 'Finnhub', hint: 'Company and general market news (free tier available)' },
+  {
+    id: 'finnhub',
+    label: 'Finnhub',
+    hint: 'Company and general market news (free tier available)',
+  },
   { id: 'polygon', label: 'Polygon.io', hint: 'Reference news feed (API key required)' },
   { id: 'fred', label: 'FRED', hint: 'St. Louis Fed macro series search (free API key)' },
   {
@@ -600,41 +605,22 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
           </div>
         </header>
 
-        <div
-          className="flex shrink-0 gap-1 border-b border-[var(--color-line)] px-5"
-          role="tablist"
+        <PanelTabs
           aria-label="Settings sections"
-        >
-          {(
-            [
-              { id: 'llm' as const, label: 'LLM providers' },
-              { id: 'research' as const, label: 'Research' },
-              { id: 'brokers' as const, label: 'Brokers' },
-            ] as const
-          ).map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              id={`user-settings-tab-${t.id}`}
-              aria-selected={tab === t.id}
-              aria-controls={`user-settings-panel-${t.id}`}
-              onClick={() => setTab(t.id)}
-              className={`border-b-2 px-3 py-2 text-[11px] uppercase tracking-wider ${
-                tab === t.id
-                  ? 'border-[var(--color-accent)] text-[var(--color-ink)]'
-                  : 'border-transparent text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+          className="shrink-0 px-2"
+          value={tab}
+          onChange={setTab}
+          tabs={[
+            { id: 'llm', label: 'LLM providers' },
+            { id: 'research', label: 'Research' },
+            { id: 'brokers', label: 'Brokers' },
+          ]}
+        />
 
         <div
           id={`user-settings-panel-${tab}`}
           role="tabpanel"
-          aria-labelledby={`user-settings-tab-${tab}`}
+          aria-labelledby={`panel-tab-${tab}`}
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5"
         >
           {tab === 'llm' && (
@@ -748,10 +734,10 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
               <div>
                 <p className="text-xs font-medium text-[var(--color-ink)]">Research gather keys</p>
                 <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">
-                  Optional keys for external research sources (Brave, Marketaux, Finnhub,
-                  Polygon, FRED, Alpha Vantage, Twelve Data, Marketstack). Alpaca news uses
-                  paper broker credentials. Public gather also includes SEC, Frankfurter,
-                  CoinGecko, World Bank, and GDELT when ready.
+                  Optional keys for external research sources (Brave, Marketaux, Finnhub, Polygon,
+                  FRED, Alpha Vantage, Twelve Data, Marketstack). Alpaca news uses paper broker
+                  credentials. Public gather also includes SEC, Frankfurter, CoinGecko, World Bank,
+                  and GDELT when ready.
                 </p>
               </div>
               <ul className="space-y-4">
@@ -765,7 +751,9 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                         <span className="text-xs text-[var(--color-ink)]">{p.label}</span>
                         <span className="flex items-center gap-2">
                           <VerifyStatusBadge status={status} />
-                          <span className="text-[10px] text-[var(--color-ink-faint)]">{p.hint}</span>
+                          <span className="text-[10px] text-[var(--color-ink-faint)]">
+                            {p.hint}
+                          </span>
                         </span>
                       </div>
                       {saved ? (
@@ -968,8 +956,8 @@ function AlpacaBrokerSection(props: {
       <div>
         <h3 className="text-xs font-medium text-[var(--color-ink)]">Alpaca paper</h3>
         <p className="mt-0.5 text-[11px] text-[var(--color-ink-faint)]">
-          Paste API Key ID + Secret from the Alpaca paper dashboard (no OAuth). Bind the
-          connection to a company from that company&apos;s drawer.
+          Paste API Key ID + Secret from the Alpaca paper dashboard (no OAuth). Bind the connection
+          to a company from that company&apos;s drawer.
         </p>
       </div>
 
@@ -1108,10 +1096,9 @@ function KalshiBrokerSection(props: {
         },
       });
       try {
-        const result = await api<{ status: string }>(
-          `/api/settings/brokers/${saved.id}/verify`,
-          { method: 'POST' },
-        );
+        const result = await api<{ status: string }>(`/api/settings/brokers/${saved.id}/verify`, {
+          method: 'POST',
+        });
         if (result.status !== 'connected') {
           await api(`/api/settings/brokers/${saved.id}`, { method: 'DELETE' }).catch(
             () => undefined,

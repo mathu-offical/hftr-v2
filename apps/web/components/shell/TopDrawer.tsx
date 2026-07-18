@@ -13,6 +13,7 @@ import {
   type CompanyBrokerStatus,
   type CompanyLlmPolicy,
   type LlmBudgetSummary,
+  type MarketHubResponse,
   type ModelCapability,
   type PhilosophyProfile,
   type RetentionClass,
@@ -20,15 +21,22 @@ import {
 import { api } from '@/lib/client';
 import { useOptionalLlmConnectionStatus } from '@/components/shell/LlmConnectionStatus';
 import { CompanySectorsTab } from '@/components/shell/CompanySectorsTab';
+import { MarketPostureEquityChart } from '@/components/panels/MarketPostureEquityChart';
+import { MarketPosturePieChart } from '@/components/market/MarketPosturePieChart';
+import { MarketPostureMetricBars } from '@/components/market/MarketPostureMetricBars';
+import {
+  invalidateDrawerSlice,
+  loadDrawerSlice,
+  peekDrawerSlice,
+} from '@/lib/company-drawer-cache';
+import { loadMarketHub, peekMarketHub } from '@/lib/market-hub-cache';
 
-type Tab = 'ledger' | 'profile' | 'operating' | 'settings' | 'philosophy' | 'sectors';
+type Tab = 'desk' | 'mandate' | 'operating' | 'settings';
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'ledger', label: 'Ledger / PnL' },
-  { id: 'profile', label: 'Trading profile' },
+  { id: 'desk', label: 'Desk / PnL' },
+  { id: 'mandate', label: 'Philosophy & sectors' },
   { id: 'operating', label: 'LLM / operating' },
   { id: 'settings', label: 'Settings' },
-  { id: 'philosophy', label: 'Philosophy' },
-  { id: 'sectors', label: 'Sectors' },
 ];
 
 interface LedgerRow {
@@ -50,6 +58,12 @@ interface PositionRow {
   realizedPnlCents: string;
 }
 
+type DeskSlice = {
+  balanceCents: string;
+  ledger: LedgerRow[];
+  positions: PositionRow[];
+};
+
 function dollars(cents: string | number): string {
   const n = BigInt(cents);
   const sign = n < 0n ? '-' : '';
@@ -58,9 +72,9 @@ function dollars(cents: string | number): string {
 }
 
 /**
- * Top drawer sliding from the app-shell ribbon (ui-ux spec): company ledger
- * and PnL rollup, trading profile summary, settings, philosophy, and sector
- * focus refinement (D-106). Near-fullscreen under the ribbon.
+ * Top drawer from the app-shell ribbon (ui-ux spec / D-115): layered overlay
+ * (not full-bleed), condensed Desk/PnL + Philosophy & sectors tabs, SWR cache
+ * with lazy refresh when a section is viewed.
  */
 export function TopDrawer(props: {
   companyId: string;
@@ -73,160 +87,382 @@ export function TopDrawer(props: {
   universeExcludes?: string[];
 }) {
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<Tab>('ledger');
-  const [balance, setBalance] = useState<string | null>(null);
-  const [ledger, setLedger] = useState<LedgerRow[]>([]);
-  const [positions, setPositions] = useState<PositionRow[]>([]);
+  const [tab, setTab] = useState<Tab>('desk');
   const llmConnection = useOptionalLlmConnectionStatus();
   const llmBudgets = llmConnection?.budgets ?? [];
-
-  const load = useCallback(async () => {
-    try {
-      const base = `/api/companies/${props.companyId}`;
-      const [a, p] = await Promise.all([
-        api<{ balanceCents: string; ledger: LedgerRow[] }>(`${base}/activity`),
-        api<{ positions: PositionRow[] }>(`${base}/positions`),
-      ]);
-      setBalance(a.balanceCents);
-      setLedger(a.ledger);
-      setPositions(p.positions);
-    } catch {
-      // transient
-    }
-  }, [props.companyId]);
-
-  useEffect(() => {
-    if (open) void load();
-  }, [open, load]);
-
-  const realized = positions.reduce((acc, p) => acc + BigInt(p.realizedPnlCents), 0n);
-  const unrealized = positions.reduce((acc, p) => acc + BigInt(p.unrealizedPnlCents), 0n);
 
   return (
     <>
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
-        className="rounded-md px-2 py-1 text-[11px] uppercase tracking-wider text-[var(--color-ink-faint)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-ink)]"
+        className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors ${
+          open
+            ? 'border-[var(--color-accent)] bg-[var(--color-surface-2)] text-[var(--color-ink)]'
+            : 'border-[var(--color-line)] bg-[var(--color-surface-0)] text-[var(--color-ink-dim)] hover:border-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
+        }`}
         aria-expanded={open}
+        aria-controls="company-profile-drawer"
+        data-testid="company-profile-toggle"
       >
-        {open ? 'Close ▲' : 'Company ▾'}
+        <span>Company profile</span>
+        <span aria-hidden className="text-[9px] text-[var(--color-ink-faint)]">
+          {open ? '▲' : '▼'}
+        </span>
       </button>
 
       {open && (
-        <div
-          className="absolute inset-x-0 top-full z-40 flex h-[min(92vh,calc(100vh-2.75rem))] flex-col border-b border-[var(--color-line)] bg-[var(--color-surface-1)] shadow-2xl"
-          data-testid="company-top-drawer"
-        >
-          <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 gap-6 px-6 py-4">
-            <nav className="w-44 shrink-0 space-y-0.5 border-r border-[var(--color-line)] pr-4" aria-label="Company sections">
-              {TABS.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setTab(t.id)}
-                  className={`block w-full border-l-2 px-3 py-1.5 text-left font-mono text-[10px] uppercase tracking-[0.12em] transition-colors ${
-                    tab === t.id
-                      ? 'border-[var(--color-accent)] text-[var(--color-ink)]'
-                      : 'border-transparent text-[var(--color-ink-faint)] hover:text-[var(--color-ink-dim)]'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </nav>
+        <>
+          <button
+            type="button"
+            aria-label="Dismiss company profile"
+            className="fixed inset-0 z-30 bg-black/45"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            id="company-profile-drawer"
+            className="absolute left-1/2 top-full z-40 flex h-[min(86vh,calc(100vh-3.25rem))] w-[min(42rem,calc(100vw-1.5rem))] -translate-x-1/2 flex-col overflow-hidden rounded-b-lg border border-t-0 border-[var(--color-line)] bg-[var(--color-surface-1)] shadow-[0_24px_64px_rgba(0,0,0,0.55)]"
+            data-testid="company-top-drawer"
+            role="dialog"
+            aria-label="Company profile"
+          >
+            <div className="flex min-h-0 flex-1 gap-4 px-4 py-3">
+              <nav
+                className="w-36 shrink-0 space-y-0.5 border-r border-[var(--color-line)] pr-3"
+                aria-label="Company sections"
+              >
+                {TABS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTab(t.id)}
+                    className={`block w-full border-l-2 px-2.5 py-1.5 text-left font-mono text-[10px] uppercase tracking-[0.12em] transition-colors ${
+                      tab === t.id
+                        ? 'border-[var(--color-accent)] text-[var(--color-ink)]'
+                        : 'border-transparent text-[var(--color-ink-faint)] hover:text-[var(--color-ink-dim)]'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </nav>
 
-            <div className="min-h-0 min-w-0 flex-1 overflow-y-auto pr-2">
-              {tab === 'ledger' && (
-                <div className="space-y-4">
-                  <div className="flex gap-8">
-                    <Metric label="Paper balance" value={balance ? dollars(balance) : '—'} />
-                    <Metric
-                      label="Realized PnL"
-                      value={dollars(realized.toString())}
-                      tone={realized >= 0n ? 'ok' : 'block'}
-                    />
-                    <Metric
-                      label="Unrealized PnL"
-                      value={dollars(unrealized.toString())}
-                      tone={unrealized >= 0n ? 'ok' : 'block'}
-                    />
-                  </div>
-                  <table className="w-full text-left text-xs">
-                    <thead className="text-[var(--color-ink-faint)]">
-                      <tr>
-                        <th className="pb-1.5 font-normal">Entry</th>
-                        <th className="pb-1.5 font-normal">Amount</th>
-                        <th className="pb-1.5 font-normal">Balance after</th>
-                        <th className="pb-1.5 font-normal">Time</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-[var(--color-ink-dim)]">
-                      {ledger.map((l) => (
-                        <tr key={l.id} className="border-t border-[var(--color-line)]">
-                          <td className="max-w-64 truncate py-1.5 pr-3">{l.description}</td>
-                          <td className="py-1.5 pr-3 font-mono">{dollars(l.amountCents)}</td>
-                          <td className="py-1.5 pr-3 font-mono">{dollars(l.balanceAfterCents)}</td>
-                          <td className="py-1.5 text-[var(--color-ink-faint)]">
-                            {new Date(l.createdAt).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                      {ledger.length === 0 && (
-                        <tr>
-                          <td colSpan={4} className="py-3 text-[var(--color-ink-faint)]">
-                            No ledger entries yet.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {tab === 'profile' && (
-                <div className="space-y-3 text-sm text-[var(--color-ink-dim)]">
-                  <Metric label="Company" value={props.companyName} />
-                  <Metric label="Seed credits" value={dollars(props.seedCreditsCents)} />
-                  <Metric label="Created" value={new Date(props.createdAt).toLocaleDateString()} />
-                  <Metric
-                    label="Open positions"
-                    value={String(positions.filter((p) => BigInt(p.qty) !== 0n).length)}
+              <div className="min-h-0 min-w-0 flex-1 overflow-y-auto pr-1">
+                {tab === 'desk' && (
+                  <DeskPnLTab
+                    companyId={props.companyId}
+                    companyName={props.companyName}
+                    seedCreditsCents={props.seedCreditsCents}
+                    createdAt={props.createdAt}
+                    active={open && tab === 'desk'}
                   />
-                  <p className="pt-2 text-xs text-[var(--color-ink-faint)]">
-                    Broker connections, risk envelopes, and live-trading arming land with the broker
-                    milestone; paper mode uses the built-in simulator adapter.
-                  </p>
-                </div>
-              )}
+                )}
 
-              {tab === 'operating' && (
-                <OperatingTab companyId={props.companyId} budgets={llmBudgets} />
-              )}
+                {tab === 'mandate' && (
+                  <div className="space-y-8">
+                    <PhilosophyTab
+                      companyId={props.companyId}
+                      philosophy={props.philosophy}
+                      philosophyProfile={props.philosophyProfile}
+                      active={open && tab === 'mandate'}
+                    />
+                    <div className="border-t border-[var(--color-line)] pt-6">
+                      <h3 className="mb-3 text-sm font-medium text-[var(--color-ink)]">
+                        Sector focuses & excludes
+                      </h3>
+                      <CompanySectorsTab
+                        companyId={props.companyId}
+                        initialFocuses={props.sectorFocuses ?? []}
+                        initialExcludes={props.universeExcludes ?? []}
+                      />
+                    </div>
+                  </div>
+                )}
 
-              {tab === 'settings' && (
-                <SettingsTab companyId={props.companyId} name={props.companyName} />
-              )}
+                {tab === 'operating' && (
+                  <OperatingTab
+                    companyId={props.companyId}
+                    budgets={llmBudgets}
+                    active={open && tab === 'operating'}
+                  />
+                )}
 
-              {tab === 'philosophy' && (
-                <PhilosophyTab
-                  companyId={props.companyId}
-                  philosophy={props.philosophy}
-                  philosophyProfile={props.philosophyProfile}
-                />
-              )}
-
-              {tab === 'sectors' && (
-                <CompanySectorsTab
-                  companyId={props.companyId}
-                  initialFocuses={props.sectorFocuses ?? []}
-                  initialExcludes={props.universeExcludes ?? []}
-                />
-              )}
+                {tab === 'settings' && (
+                  <SettingsTab companyId={props.companyId} name={props.companyName} />
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </>
+  );
+}
+
+function DeskPnLTab(props: {
+  companyId: string;
+  companyName: string;
+  seedCreditsCents: string;
+  createdAt: string;
+  active: boolean;
+}) {
+  const cachedDesk = peekDrawerSlice<DeskSlice>(props.companyId, 'desk');
+  const cachedHub = peekMarketHub({ companyId: props.companyId });
+  const [desk, setDesk] = useState<DeskSlice | null>(cachedDesk);
+  const [hub, setHub] = useState<MarketHubResponse | null>(cachedHub);
+  const [loading, setLoading] = useState(!cachedDesk);
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!props.active) return;
+    let cancelled = false;
+    const hasWarm = Boolean(peekDrawerSlice(props.companyId, 'desk'));
+    setLoading(!hasWarm);
+
+    const applyDesk = (d: DeskSlice) => {
+      if (!cancelled) setDesk(d);
+    };
+
+    void (async () => {
+      try {
+        const result = await loadDrawerSlice(
+          props.companyId,
+          'desk',
+          async () => {
+            const base = `/api/companies/${props.companyId}`;
+            const prior = peekDrawerSlice<DeskSlice>(props.companyId, 'desk');
+            // Positions and activity load independently so a slow ledger query
+            // cannot block the positions table (or reverse).
+            const [positionsSettled, activitySettled] = await Promise.allSettled([
+              api<{ positions: PositionRow[] }>(`${base}/positions`, {
+                signal: AbortSignal.timeout(12_000),
+              }),
+              api<{ balanceCents: string; ledger: LedgerRow[] }>(`${base}/activity`, {
+                signal: AbortSignal.timeout(12_000),
+              }),
+            ]);
+            const positions =
+              positionsSettled.status === 'fulfilled'
+                ? positionsSettled.value.positions
+                : (prior?.positions ?? []);
+            const balanceCents =
+              activitySettled.status === 'fulfilled'
+                ? activitySettled.value.balanceCents
+                : (prior?.balanceCents ?? '0');
+            const ledger =
+              activitySettled.status === 'fulfilled'
+                ? activitySettled.value.ledger
+                : (prior?.ledger ?? []);
+            return { balanceCents, ledger, positions } satisfies DeskSlice;
+          },
+          { onUpdate: applyDesk },
+        );
+        if (!cancelled) setDesk(result.data);
+      } catch {
+        // keep stale cache if present
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    void (async () => {
+      try {
+        const hubRes = await loadMarketHub(
+          { companyId: props.companyId },
+          () =>
+            api<MarketHubResponse>(`/api/companies/${props.companyId}/market-hub`, {
+              signal: AbortSignal.timeout(45_000),
+            }),
+          { onUpdate: (d) => { if (!cancelled) setHub(d); } },
+        );
+        if (!cancelled) setHub(hubRes.data);
+      } catch {
+        // keep stale hub if present
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [props.active, props.companyId]);
+
+  const positions = desk?.positions ?? [];
+  const ledger = desk?.ledger ?? [];
+  const balance = desk?.balanceCents ?? null;
+  const realized = positions.reduce((acc, p) => acc + BigInt(p.realizedPnlCents), 0n);
+  const unrealized = positions.reduce((acc, p) => acc + BigInt(p.unrealizedPnlCents), 0n);
+  const openPositions = positions.filter((p) => BigInt(p.qty) !== 0n);
+
+  const selected = openPositions.find((p) => p.symbol === selectedSymbol) ?? openPositions[0] ?? null;
+  const selectedQty = selected ? Number(selected.qty) : null;
+  const selectedMark = selected ? Number(selected.markCents) : null;
+
+  const equityLabel =
+    hub?.equity.equityCents != null
+      ? dollars(hub.equity.equityCents)
+      : balance
+        ? dollars(balance)
+        : '—';
+
+  return (
+    <div className="space-y-5">
+      <header className="space-y-1">
+        <h2 className="text-sm font-medium text-[var(--color-ink)]">{props.companyName}</h2>
+        <p className="text-[11px] text-[var(--color-ink-faint)]">
+          Seed {dollars(props.seedCreditsCents)} · opened{' '}
+          {new Date(props.createdAt).toLocaleDateString()} · {openPositions.length} open position
+          {openPositions.length === 1 ? '' : 's'}
+          {loading ? ' · refreshing…' : ''}
+        </p>
+      </header>
+
+      <div className="flex flex-wrap gap-6">
+        <Metric label="Paper balance" value={balance ? dollars(balance) : '—'} />
+        <Metric
+          label="Realized PnL"
+          value={dollars(realized.toString())}
+          tone={realized >= 0n ? 'ok' : 'block'}
+        />
+        <Metric
+          label="Unrealized PnL"
+          value={dollars(unrealized.toString())}
+          tone={unrealized >= 0n ? 'ok' : 'block'}
+        />
+      </div>
+
+      <MarketPostureEquityChart
+        series={hub?.equity.series ?? []}
+        selectedQty={Number.isFinite(selectedQty) ? selectedQty : null}
+        selectedMarkCents={Number.isFinite(selectedMark) ? selectedMark : null}
+        selectedSymbol={selected?.symbol ?? null}
+        equityLabel={equityLabel}
+        {...(hub?.equity.status ? { equityStatus: hub.equity.status } : {})}
+        asOfIso={hub?.equity.asOfIso ?? null}
+        {...(hub?.equity.version != null ? { version: hub.equity.version } : {})}
+        heightPx={200}
+      />
+
+      {hub ? (
+        <section className="grid gap-3 sm:grid-cols-2">
+          <MarketPosturePieChart
+            title="Allocation by symbol"
+            slices={hub.charts.allocation}
+            size={112}
+            empty="No open position notionals"
+          />
+          <MarketPostureMetricBars
+            title="Trend strength"
+            slices={hub.charts.trendStrength}
+            empty="No trend candidates"
+          />
+        </section>
+      ) : null}
+
+      <section className="space-y-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <h3 className="text-[11px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+            Positions
+          </h3>
+          {openPositions.length > 0 ? (
+            <label className="flex items-center gap-1.5 text-[10px] text-[var(--color-ink-faint)]">
+              Chart focus
+              <select
+                value={selected?.symbol ?? ''}
+                onChange={(e) => setSelectedSymbol(e.target.value || null)}
+                className="rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-1.5 py-0.5 text-[10px] text-[var(--color-ink)] outline-none"
+              >
+                {openPositions.map((p) => (
+                  <option key={p.id} value={p.symbol}>
+                    {p.symbol}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        </div>
+        <table className="w-full text-left text-xs">
+          <thead className="text-[var(--color-ink-faint)]">
+            <tr>
+              <th className="pb-1.5 font-normal">Symbol</th>
+              <th className="pb-1.5 font-normal">Qty</th>
+              <th className="pb-1.5 font-normal">Avg</th>
+              <th className="pb-1.5 font-normal">Mark</th>
+              <th className="pb-1.5 font-normal">uPnL</th>
+              <th className="pb-1.5 font-normal">rPnL</th>
+            </tr>
+          </thead>
+          <tbody className="text-[var(--color-ink-dim)]">
+            {positions.map((p) => {
+              const u = BigInt(p.unrealizedPnlCents);
+              return (
+                <tr key={p.id} className="border-t border-[var(--color-line)]">
+                  <td className="py-1.5 pr-2 font-mono text-[var(--color-ink)]">{p.symbol}</td>
+                  <td className="py-1.5 pr-2 font-mono tabular-nums">{p.qty}</td>
+                  <td className="py-1.5 pr-2 font-mono tabular-nums">{dollars(p.avgCostCents)}</td>
+                  <td className="py-1.5 pr-2 font-mono tabular-nums">{dollars(p.markCents)}</td>
+                  <td
+                    className={`py-1.5 pr-2 font-mono tabular-nums ${
+                      u >= 0n ? 'text-[var(--color-ok)]' : 'text-[var(--color-block)]'
+                    }`}
+                  >
+                    {dollars(p.unrealizedPnlCents)}
+                  </td>
+                  <td className="py-1.5 font-mono tabular-nums">{dollars(p.realizedPnlCents)}</td>
+                </tr>
+              );
+            })}
+            {positions.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-3 text-[var(--color-ink-faint)]">
+                  No positions yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </section>
+
+      <section className="space-y-2">
+        <h3 className="text-[11px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+          Ledger
+        </h3>
+        <table className="w-full text-left text-xs">
+          <thead className="text-[var(--color-ink-faint)]">
+            <tr>
+              <th className="pb-1.5 font-normal">Entry</th>
+              <th className="pb-1.5 font-normal">Kind</th>
+              <th className="pb-1.5 font-normal">Amount</th>
+              <th className="pb-1.5 font-normal">Balance after</th>
+              <th className="pb-1.5 font-normal">Time</th>
+            </tr>
+          </thead>
+          <tbody className="text-[var(--color-ink-dim)]">
+            {ledger.map((l) => (
+              <tr key={l.id} className="border-t border-[var(--color-line)]">
+                <td className="max-w-48 truncate py-1.5 pr-2">{l.description}</td>
+                <td className="py-1.5 pr-2 font-mono text-[10px] uppercase text-[var(--color-ink-faint)]">
+                  {l.kind}
+                </td>
+                <td className="py-1.5 pr-2 font-mono tabular-nums">{dollars(l.amountCents)}</td>
+                <td className="py-1.5 pr-2 font-mono tabular-nums">
+                  {dollars(l.balanceAfterCents)}
+                </td>
+                <td className="py-1.5 text-[var(--color-ink-faint)]">
+                  {new Date(l.createdAt).toLocaleString()}
+                </td>
+              </tr>
+            ))}
+            {ledger.length === 0 && (
+              <tr>
+                <td colSpan={5} className="py-3 text-[var(--color-ink-faint)]">
+                  No ledger entries yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </section>
+    </div>
   );
 }
 
@@ -282,16 +518,43 @@ function truncateRequestId(id: string | null): string {
   return `${id.slice(0, 6)}…${id.slice(-3)}`;
 }
 
-function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] }) {
-  const [policyData, setPolicyData] = useState<LlmPolicyResponse | null>(null);
-  const [calls, setCalls] = useState<LlmCallRow[]>([]);
+type OperatingSlice = {
+  policy: LlmPolicyResponse;
+  calls: LlmCallRow[];
+  evidence: {
+    sampleSize: number;
+    schemaPassRate: number | null;
+    leakPassRate: number | null;
+    allLeakClean: boolean;
+    allSchemaValid: boolean;
+  } | null;
+  leakAudit: {
+    ok: boolean;
+    sampleSize: number;
+    leakCleanCount: number;
+    leakFailCount: number;
+    scanMode: string;
+    note?: string;
+  };
+  brokers: BrokerConnectionSummary[];
+  brokerStatus: CompanyBrokerStatus;
+};
+
+function OperatingTab(props: {
+  companyId: string;
+  budgets: LlmBudgetSummary[];
+  active: boolean;
+}) {
+  const cached = peekDrawerSlice<OperatingSlice>(props.companyId, 'operating');
+  const [policyData, setPolicyData] = useState<LlmPolicyResponse | null>(cached?.policy ?? null);
+  const [calls, setCalls] = useState<LlmCallRow[]>(cached?.calls ?? []);
   const [llmEvidence, setLlmEvidence] = useState<{
     sampleSize: number;
     schemaPassRate: number | null;
     leakPassRate: number | null;
     allLeakClean: boolean;
     allSchemaValid: boolean;
-  } | null>(null);
+  } | null>(cached?.evidence ?? null);
   const [leakAudit, setLeakAudit] = useState<{
     ok: boolean;
     sampleSize: number;
@@ -299,54 +562,76 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
     leakFailCount: number;
     scanMode: string;
     note?: string;
-  } | null>(null);
-  const [brokers, setBrokers] = useState<BrokerConnectionSummary[]>([]);
-  const [brokerStatus, setBrokerStatus] = useState<CompanyBrokerStatus | null>(null);
+  } | null>(cached?.leakAudit ?? null);
+  const [brokers, setBrokers] = useState<BrokerConnectionSummary[]>(cached?.brokers ?? []);
+  const [brokerStatus, setBrokerStatus] = useState<CompanyBrokerStatus | null>(
+    cached?.brokerStatus ?? null,
+  );
   const [policyMessage, setPolicyMessage] = useState<string | null>(null);
   const [brokerMessage, setBrokerMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const loadExtras = useCallback(async () => {
-    const base = `/api/companies/${props.companyId}`;
-    try {
-      const [policyRes, callsRes, auditRes, brokersRes, brokerRes] = await Promise.all([
-        api<LlmPolicyResponse>(`${base}/llm-policy`),
-        api<{
-          calls: LlmCallRow[];
-          evidence?: {
-            sampleSize: number;
-            schemaPassRate: number | null;
-            leakPassRate: number | null;
-            allLeakClean: boolean;
-            allSchemaValid: boolean;
-          };
-        }>(`${base}/llm-calls?limit=20`),
-        api<{
-          ok: boolean;
-          sampleSize: number;
-          leakCleanCount: number;
-          leakFailCount: number;
-          schemaValidCount: number;
-          scanMode: string;
-          note?: string;
-        }>(`${base}/llm-calls/audit?limit=50`),
-        api<{ connections: BrokerConnectionSummary[] }>('/api/settings/brokers'),
-        api<CompanyBrokerStatus>(`${base}/broker`),
-      ]);
-      setPolicyData(policyRes);
-      setCalls(callsRes.calls);
-      setLlmEvidence(callsRes.evidence ?? null);
-      setLeakAudit(auditRes);
-      setBrokers(brokersRes.connections);
-      setBrokerStatus(brokerRes);
-    } catch {
-      // transient
-    }
-  }, [props.companyId]);
+  const applyOperating = useCallback((slice: OperatingSlice) => {
+    setPolicyData(slice.policy);
+    setCalls(slice.calls);
+    setLlmEvidence(slice.evidence);
+    setLeakAudit(slice.leakAudit);
+    setBrokers(slice.brokers);
+    setBrokerStatus(slice.brokerStatus);
+  }, []);
+
+  const loadExtras = useCallback(
+    async (opts?: { force?: boolean }) => {
+      const base = `/api/companies/${props.companyId}`;
+      try {
+        const result = await loadDrawerSlice(
+          props.companyId,
+          'operating',
+          async () => {
+            const [policyRes, callsRes, auditRes, brokersRes, brokerRes] = await Promise.all([
+              api<LlmPolicyResponse>(`${base}/llm-policy`),
+              api<{
+                calls: LlmCallRow[];
+                evidence?: OperatingSlice['evidence'];
+              }>(`${base}/llm-calls?limit=20`),
+              api<{
+                ok: boolean;
+                sampleSize: number;
+                leakCleanCount: number;
+                leakFailCount: number;
+                schemaValidCount: number;
+                scanMode: string;
+                note?: string;
+              }>(`${base}/llm-calls/audit?limit=50`),
+              api<{ connections: BrokerConnectionSummary[] }>('/api/settings/brokers'),
+              api<CompanyBrokerStatus>(`${base}/broker`),
+            ]);
+            return {
+              policy: policyRes,
+              calls: callsRes.calls,
+              evidence: callsRes.evidence ?? null,
+              leakAudit: auditRes,
+              brokers: brokersRes.connections,
+              brokerStatus: brokerRes,
+            } satisfies OperatingSlice;
+          },
+          {
+            ...(opts?.force ? { force: true as const } : {}),
+            onUpdate: applyOperating,
+          },
+        );
+        applyOperating(result.data);
+      } catch {
+        // keep stale cache if present
+      }
+    },
+    [props.companyId, applyOperating],
+  );
 
   useEffect(() => {
+    if (!props.active) return;
     void loadExtras();
-  }, [loadExtras]);
+  }, [props.active, loadExtras]);
 
   async function savePolicy(patch: Partial<CompanyLlmPolicy>) {
     if (!policyData) return;
@@ -362,6 +647,7 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
         body: merged,
       });
       setPolicyData(res);
+      invalidateDrawerSlice(props.companyId, 'operating');
       setPolicyMessage('LLM policy saved.');
     } catch {
       setPolicyMessage('Policy save failed.');
@@ -377,7 +663,8 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
         method: 'PATCH',
         body: { brokerConnectionId: connectionId },
       });
-      await loadExtras();
+      invalidateDrawerSlice(props.companyId, 'operating');
+      await loadExtras({ force: true });
       setBrokerMessage(connectionId ? 'Broker bound.' : 'Broker unbound.');
     } catch {
       setBrokerMessage('Broker bind failed.');
@@ -927,6 +1214,7 @@ function PhilosophyTab(props: {
   companyId: string;
   philosophy: string;
   philosophyProfile?: unknown;
+  active: boolean;
 }) {
   const [text, setText] = useState(props.philosophy);
   const [profile, setProfile] = useState<PhilosophyProfile>(() =>
@@ -934,27 +1222,43 @@ function PhilosophyTab(props: {
   );
   const [message, setMessage] = useState<string | null>(null);
   const [directiveBody, setDirectiveBody] = useState('');
-  const [directives, setDirectives] = useState<
-    Array<{ id: string; body: string; createdAt: string }>
-  >([]);
+  type DirectiveRow = { id: string; body: string; createdAt: string };
+  const cachedDirectives = peekDrawerSlice<DirectiveRow[]>(
+    props.companyId,
+    'philosophy_directives',
+  );
+  const [directives, setDirectives] = useState<DirectiveRow[]>(cachedDirectives ?? []);
   const [directiveMessage, setDirectiveMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!props.active) return;
     let cancelled = false;
     void (async () => {
       try {
-        const data = await api<{
-          directives: Array<{ id: string; body: string; createdAt: string }>;
-        }>(`/api/companies/${props.companyId}/philosophy-directives`);
-        if (!cancelled) setDirectives(data.directives);
+        const result = await loadDrawerSlice(
+          props.companyId,
+          'philosophy_directives',
+          async () => {
+            const data = await api<{ directives: DirectiveRow[] }>(
+              `/api/companies/${props.companyId}/philosophy-directives`,
+            );
+            return data.directives;
+          },
+          {
+            onUpdate: (rows) => {
+              if (!cancelled) setDirectives(rows);
+            },
+          },
+        );
+        if (!cancelled) setDirectives(result.data);
       } catch {
-        if (!cancelled) setDirectives([]);
+        // keep prior directives / empty initial
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [props.companyId]);
+  }, [props.active, props.companyId]);
 
   function setAxis(axisId: keyof PhilosophyProfile['axes'], position: BandPosition) {
     setProfile((prev) => ({
@@ -987,6 +1291,7 @@ function PhilosophyTab(props: {
         { method: 'POST', body: { body: trimmed } },
       );
       setDirectives((prev) => [created, ...prev]);
+      invalidateDrawerSlice(props.companyId, 'philosophy_directives');
       setDirectiveBody('');
       setDirectiveMessage('Directive appended — immutable; agents cannot edit or remove it.');
     } catch {

@@ -20,8 +20,8 @@
 - **Top ribbon (L→R, implemented 2026-07-17 per DevSpecs/ui-ux.spec.md):** logo → company
   switcher dropdown (`CompanySwitcher`) → top-drawer toggle (`TopDrawer`: **Desk / PnL**,
   **Philosophy & sectors**, LLM/operating, Settings — D-115; layered overlay under the ribbon
-  with dimmed backdrop, fixed `w-[min(34rem,…)]`, rounded bottom edge — not full-bleed; SWR
-  per-tab cache with lazy refresh on view) → executions ticker tape (`ExecutionTicker`,
+  with dimmed backdrop, centered `w-[min(42rem,…)]`, rounded bottom edge — not full-bleed; SWR
+  per-tab cache with lazy refresh on view; ribbon toggle labeled **Company profile**) → executions ticker tape (`ExecutionTicker`,
   marquee of recent fills/blocks with amounts, pauses on hover) → paper/live master switch
   (`ModeSwitch`, live gated with an explanation popover — fails closed until the broker
   milestone) → **LLM connection chip** (`LlmRibbonStatusChip`: `llm: n/6` from shell

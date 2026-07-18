@@ -16,8 +16,8 @@ import {
 import { api } from '@/lib/client';
 
 /**
- * Company drawer Sectors tab (D-106): refine group specifics downward and
- * curate a separate universe exclude symbol list.
+ * Company drawer sector focuses (D-106 / D-115 Philosophy & sectors): refine group
+ * specifics downward and curate a separate universe exclude symbol list.
  */
 export function CompanySectorsTab(props: {
   companyId: string;

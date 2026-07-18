@@ -1183,12 +1183,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   **Status: implemented.**
 
 - **D-115 (company TopDrawer layered overlay + condensed tabs, 2026-07-18):** Company drawer
-  is a **layered panel** over the canvas (dimmed backdrop, fixed `w-[min(34rem,…)]`, rounded bottom —
-  not full-bleed edge-to-edge). Tabs condensed to **Desk / PnL** (trading profile + ledger +
-  equity chart + allocation/trend charts + positions/ledger tables), **Philosophy & sectors**
-  (mandate + sector focuses / excludes), LLM/operating, Settings. Per-tab SWR cache
-  (`company-drawer-cache` + shared market-hub cache) with lazy refresh when a section is
-  viewed; mutations invalidate the owning slice. Docs: ui-spec §2.   **Status: implemented.**
+  is a **layered panel** over the canvas (dimmed backdrop, centered `w-[min(42rem,…)]`, rounded
+  bottom — not full-bleed). Ribbon toggle is a bordered chip labeled **Company profile**. Tabs
+  condensed to **Desk / PnL** (trading profile + ledger + equity chart + allocation/trend charts +
+  positions/ledger tables), **Philosophy & sectors** (mandate + sector focuses / excludes),
+  LLM/operating, Settings. Per-tab SWR cache (`company-drawer-cache` + shared market-hub cache)
+  with lazy refresh when a section is viewed; mutations invalidate the owning slice. Docs:
+  ui-spec §2. **Status: implemented.**
 
 - **D-116 (galaxy 3D volume packing — Fibonacci spheres, 2026-07-18):** Research galaxy
   under-used Z (pancake / necklace). Surveyed d3-force-3d clustering, dagMode, hyperbolic

@@ -35,7 +35,10 @@ export function MarketPostureEquityChart(props: {
   equityStatus?: 'fresh' | 'stale' | 'unavailable';
   asOfIso?: string | null;
   version?: number;
+  /** Render height in px (default 120). Drawer desk uses a taller pass. */
+  heightPx?: number;
 }) {
+  const chartHeight = props.heightPx ?? 120;
   const points = useMemo(() => parseSeries(props.series), [props.series]);
 
   const hasHistoricalMarks = useMemo(
@@ -56,7 +59,7 @@ export function MarketPostureEquityChart(props: {
 
   const { equityPath, positionPath, dashedY, minY, maxY, width, height } = useMemo(() => {
     const w = 640;
-    const h = 120;
+    const h = chartHeight;
     if (points.length === 0) {
       return {
         equityPath: '',
@@ -123,13 +126,14 @@ export function MarketPostureEquityChart(props: {
       width: w,
       height: h,
     };
-  }, [points, hasHistoricalMarks, props.selectedQty, syntheticMarkValue]);
+  }, [points, hasHistoricalMarks, props.selectedQty, syntheticMarkValue, chartHeight]);
 
   if (points.length === 0) {
     return (
       <div
         data-testid="market-posture-equity-chart"
-        className="flex h-[120px] items-center justify-center rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] text-[10px] text-[var(--color-ink-faint)]"
+        className="flex items-center justify-center rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] text-[10px] text-[var(--color-ink-faint)]"
+        style={{ height: chartHeight }}
       >
         No equity series yet
       </div>
@@ -179,7 +183,8 @@ export function MarketPostureEquityChart(props: {
       </div>
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="h-[120px] w-full rounded border border-[var(--color-line)] bg-[var(--color-surface-1)]"
+        className="w-full rounded border border-[var(--color-line)] bg-[var(--color-surface-1)]"
+        style={{ height: chartHeight }}
         role="img"
         aria-label={
           props.selectedSymbol

@@ -1,7 +1,9 @@
 /**
- * Galaxy 3D physics helpers (TD-09).
+ * Galaxy 3D physics helpers (TD-09 / D-116).
  * Tuned for neural-style force-directed layouts: spring links by qualitative
  * weight band, many-body charge, collision, and soft library-nest attractors.
+ * Nest centers use Fibonacci-sphere packing so the layout fills volume
+ * (not a flat XY pancake / planar spiral).
  */
 
 import type { ResearchGraphLibraryNest, ResearchGraphLink } from '@hftr/contracts';
@@ -39,21 +41,58 @@ export type GalaxySimNode = {
   __parentConceptId?: string;
 };
 
+/** Golden-angle step for Fibonacci / phyllotaxis packing. */
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+
+/**
+ * Even unit-sphere sample via Fibonacci lattice (phyllotaxis).
+ * Index `i` in `0..n-1` — standard for filling 3D volume without polar banding.
+ * @see González, “Measurement of areas on a sphere…” / spherical Fibonacci point sets.
+ */
+export function fibonacciSpherePoint(
+  i: number,
+  n: number,
+): { x: number; y: number; z: number } {
+  const count = Math.max(n, 1);
+  const t = count === 1 ? 0.5 : i / (count - 1);
+  const y = 1 - t * 2; // 1 → -1
+  const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
+  const theta = i * GOLDEN_ANGLE;
+  return {
+    x: Math.cos(theta) * radiusAtY,
+    y,
+    z: Math.sin(theta) * radiusAtY,
+  };
+}
+
+/** Scale a unit sphere point onto a shell of radius `shellR`. */
+export function scaleSpherePoint(
+  unit: { x: number; y: number; z: number },
+  shellR: number,
+): { x: number; y: number; z: number } {
+  return {
+    x: unit.x * shellR,
+    y: unit.y * shellR,
+    z: unit.z * shellR,
+  };
+}
+
 /** Spring rest length from qualitative weight band (no raw floats in model path). */
 export function linkDistanceForWeight(
   weightBand: ResearchGraphLink['weightBand'],
   relation: ResearchGraphLink['relation'],
 ): number {
-  let base = 48;
+  // Slightly longer springs so connected orbits breathe into volume (D-116).
+  let base = 62;
   switch (weightBand) {
     case 'strong':
-      base = 30;
+      base = 38;
       break;
     case 'typical':
-      base = 48;
+      base = 62;
       break;
     case 'weak':
-      base = 78;
+      base = 96;
       break;
     default: {
       const _exhaustive: never = weightBand;
@@ -95,16 +134,16 @@ export function linkStrengthForWeight(weightBand: ResearchGraphLink['weightBand'
 
 export function chargeStrengthForGraphSize(nodeCount: number): number {
   // Softer global charge so nest attractors dominate (avoids uniform cloud).
-  if (nodeCount > 400) return -28;
-  if (nodeCount > 200) return -42;
-  if (nodeCount > 80) return -58;
-  return -72;
+  if (nodeCount > 400) return -32;
+  if (nodeCount > 200) return -48;
+  if (nodeCount > 80) return -64;
+  return -80;
 }
 
 /**
- * Place library nests on a size-ranked golden spiral (not an equal ring).
- * Large libraries sit farther out with larger hull radii so clusters read as
- * distinct masses instead of a uniform necklace.
+ * Place library nests on concentric Fibonacci spheres (not an XY ring / flat spiral).
+ * Larger libraries sit on a slightly outer shell with larger hull radii so the company
+ * cloud uses full 3D volume (D-116).
  */
 export function computeLibraryCenters3D(
   nests: ResearchGraphLibraryNest[],
@@ -128,21 +167,24 @@ export function computeLibraryCenters3D(
   });
 
   const centers = new Map<string, LibraryCenter3D>();
-  const golden = Math.PI * (3 - Math.sqrt(5));
+  const n = Math.max(ranked.length, 1);
+  // Base shell large enough that nest hulls don't overlap in volume.
+  const baseShell = 160 + Math.min(220, n * 28);
 
   ranked.forEach((id, i) => {
     const meta = libMeta.get(id);
     const conceptCount = meta?.conceptCount ?? 3;
     const sizeBoost = Math.min(140, conceptCount * 3.2);
-    // Strong radius steps so nests don't read as an equal necklace.
-    const spiralR = 55 + i * 38 + Math.sqrt(i + 1) * 28 + sizeBoost * 0.55;
-    const angle = i * golden - Math.PI / 2;
-    const z = ((i % 5) - 2) * (22 + Math.min(18, conceptCount * 0.45));
+    // Size tiers → concentric shells (inner = denser/larger libs, outer = sparse).
+    const tier = Math.min(2, Math.floor((i / n) * 3));
+    const shellR = baseShell + tier * 95 + sizeBoost * 0.4;
+    const unit = fibonacciSpherePoint(i, n);
+    const pos = scaleSpherePoint(unit, shellR);
     centers.set(id, {
-      x: Math.cos(angle) * spiralR,
-      y: Math.sin(angle) * spiralR,
-      z,
-      radius: 36 + Math.min(120, conceptCount * 3.1 + sizeBoost * 0.35),
+      x: pos.x,
+      y: pos.y,
+      z: pos.z,
+      radius: 40 + Math.min(130, conceptCount * 3.2 + sizeBoost * 0.4),
       name: meta?.name ?? 'Library',
     });
   });
@@ -150,13 +192,13 @@ export function computeLibraryCenters3D(
   return centers;
 }
 
-/** Deterministic 3D jitter so nodes do not start coincident. */
+/** Deterministic 3D jitter so nodes do not start coincident — isotropic volume seed. */
 export function hashSpread3D(id: string): { dx: number; dy: number; dz: number } {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
   const a = ((h % 360) * Math.PI) / 180;
   const b = ((((h >> 8) % 180) - 90) * Math.PI) / 180;
-  const r = 14 + (Math.abs(h) % 36);
+  const r = 22 + (Math.abs(h) % 48);
   return {
     dx: Math.cos(a) * Math.cos(b) * r,
     dy: Math.sin(a) * Math.cos(b) * r,
@@ -215,7 +257,7 @@ export type FolderCenter3D = LibraryCenter3D & {
   mass: number;
 };
 
-/** Place folder nests on a ring inside each parent library hull. */
+/** Place folder nests on a Fibonacci sphere inside each parent library hull. */
 export function computeFolderCenters3D(opts: {
   libraryCenters: Map<string, LibraryCenter3D>;
   folders: Array<{
@@ -241,18 +283,19 @@ export function computeFolderCenters3D(opts: {
     const parent = libraryCenters.get(libraryId);
     if (!parent) continue;
 
-    const count = Math.max(libFolders.length, 1);
-    // Mass-weighted ring — denser folders sit closer to library core.
     const sorted = [...libFolders].sort((a, b) => b.mass - a.mass || b.memberCount - a.memberCount);
+    const count = Math.max(sorted.length, 1);
+    // Inner sphere (~55% of parent) so folders fill volume under the library shell.
+    const shellR = parent.radius * 0.55;
 
     sorted.forEach((folder, i) => {
-      const angle = (2 * Math.PI * i) / count - Math.PI / 2 + i * 0.17;
-      const ringRadius = parent.radius * (0.28 + (i / Math.max(count, 1)) * 0.38);
+      const unit = fibonacciSpherePoint(i, count);
+      const offset = scaleSpherePoint(unit, shellR * (0.55 + (i / count) * 0.45));
       const key = `${libraryId}::${folder.folderKey}`;
       centers.set(key, {
-        x: parent.x + Math.cos(angle) * ringRadius,
-        y: parent.y + Math.sin(angle) * ringRadius,
-        z: parent.z + ((i % 4) - 1.5) * (10 + folder.mass * 0.4),
+        x: parent.x + offset.x,
+        y: parent.y + offset.y,
+        z: parent.z + offset.z,
         radius: 18 + Math.min(48, folder.mass * 2.1 + folder.memberCount * 1.1),
         name: folder.label,
         folderKey: folder.folderKey,
@@ -276,7 +319,7 @@ export type ArticleOrbitCenter3D = {
   folderKey: string | null;
 };
 
-/** Place article orbit centers inside folder (or library) parent hulls. */
+/** Place article orbit centers on a Fibonacci sphere inside folder (or library) parents. */
 export function computeArticleOrbitCenters3D(opts: {
   articles: Array<{
     topicId: string;
@@ -313,19 +356,19 @@ export function computeArticleOrbitCenters3D(opts: {
     const parentZ = parent?.z ?? 0;
     const parentRadius = parent?.radius ?? 55;
 
-    const count = Math.max(group.length, 1);
-    const golden = Math.PI * (3 - Math.sqrt(5));
-
-    // Size-ranked spiral inside parent — avoids equal-ring “necklace” of articles.
-    const ranked = [...group].sort((a, b) => b.memberCount - a.memberCount || a.topicId.localeCompare(b.topicId));
+    const ranked = [...group].sort(
+      (a, b) => b.memberCount - a.memberCount || a.topicId.localeCompare(b.topicId),
+    );
+    const count = Math.max(ranked.length, 1);
+    const shellR = parentRadius * 0.42;
 
     ranked.forEach((article, i) => {
-      const angle = i * golden - Math.PI / 2;
-      const spiralR = parentRadius * (0.18 + Math.sqrt(i + 1) / Math.sqrt(count + 1) * 0.42);
+      const unit = fibonacciSpherePoint(i, count);
+      const offset = scaleSpherePoint(unit, shellR);
       centers.set(article.topicId, {
-        x: parentX + Math.cos(angle) * spiralR,
-        y: parentY + Math.sin(angle) * spiralR,
-        z: parentZ + ((i % 4) - 1.5) * (4 + article.memberCount * 0.35),
+        x: parentX + offset.x,
+        y: parentY + offset.y,
+        z: parentZ + offset.z,
         radius: 12 + Math.min(32, article.memberCount * 2.4),
         topicId: article.topicId,
         title: article.title,

@@ -115,7 +115,11 @@ Order of integration (per-adapter detail in `architecture/broker-integration.md`
   - `charge` (many-body) — size-scaled repulsion.
   - `collide` — volume separation so nodes do not occupy the same point.
   - `nest` — soft spherical library attractors / restore (D-040 nests without hard 2D clamps).
-  - soft `center` — keeps the company cloud framed.
+  - soft `center` — near-zero strength so Fibonacci nest shells frame the cloud (D-116);
+    avoid collapsing the galaxy into a pancake.
+- **Nest packing (D-116):** library / folder / article centers use **Fibonacci-sphere**
+  samples on concentric shells (see `research/galaxy-3d-volume-layout.md`). XY-only spirals
+  and tiny Z jitter are rejected — they under-use 3D volume.
 - **Neural affordances:** directional particles on every link (stronger / focused links carry
   more); arrows on directed relations (`causes` / `supports` / `derived_from`); slight link
   curvature; orbit camera; dark space background; node drag.

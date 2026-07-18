@@ -52,6 +52,7 @@ implementation proceeds.
 | `research/paper-experimentation-protocol.md` | Paper-only cohort protocol: preflight, provenance, baselines, gates |
 | `research/trading-philosophy-guidance.md` | Multi-objective philosophy guidance (axes, prompts, experiment learnings) |
 | `research/tech-decisions.md` | Justified technology choices with alternatives considered |
+| `research/galaxy-3d-volume-layout.md` | Fibonacci-sphere nest packing for volumetric galaxy (D-116) |
 | `ops/security-audit.md` | Pre-release secrets / ownership / live-gate checklist (D-027, D-074) |
 | `ops/runbook.md` | Queue drain, credentials, live arming, dead letters |
 | `dev-intent/decisions-log.md` | Dated log of user decisions and clarifications |

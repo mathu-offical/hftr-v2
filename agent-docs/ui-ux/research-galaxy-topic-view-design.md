@@ -130,6 +130,9 @@ chips drawn from visible concepts’ tags (and optionally topic-level keywords).
   primary membership are pulled toward / restored into their library volume.
 - A larger **company envelope** sphere outlines the full organizational cloud (bounds visible
   library nests).
+- **Volume packing (D-116):** library / folder / article centers use **Fibonacci-sphere**
+  samples on concentric shells so XYZ volume is used — not an XY spiral or planar ring
+  (`research/galaxy-3d-volume-layout.md`).
 - Cross-library concept links may span nests (spring length still set by weight band + relation).
 - Concepts in multiple libraries: **primary membership** determines nest; secondary
   memberships shown as badges on the concept card / node label, not duplicated nodes.

@@ -531,12 +531,12 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               if (n.__kind === 'tag-sat') return baseCharge * 0.28;
               return baseCharge;
             })
-            .distanceMax(260),
+            .distanceMax(420),
         );
 
         const center = fg.d3Force('center') as { strength?: (n: number) => unknown } | undefined;
-        // Soft global centering — nest forces own local structure.
-        center?.strength?.(0.012);
+        // Near-zero global centering — Fibonacci nest shells own framing (D-116).
+        center?.strength?.(0.004);
 
         fg.d3Force(
           'collide',
@@ -621,6 +621,18 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     const frame = requestAnimationFrame(() => fitFocusedNodes());
     return () => cancelAnimationFrame(frame);
   }, [hasTopicFocus, fitFocusedNodes, use3dRenderer, graphData.nodes.length, physicsReady]);
+
+  useEffect(() => {
+    if (!physicsReady || !use3dRenderer || hasTopicFocus) return;
+    const fg = graphHandleRef.current;
+    if (!fg?.zoomToFit) return;
+    const durationMs = reducedMotion ? 0 : 700;
+    const t = window.setTimeout(() => {
+      // Wide padding so the Fibonacci shell fills the viewport volume (D-116).
+      fg.zoomToFit?.(durationMs, 110, (n) => !isTagSatelliteNode(n));
+    }, reducedMotion ? 0 : 280);
+    return () => window.clearTimeout(t);
+  }, [physicsReady, use3dRenderer, hasTopicFocus, graphData.hullCount, reducedMotion]);
 
   useEffect(() => {
     const id = props.highlightConceptId;
@@ -1515,10 +1527,10 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               numDimensions={3}
               forceEngine="d3"
               controlType="orbit"
-              warmupTicks={reducedMotion ? 0 : 90}
-              cooldownTicks={reducedMotion ? 0 : 140}
-              d3AlphaDecay={0.02}
-              d3VelocityDecay={0.34}
+              warmupTicks={reducedMotion ? 0 : 120}
+              cooldownTicks={reducedMotion ? 0 : 180}
+              d3AlphaDecay={0.018}
+              d3VelocityDecay={0.32}
               nodeLabel={() => ''}
               linkLabel={() => ''}
               nodeVal="val"

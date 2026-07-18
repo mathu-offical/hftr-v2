@@ -11,6 +11,7 @@ import {
   createForeignLibraryRepelForce,
   createLibraryNestForce,
   createTagSatelliteForce,
+  fibonacciSpherePoint,
   linkDistanceForWeight,
   linkStrengthForWeight,
 } from './galaxy-physics';
@@ -208,7 +209,7 @@ describe('galaxy-physics', () => {
     expect(blended.strength).toBeLessThanOrEqual(1);
   });
 
-  it('places libraries on a size-ranked spiral (not equal ring)', () => {
+  it('places libraries on concentric Fibonacci spheres with real Z depth', () => {
     const centers = computeLibraryCenters3D(
       [
         {
@@ -232,15 +233,32 @@ describe('galaxy-physics', () => {
           topicScope: '',
           conceptCount: 12,
         },
+        {
+          id: '44444444-4444-4444-4444-444444444444',
+          name: 'Other',
+          masterLibrary: false,
+          topicScope: '',
+          conceptCount: 8,
+        },
       ],
       [],
     );
+    const pts = [...centers.values()];
+    expect(pts.length).toBe(4);
+    const zs = pts.map((p) => p.z);
+    const zSpan = Math.max(...zs) - Math.min(...zs);
+    const xs = pts.map((p) => p.x);
+    const xSpan = Math.max(...xs) - Math.min(...xs);
+    // Volume packing: Z extent must be comparable to XY (not a flat pancake).
+    expect(zSpan).toBeGreaterThan(xSpan * 0.35);
     const big = centers.get('11111111-1111-1111-1111-111111111111')!;
     const small = centers.get('22222222-2222-2222-2222-222222222222')!;
-    const mid = centers.get('33333333-3333-3333-3333-333333333333')!;
     expect(big.radius).toBeGreaterThan(small.radius);
-    const radii = [Math.round(Math.hypot(big.x, big.y)), Math.round(Math.hypot(mid.x, mid.y)), Math.round(Math.hypot(small.x, small.y))];
-    expect(new Set(radii).size).toBeGreaterThan(1);
+  });
+
+  it('fibonacciSpherePoint distributes points with non-zero Z for n>2', () => {
+    const zs = [0, 1, 2, 3, 4].map((i) => fibonacciSpherePoint(i, 5).z);
+    expect(Math.max(...zs) - Math.min(...zs)).toBeGreaterThan(0.5);
   });
 
   it('folder cohere pulls members toward live centroid', () => {

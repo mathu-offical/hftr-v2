@@ -8,12 +8,20 @@ import { Justification } from './Justification';
 import { TraceTimeline } from './TraceTimeline';
 import { LlmAvailabilityChips } from '@/components/shell/LlmConnectionStatus';
 
-type Tab = 'trends' | 'scenarios' | 'watchlists' | 'decisions' | 'approvals' | 'dead';
+type Tab =
+  | 'trends'
+  | 'scenarios'
+  | 'watchlists'
+  | 'decisions'
+  | 'lineage'
+  | 'approvals'
+  | 'dead';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'trends', label: 'Trends' },
   { id: 'scenarios', label: 'Scenario engine' },
   { id: 'watchlists', label: 'Watch lists' },
   { id: 'decisions', label: 'Decisions + traces' },
+  { id: 'lineage', label: 'Lineage' },
   { id: 'approvals', label: 'Approvals' },
   { id: 'dead', label: 'Dead letters' },
 ];
@@ -175,6 +183,7 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
   const [transfers, setTransfers] = useState<FundTransferRow[]>([]);
   const [deadJobs, setDeadJobs] = useState<DeadJobRow[]>([]);
   const [openTraceId, setOpenTraceId] = useState<string | null>(null);
+  const [selectedLineageKey, setSelectedLineageKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!storageKey) {
@@ -259,7 +268,7 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
         title="Expand bottom panel (`)"
         className="flex w-full items-center justify-center gap-2 border-t border-[var(--color-line)] bg-[var(--color-surface-1)] py-1 text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
       >
-        ` · Trends · Scenarios · Watch lists · Decisions · Approvals ▲
+        ` · Trends · Scenarios · Watch lists · Decisions · Lineage · Approvals ▲
       </button>
     );
   }
@@ -356,6 +365,24 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
               new Date(w.updatedAt).toLocaleTimeString(),
             ])}
             empty="No watched symbols. Add them from a trading or trend module inspector."
+          />
+        )}
+
+        {tab === 'lineage' && (
+          <LineageView
+            trends={byModule(trends)}
+            leads={byModule(leads)}
+            trees={trees.filter(
+              (t) => moduleFilter === 'all' || t.moduleId === moduleFilter,
+            )}
+            executions={byModule(executions)}
+            verifications={verifications}
+            deadJobs={deadJobs.filter(
+              (j) => moduleFilter === 'all' || j.moduleId === moduleFilter,
+            )}
+            moduleName={moduleName}
+            selectedKey={selectedLineageKey}
+            onSelectKey={setSelectedLineageKey}
           />
         )}
 
@@ -933,6 +960,448 @@ function ApprovalsView(props: {
       ])}
       empty="No pending fund transfers."
     />
+  );
+}
+
+type LineageLinkReason = 'module' | 'symbol' | 'trend' | 'lead' | 'trace';
+
+interface LineageContext {
+  selectedKey: string;
+  moduleIds: Set<string>;
+  symbols: Set<string>;
+  trendIds: Set<string>;
+  leadIds: Set<string>;
+  traceIds: Set<string>;
+  primaryLink: LineageLinkReason;
+}
+
+function parseLineageKey(key: string): { kind: string; id: string } | null {
+  const i = key.indexOf(':');
+  if (i <= 0) return null;
+  return { kind: key.slice(0, i), id: key.slice(i + 1) };
+}
+
+function symbolInText(symbol: string, text: string | null | undefined): boolean {
+  if (!text || !symbol) return false;
+  return text.toUpperCase().includes(symbol.toUpperCase());
+}
+
+function extractSymbolFromDescription(
+  description: string | null,
+  known: Set<string>,
+): string | undefined {
+  if (!description) return undefined;
+  const upper = description.toUpperCase();
+  for (const sym of known) {
+    if (upper.includes(sym)) return sym;
+  }
+  return undefined;
+}
+
+function buildLineageContext(
+  selectedKey: string,
+  data: {
+    trends: TrendRow[];
+    leads: LeadRow[];
+    trees: TreeRow[];
+    executions: ExecutionRow[];
+    deadJobs: DeadJobRow[];
+    knownSymbols: Set<string>;
+  },
+): LineageContext | null {
+  const parsed = parseLineageKey(selectedKey);
+  if (!parsed) return null;
+
+  const ctx: LineageContext = {
+    selectedKey,
+    moduleIds: new Set(),
+    symbols: new Set(),
+    trendIds: new Set(),
+    leadIds: new Set(),
+    traceIds: new Set(),
+    primaryLink: 'module',
+  };
+
+  const { kind, id } = parsed;
+
+  if (kind === 'trend') {
+    const trend = data.trends.find((t) => t.id === id);
+    if (!trend) return null;
+    ctx.moduleIds.add(trend.moduleId);
+    ctx.symbols.add(trend.symbol.toUpperCase());
+    ctx.trendIds.add(trend.id);
+    ctx.primaryLink = 'trend';
+    for (const lead of data.leads.filter((l) => l.trendId === trend.id)) {
+      ctx.leadIds.add(lead.id);
+    }
+    return ctx;
+  }
+
+  if (kind === 'lead') {
+    const lead = data.leads.find((l) => l.id === id);
+    if (!lead) return null;
+    ctx.moduleIds.add(lead.moduleId);
+    ctx.symbols.add(lead.symbol.toUpperCase());
+    ctx.trendIds.add(lead.trendId);
+    ctx.leadIds.add(lead.id);
+    ctx.primaryLink = 'lead';
+    return ctx;
+  }
+
+  if (kind === 'tree') {
+    const tree = data.trees.find((t) => t.id === id);
+    if (!tree) return null;
+    ctx.moduleIds.add(tree.moduleId);
+    ctx.symbols.add(tree.symbol.toUpperCase());
+    ctx.leadIds.add(tree.leadId);
+    const lead = data.leads.find((l) => l.id === tree.leadId);
+    if (lead) ctx.trendIds.add(lead.trendId);
+    ctx.primaryLink = 'lead';
+    return ctx;
+  }
+
+  if (kind === 'execution') {
+    const exec = data.executions.find((e) => e.id === id);
+    if (!exec) return null;
+    ctx.moduleIds.add(exec.moduleId);
+    ctx.traceIds.add(exec.id);
+    const sym = extractSymbolFromDescription(exec.description, data.knownSymbols);
+    if (sym) ctx.symbols.add(sym);
+    ctx.primaryLink = 'trace';
+    for (const lead of data.leads.filter((l) => symbolInText(l.symbol, exec.description))) {
+      ctx.leadIds.add(lead.id);
+      ctx.trendIds.add(lead.trendId);
+      ctx.symbols.add(lead.symbol.toUpperCase());
+    }
+    return ctx;
+  }
+
+  if (kind === 'dead') {
+    const job = data.deadJobs.find((j) => j.id === id);
+    if (!job) return null;
+    if (job.moduleId) ctx.moduleIds.add(job.moduleId);
+    ctx.primaryLink = 'module';
+    return ctx;
+  }
+
+  return null;
+}
+
+function isLineageLinked(
+  ctx: LineageContext,
+  row: {
+    kind: 'trend' | 'lead' | 'tree' | 'execution' | 'dead';
+    id: string;
+    moduleId?: string | null;
+    symbol?: string;
+    trendId?: string;
+    leadId?: string;
+    description?: string | null;
+  },
+): boolean {
+  if (`${row.kind}:${row.id}` === ctx.selectedKey) return true;
+  if (row.kind === 'execution' && ctx.traceIds.has(row.id)) return true;
+  if (row.leadId && ctx.leadIds.has(row.leadId)) return true;
+  if (row.kind === 'lead' && ctx.leadIds.has(row.id)) return true;
+  if (row.trendId && ctx.trendIds.has(row.trendId)) return true;
+  if (row.kind === 'trend' && ctx.trendIds.has(row.id)) return true;
+  if (row.symbol && ctx.symbols.has(row.symbol.toUpperCase())) return true;
+  if (
+    row.kind === 'execution' &&
+    row.description &&
+    [...ctx.symbols].some((s) => symbolInText(s, row.description))
+  ) {
+    return true;
+  }
+  if (row.moduleId && ctx.moduleIds.has(row.moduleId)) return true;
+  return false;
+}
+
+function lineageCaption(ctx: LineageContext): string {
+  const labels: Record<LineageLinkReason, string> = {
+    module: 'module',
+    symbol: 'symbol',
+    trend: 'trend',
+    lead: 'lead / policy',
+    trace: 'trace',
+  };
+  return `Linked by: ${labels[ctx.primaryLink]}`;
+}
+
+/**
+ * Four-column lineage explorer: Trends → Directives (leads + trees) → Decisions
+ * (executions + verification) → Queue (dead letters). Click-to-highlight ancestry.
+ */
+function LineageView(props: {
+  trends: TrendRow[];
+  leads: LeadRow[];
+  trees: TreeRow[];
+  executions: ExecutionRow[];
+  verifications: VerificationRow[];
+  deadJobs: DeadJobRow[];
+  moduleName: (id: string) => string;
+  selectedKey: string | null;
+  onSelectKey: (key: string | null) => void;
+}) {
+  const known = new Set<string>();
+  for (const t of props.trends) known.add(t.symbol.toUpperCase());
+  for (const l of props.leads) known.add(l.symbol.toUpperCase());
+  for (const tr of props.trees) known.add(tr.symbol.toUpperCase());
+
+  const ctx = props.selectedKey
+    ? buildLineageContext(props.selectedKey, {
+        trends: props.trends,
+        leads: props.leads,
+        trees: props.trees,
+        executions: props.executions,
+        deadJobs: props.deadJobs,
+        knownSymbols: known,
+      })
+    : null;
+
+  function rowClass(key: string, linked: boolean): string {
+    const base =
+      'w-full rounded px-1.5 py-1 text-left text-[11px] hover:bg-[var(--color-surface-2)]';
+    if (props.selectedKey === key) {
+      return `${base} bg-[var(--color-accent)]/15 ring-1 ring-[var(--color-accent)]`;
+    }
+    if (linked) {
+      return `${base} bg-[var(--color-surface-2)]/80 ring-1 ring-[var(--color-line)]`;
+    }
+    return base;
+  }
+
+  function toggleKey(key: string) {
+    props.onSelectKey(props.selectedKey === key ? null : key);
+  }
+
+  const sortedTrends = [...props.trends].sort(
+    (a, b) => new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime(),
+  );
+  const sortedLeads = [...props.leads].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+  const sortedTrees = [...props.trees].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+  const sortedExecutions = [...props.executions].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+  const sortedDead = [...props.deadJobs].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  );
+
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-1.5">
+      {ctx && (
+        <p className="shrink-0 text-[10px] text-[var(--color-ink-faint)]">{lineageCaption(ctx)}</p>
+      )}
+      <div
+        data-testid="bottom-lineage-columns"
+        className="grid min-h-0 flex-1 grid-cols-4 gap-2 overflow-x-auto"
+      >
+        <LineageColumn title="Trends">
+          {sortedTrends.length === 0 ? (
+            <p className="px-1 py-2 text-[10px] text-[var(--color-ink-faint)]">No trends.</p>
+          ) : (
+            sortedTrends.map((t) => {
+              const key = `trend:${t.id}`;
+              const linked = ctx
+                ? isLineageLinked(ctx, {
+                    kind: 'trend',
+                    id: t.id,
+                    moduleId: t.moduleId,
+                    symbol: t.symbol,
+                  })
+                : false;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => toggleKey(key)}
+                  className={rowClass(key, linked)}
+                  aria-pressed={props.selectedKey === key}
+                >
+                  <span className="font-mono">{t.symbol}</span>{' '}
+                  <span className="capitalize" style={{ color: toneFor(t.direction) }}>
+                    {t.direction}
+                  </span>
+                  <div className="text-[10px] text-[var(--color-ink-faint)]">
+                    {t.strengthBand} · {props.moduleName(t.moduleId)}
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </LineageColumn>
+
+        <LineageColumn title="Directives (leads + trees)">
+          {sortedLeads.length === 0 && sortedTrees.length === 0 ? (
+            <p className="px-1 py-2 text-[10px] text-[var(--color-ink-faint)]">
+              No leads or trees.
+            </p>
+          ) : (
+            <>
+              {sortedLeads.map((l) => {
+                const key = `lead:${l.id}`;
+                const linked = ctx
+                  ? isLineageLinked(ctx, {
+                      kind: 'lead',
+                      id: l.id,
+                      moduleId: l.moduleId,
+                      symbol: l.symbol,
+                      trendId: l.trendId,
+                    })
+                  : false;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => toggleKey(key)}
+                    className={rowClass(key, linked)}
+                    aria-pressed={props.selectedKey === key}
+                  >
+                    <span className="text-[9px] uppercase text-[var(--color-ink-faint)]">lead</span>{' '}
+                    <span className="font-mono">{l.symbol}</span>{' '}
+                    <span style={{ color: LEAD_STATUS_TONE[l.status] }}>{l.status}</span>
+                    <div className="text-[10px] text-[var(--color-ink-faint)]">
+                      {l.strategyFamily} · {props.moduleName(l.moduleId)}
+                    </div>
+                  </button>
+                );
+              })}
+              {sortedTrees.map((tr) => {
+                const key = `tree:${tr.id}`;
+                const linked = ctx
+                  ? isLineageLinked(ctx, {
+                      kind: 'tree',
+                      id: tr.id,
+                      moduleId: tr.moduleId,
+                      symbol: tr.symbol,
+                      leadId: tr.leadId,
+                    })
+                  : false;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => toggleKey(key)}
+                    className={rowClass(key, linked)}
+                    aria-pressed={props.selectedKey === key}
+                  >
+                    <span className="text-[9px] uppercase text-[var(--color-ink-faint)]">tree</span>{' '}
+                    <span className="font-mono">{tr.symbol}</span>{' '}
+                    <span style={{ color: TREE_STATUS_TONE[tr.status] }}>
+                      {tr.status.replace(/_/g, ' ')}
+                    </span>
+                    <div className="text-[10px] text-[var(--color-ink-faint)]">
+                      {tr.branches.length} branches · {props.moduleName(tr.moduleId)}
+                    </div>
+                  </button>
+                );
+              })}
+            </>
+          )}
+        </LineageColumn>
+
+        <LineageColumn title="Decisions">
+          {sortedExecutions.length === 0 ? (
+            <p className="px-1 py-2 text-[10px] text-[var(--color-ink-faint)]">
+              No executions yet.
+            </p>
+          ) : (
+            sortedExecutions.map((e) => {
+              const key = `execution:${e.id}`;
+              const v = props.verifications.find((x) => x.traceId === e.id);
+              const linked = ctx
+                ? isLineageLinked(ctx, {
+                    kind: 'execution',
+                    id: e.id,
+                    moduleId: e.moduleId,
+                    description: e.description,
+                  })
+                : false;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => toggleKey(key)}
+                  className={rowClass(key, linked)}
+                  aria-pressed={props.selectedKey === key}
+                >
+                  <span className="capitalize" style={{ color: toneFor(e.outcome) }}>
+                    {e.outcome}
+                  </span>
+                  {v && (
+                    <span className="ml-1" style={{ color: toneFor(v.result) }}>
+                      · verify {v.result}
+                    </span>
+                  )}
+                  <div className="truncate text-[10px] text-[var(--color-ink-faint)]">
+                    {e.description ?? e.failureCode ?? `${e.venue} · ${e.mode}`}
+                  </div>
+                  <div className="text-[10px] text-[var(--color-ink-faint)]">
+                    {props.moduleName(e.moduleId)}
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </LineageColumn>
+
+        <LineageColumn title="Queue">
+          <p className="px-1 pb-1 text-[9px] text-[var(--color-ink-faint)]">
+            Dead letters below; active pending jobs appear on the canvas.
+          </p>
+          {sortedDead.length === 0 ? (
+            <p className="px-1 py-2 text-[10px] text-[var(--color-ink-faint)]">
+              No failed instructions.
+            </p>
+          ) : (
+            sortedDead.map((j) => {
+              const key = `dead:${j.id}`;
+              const linked = ctx
+                ? isLineageLinked(ctx, {
+                    kind: 'dead',
+                    id: j.id,
+                    moduleId: j.moduleId,
+                  })
+                : false;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => toggleKey(key)}
+                  className={rowClass(key, linked)}
+                  aria-pressed={props.selectedKey === key}
+                >
+                  <span className="font-mono text-[10px]">{j.kind}</span>{' '}
+                  <span className="text-[var(--color-block)]">failed</span>
+                  <div className="truncate text-[10px] text-[var(--color-ink-faint)]">
+                    {j.lastError ?? j.queueClass}
+                  </div>
+                  <div className="text-[10px] text-[var(--color-ink-faint)]">
+                    {j.moduleId ? props.moduleName(j.moduleId) : 'company scope'} · {j.attempts}{' '}
+                    attempts
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </LineageColumn>
+      </div>
+    </div>
+  );
+}
+
+function LineageColumn(props: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="flex min-w-[9rem] flex-col overflow-hidden rounded border border-[var(--color-line)]">
+      <div className="shrink-0 border-b border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-ink-faint)]">
+        {props.title}
+      </div>
+      <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-1">{props.children}</div>
+    </div>
   );
 }
 

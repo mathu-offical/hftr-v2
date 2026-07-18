@@ -53,7 +53,7 @@ test.describe('Research topics galaxy overlay (D-040)', () => {
       nodes: Array<{ id: string; title?: string; name?: string }>;
     };
     expect(Array.isArray(graph.libraries)).toBeTruthy();
-    // D-044: compile-time catalog mechanisms materialize into galaxy on first graph load.
+    // D-045: compile-time catalog mechanisms materialize into galaxy on first graph load.
     expect(graph.libraries.length).toBeGreaterThanOrEqual(1);
     expect(graph.nodes.length).toBeGreaterThanOrEqual(8);
     const titles = graph.nodes.map((n) => n.title ?? n.name ?? '').join(' ');

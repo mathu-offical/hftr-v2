@@ -102,6 +102,15 @@ test.describe('Companies directory', () => {
     await ensureIdentityFields(page);
     await page.getByRole('textbox', { name: /Name/ }).fill(e2eCompanyName('create-gate'));
     await page.getByRole('textbox', { name: /Philosophy/ }).fill('E2E create-gate philosophy.');
+    await page.getByRole('combobox', { name: 'Sector focus' }).fill('Semi');
+    await page.getByRole('option', { name: 'Semiconductors' }).click();
+    await page.getByRole('combobox', { name: 'Sector focus' }).fill('Clean energy');
+    await page.getByRole('combobox', { name: 'Sector focus' }).press('Enter');
+    await expect(page.getByTestId('create-sector-focuses-selected')).toContainText('Semiconductors');
+    await expect(page.getByTestId('create-sector-focuses-selected')).toContainText(
+      'Clean energy & utilities',
+    );
+    await expect(page.getByTestId('engine-inspector-panel')).toContainText(/Semiconductors/);
     await confirmIdentity(page);
     await expect(page.getByRole('button', { name: 'Skip setup & open canvas' })).toBeEnabled();
     await expect(page.getByTestId('engine-canvas-preview')).toBeVisible();
@@ -124,8 +133,8 @@ test.describe('Companies directory', () => {
       'family',
     );
     await expect(dayCard.getByRole('heading', { name: 'Day trading engine' })).toBeVisible();
-    // Topic stays operator-required; capital/exit are prefilled defaults (D-035).
-    await expect(dayCard.getByText(/Required · Topic \/ sector/).first()).toBeVisible();
+    // Sector focuses pre-seed topic; capital/exit remain defaulted (D-035 / D-044).
+    await expect(dayCard.getByLabel('Confirmed: Topic / sector').first()).toBeVisible();
     await expect(dayCard.getByLabel('Confirmed: Capital allocation').first()).toBeVisible();
 
     const allocationMode = dayCard.getByLabel('Capital allocation mode').first();

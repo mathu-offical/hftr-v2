@@ -21,8 +21,10 @@ import {
   createFolderNestForce,
   createForeignLibraryRepelForce,
   createLibraryNestForce,
+  createNestShellRadialForce,
   createTagSatelliteForce,
   hashSpread3D,
+  nestPackingSignature,
   type GalaxySimNode,
 } from '@/lib/galaxy-physics';
 import {
@@ -73,7 +75,7 @@ type ForceGraphHandle = {
     pos?: { x: number; y: number; z: number },
     lookAt?: { x: number; y: number; z: number },
     transitionMs?: number,
-  ) => void;
+  ) => { x: number; y: number; z: number } | void;
   graph2ScreenCoords?: (
     x: number,
     y: number,
@@ -197,7 +199,9 @@ function GalaxyViewInner(props: GalaxyViewProps) {
   const graphBox = useGraphDimensions();
   const graphHandleRef = useRef<ForceGraphHandle | null>(null);
   const physicsSignatureRef = useRef('');
+  const packingSignatureRef = useRef('');
   const layoutCommittedRef = useRef(new Set<string>());
+  const volumeFitDoneRef = useRef(false);
   const pointerRef = useRef({ x: 0, y: 0 });
   const graphSurfaceRef = useRef<HTMLDivElement | null>(null);
 
@@ -241,6 +245,16 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       ),
     [libraryNests, props.nodes],
   );
+
+  const packingSig = useMemo(() => nestPackingSignature(libraryCenters), [libraryCenters]);
+
+  // When Fibonacci shells move, drop stale d3 seeds so concepts re-seed into volume (D-116 P1b).
+  useEffect(() => {
+    if (packingSignatureRef.current === packingSig) return;
+    packingSignatureRef.current = packingSig;
+    layoutCommittedRef.current.clear();
+    volumeFitDoneRef.current = false;
+  }, [packingSig]);
 
   const conceptFolderIndex = useMemo(() => buildConceptFolderIndex(folderStars), [folderStars]);
 
@@ -550,6 +564,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             .iterations(2),
         );
         fg.d3Force('nest', createLibraryNestForce(libraryCenters));
+        fg.d3Force('nestShell', createNestShellRadialForce(libraryCenters));
         fg.d3Force('folderNest', createFolderNestForce(folderCenters));
         fg.d3Force('folderCohere', createFolderCohereForce());
         fg.d3Force('foreignRepel', createForeignLibraryRepelForce(libraryCenters));
@@ -574,7 +589,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
   useEffect(() => {
     const fg = graphHandleRef.current;
     if (!fg?.d3Force) return;
-    const sig = `${graphData.nodes.length}:${graphData.links.length}:${libraryCenters.size}:${folderCenters.size}:${articleCenters.size}:${use3dRenderer}`;
+    const sig = `${graphData.nodes.length}:${graphData.links.length}:${libraryCenters.size}:${folderCenters.size}:${articleCenters.size}:${packingSig}:${use3dRenderer}`;
     if (physicsSignatureRef.current === sig && physicsReady) return;
     physicsSignatureRef.current = sig;
     const frame = requestAnimationFrame(() => {
@@ -588,6 +603,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     libraryCenters.size,
     folderCenters.size,
     articleCenters.size,
+    packingSig,
     physicsReady,
     use3dRenderer,
   ]);
@@ -624,15 +640,25 @@ function GalaxyViewInner(props: GalaxyViewProps) {
 
   useEffect(() => {
     if (!physicsReady || !use3dRenderer || hasTopicFocus) return;
+    if (volumeFitDoneRef.current) return;
     const fg = graphHandleRef.current;
     if (!fg?.zoomToFit) return;
-    const durationMs = reducedMotion ? 0 : 700;
+    const durationMs = reducedMotion ? 0 : 800;
     const t = window.setTimeout(() => {
       // Wide padding so the Fibonacci shell fills the viewport volume (D-116).
-      fg.zoomToFit?.(durationMs, 110, (n) => !isTagSatelliteNode(n));
-    }, reducedMotion ? 0 : 280);
+      fg.zoomToFit?.(durationMs, 140, (n) => !isTagSatelliteNode(n));
+      // Slight elevated camera so Z depth reads immediately (not head-on pancake).
+      if (fg.cameraPosition && !reducedMotion) {
+        const cam = fg.cameraPosition() as { x: number; y: number; z: number } | void;
+        if (cam && typeof cam.x === 'number') {
+          const elev = Math.hypot(cam.x, cam.z) * 0.28;
+          fg.cameraPosition({ x: cam.x, y: cam.y + elev, z: cam.z }, undefined, durationMs);
+        }
+      }
+      volumeFitDoneRef.current = true;
+    }, reducedMotion ? 0 : 400);
     return () => window.clearTimeout(t);
-  }, [physicsReady, use3dRenderer, hasTopicFocus, graphData.hullCount, reducedMotion]);
+  }, [physicsReady, use3dRenderer, hasTopicFocus, graphData.hullCount, packingSig, reducedMotion]);
 
   useEffect(() => {
     const id = props.highlightConceptId;
@@ -860,6 +886,12 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     type GalaxyHoverTestApi = {
       showConcept: (conceptId: string) => boolean;
       clear: () => void;
+      layoutStats: () => {
+        packingSig: string;
+        conceptCount: number;
+        libraryCount: number;
+        aabb: { xSpan: number; ySpan: number; zSpan: number; zOverX: number } | null;
+      };
     };
     const api: GalaxyHoverTestApi = {
       showConcept: (conceptId: string) => {
@@ -898,6 +930,35 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         return true;
       },
       clear: () => clearHover(),
+      layoutStats: () => {
+        const pts = [...libraryCenters.values()];
+        if (pts.length === 0) {
+          return {
+            packingSig,
+            conceptCount: props.nodes.length,
+            libraryCount: 0,
+            aabb: null,
+          };
+        }
+        const xs = pts.map((p) => p.x);
+        const ys = pts.map((p) => p.y);
+        const zs = pts.map((p) => p.z);
+        const span = (a: number[]) => Math.max(...a) - Math.min(...a);
+        const xSpan = span(xs);
+        const ySpan = span(ys);
+        const zSpan = span(zs);
+        return {
+          packingSig,
+          conceptCount: props.nodes.length,
+          libraryCount: pts.length,
+          aabb: {
+            xSpan,
+            ySpan,
+            zSpan,
+            zOverX: xSpan > 0 ? zSpan / xSpan : 0,
+          },
+        };
+      },
     };
     (window as Window & { __hftrGalaxyHoverTest?: GalaxyHoverTestApi }).__hftrGalaxyHoverTest =
       api;
@@ -912,9 +973,12 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     conceptFolderIndex,
     degreeById,
     folderLabelByKey,
+    libraryCenters,
     libraryNameById,
     nodeLookupById,
+    packingSig,
     placeHoverCard,
+    props.nodes.length,
   ]);
 
   const onNodeHover = useCallback(

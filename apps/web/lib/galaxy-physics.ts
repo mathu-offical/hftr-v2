@@ -168,28 +168,42 @@ export function computeLibraryCenters3D(
 
   const centers = new Map<string, LibraryCenter3D>();
   const n = Math.max(ranked.length, 1);
-  // Base shell large enough that nest hulls don't overlap in volume.
-  const baseShell = 160 + Math.min(220, n * 28);
+  // Base shell large enough that nest hulls occupy distinct 3D volume (D-116 refine).
+  const baseShell = 220 + Math.min(280, n * 36);
 
   ranked.forEach((id, i) => {
     const meta = libMeta.get(id);
     const conceptCount = meta?.conceptCount ?? 3;
-    const sizeBoost = Math.min(140, conceptCount * 3.2);
+    const sizeBoost = Math.min(160, conceptCount * 3.6);
     // Size tiers → concentric shells (inner = denser/larger libs, outer = sparse).
     const tier = Math.min(2, Math.floor((i / n) * 3));
-    const shellR = baseShell + tier * 95 + sizeBoost * 0.4;
+    const shellR = baseShell + tier * 130 + sizeBoost * 0.55;
     const unit = fibonacciSpherePoint(i, n);
     const pos = scaleSpherePoint(unit, shellR);
     centers.set(id, {
       x: pos.x,
       y: pos.y,
       z: pos.z,
-      radius: 40 + Math.min(130, conceptCount * 3.2 + sizeBoost * 0.4),
+      radius: 48 + Math.min(150, conceptCount * 3.6 + sizeBoost * 0.45),
       name: meta?.name ?? 'Library',
     });
   });
 
   return centers;
+}
+
+/**
+ * Stable signature of nest packing so UI can clear stale d3 seed positions when
+ * Fibonacci shells move (D-116 P1b).
+ */
+export function nestPackingSignature(centers: Map<string, LibraryCenter3D>): string {
+  const parts: string[] = [];
+  for (const [id, c] of [...centers.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    parts.push(
+      `${id}:${Math.round(c.x)}:${Math.round(c.y)}:${Math.round(c.z)}:${Math.round(c.radius)}`,
+    );
+  }
+  return parts.join('|');
 }
 
 /** Deterministic 3D jitter so nodes do not start coincident — isotropic volume seed. */
@@ -198,7 +212,7 @@ export function hashSpread3D(id: string): { dx: number; dy: number; dz: number }
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
   const a = ((h % 360) * Math.PI) / 180;
   const b = ((((h >> 8) % 180) - 90) * Math.PI) / 180;
-  const r = 22 + (Math.abs(h) % 48);
+  const r = 28 + (Math.abs(h) % 56);
   return {
     dx: Math.cos(a) * Math.cos(b) * r,
     dy: Math.sin(a) * Math.cos(b) * r,
@@ -412,6 +426,49 @@ export function createFolderNestForce(centers: Map<string, FolderCenter3D>) {
         node.vy = (node.vy ?? 0) - dy * pull;
         node.vz = (node.vz ?? 0) - dz * pull;
       }
+    }
+  }
+
+  force.initialize = (initNodes: GalaxySimNode[]) => {
+    nodes = initNodes;
+  };
+
+  return force;
+}
+
+/**
+ * Soft radial shell force inside each library nest (forceRadial analogue per nest).
+ * Pushes concepts toward a hashed target radius so members fill the ball volume
+ * instead of collapsing to the nest core / midplane (D-116 P2).
+ */
+export function createNestShellRadialForce(centers: Map<string, LibraryCenter3D>) {
+  let nodes: GalaxySimNode[] = [];
+
+  function force(alpha: number) {
+    const strength = alpha * 0.12;
+    for (const node of nodes) {
+      if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
+      // Folder/article attractors own local structure when present.
+      if (node.primaryFolderKey || node.primaryArticleId) continue;
+      const libId = node.primaryLibraryId;
+      if (!libId) continue;
+      const center = centers.get(libId);
+      if (!center) continue;
+
+      const id = String(node.id ?? '');
+      let h = 0;
+      for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+      const band = 0.22 + (Math.abs(h) % 100) / 100 * 0.5; // 0.22–0.72 of nest radius
+      const targetR = center.radius * band;
+
+      const dx = (node.x ?? 0) - center.x;
+      const dy = (node.y ?? 0) - center.y;
+      const dz = (node.z ?? 0) - center.z;
+      const dist = Math.hypot(dx, dy, dz) || 1e-6;
+      const delta = (dist - targetR) / dist;
+      node.vx = (node.vx ?? 0) - dx * delta * strength;
+      node.vy = (node.vy ?? 0) - dy * delta * strength;
+      node.vz = (node.vz ?? 0) - dz * delta * strength;
     }
   }
 

@@ -156,7 +156,7 @@ export function buildCompanyHullNode(
     const reach = Math.hypot(c.x - cx, c.y - cy, c.z - cz) + c.radius;
     if (reach > radius) radius = reach;
   }
-  radius *= 1.12;
+  radius *= 1.22;
 
   return {
     id: COMPANY_HULL_ID,

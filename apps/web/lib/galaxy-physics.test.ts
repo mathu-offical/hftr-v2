@@ -10,10 +10,12 @@ import {
   createFolderNestForce,
   createForeignLibraryRepelForce,
   createLibraryNestForce,
+  createNestShellRadialForce,
   createTagSatelliteForce,
   fibonacciSpherePoint,
   linkDistanceForWeight,
   linkStrengthForWeight,
+  nestPackingSignature,
 } from './galaxy-physics';
 import { linkDistanceForSimilarity } from './galaxy-similarity';
 
@@ -256,9 +258,33 @@ describe('galaxy-physics', () => {
     expect(big.radius).toBeGreaterThan(small.radius);
   });
 
-  it('fibonacciSpherePoint distributes points with non-zero Z for n>2', () => {
-    const zs = [0, 1, 2, 3, 4].map((i) => fibonacciSpherePoint(i, 5).z);
-    expect(Math.max(...zs) - Math.min(...zs)).toBeGreaterThan(0.5);
+  it('nestPackingSignature changes when centers move', () => {
+    const a = new Map([
+      ['lib', { x: 10, y: 0, z: 0, radius: 40, name: 'A' }],
+    ]);
+    const b = new Map([
+      ['lib', { x: 200, y: 0, z: 50, radius: 40, name: 'A' }],
+    ]);
+    expect(nestPackingSignature(a)).not.toBe(nestPackingSignature(b));
+  });
+
+  it('nest shell radial force pushes core members outward toward target band', () => {
+    const centers = new Map([['lib', { x: 0, y: 0, z: 0, radius: 80, name: 'Lib' }]]);
+    const force = createNestShellRadialForce(centers);
+    const node = {
+      id: 'c1',
+      primaryLibraryId: 'lib',
+      x: 2,
+      y: 0,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+    };
+    force.initialize([node]);
+    force(1);
+    // Near core → push outward (positive vx along +x).
+    expect(node.vx).toBeGreaterThan(0);
   });
 
   it('folder cohere pulls members toward live centroid', () => {

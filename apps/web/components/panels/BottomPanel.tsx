@@ -374,7 +374,13 @@ export function BottomPanel(props: {
   }, []);
 
   const ribbon = (
-    <div className="flex w-full items-stretch gap-2 border-t border-[var(--color-line)] bg-[var(--color-surface-1)]">
+    <div
+      className={`flex w-full items-stretch gap-2 bg-[var(--color-surface-1)] ${
+        open
+          ? 'border-b border-t border-[var(--color-line)]'
+          : 'border-t border-[var(--color-line)]'
+      }`}
+    >
       <PanelTabs
         aria-label="Bottom panel sections"
         className="min-w-0 flex-1"
@@ -424,7 +430,8 @@ export function BottomPanel(props: {
 
   return (
     <section className="flex shrink-0 flex-col bg-[var(--color-surface-1)]">
-      <div className="h-[min(70vh,48rem)] min-h-[16rem] overflow-y-auto border-t border-[var(--color-line)] px-4 py-2 text-sm">
+      {ribbon}
+      <div className="h-[min(70vh,48rem)] min-h-[16rem] overflow-y-auto px-4 py-2 text-sm">
         {tab === 'trends' && (
           <TrendsView
             companyId={props.companyId}
@@ -605,8 +612,6 @@ export function BottomPanel(props: {
           />
         )}
       </div>
-
-      {ribbon}
 
       {openTraceId && (
         <TraceTimeline

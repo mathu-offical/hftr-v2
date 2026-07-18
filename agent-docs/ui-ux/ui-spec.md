@@ -277,12 +277,15 @@ suppressed in editable fields.
   expiry**, holdings with realized PnL + pipeline/recovery stubs, and bottom grids at rail
   parity (tier filters including `triggered`, Confirm, Justification). Freshness strip shows
   hub `fetchedAt` + movers expiry. Hover justification (D-083) where wired.
-  Distinct from Research + Libraries (async corpus). Hub data uses client **SWR cache**
-  (`market-hub-cache` + `useMarketHub`): memory + sessionStorage, 15s fresh / 10m stale,
-  inflight dedupe, shell warm-prefetch so tab/overlay navigation stays seamless.
-  Visible surfaces poll on the fresh cadence; **Refresh** enqueues `library.system_movers`
-  then force-revalidates. Non-flat `trend.scan` and admitted `trend.promote` also enqueue
-  movers revalidation.
+  Distinct from Research + Libraries (async corpus).   Hub data uses client **SWR cache**
+  (`market-hub-cache` + `useMarketHub`): memory + sessionStorage, 15s fresh / 10m stale for
+  full hub, inflight dedupe, shell warm-prefetch so tab/overlay navigation stays seamless.
+  **Live vs static (D-112):** automatic poll hits lightweight `GET …/market-hub/live`
+  (equity + position marks/sparks only) and merges without remounting static slices; Syncing…
+  only on manual Sync (full hub). Analyze pauses live poll, runs POST drain, then one full
+  reload — UI cadence never blocks backend jobs.
+  Visible surfaces: live equity/positions refresh on the live cadence; seals/reports/charts/
+  Model stay stable until Sync or Analyze.
   **Provider surfaces (D-103):** movers compound gathers only credential-ready / public kinds
   from the operator's research keys + Alpaca paper broker (via `selectReadySourceKinds`).
   Overlay + rail list each movers-lane provider as ready / need key / contributed on last seal.
@@ -294,11 +297,11 @@ suppressed in editable fields.
   readable without color. Overlay adds dynamic pies/bars for allocation, watchlist tiers,
   trend strength, mover directions, and provider ready/need-key. Sparks are labeled
   `synthetic_sim` (baseline algorithm), not broker history.
-  **Analyze vs Sync (D-111):** **Sync** reloads the live hub GET (automatic while posture is
-  open; Syncing… indicator). **Analyze** runs a master posture pass — force-reseal
-  `library.system_movers` (tactical LLM thresholds), `library.system_sector_news`, and
-  calendar-phase `library.system_daily_summaries`. Nested **Model** category embeds a
-  read-only React Flow of that baseline pipeline (DATA / LLM / DET / OUT stages).
+  **Analyze vs Sync (D-111):** **Sync** forces full hub GET. **Analyze** runs master posture
+  pass — force-reseal `library.system_movers` (tactical LLM thresholds),
+  `library.system_sector_news`, and calendar-phase `library.system_daily_summaries`. Nested
+  **Model** category embeds a read-only React Flow of that baseline pipeline (DATA / LLM /
+  DET / OUT) — static, not live-polled.
   **Watchlist tiers (D-092):** `suggested_search` → `suggested_verified` → `watching`
   (+ `triggered` / `archived`). Market posture rail **and overlay** + bottom Watch lists
   filter chips (default: watching + suggested_verified). **Confirm** PATCHes to `watching`
@@ -326,12 +329,10 @@ suppressed in editable fields.
   flow, library list with curation status.
 
 ### MIDDLE BOTTOM — Exploration + Analysis + Choice (the main control panel)
-- **Persistent ribbon (D-097):** always-visible tab buttons (Trends · Scenarios · Watch ·
-  Decisions · Lineage · Approvals · Dead) plus an **Execution engine** dropdown and
-  expand/collapse chevron. Clicking a tab opens the panel on that section; `` ` `` / Esc /
-  chevron still toggle open height. Content defaults to **~70vh** (capped at 48rem, floor
-  16rem) above the ribbon when expanded (D-105) — restores the middle-bottom control panel as
-  a primary working surface rather than a slim strip.
+- **Persistent ribbon (D-097 / D-113):** collapsed view keeps tab buttons + engine dropdown +
+  chevron as a slim **bottom ribbon**. When expanded, that same chrome moves to the **top** of
+  the panel window (tabs above content); `` ` `` / Esc / chevron still toggle height. Content
+  defaults to **~70vh** (capped at 48rem, floor 16rem) below the top chrome (D-105).
 - **Engine scope (D-097):** dropdown selects `All engines` or one `engine_instances` row.
   Every tab filters durable API projections to modules whose `engine_instance_id` matches
   (trends, leads/trees, watchlists, executions/decisions, lineage columns, approvals that

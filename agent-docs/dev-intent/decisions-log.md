@@ -1150,11 +1150,28 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `canvas-connection-point-audit.md`.   **Status: implemented.**
 
 - **D-111 (Market posture Analyze vs Sync + Model canvas, 2026-07-18):** Split operator
-  actions — **Sync** is GET-only live hub projection (automatic poll + visible Syncing…);
-  **Analyze** POSTs `…/market-hub/analyze` to force-reseal movers + sector + daily summary
-  and run tactical LLM `suggestion_threshold_profile`. Nested **Model** category shows
-  read-only React Flow of the baseline algorithm (providers → gather → LLM/defaults →
-  compound → seal → hub). Docs: ui-spec §4. **Status: implemented.**
+  actions — **Sync** forces a full hub GET (seals + categories); **Analyze** POSTs
+  `…/market-hub/analyze` to force-reseal movers + sector + daily summary and run tactical
+  LLM `suggestion_threshold_profile`. Nested **Model** category shows read-only React Flow
+  of the baseline algorithm (providers → gather → LLM/defaults → compound → seal → hub).
+  Automatic background updates moved to live-slice policy in **D-112**. Docs: ui-spec §4.
+  **Status: implemented.**
+
+- **D-112 (Market posture live vs static refresh policy, 2026-07-18):** UI surfaces split by
+  update rate. **Live (silent ~15s poll via `GET …/market-hub/live`):** equity series/status,
+  position marks / uPnL / held SymbolTicker sparks, freshness `fetchedAt`. **Static until
+  Sync or Analyze:** movers seal + reports, charts aggregates, provider lane inventory,
+  watchlist/trend/pipeline row identity, Model algorithm canvas, sector focuses. Live poll
+  never sets Syncing…, never replaces static slices, and **pauses while Analyze runs** so
+  backend drain is not contended by UI refresh. Manual Sync = full hub; Analyze = POST then
+  one full hub reload. User intent: regular updates only where efficient; backend Analyze
+  remains unblocked by UI cadence. Docs: ui-spec §4, research-live-system-cadence.md.
+  **Status: implemented.**
+
+- **D-113 (bottom panel tabs top-when-expanded, 2026-07-18):** Expanded middle-bottom panel
+  places the tab strip + engine dropdown + collapse control at the **top** of the window;
+  collapsed state keeps the same controls as a bottom ribbon. Docs: ui-spec §4. **Status:
+  implemented.**
 
 ## Open questions
 

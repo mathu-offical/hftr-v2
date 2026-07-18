@@ -262,3 +262,38 @@ export const MarketHubRefreshResponse = z.object({
   drainError: z.string().optional(),
 });
 export type MarketHubRefreshResponse = z.infer<typeof MarketHubRefreshResponse>;
+
+/**
+ * Master Analyze — full posture pass with LLM threshold proposal (D-111).
+ * Distinct from hub Sync (GET-only live projection).
+ */
+export const MarketHubAnalyzeJobKind = z.enum([
+  'library.system_movers',
+  'library.system_sector_news',
+  'library.system_daily_summaries',
+]);
+export type MarketHubAnalyzeJobKind = z.infer<typeof MarketHubAnalyzeJobKind>;
+
+export const MarketHubAnalyzeResponse = z.object({
+  enqueued: z.boolean(),
+  jobs: z
+    .array(
+      z.object({
+        kind: MarketHubAnalyzeJobKind,
+        forceReseal: z.boolean().optional(),
+      }),
+    )
+    .max(8),
+  /** Tactical LLM threshold proposal runs inside system_movers when gateway entitled. */
+  llmStage: z.literal('suggestion_threshold_profile'),
+  drained: z
+    .object({
+      claimed: z.number().int().nonnegative(),
+      completed: z.number().int().nonnegative(),
+      failed: z.number().int().nonnegative(),
+      deadlineHit: z.boolean(),
+    })
+    .optional(),
+  drainError: z.string().optional(),
+});
+export type MarketHubAnalyzeResponse = z.infer<typeof MarketHubAnalyzeResponse>;

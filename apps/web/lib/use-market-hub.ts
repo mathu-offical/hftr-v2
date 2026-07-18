@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { MarketHubResponse } from '@hftr/contracts';
+import type { MarketHubAnalyzeResponse, MarketHubResponse } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import {
   invalidateMarketHub,
@@ -17,17 +17,25 @@ export type UseMarketHubResult = {
   data: MarketHubResponse | null;
   /** True when no usable data is available yet. */
   loading: boolean;
-  /** True when cached data is shown while a revalidate is in flight. */
+  /** True when cached data is shown while a GET revalidate is in flight. */
   refreshing: boolean;
+  /** True while master Analyze (LLM posture pass) is draining. */
+  analyzing: boolean;
   error: string | null;
+  /** GET-only live hub sync (automatic poll also uses this). */
   refresh: (force?: boolean) => Promise<void>;
-  /** Enqueue movers revalidation then force-reload hub. */
+  /**
+   * @deprecated Prefer refresh() for live sync and analyze() for LLM pass.
+   * Kept as alias to analyze() for older callers.
+   */
   refreshMovers: () => Promise<void>;
+  /** Master Analyze — force reseal movers + sector + daily; tactical LLM thresholds. */
+  analyze: () => Promise<void>;
 };
 
 /**
  * Shared Market posture hub subscription (stale-while-revalidate + poll).
- * Panel and overlay use the same cache key so navigation stays seamless.
+ * Sync = GET projection. Analyze = POST …/analyze (LLM + seals).
  */
 export function useMarketHub(
   companyId: string | null,
@@ -50,8 +58,9 @@ export function useMarketHub(
     return peekMarketHub(key) === null;
   });
   const [refreshing, setRefreshing] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const moversBusy = useRef(false);
+  const analyzeBusy = useRef(false);
 
   const fetcher = useCallback(async () => {
     if (!companyId) throw new Error('companyId required');
@@ -83,21 +92,25 @@ export function useMarketHub(
     [key, enabled, fetcher],
   );
 
-  const refreshMovers = useCallback(async () => {
-    if (!companyId || !key || moversBusy.current) return;
-    moversBusy.current = true;
-    setRefreshing(true);
+  const analyze = useCallback(async () => {
+    if (!companyId || !key || analyzeBusy.current) return;
+    analyzeBusy.current = true;
+    setAnalyzing(true);
     try {
-      await api(`/api/companies/${companyId}/market-hub`, { method: 'POST' });
+      await api<MarketHubAnalyzeResponse>(`/api/companies/${companyId}/market-hub/analyze`, {
+        method: 'POST',
+      });
       invalidateMarketHub(key);
       await refresh(true);
     } catch (err) {
-      setError(err instanceof RequestError ? err.message : 'Refresh failed');
+      setError(err instanceof RequestError ? err.message : 'Analyze failed');
     } finally {
-      moversBusy.current = false;
-      setRefreshing(false);
+      analyzeBusy.current = false;
+      setAnalyzing(false);
     }
   }, [companyId, key, refresh]);
+
+  const refreshMovers = analyze;
 
   useEffect(() => {
     if (!key || !keyStr || !enabled) return;
@@ -120,5 +133,5 @@ export function useMarketHub(
     return () => clearInterval(interval);
   }, [key, enabled, poll, refresh]);
 
-  return { data, loading, refreshing, error, refresh, refreshMovers };
+  return { data, loading, refreshing, analyzing, error, refresh, refreshMovers, analyze };
 }

@@ -8,6 +8,7 @@ import {
 } from '@/components/panels/MarketPostureViewContext';
 import { MarketPostureFreshnessStrip } from '@/components/panels/MarketPostureFreshnessStrip';
 import { MarketPostureSourcesStrip } from '@/components/panels/MarketPostureSourcesStrip';
+import { MarketPostureModelCanvas } from '@/components/panels/MarketPostureModelCanvas';
 import { SymbolTicker } from '@/components/market/SymbolTicker';
 import { Justification } from '@/components/panels/Justification';
 import { PanelTabs } from '@/components/panels/PanelTabs';
@@ -30,17 +31,21 @@ const CATEGORIES: { id: MarketPostureCategory; label: string }[] = [
   { id: 'watchlists', label: 'Watchlists' },
   { id: 'trends', label: 'Trends' },
   { id: 'pipeline', label: 'Plans' },
+  { id: 'model', label: 'Model' },
 ];
 
 /**
- * Left-panel navigator for Market posture (D-081 / D-085 / D-092 / D-101).
- * Rail lists company-wide categories; rows focus the overlay dashboard.
+ * Left-panel navigator for Market posture (D-081 / D-085 / D-092 / D-101 / D-111).
+ * Rail lists company-wide categories; Model shows baseline algorithm canvas.
  */
 export function MarketPosturePanel(props: { companyId: string }) {
   const mp = useMarketPostureView();
-  const { data: hub, loading, refreshing, error, refresh } = useMarketHub(props.companyId, {
-    poll: true,
-  });
+  const { data: hub, loading, refreshing, analyzing, error, refresh, analyze } = useMarketHub(
+    props.companyId,
+    {
+      poll: true,
+    },
+  );
   const [watchlistTierFilter, setWatchlistTierFilter] = useState<WatchlistTierFilter>('default');
 
   const confirmWatchlist = useCallback(
@@ -75,11 +80,12 @@ export function MarketPosturePanel(props: { companyId: string }) {
     watchlistMatchesTierFilter(w.status, watchlistTierFilter),
   );
 
-  const counts: Record<MarketPostureCategory, number> = {
+  const counts: Record<MarketPostureCategory, number | undefined> = {
     positions: hub.positions.length,
     watchlists: filteredWatchlists.length,
     trends: hub.trendCandidates.length,
     pipeline: hub.pipeline.length,
+    model: undefined,
   };
 
   return (
@@ -88,11 +94,35 @@ export function MarketPosturePanel(props: { companyId: string }) {
         <p className="text-[10px] text-[var(--color-ink-faint)]">
           Dashboard over canvas · select a row to focus
         </p>
-        {refreshing ? (
-          <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+        <div className="flex shrink-0 items-center gap-1.5">
+          {(refreshing || analyzing) && (
+            <span
+              className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]"
+              data-testid="market-posture-panel-sync"
+            >
+              {analyzing ? 'Analyzing' : 'Sync'}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => void refresh(true)}
+            disabled={refreshing || analyzing}
+            className="border border-[var(--color-line)] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)] disabled:opacity-50"
+            title="Sync live hub data"
+          >
             Sync
-          </span>
-        ) : null}
+          </button>
+          <button
+            type="button"
+            onClick={() => void analyze()}
+            disabled={analyzing || refreshing}
+            className="border border-[var(--color-accent)] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-accent)] disabled:opacity-50"
+            data-testid="market-posture-panel-analyze"
+            title="Full analysis with LLM thresholds"
+          >
+            Analyze
+          </button>
+        </div>
       </div>
 
       <PanelTabs
@@ -109,6 +139,21 @@ export function MarketPosturePanel(props: { companyId: string }) {
 
       {mp.category === 'positions' && <PositionList hub={hub} mp={mp} />}
 
+      {mp.category === 'model' && (
+        <div className="space-y-2" data-testid="market-posture-model">
+          <p className="text-[10px] text-[var(--color-ink-dim)]">
+            Baseline market-awareness path (no engines). LLM stage is tactical threshold
+            presets on Analyze; Sync only reloads the hub projection.
+          </p>
+          <MarketPostureModelCanvas />
+          <ul className="space-y-1 font-mono text-[9px] text-[var(--color-ink-faint)]">
+            <li>DATA — provider gather</li>
+            <li>LLM — suggestion threshold profile (Analyze)</li>
+            <li>DET — universe · RS · compound · verify · seal</li>
+            <li>OUT — market hub SymbolTicker / charts</li>
+          </ul>
+        </div>
+      )}
       {mp.category === 'watchlists' && (
         <div className="space-y-2">
           <WatchlistTierFilterChips

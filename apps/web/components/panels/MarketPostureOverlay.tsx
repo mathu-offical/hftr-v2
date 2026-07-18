@@ -60,7 +60,7 @@ function focusRing(active: boolean): string {
 export function MarketPostureOverlay() {
   const mp = useMarketPostureView();
   const research = useResearchView();
-  const { data: hub, loading, refreshing, error, refresh, refreshMovers } = useMarketHub(
+  const { data: hub, loading, refreshing, analyzing, error, refresh, analyze } = useMarketHub(
     mp.companyId,
     {
       enabled: true,
@@ -151,13 +151,32 @@ export function MarketPostureOverlay() {
             ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {(refreshing || analyzing) && (
+              <span
+                className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]"
+                data-testid="market-posture-sync-state"
+              >
+                {analyzing ? 'Analyzing…' : 'Syncing…'}
+              </span>
+            )}
             <button
               type="button"
-              onClick={() => void refreshMovers()}
-              disabled={refreshing}
+              onClick={() => void refresh(true)}
+              disabled={refreshing || analyzing}
+              title="Reload live hub projection (marks, seals, positions). Automatic while open."
               className="border border-[var(--color-line)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--color-ink-dim)] hover:border-[var(--color-ink-faint)] hover:text-[var(--color-ink)] disabled:opacity-50"
             >
-              {refreshing ? 'Sync…' : 'Refresh'}
+              Sync
+            </button>
+            <button
+              type="button"
+              onClick={() => void analyze()}
+              disabled={analyzing || refreshing}
+              title="Full posture analysis: gather, tactical LLM thresholds, force reseal movers/sector/daily"
+              className="border border-[var(--color-accent)] bg-[var(--color-accent)]/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/20 disabled:opacity-50"
+              data-testid="market-posture-analyze"
+            >
+              {analyzing ? 'Analyze…' : 'Analyze'}
             </button>
             <button
               type="button"

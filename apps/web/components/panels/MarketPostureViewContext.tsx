@@ -2,7 +2,12 @@
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
-export type MarketPostureCategory = 'positions' | 'watchlists' | 'trends' | 'pipeline';
+export type MarketPostureCategory =
+  | 'positions'
+  | 'watchlists'
+  | 'trends'
+  | 'pipeline'
+  | 'model';
 
 export interface MarketPostureFocusOpts {
   symbol?: string | null;

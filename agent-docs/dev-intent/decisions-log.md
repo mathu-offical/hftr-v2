@@ -1147,7 +1147,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   vs Math-dock spacing, agent/control family silhouettes, MathToolNode token parity with hub
   Math, EngineGroupNode nature utility labels, create preview parity via `NodePortBuses` +
   `FamilyShapeChrome` + category wash. Docs: ui-spec §3 node families;
-  `canvas-connection-point-audit.md`. **Status: implemented.**
+  `canvas-connection-point-audit.md`.   **Status: implemented.**
+
+- **D-111 (Market posture Analyze vs Sync + Model canvas, 2026-07-18):** Split operator
+  actions — **Sync** is GET-only live hub projection (automatic poll + visible Syncing…);
+  **Analyze** POSTs `…/market-hub/analyze` to force-reseal movers + sector + daily summary
+  and run tactical LLM `suggestion_threshold_profile`. Nested **Model** category shows
+  read-only React Flow of the baseline algorithm (providers → gather → LLM/defaults →
+  compound → seal → hub). Docs: ui-spec §4. **Status: implemented.**
 
 ## Open questions
 

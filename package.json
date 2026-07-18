@@ -14,7 +14,8 @@
     "db:generate": "pnpm --filter @hftr/db generate",
     "db:migrate": "pnpm --filter @hftr/db migrate",
     "smoke:alpaca-paper": "node scripts/smoke-alpaca-paper.mjs",
-    "smoke:alpaca-paper": "node scripts/smoke-alpaca-paper.mjs"
+    "smoke:llm": "node scripts/smoke-llm-providers.mjs",
+    "smoke:research": "node scripts/smoke-research-sources.mjs"
   },
   "devDependencies": {
     "prettier": "^3.6.0",

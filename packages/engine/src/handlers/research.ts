@@ -19,13 +19,15 @@ const CuratePayload = z.object({
   mode: ResearchQueryMode.optional(),
   topicId: z.string().uuid().optional(),
   sourceModuleId: z.string().uuid().optional(),
-  sourceKinds: z.array(z.string()).max(8).optional(),
+  sourceKinds: z.array(z.string()).max(24).optional(),
   braveApiKey: z.string().optional(),
   marketNewsApiKey: z.string().optional(),
   alpacaKeyId: z.string().optional(),
   alpacaSecret: z.string().optional(),
   finnhubApiKey: z.string().optional(),
   polygonApiKey: z.string().optional(),
+  fredApiKey: z.string().optional(),
+  alphaVantageApiKey: z.string().optional(),
 });
 
 const StrategicPayload = z.object({
@@ -107,6 +109,8 @@ registerHandler('research.curate', async ({ db, clock, job }) => {
       alpacaSecret: payload.alpacaSecret,
       finnhubApiKey: payload.finnhubApiKey,
       polygonApiKey: payload.polygonApiKey,
+      fredApiKey: payload.fredApiKey,
+      alphaVantageApiKey: payload.alphaVantageApiKey,
     },
     idempotencyKey: `research-gather-${requestId}`,
     companyId: payload.companyId,

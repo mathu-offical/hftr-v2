@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   gatherEvidencePackages,
   normalizeToEvidencePackage,
+  resolveDefaultSourceKinds,
   type LibraryConceptEvidenceInput,
 } from '@hftr/adapters';
 import {
@@ -37,7 +38,7 @@ const GatherPayload = z.object({
   requestId: z.string().uuid(),
   queryText: z.string().max(500).optional(),
   topicScope: z.string().max(200).optional(),
-  sourceKinds: z.array(ResearchSourceKind).max(8).optional(),
+  sourceKinds: z.array(ResearchSourceKind).max(24).optional(),
   maxEvidence: z.number().int().min(1).max(48).optional(),
   causationRefs: z.array(z.string()).max(24).optional(),
   braveApiKey: z.string().optional(),
@@ -46,6 +47,8 @@ const GatherPayload = z.object({
   alpacaSecret: z.string().optional(),
   finnhubApiKey: z.string().optional(),
   polygonApiKey: z.string().optional(),
+  fredApiKey: z.string().optional(),
+  alphaVantageApiKey: z.string().optional(),
 });
 
 registerHandler('research.gather', async ({ db, clock, job }) => {
@@ -90,22 +93,21 @@ registerHandler('research.gather', async ({ db, clock, job }) => {
     ? await loadLinkedLibraryConceptEvidence(db, payload.companyId, payload.moduleId)
     : [];
 
-  const defaultExternalKinds: ResearchSourceKind[] = [
-    'brave_search',
-    'sec_edgar',
-    'market_news',
-  ];
-  if (payload.alpacaKeyId?.trim() && payload.alpacaSecret?.trim()) {
-    defaultExternalKinds.push('alpaca_news', 'alpaca_bars');
-  }
-  if (payload.finnhubApiKey?.trim()) {
-    defaultExternalKinds.push('finnhub_news');
-  }
-  if (payload.polygonApiKey?.trim()) {
-    defaultExternalKinds.push('polygon_news');
-  }
+  const gatherCredentials = {
+    braveApiKey: payload.braveApiKey ?? null,
+    marketNewsApiKey: payload.marketNewsApiKey ?? null,
+    alpacaKeyId: payload.alpacaKeyId ?? null,
+    alpacaSecret: payload.alpacaSecret ?? null,
+    finnhubApiKey: payload.finnhubApiKey ?? null,
+    polygonApiKey: payload.polygonApiKey ?? null,
+    fredApiKey: payload.fredApiKey ?? null,
+    alphaVantageApiKey: payload.alphaVantageApiKey ?? null,
+  };
+
   const sourceKinds: ResearchSourceKind[] =
-    externalKinds.length > 0 ? [...externalKinds] : [...defaultExternalKinds];
+    externalKinds.length > 0
+      ? [...externalKinds]
+      : resolveDefaultSourceKinds(gatherCredentials);
   if (libraryConceptsForGather.length > 0 && !sourceKinds.includes('library')) {
     sourceKinds.push('library');
   }
@@ -116,12 +118,7 @@ registerHandler('research.gather', async ({ db, clock, job }) => {
     allowlist: config.sourceAllowlist,
     blocklist: config.sourceBlocklist,
     maxEvidence,
-    braveApiKey: payload.braveApiKey ?? null,
-    marketNewsApiKey: payload.marketNewsApiKey ?? null,
-    alpacaKeyId: payload.alpacaKeyId ?? null,
-    alpacaSecret: payload.alpacaSecret ?? null,
-    finnhubApiKey: payload.finnhubApiKey ?? null,
-    polygonApiKey: payload.polygonApiKey ?? null,
+    ...gatherCredentials,
     secAllowEmptyOnError: true,
     marketNewsAllowDeterministicFallback: true,
     libraryConcepts: libraryConceptsForGather,

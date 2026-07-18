@@ -121,9 +121,7 @@ export function ResearchRunStatus(props: {
     return <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">{message}</p>;
   }
   if (!run) {
-    return (
-      <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">Checking run status…</p>
-    );
+    return <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">Checking run status…</p>;
   }
 
   const validationLabel =
@@ -133,9 +131,7 @@ export function ResearchRunStatus(props: {
         ? 'validation passed'
         : 'validation failed';
 
-  const admissionLabel = run.admissionApplied
-    ? run.admissionApplied.replace(/_/g, ' ')
-    : null;
+  const admissionLabel = run.admissionApplied ? run.admissionApplied.replace(/_/g, ' ') : null;
 
   return (
     <div

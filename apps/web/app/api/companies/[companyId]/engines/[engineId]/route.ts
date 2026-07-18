@@ -114,12 +114,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     if (setup) {
       cascaded = await cascadeEngineSetup(db, companyId, engineId, setup);
     } else if (input.masterTopicSectors !== undefined) {
-      cascaded = await cascadeEngineMasterTopic(
-        db,
-        companyId,
-        engineId,
-        input.masterTopicSectors,
-      );
+      cascaded = await cascadeEngineMasterTopic(db, companyId, engineId, input.masterTopicSectors);
     }
 
     const members = await db

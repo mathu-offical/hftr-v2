@@ -60,8 +60,7 @@ export type PreviewEngineGroupNodeData = {
 };
 
 export type PreviewFlowNode =
-  | Node<PreviewEngineGroupNodeData, 'previewEngine'>
-  | Node<PreviewModuleNodeData, 'previewModule'>;
+  Node<PreviewEngineGroupNodeData, 'previewEngine'> | Node<PreviewModuleNodeData, 'previewModule'>;
 
 export type EngineSeedFamily = {
   root: PreviewEngineSeed;
@@ -121,8 +120,7 @@ export function cascadeFamilyKeys(
   if (!selected) return new Set([selectedEngineKey]);
 
   const rootKey =
-    selected.cascadedFromKey ??
-    (sectionFor(selected) === 'execution' ? selected.key : null);
+    selected.cascadedFromKey ?? (sectionFor(selected) === 'execution' ? selected.key : null);
   if (!rootKey) return new Set([selectedEngineKey]);
 
   const keys = new Set<string>([rootKey]);
@@ -173,7 +171,10 @@ type PlacedEngine = {
   absPositions: { x: number; y: number }[];
 };
 
-function placeEngine(seed: PreviewEngineSeed, origin: { x: number; y: number }): PlacedEngine | null {
+function placeEngine(
+  seed: PreviewEngineSeed,
+  origin: { x: number; y: number },
+): PlacedEngine | null {
   const template = templateFor(seed.templateId);
   if (!template) return null;
   const absPositions = scaledModulePositions(template, origin);
@@ -411,10 +412,7 @@ export function buildTemplatePreviewGraph(input: {
     }
     appendEngineNodes(nodes, edges, placedExec, input.selectedEngineKey, familyActiveKeys);
 
-    const familyBottom = Math.max(
-      depsBottom,
-      placedExec.bounds.y + placedExec.bounds.height,
-    );
+    const familyBottom = Math.max(depsBottom, placedExec.bounds.y + placedExec.bounds.height);
     cursorY = familyBottom + FAMILY_GAP_Y;
   }
 

@@ -137,10 +137,7 @@ describe('groupSeededPagesIntoCatalogShelves', () => {
     expect(seedCatalogForPage(['sector_seeds', 'sector_technology'])).toBe('sector_seeds');
     expect(humanizeSeedTag('sector_technology')).toBe('Technology');
     expect(sector?.flatPages).toBeNull();
-    expect(sector?.subfolders.map((s) => s.id)).toEqual([
-      'sector_financials',
-      'sector_technology',
-    ]);
+    expect(sector?.subfolders.map((s) => s.id)).toEqual(['sector_financials', 'sector_technology']);
     expect(sector?.subfolders.find((s) => s.id === 'sector_technology')?.pages).toHaveLength(2);
   });
 });

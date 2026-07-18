@@ -53,7 +53,10 @@ function ResearchNewTopicButtonInner(props: ResearchNewTopicButtonProps) {
   }
 
   return (
-    <div data-testid="research-new-topic" className="rounded-lg border border-[var(--color-line)] p-2.5">
+    <div
+      data-testid="research-new-topic"
+      className="rounded-lg border border-[var(--color-line)] p-2.5"
+    >
       {!expanded ? (
         <button
           type="button"
@@ -107,7 +110,9 @@ function ResearchNewTopicButtonInner(props: ResearchNewTopicButtonProps) {
             >
               Cancel
             </button>
-            {message && <span className="text-[10px] text-[var(--color-ink-faint)]">{message}</span>}
+            {message && (
+              <span className="text-[10px] text-[var(--color-ink-faint)]">{message}</span>
+            )}
           </div>
         </form>
       )}

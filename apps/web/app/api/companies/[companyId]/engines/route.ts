@@ -16,10 +16,9 @@ import {
   type LayoutRect,
   type ModuleType,
 } from '@hftr/contracts';
-import { loadSessionConstraints } from '@hftr/engine';
+import { loadSessionConstraints, createSystemClock, resolveCompanyServiceBindings } from '@hftr/engine';
 import { engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
-import { createSystemClock } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import {
   cascadeEngineSetup,
@@ -272,6 +271,12 @@ export async function POST(req: Request, ctx: Ctx) {
       ...created.map((row) => row.id),
       ...dedicatedMath.map((tool) => tool.id),
     ]);
+
+    try {
+      await resolveCompanyServiceBindings(db, clerkUserId, companyId);
+    } catch (err) {
+      console.error('resolveCompanyServiceBindings failed on engine create', err);
+    }
 
     const refreshedModules = await scoping.listModules(db, clerkUserId, companyId);
     const memberIds = new Set(created.map((m) => m.id));

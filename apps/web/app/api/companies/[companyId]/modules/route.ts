@@ -10,7 +10,7 @@ import {
 } from '@hftr/contracts';
 import { libraries, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
-import { bootstrapCompanyKnowledge, createSystemClock } from '@hftr/engine';
+import { bootstrapCompanyKnowledge, createSystemClock, resolveCompanyServiceBindings } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import { recordModuleSetup } from '@/lib/module-setup';
 import { provisionDedicatedMathTools } from '@/lib/math-provision';
@@ -147,6 +147,12 @@ export async function POST(req: Request, ctx: Ctx) {
         config,
       },
     ]);
+
+    try {
+      await resolveCompanyServiceBindings(db, clerkUserId, companyId);
+    } catch (err) {
+      console.error('resolveCompanyServiceBindings failed on module create', err);
+    }
 
     return { module: resultModule, dedicatedMath };
   });

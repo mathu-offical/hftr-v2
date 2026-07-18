@@ -39,7 +39,10 @@ describe('galaxy-graph-nesting', () => {
     );
 
     expect(folders).toHaveLength(2);
-    expect(folders.map((f) => f.folderKey).sort()).toEqual(['guardrail_packages', 'strategy_families']);
+    expect(folders.map((f) => f.folderKey).sort()).toEqual([
+      'guardrail_packages',
+      'strategy_families',
+    ]);
     expect(folders.every((f) => f.mass >= 2 && f.mass <= 24)).toBe(true);
     expect(folders.find((f) => f.folderKey === 'strategy_families')?.memberConceptIds).toEqual([
       'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',

@@ -244,9 +244,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     );
 
     const libraryByModule = new Map(
-      libraryRows
-        .filter((row) => row.moduleId != null)
-        .map((row) => [row.moduleId!, row] as const),
+      libraryRows.filter((row) => row.moduleId != null).map((row) => [row.moduleId!, row] as const),
     );
     const conceptCountByLibrary = new Map(
       conceptCounts.map((row) => [row.libraryId, row.count] as const),
@@ -319,8 +317,7 @@ export async function GET(_req: Request, ctx: Ctx) {
             libraryId: lib?.id ?? null,
             name: lib?.name ?? null,
             conceptCount: lib ? (conceptCountByLibrary.get(lib.id) ?? 0) : 0,
-            libraryClass:
-              typeof config.libraryClass === 'string' ? config.libraryClass : null,
+            libraryClass: typeof config.libraryClass === 'string' ? config.libraryClass : null,
           };
           break;
         }
@@ -363,8 +360,7 @@ export async function GET(_req: Request, ctx: Ctx) {
           const all = trendsByModule.get(m.id) ?? [];
           typeContext = {
             kind: 'trend',
-            trendPosture:
-              typeof config.trendPosture === 'string' ? config.trendPosture : null,
+            trendPosture: typeof config.trendPosture === 'string' ? config.trendPosture : null,
             maxActiveTrends: maxActive,
             cadenceMinutes:
               typeof config.cadenceMinutes === 'number' ? config.cadenceMinutes : null,

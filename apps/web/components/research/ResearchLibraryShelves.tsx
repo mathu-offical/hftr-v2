@@ -6,6 +6,7 @@ import type { Library } from '@hftr/contracts';
 import {
   BASELINE_SEEDED_LIBRARY_NAME,
   classifyLibraryShelf,
+  findCatalogDirectiveTopic,
   findLibraryOverviewTopic,
   groupSeededPagesIntoCatalogShelves,
   humanizeConceptTitle,
@@ -73,9 +74,7 @@ function SeededSubfolderRow(props: {
           type="button"
           aria-expanded={open}
           aria-label={
-            open
-              ? `Collapse folder ${props.folder.label}`
-              : `Expand folder ${props.folder.label}`
+            open ? `Collapse folder ${props.folder.label}` : `Expand folder ${props.folder.label}`
           }
           onClick={() => setOpen((v) => !v)}
           className="shrink-0 rounded p-0.5 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
@@ -126,8 +125,10 @@ function catalogPageCount(group: SeededCatalogGroup): number {
 function SeededCatalogFolderRow(props: {
   group: SeededCatalogGroup;
   open: boolean;
+  directiveTopicId: string | null;
   onOpenChange: (open: boolean) => void;
   onSelectConcept: (conceptId: string) => void;
+  onSelectTopic?: (topicId: string) => void;
 }) {
   const open = props.open;
   const count = catalogPageCount(props.group);
@@ -144,9 +145,7 @@ function SeededCatalogFolderRow(props: {
           type="button"
           aria-expanded={open}
           aria-label={
-            open
-              ? `Collapse folder ${props.group.label}`
-              : `Expand folder ${props.group.label}`
+            open ? `Collapse folder ${props.group.label}` : `Expand folder ${props.group.label}`
           }
           onClick={() => setOpen((v) => !v)}
           className="shrink-0 rounded p-0.5 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
@@ -171,6 +170,17 @@ function SeededCatalogFolderRow(props: {
       </div>
       {open && (
         <div className="max-h-40 space-y-0.5 overflow-y-auto overscroll-contain pl-5">
+          {props.directiveTopicId && props.onSelectTopic ? (
+            <button
+              type="button"
+              data-testid={`seeded-catalog-directive-${props.group.shelfId}`}
+              onClick={() => props.onSelectTopic?.(props.directiveTopicId!)}
+              className="flex w-full items-center gap-1 truncate rounded py-0.5 text-left text-[10px] text-[var(--color-ink)] hover:text-[var(--color-accent)]"
+            >
+              <FileText size={11} aria-hidden className="shrink-0 text-[var(--color-ink-faint)]" />
+              <span className="truncate">Directive · {props.group.label}</span>
+            </button>
+          ) : null}
           {!hasPages ? (
             <p className="text-[10px] text-[var(--color-ink-faint)]">No pages in this folder.</p>
           ) : props.group.flatPages ? (
@@ -209,6 +219,7 @@ function BaselineSeededShelfSection(props: {
   onToggleCatalogFolder: (shelfId: string, open: boolean) => void;
   overviewTopicId: string | null;
   libraryId: string | null;
+  topics: Array<{ id: string; title: string }>;
   onSelectConcept: (conceptId: string) => void;
   onSelectTopic?: (topicId: string) => void;
   onSelectLibrary?: (libraryId: string, libraryName: string) => void;
@@ -276,13 +287,16 @@ function BaselineSeededShelfSection(props: {
                 const isOpen =
                   openSet.has(group.shelfId) ||
                   (props.openCatalogFolderIds.length === 0 && group.showOverview);
+                const directive = findCatalogDirectiveTopic(group.catalog, props.topics);
                 return (
                   <SeededCatalogFolderRow
                     key={group.shelfId}
                     group={group}
                     open={isOpen}
+                    directiveTopicId={directive?.id ?? null}
                     onOpenChange={(next) => props.onToggleCatalogFolder(group.shelfId, next)}
                     onSelectConcept={props.onSelectConcept}
+                    onSelectTopic={props.onSelectTopic}
                   />
                 );
               })
@@ -371,7 +385,9 @@ function LibraryPageLeaves(props: {
       )}
       {(pages ?? []).length === 0 ? (
         <li>
-          <p className="py-0.5 text-[9px] text-[var(--color-ink-faint)]">No pages in this folder.</p>
+          <p className="py-0.5 text-[9px] text-[var(--color-ink-faint)]">
+            No pages in this folder.
+          </p>
         </li>
       ) : (
         (pages ?? []).map((p) => (
@@ -415,9 +431,7 @@ function LibraryFolderRow(props: {
           type="button"
           aria-expanded={open}
           aria-label={
-            open
-              ? `Collapse folder ${props.library.name}`
-              : `Expand folder ${props.library.name}`
+            open ? `Collapse folder ${props.library.name}` : `Expand folder ${props.library.name}`
           }
           onClick={() => props.onOpenChange(!open)}
           className="shrink-0 rounded p-0.5 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
@@ -494,11 +508,7 @@ function RuntimeShelfSection(props: {
   );
 }
 
-function useBaselineSeededPages(
-  companyId: string,
-  libraryId: string | null,
-  refreshKey = 0,
-) {
+function useBaselineSeededPages(companyId: string, libraryId: string | null, refreshKey = 0) {
   const cached =
     libraryId != null
       ? peekResearchResource<SeededPageRow[]>({
@@ -507,9 +517,7 @@ function useBaselineSeededPages(
           libraryId,
         })
       : [];
-  const [pages, setPages] = useState<SeededPageRow[] | null>(
-    libraryId == null ? [] : cached,
-  );
+  const [pages, setPages] = useState<SeededPageRow[] | null>(libraryId == null ? [] : cached);
   const [loading, setLoading] = useState(libraryId != null && cached === null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -611,11 +619,7 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
     pages: seededPages,
     loading: seededLoading,
     refreshing: seededRefreshing,
-  } = useBaselineSeededPages(
-    props.companyId,
-    primaryBaseline?.id ?? null,
-    baselineRefreshKey,
-  );
+  } = useBaselineSeededPages(props.companyId, primaryBaseline?.id ?? null, baselineRefreshKey);
 
   const seededGroups = useMemo(
     () => groupSeededPagesIntoCatalogShelves(seededPages ?? []),
@@ -636,12 +640,7 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
       ...current,
       openCatalogFolderIds: [first.shelfId],
     });
-  }, [
-    seededGroups,
-    shelfUi.openCatalogFolderIds.length,
-    persistShelfUi,
-    props.companyId,
-  ]);
+  }, [seededGroups, shelfUi.openCatalogFolderIds.length, persistShelfUi, props.companyId]);
 
   return (
     <div
@@ -682,11 +681,7 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
           onToggleLibrary={(libraryId, open) =>
             persistShelfUi({
               ...shelfUi,
-              openSystemLibraryIds: toggleIdInList(
-                shelfUi.openSystemLibraryIds,
-                libraryId,
-                open,
-              ),
+              openSystemLibraryIds: toggleIdInList(shelfUi.openSystemLibraryIds, libraryId, open),
             })
           }
           onSelectConcept={props.onSelectConcept}
@@ -702,11 +697,7 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
           onToggleLibrary={(libraryId, open) =>
             persistShelfUi({
               ...shelfUi,
-              openRuntimeLibraryIds: toggleIdInList(
-                shelfUi.openRuntimeLibraryIds,
-                libraryId,
-                open,
-              ),
+              openRuntimeLibraryIds: toggleIdInList(shelfUi.openRuntimeLibraryIds, libraryId, open),
             })
           }
           onSelectConcept={props.onSelectConcept}
@@ -722,15 +713,12 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
           onToggleCatalogFolder={(shelfId, open) =>
             persistShelfUi({
               ...shelfUi,
-              openCatalogFolderIds: toggleIdInList(
-                shelfUi.openCatalogFolderIds,
-                shelfId,
-                open,
-              ),
+              openCatalogFolderIds: toggleIdInList(shelfUi.openCatalogFolderIds, shelfId, open),
             })
           }
           overviewTopicId={overview?.id ?? null}
           libraryId={primaryBaseline?.id ?? null}
+          topics={topics}
           onSelectConcept={props.onSelectConcept}
           {...(props.onSelectTopic ? { onSelectTopic: props.onSelectTopic } : {})}
           {...(props.onSelectLibrary ? { onSelectLibrary: props.onSelectLibrary } : {})}

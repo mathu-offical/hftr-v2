@@ -17,7 +17,7 @@ import {
 } from '@hftr/contracts';
 import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
-import { bootstrapCompanyKnowledge, createSystemClock, loadSessionConstraints } from '@hftr/engine';
+import { bootstrapCompanyKnowledge, createSystemClock, loadSessionConstraints, resolveCompanyServiceBindings } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import {
   cascadeEngineSetup,
@@ -379,6 +379,13 @@ export async function POST(req: Request) {
       await bootstrapCompanyKnowledge({ db, companyId: company.id });
     } catch (err) {
       console.error('bootstrapCompanyKnowledge failed on company create', err);
+    }
+
+    // Persist module↔service coverage from any already-verified brokers (D-090).
+    try {
+      await resolveCompanyServiceBindings(db, clerkUserId, company.id);
+    } catch (err) {
+      console.error('resolveCompanyServiceBindings failed on company create', err);
     }
 
     return { company };

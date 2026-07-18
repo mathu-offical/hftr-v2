@@ -316,10 +316,7 @@ export function readResearchShelfUiState(companyId: string): ResearchShelfUiStat
   }
 }
 
-export function writeResearchShelfUiState(
-  companyId: string,
-  state: ResearchShelfUiState,
-): void {
+export function writeResearchShelfUiState(companyId: string, state: ResearchShelfUiState): void {
   if (typeof sessionStorage === 'undefined') return;
   try {
     sessionStorage.setItem(shelfUiStorageKey(companyId), JSON.stringify(state));

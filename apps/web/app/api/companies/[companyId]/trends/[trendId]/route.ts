@@ -32,19 +32,12 @@ export async function PATCH(req: Request, ctx: Ctx) {
     if (!existing) throw new ApiError(404, 'trend_not_found');
 
     let engineInstanceId =
-      input.engineInstanceId !== undefined
-        ? input.engineInstanceId
-        : existing.engineInstanceId;
+      input.engineInstanceId !== undefined ? input.engineInstanceId : existing.engineInstanceId;
     let tradingModuleId =
       input.tradingModuleId !== undefined ? input.tradingModuleId : existing.tradingModuleId;
 
     if (tradingModuleId) {
-      const trading = await scoping.getOwnedModule(
-        db,
-        clerkUserId,
-        companyId,
-        tradingModuleId,
-      );
+      const trading = await scoping.getOwnedModule(db, clerkUserId, companyId, tradingModuleId);
       if (trading.type !== 'trading') {
         throw new ApiError(422, 'bind_target_not_trading');
       }

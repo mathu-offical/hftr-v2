@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   createAlpacaPaperAdapter,
@@ -6,10 +6,10 @@ import {
   createKalshiDemoAdapter,
   fetchAlpacaAccountId,
 } from '@hftr/adapters';
-import { brokerConnections } from '@hftr/db/schema';
+import { brokerConnections, companies } from '@hftr/db/schema';
 import type { Db } from '@hftr/db';
 import type { AdapterCapabilities, ConnectionStatus } from '@hftr/contracts';
-import { autoDisarmCompaniesForBroker } from '@hftr/engine';
+import { autoDisarmCompaniesForBroker, resolveCompanyServiceBindings } from '@hftr/engine';
 import { ApiError, withAuth } from '@/lib/api';
 import { getOwnedBrokerConnection } from '@/lib/brokers';
 import { decryptSecret } from '@/lib/secrets';
@@ -49,6 +49,7 @@ function parseKalshiCredentials(plain: string): {
 
 async function persistVerifyResult(
   db: Db,
+  clerkUserId: string,
   id: string,
   status: ConnectionStatus,
   capabilities: AdapterCapabilities | null,
@@ -75,6 +76,15 @@ async function persistVerifyResult(
       lastVerifiedAt: brokerConnections.lastVerifiedAt,
       venueAccountId: brokerConnections.venueAccountId,
     });
+
+  // Re-resolve module service bindings for all of the user's active companies (D-090).
+  const owned = await db
+    .select({ id: companies.id })
+    .from(companies)
+    .where(and(eq(companies.clerkUserId, clerkUserId), isNull(companies.archivedAt)));
+  for (const company of owned) {
+    await resolveCompanyServiceBindings(db, clerkUserId, company.id);
+  }
 
   return updated[0]!;
 }
@@ -109,7 +119,7 @@ export async function POST(_req: Request, ctx: Ctx) {
         venueAccountId = await fetchAlpacaAccountId(client);
       }
 
-      return persistVerifyResult(db, id, status, capabilities, venueAccountId);
+      return persistVerifyResult(db, clerkUserId, id, status, capabilities, venueAccountId);
     }
 
     if (connection.venue === 'kalshi') {
@@ -125,7 +135,7 @@ export async function POST(_req: Request, ctx: Ctx) {
       });
       const status = await adapter.verifyConnection();
       const capabilities = adapter.capabilities();
-      return persistVerifyResult(db, id, status, capabilities, null);
+      return persistVerifyResult(db, clerkUserId, id, status, capabilities, null);
     }
 
     throw new ApiError(400, 'unsupported_venue');

@@ -2,7 +2,12 @@ import { and, desc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { scoping } from '@hftr/db';
 import { jobs } from '@hftr/db/schema';
-import { createSystemClock, enqueue, stripSecretsFromJobPayload, type JobCostEstimate } from '@hftr/engine';
+import {
+  createSystemClock,
+  enqueue,
+  stripSecretsFromJobPayload,
+  type JobCostEstimate,
+} from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
@@ -61,9 +66,7 @@ export async function POST(req: Request, ctx: Ctx) {
 
     for (const dead of deadRows) {
       // D-074: never re-persist legacy plaintext keys from dead rows.
-      const payload = stripSecretsFromJobPayload(
-        (dead.payload ?? {}) as Record<string, unknown>,
-      );
+      const payload = stripSecretsFromJobPayload((dead.payload ?? {}) as Record<string, unknown>);
       await enqueue(db, clock, {
         queueClass: dead.queueClass,
         kind: dead.kind,

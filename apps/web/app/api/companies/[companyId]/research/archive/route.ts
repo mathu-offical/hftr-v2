@@ -13,6 +13,7 @@ import {
   restoreLibrary,
   restoreTopic,
   SEEDED_TOPIC_TITLE,
+  isSeededTopicTitle,
   softArchiveConcept,
   softArchiveLibrary,
   softArchiveTopic,
@@ -190,17 +191,23 @@ export async function POST(req: Request, ctx: Ctx) {
                 })
                 .from(researchTopics)
                 .where(
-                  and(eq(researchTopics.id, input.objectId), eq(researchTopics.companyId, companyId)),
+                  and(
+                    eq(researchTopics.id, input.objectId),
+                    eq(researchTopics.companyId, companyId),
+                  ),
                 )
                 .limit(1);
               if (!row) throw new Error('topic_not_found');
               if (row.status === 'archived') throw new Error('topic_archived');
-              if (row.title === SEEDED_TOPIC_TITLE) throw new Error('topic_seeded_protected');
+              if (isSeededTopicTitle(row.title)) throw new Error('topic_seeded_protected');
               await db
                 .update(researchTopics)
                 .set({ synopsisMd: input.synopsisMd, updatedAt: now })
                 .where(
-                  and(eq(researchTopics.id, input.objectId), eq(researchTopics.companyId, companyId)),
+                  and(
+                    eq(researchTopics.id, input.objectId),
+                    eq(researchTopics.companyId, companyId),
+                  ),
                 );
               const confidenceBand = await bumpTopicConfidence(db, input.objectId, 'up', now);
               return { ok: true, action: input.action, confidenceBand };

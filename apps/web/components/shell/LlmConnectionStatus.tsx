@@ -72,9 +72,7 @@ export function LlmConnectionStatusProvider(props: {
   const refresh = useCallback(async () => {
     try {
       if (props.companyId) {
-        const res = await api<LlmBudgetsResponse>(
-          `/api/companies/${props.companyId}/llm-budgets`,
-        );
+        const res = await api<LlmBudgetsResponse>(`/api/companies/${props.companyId}/llm-budgets`);
         const next = emptyByProvider();
         for (const row of res.providers) {
           next[row.provider] = {
@@ -174,10 +172,7 @@ const TIER_LABEL: Record<LlmTier, string> = {
  * Text-first availability chips for the LLM tiers a surface depends on.
  * Reads shell connection status — never fetches.
  */
-export function LlmAvailabilityChips(props: {
-  tiers: readonly LlmTier[];
-  className?: string;
-}) {
+export function LlmAvailabilityChips(props: { tiers: readonly LlmTier[]; className?: string }) {
   const status = useOptionalLlmConnectionStatus();
   if (!status?.ready) return null;
 
@@ -186,10 +181,7 @@ export function LlmAvailabilityChips(props: {
   ] as LlmProviderT[];
 
   return (
-    <ul
-      className={`flex flex-wrap gap-1 ${props.className ?? ''}`}
-      aria-label="LLM availability"
-    >
+    <ul className={`flex flex-wrap gap-1 ${props.className ?? ''}`} aria-label="LLM availability">
       {uniqueProviders.map((provider) => {
         const row = status.byProvider[provider];
         const configured = row.status === 'configured';

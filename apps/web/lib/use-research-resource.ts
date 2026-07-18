@@ -35,9 +35,7 @@ export function useResearchResource<T>(
   fetcherRef.current = fetcher;
 
   const keyStr = key ? researchResourceKeyString(key) : null;
-  const [data, setData] = useState<T | null>(() =>
-    key ? peekResearchResource<T>(key) : null,
-  );
+  const [data, setData] = useState<T | null>(() => (key ? peekResearchResource<T>(key) : null));
   const [loading, setLoading] = useState(() => {
     if (!enabled || !key) return false;
     return peekResearchResource<T>(key) === null;

@@ -2,7 +2,13 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { ResearchGraphResponse } from '@hftr/contracts';
 import { scoping } from '@hftr/db';
-import { conceptLinks, concepts, libraryConcepts, researchTopics, topicConcepts } from '@hftr/db/schema';
+import {
+  conceptLinks,
+  concepts,
+  libraryConcepts,
+  researchTopics,
+  topicConcepts,
+} from '@hftr/db/schema';
 import { bootstrapCompanyKnowledge } from '@hftr/engine';
 import { withAuth } from '@/lib/api';
 import { buildArticleOrbits, buildFolderStars } from '@/lib/galaxy-graph-nesting';

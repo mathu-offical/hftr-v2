@@ -47,7 +47,10 @@ export function excerptResearchMarkdownBody(markdown: string, maxChars = 280): s
 
   const joined = prose.join(' ').replace(/\s+/g, ' ').trim();
   if (!joined) {
-    const fallback = withoutTitle.replace(/\|[^\n]*\|/g, ' ').replace(/\s+/g, ' ').trim();
+    const fallback = withoutTitle
+      .replace(/\|[^\n]*\|/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
     return fallback.length > maxChars ? `${fallback.slice(0, maxChars - 1)}…` : fallback;
   }
   return joined.length > maxChars ? `${joined.slice(0, maxChars - 1)}…` : joined;

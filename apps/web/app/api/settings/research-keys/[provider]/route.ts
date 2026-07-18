@@ -15,10 +15,7 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     await db
       .delete(userResearchKeys)
       .where(
-        and(
-          eq(userResearchKeys.clerkUserId, clerkUserId),
-          eq(userResearchKeys.provider, provider),
-        ),
+        and(eq(userResearchKeys.clerkUserId, clerkUserId), eq(userResearchKeys.provider, provider)),
       );
     return { ok: true };
   });

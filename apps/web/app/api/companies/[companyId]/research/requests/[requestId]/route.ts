@@ -24,13 +24,14 @@ export async function GET(_req: Request, ctx: Ctx) {
     )[0];
     if (!request) throw new ApiError(404, 'request_not_found');
 
-    const result = (
-      await db
-        .select()
-        .from(researchResults)
-        .where(eq(researchResults.requestId, requestId))
-        .limit(1)
-    )[0] ?? null;
+    const result =
+      (
+        await db
+          .select()
+          .from(researchResults)
+          .where(eq(researchResults.requestId, requestId))
+          .limit(1)
+      )[0] ?? null;
 
     return {
       request,

@@ -39,9 +39,7 @@ describe('galaxy-similarity', () => {
 
   it('increases amalgamation mass with more distinct vocabulary', () => {
     const small = amalgamationMassFromTexts(['one two three']);
-    const medium = amalgamationMassFromTexts([
-      'one two three four five six seven eight',
-    ]);
+    const medium = amalgamationMassFromTexts(['one two three four five six seven eight']);
     const large = amalgamationMassFromTexts([
       'alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma tau upsilon phi chi psi omega',
     ]);

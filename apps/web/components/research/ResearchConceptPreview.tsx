@@ -49,12 +49,17 @@ export function ResearchConceptPreview(props: ConceptPreviewProps) {
             </span>
           ))}
           {props.tags.length > 6 ? (
-            <span className="text-[8px] text-[var(--color-ink-faint)]">+{props.tags.length - 6}</span>
+            <span className="text-[8px] text-[var(--color-ink-faint)]">
+              +{props.tags.length - 6}
+            </span>
           ) : null}
         </div>
       ) : null}
       {excerpt ? (
-        <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-[var(--color-ink-dim)]" aria-hidden>
+        <p
+          className="mt-1 line-clamp-3 text-[10px] leading-snug text-[var(--color-ink-dim)]"
+          aria-hidden
+        >
           {excerpt}
         </p>
       ) : (

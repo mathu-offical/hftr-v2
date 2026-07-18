@@ -30,9 +30,7 @@ export async function POST(req: Request, ctx: Ctx) {
       const [lib] = await db
         .select({ id: libraries.id })
         .from(libraries)
-        .where(
-          and(eq(libraries.id, input.libraryId), eq(libraries.companyId, companyId)),
-        )
+        .where(and(eq(libraries.id, input.libraryId), eq(libraries.companyId, companyId)))
         .limit(1);
       if (!lib) throw new ApiError(404, 'library_not_found');
     }

@@ -125,9 +125,7 @@ function ResearchTopicsTreeInner(props: ResearchTopicsTreeProps) {
   const [topics, setTopics] = useState<ResearchTopic[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [title, setTitle] = useState('');
-  const [createModuleId, setCreateModuleId] = useState(
-    props.moduleId ?? modules[0]?.id ?? '',
-  );
+  const [createModuleId, setCreateModuleId] = useState(props.moduleId ?? modules[0]?.id ?? '');
   const [busy, setBusy] = useState(false);
   const [busyTopicId, setBusyTopicId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -246,13 +244,16 @@ function ResearchTopicsTreeInner(props: ResearchTopicsTreeProps) {
   );
 
   const canCreate = Boolean(props.moduleId ?? createModuleId);
-  const heading = companyWide
-    ? 'Topics'
-    : `Topics · ${props.moduleName ?? 'module'}`;
+  const heading = companyWide ? 'Topics' : `Topics · ${props.moduleName ?? 'module'}`;
 
   return (
-    <div data-testid="research-topics-panel" className="rounded-lg border border-[var(--color-line)] p-2.5">
-      <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">{heading}</p>
+    <div
+      data-testid="research-topics-panel"
+      className="rounded-lg border border-[var(--color-line)] p-2.5"
+    >
+      <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+        {heading}
+      </p>
       {!loaded ? (
         <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">Loading topics…</p>
       ) : topics.length === 0 ? (
@@ -264,7 +265,9 @@ function ResearchTopicsTreeInner(props: ResearchTopicsTreeProps) {
             return (
               <div key={group.moduleId}>
                 {companyWide && (
-                  <p className="mb-0.5 text-[9px] text-[var(--color-ink-faint)]">{group.moduleName}</p>
+                  <p className="mb-0.5 text-[9px] text-[var(--color-ink-faint)]">
+                    {group.moduleName}
+                  </p>
                 )}
                 {tree.length === 0 ? (
                   <p className="text-[10px] text-[var(--color-ink-faint)]">No topics.</p>

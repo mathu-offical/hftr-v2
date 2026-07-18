@@ -1,15 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ComponentType,
-} from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { forceCollide, forceManyBody } from 'd3-force-3d';
 import type {
   ResearchGraphArticleOrbit,
@@ -47,10 +39,7 @@ import {
   type NestHullNode,
 } from '@/lib/galaxy-nest-hulls';
 import { createNestHullObject3d, paintNestHull2d } from '@/lib/galaxy-nest-mesh';
-import {
-  humanizeConceptTitle,
-  shortLibraryLabel,
-} from '@/lib/research-library-shelves';
+import { humanizeConceptTitle, shortLibraryLabel } from '@/lib/research-library-shelves';
 import styles from './galaxy-view.module.css';
 
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false });
@@ -217,10 +206,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     [libraryNests, props.nodes],
   );
 
-  const conceptFolderIndex = useMemo(
-    () => buildConceptFolderIndex(folderStars),
-    [folderStars],
-  );
+  const conceptFolderIndex = useMemo(() => buildConceptFolderIndex(folderStars), [folderStars]);
 
   const conceptArticleIndex = useMemo(
     () => buildConceptArticleIndex(articleOrbits),
@@ -389,9 +375,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           __distance: layout.distance,
           __strength: layout.strength,
           __directed:
-            l.relation === 'causes' ||
-            l.relation === 'supports' ||
-            l.relation === 'derived_from',
+            l.relation === 'causes' || l.relation === 'supports' || l.relation === 'derived_from',
         };
       });
     return { nodes, links, liveIds, hullCount: hullNodes.length };
@@ -546,14 +530,16 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     const fg = graphHandleRef.current;
     if (!fg?.zoomToFit) return;
     const durationMs = reducedMotion ? 0 : 650;
-    const t = window.setTimeout(() => {
-      fg.zoomToFit?.(
-        durationMs,
-        72,
-        (n) =>
-          String(n.id) === id && !isNestHullNode(n) && !isTagSatelliteNode(n),
-      );
-    }, reducedMotion ? 0 : 120);
+    const t = window.setTimeout(
+      () => {
+        fg.zoomToFit?.(
+          durationMs,
+          72,
+          (n) => String(n.id) === id && !isNestHullNode(n) && !isTagSatelliteNode(n),
+        );
+      },
+      reducedMotion ? 0 : 120,
+    );
     return () => window.clearTimeout(t);
   }, [props.highlightConceptId, props.nodes, reducedMotion, physicsReady]);
 
@@ -681,15 +667,12 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     [hasTopicFocus],
   );
 
-  const linkWidth = useCallback(
-    (link: { __bothFocused?: boolean; weightBand?: string }) => {
-      if (link.__bothFocused) return 2.4;
-      if (link.weightBand === 'strong') return 1.6;
-      if (link.weightBand === 'weak') return 0.6;
-      return 1;
-    },
-    [],
-  );
+  const linkWidth = useCallback((link: { __bothFocused?: boolean; weightBand?: string }) => {
+    if (link.__bothFocused) return 2.4;
+    if (link.weightBand === 'strong') return 1.6;
+    if (link.weightBand === 'weak') return 0.6;
+    return 1;
+  }, []);
 
   const linkParticles = useCallback(
     (link: { __bothFocused?: boolean; weightBand?: string }) => {

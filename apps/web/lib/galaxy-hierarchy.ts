@@ -7,10 +7,7 @@ import type {
   ResearchGraphFolderStar,
   ResearchGraphNode,
 } from '@hftr/contracts';
-import {
-  conceptSimilarityText,
-  similarityBandBetweenTexts,
-} from './galaxy-similarity';
+import { conceptSimilarityText, similarityBandBetweenTexts } from './galaxy-similarity';
 import { SEED_CATALOG_SHELVES } from './research-library-shelves';
 import { tagSatelliteId } from './galaxy-nest-hulls';
 
@@ -93,7 +90,9 @@ export function buildTagSatelliteNodes(
   const out: TagSatelliteNode[] = [];
 
   for (const concept of concepts) {
-    const tags = concept.tags.filter((t) => !CATALOG_KEY_SET.has(t as never) && t !== 'baseline_sector');
+    const tags = concept.tags.filter(
+      (t) => !CATALOG_KEY_SET.has(t as never) && t !== 'baseline_sector',
+    );
     let added = 0;
     for (const tag of tags) {
       if (added >= maxPer || out.length >= maxTotal) break;

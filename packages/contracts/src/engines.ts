@@ -106,13 +106,13 @@ export function isMathToolAttachment(
 
 /**
  * Default group padding around member module cards (D-033 connection-safe +
- * D-035 full shared setup chrome).
+ * D-035 / D-089 shared setup in header as inline bounded fields).
  */
 export const ENGINE_GROUP_PADDING = {
   left: 72,
   right: 72,
-  /** Label bar + compact human-readable setup strip (D-035 EngineGroupNode). */
-  top: 140,
+  /** Badge + title + one wrap row of bordered setup fields (D-089). */
+  top: 92,
   bottom: 100,
 } as const;
 

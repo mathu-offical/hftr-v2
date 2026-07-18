@@ -74,15 +74,13 @@ function draftFromSnapshot(
 }
 
 function humanizeKey(key: string): string {
-  return key
-    .replace(/[_-]+/g, ' ')
-    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+  return key.replace(/[_-]+/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
 /**
- * React Flow parent node for an ENGINE instance (D-028 / D-033 / D-035):
- * labeled chrome with Reflow, compact human-readable shared setup at top
- * (topic, total capital envelope, overall exit), template inputs, and delete.
+ * React Flow parent node for an ENGINE instance (D-028 / D-033 / D-035 / D-089):
+ * labeled chrome with Reflow/Delete; shared setup + template inputs as bordered
+ * inline fields in the header; member modules as children below.
  */
 export const EngineGroupNode = memo(function EngineGroupNode({
   id,
@@ -108,10 +106,7 @@ export const EngineGroupNode = memo(function EngineGroupNode({
     setTemplateInputs(data.templateInputs ?? {});
   }, [data.templateInputs]);
 
-  const missingFields = useMemo(
-    () => missingFieldsFromDraft(ENGINE_SETUP_FIELDS, draft),
-    [draft],
-  );
+  const missingFields = useMemo(() => missingFieldsFromDraft(ENGINE_SETUP_FIELDS, draft), [draft]);
 
   const templateInputDefs = useMemo(() => {
     const template = getEngineTemplateById(data.templateId);
@@ -196,96 +191,88 @@ export const EngineGroupNode = memo(function EngineGroupNode({
         style={{ background: engineVisual.hue, opacity: 0.7 }}
         aria-hidden
       />
-      <div className="engine-group-drag flex items-start justify-between gap-2 border-b border-[var(--color-line)]/60 px-2 py-1 pl-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span
-              className="rounded px-1 py-0.5 text-[8px] uppercase tracking-wider"
-              style={{
-                color: engineVisual.hue,
-                border: `1px solid ${engineVisual.hue}66`,
-                background: `${engineVisual.hue}18`,
-              }}
-            >
-              Engine · {engineVisual.label}
-            </span>
-          </div>
-          <div className="truncate text-sm font-medium text-[var(--color-ink)]">{data.label}</div>
-        </div>
-        <div className="nodrag flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            className="rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-ink-dim)]"
-            onClick={() => data.onRequestReflow(id)}
-          >
-            Reflow
-          </button>
-          <button
-            type="button"
-            className="rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-block)]"
-            onClick={() => data.onRequestDelete(id)}
-          >
-            Delete
-          </button>
-        </div>
-      </div>
-      <div className="nodrag nowheel space-y-1 px-2 py-1.5">
-        <ModuleSetupFields
-          requiredFields={ENGINE_SETUP_FIELDS}
-          missingFields={missingFields}
-          draft={draft}
-          onChange={setDraft}
-          compact
-          showLabels
-          hideHints
-          focusField={focusField}
-          onFocusField={setFocusField}
-        />
-        {templateInputDefs.length > 0 && (
-          <div className="space-y-1 border-t border-[var(--color-line)]/50 pt-1.5">
-            {templateInputDefs.map((input) => (
-              <label
-                key={input.key}
-                className="block space-y-0.5"
-                onPointerDown={() => {
-                  requestAnimationFrame(() => {
-                    templateInputRefs.current[input.key]?.focus();
-                  });
+      <div className="engine-group-drag border-b border-[var(--color-line)]/60 px-2 py-1 pl-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span
+                className="rounded px-1 py-0.5 text-[8px] uppercase tracking-wider"
+                style={{
+                  color: engineVisual.hue,
+                  border: `1px solid ${engineVisual.hue}66`,
+                  background: `${engineVisual.hue}18`,
                 }}
               >
-                <span
-                  className="block truncate text-[10px] font-medium text-[var(--color-ink-dim)]"
-                  title={input.label}
-                >
-                  {input.label}
-                </span>
-                <input
-                  ref={(element) => {
-                    templateInputRefs.current[input.key] = element;
-                  }}
-                  value={input.value}
-                  onChange={(event) =>
-                    setTemplateInputs((current) => ({
-                      ...current,
-                      [input.key]: event.target.value,
-                    }))
-                  }
-                  placeholder={input.placeholder}
-                  title={input.value}
-                  className="w-full truncate rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-1.5 py-1 text-[10px] outline-none focus:border-[var(--color-accent)]"
-                />
-              </label>
-            ))}
+                Engine · {engineVisual.label}
+              </span>
+            </div>
+            <div className="truncate text-sm font-medium text-[var(--color-ink)]">{data.label}</div>
           </div>
-        )}
-        <div className="flex items-center gap-2">
+          <div className="nodrag flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              className="rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-ink-dim)]"
+              onClick={() => data.onRequestReflow(id)}
+            >
+              Reflow
+            </button>
+            <button
+              type="button"
+              className="rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-block)]"
+              onClick={() => data.onRequestDelete(id)}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+        <div className="nodrag nowheel mt-1 flex min-w-0 flex-wrap items-center gap-1">
+          <ModuleSetupFields
+            requiredFields={ENGINE_SETUP_FIELDS}
+            missingFields={missingFields}
+            draft={draft}
+            onChange={setDraft}
+            layout="inline"
+            hideHints
+            focusField={focusField}
+            onFocusField={setFocusField}
+          />
+          {templateInputDefs.map((input) => (
+            <label
+              key={input.key}
+              className="min-w-[7rem] flex-1"
+              title={input.label}
+              onPointerDown={() => {
+                requestAnimationFrame(() => {
+                  templateInputRefs.current[input.key]?.focus();
+                });
+              }}
+            >
+              <span className="sr-only">{input.label}</span>
+              <input
+                ref={(element) => {
+                  templateInputRefs.current[input.key] = element;
+                }}
+                value={input.value}
+                onChange={(event) =>
+                  setTemplateInputs((current) => ({
+                    ...current,
+                    [input.key]: event.target.value,
+                  }))
+                }
+                placeholder={input.placeholder ?? input.label}
+                title={input.value || input.label}
+                aria-label={input.label}
+                className="w-full truncate rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-1 py-0.5 text-[9px] outline-none focus:border-[var(--color-accent)]"
+              />
+            </label>
+          ))}
           <button
             type="button"
             disabled={saving}
             onClick={() => void saveSetup()}
-            className="rounded border border-[var(--color-accent)] px-1.5 py-0.5 text-[9px] text-[var(--color-accent)] disabled:opacity-50"
+            className="shrink-0 rounded border border-[var(--color-accent)] px-1.5 py-0.5 text-[9px] text-[var(--color-accent)] disabled:opacity-50"
           >
-            {saving ? 'Saving…' : 'Save setup'}
+            {saving ? 'Saving…' : 'Save'}
           </button>
           {error && <p className="text-[9px] text-[var(--color-block)]">{error}</p>}
         </div>

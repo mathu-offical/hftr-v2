@@ -14,10 +14,7 @@ export {
   type SimilarityBand,
 } from '@hftr/contracts';
 
-import {
-  tokenizeQualitativeText,
-  type RelevanceBand,
-} from '@hftr/contracts';
+import { tokenizeQualitativeText, type RelevanceBand } from '@hftr/contracts';
 
 /** Spring rest length from qualitative similarity band (RelevanceBand). */
 export function linkDistanceForSimilarity(band: RelevanceBand): number {

@@ -3,9 +3,7 @@ import type {
   ResearchGraphFolderStar,
   ResearchGraphLibraryNest,
 } from '@hftr/contracts';
-import {
-  amalgamationMassFromTexts,
-} from './galaxy-similarity';
+import { amalgamationMassFromTexts } from './galaxy-similarity';
 import {
   isBaselineSeededLibrary,
   SEED_CATALOG_SHELVES,
@@ -80,7 +78,12 @@ export function buildFolderStars(
   const libraryById = new Map(libraries.map((lib) => [lib.id, lib]));
   const buckets = new Map<
     FolderBucketKey,
-    { libraryId: string; folderKey: string; memberConceptIds: string[]; members: GraphNestingConcept[] }
+    {
+      libraryId: string;
+      folderKey: string;
+      memberConceptIds: string[];
+      members: GraphNestingConcept[];
+    }
   >();
 
   for (const concept of concepts) {
@@ -153,9 +156,7 @@ export function buildArticleOrbits(
       .filter((c): c is GraphNestingConcept => c != null);
 
     const libraryId = majorityValue(memberConcepts.map((c) => c.primaryLibraryId));
-    const folderKey = majorityValue(
-      memberConcepts.map((c) => seedCatalogForPage(c.tags)),
-    );
+    const folderKey = majorityValue(memberConcepts.map((c) => seedCatalogForPage(c.tags)));
 
     articles.push({
       topicId: topic.id,

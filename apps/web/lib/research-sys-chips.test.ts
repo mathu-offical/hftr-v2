@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parseSysChipHref, preprocessSysChips } from './research-sys-chips';
+import { allowHftrSysUrl, parseSysChipHref, preprocessSysChips } from './research-sys-chips';
 
 describe('research-sys-chips', () => {
   it('rewrites [[sys:kind:id]] into hftr-sys markdown links', () => {
-    const out = preprocessSysChips('Use [[sys:tool:momentum_guard]] then [[sys:catalog:strategies]].');
+    const out = preprocessSysChips(
+      'Use [[sys:tool:momentum_guard]] then [[sys:catalog:strategies]].',
+    );
     expect(out).toContain('[tool:momentum guard](hftr-sys:tool:momentum_guard)');
     expect(out).toContain('[catalog:strategies](hftr-sys:catalog:strategies)');
   });
@@ -25,5 +27,12 @@ describe('research-sys-chips', () => {
       label: 'or high',
     });
     expect(parseSysChipHref('https://example.com')).toBeNull();
+  });
+
+  it('preserves hftr-sys urls while blocking javascript', () => {
+    expect(allowHftrSysUrl('hftr-sys:catalog:strategy_families', (u) => u)).toBe(
+      'hftr-sys:catalog:strategy_families',
+    );
+    expect(allowHftrSysUrl('javascript:alert(1)', () => '')).toBe('');
   });
 });

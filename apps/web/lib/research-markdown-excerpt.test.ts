@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  excerptResearchMarkdownBody,
-  stripLeadingMarkdownH1,
-} from './research-markdown-excerpt';
+import { excerptResearchMarkdownBody, stripLeadingMarkdownH1 } from './research-markdown-excerpt';
 
 describe('stripLeadingMarkdownH1', () => {
   it('removes a leading title heading', () => {

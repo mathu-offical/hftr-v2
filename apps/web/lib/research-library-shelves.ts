@@ -42,6 +42,21 @@ export const SEED_CATALOG_SHELVES = [
     label: 'Trend lead patterns',
   },
   {
+    catalog: 'compliance_packages',
+    shelfId: 'baseline_compliance',
+    label: 'Compliance packages',
+  },
+  {
+    catalog: 'event_archetypes',
+    shelfId: 'baseline_event_archetypes',
+    label: 'Event archetypes',
+  },
+  {
+    catalog: 'macro_triggers',
+    shelfId: 'baseline_macro_triggers',
+    label: 'Macro triggers',
+  },
+  {
     catalog: 'sector_seeds',
     shelfId: 'baseline_sector_knowledge',
     label: 'Sector knowledge',
@@ -74,10 +89,7 @@ export type SeededCatalogGroup = {
   flatPages: SeededPageRow[] | null;
 };
 
-export function classifyLibraryShelf(lib: {
-  name: string;
-  topicScope: string;
-}): LibraryShelfKind {
+export function classifyLibraryShelf(lib: { name: string; topicScope: string }): LibraryShelfKind {
   if (lib.name === BASELINE_NAME || lib.topicScope === BASELINE_TOPIC_SCOPE) {
     return 'baseline_seeded';
   }
@@ -97,6 +109,31 @@ export function findLibraryOverviewTopic(
   topics: ReadonlyArray<{ id: string; title: string }>,
 ): { id: string; title: string } | null {
   const match = topics.find((t) => t.title === libraryName);
+  return match ?? null;
+}
+
+/** Map baseline catalog shelf → mid-level seeded directive group (D-086). */
+export const SEED_CATALOG_DIRECTIVE_TOPIC: Record<string, string> = {
+  strategy_families: 'Strategy families',
+  compound_strategies: 'Compound strategies',
+  recovery_ladders: 'Recovery ladders',
+  guardrail_packages: 'Guardrails',
+  session_constraints: 'Session constraints',
+  broker_policy_envelopes: 'Broker policy',
+  trend_lead_patterns: 'Trend lead patterns',
+  sector_seeds: 'Sector knowledge',
+  compliance_packages: 'Compliance packages',
+  event_archetypes: 'Event archetypes',
+  macro_triggers: 'Macro triggers',
+};
+
+export function findCatalogDirectiveTopic(
+  catalog: string,
+  topics: ReadonlyArray<{ id: string; title: string }>,
+): { id: string; title: string } | null {
+  const title = SEED_CATALOG_DIRECTIVE_TOPIC[catalog];
+  if (!title) return null;
+  const match = topics.find((t) => t.title === title);
   return match ?? null;
 }
 
@@ -205,8 +242,7 @@ export function groupSeededPagesIntoCatalogShelves(
     });
   }
 
-  const firstWithContent =
-    groups.find((g) => pageCountInGroup(g) > 0) ?? groups[0] ?? null;
+  const firstWithContent = groups.find((g) => pageCountInGroup(g) > 0) ?? groups[0] ?? null;
   if (firstWithContent) firstWithContent.showOverview = true;
 
   return groups;

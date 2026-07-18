@@ -43,9 +43,7 @@ export function ResearchArchiveSection(props: Props) {
 
   const load = useCallback(async () => {
     try {
-      const res = await api<ArchivePayload>(
-        `/api/companies/${props.companyId}/research/archive`,
-      );
+      const res = await api<ArchivePayload>(`/api/companies/${props.companyId}/research/archive`);
       setData(res);
     } catch {
       setData({ concepts: [], topics: [], libraries: [] });

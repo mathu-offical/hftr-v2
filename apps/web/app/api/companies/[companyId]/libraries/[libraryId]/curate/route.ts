@@ -44,10 +44,7 @@ export async function POST(req: Request, ctx: Ctx) {
     if (!libraryConcept) throw new NotFoundError('library_concept');
 
     // Qualitative confidence advances on positive curation events (D-047).
-    if (
-      input.curationStatus === 'accepted' ||
-      input.curationStatus === 'auto_admitted'
-    ) {
+    if (input.curationStatus === 'accepted' || input.curationStatus === 'auto_admitted') {
       await bumpConceptConfidence(db, input.conceptId, 'verify', new Date());
     }
 

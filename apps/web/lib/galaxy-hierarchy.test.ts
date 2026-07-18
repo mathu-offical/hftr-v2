@@ -113,8 +113,7 @@ describe('galaxy-hierarchy', () => {
     expect(sats.every((s) => s.__kind === 'tag-sat')).toBe(true);
     expect(
       sats.every(
-        (s) =>
-          !['strategy_families', 'guardrail_packages', 'baseline_sector'].includes(s.tags[0]!),
+        (s) => !['strategy_families', 'guardrail_packages', 'baseline_sector'].includes(s.tags[0]!),
       ),
     ).toBe(true);
     expect(sats.filter((s) => s.__parentConceptId === conceptA)).toHaveLength(2);

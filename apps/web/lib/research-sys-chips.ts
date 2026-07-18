@@ -62,3 +62,12 @@ export function preprocessSysChips(markdown: string): string {
     return `[${label}](${href})`;
   });
 }
+
+/**
+ * react-markdown strips unknown protocols by default. Preserve hftr-sys chip
+ * hrefs while leaving default sanitization for other URLs.
+ */
+export function allowHftrSysUrl(url: string, defaultTransform: (url: string) => string): string {
+  if (url.startsWith('hftr-sys:')) return url;
+  return defaultTransform(url);
+}

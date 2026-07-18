@@ -60,18 +60,14 @@ export async function POST(req: Request, ctx: Ctx) {
       transfer.toKind === 'module' &&
       transfer.fromModuleId &&
       transfer.toModuleId
-        ? moduleTransferLedgerEntries(
-            transfer,
-            companyBalanceCents,
-            {
-              fromModuleBalanceCents: await getModuleBalanceCents(
-                db,
-                companyId,
-                transfer.fromModuleId,
-              ),
-              toModuleBalanceCents: await getModuleBalanceCents(db, companyId, transfer.toModuleId),
-            },
-          )
+        ? moduleTransferLedgerEntries(transfer, companyBalanceCents, {
+            fromModuleBalanceCents: await getModuleBalanceCents(
+              db,
+              companyId,
+              transfer.fromModuleId,
+            ),
+            toModuleBalanceCents: await getModuleBalanceCents(db, companyId, transfer.toModuleId),
+          })
         : [];
 
     const updated = await db

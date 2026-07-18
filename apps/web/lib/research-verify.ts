@@ -7,10 +7,7 @@ export interface ResearchKeyVerifyOutcome {
   failure?: string;
 }
 
-async function ping(
-  url: string,
-  init: RequestInit,
-): Promise<ResearchKeyVerifyOutcome> {
+async function ping(url: string, init: RequestInit): Promise<ResearchKeyVerifyOutcome> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), PING_TIMEOUT_MS);
   try {
@@ -52,8 +49,7 @@ async function verifyMarketaux(apiKey: string): Promise<ResearchKeyVerifyOutcome
 
 async function verifyFinnhub(apiKey: string): Promise<ResearchKeyVerifyOutcome> {
   const url =
-    'https://finnhub.io/api/v1/news' +
-    `?category=general&token=${encodeURIComponent(apiKey)}`;
+    'https://finnhub.io/api/v1/news' + `?category=general&token=${encodeURIComponent(apiKey)}`;
   return ping(url, {
     method: 'GET',
     headers: { Accept: 'application/json' },

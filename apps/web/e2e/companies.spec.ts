@@ -62,7 +62,9 @@ async function createDayTradingCompany(page: Page): Promise<void> {
 test.describe('Companies directory', () => {
   test('exposes User Settings from the directory shell', async ({ page }) => {
     await page.goto('/companies');
-    await expect(page.getByText(/llm:\s*\d+\/6/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open user settings' })).toBeVisible();
+    // LLM chip hydrates from /api/settings/keys — allow slow first paint.
+    await expect(page.getByText(/llm:\s*\d+\/6/i)).toBeVisible({ timeout: 15_000 });
     await page.getByRole('button', { name: 'Open user settings' }).click();
     await expect(page.getByRole('dialog', { name: 'User settings' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'LLM providers' })).toBeVisible();

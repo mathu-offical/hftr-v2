@@ -78,7 +78,9 @@ describe('buildTemplatePreviewGraph', () => {
     const desk = groups.find((node) => node.id === 'eng:dep-desk')!;
     expect(regime.position.x).toBeLessThan(exec.position.x);
     expect(desk.position.x).toBeLessThan(exec.position.x);
-    expect(desk.position.y - (regime.position.y + (regime.style?.height as number))).toBeGreaterThanOrEqual(100);
+    expect(
+      desk.position.y - (regime.position.y + (regime.style?.height as number)),
+    ).toBeGreaterThanOrEqual(100);
 
     const templateLinks = edges.filter((edge) => String(edge.id).startsWith('link:'));
     const bridges = edges.filter((edge) => String(edge.id).startsWith('bridge:'));

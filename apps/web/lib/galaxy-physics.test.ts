@@ -29,9 +29,7 @@ describe('galaxy-physics', () => {
   });
 
   it('soft nest force pulls outliers inward', () => {
-    const centers = new Map([
-      ['lib', { x: 0, y: 0, z: 0, radius: 40, name: 'Test' }],
-    ]);
+    const centers = new Map([['lib', { x: 0, y: 0, z: 0, radius: 40, name: 'Test' }]]);
     const force = createLibraryNestForce(centers);
     const node = {
       primaryLibraryId: 'lib',
@@ -48,9 +46,7 @@ describe('galaxy-physics', () => {
   });
 
   it('places folder centers inside parent library ring', () => {
-    const libraryCenters = new Map([
-      ['lib-1', { x: 100, y: 0, z: 0, radius: 80, name: 'Lib' }],
-    ]);
+    const libraryCenters = new Map([['lib-1', { x: 100, y: 0, z: 0, radius: 80, name: 'Lib' }]]);
     const folderCenters = computeFolderCenters3D({
       libraryCenters,
       folders: [
@@ -103,9 +99,7 @@ describe('galaxy-physics', () => {
   });
 
   it('places article orbits inside folder parent when folderKey set', () => {
-    const libraryCenters = new Map([
-      ['lib-1', { x: 0, y: 0, z: 0, radius: 80, name: 'Lib' }],
-    ]);
+    const libraryCenters = new Map([['lib-1', { x: 0, y: 0, z: 0, radius: 80, name: 'Lib' }]]);
     const folderCenters = computeFolderCenters3D({
       libraryCenters,
       folders: [

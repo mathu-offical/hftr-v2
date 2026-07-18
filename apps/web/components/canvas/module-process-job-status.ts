@@ -41,7 +41,9 @@ export function layerIdForJobKind(kind: string, layers: readonly ProcessLayerDef
 export function composeLayerQueueStatusText(moduleJobs: ModuleJobSummaryRow[]): string {
   const active = moduleJobs.filter((job) => job.status === 'active').length;
   const dead = moduleJobs.filter((job) => job.status === 'dead').length;
-  const budgetHeld = moduleJobs.filter((job) => job.status === 'pending' && job.budgetQueued).length;
+  const budgetHeld = moduleJobs.filter(
+    (job) => job.status === 'pending' && job.budgetQueued,
+  ).length;
   const pending = moduleJobs.filter((job) => job.status === 'pending' && !job.budgetQueued).length;
 
   if (active > 0) return `active · ${active}`;

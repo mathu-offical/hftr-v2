@@ -27,24 +27,8 @@ export function createNestHullObject3d(node: NestHullNode): THREE.Group {
         : isFolder
           ? 0.04
           : 0.055;
-  const wireOpacity = isCompany
-    ? 0.16
-    : isArticle
-      ? 0.38
-      : isTopic
-        ? 0.55
-        : isFolder
-          ? 0.28
-          : 0.42;
-  const ringOpacity = isCompany
-    ? 0.12
-    : isArticle
-      ? 0.28
-      : isTopic
-        ? 0.4
-        : isFolder
-          ? 0.22
-          : 0.34;
+  const wireOpacity = isCompany ? 0.16 : isArticle ? 0.38 : isTopic ? 0.55 : isFolder ? 0.28 : 0.42;
+  const ringOpacity = isCompany ? 0.12 : isArticle ? 0.28 : isTopic ? 0.4 : isFolder ? 0.22 : 0.34;
 
   const shell = new THREE.Mesh(
     new THREE.SphereGeometry(radius, latSeg, lonSeg),
@@ -89,7 +73,11 @@ export function createNestHullObject3d(node: NestHullNode): THREE.Group {
     meridian.rotation.x = 0;
     meridian.rotation.y = Math.PI / 2;
     meridian.material = (ring.material as THREE.MeshBasicMaterial).clone();
-    (meridian.material as THREE.MeshBasicMaterial).opacity = isCompany ? 0.1 : isArticle ? 0.14 : 0.22;
+    (meridian.material as THREE.MeshBasicMaterial).opacity = isCompany
+      ? 0.1
+      : isArticle
+        ? 0.14
+        : 0.22;
     group.add(meridian);
   }
 
@@ -130,7 +118,8 @@ export function paintNestHull2d(
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.strokeStyle = color;
   ctx.globalAlpha = isCompany ? 0.3 : isArticle ? 0.5 : isTopic ? 0.7 : isFolder ? 0.38 : 0.55;
-  ctx.lineWidth = (isCompany ? 1.1 : isArticle || isFolder ? 1.2 : 1.7) / Math.max(globalScale * 0.5, 0.35);
+  ctx.lineWidth =
+    (isCompany ? 1.1 : isArticle || isFolder ? 1.2 : 1.7) / Math.max(globalScale * 0.5, 0.35);
   if (isTopic || isArticle) {
     ctx.setLineDash([8 / globalScale, 5 / globalScale]);
   } else if (isFolder) {

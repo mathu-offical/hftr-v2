@@ -1,8 +1,4 @@
-import {
-  deriveGeneratedModuleName,
-  moduleFunctionLabel,
-  ModuleType,
-} from '@hftr/contracts';
+import { deriveGeneratedModuleName, moduleFunctionLabel, ModuleType } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { moduleLinks, modules } from '@hftr/db/schema';
 import { and, eq } from 'drizzle-orm';

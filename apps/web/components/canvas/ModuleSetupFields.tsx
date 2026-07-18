@@ -129,7 +129,12 @@ export function ModuleSetupFields(props: {
   draft: ModuleSetupDraft;
   onChange: (draft: ModuleSetupDraft) => void;
   compact?: boolean;
-  /** Visible human-readable labels (engine group chrome). */
+  /**
+   * `inline` — single-row header strip (engine chrome): bordered fields with
+   * placeholder labels; `stack` — vertical form (module cards / dialogs).
+   */
+  layout?: 'stack' | 'inline';
+  /** Visible human-readable labels (engine group chrome stack mode). */
   showLabels?: boolean;
   /** Hide capital helper copy (engine group uses a short strip). */
   hideHints?: boolean;
@@ -139,6 +144,9 @@ export function ModuleSetupFields(props: {
 }) {
   const required = new Set(props.requiredFields);
   const missing = new Set(props.missingFields);
+  const inline = props.layout === 'inline';
+  const compact = props.compact || inline;
+  const showLabels = inline ? false : (props.showLabels ?? false);
   const topicRef = useRef<HTMLInputElement>(null);
   const allocationRef = useRef<HTMLInputElement>(null);
   const exitRef = useRef<HTMLInputElement>(null);
@@ -171,20 +179,27 @@ export function ModuleSetupFields(props: {
   const allocationMissing = missing.has('capital_allocation');
   const targetExitMissing = missing.has('target_exit');
 
+  const shellClass = inline
+    ? 'flex min-w-0 flex-wrap items-center gap-1'
+    : compact
+      ? 'space-y-1'
+      : 'space-y-3';
+  const fieldShell = inline ? 'min-w-0' : 'space-y-0.5';
+
   return (
-    <div className={props.compact ? 'space-y-1' : 'space-y-3'}>
+    <div className={shellClass}>
       {required.has('topic_sector') && (
         <div
-          className="space-y-0.5"
+          className={`${fieldShell} ${inline ? 'min-w-[9rem] flex-1' : ''}`}
           onPointerDown={() => props.onFocusField?.('topic_sector')}
         >
-          {topicMissing && (
+          {topicMissing && !inline && (
             <div className="flex flex-wrap items-center gap-1">
               <FieldStatusChip field="topic_sector" />
             </div>
           )}
-          <label className="block">
-            <FieldLabel field="topic_sector" showLabels={props.showLabels ?? false} />
+          <label className={inline ? 'block min-w-0' : 'block'}>
+            <FieldLabel field="topic_sector" showLabels={showLabels} />
             <div className="relative">
               <input
                 ref={topicRef}
@@ -193,9 +208,12 @@ export function ModuleSetupFields(props: {
                   props.onChange({ ...props.draft, topicSectors: event.target.value })
                 }
                 onFocus={() => props.onFocusField?.('topic_sector')}
-                placeholder="Semiconductors, energy, macro"
+                placeholder={
+                  topicMissing ? 'Required · Topic / sector' : 'Topic / sector'
+                }
+                title={props.draft.topicSectors || 'Topic / sector'}
                 aria-label="Topic / sector"
-                className={`${fieldBorderClass(topicMissing, props.compact)} truncate${topicMissing ? '' : ' pr-8'}`}
+                className={`${fieldBorderClass(topicMissing, compact)} truncate${topicMissing ? '' : ' pr-7'}`}
               />
               {!topicMissing && <ConfirmedFieldCheck field="topic_sector" />}
             </div>
@@ -205,16 +223,16 @@ export function ModuleSetupFields(props: {
 
       {required.has('capital_allocation') && (
         <div
-          className="space-y-0.5"
+          className={`${fieldShell} ${inline ? 'flex shrink-0 items-center gap-1' : ''}`}
           onPointerDown={() => props.onFocusField?.('capital_allocation')}
         >
-          {allocationMissing && (
+          {allocationMissing && !inline && (
             <div className="flex flex-wrap items-center gap-1">
               <FieldStatusChip field="capital_allocation" />
             </div>
           )}
-          <label className="block space-y-0.5">
-            <FieldLabel field="capital_allocation" showLabels={props.showLabels ?? false} />
+          <label className={inline ? 'flex items-center gap-1' : 'block space-y-0.5'}>
+            <FieldLabel field="capital_allocation" showLabels={showLabels} />
             <div className="flex items-stretch gap-1">
               <select
                 value={props.draft.allocationMode}
@@ -225,12 +243,13 @@ export function ModuleSetupFields(props: {
                   })
                 }
                 aria-label="Capital allocation mode"
-                className={fieldBorderClass(allocationMissing, props.compact, { width: 'auto' })}
+                title="Capital mode"
+                className={fieldBorderClass(allocationMissing, compact, { width: 'auto' })}
               >
                 <option value="amount">USD</option>
-                <option value="percentage">Percent</option>
+                <option value="percentage">%</option>
               </select>
-              <div className="relative min-w-0 flex-1">
+              <div className={`relative ${inline ? 'w-[4.75rem]' : 'min-w-0 flex-1'}`}>
                 <input
                   ref={allocationRef}
                   inputMode="decimal"
@@ -239,14 +258,25 @@ export function ModuleSetupFields(props: {
                     props.onChange({ ...props.draft, allocationValue: event.target.value })
                   }
                   onFocus={() => props.onFocusField?.('capital_allocation')}
-                  placeholder={props.draft.allocationMode === 'amount' ? '2500.00' : '25'}
+                  placeholder={
+                    allocationMissing
+                      ? 'Required'
+                      : props.draft.allocationMode === 'amount'
+                        ? 'Capital'
+                        : '%'
+                  }
+                  title={
+                    props.draft.allocationValue
+                      ? `Capital ${props.draft.allocationValue}`
+                      : 'Capital allocation'
+                  }
                   aria-label="Capital allocation value"
-                  className={`${fieldBorderClass(allocationMissing, props.compact)} truncate${allocationMissing ? '' : ' pr-8'}`}
+                  className={`${fieldBorderClass(allocationMissing, compact)} truncate${allocationMissing ? '' : ' pr-7'}`}
                 />
                 {!allocationMissing && <ConfirmedFieldCheck field="capital_allocation" />}
               </div>
             </div>
-            {!props.hideHints && (
+            {!props.hideHints && !inline && (
               <span className="block text-[9px] text-[var(--color-ink-faint)]">
                 Trading capital only. Provider and LLM budgets are tracked separately.
               </span>
@@ -257,16 +287,16 @@ export function ModuleSetupFields(props: {
 
       {required.has('target_exit') && (
         <div
-          className="space-y-0.5"
+          className={`${fieldShell} ${inline ? 'shrink-0' : ''}`}
           onPointerDown={() => props.onFocusField?.('target_exit')}
         >
-          {targetExitMissing && (
+          {targetExitMissing && !inline && (
             <div className="flex flex-wrap items-center gap-1">
               <FieldStatusChip field="target_exit" />
             </div>
           )}
           <label className="block">
-            <FieldLabel field="target_exit" showLabels={props.showLabels ?? false} />
+            <FieldLabel field="target_exit" showLabels={showLabels} />
             <div className="relative">
               <input
                 ref={exitRef}
@@ -277,7 +307,14 @@ export function ModuleSetupFields(props: {
                 }
                 onFocus={() => props.onFocusField?.('target_exit')}
                 aria-label="Target exit date / time"
-                className={`${fieldBorderClass(targetExitMissing, props.compact)}${targetExitMissing ? '' : ' pr-14'}`}
+                title={
+                  props.draft.targetExitLocal
+                    ? `Target exit ${props.draft.targetExitLocal}`
+                    : targetExitMissing
+                      ? 'Required · Target exit'
+                      : 'Target exit'
+                }
+                className={`${fieldBorderClass(targetExitMissing, compact)}${targetExitMissing ? '' : ' pr-12'}${inline ? ' max-w-[11.5rem]' : ''}`}
               />
               {!targetExitMissing && (
                 <ConfirmedFieldCheck field="target_exit" insetForNativeControl />

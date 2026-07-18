@@ -76,8 +76,7 @@ export function ModuleProcessDetailModal(props: {
           ),
         ]);
         if (stopped) return;
-        const projection =
-          canvas.modules.find((row) => row.moduleId === props.moduleId) ?? null;
+        const projection = canvas.modules.find((row) => row.moduleId === props.moduleId) ?? null;
         setModuleStatus(projection);
         setModuleJobs(summary.jobs);
       } catch {
@@ -123,8 +122,7 @@ export function ModuleProcessDetailModal(props: {
 
   const manualControl = Boolean(config?.manualControl);
   const headerStatus = moduleStatus?.statusText ?? 'idle';
-  const showQueueStrip =
-    unmapped.length > 0 || (moduleJobs.length > 0 && byLayer.size === 0);
+  const showQueueStrip = unmapped.length > 0 || (moduleJobs.length > 0 && byLayer.size === 0);
 
   return (
     <div

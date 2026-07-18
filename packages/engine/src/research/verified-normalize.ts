@@ -164,7 +164,10 @@ export function corroborateAndNormalize(
 
   const domains = new Set(input.evidence.map((pkg) => pkg.sourceKind));
   const corroborationBand = corroborationBandFromDomains(domains.size);
-  const digests = [...new Set(input.evidence.map((pkg) => pkg.digest))];
+  // Contract max is 24 digests — keep a stable sorted prefix for seal identity.
+  const digests = [...new Set(input.evidence.map((pkg) => pkg.digest))]
+    .sort()
+    .slice(0, 24);
 
   const credibility = sourceCredibilityGate(input.evidence);
   if (!credibility.passed) return null;

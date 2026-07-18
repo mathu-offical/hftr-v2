@@ -98,9 +98,21 @@ describe('movers-compound', () => {
   });
 
   it('extracts tickers from evidence text', () => {
-    const syms = extractTickerCandidates(['NVDA leads semis while AMD follows'], 8);
+    const syms = extractTickerCandidates(
+      ['NVDA leads semis while AMD follows'],
+      8,
+      ['NVDA', 'AMD', 'AAPL'],
+    );
     expect(syms).toContain('NVDA');
     expect(syms).toContain('AMD');
+  });
+
+  it('only admits allowlisted symbols from free text', () => {
+    const syms = extractTickerCandidates(
+      ['A CORP filed with EDGAR while BUY rose and MADE highs; $AAPL held'],
+      16,
+    );
+    expect(syms).toEqual(['AAPL']);
   });
 
   it('verify corroboration respects floor', () => {

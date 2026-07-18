@@ -3,10 +3,43 @@ import {
   NormalizedViewKind,
   VerifiedNormalizedBundle,
   type NormalizedViewKind as NormalizedViewKindType,
+  type VerifiedNormalizedBundle as VerifiedNormalizedBundleT,
 } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { systemNormalizedViews } from '@hftr/db/schema';
 import { isSealValid } from './verified-normalize';
+
+const MAX_SEAL_DIGESTS = 24;
+
+/**
+ * Trim oversized digest arrays so persisted pre-cap seals still parse (D-101).
+ */
+export function trimSealBundleForParse(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const bundle = raw as Record<string, unknown>;
+  const sourceDigests = Array.isArray(bundle.sourceDigests)
+    ? bundle.sourceDigests.slice(0, MAX_SEAL_DIGESTS)
+    : bundle.sourceDigests;
+  const viewRaw = bundle.view;
+  let view = viewRaw;
+  if (viewRaw && typeof viewRaw === 'object') {
+    const v = viewRaw as Record<string, unknown>;
+    view = {
+      ...v,
+      sourceDigests: Array.isArray(v.sourceDigests)
+        ? v.sourceDigests.slice(0, MAX_SEAL_DIGESTS)
+        : v.sourceDigests,
+    };
+  }
+  return { ...bundle, sourceDigests, view };
+}
+
+export function parseVerifiedSealBundle(
+  raw: unknown,
+): VerifiedNormalizedBundleT | null {
+  const parsed = VerifiedNormalizedBundle.safeParse(trimSealBundleForParse(raw));
+  return parsed.success ? parsed.data : null;
+}
 
 /**
  * Load the latest unexpired seal for (company, kind, subjectKey).
@@ -20,7 +53,7 @@ export async function loadLatestValidSeal(
     subjectKey: string;
     nowMs: number;
   },
-): Promise<VerifiedNormalizedBundle | null> {
+): Promise<VerifiedNormalizedBundleT | null> {
   const now = new Date(opts.nowMs);
   const rows = await db
     .select({
@@ -40,10 +73,10 @@ export async function loadLatestValidSeal(
     .limit(5);
 
   for (const row of rows) {
-    const parsed = VerifiedNormalizedBundle.safeParse(row.bundle);
-    if (!parsed.success) continue;
-    if (isSealValid(parsed.data, opts.nowMs)) {
-      return parsed.data;
+    const parsed = parseVerifiedSealBundle(row.bundle);
+    if (!parsed) continue;
+    if (isSealValid(parsed, opts.nowMs)) {
+      return parsed;
     }
   }
   return null;

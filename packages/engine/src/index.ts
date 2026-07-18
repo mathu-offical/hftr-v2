@@ -136,6 +136,8 @@ export {
 export {
   loadLatestValidSeal,
   loadSealSummariesForSynthesize,
+  parseVerifiedSealBundle,
+  trimSealBundleForParse,
   type SealSummary,
 } from './research/seal-load';
 export {

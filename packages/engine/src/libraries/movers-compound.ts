@@ -164,31 +164,36 @@ export const DEFAULT_LIQUID_FALLBACK = [
 ] as const;
 
 /** Extract ticker-like tokens from qualitative evidence text (capped). */
-export function extractTickerCandidates(texts: string[], cap: number): string[] {
-  const re = /\b([A-Z]{1,5})\b/g;
+export function extractTickerCandidates(
+  texts: string[],
+  cap: number,
+  /** When set, only return symbols in this set (case-insensitive). */
+  allowlist: readonly string[] = DEFAULT_LIQUID_FALLBACK,
+): string[] {
+  const allow = new Set(allowlist.map((s) => s.toUpperCase()));
+  // Prefer $TICKER / exchange:TICKER forms, then bare uppercase tokens in the allowlist.
+  const tagged = /(?:\$|NASDAQ:|NYSE:|AMEX:)([A-Z]{1,5})\b/g;
+  const bare = /\b([A-Z]{2,5})\b/g;
   const seen = new Set<string>();
   const out: string[] = [];
-  const stop = new Set([
-    'A',
-    'I',
-    'THE',
-    'AND',
-    'FOR',
-    'CEO',
-    'USD',
-    'ETF',
-    'AI',
-    'US',
-    'EU',
-    'SEC',
-    'FDA',
-  ]);
+
+  const push = (sym: string) => {
+    if (!allow.has(sym) || seen.has(sym)) return;
+    seen.add(sym);
+    out.push(sym);
+  };
+
   for (const t of texts) {
-    for (const m of t.toUpperCase().matchAll(re)) {
-      const sym = m[1]!;
-      if (stop.has(sym) || seen.has(sym)) continue;
-      seen.add(sym);
-      out.push(sym);
+    const upper = t.toUpperCase();
+    for (const m of upper.matchAll(tagged)) {
+      push(m[1]!);
+      if (out.length >= cap) return out;
+    }
+  }
+  for (const t of texts) {
+    const upper = t.toUpperCase();
+    for (const m of upper.matchAll(bare)) {
+      push(m[1]!);
       if (out.length >= cap) return out;
     }
   }

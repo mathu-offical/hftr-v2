@@ -200,7 +200,8 @@ editable fields.
   viewport-bounded (`overflow-hidden` / `min-h-0`) with scrollable inspector body and
   horizontally scrollable library chips. Shared chrome: search, tag chips, library scope,
   zoom, clear-focus. Nest hull labels and chips use short library names (head segment
-  before arrow chains). Default galaxy mode is **2D** with LOD labels + highlight rings.
+  before arrow chains). Default galaxy mode is **3D physics** (TD-09); 2D is WebGL/toggle
+  fallback with the same spring physics in plane.
 - Research module cards (D-039): **admission mode** select (auto-admit vs require approval),
   manual query / Curate now / company sweep, multi-poll **run status** (phase · evidence ·
   concepts · validation · admission applied), **validation gate scores** after a run, and an
@@ -259,7 +260,7 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
   `concept_links` remain edges. **D-045** materializes compile-time catalog targets into
   company concepts + library nests on create/ensure so galaxy is never empty of baseline
   mechanisms.
-- **Libraries** — hard nested sub-circles inside the company galaxy (stable when scope shrinks).
+- **Libraries** — soft 3D nest clusters inside the company galaxy (stable when scope shrinks).
 
 ### Galaxy tab
 - `react-force-graph-3d` + `d3-force-3d` (**canonical 3D physics space**, TD-09): concepts as

@@ -3,9 +3,11 @@ import {
   computeEngineBoundsFromPositions,
   CreateCompanyInput,
   DEFAULT_PHILOSOPHY_PROFILE,
+  deriveGeneratedModuleName,
   listResolvedEngineTemplates,
   MAX_MODULES_PER_COMPANY,
   MODULE_CONFIG_SCHEMAS,
+  moduleFunctionLabel,
   projectedModuleSlotsForCreate,
   withDefaultEngineSetup,
 } from '@hftr/contracts';
@@ -95,14 +97,14 @@ export async function POST(req: Request) {
     const clock = createSystemClock();
     const createdModuleIds: string[] = [];
 
-    // Every company gets its non-deletable Math module (D-008).
+    // Every company gets its Math hub (D-008).
     const [mathModule] = await db
       .insert(modules)
       .values({
         companyId: company.id,
         type: 'math',
-        name: 'Deterministic Math Calculator',
-        generatedNameBase: 'Deterministic Math Calculator',
+        name: 'Math · —',
+        generatedNameBase: 'Math',
         nameCustomized: false,
         config: { mathType: 'company_hub' },
         status: 'active',
@@ -190,18 +192,28 @@ export async function POST(req: Request) {
       const created = await db
         .insert(modules)
         .values(
-          engine.modules.map((m, index) => ({
-            companyId: company.id,
-            type: m.type,
-            name: m.name,
-            generatedNameBase: m.name,
-            nameCustomized: false,
-            config: parsedConfigs[index],
-            status: 'draft' as const,
-            canvasPosition: absolutePositions[index],
-            engineInstanceId: engineRow.id,
-            topicSectorsOverridden: false,
-          })),
+          engine.modules.map((m, index) => {
+            const config = parsedConfigs[index];
+            const fn = moduleFunctionLabel(m.type, config);
+            const name = deriveGeneratedModuleName({
+              type: m.type,
+              baseName: fn,
+              config,
+              topicSectors: masterTopicSectors,
+            });
+            return {
+              companyId: company.id,
+              type: m.type,
+              name,
+              generatedNameBase: fn,
+              nameCustomized: false,
+              config,
+              status: 'draft' as const,
+              canvasPosition: absolutePositions[index],
+              engineInstanceId: engineRow.id,
+              topicSectorsOverridden: false,
+            };
+          }),
         )
         .returning({ id: modules.id });
       for (const row of created) {
@@ -213,8 +225,9 @@ export async function POST(req: Request) {
         created.map((row, index) => ({
           id: row.id,
           type: engine.modules[index]!.type,
-          name: engine.modules[index]!.name,
+          name: moduleFunctionLabel(engine.modules[index]!.type, parsedConfigs[index]),
           position: absolutePositions[index]!,
+          config: parsedConfigs[index],
         })),
       );
       for (const tool of dedicatedMath) createdModuleIds.push(tool.id);
@@ -268,13 +281,20 @@ export async function POST(req: Request) {
         x: 20 + (index % 3) * 300,
         y: maxTemplateY + 320 + Math.floor(index / 3) * 260,
       };
+      const fn = moduleFunctionLabel(extra.type, config);
+      const name = deriveGeneratedModuleName({
+        type: extra.type,
+        baseName: fn,
+        config,
+        topicSectors: extra.setup?.topicSectors ?? [],
+      });
       const [createdModule] = await db
         .insert(modules)
         .values({
           companyId: company.id,
           type: extra.type,
-          name: extra.name,
-          generatedNameBase: extra.name,
+          name,
+          generatedNameBase: fn,
           nameCustomized: false,
           config,
           status: 'draft',
@@ -289,8 +309,9 @@ export async function POST(req: Request) {
         {
           id: createdModule.id,
           type: extra.type,
-          name: extra.name,
+          name: fn,
           position,
+          config,
         },
       ]);
       for (const tool of extraMath) createdModuleIds.push(tool.id);

@@ -240,6 +240,11 @@ export const LINK_KIND_ORDER: readonly LinkKind[] = [
 ];
 
 const GENERATED_MODULE_NAME_MAX_LENGTH = 80;
+const FOCUS_TOKEN_MAX_LENGTH = 18;
+const CONNECTION_REF_CAP = 2;
+
+/** Unset focus placeholder in compact primary labels (`Fn · —`). */
+export const MODULE_FOCUS_UNSET = '—';
 
 function orderLinkKinds(kinds: Iterable<LinkKind>): readonly LinkKind[] {
   const allowed = new Set(kinds);
@@ -308,43 +313,6 @@ export function linkKindForHandlePair(
   if (sourceHandle === 'tools-out' && targetHandle === 'data-in') return 'verification';
 
   return null;
-}
-
-function normalizeNeighborNames(names: readonly string[]): string[] {
-  const seen = new Set<string>();
-  const normalized: string[] = [];
-  for (const name of names) {
-    const trimmed = name.trim();
-    if (!trimmed || seen.has(trimmed)) continue;
-    seen.add(trimmed);
-    normalized.push(trimmed);
-  }
-  return normalized.sort((a, b) => a.localeCompare(b));
-}
-
-/**
- * Derive a display name from the module type, base function label, and neighbor
- * base names (never full generated neighbor strings).
- */
-export function deriveGeneratedModuleName(input: {
-  type: ModuleType;
-  baseName: string;
-  inboundNames: readonly string[];
-  outboundNames: readonly string[];
-}): string {
-  const baseName = input.baseName.trim();
-  if (input.type === 'math') return baseName;
-
-  const inbound = normalizeNeighborNames(input.inboundNames);
-  const outbound = normalizeNeighborNames(input.outboundNames);
-  if (inbound.length === 0 && outbound.length === 0) return baseName;
-
-  let name = baseName;
-  if (inbound.length > 0) name += ` ← ${inbound.join(' · ')}`;
-  if (outbound.length > 0) name += ` → ${outbound.join(' · ')}`;
-
-  if (name.length <= GENERATED_MODULE_NAME_MAX_LENGTH) return name;
-  return name.slice(0, GENERATED_MODULE_NAME_MAX_LENGTH).trimEnd();
 }
 
 /** Canvas column per module type (left → right ordering, ui-spec §3). */
@@ -542,6 +510,234 @@ export const DisplayModuleConfig = z.object({
   sourceModuleIds: z.array(z.string().uuid()).default([]),
 });
 export type DisplayModuleConfig = z.infer<typeof DisplayModuleConfig>;
+
+function normalizeNeighborLabels(labels: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const label of labels) {
+    const trimmed = label.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    normalized.push(trimmed);
+  }
+  return normalized.sort((a, b) => a.localeCompare(b));
+}
+
+function capNeighborLabels(labels: readonly string[], cap: number): string[] {
+  if (labels.length <= cap) return [...labels];
+  const kept = labels.slice(0, cap);
+  const overflow = labels.length - cap;
+  return [...kept, `+${overflow}`];
+}
+
+/**
+ * Short function lexicon for canvas identity (compact labels).
+ * Prefer type + subtype/kind over long prose bases.
+ */
+export function moduleFunctionLabel(type: ModuleType, config?: unknown): string {
+  const cfg =
+    config && typeof config === 'object' && !Array.isArray(config)
+      ? (config as Record<string, unknown>)
+      : {};
+
+  switch (type) {
+    case 'research':
+      return 'Research';
+    case 'librarian':
+      return 'Librarian';
+    case 'library':
+      return 'Library';
+    case 'live_api':
+      return 'LiveAPI';
+    case 'trend':
+      return 'Trend';
+    case 'trading': {
+      const subtype = TradingSubtype.safeParse(cfg.subtype);
+      if (!subtype.success) return 'Trade';
+      switch (subtype.data) {
+        case 'day':
+          return 'DayTrade';
+        case 'long_term':
+          return 'Swing';
+        case 'crypto':
+          return 'Crypto';
+        case 'prediction':
+          return 'Pred';
+        case 'hft':
+          return 'HFT';
+        case 'custom':
+          return 'Trade';
+      }
+    }
+    case 'policy':
+      return 'Policy';
+    case 'generator':
+      return 'Gen';
+    case 'simulator':
+      return 'Sim';
+    case 'analyzer':
+      return 'Analyze';
+    case 'holding_fund':
+      return 'Fund';
+    case 'fund_router':
+      return 'Router';
+    case 'math':
+      return 'Math';
+    case 'display': {
+      const kind = DisplayKind.safeParse(cfg.displayKind);
+      if (!kind.success) return 'Display';
+      switch (kind.data) {
+        case 'table':
+          return 'Table';
+        case 'list':
+          return 'List';
+        case 'ledger':
+          return 'Ledger';
+        case 'chart':
+          return 'Chart';
+        case 'graph':
+          return 'Graph';
+      }
+    }
+    default: {
+      const _exhaustive: never = type;
+      return _exhaustive;
+    }
+  }
+}
+
+/**
+ * Compact focus token from topic/sector (preferred) or optional capital display.
+ * Long topics collapse to the first word / slug within FOCUS_TOKEN_MAX_LENGTH.
+ */
+export function moduleFocusToken(input: {
+  topicSectors?: readonly string[] | null | undefined;
+  capitalAllocationDisplay?: string | null | undefined;
+}): string {
+  const topics = (input.topicSectors ?? [])
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+  if (topics.length > 0) {
+    const first = topics[0]!;
+    if (first.length <= FOCUS_TOKEN_MAX_LENGTH) return first;
+    const word = first.split(/[\s,/|]+/).find((part) => part.length > 0) ?? first;
+    if (word.length <= FOCUS_TOKEN_MAX_LENGTH) return word;
+    return `${word.slice(0, FOCUS_TOKEN_MAX_LENGTH - 1)}…`;
+  }
+
+  const capital = input.capitalAllocationDisplay?.trim();
+  if (capital) {
+    return capital.length <= FOCUS_TOKEN_MAX_LENGTH
+      ? capital
+      : `${capital.slice(0, FOCUS_TOKEN_MAX_LENGTH - 1)}…`;
+  }
+
+  return MODULE_FOCUS_UNSET;
+}
+
+/** Primary identity line: `{Fn} · {Focus}`. */
+export function composeModulePrimaryLabel(fn: string, focus: string): string {
+  const safeFn = fn.trim() || 'Node';
+  const safeFocus = focus.trim() || MODULE_FOCUS_UNSET;
+  return `${safeFn} · ${safeFocus}`;
+}
+
+/**
+ * Compact connection refs from neighbor function labels (never full display names).
+ * Caps at 2 inbound + 2 outbound with `+N` overflow.
+ */
+export function composeConnectionRefs(
+  inboundLabels: readonly string[],
+  outboundLabels: readonly string[],
+): string | null {
+  const inbound = capNeighborLabels(normalizeNeighborLabels(inboundLabels), CONNECTION_REF_CAP);
+  const outbound = capNeighborLabels(normalizeNeighborLabels(outboundLabels), CONNECTION_REF_CAP);
+  if (inbound.length === 0 && outbound.length === 0) return null;
+
+  let refs = '';
+  if (inbound.length > 0) refs += `← ${inbound.join(' · ')}`;
+  if (outbound.length > 0) {
+    if (refs) refs += ' ';
+    refs += `→ ${outbound.join(' · ')}`;
+  }
+  return refs;
+}
+
+/**
+ * Split a persisted compact name into primary identity and optional connection refs.
+ * Secondary starts at the first ` ← ` or ` → ` marker.
+ */
+export function splitCompactModuleName(name: string): {
+  primary: string;
+  connectionRefs: string | null;
+} {
+  const trimmed = name.trim();
+  const arrowIn = trimmed.indexOf(' ← ');
+  const arrowOut = trimmed.indexOf(' → ');
+  let splitAt = -1;
+  if (arrowIn >= 0 && arrowOut >= 0) splitAt = Math.min(arrowIn, arrowOut);
+  else if (arrowIn >= 0) splitAt = arrowIn;
+  else if (arrowOut >= 0) splitAt = arrowOut;
+
+  if (splitAt < 0) {
+    return { primary: trimmed, connectionRefs: null };
+  }
+
+  const primary = trimmed.slice(0, splitAt).trimEnd();
+  const connectionRefs = trimmed.slice(splitAt + 1).trim();
+  return {
+    primary: primary || trimmed,
+    connectionRefs: connectionRefs || null,
+  };
+}
+
+function truncatePreferringRefs(primary: string, refs: string | null): string {
+  if (!refs) {
+    if (primary.length <= GENERATED_MODULE_NAME_MAX_LENGTH) return primary;
+    return `${primary.slice(0, GENERATED_MODULE_NAME_MAX_LENGTH - 1).trimEnd()}…`;
+  }
+
+  const full = `${primary} ${refs}`;
+  if (full.length <= GENERATED_MODULE_NAME_MAX_LENGTH) return full;
+
+  // Drop refs before slicing the primary identity.
+  if (primary.length <= GENERATED_MODULE_NAME_MAX_LENGTH) return primary;
+  return `${primary.slice(0, GENERATED_MODULE_NAME_MAX_LENGTH - 1).trimEnd()}…`;
+}
+
+/**
+ * Derive a compact display name: `{Fn} · {Focus}` plus optional `←`/`→` neighbor Fn refs.
+ * Math stays primary-only (no connection suffix).
+ */
+export function deriveGeneratedModuleName(input: {
+  type: ModuleType;
+  /** Preferred short Fn; falls back to `moduleFunctionLabel(type, config)`. */
+  baseName?: string;
+  config?: unknown;
+  topicSectors?: readonly string[] | null;
+  capitalAllocationDisplay?: string | null;
+  /** Neighbor short function labels (not full generated names). */
+  inboundLabels?: readonly string[];
+  outboundLabels?: readonly string[];
+  /** @deprecated Prefer inboundLabels — treated as labels when inboundLabels omitted. */
+  inboundNames?: readonly string[];
+  /** @deprecated Prefer outboundLabels — treated as labels when outboundLabels omitted. */
+  outboundNames?: readonly string[];
+}): string {
+  const fn = input.baseName?.trim() || moduleFunctionLabel(input.type, input.config);
+  const focus = moduleFocusToken({
+    topicSectors: input.topicSectors,
+    capitalAllocationDisplay: input.capitalAllocationDisplay,
+  });
+  const primary = composeModulePrimaryLabel(fn, focus);
+
+  if (input.type === 'math') return primary;
+
+  const inbound = input.inboundLabels ?? input.inboundNames ?? [];
+  const outbound = input.outboundLabels ?? input.outboundNames ?? [];
+  const refs = composeConnectionRefs(inbound, outbound);
+  return truncatePreferringRefs(primary, refs);
+}
 
 export const HoldingFundModuleConfig = z.object({
   source: z.enum(['company_seed', 'company_pool', 'reserve', 'broker_balance']),

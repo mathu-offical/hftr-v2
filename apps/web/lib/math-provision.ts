@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, or } from 'drizzle-orm';
-import { moduleRequiresMath, preferredMathTypeForOwner, type ModuleType } from '@hftr/contracts';
+import { moduleRequiresMath, preferredMathTypeForOwner, type ModuleType, composeModulePrimaryLabel, moduleFunctionLabel } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { moduleLinks, modules } from '@hftr/db/schema';
 
@@ -12,8 +12,10 @@ const ATTACHMENT_GAP = 24;
 export interface MathOwnerSeed {
   id: string;
   type: ModuleType;
+  /** Short owner Fn (or legacy name); used as Math focus token. */
   name: string;
   position: { x: number; y: number };
+  config?: unknown;
 }
 
 export interface ProvisionedMathTool {
@@ -49,15 +51,20 @@ export async function provisionDedicatedMathTools(
   const requiredOwners = owners.filter((owner) => moduleRequiresMath(owner.type));
   if (requiredOwners.length === 0) return [];
 
-  const tools = requiredOwners.map((owner) => ({
-    id: randomUUID(),
-    ownerModuleId: owner.id,
-    ownerType: owner.type,
-    position: mathPositionForOwner(owner),
-    name: `Math · ${owner.name}`.slice(0, 80),
-    ownerToMathLinkId: randomUUID(),
-    mathToOwnerLinkId: randomUUID(),
-  }));
+  const tools = requiredOwners.map((owner) => {
+    const ownerFn =
+      moduleFunctionLabel(owner.type, owner.config) || owner.name.split(' · ')[0] || owner.name;
+    const name = composeModulePrimaryLabel('Math', ownerFn);
+    return {
+      id: randomUUID(),
+      ownerModuleId: owner.id,
+      ownerType: owner.type,
+      position: mathPositionForOwner(owner),
+      name,
+      ownerToMathLinkId: randomUUID(),
+      mathToOwnerLinkId: randomUUID(),
+    };
+  });
 
   await db.batch([
     db.insert(modules).values(
@@ -66,7 +73,7 @@ export async function provisionDedicatedMathTools(
         companyId,
         type: 'math' as const,
         name: tool.name,
-        generatedNameBase: tool.name,
+        generatedNameBase: 'Math',
         nameCustomized: false,
         config: { mathType: preferredMathTypeForOwner(tool.ownerType) },
         status: 'active' as const,

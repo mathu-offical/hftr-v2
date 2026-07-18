@@ -2,10 +2,12 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   computeEngineBoundsFromPositions,
+  deriveGeneratedModuleName,
   InsertEngineInput,
   listResolvedEngineTemplates,
   MAX_MODULES_PER_COMPANY,
   MODULE_CONFIG_SCHEMAS,
+  moduleFunctionLabel,
   moduleRequiresMath,
   withDefaultEngineSetup,
   type ModuleType,
@@ -154,18 +156,28 @@ export async function POST(req: Request, ctx: Ctx) {
     const created = await db
       .insert(modules)
       .values(
-        engine.modules.map((m, index) => ({
-          companyId,
-          type: m.type,
-          name: m.name,
-          generatedNameBase: m.name,
-          nameCustomized: false,
-          config: parsedConfigs[index],
-          status: 'draft' as const,
-          canvasPosition: absolutePositions[index],
-          engineInstanceId: engineRow.id,
-          topicSectorsOverridden: false,
-        })),
+        engine.modules.map((m, index) => {
+          const config = parsedConfigs[index];
+          const fn = moduleFunctionLabel(m.type, config);
+          const name = deriveGeneratedModuleName({
+            type: m.type,
+            baseName: fn,
+            config,
+            topicSectors: setup?.topicSectors ?? [],
+          });
+          return {
+            companyId,
+            type: m.type,
+            name,
+            generatedNameBase: fn,
+            nameCustomized: false,
+            config,
+            status: 'draft' as const,
+            canvasPosition: absolutePositions[index],
+            engineInstanceId: engineRow.id,
+            topicSectorsOverridden: false,
+          };
+        }),
       )
       .returning();
 
@@ -179,8 +191,9 @@ export async function POST(req: Request, ctx: Ctx) {
       created.map((row, index) => ({
         id: row.id,
         type: row.type,
-        name: row.name,
+        name: moduleFunctionLabel(row.type, parsedConfigs[index]),
         position: absolutePositions[index]!,
+        config: parsedConfigs[index],
       })),
     );
     const dedicatedMathByOwner = new Map(

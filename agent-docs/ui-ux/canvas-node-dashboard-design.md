@@ -119,39 +119,43 @@ Persisted `module_links.link_kind` remains authoritative; handle ids are present
 
 ## Naming
 
-### Generated name
+### Compact generated label (Fn · Focus + connection refs)
 
 While persisted `modules.name_customized` is `false` (TypeScript/API
 `nameCustomized === false`):
 
 ```
-baseFunctionName(type, config?) + connectionSuffix(neighbors)
+primary = moduleFunctionLabel(type, config) · moduleFocusToken(topic|capital|—)
+refs    = ← {neighborFn…} → {neighborFn…}   // capped 2+2 with +N; omitted if disconnected
+name    = primary [ + " " + refs ]
 ```
 
 Examples:
 
-- Unconnected trading: `Paper Day-Trade Execution`
-- Trading with trend directive in + fund route in: `Paper Day-Trade Execution ← Market Trend Scanner · Paper Seed Holding Fund`
-- Or shorter preferred form: `{base} · from {upstream labels}` capped at ~80 chars
+- Unconnected trading: `DayTrade · —`
+- Trading with topic + trend/fund in: card line 1 `DayTrade · SPY`, muted line 2 `← Trend · Fund`
+- Math: primary only (`Math · —` or `Math · DayTrade` for dedicated tools); no arrow refs
 
-Base names reuse palette / template function-specific defaults (D-023). Connection suffix updates when links are added/removed.
+`generatedNameBase` stores the short Fn only (`DayTrade`, `Trend`, …). Neighbor refs use Fn codes,
+never full neighbor display strings. Card chrome splits primary vs refs via `splitCompactModuleName`.
 
 ### Customized name
 
 - Operator edits name in inspector → mark customized; stop auto-updates.
-- **Restore generated name** recomputes from current graph and clears customized flag.
-- Math: generated name fixed to `Deterministic Math Calculator` (connections may append a short suffix only if product wants parity; default: Math name stays constant).
+- **Restore generated name** recomputes from current graph (Fn · Focus + refs) and clears customized flag.
+- Math: names stay generated (not operator-customizable).
 
 ### Persistence
 
-- `modules.name` — current display string
-- `modules.generated_name_base` — persisted function-specific base used to recompute generated names
-- `modules.name_customized` — controls whether connection changes may regenerate `modules.name`
+- `modules.name` — current display string (primary + optional refs)
+- `modules.generated_name_base` — short function lexicon label used to recompute
+- `modules.name_customized` — controls whether connection/focus changes may regenerate `modules.name`
 - Migration `0011_canvas_node_generated_names` backfills legacy `generated_name_base = name`,
   marks every row existing at migration time `name_customized = true`, then applies
   `DEFAULT false NOT NULL` for future rows. This preserves pre-D-026 operator names across graph
   edits. Because original base provenance was not stored, **Restore generated name** on a legacy
-  row uses its migrated name as the base; new rows have full generated/custom behavior.
+  row uses its migrated name as the base until refreshed to the Fn lexicon; new rows have full
+  compact generated/custom behavior.
 - API: `generatedNameBase`, `nameCustomized` on module projections; `restoreGeneratedName` on module PATCH
 
 ## Implementation sketch

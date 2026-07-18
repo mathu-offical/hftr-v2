@@ -2,8 +2,10 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   CreateModuleInput,
+  deriveGeneratedModuleName,
   MAX_MODULES_PER_COMPANY,
   MODULE_CONFIG_SCHEMAS,
+  moduleFunctionLabel,
   moduleRequiresMath,
 } from '@hftr/contracts';
 import { libraries, modules } from '@hftr/db/schema';
@@ -12,6 +14,7 @@ import { bootstrapCompanyKnowledge, createSystemClock } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import { recordModuleSetup } from '@/lib/module-setup';
 import { provisionDedicatedMathTools } from '@/lib/math-provision';
+import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,13 +54,22 @@ export async function POST(req: Request, ctx: Ctx) {
       await scoping.getOwnedEngineInstance(db, clerkUserId, companyId, input.engineInstanceId);
     }
 
+    const fn = moduleFunctionLabel(input.type, config);
+    const generatedNameBase = input.generatedNameBase?.trim() || fn;
+    const name = deriveGeneratedModuleName({
+      type: input.type,
+      baseName: generatedNameBase,
+      config,
+      topicSectors: input.setup?.topicSectors ?? [],
+    });
+
     const inserted = await db
       .insert(modules)
       .values({
         companyId,
         type: input.type,
-        name: input.name,
-        generatedNameBase: input.generatedNameBase ?? input.name,
+        name,
+        generatedNameBase,
         nameCustomized: false,
         config,
         canvasPosition: input.canvasPosition ?? { x: 0, y: 0 },
@@ -87,6 +99,17 @@ export async function POST(req: Request, ctx: Ctx) {
       resultModule = updated[0] ?? module;
     }
 
+    const renamed = await refreshGeneratedModuleNames(db, companyId, [resultModule.id]);
+    const renamedRow = renamed.find((row) => row.moduleId === resultModule.id);
+    if (renamedRow) {
+      resultModule = {
+        ...resultModule,
+        name: renamedRow.name,
+        generatedNameBase: renamedRow.generatedNameBase,
+        nameCustomized: renamedRow.nameCustomized,
+      };
+    }
+
     if (input.type === 'library') {
       const topicScope =
         typeof (config as { topicScope?: string }).topicScope === 'string'
@@ -109,8 +132,9 @@ export async function POST(req: Request, ctx: Ctx) {
       {
         id: resultModule.id,
         type: resultModule.type,
-        name: resultModule.name,
+        name: generatedNameBase,
         position: resultModule.canvasPosition as { x: number; y: number },
+        config,
       },
     ]);
 

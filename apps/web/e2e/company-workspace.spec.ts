@@ -38,25 +38,25 @@ test.describe('Company workspace (M1 read flows)', () => {
     await expect(page.getByText('Recent LLM calls')).toBeVisible({ timeout: 20_000 });
     await page.getByRole('button', { name: 'Close ▲' }).click();
 
-    // Full seeded engine: named research/data/trend/execution/funds/policy functions.
+    // Full seeded engine: compact Fn · Focus labels (connection refs on muted line).
     const canvas = page.locator('.react-flow');
     await expect(canvas).toBeVisible();
-    for (const [typeLabel, baseName] of [
-      ['Math', 'Deterministic Math Calculator'],
-      ['Research', 'Market Regime Research'],
-      ['Library', 'Strategy Evidence Library'],
-      ['Live API', 'Paper Market & Runtime Feed'],
-      ['Trend', 'Market Trend Scanner'],
-      ['Trading', 'Paper Day-Trade Execution'],
-      ['Holding fund', 'Paper Seed Holding Fund'],
-      ['Fund router', 'Deterministic Fund Router'],
-      ['Analyzer', 'Transaction Execution Monitor'],
-      ['Policy', 'Paper Trading Policy'],
+    for (const [typeLabel, primary] of [
+      ['Math', 'Math ·'],
+      ['Research', 'Research ·'],
+      ['Library', 'Library ·'],
+      ['Live API', 'LiveAPI ·'],
+      ['Trend', 'Trend ·'],
+      ['Trading', 'DayTrade ·'],
+      ['Holding fund', 'Fund ·'],
+      ['Fund router', 'Router ·'],
+      ['Analyzer', 'Analyze ·'],
+      ['Policy', 'Policy ·'],
     ] as const) {
       const node = canvas
         .locator('.react-flow__node')
         .filter({ has: page.getByText(typeLabel, { exact: true }) })
-        .filter({ hasText: baseName });
+        .filter({ hasText: primary });
       await expect(node).toBeVisible();
     }
     await expect(canvas.locator('.react-flow__edge-smoothstep')).toHaveCount(10);
@@ -72,7 +72,7 @@ test.describe('Company workspace (M1 read flows)', () => {
     const tradingNode = canvas
       .locator('.react-flow__node')
       .filter({ has: page.getByText('Trading', { exact: true }) });
-    await expect(tradingNode).toContainText('Paper Day-Trade Execution');
+    await expect(tradingNode).toContainText('DayTrade ·');
 
     await expect(tradingNode.getByText('Required · Topic / sector')).toBeVisible();
     await expect(tradingNode.getByText('Required · Capital allocation')).toBeVisible();
@@ -102,8 +102,8 @@ test.describe('Company workspace (M1 read flows)', () => {
     const nodeBoxBeforeSelect = await tradingNode.boundingBox();
     expect(nodeBoxBeforeSelect).not.toBeNull();
     await tradingNode.getByText('Trading', { exact: true }).click();
-    await expect(page.getByText(/Generated from connections/)).toBeVisible();
-    await expect(page.getByText(/base:\s*Paper Day-Trade Execution/)).toBeVisible();
+    await expect(page.getByText(/Generated compact label/)).toBeVisible();
+    await expect(page.getByText(/function:\s*DayTrade/)).toBeVisible();
     const nodeBoxAfterSelect = await tradingNode.boundingBox();
     expect(nodeBoxAfterSelect).not.toBeNull();
     expect(Math.abs(nodeBoxBeforeSelect!.width - nodeBoxAfterSelect!.width)).toBeLessThanOrEqual(1);
@@ -154,7 +154,7 @@ test.describe('Company workspace (M1 read flows)', () => {
     await page.getByRole('button', { name: 'Restore generated name' }).click();
     expect((await restoreResponse).ok()).toBe(true);
     await expect(page.getByRole('button', { name: 'Restore generated name' })).not.toBeVisible();
-    await expect(tradingNode).toContainText('Paper Day-Trade Execution');
+    await expect(tradingNode).toContainText('DayTrade ·');
 
     await page.getByRole('button', { name: 'Close inspector' }).click();
 

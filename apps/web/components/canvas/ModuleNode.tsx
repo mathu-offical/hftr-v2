@@ -8,6 +8,7 @@ import {
   missingModuleSetupFields,
   moduleLinkPorts,
   requiredModuleSetupFields,
+  splitCompactModuleName,
   type ModuleSetupField,
   type ModuleStatus,
   type ModuleType,
@@ -373,7 +374,29 @@ export const ModuleNode = memo(function ModuleNode({
           </button>
         </div>
 
-        <div className="text-sm font-medium leading-snug text-[var(--color-ink)]">{data.name}</div>
+        <div className="min-w-0">
+          {(() => {
+            const { primary, connectionRefs } = splitCompactModuleName(data.name);
+            return (
+              <>
+                <div
+                  className="text-sm font-medium leading-snug text-[var(--color-ink)]"
+                  title={data.name}
+                >
+                  {primary}
+                </div>
+                {connectionRefs && (
+                  <div
+                    className="mt-0.5 truncate text-[10px] leading-tight text-[var(--color-ink-faint)]"
+                    title={connectionRefs}
+                  >
+                    {connectionRefs}
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </div>
 
         <div className="mt-1 flex items-center gap-1.5 text-[10px] text-[var(--color-ink-dim)]">
           {(data.activeJobs ?? 0) > 0 && (

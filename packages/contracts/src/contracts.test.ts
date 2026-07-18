@@ -32,12 +32,15 @@ import {
   LINK_KIND_ORDER,
   linkKindForHandlePair,
   missingModuleSetupFields,
+  moduleFocusToken,
+  moduleFunctionLabel,
   moduleRequiresMath,
   MODULE_CONFIG_SCHEMAS,
   moduleLinkPorts,
   ModuleType,
   MAX_MODULES_PER_COMPANY,
   projectedModuleSlotsForCreate,
+  splitCompactModuleName,
   requiredModuleSetupFields,
   UpdateModuleInput,
   allowedLinkKinds,
@@ -227,61 +230,89 @@ describe('canvas link port helpers', () => {
 });
 
 describe('generated module names', () => {
-  const mathBase = 'Deterministic Math Calculator';
-
-  it('keeps math names stable without neighbor suffixes', () => {
+  it('keeps math names primary-only without neighbor refs', () => {
     expect(
       deriveGeneratedModuleName({
         type: 'math',
-        baseName: mathBase,
-        inboundNames: ['Paper Seed Holding Fund'],
-        outboundNames: ['Fund Router'],
+        baseName: 'Math',
+        topicSectors: [],
+        inboundLabels: ['Fund'],
+        outboundLabels: ['Router'],
       }),
-    ).toBe(mathBase);
+    ).toBe('Math · —');
   });
 
-  it('returns base only when disconnected', () => {
+  it('returns Fn · Focus when disconnected', () => {
     expect(
       deriveGeneratedModuleName({
         type: 'trading',
-        baseName: 'Paper Day-Trade Execution',
-        inboundNames: [],
-        outboundNames: ['  ', ''],
+        config: { subtype: 'day' },
+        topicSectors: ['SPY'],
+        inboundLabels: [],
+        outboundLabels: ['', '  '],
       }),
-    ).toBe('Paper Day-Trade Execution');
+    ).toBe('DayTrade · SPY');
   });
 
-  it('deduplicates, sorts, and formats inbound/outbound neighbor context', () => {
+  it('uses short neighbor Fn labels and caps overflow', () => {
     expect(
       deriveGeneratedModuleName({
         type: 'trading',
-        baseName: 'Paper Day-Trade Execution',
-        inboundNames: ['  Fund B ', 'Trend Alpha', 'Trend Alpha', 'Fund A'],
-        outboundNames: ['Policy', 'Analyzer'],
+        config: { subtype: 'day' },
+        topicSectors: ['semis'],
+        inboundLabels: ['Fund', 'Trend', 'Trend', 'LiveAPI'],
+        outboundLabels: ['Policy', 'Analyze', 'Sim'],
       }),
-    ).toBe('Paper Day-Trade Execution ← Fund A · Fund B · Trend Alpha → Analyzer · Policy');
+    ).toBe('DayTrade · semis ← Fund · LiveAPI · +1 → Analyze · Policy · +1');
   });
 
-  it('caps generated names at 80 characters', () => {
-    const longInbound = Array.from({ length: 6 }, (_, index) => `Upstream Module ${index + 1}`);
+  it('prefers dropping refs over slicing primary when over max length', () => {
+    const longFocus = 'ABCDEFGHIJKLMNOP'; // 16 chars — within focus cap
     const derived = deriveGeneratedModuleName({
       type: 'trading',
-      baseName: 'Paper Day-Trade Execution',
-      inboundNames: longInbound,
-      outboundNames: [],
+      config: { subtype: 'day' },
+      topicSectors: [longFocus],
+      inboundLabels: ['UpstreamA', 'UpstreamB', 'UpstreamC', 'UpstreamD', 'UpstreamE'],
+      outboundLabels: ['DownA', 'DownB', 'DownC'],
     });
     expect(derived.length).toBeLessThanOrEqual(80);
-    expect(derived.startsWith('Paper Day-Trade Execution ← ')).toBe(true);
+    expect(derived.startsWith('DayTrade · ')).toBe(true);
   });
 
   it('is deterministic for the same neighbor inputs', () => {
     const input = {
       type: 'trend' as const,
-      baseName: 'Market Trend Scanner',
-      inboundNames: ['Research Hub', 'Live API Feed'],
-      outboundNames: ['Paper Day-Trade Execution'],
+      topicSectors: ['equities'],
+      inboundLabels: ['Research', 'LiveAPI'],
+      outboundLabels: ['DayTrade'],
     };
     expect(deriveGeneratedModuleName(input)).toBe(deriveGeneratedModuleName(input));
+    expect(deriveGeneratedModuleName(input)).toBe(
+      'Trend · equities ← LiveAPI · Research → DayTrade',
+    );
+  });
+
+  it('moduleFunctionLabel maps trading subtypes', () => {
+    expect(moduleFunctionLabel('trading', { subtype: 'day' })).toBe('DayTrade');
+    expect(moduleFunctionLabel('trading', { subtype: 'long_term' })).toBe('Swing');
+    expect(moduleFunctionLabel('math')).toBe('Math');
+  });
+
+  it('moduleFocusToken prefers topic then capital display', () => {
+    expect(moduleFocusToken({ topicSectors: ['  SPY  '] })).toBe('SPY');
+    expect(moduleFocusToken({ topicSectors: [], capitalAllocationDisplay: '25%' })).toBe('25%');
+    expect(moduleFocusToken({ topicSectors: [] })).toBe('—');
+  });
+
+  it('splitCompactModuleName separates primary and refs', () => {
+    expect(splitCompactModuleName('DayTrade · SPY ← Trend → Policy')).toEqual({
+      primary: 'DayTrade · SPY',
+      connectionRefs: '← Trend → Policy',
+    });
+    expect(splitCompactModuleName('Research · —')).toEqual({
+      primary: 'Research · —',
+      connectionRefs: null,
+    });
   });
 });
 

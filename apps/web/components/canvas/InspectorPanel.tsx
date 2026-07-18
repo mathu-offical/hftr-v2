@@ -209,9 +209,9 @@ export function InspectorPanel(props: {
         </label>
         <p className="text-[10px] text-[var(--color-ink-faint)]">
           {mod.nameCustomized ? (
-            <>Custom name · base function label: {mod.generatedNameBase}</>
+            <>Custom name · function label: {mod.generatedNameBase}</>
           ) : (
-            <>Generated from connections · base: {mod.generatedNameBase}</>
+            <>Generated compact label · function: {mod.generatedNameBase} · focus + connection refs</>
           )}
         </p>
         {mod.nameCustomized && !isMath && (

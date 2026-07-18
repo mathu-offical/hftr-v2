@@ -34,7 +34,7 @@ test.describe('Canvas node dashboard (D-026)', () => {
       .filter({ has: page.getByText('Trading', { exact: true }) });
     await expect(tradingNode).toBeVisible({ timeout: 45_000 });
     await tradingNode.scrollIntoViewIfNeeded();
-    await expect(tradingNode).toContainText('Paper Day-Trade Execution');
+    await expect(tradingNode).toContainText('DayTrade ·');
 
     await expect(tradingNode.getByText('Required · Topic / sector', { exact: true })).toBeVisible();
     // API create pre-fills capital/exit (D-035) — chips are Confirmed, not Required.
@@ -68,8 +68,8 @@ test.describe('Canvas node dashboard (D-026)', () => {
     const nodeBoxBeforeSelect = await tradingNode.boundingBox();
     expect(nodeBoxBeforeSelect).not.toBeNull();
     await tradingNode.getByText('Trading', { exact: true }).click({ force: true });
-    await expect(page.getByText(/Generated from connections/)).toBeVisible();
-    await expect(page.getByText(/base:\s*Paper Day-Trade Execution/)).toBeVisible();
+    await expect(page.getByText(/Generated compact label/)).toBeVisible();
+    await expect(page.getByText(/function:\s*DayTrade/)).toBeVisible();
 
     const nodeBoxAfterSelect = await tradingNode.boundingBox();
     expect(nodeBoxAfterSelect).not.toBeNull();
@@ -127,7 +127,7 @@ test.describe('Canvas node dashboard (D-026)', () => {
     await restoreGeneratedName.click();
     expect((await restoreResponse).ok()).toBe(true);
     await expect(restoreGeneratedName).not.toBeVisible();
-    await expect(tradingNode).toContainText('Paper Day-Trade Execution');
+    await expect(tradingNode).toContainText('DayTrade ·');
 
     await page.getByRole('button', { name: 'Close inspector' }).click();
     await archiveCompany(request, companyId);

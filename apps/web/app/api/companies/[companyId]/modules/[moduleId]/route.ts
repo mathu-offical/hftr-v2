@@ -102,9 +102,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
     const patch: Record<string, unknown> = { updatedAt: new Date() };
 
     if (input.restoreGeneratedName === true) {
-      const restoredName = await restoreGeneratedModuleName(db, companyId, moduleId);
-      if (restoredName === null) throw new ApiError(404, 'module_not_found');
-      patch.name = restoredName;
+      const restored = await restoreGeneratedModuleName(db, companyId, moduleId);
+      if (restored === null) throw new ApiError(404, 'module_not_found');
+      patch.name = restored.name;
+      patch.generatedNameBase = restored.generatedNameBase;
       patch.nameCustomized = false;
     } else if (input.name !== undefined) {
       if (existing.type === 'math') {
@@ -168,7 +169,25 @@ export async function PATCH(req: Request, ctx: Ctx) {
       .set(patch)
       .where(and(eq(modules.id, moduleId), eq(modules.companyId, companyId)))
       .returning();
-    const moduleRow = updated[0]!;
+    let moduleRow = updated[0]!;
+
+    // Focus/meta changes should refresh compact generated titles when not customized.
+    if (
+      moduleRow.nameCustomized === false &&
+      input.restoreGeneratedName !== true &&
+      input.name === undefined
+    ) {
+      const renamed = await refreshGeneratedModuleNames(db, companyId, [moduleId]);
+      const next = renamed.find((row) => row.moduleId === moduleId);
+      if (next) {
+        moduleRow = {
+          ...moduleRow,
+          name: next.name,
+          generatedNameBase: next.generatedNameBase,
+          nameCustomized: next.nameCustomized,
+        };
+      }
+    }
 
     if (moduleRow.type === 'research' && moduleRow.status === 'active') {
       const cfg = (moduleRow.config ?? {}) as {

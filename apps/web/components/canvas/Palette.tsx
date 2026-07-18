@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   defaultEngineCapitalEnvelope,
   defaultTargetExitLocal,
+  moduleFunctionLabel,
   requiredModuleSetupFields,
   type EngineTemplate,
   type ModuleSetupField,
@@ -23,85 +24,71 @@ import { MODULE_VISUALS } from './types';
 /** Default configs satisfying each type's contract schema (minimum viable). */
 const ADDABLE: Array<{
   type: ModuleType;
-  defaultName: string;
   defaultConfig: unknown;
   hint: string;
 }> = [
   {
     type: 'research',
-    defaultName: 'Market Research',
     defaultConfig: { topicScope: 'General market research' },
     hint: 'Explores topics, feeds libraries',
   },
   {
     type: 'librarian',
-    defaultName: 'Library Librarian',
     defaultConfig: { topicScope: 'General library curation' },
     hint: 'Queries libraries, relevance, topic hygiene',
   },
   {
     type: 'library',
-    defaultName: 'Research Evidence Library',
     defaultConfig: { topicScope: 'General' },
     hint: 'Curated knowledge store',
   },
   {
     type: 'live_api',
-    defaultName: 'Paper Market Data Feed',
     defaultConfig: { venue: 'paper_sim', instruments: ['SPY'] },
     hint: 'Market data feed',
   },
   {
     type: 'trend',
-    defaultName: 'Market Trend Scanner',
     defaultConfig: { focus: 'Broad market momentum' },
     hint: 'Finds tradeable trends',
   },
   {
     type: 'trading',
-    defaultName: 'Paper Trading Desk',
     defaultConfig: { subtype: 'day' },
     hint: 'Executes a strategy pipeline',
   },
   {
     type: 'policy',
-    defaultName: 'Paper Trading Policy',
     defaultConfig: {},
     hint: 'Binds risk/goal envelopes',
   },
   {
     type: 'simulator',
-    defaultName: 'Strategy Paper Simulator',
     defaultConfig: {},
     hint: 'Paper-tests strategies',
   },
   {
     type: 'analyzer',
-    defaultName: 'Execution Outcome Analyzer',
     defaultConfig: {},
     hint: 'Reviews outcomes',
   },
   {
     type: 'holding_fund',
-    defaultName: 'Company Holding Fund',
     defaultConfig: { source: 'company_seed' },
     hint: 'Represents a deterministic capital source',
   },
   {
     type: 'fund_router',
-    defaultName: 'Deterministic Fund Router',
     defaultConfig: {},
     hint: 'Moves allocations under policy',
   },
   {
     type: 'display',
-    defaultName: 'Operations Table',
     defaultConfig: { displayKind: 'table', title: 'Operations Table' },
     hint: 'Graphs, lists, tables, ledgers',
   },
   {
     type: 'math',
-    defaultName: 'Math Tool',
     defaultConfig: { mathType: 'company_hub' },
     hint: 'Repeatable calculator; attach to many nodes (D-028)',
   },
@@ -256,7 +243,13 @@ export function Palette(props: {
                 return (
                   <button
                     key={type}
-                    onClick={() => props.onAdd(type, entry.defaultName, entry.defaultConfig)}
+                    onClick={() =>
+                      props.onAdd(
+                        type,
+                        moduleFunctionLabel(type, entry.defaultConfig),
+                        entry.defaultConfig,
+                      )
+                    }
                     className="group flex w-full flex-col gap-0.5 rounded-lg px-2.5 py-1.5 text-left hover:bg-[var(--color-surface-2)]"
                   >
                     <span className="flex items-center gap-2 text-sm text-[var(--color-ink-dim)] group-hover:text-[var(--color-ink)]">

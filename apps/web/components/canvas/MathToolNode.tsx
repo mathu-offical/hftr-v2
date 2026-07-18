@@ -2,7 +2,7 @@
 
 import { memo } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { handleIdForLink } from '@hftr/contracts';
+import { handleIdForLink, splitCompactModuleName } from '@hftr/contracts';
 
 export type MathToolNodeData = {
   name: string;
@@ -29,6 +29,7 @@ export const MathToolNode = memo(function MathToolNode({
   data,
   selected,
 }: NodeProps<MathToolFlowNode>) {
+  const { primary } = splitCompactModuleName(data.name);
   return (
     <div
       role="group"
@@ -68,7 +69,9 @@ export const MathToolNode = memo(function MathToolNode({
       <span className="h-2 w-2 shrink-0 rounded-full bg-[#bb9af7]" />
       <div className="min-w-0">
         <div className="text-[8px] uppercase tracking-[0.16em] text-[#bb9af7]">Dedicated Math</div>
-        <div className="truncate text-[10px] text-[var(--color-ink-dim)]">{data.ownerName}</div>
+        <div className="truncate text-[10px] text-[var(--color-ink-dim)]" title={data.name}>
+          {primary}
+        </div>
       </div>
     </div>
   );

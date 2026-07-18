@@ -1,4 +1,8 @@
-import { deriveGeneratedModuleName, ModuleType } from '@hftr/contracts';
+import {
+  deriveGeneratedModuleName,
+  moduleFunctionLabel,
+  ModuleType,
+} from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { moduleLinks, modules } from '@hftr/db/schema';
 import { and, eq } from 'drizzle-orm';
@@ -13,39 +17,61 @@ export interface ModuleNameUpdate {
 type ModuleRow = typeof modules.$inferSelect;
 type LinkRow = typeof moduleLinks.$inferSelect;
 
+function neighborFunctionLabel(row: ModuleRow): string {
+  const type = ModuleType.parse(row.type);
+  return moduleFunctionLabel(type, row.config);
+}
+
 function computeGeneratedName(
   moduleId: string,
   moduleById: ReadonlyMap<string, ModuleRow>,
   links: readonly LinkRow[],
-): string | null {
+): { name: string; generatedNameBase: string } | null {
   const mod = moduleById.get(moduleId);
   if (!mod) return null;
 
-  const inboundNames: string[] = [];
-  const outboundNames: string[] = [];
+  const type = ModuleType.parse(mod.type);
+  const generatedNameBase = moduleFunctionLabel(type, mod.config);
+
+  const inboundLabels: string[] = [];
+  const outboundLabels: string[] = [];
 
   for (const link of links) {
     if (link.toModuleId === moduleId) {
       const from = moduleById.get(link.fromModuleId);
-      if (from) inboundNames.push(from.generatedNameBase);
+      if (from) inboundLabels.push(neighborFunctionLabel(from));
     }
     if (link.fromModuleId === moduleId) {
       const to = moduleById.get(link.toModuleId);
-      if (to) outboundNames.push(to.generatedNameBase);
+      if (to) outboundLabels.push(neighborFunctionLabel(to));
     }
   }
 
-  return deriveGeneratedModuleName({
-    type: ModuleType.parse(mod.type),
-    baseName: mod.generatedNameBase,
-    inboundNames,
-    outboundNames,
+  let topicSectors = mod.topicSectors ?? [];
+  // Dedicated Math tools: use owner Fn as focus when topics are unset.
+  if (type === 'math' && topicSectors.length === 0 && mod.toolOwnerModuleId) {
+    const owner = moduleById.get(mod.toolOwnerModuleId);
+    if (owner) {
+      topicSectors = [neighborFunctionLabel(owner)];
+    }
+  }
+
+  const name = deriveGeneratedModuleName({
+    type,
+    baseName: generatedNameBase,
+    config: mod.config,
+    topicSectors,
+    inboundLabels,
+    outboundLabels,
   });
+
+  return { name, generatedNameBase };
 }
 
 /**
  * Recompute generated display names for the given modules from the current
  * company graph. Updates only rows where nameCustomized=false.
+ * Realigns generatedNameBase to the short function lexicon when refreshing.
  */
 export async function refreshGeneratedModuleNames(
   db: Db,
@@ -65,18 +91,25 @@ export async function refreshGeneratedModuleNames(
     const mod = moduleById.get(moduleId);
     if (!mod || mod.nameCustomized) continue;
 
-    const newName = computeGeneratedName(moduleId, moduleById, allLinks);
-    if (newName === null || newName === mod.name) continue;
+    const derived = computeGeneratedName(moduleId, moduleById, allLinks);
+    if (derived === null) continue;
+    if (derived.name === mod.name && derived.generatedNameBase === mod.generatedNameBase) {
+      continue;
+    }
 
     await db
       .update(modules)
-      .set({ name: newName, updatedAt: new Date() })
+      .set({
+        name: derived.name,
+        generatedNameBase: derived.generatedNameBase,
+        updatedAt: new Date(),
+      })
       .where(and(eq(modules.id, moduleId), eq(modules.companyId, companyId)));
 
     updates.push({
       moduleId,
-      name: newName,
-      generatedNameBase: mod.generatedNameBase,
+      name: derived.name,
+      generatedNameBase: derived.generatedNameBase,
       nameCustomized: false,
     });
   }
@@ -89,7 +122,7 @@ export async function restoreGeneratedModuleName(
   db: Db,
   companyId: string,
   moduleId: string,
-): Promise<string | null> {
+): Promise<{ name: string; generatedNameBase: string } | null> {
   const allModules = await db.select().from(modules).where(eq(modules.companyId, companyId));
   const allLinks = await db.select().from(moduleLinks).where(eq(moduleLinks.companyId, companyId));
 

@@ -18,6 +18,8 @@ const timestamps = {
 
 const QUEUE_CLASSES = [
   'RESEARCH',
+  'LIBRARY_RESEARCH',
+  'POSTURE_RESEARCH',
   'STRATEGIC',
   'TACTICAL',
   'COMPILE',

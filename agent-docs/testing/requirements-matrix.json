@@ -1200,11 +1200,16 @@
     },
     {
       "id": "REQ-LLM-005",
-      "title": "llm_calls ledger persistence from jobs",
+      "title": "llm_calls ledger persistence + leak audit evidence",
       "source": "agent-docs/architecture/data-model.md",
-      "status": "deferred",
-      "evidence": ["llm_calls schema", "no handler writes yet"],
-      "scenarios": ["M2 admission"],
+      "status": "partial",
+      "evidence": [
+        "llm_calls schema",
+        "writeLlmCall via invoke",
+        "GET llm-calls + /llm-calls/audit aggregate",
+        "TopDrawer llm-leak-audit badge"
+      ],
+      "scenarios": ["M2 admission", "G2/G3 ledger evidence"],
       "venues": ["platform"],
       "philosophyAxes": ["operator_transparency"],
       "safetyClass": "financial"
@@ -1224,8 +1229,13 @@
       "id": "REQ-LLM-007",
       "title": "Budget-queued jobs visible on canvas",
       "source": "agent-docs/architecture/llm-pipeline.md \u00a74",
-      "status": "deferred",
-      "evidence": ["llm-pipeline.md"],
+      "status": "partial",
+      "evidence": [
+        "canvas route counts BUDGET_QUEUED_ERROR pending separately",
+        "status budget held · N",
+        "budgetQueuedJobs on projection",
+        "ModuleNode warn styling"
+      ],
       "scenarios": ["M2 UI surfacing"],
       "venues": ["platform"],
       "philosophyAxes": ["operator_transparency"],
@@ -1932,6 +1942,8 @@
       "evidence": [
         "packages/engine/src/fund-transfers/fund-route-walker.ts",
         "packages/engine/src/fund-transfers/fund-route-walker.test.ts",
+        "packages/engine/src/fund-transfers/transfer.ts",
+        "packages/engine/src/fund-transfers/transfer.test.ts",
         "apps/web/app/api/companies/[companyId]/fund-transfers/propose/route.ts",
         "fund_transfers schema",
         "approval inbox UI (BottomPanel)"
@@ -1940,7 +1952,7 @@
       "venues": ["paper_sim"],
       "philosophyAxes": ["risk_controls"],
       "safetyClass": "financial",
-      "notes": "Walker + propose API return hop proposals only; operator POST fund-transfers + approve still required for ledger settlement."
+      "notes": "Walker + propose API (default proposals-only). Optional commit=true inserts fund_transfers rows (status requested, requested_by module) per hop; operator approve still required for ledger settlement. FundRouterModuleConfig.approvalMode is manual|policy only — no auto-settle path yet."
     },
     {
       "id": "REQ-DEF-002",

@@ -207,9 +207,9 @@ Additional drift (not in JSON flag list):
 | REQ-LLM-002 | Claude strategic research_synthesize | agent-docs/architecture/llm-pipeline.md §6 | **deferred** | llm-pipeline tier table | M2 G2 gate | platform | research_quality | safety_critical |
 | REQ-LLM-003 | Mistral tactical orchestration + trend_emit | agent-docs/architecture/llm-pipeline.md §6 | **deferred** | master-build-plan M2 | M2 research module | platform | strategy_outcome | safety_critical |
 | REQ-LLM-004 | Groq execution compile tier | agent-docs/architecture/llm-pipeline.md §1 | **deferred** | master-build-plan M3 | M3 trading loop | paper_sim | execution_quality | safety_critical |
-| REQ-LLM-005 | llm_calls ledger persistence from jobs | agent-docs/architecture/data-model.md | **deferred** | llm_calls schema; no handler writes yet | M2 admission | platform | operator_transparency | financial |
+| REQ-LLM-005 | llm_calls ledger persistence + leak audit evidence | agent-docs/architecture/data-model.md | **partial** | llm_calls schema; `writeLlmCall` via invoke; GET llm-calls + `/llm-calls/audit` aggregate (metadata + artifact re-scan); TopDrawer `llm-leak-audit` badge | M2 admission; G2/G3 ledger evidence | platform | operator_transparency | financial |
 | REQ-LLM-006 | llm_budgets consumption + admission | packages/contracts/src/operating-budget.ts | **stub** | llm-budgets API read; llm_budgets table | M2 budget-queued UI | platform | risk_controls | financial |
-| REQ-LLM-007 | Budget-queued jobs visible on canvas | agent-docs/architecture/llm-pipeline.md §4 | **deferred** | llm-pipeline.md | M2 UI surfacing | platform | operator_transparency | operational |
+| REQ-LLM-007 | Budget-queued jobs visible on canvas | agent-docs/architecture/llm-pipeline.md §4 | **partial** | canvas route counts `BUDGET_QUEUED_ERROR` pending separately; status `budget held · N`; `budgetQueuedJobs` on projection; ModuleNode warn styling | M2 UI surfacing | platform | operator_transparency | operational |
 | REQ-LLM-008 | escalate_to_strategic Claude delegation | agent-docs/architecture/llm-pipeline.md §6 | **deferred** | llm-pipeline.md Claude policy | M2 orchestration | platform | research_quality, risk_controls | safety_critical |
 
 ## Brokers & live data (7)
@@ -313,7 +313,7 @@ Additional drift (not in JSON flag list):
 
 | REQ-ID | Title | Source | Status | Evidence | Scenarios | Venues | Axes | Safety |
 |---|---|---|---|---|---|---|---|---|
-| REQ-DEF-001 | Fund router ledger transfers + approval inbox | agent-docs/product/product-spec.md §3 Fund router | **partial** | `fund-route-walker.ts` + propose API (proposals only); fund_transfers schema; approval inbox UI | M3 fund model v1 | paper_sim | risk_controls | financial |
+| REQ-DEF-001 | Fund router ledger transfers + approval inbox | agent-docs/product/product-spec.md §3 Fund router | **partial** | `fund-route-walker.ts` + propose API (`commit` optional); `fundTransferRowsFromProposals`; fund_transfers schema; approval inbox UI | M3 fund model v1 | paper_sim | risk_controls | financial |
 | REQ-DEF-002 | Simulator parallel paper runs + comparison UI | agent-docs/product/product-spec.md §3 Simulator | **deferred** | simulation_runs schema; M4 gate | M4 simulator module | paper_sim | strategy_outcome | operational |
 | REQ-DEF-003 | Analyzer verification loopback module | agent-docs/product/product-spec.md §3 Analyzer | **deferred** | analyzer module type in schema | M4 analyzer v1 | paper_sim | execution_quality | operational |
 | REQ-DEF-004 | Module generator conversational create | agent-docs/product/product-spec.md §3 | **deferred** | generator module type | M4+ assistant tools | platform | operator_transparency | operational |

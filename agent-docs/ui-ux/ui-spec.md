@@ -118,15 +118,16 @@
   empty; Escape / backdrop dismisses the confirm while not busy.
 - **Company create (D-043):** viewport-bounded dialog (`fixed` overlay, `h-full` within
   padded inset, body scroll locked). Sticky header + footer actions; middle column is
-  `min-h-0 flex-1` with **no outer page scroll**. Scroll regions: capped catalog strips,
-  left list / right inspector (`overflow-y-auto`), optional standalone modules (max ~30%
-  height). **Engines** uses Research | Execution add strips (repeatable instances), then a
-  three-pane workspace: **left** nested engine list, **center** React Flow preview (research
-  left of execution; dashed research→exec bridges only), **right** cascade-family inspector
-  (primary + deps in one frame; canvas dep click keeps family open with that dep focused).
-  Execution setup **cascades live** into that instance’s auto research deps. Gated templates
-  show as **Locked · …**. Optional standalone modules via dropdown. User settings modal
-  chrome is **fixed height** (`min(36rem, 90vh)`) with a scrollable tab panel only.
+  `min-h-0 flex-1` with **no outer page scroll**. Identity row (name / seed aligned, philosophy
+  full-width) stays expanded until the operator clicks **Confirm**; then it **condenses to a
+  one-line summary** (Edit re-expands). **Engines** uses compact **+ Research** / **+ Execution**
+  store buttons that open scrollable option popovers (locked templates listed inside; Escape
+  closes the store without dismissing the dialog).
+  Three-pane workspace: **left** nested engine list, **center** React Flow preview
+  (research left of execution; dashed research→exec bridges), **right** cascade-family
+  inspector. Execution setup **cascades live** into that instance’s auto research deps.
+  Optional standalone modules via dropdown. User settings modal chrome is **fixed height**
+  (`min(36rem, 90vh)`) with a scrollable tab panel only.
 - **Inline setup validation (D-024, refined D-026):** company and engine forms render
   topic/sector, trading-capital allocation (USD or percentage), and target-exit. Engine cards
   use shared envelope fields (cascade to members); canvas nodes keep per-module controls. The
@@ -235,8 +236,12 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
 ### Objects
 - **Topics** — agent-created organizations (research + librarian curation). They group many
   concepts from company DBs, seeded knowledge, and external gather. **Not** galaxy nodes.
+  **D-044** seeds topic **Seeded trading mechanisms** (when a research module exists) so Page
+  tab has baseline catalog mechanisms without a research run.
 - **Galaxy nodes** — concepts (primary) and tags (secondary / color / filter). Typed
-  `concept_links` remain edges.
+  `concept_links` remain edges. **D-044** materializes compile-time catalog targets into
+  company concepts + library nests on create/ensure so galaxy is never empty of baseline
+  mechanisms.
 - **Libraries** — hard nested sub-circles inside the company galaxy (stable when scope shrinks).
 
 ### Galaxy tab

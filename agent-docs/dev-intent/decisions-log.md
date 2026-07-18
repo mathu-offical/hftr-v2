@@ -443,8 +443,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   module-auto curate; `trend→trading` directive for promote target; inbound `library→trend` /
   `live_api→trend` for evidence scope and scan symbols; `research→library` for admit targets
   and library gather EvidencePackages. `fund_route` graph walker (`fund-route-walker.ts`) now
-  proposes module↔module transfer hops along legal paths (REQ-DEF-001 partial; proposals only,
-  no auto-settle). **Status: implemented; unit tests on graph helpers + fund-route walker.**
+  proposes module↔module transfer hops along legal paths (REQ-DEF-001 partial). Propose API
+  accepts optional `commit: true` to insert `requested` fund_transfers rows (`requested_by:
+  module`); approval inbox still required for settlement — no auto-settle. **Status: implemented;
+  unit tests on graph helpers + fund-route walker + transfer row mapping.**
 
 - **D-042 (engine node families + v1 detail mapping + typed Math/research, 2026-07-17):**
   Canvas stays operator modules; v1 stages (`research_topic`…`loop_refine`) map into owning
@@ -498,6 +500,18 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   dim/path + zoomToFit + include-neighbors; Article `[[wikilink]]` resolve; synopsis leak lint;
   library filter chips; query bump-once; topic membership + usage. Playwright
   `research-galaxy-topics` pass. Remaining for G2 sign-off: credentialed provider soak.
+
+- **D-044 (compile-time catalog → company libraries/galaxy bootstrap, 2026-07-17):**
+  Vendored `catalog_entries` alone are not operator-visible. `bootstrapCompanyKnowledge`
+  (`packages/engine/src/libraries/bootstrap.ts`) idempotently: (1) ensures `libraries` rows for
+  every `library` module and a master nest (`Company knowledge graph` fallback), (2) upserts
+  `SEED_CATALOG_TARGETS` as leak-lint-safe `concepts` with `auto_admitted` library membership
+  and typed links, (3) when a research module exists, creates hybrid topic **Seeded trading
+  mechanisms** with `[[wikilink]]` synopsis for the Page tab. Wired on company create, library
+  module create, and GET ensure paths for libraries / research graph / topics so existing
+  companies backfill on first research view. Deterministic curate also calls
+  `attachConceptsToLibraries`. Daily system-curated libraries (movers/trends/policy) remain
+  deferred. Aligns with DevSpecs research-library philosophy (compile-time seeded mechanisms).
 
 ## Open questions
 

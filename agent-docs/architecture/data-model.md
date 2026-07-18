@@ -85,6 +85,10 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   **library_concepts** join (library_id, concept_id, curation_status
   `proposed|accepted|auto_admitted|rejected|archived`). **D-040:** primary library membership
   drives hard nested galaxy nests; secondary memberships are badges, not duplicate nodes.
+  **D-044:** `bootstrapCompanyKnowledge` ensures library rows for every `library` module,
+  promotes/creates a master nest (`Company knowledge graph` fallback), and seeds compile-time
+  catalog mechanism concepts into the mechanisms/master library with `auto_admitted`
+  membership so galaxy + Page surfaces are never empty of baseline knowledge.
 - **knowledge_access_events** — **D-040 (optional/specified):** append-only access log
   `(company_id, entity_kind topic|concept, entity_id, access_kind query|reference, actor, created_at)`
   when denormalized counters are insufficient under contention.
@@ -130,7 +134,9 @@ UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
 - **catalog_entries** — generic seeded-catalog store: (catalog, entry_key) unique,
   catalog_version, title, tier, payload jsonb. Seeded from
   `packages/db/src/seed/catalogs/*.json` via `seed-catalogs.ts` (97 entries at
-  `v1_snapshot_2026_07_16`). D-016.
+  `v1_snapshot_2026_07_16`). D-016. **D-044:** a fixed subset (`SEED_CATALOG_TARGETS` in
+  `packages/engine/src/libraries/bootstrap.ts`) is materialized into company `concepts` +
+  library membership on company create and idempotent research/library ensure paths.
 - **watchlist_items** — (module_id, symbol) unique; bias `long|short|neutral`, note,
   source_class `operator|trend_promotion`, status `watching|triggered|archived`. Owned by
   trading/trend modules only (API 422s otherwise); surfaces in the bottom panel's

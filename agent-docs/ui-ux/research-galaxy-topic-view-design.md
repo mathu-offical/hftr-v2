@@ -4,7 +4,7 @@
 synopsis leak lint; credentialed research soak still open for formal G2 sign-off.  
 **Decision:** D-040  
 **Owns:** research canvas overlay (galaxy + article tabs), left-panel topics list, library-nested layout, usage telemetry for concepts/topics  
-**Related:** `ui-spec.md` §4 LEFT + §6; `product/product-spec.md` § Research/Libraries; `architecture/data-model.md` Research & knowledge; TD-09; D-007; D-039; DevSpecs `research-library-philosophy.spec.md` (read-only intent)
+**Related:** `ui-spec.md` §4 LEFT + §6; `product/product-spec.md` § Research/Libraries; `architecture/data-model.md` Research & knowledge; TD-09; D-007; D-039; D-044; DevSpecs `research-library-philosophy.spec.md` (read-only intent)
 
 ## 1. Intent
 
@@ -36,7 +36,10 @@ Usage and reference counters on topics and concepts exist for **system optimizat
 Topics may link concepts whose provenance spans:
 
 1. **Company space** — prior research runs, admitted library concepts, module outputs  
-2. **Seeded knowledgebase** — compile-time / catalog seed libraries  
+2. **Seeded knowledgebase** — compile-time / catalog seed libraries (**D-044**
+   `bootstrapCompanyKnowledge` materializes `SEED_CATALOG_TARGETS` into concepts + master/
+   mechanisms library nests + hybrid topic **Seeded trading mechanisms** when a research
+   module exists)  
 3. **External gather** — Brave / SEC / market-news evidence → validated → synthesized concepts (D-039)
 
 Librarian agents score relevance across resources; research agents create/update topics and

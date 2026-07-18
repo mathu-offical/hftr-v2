@@ -340,7 +340,8 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   modules (engine-created or manual); select opens the **shell floating inspector**. Missing-key /
   stub / researched stay out of the live list. Live API select → **Data Explorer** live
   provider view (domain form + presets + widget cards via
-  `POST …/live-data-sources/[kind]/query`). Canvas `live_api` uses
+  `POST …/live-data-sources/[kind]/query`; crypto/FX/Alpaca bars use operator live
+  previews with display fields). Canvas `live_api` uses
   `config.sourceKind`. Overlays mutually exclusive for backgrounds; inspector persists (D-133).
 
 ### MIDDLE BOTTOM — Exploration + Analysis + Choice (the main control panel)

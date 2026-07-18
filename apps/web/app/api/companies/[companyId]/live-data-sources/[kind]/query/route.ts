@@ -12,7 +12,7 @@ import {
   type ResearchSourceAvailability,
   type ResearchSourceDescriptor,
 } from '@hftr/contracts';
-import { gatherEvidencePackages } from '@hftr/adapters';
+import { gatherEvidencePackages, buildOperatorLivePreviewWidgets } from '@hftr/adapters';
 import { scoping } from '@hftr/db';
 import { resolveResearchGatherCredentials, researchAvailabilityFromCredentials } from '@hftr/engine';
 import { withAuth } from '@/lib/api';
@@ -98,6 +98,39 @@ export async function POST(req: Request, ctx: Ctx) {
       body.mode === 'browse' && !body.query.trim()
         ? defaultBrowseQueryForDomain(descriptor.domain)
         : body.query.trim() || defaultBrowseQueryForDomain(descriptor.domain);
+
+    // Operator live preview (may include numeric display fields for UI only).
+    try {
+      const preview = await buildOperatorLivePreviewWidgets({
+        kind,
+        query,
+        maxResults: body.maxResults,
+        credentials: {
+          ...(gatherCredentials.alpacaKeyId
+            ? { alpacaKeyId: gatherCredentials.alpacaKeyId }
+            : {}),
+          ...(gatherCredentials.alpacaSecret
+            ? { alpacaSecret: gatherCredentials.alpacaSecret }
+            : {}),
+        },
+      });
+      if (preview && preview.length > 0) {
+        return LiveDataSourceQueryResponse.parse({
+          kind,
+          mode: body.mode,
+          query,
+          status,
+          domain: descriptor.domain,
+          widgets: preview,
+          presets,
+          form,
+          errors: [],
+          fetchedAt,
+        });
+      }
+    } catch {
+      // Fall through to qualitative evidence packages.
+    }
 
     const { packages, errors } = await gatherEvidencePackages({
       query,

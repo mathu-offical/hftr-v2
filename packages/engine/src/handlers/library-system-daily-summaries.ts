@@ -7,6 +7,7 @@ import { getSystemLibraryEntry } from '../libraries/system-library-registry';
 import { loadLatestValidSeal } from '../research/seal-load';
 import { corroborateAndNormalize } from '../research/verified-normalize';
 import { persistVerifiedBundle } from '../research/seal-persist';
+import { recordSynthesisStage } from '../research/market-hub-synthesis';
 import { normalizeToEvidencePackage } from '@hftr/adapters';
 import { getSession, sessionPhase, venueDate } from '../calendar/calendar';
 import { registerHandler } from './registry';
@@ -20,6 +21,7 @@ const DailySummariesPayload = z.object({
   phase: DailySummaryPhase.optional(),
   /** Operator Analyze: re-seal even when phase seal is still valid (D-111). */
   forceReseal: z.boolean().optional(),
+  synthesisRunId: z.string().uuid().optional(),
 });
 
 /** Map market calendar SessionPhase → daily summary phase tag (D-070). */
@@ -89,6 +91,24 @@ registerHandler('library.system_daily_summaries', async ({ db, clock, job }) => 
   const payload = DailySummariesPayload.parse(job.payload);
   const now = new Date(clock.nowMs());
   const nowMs = clock.nowMs();
+  const runId = payload.synthesisRunId;
+
+  const stage = async (
+    status: 'queued' | 'running' | 'succeeded' | 'failed' | 'skipped',
+    summary?: string,
+  ) => {
+    if (!runId) return;
+    await recordSynthesisStage(db, {
+      runId,
+      companyId: payload.companyId,
+      stageId: 'daily',
+      status,
+      summary: summary ?? null,
+      justificationLines: ['Calendar-phase rollup from seals'],
+      jobId: job.id,
+      now: new Date(clock.nowMs()),
+    });
+  };
 
   let phase: DailySummaryPhase = payload.phase ?? 'pre_open';
   if (!payload.phase) {
@@ -96,6 +116,8 @@ registerHandler('library.system_daily_summaries', async ({ db, clock, job }) => 
     const session = await getSession(db, 'XNYS', venueDate(nowMs, timezone));
     phase = dailySummaryPhaseFromSession(sessionPhase(session, nowMs));
   }
+
+  await stage('running', `Daily summary phase ${phase}`);
 
   const libraryId = await ensureSystemLibrary(
     db,
@@ -106,7 +128,10 @@ registerHandler('library.system_daily_summaries', async ({ db, clock, job }) => 
   );
 
   const entry = getSystemLibraryEntry(SystemTopicScope.DAILY_SUMMARIES);
-  if (!entry) return;
+  if (!entry) {
+    await stage('failed', 'Daily summaries registry missing');
+    return;
+  }
 
   const subjectKey = `phase_${phase}`;
   const existing = await loadLatestValidSeal(db, {
@@ -115,7 +140,10 @@ registerHandler('library.system_daily_summaries', async ({ db, clock, job }) => 
     subjectKey,
     nowMs,
   });
-  if (existing && !payload.forceReseal) return;
+  if (existing && !payload.forceReseal) {
+    await stage('skipped', `Valid daily seal retained (${phase})`);
+    return;
+  }
 
   const companyModules = await db
     .select({ id: modules.id, type: modules.type })
@@ -189,7 +217,10 @@ registerHandler('library.system_daily_summaries', async ({ db, clock, job }) => 
     nowMs,
     topicScope: SystemTopicScope.DAILY_SUMMARIES,
   });
-  if (!bundle) return;
+  if (!bundle) {
+    await stage('failed', 'Daily corroboration failed');
+    return;
+  }
 
   // Prefer attaching movers/sector seal digests into the daily seal snapshot.
   const enriched: VerifiedNormalizedBundle = {
@@ -222,4 +253,5 @@ registerHandler('library.system_daily_summaries', async ({ db, clock, job }) => 
     tags: entry.kindTags,
     now,
   });
+  await stage('succeeded', `Sealed daily summary (${phase})`);
 });

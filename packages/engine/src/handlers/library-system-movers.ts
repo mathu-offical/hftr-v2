@@ -50,6 +50,7 @@ import {
 import { corroborateAndNormalize } from '../research/verified-normalize';
 import { persistVerifiedBundle } from '../research/seal-persist';
 import { loadLatestValidSeal } from '../research/seal-load';
+import { recordSynthesisStage } from '../research/market-hub-synthesis';
 import { registerHandler } from './registry';
 
 const SystemMoversPayload = z.object({
@@ -59,6 +60,8 @@ const SystemMoversPayload = z.object({
    * Gather + compound + optional tactical LLM always run.
    */
   forceReseal: z.boolean().optional(),
+  /** Live Model synthesis run (D-120). */
+  synthesisRunId: z.string().uuid().optional(),
 });
 
 const NEWS_KINDS: ResearchSourceKindT[] = [
@@ -141,6 +144,32 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
   const payload = SystemMoversPayload.parse(job.payload);
   const now = new Date(clock.nowMs());
   const nowMs = clock.nowMs();
+  const runId = payload.synthesisRunId;
+  const jobId = job.id;
+
+  const stage = async (
+    stageId: Parameters<typeof recordSynthesisStage>[1]['stageId'],
+    status: Parameters<typeof recordSynthesisStage>[1]['status'],
+    summary?: string,
+    justificationLines?: string[],
+  ) => {
+    if (!runId) return;
+    await recordSynthesisStage(db, {
+      runId,
+      companyId: payload.companyId,
+      stageId,
+      status,
+      summary: summary ?? null,
+      ...(justificationLines !== undefined ? { justificationLines } : {}),
+      jobId,
+      now: new Date(clock.nowMs()),
+    });
+  };
+
+  await stage('providers', 'running', 'Resolving entitled gather lanes');
+  await stage('providers', 'succeeded', 'Credential-ready / public lanes selected', [
+    'D-103: gather only ready lanes',
+  ]);
 
   const libraryId = await ensureSystemLibrary(db, payload.companyId, SystemTopicScope.MOVERS, now, {
     refreshPlaceholders: true,
@@ -205,6 +234,7 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
   // Only pull from operator-provided / public-ready surfaces (D-103).
   const sourceKinds = selectReadyLaneSourceKinds(gatherCredentials, MOVERS_LANE_SOURCE_KINDS);
 
+  await stage('gather', 'running', 'Gathering entitled evidence packages');
   const { packages: gathered } = await gatherEvidencePackages({
     query: plan.baseQuery,
     queryBySource: plan.bySource,
@@ -221,6 +251,12 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
       pkg.legalUseClass === 'ALLOWED' &&
       !pkg.feedClass.includes('stub') &&
       !pkg.feedClass.includes('public_stub'),
+  );
+  await stage(
+    'gather',
+    'succeeded',
+    `Gathered ${usable.length} usable packages across ${sourceKinds.length} ready kinds`,
+    ['Model-free gather; stubs excluded'],
   );
 
   const domains = new Set(usable.map((p) => p.sourceKind));
@@ -258,6 +294,7 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
   let profile: SuggestionThresholdProfile | null = null;
   let thresholdSource: 'llm_profile' | 'typical_defaults' = 'typical_defaults';
 
+  await stage('thresholds', 'running', 'Proposing tactical threshold profile');
   if (modelGateway && process.env.HFTR_LLM_MODE !== 'deterministic') {
     const llm = await modelGateway.proposeSuggestionThresholds({
       companyId: payload.companyId,
@@ -286,6 +323,16 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     // Fail-closed: typical defaults (catalog anchors). Heuristic kept for audit note only.
     void proposeThresholdProfileHeuristic(lanePresence);
     profile = null;
+    await stage('thresholds', 'skipped', 'LLM unavailable — using typical defaults path');
+    await stage('defaults', 'succeeded', 'Typical catalog defaults resolved', [
+      'Fail-closed when tactical LLM unavailable',
+    ]);
+  } else {
+    await stage('thresholds', 'succeeded', 'Tactical LLM threshold profile accepted', [
+      'sourceClass: llm_profile',
+      'suggestion_threshold_profile.v1',
+    ]);
+    await stage('defaults', 'skipped', 'LLM profile superseded typical defaults');
   }
 
   const thresholds = resolveSuggestionThresholds({
@@ -317,6 +364,7 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
   const evidenceTexts = usable.map((p) => `${p.title} ${p.summary}`);
   const evidenceSymbols = extractTickerCandidates(evidenceTexts, 16);
 
+  await stage('universe', 'running');
   const universe = buildMoversUniverse({
     sectorPeers: [],
     evidenceSymbols,
@@ -325,6 +373,12 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     fallbackLiquid: DEFAULT_LIQUID_FALLBACK,
     universeCap: thresholds.universeCap,
   });
+  await stage(
+    'universe',
+    'succeeded',
+    `Universe size ${universe.length} (cap ${thresholds.universeCap})`,
+    ['Evidence + trends + book + liquid fallback'],
+  );
 
   const openBook = new Set(positionRows.map((p) => p.symbol.toUpperCase()));
   const bookAtCap = openBook.size >= Math.max(4, Math.floor(thresholds.suggestionCap / 2));
@@ -363,6 +417,7 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
   }
 
   const spyBars = barBySymbol.get('SPY') ?? null;
+  await stage('rs', 'running', 'Computing relative strength vs SPY');
   const scores = [];
   for (const symbol of universe) {
     const snap = barBySymbol.get(symbol) ?? { closes: [], volumes: [] };
@@ -393,8 +448,15 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     );
   }
 
+  await stage('rs', 'succeeded', `Scored ${scores.length} symbols`, [
+    'Model-free bars vs SPY · synthetic marks when needed',
+  ]);
+  await stage('rank', 'running');
   const ranked = rankCompoundScores(scores);
   const topK = ranked.slice(0, Math.min(8, thresholds.suggestionCap));
+  await stage('rank', 'succeeded', `Ranked top ${topK.length} for board`, [
+    'Leadership · fit · corroboration bands',
+  ]);
 
   // Watchlist module: prefer trading/trend for operator confirm UX.
   const watchModuleId =
@@ -411,6 +473,7 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     now,
   });
 
+  await stage('verify', 'running');
   const verifiedSymbols: string[] = [];
   for (const score of ranked) {
     if (!score.admitsSearch) continue;
@@ -435,11 +498,20 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     now,
     noteSuffix: `Verified (${thresholdSource}; corroboration floor ${thresholds.corroborationMinDomains}).`,
   });
+  await stage(
+    'verify',
+    'succeeded',
+    `Promoted ${Math.min(verifiedSymbols.length, thresholds.suggestionCap)} verified suggestions`,
+    ['Suggestion verify → watchlist promote'],
+  );
 
   if (existingSeal && !payload.forceReseal) {
     // Seal still valid — suggestions refreshed; skip re-seal.
+    await stage('seal_movers', 'skipped', 'Valid movers seal retained; suggestions refreshed');
     return;
   }
+
+  await stage('seal_movers', 'running');
 
   const evidence: EvidencePackage[] = [...usable];
   evidence.push(
@@ -478,7 +550,10 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     topicScope: SystemTopicScope.MOVERS,
     topicSectors,
   });
-  if (!bundle) return;
+  if (!bundle) {
+    await stage('seal_movers', 'failed', 'Corroboration failed — no movers seal');
+    return;
+  }
 
   // Overlay compound-ranked symbols onto sealed view items (symbolOrSector).
   bundle.view.items = topK.map((s) => ({
@@ -525,4 +600,7 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     tags: entry.kindTags,
     now,
   });
+  await stage('seal_movers', 'succeeded', `Sealed movers board (${bundle.corroborationBand})`, [
+    'Verified normalize · report concept dual-persist',
+  ]);
 });

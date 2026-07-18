@@ -141,6 +141,14 @@ export {
   type SealSummary,
 } from './research/seal-load';
 export {
+  createMarketHubSynthesisRun,
+  recordSynthesisStage,
+  loadSynthesisRun,
+  loadLatestSynthesisRun,
+  finalizeSynthesisRun,
+  completeSynthesisRunAfterNarrative,
+} from './research/market-hub-synthesis';
+export {
   assertBatchEvidenceGrounded,
   allowedRefsFromEvidence,
 } from './research/evidence-grounding';
@@ -261,6 +269,7 @@ import './handlers/analyzer-concat';
 import './handlers/library-system-movers';
 import './handlers/library-system-sector-news';
 import './handlers/library-system-daily-summaries';
+import './handlers/library-posture-narrative';
 
 // Dispatch
 export {

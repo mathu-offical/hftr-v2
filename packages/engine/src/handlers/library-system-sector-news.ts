@@ -18,6 +18,7 @@ import {
 import { corroborateAndNormalize } from '../research/verified-normalize';
 import { persistVerifiedBundle } from '../research/seal-persist';
 import { loadLatestValidSeal } from '../research/seal-load';
+import { recordSynthesisStage } from '../research/market-hub-synthesis';
 import { registerHandler } from './registry';
 
 const SectorNewsPayload = z.object({
@@ -25,6 +26,7 @@ const SectorNewsPayload = z.object({
   topicSectors: z.array(z.string().max(64)).max(12).optional(),
   /** Operator Analyze: re-seal even when bulletin seal is still valid (D-111). */
   forceReseal: z.boolean().optional(),
+  synthesisRunId: z.string().uuid().optional(),
 });
 
 function buildSectorBulletinBody(opts: {
@@ -58,6 +60,26 @@ registerHandler('library.system_sector_news', async ({ db, clock, job }) => {
   const payload = SectorNewsPayload.parse(job.payload);
   const now = new Date(clock.nowMs());
   const nowMs = clock.nowMs();
+  const runId = payload.synthesisRunId;
+
+  const stage = async (
+    status: 'queued' | 'running' | 'succeeded' | 'failed' | 'skipped',
+    summary?: string,
+  ) => {
+    if (!runId) return;
+    await recordSynthesisStage(db, {
+      runId,
+      companyId: payload.companyId,
+      stageId: 'sector',
+      status,
+      summary: summary ?? null,
+      justificationLines: ['Model-free sector gather + corroborate'],
+      jobId: job.id,
+      now: new Date(clock.nowMs()),
+    });
+  };
+
+  await stage('running', 'Building sector bulletin');
 
   const libraryId = await ensureSystemLibrary(
     db,
@@ -68,7 +90,10 @@ registerHandler('library.system_sector_news', async ({ db, clock, job }) => {
   );
 
   const entry = getSystemLibraryEntry(SystemTopicScope.SECTOR_NEWS);
-  if (!entry) return;
+  if (!entry) {
+    await stage('failed', 'Sector library registry missing');
+    return;
+  }
 
   const subjectKey = 'sector_daily';
   const existing = await loadLatestValidSeal(db, {
@@ -77,7 +102,10 @@ registerHandler('library.system_sector_news', async ({ db, clock, job }) => {
     subjectKey,
     nowMs,
   });
-  if (existing && !payload.forceReseal) return;
+  if (existing && !payload.forceReseal) {
+    await stage('skipped', 'Valid sector seal retained');
+    return;
+  }
 
   const companyModules = await db
     .select({ id: modules.id, type: modules.type, topicSectors: modules.topicSectors })
@@ -166,7 +194,10 @@ registerHandler('library.system_sector_news', async ({ db, clock, job }) => {
     topicScope: SystemTopicScope.SECTOR_NEWS,
     topicSectors,
   });
-  if (!bundle) return;
+  if (!bundle) {
+    await stage('failed', 'Sector corroboration failed');
+    return;
+  }
 
   bundle.contributingSourceKinds = [
     ...new Set(evidence.map((p) => p.sourceKind)),
@@ -197,4 +228,5 @@ registerHandler('library.system_sector_news', async ({ db, clock, job }) => {
     tags: entry.kindTags,
     now,
   });
+  await stage('succeeded', `Sealed sector bulletin (${bundle.corroborationBand})`);
 });

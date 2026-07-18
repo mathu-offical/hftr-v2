@@ -42,22 +42,34 @@ export async function GET(req: Request, ctx: Ctx) {
       .orderBy(desc(llmCalls.createdAt))
       .limit(limit);
 
-    return {
-      calls: rows.map((row) => ({
-        id: row.id,
-        provider: row.provider,
-        model: row.model,
-        tier: row.tier,
-        tokens: { in: row.tokensIn, out: row.tokensOut },
-        costCents: row.costCents,
-        latencyMs: row.latencyMs,
-        schemaValid: row.schemaValid,
-        leakLintPassed: row.leakLintPassed,
-        failure: row.failure,
-        requestId: row.requestId,
-        retentionClass: row.retentionClass,
-        createdAt: row.createdAt.toISOString(),
-      })),
+    const calls = rows.map((row) => ({
+      id: row.id,
+      provider: row.provider,
+      model: row.model,
+      tier: row.tier,
+      tokens: { in: row.tokensIn, out: row.tokensOut },
+      costCents: row.costCents,
+      latencyMs: row.latencyMs,
+      schemaValid: row.schemaValid,
+      leakLintPassed: row.leakLintPassed,
+      failure: row.failure,
+      requestId: row.requestId,
+      retentionClass: row.retentionClass,
+      createdAt: row.createdAt.toISOString(),
+    }));
+
+    const n = calls.length;
+    const schemaOk = calls.filter((c) => c.schemaValid && !c.failure).length;
+    const leakOk = calls.filter((c) => c.leakLintPassed && !c.failure).length;
+    /** G2 soak evidence: recent window pass rates for operator / audit UI. */
+    const evidence = {
+      sampleSize: n,
+      schemaPassRate: n === 0 ? null : schemaOk / n,
+      leakPassRate: n === 0 ? null : leakOk / n,
+      allLeakClean: n > 0 && leakOk === n,
+      allSchemaValid: n > 0 && schemaOk === n,
     };
+
+    return { calls, evidence };
   });
 }

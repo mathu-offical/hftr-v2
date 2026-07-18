@@ -269,6 +269,13 @@ function truncateRequestId(id: string | null): string {
 function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] }) {
   const [policyData, setPolicyData] = useState<LlmPolicyResponse | null>(null);
   const [calls, setCalls] = useState<LlmCallRow[]>([]);
+  const [llmEvidence, setLlmEvidence] = useState<{
+    sampleSize: number;
+    schemaPassRate: number | null;
+    leakPassRate: number | null;
+    allLeakClean: boolean;
+    allSchemaValid: boolean;
+  } | null>(null);
   const [brokers, setBrokers] = useState<BrokerConnectionSummary[]>([]);
   const [brokerStatus, setBrokerStatus] = useState<CompanyBrokerStatus | null>(null);
   const [policyMessage, setPolicyMessage] = useState<string | null>(null);
@@ -280,12 +287,22 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
     try {
       const [policyRes, callsRes, brokersRes, brokerRes] = await Promise.all([
         api<LlmPolicyResponse>(`${base}/llm-policy`),
-        api<{ calls: LlmCallRow[] }>(`${base}/llm-calls?limit=20`),
+        api<{
+          calls: LlmCallRow[];
+          evidence?: {
+            sampleSize: number;
+            schemaPassRate: number | null;
+            leakPassRate: number | null;
+            allLeakClean: boolean;
+            allSchemaValid: boolean;
+          };
+        }>(`${base}/llm-calls?limit=20`),
         api<{ connections: BrokerConnectionSummary[] }>('/api/settings/brokers'),
         api<CompanyBrokerStatus>(`${base}/broker`),
       ]);
       setPolicyData(policyRes);
       setCalls(callsRes.calls);
+      setLlmEvidence(callsRes.evidence ?? null);
       setBrokers(brokersRes.connections);
       setBrokerStatus(brokerRes);
     } catch {
@@ -539,6 +556,25 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
           <p className="text-[11px] text-[var(--color-ink-faint)]">
             Metadata only — prompts and outputs are never returned.
           </p>
+          {llmEvidence && llmEvidence.sampleSize > 0 && (
+            <p
+              className="mt-1 text-[10px] text-[var(--color-ink-dim)]"
+              data-testid="llm-ledger-evidence"
+              aria-label="LLM ledger soak evidence"
+            >
+              Window {llmEvidence.sampleSize}: schema{' '}
+              {llmEvidence.schemaPassRate === null
+                ? '—'
+                : `${Math.round(llmEvidence.schemaPassRate * 100)}%`}
+              {' · '}
+              leak{' '}
+              {llmEvidence.leakPassRate === null
+                ? '—'
+                : `${Math.round(llmEvidence.leakPassRate * 100)}%`}
+              {llmEvidence.allLeakClean ? ' · all leak-clean' : ''}
+              {llmEvidence.allSchemaValid ? ' · all schema-valid' : ''}
+            </p>
+          )}
         </div>
         <table className="w-full text-left text-[10px]">
           <thead className="text-[var(--color-ink-faint)]">

@@ -1928,12 +1928,19 @@
       "id": "REQ-DEF-001",
       "title": "Fund router ledger transfers + approval inbox",
       "source": "agent-docs/product/product-spec.md \u00a73 Fund router",
-      "status": "deferred",
-      "evidence": ["fund_transfers schema", "D-023 topology only"],
+      "status": "partial",
+      "evidence": [
+        "packages/engine/src/fund-transfers/fund-route-walker.ts",
+        "packages/engine/src/fund-transfers/fund-route-walker.test.ts",
+        "apps/web/app/api/companies/[companyId]/fund-transfers/propose/route.ts",
+        "fund_transfers schema",
+        "approval inbox UI (BottomPanel)"
+      ],
       "scenarios": ["M3 fund model v1"],
       "venues": ["paper_sim"],
       "philosophyAxes": ["risk_controls"],
-      "safetyClass": "financial"
+      "safetyClass": "financial",
+      "notes": "Walker + propose API return hop proposals only; operator POST fund-transfers + approve still required for ledger settlement."
     },
     {
       "id": "REQ-DEF-002",

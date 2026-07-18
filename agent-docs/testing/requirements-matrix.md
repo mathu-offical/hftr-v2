@@ -313,7 +313,7 @@ Additional drift (not in JSON flag list):
 
 | REQ-ID | Title | Source | Status | Evidence | Scenarios | Venues | Axes | Safety |
 |---|---|---|---|---|---|---|---|---|
-| REQ-DEF-001 | Fund router ledger transfers + approval inbox | agent-docs/product/product-spec.md §3 Fund router | **deferred** | fund_transfers schema; D-023 topology only | M3 fund model v1 | paper_sim | risk_controls | financial |
+| REQ-DEF-001 | Fund router ledger transfers + approval inbox | agent-docs/product/product-spec.md §3 Fund router | **partial** | `fund-route-walker.ts` + propose API (proposals only); fund_transfers schema; approval inbox UI | M3 fund model v1 | paper_sim | risk_controls | financial |
 | REQ-DEF-002 | Simulator parallel paper runs + comparison UI | agent-docs/product/product-spec.md §3 Simulator | **deferred** | simulation_runs schema; M4 gate | M4 simulator module | paper_sim | strategy_outcome | operational |
 | REQ-DEF-003 | Analyzer verification loopback module | agent-docs/product/product-spec.md §3 Analyzer | **deferred** | analyzer module type in schema | M4 analyzer v1 | paper_sim | execution_quality | operational |
 | REQ-DEF-004 | Module generator conversational create | agent-docs/product/product-spec.md §3 | **deferred** | generator module type | M4+ assistant tools | platform | operator_transparency | operational |

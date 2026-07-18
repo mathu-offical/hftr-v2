@@ -441,8 +441,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `packages/engine/src/graph/module-links.ts`; multi-hop `research→library→trend` for
   module-auto curate; `trend→trading` directive for promote target; inbound `library→trend` /
   `live_api→trend` for evidence scope and scan symbols; `research→library` for admit targets
-  and library gather EvidencePackages. `fund_route` remains topology-only (D-023 / REQ-DEF-001).
-  **Status: implemented; unit tests on graph helpers + library gather normalize.**
+  and library gather EvidencePackages. `fund_route` graph walker (`fund-route-walker.ts`) now
+  proposes module↔module transfer hops along legal paths (REQ-DEF-001 partial; proposals only,
+  no auto-settle). **Status: implemented; unit tests on graph helpers + fund-route walker.**
 
 - **D-042 (engine node families + v1 detail mapping + typed Math/research, 2026-07-17):**
   Canvas stays operator modules; v1 stages (`research_topic`…`loop_refine`) map into owning
@@ -462,9 +463,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Company create requires **≥1 engine**. Operators compose engines as cards (add/remove freely);
   each card holds template inputs + shared topic/capital/exit (module-store parity). API
   `CreateCompanyInput.engines` is `min(1)`; graph seed is Math hub + engines (+ optional
-  standalone `extraModules`). Former company templates (`day_trading_starter`,
-  `trend_research_lab`) are client **Quick add** presets only — they no longer POST a separate
-  template module graph. User settings modal stays fixed-height with scrollable tab panel.
+  standalone `extraModules`). Create UI splits **Research** vs **Execution** add-button
+  catalogs; execution engines auto-add research dependency packs via
+  `EXECUTION_ENGINE_RESEARCH_DEPENDENCIES`. Former company templates are no longer a separate
+  POST graph seed. User settings modal stays fixed-height with scrollable tab panel.
   **Status: implemented** (contracts + POST `/api/companies` + `CreateCompanyForm` + e2e/docs).
 
 - **D-036 (auto-disarm + drain latency, 2026-07-17):**

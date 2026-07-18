@@ -14,7 +14,7 @@ sprint specs are written when the prior gate passes, incorporating learnings).
 |------|--------|---------|-----------|
 | **G0** Foundation | **Passed** | Monorepo, Clerk, Drizzle migrations, Vercel skeleton, CI typecheck/lint/vitest | — |
 | **G1** Canvas + queue spine | **Passed (local)** | Company wizard, canvas CRUD, queue drain, panels, deterministic assistant, Playwright M1 flows | Remote CI e2e first green run |
-| **G2** Research stack | **Partial** | Libraries/topics, galaxy + D-040 overlay (nests/wikilinks/neighbors), Obsidian zip, research bus D-039, canvas link data-flow D-041, cadence, LLM admission, ARCH-005 activate graph gate | Real-provider research soak; ledger evidence under load |
+| **G2** Research stack | **Partial** | Libraries/topics, galaxy + D-040 overlay, Obsidian zip, research bus D-039, D-041 links, ARCH-005, D-042 librarian/process layers, D-043 engine-centric create | Credentialed provider soak; llm_calls ledger soak evidence under load |
 | **G3** Paper trading loop | **Partial** | ValueRef instruction finalizer + leak audit; Alpaca bars→regime; v1-parity **327** engine tests; `paper-loop`/`lineage` Playwright flows 3+7 | Remote CI e2e first green; credentialed Alpaca paper fill (not paper_sim) |
 | **G4** Brokers + billing | **Partial (non-billing)** | Full §7 assistant write tools + Mistral schema; deterministic sims + Analyzer stub; Alpaca/Kalshi settings UX | **Billing deferred (D-032)**; Stripe; operator-key Alpaca paper round-trip |
 | **G5** Multi-venue + live | **Partial** | Live-gate arming UI; real Kalshi demo HTTP client + settings/verify; crypto/prediction templates; Palette via `/api/engine-templates` | **Live Alpaca unverified**; live Kalshi blocked; OQ-2 dedicated-worker evidence |

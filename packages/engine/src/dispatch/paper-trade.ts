@@ -9,6 +9,12 @@ import type {
   QuoteSnapshot,
   Venue,
 } from '@hftr/contracts';
+import {
+  resolveTradingExecutionBinding,
+  shouldSubmitToProvider,
+  TradingModuleConfig,
+  type PaperRoutingMode,
+} from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import {
   actionInstructions,
@@ -38,7 +44,6 @@ import { resolveExecutionContext } from './execution-context';
 import { feeCentsFromNotional } from './fees';
 import { preDispatchGauntlet } from './pre-dispatch';
 import { applyFill, getPosition } from './positions';
-import { getSyntheticQuote } from './quotes';
 import {
   InstructionFinalizeError,
   finalizeErrorToFailureCode,
@@ -46,6 +51,7 @@ import {
   type ResolvedInstruction,
 } from './instruction-finalizer';
 import { recomputeCompanyEquity } from '../equity/recompute';
+import { resolveMarketQuote } from '../paper/market-model';
 
 /**
  * The deterministic paper-trade path (broker-integration.md, dispatch README):
@@ -205,6 +211,25 @@ export async function executePaperTrade(
   }
 
   const { adapter, venue, brokerConnectionId } = execCtx;
+
+  const moduleRows = await db
+    .select({ config: modules.config, type: modules.type })
+    .from(modules)
+    .where(and(eq(modules.id, req.moduleId), eq(modules.companyId, req.companyId)))
+    .limit(1);
+  const moduleRow = moduleRows[0];
+  const tradingConfig =
+    moduleRow?.type === 'trading'
+      ? TradingModuleConfig.safeParse(moduleRow.config)
+      : null;
+  const executionBinding = resolveTradingExecutionBinding(
+    tradingConfig?.success
+      ? { executionBinding: tradingConfig.data.executionBinding ?? null }
+      : {},
+  );
+  const routingMode: PaperRoutingMode = executionBinding.routingMode;
+  const submitToProvider = shouldSubmitToProvider(routingMode);
+
   const envelope: HandoffEnvelope = compiled
     ? {
         ...compiled.envelope,
@@ -231,23 +256,30 @@ export async function executePaperTrade(
     return blockedSimple(db, req, 'numeric_sanity_block', 'quantity out of bounds', venue);
   }
 
-  let quote: QuoteSnapshot;
-  const usesVenueQuote = venue !== 'paper_sim';
-  try {
-    quote = usesVenueQuote
-      ? await adapter.getQuote(req.symbol)
-      : getSyntheticQuote(req.symbol, clock);
-  } catch {
-    return blockedSimple(db, req, 'broker_policy_block', 'quote unavailable', venue);
+  let liveQuote: QuoteSnapshot | null = null;
+  if (venue !== 'paper_sim') {
+    try {
+      liveQuote = await adapter.getQuote(req.symbol);
+    } catch {
+      liveQuote = null;
+      if (submitToProvider) {
+        return blockedSimple(db, req, 'broker_policy_block', 'quote unavailable', venue);
+      }
+    }
   }
+  const market = resolveMarketQuote({ symbol: req.symbol, clock, liveQuote });
+  const quote = market.quote;
+  const usesLiveMarketQuote = market.usedLive;
 
   const quoteRef = await record(db, clock, {
     kind: 'price',
     unit: 'USD_cents',
     scale: 0,
     valueInt: BigInt(quote.lastCents ?? quote.askCents ?? 0),
-    sourceClass: usesVenueQuote ? 'broker_state' : 'synthetic_sim',
-    sourceId: usesVenueQuote ? `${venue}:quote:${quote.symbol}` : `synthetic_sim:${quote.symbol}`,
+    sourceClass: market.sourceClass,
+    sourceId: usesLiveMarketQuote
+      ? `${venue}:quote:${quote.symbol}`
+      : `synthetic_sim:${quote.symbol}`,
     ttlMs: QUOTE_TTL_MS,
     companyId: req.companyId,
     moduleId: req.moduleId,
@@ -538,7 +570,7 @@ export async function executePaperTrade(
     );
   }
 
-  if (venue !== 'paper_sim') {
+  if (submitToProvider && venue !== 'paper_sim') {
     return executeVenueTrade(db, clock, req, {
       adapter,
       venue,
@@ -550,6 +582,7 @@ export async function executePaperTrade(
       quote,
       quoteRef,
       sessionSnapshot,
+      routingMode,
     });
   }
 
@@ -624,6 +657,12 @@ export async function executePaperTrade(
     brokerConnectionId,
     childFills: childMaterialized.fills,
     usedChildDrain: childMaterialized.usedChildDrain,
+    simulatorGapTags: internalPaperFillGapTags({
+      outcome: 'filled',
+      usedLiveMarketQuote: usesLiveMarketQuote,
+      routingMode,
+      usedChildDrain: childMaterialized.usedChildDrain,
+    }),
   });
 }
 
@@ -652,6 +691,8 @@ interface VenueTradeContext {
   quote: QuoteSnapshot;
   quoteRef: string;
   sessionSnapshot: Record<string, unknown>;
+  /** D-122 routing; both_verify Phase 1 still uses venue submit. */
+  routingMode?: PaperRoutingMode;
 }
 
 async function executeVenueTrade(
@@ -878,6 +919,8 @@ interface FinalizeContext {
     venueOrderId?: string;
   }>;
   usedChildDrain?: boolean;
+  /** D-122: honest gap tags for internal paper fills (including funds_only + live quote). */
+  simulatorGapTags?: string[];
 }
 
 interface AppliedVenueFill {
@@ -894,6 +937,7 @@ async function applyVenueFillFinalization(
     traceOutcome: 'filled' | 'recovered';
     childFills?: FinalizeContext['childFills'];
     usedChildDrain?: boolean;
+    simulatorGapTags?: string[];
   },
 ): Promise<AppliedVenueFill> {
   const {
@@ -916,6 +960,7 @@ async function applyVenueFillFinalization(
     brokerConnectionId,
     childFills,
     usedChildDrain,
+    simulatorGapTags,
   } = args;
 
   const fillRecords =
@@ -956,6 +1001,7 @@ async function applyVenueFillFinalization(
     failureCode: null,
     venue,
     usedChildDrain: usedChildDrain === true,
+    ...(simulatorGapTags !== undefined ? { simulatorGapTags } : {}),
   });
 
   const fieldResults = buildFillVerificationFields({
@@ -1080,11 +1126,14 @@ async function finalizeFilledTrade(
       sessionSnapshot,
       venue,
       limitPriceCents: task.limitPriceCents,
-      quantityInt: task.quantityInt,
-      brokerConnectionId: brokerConnectionId ?? null,
+      quantityInt: String(req.quantity),
       traceOutcome: 'filled',
+      brokerConnectionId: brokerConnectionId ?? null,
       ...(ctx.childFills !== undefined ? { childFills: ctx.childFills } : {}),
       ...(ctx.usedChildDrain !== undefined ? { usedChildDrain: ctx.usedChildDrain } : {}),
+      ...(ctx.simulatorGapTags !== undefined
+        ? { simulatorGapTags: ctx.simulatorGapTags }
+        : {}),
     },
   );
 
@@ -1169,19 +1218,40 @@ function computeFill(
   return { ok: true, priceCents, venueOrderId: `psim_${task.idempotencyKey.slice(7, 19)}` };
 }
 
+function internalPaperFillGapTags(args: {
+  outcome: 'filled' | 'rejected' | 'blocked';
+  usedLiveMarketQuote: boolean;
+  routingMode: PaperRoutingMode;
+  usedChildDrain?: boolean;
+}): string[] {
+  if (args.outcome !== 'filled') {
+    return args.usedLiveMarketQuote
+      ? ['live_market_quote', 'funds_only_routing', 'pre_dispatch_block']
+      : ['synthetic_quote', 'pre_dispatch_block'];
+  }
+  const tags = [
+    args.usedLiveMarketQuote ? 'live_market_quote' : 'synthetic_quote',
+    'inline_fill_model',
+    'no_venue_latency',
+    args.usedChildDrain ? 'child_slice_drain' : 'no_partial_fills',
+    'funds_only_routing',
+  ];
+  if (args.routingMode === 'both_verify') {
+    tags.push('both_verify_deferred');
+  }
+  return tags;
+}
+
 function paperSimGapTags(
   outcome: 'filled' | 'rejected' | 'blocked',
   usedChildDrain = false,
 ): string[] {
-  if (outcome === 'filled') {
-    return [
-      'synthetic_quote',
-      'inline_fill_model',
-      'no_venue_latency',
-      usedChildDrain ? 'child_slice_drain' : 'no_partial_fills',
-    ];
-  }
-  return ['synthetic_quote', 'pre_dispatch_block'];
+  return internalPaperFillGapTags({
+    outcome,
+    usedLiveMarketQuote: false,
+    routingMode: 'funds_only',
+    usedChildDrain,
+  });
 }
 
 async function writeFillTrace(
@@ -1196,8 +1266,16 @@ async function writeFillTrace(
     failureCode: string | null;
     venue: Venue;
     usedChildDrain?: boolean;
+    simulatorGapTags?: string[];
   },
 ): Promise<string> {
+  const defaultTags =
+    params.venue === 'paper_sim'
+      ? paperSimGapTags(
+          params.outcome === 'recovered' ? 'filled' : params.outcome,
+          params.usedChildDrain === true,
+        )
+      : [];
   const rows = await db
     .insert(actionTraces)
     .values({
@@ -1210,15 +1288,7 @@ async function writeFillTrace(
       fills: params.fills,
       sessionLegalitySnapshot: params.sessionSnapshot,
       policyEnvelopeVersion: POLICY_ENVELOPE_VERSION,
-      // Honest paper_sim provenance: recovered venue fills share the filled gap set when
-      // the fill still came from the synthetic path; non-paper venues leave tags empty.
-      simulatorGapTags:
-        params.venue === 'paper_sim'
-          ? paperSimGapTags(
-              params.outcome === 'recovered' ? 'filled' : params.outcome,
-              params.usedChildDrain === true,
-            )
-          : [],
+      simulatorGapTags: params.simulatorGapTags ?? defaultTags,
       failureCode: params.failureCode,
     })
     .returning({ id: actionTraces.id });
@@ -1248,7 +1318,9 @@ async function writeTrace(
       fills,
       sessionLegalitySnapshot: sessionSnapshot,
       policyEnvelopeVersion: POLICY_ENVELOPE_VERSION,
-      simulatorGapTags: venue === 'paper_sim' ? (simulatorGapTags ?? paperSimGapTags(outcome)) : [],
+      simulatorGapTags:
+        simulatorGapTags ??
+        (venue === 'paper_sim' ? paperSimGapTags(outcome) : []),
       failureCode,
     })
     .returning({ id: actionTraces.id });

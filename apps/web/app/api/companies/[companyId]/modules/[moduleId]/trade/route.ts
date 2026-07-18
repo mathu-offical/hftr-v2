@@ -57,6 +57,8 @@ export async function POST(req: Request, ctx: Ctx) {
       workerId: `inline:${clerkUserId.slice(0, 12)}`,
       budgetMs: 15_000,
       batchSize: 3,
+      queueClasses: ['DISPATCH'],
+      kickMaintenanceSweep: false,
     });
     return { queued: true, drained };
   });

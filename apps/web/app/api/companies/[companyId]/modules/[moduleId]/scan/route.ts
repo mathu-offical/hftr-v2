@@ -51,8 +51,10 @@ export async function POST(req: Request, ctx: Ctx) {
     });
     const drained = await drainQueues(db, clock, {
       workerId: `inline:${clerkUserId.slice(0, 12)}`,
-      budgetMs: 15_000,
-      batchSize: 3,
+      budgetMs: 20_000,
+      batchSize: 4,
+      queueClasses: ['RESEARCH'],
+      kickMaintenanceSweep: false,
     });
     return { queued: true, drained };
   });

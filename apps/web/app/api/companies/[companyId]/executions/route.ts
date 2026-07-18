@@ -61,12 +61,16 @@ export async function GET(_req: Request, ctx: Ctx) {
       : [];
     const instructionById = new Map(instructions.map((i) => [i.id, i]));
 
+    const Uuid = z.string().uuid();
+
     const jobIds = [
       ...new Set(
         instructions
           .map((i) => {
             const envelope = (i.envelope ?? {}) as { causationRefs?: string[] };
-            return envelope.causationRefs?.[0];
+            const refs = envelope.causationRefs ?? [];
+            // Causation refs may include catalog keys (e.g. atr_stop_catalog), not only job UUIDs.
+            return refs.find((ref) => Uuid.safeParse(ref).success);
           })
           .filter((id): id is string => typeof id === 'string'),
       ),
@@ -114,7 +118,8 @@ export async function GET(_req: Request, ctx: Ctx) {
       const instruction = instructionById.get(task.instructionId);
       if (!instruction) return { leadId: null, treeId: null };
       const envelope = (instruction.envelope ?? {}) as { causationRefs?: string[] };
-      const causationJobId = envelope.causationRefs?.[0];
+      const refs = envelope.causationRefs ?? [];
+      const causationJobId = refs.find((ref) => Uuid.safeParse(ref).success);
       if (!causationJobId) return { leadId: null, treeId: null };
       const job = jobById.get(causationJobId);
       const leadId = ((job?.payload ?? {}) as { leadId?: string }).leadId ?? null;

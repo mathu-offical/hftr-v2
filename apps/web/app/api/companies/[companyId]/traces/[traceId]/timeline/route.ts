@@ -98,7 +98,8 @@ export async function GET(_req: Request, ctx: Ctx) {
       : undefined;
 
     const envelope = (instruction?.envelope ?? {}) as { causationRefs?: string[] };
-    const causationJobId = envelope.causationRefs?.[0];
+    const Uuid = z.string().uuid();
+    const causationJobId = (envelope.causationRefs ?? []).find((ref) => Uuid.safeParse(ref).success);
     const promotingJob = causationJobId
       ? (await db.select().from(jobs).where(eq(jobs.id, causationJobId)).limit(1))[0]
       : undefined;

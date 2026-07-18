@@ -333,20 +333,33 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
               <span key="s" className="font-mono">
                 {w.symbol}
               </span>,
-              <span
+              <Justification
                 key="b"
-                className="capitalize"
-                style={{
-                  color:
-                    w.bias === 'long'
-                      ? 'var(--color-ok)'
-                      : w.bias === 'short'
-                        ? 'var(--color-block)'
-                        : 'var(--color-ink-dim)',
-                }}
+                sourceClass={w.sourceClass || 'operator'}
+                lines={[
+                  `Bias "${w.bias}" on ${w.symbol}.`,
+                  w.sourceClass === 'deterministic_scan'
+                    ? 'Suggested by deterministic scan or suggestion tier — operator may accept or override.'
+                    : w.sourceClass === 'operator'
+                      ? 'Operator-set watch bias — not model-generated.'
+                      : `Recorded with source class ${w.sourceClass || 'operator'}.`,
+                  w.note ? `Note: ${w.note}` : 'No operator note attached.',
+                ]}
               >
-                {w.bias}
-              </span>,
+                <span
+                  className="capitalize"
+                  style={{
+                    color:
+                      w.bias === 'long'
+                        ? 'var(--color-ok)'
+                        : w.bias === 'short'
+                          ? 'var(--color-block)'
+                          : 'var(--color-ink-dim)',
+                  }}
+                >
+                  {w.bias}
+                </span>
+              </Justification>,
               w.status,
               w.moduleName,
               <span key="n" className="block max-w-56 truncate">
@@ -1392,7 +1405,16 @@ function LineageColumn(props: { title: string; children: React.ReactNode }) {
   return (
     <div className="flex min-w-[9rem] flex-col overflow-hidden rounded border border-[var(--color-line)]">
       <div className="shrink-0 border-b border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-ink-faint)]">
-        {props.title}
+        <Justification
+          sourceClass="derived"
+          block
+          lines={[
+            'Deterministic join across trends, leads, trees, executions, verifications, and dead letters.',
+            'Column groups entities by pipeline stage — no model interpretation.',
+          ]}
+        >
+          {props.title}
+        </Justification>
       </div>
       <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-1">{props.children}</div>
     </div>

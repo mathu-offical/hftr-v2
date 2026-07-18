@@ -5,6 +5,7 @@ import { api } from '@/lib/client';
 import { ACTIVITY_REFRESH_EVENT } from '../canvas/PaperTradeForm';
 import { VALUE_LINEAGE_FOCUS_EVENT, type ValueLineageFocusDetail } from '@/lib/value-lineage-focus';
 import { dollars, scaled, toneFor } from './format';
+import { Justification } from './Justification';
 import { PanelTabs } from './PanelTabs';
 
 type Tab = 'verification' | 'executions' | 'ledger' | 'simulation' | 'values';
@@ -291,12 +292,21 @@ function VerificationTab(props: { verifications: VerificationRow[]; executions: 
         return (
           <li key={v.id} className="rounded-lg border border-[var(--color-line)] p-2.5">
             <div className="flex items-center justify-between">
-              <span
-                className="text-xs font-medium uppercase tracking-wide"
-                style={{ color: toneFor(v.result) }}
+              <Justification
+                sourceClass="deterministic_placeholder"
+                lines={[
+                  'Model-free verification against the immutable guardrail schema — no LLM below compile.',
+                  `Result: ${v.result}.`,
+                  ...(v.failureCode ? [`Failure code: ${v.failureCode}.`] : []),
+                ]}
               >
-                {v.result}
-              </span>
+                <span
+                  className="text-xs font-medium uppercase tracking-wide"
+                  style={{ color: toneFor(v.result) }}
+                >
+                  {v.result}
+                </span>
+              </Justification>
               <span className="text-[10px] text-[var(--color-ink-faint)]">
                 {new Date(v.createdAt).toLocaleTimeString()}
               </span>
@@ -540,9 +550,18 @@ function ValuesTab(props: {
               aria-label={`Show lineage for value ${v.ref}`}
             >
               <div className="flex items-center justify-between">
-                <span className="font-mono text-xs">
-                  {scaled(v.valueInt, v.scale)} {v.unit}
-                </span>
+                <Justification
+                  sourceClass={v.sourceClass}
+                  lines={[
+                    `Kind: ${v.kind}.`,
+                    `Source id: ${v.sourceId}.`,
+                    'Append-only ValueRef — scaled integer stored server-side; UI never invents raw digits.',
+                  ]}
+                >
+                  <span className="font-mono text-xs">
+                    {scaled(v.valueInt, v.scale)} {v.unit}
+                  </span>
+                </Justification>
                 <span className="text-[10px] uppercase tracking-wide text-[var(--color-ink-faint)]">
                   {v.kind}
                 </span>

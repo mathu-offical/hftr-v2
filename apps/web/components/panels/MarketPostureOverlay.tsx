@@ -222,30 +222,40 @@ export function MarketPostureOverlay() {
                               : 'border-[var(--color-line)] bg-[var(--color-surface-1)] hover:border-[var(--color-ink-faint)]'
                           }`}
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-medium text-[var(--color-ink)]">
-                              {p.symbol}
-                            </span>
-                            <span className="font-mono text-xs tabular-nums text-[var(--color-ink-dim)]">
-                              qty {p.qty}
-                            </span>
-                          </div>
-                          <div className="mt-1 flex justify-between text-[10px] text-[var(--color-ink-faint)]">
-                            <span>
-                              avg {dollarsFromCents(p.avgCostCents)} · mark{' '}
-                              {dollarsFromCents(p.markCents)}
-                            </span>
-                            <span className="font-mono tabular-nums">
-                              uPnL {pnlLabel(p.unrealizedPnlCents)}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
-                            {p.moduleName}
-                            {p.moduleType ? ` · ${p.moduleType}` : ''}
-                          </p>
-                          <div className="mt-1.5">
-                            <EngineChips engines={p.engines} />
-                          </div>
+                          <Justification
+                            sourceClass="derived"
+                            block
+                            lines={[
+                              'Position row from paper fill book joined with module context.',
+                              'Mark and unrealized PnL use synthetic marks until live broker marks are wired.',
+                              `Module: ${p.moduleName}${p.moduleType ? ` (${p.moduleType})` : ''}.`,
+                            ]}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-medium text-[var(--color-ink)]">
+                                {p.symbol}
+                              </span>
+                              <span className="font-mono text-xs tabular-nums text-[var(--color-ink-dim)]">
+                                qty {p.qty}
+                              </span>
+                            </div>
+                            <div className="mt-1 flex justify-between text-[10px] text-[var(--color-ink-faint)]">
+                              <span>
+                                avg {dollarsFromCents(p.avgCostCents)} · mark{' '}
+                                {dollarsFromCents(p.markCents)}
+                              </span>
+                              <span className="font-mono tabular-nums">
+                                uPnL {pnlLabel(p.unrealizedPnlCents)}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
+                              {p.moduleName}
+                              {p.moduleType ? ` · ${p.moduleType}` : ''}
+                            </p>
+                            <div className="mt-1.5">
+                              <EngineChips engines={p.engines} />
+                            </div>
+                          </Justification>
                         </button>
                       </li>
                     );

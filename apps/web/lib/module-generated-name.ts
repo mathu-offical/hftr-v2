@@ -1,7 +1,12 @@
-import { deriveGeneratedModuleName, moduleFunctionLabel, ModuleType } from '@hftr/contracts';
+import {
+  deriveGeneratedModuleName,
+  deriveLibraryDisplayName,
+  moduleFunctionLabel,
+  ModuleType,
+} from '@hftr/contracts';
 import type { Db } from '@hftr/db';
-import { moduleLinks, modules } from '@hftr/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { libraries, moduleLinks, modules } from '@hftr/db/schema';
+import { and, eq, inArray } from 'drizzle-orm';
 
 export interface ModuleNameUpdate {
   moduleId: string;
@@ -15,6 +20,19 @@ type LinkRow = typeof moduleLinks.$inferSelect;
 
 function neighborFunctionLabel(row: ModuleRow): string {
   const type = ModuleType.parse(row.type);
+  return moduleFunctionLabel(type, row.config);
+}
+
+function sourceLabelForModule(row: ModuleRow): string {
+  const type = ModuleType.parse(row.type);
+  if (type === 'live_api') {
+    const cfg =
+      row.config && typeof row.config === 'object' && !Array.isArray(row.config)
+        ? (row.config as Record<string, unknown>)
+        : {};
+    const venue = typeof cfg.venue === 'string' ? cfg.venue : 'live';
+    return venue.replace(/[_-]+/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
+  }
   return moduleFunctionLabel(type, row.config);
 }
 
@@ -44,7 +62,6 @@ function computeGeneratedName(
   }
 
   let topicSectors = mod.topicSectors ?? [];
-  // Dedicated Math tools: use owner Fn as focus when topics are unset.
   if (type === 'math' && topicSectors.length === 0 && mod.toolOwnerModuleId) {
     const owner = moduleById.get(mod.toolOwnerModuleId);
     if (owner) {
@@ -64,10 +81,38 @@ function computeGeneratedName(
   return { name, generatedNameBase };
 }
 
+function computeLibraryDisplayName(
+  libraryModuleId: string,
+  moduleById: ReadonlyMap<string, ModuleRow>,
+  links: readonly LinkRow[],
+): string {
+  const mod = moduleById.get(libraryModuleId);
+  if (!mod) return 'Runtime library';
+  const cfg =
+    mod.config && typeof mod.config === 'object' && !Array.isArray(mod.config)
+      ? (mod.config as Record<string, unknown>)
+      : {};
+  const topicScope = typeof cfg.topicScope === 'string' ? cfg.topicScope : null;
+  const sourceLabels: string[] = [];
+  for (const link of links) {
+    if (link.toModuleId !== libraryModuleId || link.linkKind !== 'data_feed') continue;
+    const from = moduleById.get(link.fromModuleId);
+    if (!from) continue;
+    if (from.type === 'research' || from.type === 'librarian' || from.type === 'live_api') {
+      sourceLabels.push(sourceLabelForModule(from));
+    }
+  }
+  return deriveLibraryDisplayName({
+    topicScope,
+    topicSectors: mod.topicSectors,
+    sourceLabels,
+  });
+}
+
 /**
  * Recompute generated display names for the given modules from the current
  * company graph. Updates only rows where nameCustomized=false.
- * Realigns generatedNameBase to the short function lexicon when refreshing.
+ * D-091: also syncs linked library shelf names from topic + inbound sources.
  */
 export async function refreshGeneratedModuleNames(
   db: Db,
@@ -82,6 +127,7 @@ export async function refreshGeneratedModuleNames(
 
   const moduleById = new Map(allModules.map((row) => [row.id, row]));
   const updates: ModuleNameUpdate[] = [];
+  const libraryModuleIds: string[] = [];
 
   for (const moduleId of uniqueIds) {
     const mod = moduleById.get(moduleId);
@@ -89,25 +135,71 @@ export async function refreshGeneratedModuleNames(
 
     const derived = computeGeneratedName(moduleId, moduleById, allLinks);
     if (derived === null) continue;
-    if (derived.name === mod.name && derived.generatedNameBase === mod.generatedNameBase) {
-      continue;
-    }
+    if (derived.name !== mod.name || derived.generatedNameBase !== mod.generatedNameBase) {
+      await db
+        .update(modules)
+        .set({
+          name: derived.name,
+          generatedNameBase: derived.generatedNameBase,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(modules.id, moduleId), eq(modules.companyId, companyId)));
 
-    await db
-      .update(modules)
-      .set({
+      updates.push({
+        moduleId,
         name: derived.name,
         generatedNameBase: derived.generatedNameBase,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(modules.id, moduleId), eq(modules.companyId, companyId)));
+        nameCustomized: false,
+      });
+      moduleById.set(moduleId, {
+        ...mod,
+        name: derived.name,
+        generatedNameBase: derived.generatedNameBase,
+      });
+    }
 
-    updates.push({
-      moduleId,
-      name: derived.name,
-      generatedNameBase: derived.generatedNameBase,
-      nameCustomized: false,
-    });
+    if (mod.type === 'library') {
+      libraryModuleIds.push(moduleId);
+    }
+  }
+
+  // Also refresh library shelves when neighbor modules change (inbound sources).
+  for (const mod of allModules) {
+    if (mod.type === 'library' && !mod.nameCustomized && !libraryModuleIds.includes(mod.id)) {
+      const touched = allLinks.some(
+        (l) =>
+          (l.toModuleId === mod.id || l.fromModuleId === mod.id) &&
+          uniqueIds.includes(l.fromModuleId === mod.id ? l.toModuleId : l.fromModuleId),
+      );
+      if (touched) libraryModuleIds.push(mod.id);
+    }
+  }
+
+  if (libraryModuleIds.length > 0) {
+    const libRows = await db
+      .select()
+      .from(libraries)
+      .where(
+        and(eq(libraries.companyId, companyId), inArray(libraries.moduleId, libraryModuleIds)),
+      );
+    for (const lib of libRows) {
+      if (!lib.moduleId) continue;
+      const owner = moduleById.get(lib.moduleId);
+      if (!owner || owner.nameCustomized) continue;
+      const nextName = computeLibraryDisplayName(lib.moduleId, moduleById, allLinks);
+      if (nextName === lib.name) continue;
+      await db
+        .update(libraries)
+        .set({ name: nextName, updatedAt: new Date() })
+        .where(and(eq(libraries.id, lib.id), eq(libraries.companyId, companyId)));
+      // Keep module name aligned to shelf when not customized.
+      if (owner.name !== nextName) {
+        await db
+          .update(modules)
+          .set({ name: nextName, updatedAt: new Date() })
+          .where(eq(modules.id, owner.id));
+      }
+    }
   }
 
   return updates;

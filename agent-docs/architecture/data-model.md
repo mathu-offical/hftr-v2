@@ -40,6 +40,14 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 - **engine_instances** (D-028, migration `0014_engine_instances`) — company_id, template_id,
   label, master_topic_sectors text[], canvas_bounds jsonb `{x,y,width,height}` nullable.
   Member modules reference via `modules.engine_instance_id`; Math modules never join.
+- **engine_utility_links** (D-091, migration `0037`) — company_id, to_engine_id FK
+  → engine_instances, bus `data_in|data_out|clock|funds|system_control`, from_engine_id FK
+  nullable (inter-engine upstream), from_module_id FK nullable (company utility module e.g.
+  Master Clock), stream_id varchar(80) nullable, stream_descriptor varchar(200) nullable.
+  CHECK exactly one of (from_engine_id, from_module_id) is set. Inter-engine `data_out→data_in`
+  pairs share stream_id; descriptors are qualitative only (D-008/D-009). API CRUD at
+  `/api/companies/:companyId/engine-utility-links`. Design:
+  `architecture/engine-motherboard-io-design.md`.
 - **modules** — company_id, type `research|library|live_api|trend|trading|policy|generator|
   simulator|analyzer|holding_fund|fund_router|math|display`, subtype (trading: `crypto|prediction|
   hft|day|long_term|custom`), name, config jsonb (schema per type), status
@@ -59,6 +67,11 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   no ledger transfers yet (D-023); `policy` nodes occupy the rightmost canvas column and bind
   policy envelopes to the trading modules linked into them (spec: "trading modules → trading
   policies").
+  **D-091 AnalyzerModuleConfig** (`analyzer` modules): `emitMode`
+  `to_library|to_desk_stream|verify_loopback` — controls library admission, desk/bus emit,
+  and verification loopback; research ENGINE terminal analyzer defaults `to_desk_stream` (or
+  `to_library` for seed-keeper fabrics); execution analyzers default `verify_loopback`.
+  Validated in `packages/contracts/src/modules.ts` (`AnalyzerModuleConfig`).
 - **module_links** — company_id, from_module_id, to_module_id, link_kind
   `data_feed|directive|verification|fund_route`, config jsonb. Canvas edges are loaded by
   `loadCompanyLinkGraph` and consumed by research/trend/promote (D-041) — not visual-only.

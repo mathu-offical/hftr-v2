@@ -67,11 +67,15 @@
   bind policy envelopes to the trading modules linked into them. Company creation seeds one Math
   module (`Deterministic Math Calculator`); D-028 adds repeatable Math **tools** multi-attachable
   to consumers (see below).
-- **ENGINE groups (D-028 / D-035 / D-089 / `canvas-engine-group-design.md`):** insertable engine
+- **ENGINE groups (D-028 / D-035 / D-089 / D-091 / `canvas-engine-group-design.md`):** insertable engine
   templates persist as `engine_instances` with a dashed React Flow **parent** chrome
   (`EngineGroupNode`): template label, **Reflow**, delete, and **full shared setup** in the
   header as bordered inline fields (topic/sector, total capital envelope, overall exit) plus
-  editable template inputs and Save. Member modules are child nodes (`engine_instance_id`);
+  editable template inputs and Save — **not** a stacked body setup strip (D-089). **D-091
+  motherboard:** bottom **utility rail** exposes typed buses (`data_in`, `data_out`, `clock`,
+  `funds`, `system_control` per template category); inter-engine `data_out→data_in` streams;
+  clock bind from company Master Clock; motherboard-attached Math docks and research terminal
+  analyzer. Member modules are child nodes (`engine_instance_id`);
   Math is never a member. Shared setup cascades to members until overridden
   (`topic_sectors_overridden`); capital splits equally across capital-bearing members; exit is
   the same overall deadline. Inspector/module PATCH supports **Restore engine topic**
@@ -119,9 +123,11 @@
   pin (`math → owner` `data_feed`). Edges attach to stream pins; kind color + dash pattern.
   Validation remains `LinkKind` + `LINK_RULES`. Trend-item handles use the same parse path
   with synthetic peer `trend:{uuid}`.
-- **Master Clock + Time (D-088):** company singleton `clock` (auto-seeded) and repeatable
+- **Master Clock + Time (D-088 / D-091):** company singleton `clock` (auto-seeded) and repeatable
   `time` processors under Tools in the module store. Tool-family chrome; Clock/Time cannot
-  join ENGINE membership. Port roles: Now / Duration / Schedule.
+  join ENGINE membership. Port roles: Now / Duration / Schedule. **D-091:** engines receive
+  clock authority via motherboard `clock` utility bind (bottom rail); direct `clock→member`
+  module edges deprecated on reflow for new engines.
 - **Node families (D-056 / D-068 / D-073 / D-088):** cards distinguish **Data source** (`library` shelves /
   book-spine silhouette; `live_api` aperture + signal bars — dashed border), **Agent** (solid +
   left bar), **Vault** / fund (`holding_fund`, `fund_router` — vault door, rivets, dial chrome;

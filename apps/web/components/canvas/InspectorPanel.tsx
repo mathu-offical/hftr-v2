@@ -5,6 +5,7 @@ import type { ModuleStatus } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import type { ModuleNameUpdate } from '@/lib/module-generated-name';
 import {
+  AnalyzerConfigForm,
   ClockConfigForm,
   DisplayConfigForm,
   LibrarianConfigForm,
@@ -317,6 +318,9 @@ export function InspectorPanel(props: {
       {mod.type === 'math' && <MathConfigForm companyId={props.companyId} moduleId={mod.id} />}
 
       {mod.type === 'clock' && <ClockConfigForm companyId={props.companyId} moduleId={mod.id} />}
+      {mod.type === 'analyzer' && (
+        <AnalyzerConfigForm companyId={props.companyId} moduleId={mod.id} />
+      )}
 
       {mod.type === 'time' && <TimeConfigForm companyId={props.companyId} moduleId={mod.id} />}
 

@@ -64,6 +64,33 @@ Engine group header exposes comma-separated master topic editor + **Save** → `
 **Shipped:** `EngineGroupNode.tsx`, `CanvasEngineGroup` type, non-overlapping placement helpers,
 category chrome, D-089 header inline fields.
 
+## Motherboard utility rail (D-091)
+
+ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles (contracts:
+`engineUtilityBusesForCategory`). Buses are persisted on `engine_utility_links`, not `module_links`.
+
+```
+┌─ Engine · category ────────── [Reflow] [Delete] ─┐
+│ Day trading engine                                 │
+│ [topic____] [USD|%] [cap__] [exit____] [tpl…] [Save]│  ← D-089 header inline fields
+│ ┌────────────────────────────────────────────────┐ │
+│ │  (member module nodes as children)             │ │
+│ └────────────────────────────────────────────────┘ │
+│ [data_in] [data_out] [clock] [funds] [system_control] │  ← utility rail (category subset)
+└────────────────────────────────────────────────────┘
+```
+
+- **Research / trend_research engines:** `data_in`, `data_out`, `clock`, `system_control` (no funds).
+- **Execution engines:** all five buses including `funds`.
+- **Motherboard-attached seed nodes:** Master Clock bind, dedicated Math docks, and research
+  terminal analyzer render attached to the group border (not counted as extra member grid cells).
+- **Engine↔engine edges:** connect `data_out` on source engine to `data_in` on target; stream pins
+  use opaque `stream_id` + qualitative descriptor. Animate when either side has active jobs.
+- **D-089 note:** shared setup + template inputs stay in the **header** as bordered inline fields
+  (`ModuleSetupFields` `layout="inline"`); the utility rail is separate from setup chrome.
+
+Full design: `architecture/engine-motherboard-io-design.md`.
+
 ## Delete modal
 
 | Mode | API | Effect |

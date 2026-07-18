@@ -1,10 +1,12 @@
 'use client';
 
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { type Node, type NodeProps } from '@xyflow/react';
+import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import {
+  engineUtilityBusesForCategory,
   getEngineTemplateById,
   type EngineSetupSnapshot,
+  type EngineUtilityBus,
   type ModuleSetupField,
 } from '@hftr/contracts';
 import { api } from '@/lib/client';
@@ -23,6 +25,23 @@ const ENGINE_SETUP_FIELDS: readonly ModuleSetupField[] = [
   'target_exit',
 ];
 
+const BUS_LABELS: Record<EngineUtilityBus, string> = {
+  data_in: 'Data in',
+  data_out: 'Data out',
+  clock: 'Clock',
+  funds: 'Funds',
+  system_control: 'Control',
+};
+
+export type EngineUtilityLinkView = {
+  id: string;
+  bus: EngineUtilityBus;
+  fromEngineId?: string | null;
+  fromModuleId?: string | null;
+  streamId?: string | null;
+  streamDescriptor?: string | null;
+};
+
 export type EngineGroupNodeData = {
   companyId: string;
   label: string;
@@ -31,6 +50,8 @@ export type EngineGroupNodeData = {
   setupSnapshot?: EngineSetupSnapshot | null;
   templateInputs?: Record<string, string>;
   memberModuleIds: string[];
+  /** D-091 motherboard utility links bound to this engine. */
+  utilityLinks?: EngineUtilityLinkView[];
   onRequestDelete: (engineId: string) => void;
   onRequestReflow: (engineId: string) => void;
   onEngineSetupSaved: (
@@ -78,9 +99,9 @@ function humanizeKey(key: string): string {
 }
 
 /**
- * React Flow parent node for an ENGINE instance (D-028 / D-033 / D-035 / D-089):
+ * React Flow parent node for an ENGINE instance (D-028 / D-033 / D-035 / D-089 / D-091):
  * labeled chrome with Reflow/Delete; shared setup + template inputs as bordered
- * inline fields in the header; member modules as children below.
+ * inline fields; motherboard utility ports for data/clock/funds/control.
  */
 export const EngineGroupNode = memo(function EngineGroupNode({
   id,
@@ -108,8 +129,13 @@ export const EngineGroupNode = memo(function EngineGroupNode({
 
   const missingFields = useMemo(() => missingFieldsFromDraft(ENGINE_SETUP_FIELDS, draft), [draft]);
 
+  const template = useMemo(() => getEngineTemplateById(data.templateId), [data.templateId]);
+  const utilityBuses = useMemo(
+    () => engineUtilityBusesForCategory(template?.category ?? 'research'),
+    [template?.category],
+  );
+
   const templateInputDefs = useMemo(() => {
-    const template = getEngineTemplateById(data.templateId);
     const entries = Object.entries(templateInputs);
     return entries.map(([key, value]) => {
       const def = template?.inputs.find((input) => input.key === key);
@@ -120,7 +146,17 @@ export const EngineGroupNode = memo(function EngineGroupNode({
         placeholder: def?.placeholder,
       };
     });
-  }, [data.templateId, templateInputs]);
+  }, [template, templateInputs]);
+
+  const linksByBus = useMemo(() => {
+    const map = new Map<EngineUtilityBus, EngineUtilityLinkView[]>();
+    for (const link of data.utilityLinks ?? []) {
+      const list = map.get(link.bus) ?? [];
+      list.push(link);
+      map.set(link.bus, list);
+    }
+    return map;
+  }, [data.utilityLinks]);
 
   async function saveSetup() {
     setSaving(true);
@@ -166,6 +202,8 @@ export const EngineGroupNode = memo(function EngineGroupNode({
   }
 
   const engineVisual = engineVisualForTemplate(data.templateId);
+  const inboundBuses = utilityBuses.filter((b) => b !== 'data_out');
+  const outboundBuses = utilityBuses.filter((b) => b === 'data_out' || b === 'system_control');
 
   return (
     <div
@@ -191,6 +229,35 @@ export const EngineGroupNode = memo(function EngineGroupNode({
         style={{ background: engineVisual.hue, opacity: 0.7 }}
         aria-hidden
       />
+      {/* D-091 motherboard utility ports */}
+      {inboundBuses.map((bus, index) => {
+        const bound = (linksByBus.get(bus) ?? []).length > 0;
+        const top = `${18 + index * 16}%`;
+        return (
+          <Handle
+            key={`in-${bus}`}
+            id={`engine-util-${bus}`}
+            type="target"
+            position={Position.Left}
+            style={{ top, background: bound ? engineVisual.hue : 'var(--color-line)' }}
+            title={`${BUS_LABELS[bus]}${bound ? ' · bound' : ' · unbound'}`}
+          />
+        );
+      })}
+      {outboundBuses.map((bus, index) => {
+        const bound = (linksByBus.get(bus) ?? []).length > 0;
+        const top = `${22 + index * 18}%`;
+        return (
+          <Handle
+            key={`out-${bus}`}
+            id={`engine-util-${bus}`}
+            type="source"
+            position={Position.Right}
+            style={{ top, background: bound ? engineVisual.hue : 'var(--color-line)' }}
+            title={`${BUS_LABELS[bus]}${bound ? ' · bound' : ' · unbound'}`}
+          />
+        );
+      })}
       <div className="engine-group-drag border-b border-[var(--color-line)]/60 px-2 py-1 pl-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -275,6 +342,28 @@ export const EngineGroupNode = memo(function EngineGroupNode({
             {saving ? 'Saving…' : 'Save'}
           </button>
           {error && <p className="text-[9px] text-[var(--color-block)]">{error}</p>}
+        </div>
+        <div className="nodrag mt-1 flex flex-wrap gap-1">
+          {utilityBuses.map((bus) => {
+            const bound = linksByBus.get(bus) ?? [];
+            const tip =
+              bound[0]?.streamDescriptor ||
+              (bound.length > 0 ? `${bound.length} bound` : 'unbound');
+            return (
+              <span
+                key={bus}
+                className="rounded border px-1 py-0.5 text-[8px]"
+                style={{
+                  borderColor: bound.length > 0 ? `${engineVisual.hue}88` : 'var(--color-line)',
+                  color: bound.length > 0 ? engineVisual.hue : 'var(--color-ink-faint)',
+                }}
+                title={tip}
+              >
+                {BUS_LABELS[bus]}
+                {bound.length > 0 ? ' ✓' : ''}
+              </span>
+            );
+          })}
         </div>
       </div>
     </div>

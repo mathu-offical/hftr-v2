@@ -113,6 +113,15 @@ export interface CanvasEngineGroup {
   templateInputs?: Record<string, string>;
   canvasBounds: { x: number; y: number; width: number; height: number } | null;
   memberModuleIds: string[];
+  /** D-091 motherboard utility links. */
+  utilityLinks?: Array<{
+    id: string;
+    bus: 'data_in' | 'data_out' | 'clock' | 'funds' | 'system_control';
+    fromEngineId?: string | null;
+    fromModuleId?: string | null;
+    streamId?: string | null;
+    streamDescriptor?: string | null;
+  }>;
 }
 
 export interface CanvasLink {

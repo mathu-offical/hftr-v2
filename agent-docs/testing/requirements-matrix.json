@@ -1970,13 +1970,20 @@
     },
     {
       "id": "REQ-DEF-003",
-      "title": "Analyzer verification loopback module",
-      "source": "agent-docs/product/product-spec.md \u00a73 Analyzer",
-      "status": "deferred",
-      "evidence": ["analyzer module type in schema"],
-      "scenarios": ["M4 analyzer v1"],
+      "title": "Analyzer emit modes + research terminal (D-091)",
+      "source": "architecture/engine-motherboard-io-design.md; product-spec \u00a73 Analyzer",
+      "status": "implemented",
+      "evidence": [
+        "packages/contracts/src/modules.ts AnalyzerModuleConfig",
+        "packages/engine/src/handlers/analyzer-concat.ts",
+        "packages/contracts/src/templates.ts ENGINE emitMode defaults"
+      ],
+      "scenarios": [
+        "to_desk_stream/to_library on research ENGINE",
+        "verify_loopback loopback"
+      ],
       "venues": ["paper_sim"],
-      "philosophyAxes": ["execution_quality"],
+      "philosophyAxes": ["execution_quality", "research_quality"],
       "safetyClass": "operational"
     },
     {

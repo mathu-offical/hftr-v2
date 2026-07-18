@@ -1107,6 +1107,93 @@ export function ClockConfigForm(props: { companyId: string; moduleId: string }) 
   );
 }
 
+interface AnalyzerConfig {
+  emitMode: 'to_library' | 'to_desk_stream' | 'verify_loopback';
+  streamDescriptor?: string;
+}
+
+const DEFAULT_ANALYZER_CONFIG: AnalyzerConfig = { emitMode: 'verify_loopback' };
+
+export function AnalyzerConfigForm(props: { companyId: string; moduleId: string }) {
+  const [config, setConfig] = useState<AnalyzerConfig | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let stopped = false;
+    async function load() {
+      try {
+        const mod = await api<{ module: { config: Partial<AnalyzerConfig> } }>(
+          `/api/companies/${props.companyId}/modules/${props.moduleId}`,
+        );
+        if (stopped) return;
+        setConfig({ ...DEFAULT_ANALYZER_CONFIG, ...mod.module.config });
+      } catch {
+        if (!stopped) setMessage('Could not load Analyzer settings.');
+      }
+    }
+    void load();
+    return () => {
+      stopped = true;
+    };
+  }, [props.companyId, props.moduleId]);
+
+  async function saveConfig(next: AnalyzerConfig) {
+    setConfig(next);
+    setSaving(true);
+    try {
+      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}`, {
+        method: 'PATCH',
+        body: { config: next },
+      });
+      setMessage(null);
+    } catch {
+      setMessage('Could not save Analyzer settings.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!config) {
+    return <p className="text-xs text-[var(--color-ink-faint)]">Loading analyzer…</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      <span className="text-xs text-[var(--color-ink-dim)]">Analyzer emit (D-091)</span>
+      <label className="block space-y-1">
+        <span className="text-[10px] text-[var(--color-ink-dim)]">Emit mode</span>
+        <select
+          value={config.emitMode}
+          disabled={saving}
+          onChange={(e) =>
+            void saveConfig({
+              ...config,
+              emitMode: e.target.value as AnalyzerConfig['emitMode'],
+            })
+          }
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          <option value="to_desk_stream">Desk / engine stream</option>
+          <option value="to_library">Library write</option>
+          <option value="verify_loopback">Verify loopback</option>
+        </select>
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[10px] text-[var(--color-ink-dim)]">Stream descriptor</span>
+        <input
+          value={config.streamDescriptor ?? ''}
+          disabled={saving}
+          onChange={(e) => void saveConfig({ ...config, streamDescriptor: e.target.value })}
+          placeholder="Qualitative package label"
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        />
+      </label>
+      {message && <p className="text-xs text-[var(--color-block)]">{message}</p>}
+    </div>
+  );
+}
+
 interface TimeConfig {
   transform: string;
   timezone?: string;

@@ -24,6 +24,7 @@ implementation proceeds.
 | `architecture/system-architecture.md` | Full-stack architecture: tiers, boundaries, services, monorepo layout |
 | `architecture/data-model.md` | Complete v2 Postgres schema (Neon), entity contracts |
 | `architecture/engine-node-family-design.md` | D-042: canvas families, v1→node map, research/Math types, ENGINE specialties |
+| `architecture/engine-motherboard-io-design.md` | D-091: ENGINE utility buses, auto-hydration, inter-engine streams, terminal analyzer |
 | `architecture/llm-pipeline.md` | Three-tier Claude/Mistral/Groq pipeline, schemas, rate-limit strategy |
 | `architecture/job-orchestration.md` | Custom Postgres queue + scheduler design (no vendor lock-in) |
 | `architecture/number-handling.md` | Numeric + temporal reference architecture: ValueRef store, calculator, clock/calendar authority, leak linting, Math module |
@@ -39,7 +40,7 @@ implementation proceeds.
 | `ui-ux/research-archive-confidence-design.md` | D-047 soft-delete Archive, confidence bands, system chips |
 | `ui-ux/research-tab-shelves-inspector-design.md` | D-049 Research tab shelves, entity search, floating Page inspector |
 | `ui-ux/canvas-node-dashboard-design.md` | D-026 labeled ports + fixed dashboard card |
-| `ui-ux/canvas-engine-group-design.md` | D-028 ENGINE parent groups + Math tools |
+| `ui-ux/canvas-engine-group-design.md` | D-028 ENGINE parent groups + Math tools + D-091 motherboard utility rail |
 | `ui-ux/canvas-layout-and-dedicated-math-design.md` | D-033 scoped Reflow + dedicated Math ownership and routing |
 | `research/v1-carryover.md` | Everything ported from v1: contracts, bands, catalogs, guardrails |
 | `testing/README.md` | Testing doc index; `/paper-experiment` workflow map |

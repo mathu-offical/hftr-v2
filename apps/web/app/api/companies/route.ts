@@ -17,7 +17,7 @@ import {
 } from '@hftr/contracts';
 import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
-import { bootstrapCompanyKnowledge, createSystemClock, loadSessionConstraints, resolveCompanyServiceBindings } from '@hftr/engine';
+import { bootstrapCompanyKnowledge, createSystemClock, loadSessionConstraints, resolveCompanyServiceBindings, ensureEngineClockUtilityBind, hydrateEngineMembersFromUtilities } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import {
   cascadeEngineSetup,
@@ -96,6 +96,7 @@ export async function POST(req: Request) {
     const company = inserted[0]!;
     const clock = createSystemClock();
     const createdModuleIds: string[] = [];
+    const createdEngineIds: string[] = [];
 
     // Every company gets its Math hub (D-008) and Master Clock (D-088).
     const [mathModule] = await db
@@ -126,7 +127,7 @@ export async function POST(req: Request) {
         nameCustomized: false,
         config: { timezone: 'America/New_York', displayMode: 'session' },
         status: 'active',
-        canvasPosition: { x: 80, y: 40 },
+        canvasPosition: { x: 80, y: 720 },
       })
       .returning({ id: modules.id });
     if (!clockModule) {
@@ -211,6 +212,7 @@ export async function POST(req: Request) {
         })
         .returning({ id: engineInstances.id });
       if (!engineRow) throw new ApiError(500, 'engine_instance_create_failed');
+      createdEngineIds.push(engineRow.id);
 
       const engineRefs = await recordEngineSetupRefs(
         db,
@@ -373,6 +375,11 @@ export async function POST(req: Request) {
     }
 
     await refreshGeneratedModuleNames(db, company.id, createdModuleIds);
+
+    for (const engineId of createdEngineIds) {
+      await ensureEngineClockUtilityBind(db, company.id, engineId);
+      await hydrateEngineMembersFromUtilities(db, company.id, engineId);
+    }
 
     // Compile-time catalog mechanisms → libraries + galaxy concepts + hybrid topic (D-045).
     try {

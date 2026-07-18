@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { missingModuleSetupFields } from '@hftr/contracts';
 import { getDb, NotFoundError, scoping } from '@hftr/db';
+import { engineUtilityLinks } from '@hftr/db/schema';
+import { eq } from 'drizzle-orm';
+import { EngineUtilityBus } from '@hftr/contracts';
 import { AssistantDock } from '@/components/assistant/AssistantDock';
 import { CompanyCanvas } from '@/components/canvas/CompanyCanvas';
 import { BottomPanel } from '@/components/panels/BottomPanel';
@@ -41,15 +44,26 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
   const { companyId } = parsed.data;
 
   const db = getDb();
-  let company, moduleRows, linkRows, engineRows;
+  let company, moduleRows, linkRows, engineRows, utilityLinkRows;
   try {
     company = await scoping.getOwnedCompany(db, userId, companyId);
     moduleRows = await scoping.listModules(db, userId, companyId);
     linkRows = await scoping.listLinks(db, userId, companyId);
     engineRows = await scoping.listEngineInstances(db, userId, companyId);
+    utilityLinkRows = await db
+      .select()
+      .from(engineUtilityLinks)
+      .where(eq(engineUtilityLinks.companyId, companyId));
   } catch (err) {
     if (err instanceof NotFoundError) notFound();
     throw err;
+  }
+
+  const utilityByEngine = new Map<string, typeof utilityLinkRows>();
+  for (const link of utilityLinkRows) {
+    const list = utilityByEngine.get(link.toEngineId) ?? [];
+    list.push(link);
+    utilityByEngine.set(link.toEngineId, list);
   }
 
   return (
@@ -151,6 +165,14 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
                     memberModuleIds: moduleRows
                       .filter((m) => m.engineInstanceId === e.id)
                       .map((m) => m.id),
+                    utilityLinks: (utilityByEngine.get(e.id) ?? []).map((link) => ({
+                      id: link.id,
+                      bus: EngineUtilityBus.parse(link.bus),
+                      fromEngineId: link.fromEngineId,
+                      fromModuleId: link.fromModuleId,
+                      streamId: link.streamId,
+                      streamDescriptor: link.streamDescriptor,
+                    })),
                   }))}
                   initialLinks={linkRows.map((l) => ({
                     id: l.id,

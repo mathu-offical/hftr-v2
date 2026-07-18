@@ -96,6 +96,11 @@ Additional drift (not in JSON flag list):
 | REQ-MDL-010 | Canvas GET projection API | apps/web/app/api/companies/[companyId]/canvas/route.ts | **implemented** | canvas/route.ts; CompanyCanvas.tsx | canvas render on load | paper_sim | operator_transparency | operational |
 | REQ-MDL-011 ⚠ | Policy nodes bind envelopes to trading modules | agent-docs/architecture/system-architecture.md §3 | **stub** | policy module type in schema; Paper Trading Policy link in template | topology visible | paper_sim | compliance_posture, risk_controls | safety_critical |
 | REQ-MDL-012 | Trading presets (crypto, prediction, HFT, long-term) | agent-docs/product/product-spec.md §3 | **deferred** | templates.ts unavailableReason fields | M5 preset delivery | alpaca, kalshi | strategy_outcome | operational |
+| REQ-ENG-001 | Engine utility buses on group chrome (D-091) | architecture/engine-motherboard-io-design.md | **implemented** | packages/contracts/src/engines.ts EngineUtilityBus; EngineGroupNode utility rail | utility rail handles per category | paper_sim | operator_transparency | operational |
+| REQ-ENG-002 | engine_utility_links persistence + API | architecture/data-model.md | **implemented** | migration 0037; EngineUtilityLink contract; engine-utility-links route | POST/GET utility links | paper_sim | operator_transparency | operational |
+| REQ-ENG-003 | Inter-engine data_out→data_in streams | architecture/engine-motherboard-io-design.md | **implemented** | stream_id + stream_descriptor contract; utility link API | engine↔engine edge on canvas | paper_sim | research_quality | operational |
+| REQ-ENG-004 | Engine insert auto-hydration (clock, analyzer, names) | architecture/engine-motherboard-io-design.md §Auto-hydration | **implemented** | engines route hydration; analyzer templates; deriveLibraryDisplayName | research ENGINE terminal analyzer | paper_sim | operator_transparency | operational |
+| REQ-ENG-005 | Engine clock utility bind (deprecate clock→member) | architecture/number-handling.md §8a | **implemented** | engine_utility_links clock bind on insert | clock bus on utility rail | paper_sim | compliance_posture | safety_critical |
 
 ## Canvas UI (10)
 
@@ -315,7 +320,7 @@ Additional drift (not in JSON flag list):
 |---|---|---|---|---|---|---|---|---|
 | REQ-DEF-001 | Fund router ledger transfers + approval inbox | agent-docs/product/product-spec.md §3 Fund router | **partial** | `fund-route-walker.ts` + propose API (`commit` optional); `fundTransferRowsFromProposals`; fund_transfers schema; approval inbox UI | M3 fund model v1 | paper_sim | risk_controls | financial |
 | REQ-DEF-002 | Simulator parallel paper runs + comparison UI | agent-docs/product/product-spec.md §3 Simulator | **deferred** | simulation_runs schema; M4 gate | M4 simulator module | paper_sim | strategy_outcome | operational |
-| REQ-DEF-003 | Analyzer verification loopback module | agent-docs/product/product-spec.md §3 Analyzer | **deferred** | analyzer module type in schema | M4 analyzer v1 | paper_sim | execution_quality | operational |
+| REQ-DEF-003 | Analyzer emit modes + research terminal (D-091) | architecture/engine-motherboard-io-design.md; product-spec §3 Analyzer | **implemented** | packages/contracts/src/modules.ts AnalyzerModuleConfig; analyzer-concat handler; ENGINE templates | to_desk_stream/to_library on research ENGINE; verify_loopback loopback | paper_sim | execution_quality, research_quality | operational |
 | REQ-DEF-004 | Module generator conversational create | agent-docs/product/product-spec.md §3 | **deferred** | generator module type | M4+ assistant tools | platform | operator_transparency | operational |
 | REQ-DEF-005 | Training feedback bounded band retunes | agent-docs/architecture/system-architecture.md §4 | **deferred** | training_feedback schema | M3+ training loop | paper_sim | strategy_outcome, risk_controls | safety_critical |
 | REQ-DEF-006 | Dedicated queue worker (OQ-2 escalation) | agent-docs/architecture/job-orchestration.md §4 | **deferred** | OQ-2 open question | M5 latency measurement | platform | execution_quality | operational |

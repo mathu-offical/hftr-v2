@@ -395,7 +395,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `template_inputs` on `engine_instances`. `PATCH` with `setup` records engine ValueRefs,
   persists the operator-visible snapshot, and cascades: topic (non-overridden members), capital
   as equal split across capital-bearing members, exit as the same overall deadline to
-  exit-bearing members. `ENGINE_GROUP_PADDING.top` increased for chrome height.
+  exit-bearing members. `ENGINE_GROUP_PADDING.top` increased for chrome height (later **D-089**
+  moved shared setup into header inline bounded fields and reduced top padding 140→92; the
+  pre-D-089 stacked body setup strip is superseded).
   Verification (2026-07-17): IronBee on day-trading canvas — engine chrome shows Shared
   setup hint + topic/capital/exit fields; PATCH `/engines/:id` with full setup returned 200;
   `setupSnapshot` + engine ValueRefs persisted; topic cascaded to research/library/live_api/
@@ -649,7 +651,8 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 - **D-057 (tight canvas density + per-stream dependency ports, 2026-07-17):** Operator asked
   for smaller min zoom, tighter nodes/engines/layout, and **individual stream dependency
   connection points** on every node. Layout floors: `CANVAS_LAYOUT` module 220×240, gutters
-  120/100, Math tool 180×40; `ENGINE_GROUP_PADDING` 72/72/140/100. React Flow `minZoom=0.15`.
+  120/100, Math tool 180×40; `ENGINE_GROUP_PADDING` 72/72/140/100 (top later **92** under
+  D-089 inline header fields). React Flow `minZoom=0.15`.
   Ports: each allowed `LinkKind` exposes a free **bus** handle plus one **stream** handle per
   existing peer (`{kind}-{dir}__{peerId}`); edges attach to stream pins; labels show `← Peer`
   / `→ Peer`. Helpers: `moduleStreamPorts`, `handleIdForStream`, `parseStreamHandle`. UI:
@@ -923,8 +926,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   session_window / schedule_ref). LINK_RULES: clock→time|trading|trend|policy|analyzer|math;
   time→trading|trend|policy|analyzer|display|math (`data_feed`). Owner↔Math collapses to
   one Calc-ref connection (math→owner `data_feed`; UI labels by info type, not peer names).
-  Layout floor `moduleHeight` 240→168; ModuleNode/context/trend chrome denser. Follow-up:
-  force every schedule through a Time node at compile. Plan draft called this D-078; that ID
+  Layout floor `moduleHeight` 240→168; ModuleNode/context/trend chrome denser. **D-091 follow-up:**
+  engine motherboard `clock` utility bind supersedes direct clock→member for new engines.
+  Follow-up: force every schedule through a Time node at compile. Plan draft called this D-078; that ID
   was already used for galaxy hierarchy. Docs: number-handling §8, ui-spec §3,
   engine-node-family-design, canvas-layout-and-dedicated-math-design.
   **Status: implemented.**
@@ -933,7 +937,8 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   setup (topic/sector, capital mode+value, target exit) and template inputs move from a
   stacked body strip into the **header** as one wrap row of bordered (“bounded”) inline
   fields (`ModuleSetupFields` `layout="inline"`). `ENGINE_GROUP_PADDING.top` 140→92.
-  Drag remains on chrome; fields stay `nodrag nowheel`. Docs: ui-spec §3,
+  Drag remains on chrome; fields stay `nodrag nowheel`. **D-091** adds a separate bottom
+  utility rail; setup fields remain header-only. Docs: ui-spec §3,
   canvas-engine-group-design, canvas-layout-and-dedicated-math-design.
   **Status: implemented.**
 
@@ -947,6 +952,22 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   table + `resolveCompanyServiceBindings` after broker verify / company / engine /
   module create; GET `service-coverage`; positions carry connection_id/venue on fill.
   Migration `0036`. Docs: data-model. **Status: implemented.**
+
+- **D-091 (engine motherboard I/O + research terminal analyzer + auto-hydration, 2026-07-18):**
+  ENGINE group chrome becomes a **motherboard** with typed utility buses (`data_in`, `data_out`,
+  `clock`, `funds`, `system_control`) persisted on `engine_utility_links` — distinct from
+  `module_links`. Research/trend_research categories expose data + clock + control; execution
+  categories also expose `funds`. Inter-engine qualitative streams pair `data_out→data_in` via
+  opaque `stream_id` + descriptor (no raw numbers/datetimes). **Auto-hydration** on insert:
+  clock utility bind from company Master Clock singleton; project topics into non-overridden
+  members; terminal **analyzer** as the last step on research ENGINEs; library display names
+  from topic + inbound sources (`deriveLibraryDisplayName`). **AnalyzerModuleConfig** `emitMode`:
+  `to_library` | `to_desk_stream` | `verify_loopback`. Direct `clock→consumer` module links
+  deprecated (clock→time|math only); layout pins Clock/Time to a bottom cadence rail. Setup
+  stays D-089 header inline fields. Docs: `architecture/engine-motherboard-io-design.md`,
+  data-model, engine-node-family-design, number-handling §8a, canvas-engine-group-design,
+  ui-spec §3, product-spec, plans, requirements-matrix. Migration `0037`.
+  **Status: implemented.**
 
 ## Open questions
 

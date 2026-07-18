@@ -527,6 +527,7 @@ function buildInitialGraph(
         setupSnapshot: engine.setupSnapshot ?? null,
         templateInputs: engine.templateInputs ?? {},
         memberModuleIds: engine.memberModuleIds,
+        utilityLinks: engine.utilityLinks ?? [],
         ...engineCallbacks,
       },
     });

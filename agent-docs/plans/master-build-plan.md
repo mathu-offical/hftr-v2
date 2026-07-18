@@ -78,6 +78,11 @@ Gate G0: deployed skeleton, auth round-trip in browser, migrations reproducible 
    delete modes `cascade` \| `ungroup`; Math repeatable multi-attach TOOL links (contracts +
    `LINK_RULES`). **Partial:** canvas parent wiring, delete modal, inspector restore topic, and
    ARCH-004 E2E not verified — see `ui-ux/canvas-engine-group-design.md`.
+9. **D-091 engine motherboard I/O (implementing):** `engine_utility_links` table + API; utility
+   rail on `EngineGroupNode`; auto-hydration (clock bind, terminal research analyzer, library
+   names from sources); inter-engine `data_out→data_in` streams; deprecate direct clock→member
+   on reflow. Contracts P0 in `packages/contracts/src/engines.ts`. Design:
+   `architecture/engine-motherboard-io-design.md`.
 
 **Gate G1 (local complete — remote CI evidence pending, D-022/D-023/D-024):** create company → compose
 module graph → queue processes a synthetic job → node activity reflects it → panels + assistant +

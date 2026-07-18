@@ -1,9 +1,11 @@
 # Engine node families, v1 process mapping, and control plane (D-042)
 
 **Status:** design approved 2026-07-17; **implemented** (contracts, DB journal 0023, templates,
-palette/inspector/process modal). Browser E2E for new research ENGINE inserts pending.  
-**Decision:** D-042  
-**Related:** D-023/028/033/035/039/040/041; DevSpecs `engine-philosophy.spec.md`, `research-library-philosophy.spec.md` (read-only)
+palette/inspector/process modal). D-091 motherboard I/O + research terminal analyzer **implemented**.
+Browser E2E for new research ENGINE inserts pending.  
+**Decision:** D-042; motherboard I/O D-091  
+**Related:** D-023/028/033/035/039/040/041/088/089/091; DevSpecs `engine-philosophy.spec.md`,
+`research-library-philosophy.spec.md` (read-only); `architecture/engine-motherboard-io-design.md`
 
 ## Goal
 
@@ -40,8 +42,29 @@ Balance operator visual flexibility with hardened verified execution:
 | `math` | Typed deterministic calculator tools (never ENGINE member) |
 | `clock` | Company singleton Master Clock — temporal authority / orientation (D-088; never ENGINE member) |
 | `time` | Repeatable temporal processors (elapsed / TZ / session / schedule) (D-088; never ENGINE member) |
-| `analyzer` | Verification / loopback |
+| `analyzer` | Verification / loopback; **research ENGINE terminal step** (D-091) |
 | `simulator` / `display` / `generator` | Optional utilities |
+
+## Motherboard utility buses (D-091)
+
+ENGINE group chrome (not member modules) exposes category-scoped utility buses persisted on
+`engine_utility_links`. See `architecture/engine-motherboard-io-design.md` for full bus matrix,
+auto-hydration, and inter-engine stream rules.
+
+| Bus | Research ENGINE | Execution ENGINE |
+|-----|-----------------|------------------|
+| `data_in` / `data_out` | inter-engine qualitative streams | policy/dump exports to peers |
+| `clock` | bind company Master Clock (replaces direct clock→member for new inserts) | same |
+| `funds` | — | fund-path topology signal |
+| `system_control` | cadence arm / pause | gate snapshots |
+
+**Research ENGINE pipeline terminus:** internal member order ends at a terminal `analyzer`
+(`emitMode: to_desk_stream` or `to_library`) before anything reaches `data_out`. Execution
+ENGINEs keep analyzer on the verification column with `emitMode: verify_loopback` for trading
+loopback.
+
+**Auto-hydration:** engine insert provisions utility binds, dedicated Math docks, terminal
+analyzer (research), and source-derived library names — idempotent with template insert.
 
 ## v1 stage → owning node
 
@@ -55,8 +78,9 @@ Balance operator visual flexibility with hardened verified execution:
 | `tree` | `trading` | Tactical tree + strategic/tactical levers |
 | `compile` | `trading` | Groq compile (last model stage) |
 | `dispatch` | `trading` | Model-free dispatch |
-| `loop_refine` | `trading` + `analyzer` | Recovery / re-tune → re-compile |
+| `loop_refine` | `trading` + `analyzer` (`verify_loopback`) | Recovery / re-tune → re-compile |
 | verification annex | `analyzer` + `policy` | Traces, gate results |
+| research export / bus emit | `analyzer` (`to_desk_stream` / `to_library`, D-091) | Qualitative digest → engine `data_out` |
 | numbers / funds | `math` (+ fund nodes) | ValueRef lineage, op log |
 
 Stage order is **not** rewirable on the canvas.
@@ -152,11 +176,11 @@ Same topology; specialty remaps defaults only:
 
 | Package | Changes |
 |---------|---------|
-| `packages/contracts` | subtypes in configs; `librarian` ModuleType; MathType; ENGINE template categories; refined templates |
-| `packages/db` | migration: allow `librarian` in modules.type |
-| `apps/web` | palette, config forms, template picker, detail modal scaffold |
+| `packages/contracts` | subtypes in configs; `librarian` ModuleType; MathType; ENGINE template categories; refined templates; D-091 `EngineUtilityBus` / `EngineUtilityLink` |
+| `packages/db` | migration: allow `librarian` in modules.type; `engine_utility_links` migration `0037` (D-091) |
+| `apps/web` | palette, config forms, template picker, detail modal scaffold; `EngineGroupNode` utility rail (D-091) |
 | `packages/engine` | librarian-aware link resolution; mathType when attaching tools |
-| `agent-docs` | this doc + product/ui/data-model + D-042 |
+| `agent-docs` | this doc + product/ui/data-model + D-042 + `engine-motherboard-io-design.md` (D-091) |
 
 ## Non-goals (this slice)
 

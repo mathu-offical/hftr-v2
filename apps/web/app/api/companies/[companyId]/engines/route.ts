@@ -16,7 +16,7 @@ import {
   type LayoutRect,
   type ModuleType,
 } from '@hftr/contracts';
-import { loadSessionConstraints, createSystemClock, resolveCompanyServiceBindings } from '@hftr/engine';
+import { loadSessionConstraints, createSystemClock, resolveCompanyServiceBindings, ensureEngineClockUtilityBind, hydrateEngineMembersFromUtilities } from '@hftr/engine';
 import { engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
@@ -271,6 +271,9 @@ export async function POST(req: Request, ctx: Ctx) {
       ...created.map((row) => row.id),
       ...dedicatedMath.map((tool) => tool.id),
     ]);
+
+    await ensureEngineClockUtilityBind(db, companyId, engineRow.id);
+    await hydrateEngineMembersFromUtilities(db, companyId, engineRow.id);
 
     try {
       await resolveCompanyServiceBindings(db, clerkUserId, companyId);

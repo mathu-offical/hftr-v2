@@ -53,12 +53,16 @@ watches, steers, and approves through the canvas + three panels + the assistant.
   (crypto/prediction/HFT listed with honest gating reasons). Scope fields use
   `pending_operator_scope` until operator setup. Allocation and exit resolve through
   ValueRefs and temporal refs per `architecture/number-handling.md`.
-- **ENGINE groups (D-028):** each inserted engine persists as an `engine_instances` row with
+- **ENGINE groups (D-028 / D-091):** each inserted engine persists as an `engine_instances` row with
   `master_topic_sectors` that cascade to member modules (`engine_instance_id`) unless a member
   overrides (`topic_sectors_overridden`). React Flow renders a structural parent group chrome
-  (not a module type). Delete offers cascade (remove members) or ungroup (keep modules). Math
-  modules are never engine members; they attach as repeatable multi-consumer TOOL links. Full
-  canvas grouping UX verification pending (API/DB/contracts implemented).
+  (not a module type) with D-089 **header inline** setup fields and D-091 **motherboard utility
+  rail** (typed buses for data, clock, funds, control; inter-engine streams on `data_out→data_in`).
+  Delete offers cascade (remove members) or ungroup (keep modules). Math modules are never engine
+  members; they attach as repeatable multi-consumer TOOL links or motherboard-attached dedicated
+  docks (D-033). Auto-hydration on insert: clock utility bind, terminal research analyzer, source-derived
+  library names, funds topology for execution engines. D-091 motherboard I/O (utility links
+  migration `0037`, API, chrome rail, auto-hydration) **implemented**.
 
 ## 3. Modules (user-creatable, multi-instance)
 
@@ -163,8 +167,12 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   tool-calls under the hood; outputs a draft module the user confirms).
 - **Simulator:** parallel paper runs of a trading module config; results comparable side-by-side;
   user can wire results to feed a trend/research module (config field `feed_target`).
-- **Analyzer:** any-input→any-output converter with auto-detected input shape; serves
-  verification loopback and format bridging between data sources and trends.
+- **Analyzer:** model-free inbound package concatenator with auto-detected input shape; serves
+  verification loopback on execution ENGINEs and qualitative export on research ENGINEs.
+  **D-091:** research ENGINE templates terminate with an analyzer (`emitMode: to_desk_stream` or
+  `to_library`) that emits qualitative digests to the engine `data_out` bus or admits concepts to
+  libraries; execution analyzers use `verify_loopback` for trading loopback. Config `emitMode`:
+  `to_library` | `to_desk_stream` | `verify_loopback`.
 - **Fund router:** percentage/amount rules moving funds between modules/reserve; user approval
   required unless auto-policy set; every movement hits the ledger. Amounts resolve through the
   calculator (percentages of live balances are calc ops over ledger ValueRefs — never

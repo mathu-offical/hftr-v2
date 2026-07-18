@@ -208,16 +208,25 @@ Calculator**) exposing the NRA:
 - **Calc-ref ports (D-088):** owner↔Math attachments render as a single **Calc ref** connection
   (canonical `math → owner` `data_feed`); stream labels use info type, not peer names.
 
-## 8a. Master Clock + Time processors (canvas surface for D-009 / D-088)
+## 8a. Master Clock + Time processors (canvas surface for D-009 / D-088 / D-091)
 
 Temporal authority is visible on the company canvas the same way Math surfaces D-008:
 
 | Module | Role |
 |--------|------|
-| **`clock`** | Company singleton (auto-seeded with Math hub). Surfaces injectable clock “now”, session display mode, IANA zone. Emits temporal **authority** refs only — no LLM path. Cannot join ENGINE membership. |
+| **`clock`** | Company singleton (auto-seeded with Math hub). Surfaces injectable clock “now”, session display mode, IANA zone. Emits temporal **authority** refs only — no LLM path. Cannot join ENGINE membership. **D-091:** new engines bind clock via motherboard `clock` utility (`engine_utility_links.from_module_id` → Master Clock) instead of direct `clock → member` edges; legacy graphs grandfathered until reflow. |
 | **`time`** | Repeatable tool-family processors: `elapsed`, `add_duration`, `timezone_convert`, `session_window`, `schedule_ref`. Operator configures transform + descriptor; models may later nominate **op + input refs / bands**, never literal datetimes. |
 
-Links: `clock → time | trading | trend | policy | analyzer | math`; `time → trading | trend | policy | analyzer | display | math` via `data_feed`. This slice is **topology + display**; compile-time “every schedule must traverse a Time node” is a documented follow-up (mirrors Math fund topology-first).
+**Company clock authority:** the singleton `clock` module is the sole source of injectable “now”
+and session orientation refs for the company. Engine members receive temporal context through the
+engine motherboard clock bind (or explicit `time` processor links inside the member graph).
+
+Links (member graph, pre-D-091 legacy): `clock → time | trading | trend | policy | analyzer | math`;
+`time → trading | trend | policy | analyzer | display | math` via `data_feed`. **D-091 follow-up:**
+deprecate direct `clock → consumer` module links on reflow for engines provisioned after motherboard
+ship; prefer `engine_utility_links` clock bus. Compile-time “every schedule must traverse a Time node”
+remains a documented follow-up (mirrors Math fund topology-first). Full bus design:
+`architecture/engine-motherboard-io-design.md`.
 
 ## 8b. Per-module allocation and target exit (implemented D-024)
 

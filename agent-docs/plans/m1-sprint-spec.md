@@ -276,6 +276,11 @@ production build).
   (ELK/pathfinding deferred per DevSpecs intent).
 - **Module store engines tab:** `ENGINE_TEMPLATES` with sector/philosophy inputs for available
   engines; crypto/prediction/HFT listed unavailable with honest reasons.
+- **D-091 motherboard I/O (implementing, post-M1):** `engine_utility_links` migration + API;
+  `EngineGroupNode` utility rail (`data_in`, `data_out`, `clock`, `funds`, `system_control`);
+  insert-time auto-hydration (clock bind, terminal research analyzer, source-derived library names);
+  inter-engine `data_out→data_in` streams; deprecate direct `clock→member` on reflow. Contracts P0:
+  `packages/contracts/src/engines.ts`. Design: `architecture/engine-motherboard-io-design.md`.
 - **Assistant hardening:** `packages/contracts/src/assistant.ts` (summary-only `tool_results`,
   `capabilities` tool, normalization helpers); route rate limit 20 user msgs/min/company; failed
   lookup cards + `console.error` logging; atomic two-row `INSERT`; migration `0007_left_firestar`

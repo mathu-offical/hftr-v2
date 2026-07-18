@@ -11,6 +11,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { companies, engineInstances, modules } from './companies';
+import { brokerConnections } from './brokers';
 
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -65,12 +66,40 @@ export const positions = pgTable(
     realizedPnlCents: bigint('realized_pnl_cents', { mode: 'bigint' })
       .notNull()
       .default(sql`0`),
+    /** Broker connection that produced the fill when known (D-090). */
+    connectionId: uuid('connection_id').references(() => brokerConnections.id),
+    venue: text('venue'),
     ...timestamps,
   },
   (t) => [
     uniqueIndex('positions_module_symbol_unique').on(t.moduleId, t.symbol),
     index('positions_company_idx').on(t.companyId),
+    index('positions_connection_idx').on(t.connectionId),
   ],
+);
+
+/**
+ * Append-only realized PnL events at fill time (D-090). Cash ledger stays cash-only;
+ * daily-loss limits sum loss magnitude from these rows in the session window.
+ */
+export const realizedPnlEvents = pgTable(
+  'realized_pnl_events',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id),
+    moduleId: uuid('module_id')
+      .notNull()
+      .references(() => modules.id),
+    symbol: text('symbol').notNull(),
+    realizedCents: bigint('realized_cents', { mode: 'bigint' }).notNull(),
+    traceId: uuid('trace_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('realized_pnl_events_company_created_idx').on(t.companyId, t.createdAt)],
 );
 
 /**

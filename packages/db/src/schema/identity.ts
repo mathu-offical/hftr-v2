@@ -97,13 +97,20 @@ export const userResearchKeys = pgTable(
       .default(sql`gen_random_uuid()`),
     clerkUserId: text('clerk_user_id').notNull(),
     provider: text('provider', {
-      enum: ['brave', 'market_news', 'finnhub', 'polygon', 'fred', 'alpha_vantage', 'twelve_data', 'marketstack'],
+      enum: [
+        'brave',
+        'market_news',
+        'finnhub',
+        'polygon',
+        'fred',
+        'alpha_vantage',
+        'twelve_data',
+        'marketstack',
+      ],
     }).notNull(),
     ciphertext: text('ciphertext').notNull(),
     keyHint: text('key_hint').notNull(),
     ...timestamps,
   },
-  (t) => [
-    uniqueIndex('user_research_keys_user_provider_unique').on(t.clerkUserId, t.provider),
-  ],
+  (t) => [uniqueIndex('user_research_keys_user_provider_unique').on(t.clerkUserId, t.provider)],
 );

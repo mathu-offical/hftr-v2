@@ -42,12 +42,7 @@ export const systemNormalizedViews = pgTable(
       t.subjectKey,
       t.sealId,
     ),
-    index('system_normalized_views_lookup_idx').on(
-      t.companyId,
-      t.kind,
-      t.subjectKey,
-      t.expiresAt,
-    ),
+    index('system_normalized_views_lookup_idx').on(t.companyId, t.kind, t.subjectKey, t.expiresAt),
   ],
 );
 

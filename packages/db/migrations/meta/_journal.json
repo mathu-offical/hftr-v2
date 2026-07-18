@@ -246,6 +246,13 @@
       "when": 1784336500000,
       "tag": "0035_operator_philosophy_directives",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1784336600000,
+      "tag": "0036_module_service_bindings",
+      "breakpoints": true
     }
   ]
 }

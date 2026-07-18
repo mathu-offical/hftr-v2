@@ -120,7 +120,7 @@ export function computeEngineBoundsFromPositions(
   positions: readonly { x: number; y: number }[],
   nodeWidth = 220,
   /** Match CANVAS_LAYOUT.moduleHeight so create/reflow envelopes clear tall cards. */
-  nodeHeight = 240,
+  nodeHeight = 168,
 ): EngineCanvasBounds {
   if (positions.length === 0) {
     return {

@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import {
+  ClockModuleConfig,
   DisplayModuleConfig,
   FundRouterModuleConfig,
   LibrarianModuleConfig,
   MathModuleConfig,
   ResearchModuleConfig,
+  TimeModuleConfig,
   type ModuleType,
 } from '@hftr/contracts';
 import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
@@ -205,6 +207,12 @@ function copyModuleConfig(
     }
     case 'math': {
       return MathModuleConfig.parse(config ?? {});
+    }
+    case 'clock': {
+      return ClockModuleConfig.parse(config ?? {});
+    }
+    case 'time': {
+      return TimeModuleConfig.parse(config ?? {});
     }
     case 'library':
     case 'live_api':

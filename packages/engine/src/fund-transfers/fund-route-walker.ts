@@ -76,6 +76,8 @@ function moduleTypeLabel(type: ModuleTypeValue): string {
     case 'fund_router':
     case 'math':
     case 'display':
+    case 'clock':
+    case 'time':
       return type;
     default: {
       const _exhaustive: never = type;
@@ -101,6 +103,8 @@ function participatesInFundRouteGraph(type: ModuleTypeValue): boolean {
     case 'simulator':
     case 'analyzer':
     case 'display':
+    case 'clock':
+    case 'time':
       return false;
     default: {
       const _exhaustive: never = type;

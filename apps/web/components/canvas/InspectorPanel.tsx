@@ -5,12 +5,14 @@ import type { ModuleStatus } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import type { ModuleNameUpdate } from '@/lib/module-generated-name';
 import {
+  ClockConfigForm,
   DisplayConfigForm,
   LibrarianConfigForm,
   LibraryConfigForm,
   LiveApiConfigForm,
   MathConfigForm,
   ResearchConfigForm,
+  TimeConfigForm,
   TradingConfigForm,
   TrendConfigForm,
   TrendScanForm,
@@ -43,7 +45,7 @@ export function InspectorPanel(props: {
   const [restoring, setRestoring] = useState(false);
   const [restoringTopic, setRestoringTopic] = useState(false);
   const visual = MODULE_VISUALS[mod.type];
-  const isMath = mod.type === 'math';
+  const isProtectedSingleton = mod.type === 'math' || mod.type === 'clock';
 
   useEffect(() => {
     setName(mod.name);
@@ -203,7 +205,7 @@ export function InspectorPanel(props: {
             onChange={(e) => setName(e.target.value)}
             onBlur={saveName}
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-            disabled={isMath}
+            disabled={isProtectedSingleton}
             maxLength={80}
             className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-60"
           />
@@ -212,10 +214,12 @@ export function InspectorPanel(props: {
           {mod.nameCustomized ? (
             <>Custom name · function label: {mod.generatedNameBase}</>
           ) : (
-            <>Generated compact label · function: {mod.generatedNameBase} · focus + connection refs</>
+            <>
+              Generated compact label · function: {mod.generatedNameBase} · focus + connection refs
+            </>
           )}
         </p>
-        {mod.nameCustomized && !isMath && (
+        {mod.nameCustomized && !isProtectedSingleton && (
           <button
             type="button"
             disabled={restoring}
@@ -312,6 +316,10 @@ export function InspectorPanel(props: {
 
       {mod.type === 'math' && <MathConfigForm companyId={props.companyId} moduleId={mod.id} />}
 
+      {mod.type === 'clock' && <ClockConfigForm companyId={props.companyId} moduleId={mod.id} />}
+
+      {mod.type === 'time' && <TimeConfigForm companyId={props.companyId} moduleId={mod.id} />}
+
       {(mod.type === 'holding_fund' || mod.type === 'fund_router') && (
         <p className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] p-2 text-xs leading-relaxed text-[var(--color-ink-faint)]">
           Visible paper topology only. This module does not move funds yet; future transfers must
@@ -320,10 +328,11 @@ export function InspectorPanel(props: {
         </p>
       )}
 
-      {isMath ? (
+      {isProtectedSingleton ? (
         <p className="text-xs leading-relaxed text-[var(--color-ink-faint)]">
-          The company Math hub audits every number and timestamp. It is created with the company and
-          cannot be deleted.
+          {mod.type === 'clock'
+            ? 'Master Clock is the company temporal authority (D-088). It is created with the company and cannot be deleted.'
+            : 'The company Math hub audits every number and timestamp. It is created with the company and cannot be deleted.'}
         </p>
       ) : (
         <button

@@ -91,9 +91,7 @@ export function activationGraphBlockers(
         ? ['library']
         : RESEARCH_OUTBOUND_CONSUMER_TYPES;
 
-      if (
-        !outboundDataFeedToTypes(module.id, links, peerTypes, requiredTargets)
-      ) {
+      if (!outboundDataFeedToTypes(module.id, links, peerTypes, requiredTargets)) {
         if (hasLibraryPeer) {
           return [
             'Research module requires at least one outbound data feed link to a library module before it can run.',
@@ -138,6 +136,8 @@ export function activationGraphBlockers(
     case 'fund_router':
     case 'math':
     case 'display':
+    case 'clock':
+    case 'time':
       return [];
     default: {
       const _exhaustive: never = module.type;

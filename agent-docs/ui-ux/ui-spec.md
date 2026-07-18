@@ -108,23 +108,28 @@
   `directive-out__trend:{candidateId}`; connecting to a trading module persists
   `trading_module_id` / `engine_instance_id` on the candidate (binding topology; compile wiring
   follow-up). Binding edges render dashed directive strokes from the item handle.
-- **Labeled ports + stream pins (D-056 / D-057 / D-075):** each allowed `LinkKind` exposes a free
-  **bus** handle (new links) plus one **stream** handle per existing peer dependency
-  (`{kind}-{in|out}__{peerId}`), labeled `← Peer` / `→ Peer` with role context (Corpus,
-  Market feed, Trade directive, …). Math: top data streams + side fund streams. Owner cards
-  attach dedicated Math on the **bottom** edge (`data_feed` ↔ math streams). Edges attach
-  to stream pins; kind color + dash pattern. Validation remains `LinkKind` + `LINK_RULES`.
-  Trend-item handles use the same parse path with synthetic peer `trend:{uuid}`.
-- **Node families (D-056 / D-068 / D-073):** cards distinguish **Data source** (`library` shelves /
+- **Labeled ports + stream pins (D-056 / D-057 / D-075 / D-088):** each allowed `LinkKind`
+  exposes a free **bus** handle (new links) plus one **stream** handle per existing peer
+  dependency (`{kind}-{in|out}__{peerId}`), labeled by **info type / role** (Market feed,
+  Trade directive, Calc ref, Now, Duration — not `← Peer` / `→ Peer`). Math: top Calc-ref /
+  fund streams. Owner cards attach dedicated Math on the **bottom** as a single **Calc ref**
+  pin (`math → owner` `data_feed`). Edges attach to stream pins; kind color + dash pattern.
+  Validation remains `LinkKind` + `LINK_RULES`. Trend-item handles use the same parse path
+  with synthetic peer `trend:{uuid}`.
+- **Master Clock + Time (D-088):** company singleton `clock` (auto-seeded) and repeatable
+  `time` processors under Tools in the module store. Tool-family chrome; Clock/Time cannot
+  join ENGINE membership. Port roles: Now / Duration / Schedule.
+- **Node families (D-056 / D-068 / D-073 / D-088):** cards distinguish **Data source** (`library` shelves /
   book-spine silhouette; `live_api` aperture + signal bars — dashed border), **Agent** (solid +
   left bar), **Vault** / fund (`holding_fund`, `fund_router` — vault door, rivets, dial chrome;
-  double border), **Tool** (Math), **Control** (policy). Silhouette structure strokes are
+  double border), **Tool** (Math, Clock, Time), **Control** (policy). Silhouette structure strokes are
   low-contrast background wash. Subtype chips show library class, venue,
   trading subtype, etc. Engine groups use **category-colored** washes/stripes from template
   category. Shape chrome is decorative; text-first family labels remain authoritative.
   Stream peers and engine-template Math `fund_route` links order by capital-flow / pipeline lane.
-- **Density (D-057):** module cards ~220×240 layout floor; Math tools 180×40; tighter engine
-  padding and gutters; React Flow `minZoom=0.15` so full engines fit in view.
+- **Density (D-057 / D-088):** module cards ~220×168 layout floor (was 220×240); Math tools
+  180×40; tighter ModuleNode/context/trend padding; engine padding and gutters; React Flow
+  `minZoom=0.15` so full engines fit in view.
 - **Names (compact Fn · Focus):** auto-derived as `{moduleFunctionLabel} · {focusToken}` plus
   muted connection refs (`←`/`→` neighbor Fn codes, capped) until the operator customizes;
   inspector offers **Restore generated name**. Focus prefers topic/sector; unset shows `—`.
@@ -137,11 +142,11 @@
 - Minimap + zoom controls bottom-right; fit-view on load; LOD: below zoom threshold, node bodies
   simplify to icon+status dot (perf + readability).
 - Empty state: company template picker rendered as ghost-nodes.
-- **Module / engine store (D-023, engines D-028):** two floating launcher buttons (top-left) —
+- **Module / engine store (D-023, engines D-028, D-088):** two floating launcher buttons (top-left) —
   **+ Modules** and **+ Engines** — open the same store on the matching tab. Modules are
-  category-grouped singles (Math repeatable as TOOL per D-028). Engines are insertable
+  category-grouped singles (Math / Clock / Time under Tools). Engines are insertable
   end-to-end templates from `ENGINE_TEMPLATES` → persisted `engine_instances`; engines are
-  browsed and inserted from this store only. Company creation still auto-seeds one Math module.
+  browsed and inserted from this store only. Company creation auto-seeds Math hub + Master Clock.
 - **Canvas settings (top-right):** floating **Canvas settings** menu hosts **Reflow canvas**
   (connection-safe layout) and **Clear canvas…** (confirm modal → cascade-delete every engine
   group and delete every remaining module/Math tool/link). Clear is disabled when the graph is

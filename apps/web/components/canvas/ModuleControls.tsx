@@ -1012,6 +1012,201 @@ export function MathConfigForm(props: { companyId: string; moduleId: string }) {
   );
 }
 
+interface ClockConfig {
+  timezone: string;
+  displayMode: 'wall' | 'session';
+}
+
+const DEFAULT_CLOCK_CONFIG: ClockConfig = {
+  timezone: 'America/New_York',
+  displayMode: 'session',
+};
+
+export function ClockConfigForm(props: { companyId: string; moduleId: string }) {
+  const [config, setConfig] = useState<ClockConfig | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let stopped = false;
+    async function load() {
+      try {
+        const mod = await api<{ module: { config: Partial<ClockConfig> } }>(
+          `/api/companies/${props.companyId}/modules/${props.moduleId}`,
+        );
+        if (stopped) return;
+        setConfig({ ...DEFAULT_CLOCK_CONFIG, ...mod.module.config });
+      } catch {
+        if (!stopped) setMessage('Could not load Clock settings.');
+      }
+    }
+    void load();
+    return () => {
+      stopped = true;
+    };
+  }, [props.companyId, props.moduleId]);
+
+  async function saveConfig(next: ClockConfig) {
+    const prev = config;
+    setConfig(next);
+    setSaving(true);
+    try {
+      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}`, {
+        method: 'PATCH',
+        body: { config: next },
+      });
+      setMessage(null);
+    } catch {
+      setConfig(prev);
+      setMessage('Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!config) {
+    return (
+      <div className="border-t border-[var(--color-line)] pt-4 text-xs text-[var(--color-ink-faint)]">
+        {message ?? 'Loading Clock settings…'}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5 border-t border-[var(--color-line)] pt-4">
+      <span className="text-xs text-[var(--color-ink-dim)]">Master Clock</span>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Display mode</span>
+        <select
+          value={config.displayMode}
+          disabled={saving}
+          onChange={(e) =>
+            void saveConfig({
+              ...config,
+              displayMode: e.target.value as ClockConfig['displayMode'],
+            })
+          }
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          <option value="session">Session</option>
+          <option value="wall">Wall</option>
+        </select>
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Timezone (IANA)</span>
+        <input
+          type="text"
+          value={config.timezone}
+          disabled={saving}
+          onChange={(e) => void saveConfig({ ...config, timezone: e.target.value })}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        />
+      </label>
+      {message && <p className="text-xs text-[var(--color-block)]">{message}</p>}
+    </div>
+  );
+}
+
+interface TimeConfig {
+  transform: string;
+  timezone?: string;
+  descriptor?: string;
+}
+
+const DEFAULT_TIME_CONFIG: TimeConfig = { transform: 'session_window' };
+
+const TIME_TRANSFORM_OPTIONS = [
+  { value: 'elapsed', label: 'Elapsed' },
+  { value: 'add_duration', label: 'Add duration' },
+  { value: 'timezone_convert', label: 'Timezone convert' },
+  { value: 'session_window', label: 'Session window' },
+  { value: 'schedule_ref', label: 'Schedule ref' },
+] as const;
+
+export function TimeConfigForm(props: { companyId: string; moduleId: string }) {
+  const [config, setConfig] = useState<TimeConfig | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let stopped = false;
+    async function load() {
+      try {
+        const mod = await api<{ module: { config: Partial<TimeConfig> } }>(
+          `/api/companies/${props.companyId}/modules/${props.moduleId}`,
+        );
+        if (stopped) return;
+        setConfig({ ...DEFAULT_TIME_CONFIG, ...mod.module.config });
+      } catch {
+        if (!stopped) setMessage('Could not load Time settings.');
+      }
+    }
+    void load();
+    return () => {
+      stopped = true;
+    };
+  }, [props.companyId, props.moduleId]);
+
+  async function saveConfig(next: TimeConfig) {
+    const prev = config;
+    setConfig(next);
+    setSaving(true);
+    try {
+      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}`, {
+        method: 'PATCH',
+        body: { config: next },
+      });
+      setMessage(null);
+    } catch {
+      setConfig(prev);
+      setMessage('Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!config) {
+    return (
+      <div className="border-t border-[var(--color-line)] pt-4 text-xs text-[var(--color-ink-faint)]">
+        {message ?? 'Loading Time settings…'}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5 border-t border-[var(--color-line)] pt-4">
+      <span className="text-xs text-[var(--color-ink-dim)]">Time processor</span>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Transform</span>
+        <select
+          value={config.transform}
+          disabled={saving}
+          onChange={(e) => void saveConfig({ ...config, transform: e.target.value })}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          {TIME_TRANSFORM_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Descriptor</span>
+        <input
+          type="text"
+          value={config.descriptor ?? ''}
+          disabled={saving}
+          placeholder="Operator preview (no raw datetimes)"
+          onChange={(e) => void saveConfig({ ...config, descriptor: e.target.value })}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        />
+      </label>
+      {message && <p className="text-xs text-[var(--color-block)]">{message}</p>}
+    </div>
+  );
+}
+
 interface TrendConfig {
   focus: string;
   trendPosture: string;

@@ -38,6 +38,8 @@ Balance operator visual flexibility with hardened verified execution:
 | `policy` | Envelope / gate binding |
 | `holding_fund` / `fund_router` | Capital topology (via Math) |
 | `math` | Typed deterministic calculator tools (never ENGINE member) |
+| `clock` | Company singleton Master Clock — temporal authority / orientation (D-088; never ENGINE member) |
+| `time` | Repeatable temporal processors (elapsed / TZ / session / schedule) (D-088; never ENGINE member) |
 | `analyzer` | Verification / loopback |
 | `simulator` / `display` / `generator` | Optional utilities |
 

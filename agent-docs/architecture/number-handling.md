@@ -205,6 +205,19 @@ Calculator**) exposing the NRA:
   from" — directly supporting funds-pipeline trust.
 - Seeded paper engines wire `holding_fund → math → fund_router` fund-route links on the canvas.
   **Topology only in M1** — actual fund movement through holding fund/router remains M3+.
+- **Calc-ref ports (D-088):** owner↔Math attachments render as a single **Calc ref** connection
+  (canonical `math → owner` `data_feed`); stream labels use info type, not peer names.
+
+## 8a. Master Clock + Time processors (canvas surface for D-009 / D-088)
+
+Temporal authority is visible on the company canvas the same way Math surfaces D-008:
+
+| Module | Role |
+|--------|------|
+| **`clock`** | Company singleton (auto-seeded with Math hub). Surfaces injectable clock “now”, session display mode, IANA zone. Emits temporal **authority** refs only — no LLM path. Cannot join ENGINE membership. |
+| **`time`** | Repeatable tool-family processors: `elapsed`, `add_duration`, `timezone_convert`, `session_window`, `schedule_ref`. Operator configures transform + descriptor; models may later nominate **op + input refs / bands**, never literal datetimes. |
+
+Links: `clock → time | trading | trend | policy | analyzer | math`; `time → trading | trend | policy | analyzer | display | math` via `data_feed`. This slice is **topology + display**; compile-time “every schedule must traverse a Time node” is a documented follow-up (mirrors Math fund topology-first).
 
 ## 8b. Per-module allocation and target exit (implemented D-024)
 

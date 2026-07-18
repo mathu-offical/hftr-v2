@@ -271,11 +271,11 @@ describe('canvas link port helpers', () => {
     const handle = handleIdForTrendCandidate(candidateId);
     expect(handle).toBe(`directive-out__trend:${candidateId}`);
     expect(parseTrendCandidateHandle(handle)).toBe(candidateId);
-    expect(parseTrendCandidateHandle(handleIdForStream('directive', 'out', candidateId))).toBeNull();
-    expect(parseTrendCandidateHandle('directive-out')).toBeNull();
     expect(
-      linkKindForHandlePair(handle, handleIdForStream('directive', 'in')),
-    ).toBe('directive');
+      parseTrendCandidateHandle(handleIdForStream('directive', 'out', candidateId)),
+    ).toBeNull();
+    expect(parseTrendCandidateHandle('directive-out')).toBeNull();
+    expect(linkKindForHandlePair(handle, handleIdForStream('directive', 'in'))).toBe('directive');
   });
 
   it('emits bus then per-peer stream ports for trading inbound data_feed', () => {
@@ -366,7 +366,7 @@ describe('canvas link port helpers', () => {
     expect(fundOut.map((p) => p.peerModuleId)).toEqual([routerId]);
   });
 
-  it('marks owner↔Math data_feed streams as Math dock ports (bottom edge)', () => {
+  it('collapses owner↔Math data_feed to one Calc-ref dock port (D-088)', () => {
     const tradingId = '00000000-0000-4000-8000-0000000000t1';
     const mathId = '00000000-0000-4000-8000-0000000000m1';
     const trendId = '00000000-0000-4000-8000-0000000000r2';
@@ -406,25 +406,38 @@ describe('canvas link port helpers', () => {
     const mathOut = ports.outbound.find((p) => p.peerModuleId === mathId);
     const mathIn = ports.inbound.find((p) => p.peerModuleId === mathId);
     const trendIn = ports.inbound.find((p) => p.peerModuleId === trendId);
-    expect(mathOut?.peerType).toBe('math');
+    expect(mathOut).toBeUndefined();
     expect(mathIn?.peerType).toBe('math');
-    expect(isMathDockStreamPort(mathOut!)).toBe(true);
     expect(isMathDockStreamPort(mathIn!)).toBe(true);
     expect(isMathDockStreamPort(trendIn!)).toBe(false);
+  });
+
+  it('exposes clock and time link ports and parses configs (D-088)', () => {
+    expect(allowedLinkKinds('clock', 'time')).toEqual(['data_feed']);
+    expect(allowedLinkKinds('clock', 'trading')).toEqual(['data_feed']);
+    expect(allowedLinkKinds('time', 'trading')).toEqual(['data_feed']);
+    expect(allowedLinkKinds('clock', 'research')).toEqual([]);
+    expect(MODULE_CONFIG_SCHEMAS.clock.parse({})).toMatchObject({
+      timezone: 'America/New_York',
+      displayMode: 'session',
+    });
+    expect(MODULE_CONFIG_SCHEMAS.time.parse({ transform: 'elapsed' })).toMatchObject({
+      transform: 'elapsed',
+    });
+    expect(moduleLinkPorts('clock').outbound).toContain('data_feed');
+    expect(moduleLinkPorts('time').outbound).toContain('data_feed');
   });
 
   it('orders engine template Math fund_route links into-Math then out-of-Math', () => {
     for (const engine of ENGINE_TEMPLATES) {
       const mathFund = engine.links.filter(
         (link) =>
-          link.linkKind === 'fund_route' &&
-          (link.fromIndex === 'math' || link.toIndex === 'math'),
+          link.linkKind === 'fund_route' && (link.fromIndex === 'math' || link.toIndex === 'math'),
       );
       if (mathFund.length === 0) continue;
       const firstMathIdx = engine.links.findIndex(
         (link) =>
-          link.linkKind === 'fund_route' &&
-          (link.fromIndex === 'math' || link.toIndex === 'math'),
+          link.linkKind === 'fund_route' && (link.fromIndex === 'math' || link.toIndex === 'math'),
       );
       const trailing = engine.links.slice(firstMathIdx);
       expect(trailing.every((link) => mathFund.includes(link))).toBe(true);
@@ -1271,11 +1284,8 @@ describe('Research bus (D-039)', () => {
 
 describe('research source registry', () => {
   it('selectReadySourceKinds returns public shipped sources without keys', async () => {
-    const {
-      selectReadySourceKinds,
-      RESEARCH_SOURCE_REGISTRY,
-      listSourcesByDomain,
-    } = await import('./research-source-registry');
+    const { selectReadySourceKinds, RESEARCH_SOURCE_REGISTRY, listSourcesByDomain } =
+      await import('./research-source-registry');
 
     const ready = selectReadySourceKinds({ researchKeys: [], hasAlpacaPaper: false });
     expect(ready).toContain('sec_edgar');
@@ -1297,10 +1307,10 @@ describe('research source registry', () => {
     );
     expect(withFred).toContain('fred_macro');
 
-    const explicitInternal = selectReadySourceKinds(
-      { researchKeys: [], hasAlpacaPaper: false },
-      ['catalog', 'sec_edgar'],
-    );
+    const explicitInternal = selectReadySourceKinds({ researchKeys: [], hasAlpacaPaper: false }, [
+      'catalog',
+      'sec_edgar',
+    ]);
     expect(explicitInternal).toContain('catalog');
     expect(explicitInternal).toContain('sec_edgar');
 
@@ -1344,7 +1354,7 @@ describe('canvas layout (D-033)', () => {
         engine.modules.map((module) => module.type),
       ),
     });
-    expect(slots).toBe(34);
+    expect(slots).toBe(35);
     expect(slots).toBeLessThanOrEqual(MAX_MODULES_PER_COMPANY);
   });
 
@@ -1380,9 +1390,7 @@ describe('canvas layout (D-033)', () => {
         CANVAS_LAYOUT.mathToolHeight +
         CANVAS_LAYOUT.verticalGutter,
     );
-    expect(LAYOUT_COLUMN_STEP).toBe(
-      CANVAS_LAYOUT.moduleWidth + CANVAS_LAYOUT.horizontalGutter,
-    );
+    expect(LAYOUT_COLUMN_STEP).toBe(CANVAS_LAYOUT.moduleWidth + CANVAS_LAYOUT.horizontalGutter);
   });
 
   it('places type-preferred lanes left-to-right regardless of link direction', () => {
@@ -1520,12 +1528,7 @@ describe('canvas layout (D-033)', () => {
     const first = { x: 40, y: 40, width: 800, height: 600 };
     const size = { width: 700, height: 500 };
     const origin = placeNextEngineOrigin([first], size);
-    expect(
-      rectsOverlap(
-        { ...origin, ...size },
-        first,
-      ),
-    ).toBe(false);
+    expect(rectsOverlap({ ...origin, ...size }, first)).toBe(false);
     expect(origin.x).toBeGreaterThanOrEqual(first.x + first.width);
     expect(origin.y).toBe(CANVAS_LAYOUT.originY);
   });
@@ -1533,9 +1536,9 @@ describe('canvas layout (D-033)', () => {
   it('keeps a preferred origin when it already clears occupied engines', () => {
     const occupied = [{ x: 40, y: 40, width: 400, height: 300 }];
     const preferred = { x: 800, y: 40 };
-    expect(
-      placeNextEngineOrigin(occupied, { width: 300, height: 300 }, { preferred }),
-    ).toEqual(preferred);
+    expect(placeNextEngineOrigin(occupied, { width: 300, height: 300 }, { preferred })).toEqual(
+      preferred,
+    );
   });
 
   it('derives canvas offset so template envelopes land at the chosen origin', () => {

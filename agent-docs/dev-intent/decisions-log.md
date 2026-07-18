@@ -916,6 +916,19 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   holding_fund → company pool (`resolveCompileBalanceCents`). Justification hover
   expansion remains D-083; equity refresh D-084. **Status: implemented.**
 
+- **D-088 (Master Clock + Time processors + Math Calc-ref + denser cards, 2026-07-18):**
+  Promotes D-009 temporal authority onto the canvas the way Math promotes D-008.
+  Module types `clock` (company singleton, auto-seeded, not ENGINE member) and
+  `time` (repeatable tool-family processors: elapsed / add_duration / timezone_convert /
+  session_window / schedule_ref). LINK_RULES: clock→time|trading|trend|policy|analyzer|math;
+  time→trading|trend|policy|analyzer|display|math (`data_feed`). Owner↔Math collapses to
+  one Calc-ref connection (math→owner `data_feed`; UI labels by info type, not peer names).
+  Layout floor `moduleHeight` 240→168; ModuleNode/context/trend chrome denser. Follow-up:
+  force every schedule through a Time node at compile. Plan draft called this D-078; that ID
+  was already used for galaxy hierarchy. Docs: number-handling §8, ui-spec §3,
+  engine-node-family-design, canvas-layout-and-dedicated-math-design.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

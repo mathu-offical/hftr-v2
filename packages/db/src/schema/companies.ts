@@ -51,7 +51,7 @@ export const companies = pgTable(
       .notNull()
       .default('unavailable'),
     equityVersion: integer('equity_version').notNull().default(0),
-    /** Exclusive bind: unique so one broker connection serves at most one company. */
+    /** Preferred company broker bind (nullable; multi-source via module_service_bindings). */
     brokerConnectionId: uuid('broker_connection_id').references(() => brokerConnections.id),
     autoFundPolicy: jsonb('auto_fund_policy').notNull().default({}),
     /** Set when operator explicitly arms live trading after gate pass (fail-closed until set). */
@@ -60,10 +60,7 @@ export const companies = pgTable(
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     ...timestamps,
   },
-  (t) => [
-    index('companies_owner_idx').on(t.clerkUserId),
-    uniqueIndex('companies_broker_connection_unique').on(t.brokerConnectionId),
-  ],
+  (t) => [index('companies_owner_idx').on(t.clerkUserId)],
 );
 
 /**
@@ -121,6 +118,8 @@ export const modules = pgTable(
         'fund_router',
         'math',
         'display',
+        'clock',
+        'time',
       ],
     }).notNull(),
     subtype: text('subtype', {

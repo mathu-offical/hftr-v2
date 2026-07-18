@@ -60,7 +60,6 @@ export type ModuleFlowNode = Node<ModuleNodeData, 'module'>;
 
 const CARD_WIDTH_PX = 220;
 
-
 /**
  * Fixed dashboard canvas node: labeled link-kind ports, always-visible setup
  * fields, and text-first status. Selection changes border only — no expand.
@@ -234,18 +233,14 @@ export const ModuleNode = memo(function ModuleNode({
       )}
 
       <div
-        className={`relative overflow-hidden ${visual.radiusClass} border bg-[var(--color-surface-1)] px-2.5 py-1.5 shadow-lg transition-colors ${
-          shaped ? 'min-h-[11.5rem]' : ''
+        className={`relative overflow-hidden ${visual.radiusClass} border bg-[var(--color-surface-1)] px-2 py-1 shadow-lg transition-colors ${
+          shaped ? 'min-h-[9rem]' : ''
         }`}
         style={{
           width: CARD_WIDTH_PX,
           borderStyle: visual.borderStyle,
           borderWidth,
-          borderColor: selected
-            ? visual.hue
-            : shaped
-              ? `${visual.hue}1c`
-              : 'var(--color-line)',
+          borderColor: selected ? visual.hue : shaped ? `${visual.hue}1c` : 'var(--color-line)',
           boxShadow: selected
             ? `0 0 0 1px ${visual.hue}, 0 8px 24px ${visual.hue}18`
             : shaped
@@ -285,141 +280,170 @@ export const ModuleNode = memo(function ModuleNode({
         )}
 
         <div className="relative z-[1]">
-        <div className="mb-0.5 flex items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span
-              className="shrink-0 rounded px-1 py-0.5 text-[8px] uppercase tracking-wider"
-              style={{
-                color: visual.hue,
-                border: `1px solid ${visual.hue}66`,
-                background: `${visual.hue}14`,
-              }}
-            >
-              {familyLabel}
-            </span>
-            <span className="text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-              {visual.label}
-            </span>
-            {subtypeChip && (
+          <div className="mb-0.5 flex items-center justify-between gap-1.5">
+            <div className="flex min-w-0 flex-wrap items-center gap-1">
               <span
-                className="max-w-[7rem] truncate rounded border border-[var(--color-line)] px-1 py-0.5 text-[8px] text-[var(--color-ink-dim)]"
-                title={subtypeChip}
+                className="shrink-0 rounded px-1 py-px text-[7px] uppercase tracking-wider"
+                style={{
+                  color: visual.hue,
+                  border: `1px solid ${visual.hue}66`,
+                  background: `${visual.hue}14`,
+                }}
               >
-                {subtypeChip}
+                {familyLabel}
               </span>
-            )}
-          </div>
-          <button
-            type="button"
-            className="nodrag shrink-0 rounded border border-[var(--color-line)] px-1 py-0.5 text-[8px] text-[var(--color-ink-faint)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
-            onClick={() => {
-              window.dispatchEvent(
-                new CustomEvent('hftr:open-process-modal', {
-                  detail: { moduleId: id },
-                }),
-              );
-            }}
-          >
-            <span className="flex items-center gap-1">
-              <Layers size={10} aria-hidden />
-              Process
-            </span>
-          </button>
-        </div>
-
-        <div className="min-w-0">
-          {(() => {
-            const { primary, connectionRefs } = splitCompactModuleName(data.name);
-            return (
-              <>
-                <div
-                  className="text-xs font-medium leading-snug text-[var(--color-ink)]"
-                  title={data.name}
+              <span className="text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+                {visual.label}
+              </span>
+              {subtypeChip && (
+                <span
+                  className="max-w-[6.5rem] truncate rounded border border-[var(--color-line)] px-1 py-px text-[7px] text-[var(--color-ink-dim)]"
+                  title={subtypeChip}
                 >
-                  {primary}
-                </div>
-                {connectionRefs && (
-                  <div
-                    className="mt-0.5 truncate text-[10px] leading-tight text-[var(--color-ink-faint)]"
-                    title={connectionRefs}
-                  >
-                    {connectionRefs}
-                  </div>
-                )}
-              </>
-            );
-          })()}
-        </div>
-
-        <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-[var(--color-ink-dim)]">
-          {(data.activeJobs ?? 0) > 0 && (
-            <span
-              className="h-1.5 w-1.5 animate-pulse rounded-full"
-              style={{ background: visual.hue }}
-            />
-          )}
-          {budgetHeld && (data.activeJobs ?? 0) === 0 && (
-            <span
-              className="h-1.5 w-1.5 rounded-full"
-              style={{ background: 'var(--color-warn)' }}
-              aria-hidden
-            />
-          )}
-          <span className={budgetHeld ? 'text-[var(--color-warn)]' : undefined}>{statusLine}</span>
-        </div>
-
-        {usesTypeContext && (
-          <ModuleContextPanel
-            companyId={data.companyId}
-            moduleId={id}
-            moduleType={data.moduleType}
-            config={localConfig}
-            typeContext={localTypeContext}
-            topicSectors={setupState.topicSectors}
-            topicOverridden={topicOverridden}
-            engineInstanceId={data.engineInstanceId}
-            onTopicSectorsChange={(sectors) => {
-              setSetupState((prev) => ({ ...prev, topicSectors: sectors }));
-              setSetupDraft((prev) => ({ ...prev, topicSectors: sectors.join(', ') }));
-            }}
-            onConfigChange={(config) => setLocalConfig(config)}
-            onRestoreEngineTopic={() => void restoreEngineTopic()}
-            restoringTopic={restoringTopic}
-          />
-        )}
-
-        {setupFieldsForCard.length > 0 && (
-          <div className="nodrag nowheel mt-1.5 border-t border-[var(--color-line)] pt-1.5">
-            {!usesTypeContext && data.engineInstanceId && topicOverridden && (
-              <button
-                type="button"
-                disabled={restoringTopic}
-                onClick={() => void restoreEngineTopic()}
-                className="mb-2 w-full rounded border border-[var(--color-accent)]/60 px-2 py-1 text-[10px] text-[var(--color-accent)] disabled:opacity-50"
-              >
-                {restoringTopic ? 'Restoring…' : 'Use engine topic'}
-              </button>
-            )}
-            <ModuleSetupFields
-              requiredFields={setupFieldsForCard}
-              missingFields={missingSetup.filter((f) => setupFieldsForCard.includes(f))}
-              draft={setupDraft}
-              onChange={setSetupDraft}
-              compact
-            />
+                  {subtypeChip}
+                </span>
+              )}
+            </div>
             <button
               type="button"
-              disabled={savingSetup}
-              onClick={() => void saveSetup()}
-              className="mt-2 w-full rounded border border-[var(--color-accent)] px-2 py-1 text-[10px] text-[var(--color-accent)] disabled:opacity-50"
+              className="nodrag shrink-0 rounded border border-[var(--color-line)] p-0.5 text-[var(--color-ink-faint)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+              aria-label="Open process detail"
+              title="Process"
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent('hftr:open-process-modal', {
+                    detail: { moduleId: id },
+                  }),
+                );
+              }}
             >
-              {savingSetup ? 'Saving…' : 'Save setup'}
+              <Layers size={10} aria-hidden />
             </button>
-            {setupError && (
-              <p className="mt-1 text-[9px] text-[var(--color-block)]">{setupError}</p>
-            )}
           </div>
-        )}
+
+          <div className="min-w-0">
+            {(() => {
+              const { primary, connectionRefs } = splitCompactModuleName(data.name);
+              return (
+                <>
+                  <div
+                    className="text-[11px] font-medium leading-tight text-[var(--color-ink)]"
+                    title={data.name}
+                  >
+                    {primary}
+                  </div>
+                  {connectionRefs && (
+                    <div
+                      className="mt-px truncate text-[9px] leading-tight text-[var(--color-ink-faint)]"
+                      title={connectionRefs}
+                    >
+                      {connectionRefs}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+
+          <div className="mt-px flex items-center gap-1 text-[9px] text-[var(--color-ink-dim)]">
+            {(data.activeJobs ?? 0) > 0 && (
+              <span
+                className="h-1.5 w-1.5 animate-pulse rounded-full"
+                style={{ background: visual.hue }}
+              />
+            )}
+            {budgetHeld && (data.activeJobs ?? 0) === 0 && (
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ background: 'var(--color-warn)' }}
+                aria-hidden
+              />
+            )}
+            <span className={budgetHeld ? 'text-[var(--color-warn)]' : undefined}>
+              {statusLine}
+            </span>
+          </div>
+
+          {data.moduleType === 'clock' && (
+            <div className="mt-0.5 flex items-center gap-1.5 text-[9px] text-[var(--color-ink-dim)]">
+              <span className="truncate">
+                {typeof localConfig.displayMode === 'string' ? localConfig.displayMode : 'session'}{' '}
+                · now
+              </span>
+              {typeof localConfig.timezone === 'string' && localConfig.timezone.trim() ? (
+                <span
+                  className="shrink-0 truncate rounded border border-[var(--color-line)] px-1 py-px text-[7px] text-[var(--color-ink-faint)]"
+                  title={localConfig.timezone}
+                >
+                  {localConfig.timezone}
+                </span>
+              ) : null}
+            </div>
+          )}
+
+          {data.moduleType === 'time' && (
+            <div className="mt-0.5 truncate text-[9px] text-[var(--color-ink-dim)]">
+              {typeof localConfig.transform === 'string'
+                ? localConfig.transform.replace(/_/g, ' ')
+                : 'session window'}
+              {typeof localConfig.descriptor === 'string' && localConfig.descriptor.trim()
+                ? ` · ${localConfig.descriptor.trim()}`
+                : ''}
+            </div>
+          )}
+
+          {usesTypeContext && (
+            <ModuleContextPanel
+              companyId={data.companyId}
+              moduleId={id}
+              moduleType={data.moduleType}
+              config={localConfig}
+              typeContext={localTypeContext}
+              topicSectors={setupState.topicSectors}
+              topicOverridden={topicOverridden}
+              engineInstanceId={data.engineInstanceId}
+              onTopicSectorsChange={(sectors) => {
+                setSetupState((prev) => ({ ...prev, topicSectors: sectors }));
+                setSetupDraft((prev) => ({ ...prev, topicSectors: sectors.join(', ') }));
+              }}
+              onConfigChange={(config) => setLocalConfig(config)}
+              onRestoreEngineTopic={() => void restoreEngineTopic()}
+              restoringTopic={restoringTopic}
+            />
+          )}
+
+          {setupFieldsForCard.length > 0 && (
+            <div className="nodrag nowheel mt-1.5 border-t border-[var(--color-line)] pt-1.5">
+              {!usesTypeContext && data.engineInstanceId && topicOverridden && (
+                <button
+                  type="button"
+                  disabled={restoringTopic}
+                  onClick={() => void restoreEngineTopic()}
+                  className="mb-2 w-full rounded border border-[var(--color-accent)]/60 px-2 py-1 text-[10px] text-[var(--color-accent)] disabled:opacity-50"
+                >
+                  {restoringTopic ? 'Restoring…' : 'Use engine topic'}
+                </button>
+              )}
+              <ModuleSetupFields
+                requiredFields={setupFieldsForCard}
+                missingFields={missingSetup.filter((f) => setupFieldsForCard.includes(f))}
+                draft={setupDraft}
+                onChange={setSetupDraft}
+                compact
+              />
+              <button
+                type="button"
+                disabled={savingSetup}
+                onClick={() => void saveSetup()}
+                className="mt-2 w-full rounded border border-[var(--color-accent)] px-2 py-1 text-[10px] text-[var(--color-accent)] disabled:opacity-50"
+              >
+                {savingSetup ? 'Saving…' : 'Save setup'}
+              </button>
+              {setupError && (
+                <p className="mt-1 text-[9px] text-[var(--color-block)]">{setupError}</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

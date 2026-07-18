@@ -56,13 +56,16 @@ function ScopeSeedRow(props: {
 }) {
   const seeded = props.topicSectors.length > 0;
   return (
-    <div className="mt-1.5 space-y-1 border-t border-[var(--color-line)]/70 pt-1.5">
+    <div className="mt-1 space-y-0.5 border-t border-[var(--color-line)]/50 pt-1">
       <div className="flex items-center justify-between gap-1">
-        <span className="text-[8px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+        <span className="text-[7px] uppercase tracking-wider text-[var(--color-ink-faint)]">
           {props.label}
         </span>
         {seeded && (
-          <span className="truncate text-[9px] text-[var(--color-ink-faint)]" title={props.topicSectors.join(', ')}>
+          <span
+            className="truncate text-[8px] text-[var(--color-ink-faint)]"
+            title={props.topicSectors.join(', ')}
+          >
             {props.topicSectors.join(', ')}
           </span>
         )}
@@ -72,7 +75,7 @@ function ScopeSeedRow(props: {
         value={props.draft}
         onChange={(e) => props.onDraftChange(e.target.value)}
         placeholder={seeded ? 'Override…' : 'Required scope seed'}
-        className="w-full rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-1.5 py-1 text-[10px] text-[var(--color-ink-dim)] outline-none focus:border-[var(--color-accent)]"
+        className="w-full rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-1.5 py-0.5 text-[9px] text-[var(--color-ink-dim)] outline-none focus:border-[var(--color-accent)]"
       />
       <div className="flex gap-1">
         <button
@@ -140,15 +143,21 @@ export function ModuleContextPanel(props: {
         ? props.config.instruments.filter((s): s is string => typeof s === 'string')
         : [];
       setInstrumentsDraft(instruments.join(', '));
-      setPollDraft(String(typeof props.config.pollSeconds === 'number' ? props.config.pollSeconds : 60));
-      setFeedDraft(typeof props.config.feedClass === 'string' ? props.config.feedClass : 'iex_free');
+      setPollDraft(
+        String(typeof props.config.pollSeconds === 'number' ? props.config.pollSeconds : 60),
+      );
+      setFeedDraft(
+        typeof props.config.feedClass === 'string' ? props.config.feedClass : 'iex_free',
+      );
     }
     if (ctx?.kind === 'trend') {
       setMaxTrendsDraft(String(ctx.maxActiveTrends));
       setCadenceDraft(String(ctx.cadenceMinutes ?? 30));
     } else if (props.moduleType === 'trend') {
       setMaxTrendsDraft(
-        String(typeof props.config.maxActiveTrends === 'number' ? props.config.maxActiveTrends : 10),
+        String(
+          typeof props.config.maxActiveTrends === 'number' ? props.config.maxActiveTrends : 10,
+        ),
       );
       setCadenceDraft(
         String(typeof props.config.cadenceMinutes === 'number' ? props.config.cadenceMinutes : 30),
@@ -227,7 +236,11 @@ export function ModuleContextPanel(props: {
             value={libraryClass}
             disabled={saving}
             onChange={(e) =>
-              void patchConfig({ ...props.config, libraryClass: e.target.value, topicScope: props.config.topicScope ?? props.topicSectors[0] ?? 'general' })
+              void patchConfig({
+                ...props.config,
+                libraryClass: e.target.value,
+                topicScope: props.config.topicScope ?? props.topicSectors[0] ?? 'general',
+              })
             }
             className="w-full rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-1.5 py-1 text-[10px] outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
           >
@@ -294,7 +307,11 @@ export function ModuleContextPanel(props: {
           ) : (
             <ul className="max-h-16 space-y-0.5 overflow-y-auto">
               {topics.map((t) => (
-                <li key={t.id} className="truncate text-[10px] text-[var(--color-ink-dim)]" title={t.title}>
+                <li
+                  key={t.id}
+                  className="truncate text-[10px] text-[var(--color-ink-dim)]"
+                  title={t.title}
+                >
                   {t.title}
                 </li>
               ))}

@@ -19,14 +19,18 @@ function portLeftPercent(index: number, total: number): string {
   return `${((index + 1) / (total + 1)) * 100}%`;
 }
 
-function streamLabel(
-  moduleType: ModuleType,
-  port: StreamPortSpec,
-): string {
-  const role = portRoleLabel(moduleType, port.kind, port.direction);
-  if (port.role === 'bus') return role;
-  const peer = port.peerLabel?.trim() || 'peer';
-  return port.direction === 'in' ? `← ${peer}` : `→ ${peer}`;
+function streamLabel(moduleType: ModuleType, port: StreamPortSpec): string {
+  // D-088: info-type labels only — never peer names as primary text.
+  if (port.kind === 'data_feed' && (port.peerType === 'math' || moduleType === 'math')) {
+    return port.role === 'bus' ? portRoleLabel(moduleType, port.kind, port.direction) : 'Calc ref';
+  }
+  return portRoleLabel(moduleType, port.kind, port.direction);
+}
+
+function streamTitle(moduleType: ModuleType, port: StreamPortSpec): string {
+  const label = streamLabel(moduleType, port);
+  const peer = port.peerLabel?.trim();
+  return peer ? `${label} · ${peer}` : label;
 }
 
 /**
@@ -89,6 +93,7 @@ export function NodePortBuses(props: {
             {side.ports.map((port, index) => {
               const visual = LINK_PORT_VISUALS[port.kind];
               const label = streamLabel(props.moduleType, port);
+              const title = streamTitle(props.moduleType, port);
               const top = portTopPercent(index, side.ports.length);
               const isStream = port.role === 'stream';
               return (
@@ -98,8 +103,8 @@ export function NodePortBuses(props: {
                     type={side.direction === 'in' ? 'target' : 'source'}
                     position={side.position}
                     className="hftr-handle"
-                    aria-label={`${label} (${visual.label})`}
-                    title={label}
+                    aria-label={`${title} (${visual.label})`}
+                    title={title}
                     style={{
                       top,
                       width: isStream ? 8 : 10,
@@ -113,9 +118,9 @@ export function NodePortBuses(props: {
                     }}
                   />
                   <span
-                    className={`pointer-events-none absolute w-[4.75rem] text-[7px] leading-tight ${
+                    className={`pointer-events-none absolute w-[4.25rem] text-[6px] leading-tight ${
                       isStream ? 'text-[var(--color-ink-dim)]' : 'text-[var(--color-ink-faint)]'
-                    } ${isLeft ? '-left-[5.1rem] text-right' : '-right-[5.1rem] text-left'}`}
+                    } ${isLeft ? '-left-[4.6rem] text-right' : '-right-[4.6rem] text-left'}`}
                     style={{ top, transform: 'translateY(-50%)' }}
                     aria-hidden
                   >
@@ -146,6 +151,7 @@ export function NodePortBuses(props: {
 
           {bottomPorts.map((port, index) => {
             const label = streamLabel(props.moduleType, port);
+            const title = streamTitle(props.moduleType, port);
             const left = portLeftPercent(index, bottomPorts.length);
             const isOut = port.direction === 'out';
             return (
@@ -155,8 +161,8 @@ export function NodePortBuses(props: {
                   type={isOut ? 'source' : 'target'}
                   position={Position.Bottom}
                   className="hftr-handle"
-                  aria-label={`${label} (Math dock)`}
-                  title={label}
+                  aria-label={`${title} (Calc ref)`}
+                  title={title}
                   style={{
                     left,
                     width: 8,
@@ -166,7 +172,7 @@ export function NodePortBuses(props: {
                   }}
                 />
                 <span
-                  className="pointer-events-none absolute -bottom-3.5 max-w-[3.5rem] truncate text-[7px] text-[var(--color-ink-dim)]"
+                  className="pointer-events-none absolute -bottom-3 max-w-[3.25rem] truncate text-[6px] text-[var(--color-ink-dim)]"
                   style={{ left, transform: 'translateX(-50%)' }}
                   aria-hidden
                 >
@@ -253,6 +259,7 @@ export function MathPortBuses(props: {
 
       {topIn.map((port, index) => {
         const label = streamLabel('math', port);
+        const title = streamTitle('math', port);
         const left = portLeftPercent(index, topTotal);
         return (
           <div key={port.handleId}>
@@ -261,8 +268,8 @@ export function MathPortBuses(props: {
               type="target"
               position={Position.Top}
               className="hftr-handle"
-              aria-label={label}
-              title={label}
+              aria-label={title}
+              title={title}
               style={{
                 left,
                 width: port.role === 'stream' ? 8 : 10,
@@ -272,7 +279,7 @@ export function MathPortBuses(props: {
               }}
             />
             <span
-              className="pointer-events-none absolute -top-3.5 max-w-[3.5rem] truncate text-[7px] text-[var(--color-ink-faint)]"
+              className="pointer-events-none absolute -top-3 max-w-[3.25rem] truncate text-[6px] text-[var(--color-ink-faint)]"
               style={{ left, transform: 'translateX(-50%)' }}
               aria-hidden
             >
@@ -284,6 +291,7 @@ export function MathPortBuses(props: {
 
       {topOut.map((port, index) => {
         const label = streamLabel('math', port);
+        const title = streamTitle('math', port);
         const left = portLeftPercent(topIn.length + index, topTotal);
         return (
           <div key={port.handleId}>
@@ -292,8 +300,8 @@ export function MathPortBuses(props: {
               type="source"
               position={Position.Top}
               className="hftr-handle"
-              aria-label={label}
-              title={label}
+              aria-label={title}
+              title={title}
               style={{
                 left,
                 width: port.role === 'stream' ? 8 : 10,
@@ -303,7 +311,7 @@ export function MathPortBuses(props: {
               }}
             />
             <span
-              className="pointer-events-none absolute -top-3.5 max-w-[3.5rem] truncate text-[7px] text-[var(--color-ink-faint)]"
+              className="pointer-events-none absolute -top-3 max-w-[3.25rem] truncate text-[6px] text-[var(--color-ink-faint)]"
               style={{ left, transform: 'translateX(-50%)' }}
               aria-hidden
             >

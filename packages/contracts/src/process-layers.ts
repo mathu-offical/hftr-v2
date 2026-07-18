@@ -146,6 +146,26 @@ export const PROCESS_LAYERS_BY_MODULE: Record<ModuleType, readonly ProcessLayerD
       description: 'Typed Math op families; lineage always traces to live/ledger/clock sources.',
     },
   ],
+  clock: [
+    {
+      id: 'authority',
+      label: 'Temporal authority',
+      v1Refs: ['clock', 'market_calendar'],
+      tunable: false,
+      description:
+        'Company singleton injectable clock + venue session orientation (D-009 / D-088). Emits now/session refs only.',
+    },
+  ],
+  time: [
+    {
+      id: 'transform',
+      label: 'Temporal transform',
+      v1Refs: ['temporal_calc', 'session_window'],
+      tunable: true,
+      description:
+        'Elapsed, duration add, TZ convert, session window, and schedule refs. Models nominate op/bands only.',
+    },
+  ],
   holding_fund: [
     {
       id: 'source',

@@ -11,22 +11,21 @@ import { isMathToolAttachment } from './engines';
 
 export const CANVAS_LAYOUT = {
   moduleWidth: 220,
-  moduleHeight: 240,
+  /** D-088: denser cards — floor matches compact ModuleNode chrome (~160–180). */
+  moduleHeight: 168,
   horizontalGutter: 120,
   /** Clearance between owner/tool envelopes in the same rank. */
-  verticalGutter: 100,
-  mathAttachmentGap: 16,
+  verticalGutter: 80,
+  mathAttachmentGap: 12,
   mathToolWidth: 180,
   mathToolHeight: 40,
-  topLevelGutter: 140,
+  topLevelGutter: 120,
   originX: 40,
   originY: 40,
 } as const;
 
 /** Owner card + dedicated Math dock under it (D-033 envelope). */
-export function layoutOwnerEnvelopeHeight(
-  moduleHeight = CANVAS_LAYOUT.moduleHeight,
-): number {
+export function layoutOwnerEnvelopeHeight(moduleHeight = CANVAS_LAYOUT.moduleHeight): number {
   return moduleHeight + CANVAS_LAYOUT.mathAttachmentGap + CANVAS_LAYOUT.mathToolHeight;
 }
 
@@ -174,9 +173,7 @@ export function rankEngineMembers(
 
   const laneById = new Map(members.map((m) => [m.id, MODULE_COLUMN[m.type]]));
   const laneCompress = compressModuleLanes(laneById.values());
-  const rank = new Map(
-    members.map((m) => [m.id, laneCompress.get(MODULE_COLUMN[m.type]) ?? 0]),
-  );
+  const rank = new Map(members.map((m) => [m.id, laneCompress.get(MODULE_COLUMN[m.type]) ?? 0]));
 
   const topoOrder = computeMemberTopoOrder(members, links);
   const memberSet = new Set(members.map((m) => m.id));
@@ -511,12 +508,7 @@ export function inflateRect(rect: LayoutRect, gutter: number): LayoutRect {
 }
 
 export function rectsOverlap(a: LayoutRect, b: LayoutRect): boolean {
-  return (
-    a.x < b.x + b.width &&
-    a.x + a.width > b.x &&
-    a.y < b.y + b.height &&
-    a.y + a.height > b.y
-  );
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
 }
 
 /**

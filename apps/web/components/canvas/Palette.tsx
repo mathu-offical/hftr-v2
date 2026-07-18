@@ -92,6 +92,16 @@ const ADDABLE: Array<{
     defaultConfig: { mathType: 'company_hub' },
     hint: 'Repeatable calculator; attach to many nodes (D-028)',
   },
+  {
+    type: 'clock',
+    defaultConfig: { timezone: 'America/New_York', displayMode: 'session' },
+    hint: 'Company Master Clock (singleton temporal authority)',
+  },
+  {
+    type: 'time',
+    defaultConfig: { transform: 'session_window' },
+    hint: 'Temporal processor: elapsed, TZ, schedule, session',
+  },
 ];
 
 /** Store categories (DevSpecs/dev-notebook.md: divide nodes by category). */
@@ -101,7 +111,8 @@ const CATEGORIES: Array<{ label: string; types: ModuleType[] }> = [
   { label: 'Signals', types: ['trend'] },
   { label: 'Trading', types: ['trading'] },
   { label: 'Funds & controls', types: ['holding_fund', 'fund_router', 'policy'] },
-  { label: 'Utilities', types: ['simulator', 'analyzer', 'math'] },
+  { label: 'Tools', types: ['math', 'clock', 'time'] },
+  { label: 'Utilities', types: ['simulator', 'analyzer'] },
   { label: 'Display', types: ['display'] },
 ];
 
@@ -266,13 +277,13 @@ export function Palette(props: {
                           background: `${visual.hue}12`,
                         }}
                       >
-                          {visual.family === 'data_source'
-                            ? 'Data'
-                            : visual.family === 'agent'
-                              ? 'Agent'
-                              : visual.family === 'fund'
-                                ? 'Vault'
-                                : visual.family === 'tool'
+                        {visual.family === 'data_source'
+                          ? 'Data'
+                          : visual.family === 'agent'
+                            ? 'Agent'
+                            : visual.family === 'fund'
+                              ? 'Vault'
+                              : visual.family === 'tool'
                                 ? 'Tool'
                                 : 'Ctrl'}
                       </span>

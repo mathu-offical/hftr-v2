@@ -22,6 +22,10 @@ export const ModuleType = z.enum([
   'fund_router',
   'math',
   'display',
+  /** D-088: company singleton temporal authority (injectable clock + session). */
+  'clock',
+  /** D-088: repeatable temporal processors (delta / TZ / schedule / session). */
+  'time',
 ]);
 export type ModuleType = z.infer<typeof ModuleType>;
 
@@ -50,14 +54,14 @@ export const MAX_MODULES_PER_COMPANY = 200;
 export const MAX_ENGINES_PER_COMPANY = 16;
 
 /**
- * Projected module rows for company create: 1 hub + each engine member + one
- * dedicated Math per math-required member + optional standalone extras.
+ * Projected module rows for company create: Math hub + Master Clock + each
+ * engine member + one dedicated Math per math-required member + extras.
  */
 export function projectedModuleSlotsForCreate(input: {
   engineModuleTypes: ReadonlyArray<ReadonlyArray<ModuleType>>;
   extraModuleTypes?: ReadonlyArray<ModuleType>;
 }): number {
-  let count = 1;
+  let count = 2; // company Math hub + Master Clock (D-008 / D-088)
   for (const types of input.engineModuleTypes) {
     count += types.length;
     for (const type of types) {
@@ -138,6 +142,8 @@ export function preferredMathTypeForOwner(owner: ModuleType): MathType {
     case 'fund_router':
     case 'math':
     case 'display':
+    case 'clock':
+    case 'time':
       return 'company_hub';
     default: {
       const _exhaustive: never = owner;
@@ -207,6 +213,22 @@ export const LINK_RULES: Readonly<Record<string, readonly LinkKind[]>> = {
   'live_api->display': ['data_feed'],
   'library->display': ['data_feed'],
   'librarian->display': ['data_feed'],
+  // D-088: Master Clock temporal authority / orientation.
+  'clock->time': ['data_feed'],
+  'clock->trading': ['data_feed'],
+  'clock->trend': ['data_feed'],
+  'clock->policy': ['data_feed'],
+  'clock->analyzer': ['data_feed'],
+  'clock->math': ['data_feed'],
+  // D-088: Time processors emit processed temporal refs.
+  'time->trading': ['data_feed'],
+  'time->trend': ['data_feed'],
+  'time->policy': ['data_feed'],
+  'time->analyzer': ['data_feed'],
+  'time->display': ['data_feed'],
+  'time->math': ['data_feed'],
+  'math->time': ['data_feed'],
+  'math->clock': ['data_feed'],
 };
 
 /** Module types allowed on either end of a fund_route edge. */
@@ -301,9 +323,56 @@ export type StreamPortSpec = {
   role: 'bus' | 'stream';
 };
 
-/** True when this stream should sit on the parent card bottom (Math tool dock). */
+/** True when this stream should sit on the parent card bottom (Math Calc-ref dock). */
 export function isMathDockStreamPort(port: StreamPortSpec): boolean {
   return port.role === 'stream' && port.kind === 'data_feed' && port.peerType === 'math';
+}
+
+/**
+ * D-088: collapse reciprocal owner↔Math data_feed streams to one Calc-ref pin
+ * per Math peer. Keeps the Math→owner direction (canonical tool attachment);
+ * drops the owner→Math twin when both exist. Call with inbound+outbound merged.
+ */
+export function collapseMathCalcRefStreams(
+  ports: readonly StreamPortSpec[],
+  selfType: ModuleType,
+): StreamPortSpec[] {
+  if (selfType === 'math') {
+    const outPeers = new Set(
+      ports
+        .filter((p) => p.kind === 'data_feed' && p.role === 'stream' && p.direction === 'out')
+        .map((p) => p.peerModuleId),
+    );
+    return ports.filter((p) => {
+      if (p.kind !== 'data_feed' || p.role !== 'stream') return true;
+      if (p.direction === 'in' && p.peerModuleId && outPeers.has(p.peerModuleId)) return false;
+      return true;
+    });
+  }
+
+  const mathInPeers = new Set(
+    ports
+      .filter(
+        (p) =>
+          p.kind === 'data_feed' &&
+          p.role === 'stream' &&
+          p.direction === 'in' &&
+          p.peerType === 'math',
+      )
+      .map((p) => p.peerModuleId),
+  );
+  return ports.filter((p) => {
+    if (p.kind !== 'data_feed' || p.role !== 'stream') return true;
+    if (
+      p.direction === 'out' &&
+      p.peerType === 'math' &&
+      p.peerModuleId &&
+      mathInPeers.has(p.peerModuleId)
+    ) {
+      return false;
+    }
+    return true;
+  });
 }
 
 /**
@@ -353,9 +422,7 @@ export function parseTrendCandidateHandle(handle: string | null | undefined): st
   const peer = parsed.peerModuleId;
   if (!peer?.startsWith(TREND_CANDIDATE_PEER_PREFIX)) return null;
   const id = peer.slice(TREND_CANDIDATE_PEER_PREFIX.length);
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
-    ? id
-    : null;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id : null;
 }
 
 /**
@@ -400,10 +467,7 @@ export function moduleStreamPorts(input: {
     return `${String(col).padStart(2, '0')}:${String(row).padStart(2, '0')}:${peerLabel}:${peerId}`;
   };
 
-  const buildPorts = (
-    kinds: readonly LinkKind[],
-    direction: 'in' | 'out',
-  ): StreamPortSpec[] => {
+  const buildPorts = (kinds: readonly LinkKind[], direction: 'in' | 'out'): StreamPortSpec[] => {
     const result: StreamPortSpec[] = [];
     for (const kind of kinds) {
       result.push({
@@ -457,9 +521,12 @@ export function moduleStreamPorts(input: {
     return result;
   };
 
+  const inboundRaw = buildPorts(ports.inbound, 'in');
+  const outboundRaw = buildPorts(ports.outbound, 'out');
+  const collapsed = collapseMathCalcRefStreams([...inboundRaw, ...outboundRaw], input.type);
   return {
-    inbound: buildPorts(ports.inbound, 'in'),
-    outbound: buildPorts(ports.outbound, 'out'),
+    inbound: collapsed.filter((port) => port.direction === 'in'),
+    outbound: collapsed.filter((port) => port.direction === 'out'),
   };
 }
 
@@ -501,6 +568,8 @@ export const MODULE_COLUMN: Record<ModuleType, number> = {
   library: 1,
   live_api: 1,
   math: 1,
+  clock: 1,
+  time: 1,
   trend: 2,
   holding_fund: 2,
   trading: 3,
@@ -522,6 +591,8 @@ export const MODULE_LANE_ROW: Record<ModuleType, number> = {
   library: 0,
   live_api: 1,
   math: 0,
+  clock: 2,
+  time: 3,
   trend: 0,
   holding_fund: 1,
   trading: 0,
@@ -783,6 +854,10 @@ export function moduleFunctionLabel(type: ModuleType, config?: unknown): string 
       return 'Router';
     case 'math':
       return 'Math';
+    case 'clock':
+      return 'Clock';
+    case 'time':
+      return 'Time';
     case 'display': {
       const kind = DisplayKind.safeParse(cfg.displayKind);
       if (!kind.success) return 'Display';
@@ -814,9 +889,7 @@ export function moduleFocusToken(input: {
   topicSectors?: readonly string[] | null | undefined;
   capitalAllocationDisplay?: string | null | undefined;
 }): string {
-  const topics = (input.topicSectors ?? [])
-    .map((t) => t.trim())
-    .filter((t) => t.length > 0);
+  const topics = (input.topicSectors ?? []).map((t) => t.trim()).filter((t) => t.length > 0);
   if (topics.length > 0) {
     const first = topics[0]!;
     if (first.length <= FOCUS_TOKEN_MAX_LENGTH) return first;
@@ -957,6 +1030,32 @@ export const MathModuleConfig = z.object({
 });
 export type MathModuleConfig = z.infer<typeof MathModuleConfig>;
 
+/** D-088: Master Clock display/orientation (now still from injectable engine clock). */
+export const ClockModuleConfig = z.object({
+  timezone: z.string().min(1).max(64).default('America/New_York'),
+  displayMode: z.enum(['wall', 'session']).default('session'),
+});
+export type ClockModuleConfig = z.infer<typeof ClockModuleConfig>;
+
+/** D-088: Time processor transform (operator-editable; models nominate op/bands only). */
+export const TimeTransform = z.enum([
+  'elapsed',
+  'add_duration',
+  'timezone_convert',
+  'session_window',
+  'schedule_ref',
+]);
+export type TimeTransform = z.infer<typeof TimeTransform>;
+
+export const TimeModuleConfig = z.object({
+  transform: TimeTransform.default('session_window'),
+  /** IANA zone for timezone_convert / display; not an authoritative LLM datetime. */
+  timezone: z.string().min(1).max(64).optional(),
+  /** Bounded descriptor for operator preview (no raw LLM datetimes). */
+  descriptor: z.string().max(120).optional(),
+});
+export type TimeModuleConfig = z.infer<typeof TimeModuleConfig>;
+
 export const MODULE_CONFIG_SCHEMAS: Record<ModuleType, z.ZodTypeAny> = {
   research: ResearchModuleConfig,
   librarian: LibrarianModuleConfig,
@@ -972,6 +1071,8 @@ export const MODULE_CONFIG_SCHEMAS: Record<ModuleType, z.ZodTypeAny> = {
   fund_router: FundRouterModuleConfig,
   math: MathModuleConfig,
   display: DisplayModuleConfig,
+  clock: ClockModuleConfig,
+  time: TimeModuleConfig,
 };
 
 // ── API payloads ─────────────────────────────────────────────────────────────

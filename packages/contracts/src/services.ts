@@ -99,6 +99,8 @@ export const MODULE_SERVICE_REQUIREMENTS: Record<ModuleTypeValue, ServiceRequire
   fund_router: requirement([], ['account_balances']),
   math: requirement([], []),
   display: requirement([], []),
+  clock: requirement([], []),
+  time: requirement([], []),
 };
 
 function dedupeSorted(caps: Iterable<ServiceCapability>): ServiceCapability[] {

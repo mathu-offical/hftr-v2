@@ -412,9 +412,7 @@ function toModuleNode(
   companyId: string,
   attachedMathTools: { id: string; name: string }[] = [],
 ): ModuleFlowNode {
-  const subtypeChip =
-    m.subtypeChip ??
-    moduleSubtypeChip(m.type, m.config, m.generatedNameBase);
+  const subtypeChip = m.subtypeChip ?? moduleSubtypeChip(m.type, m.config, m.generatedNameBase);
   return {
     id: m.id,
     type: 'module',
@@ -623,6 +621,35 @@ function toEdge(l: CanvasLink): Edge {
   };
 }
 
+/**
+ * D-088: when legacy reciprocal owner↔Math data_feed pairs exist, draw only the
+ * Math→owner Calc-ref edge so the dock shows one connection.
+ */
+function dedupeMathCalcRefLinks(
+  links: readonly CanvasLink[],
+  modules: readonly CanvasModule[],
+): CanvasLink[] {
+  const typeById = new Map(modules.map((m) => [m.id, m.type]));
+  const mathToOwner = new Set<string>();
+  for (const link of links) {
+    if (link.linkKind !== 'data_feed') continue;
+    const from = typeById.get(link.fromModuleId);
+    const to = typeById.get(link.toModuleId);
+    if (from === 'math' && to && to !== 'math') {
+      mathToOwner.add(`${link.fromModuleId}->${link.toModuleId}`);
+    }
+  }
+  return links.filter((link) => {
+    if (link.linkKind !== 'data_feed') return true;
+    const from = typeById.get(link.fromModuleId);
+    const to = typeById.get(link.toModuleId);
+    if (to === 'math' && from && from !== 'math') {
+      return !mathToOwner.has(`${link.toModuleId}->${link.fromModuleId}`);
+    }
+    return true;
+  });
+}
+
 function moduleRowToCanvas(row: {
   id: string;
   type: ModuleType;
@@ -750,7 +777,9 @@ export function CompanyCanvas(props: {
       stableEngineCallbacks,
     ),
   );
-  const [edges, setEdges] = useEdgesState<Edge>(props.initialLinks.map(toEdge));
+  const [edges, setEdges] = useEdgesState<Edge>(
+    dedupeMathCalcRefLinks(props.initialLinks, props.initialModules).map(toEdge),
+  );
   const ownerDragOriginRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
   const handleRequestDelete = useCallback((engineId: string) => {
@@ -1081,9 +1110,7 @@ export function CompanyCanvas(props: {
                     statusText: p.statusText,
                     activeJobs: p.activeJobs,
                     budgetQueuedJobs: p.budgetQueuedJobs,
-                    ...(p.typeContext != null
-                      ? { typeContext: p.typeContext }
-                      : {}),
+                    ...(p.typeContext != null ? { typeContext: p.typeContext } : {}),
                   },
                 }
               : n;
@@ -1499,9 +1526,11 @@ export function CompanyCanvas(props: {
         setSelectedId(module.id);
       } catch (err) {
         flash(
-          err instanceof RequestError && err.code === 'invalid_input'
-            ? 'Module config is invalid.'
-            : 'Could not create module.',
+          err instanceof RequestError && err.code === 'clock_singleton'
+            ? 'Master Clock already exists for this company.'
+            : err instanceof RequestError && err.code === 'invalid_input'
+              ? 'Module config is invalid.'
+              : 'Could not create module.',
         );
       }
     },

@@ -1,8 +1,4 @@
-import {
-  getEngineTemplateById,
-  type LinkKind,
-  type ModuleType,
-} from '@hftr/contracts';
+import { getEngineTemplateById, type LinkKind, type ModuleType } from '@hftr/contracts';
 
 /** Canvas family for distinct card chrome (data vs agent vs fund vs tool). */
 export type ModuleFamily = 'data_source' | 'agent' | 'fund' | 'tool' | 'control';
@@ -21,6 +17,8 @@ export const MODULE_FAMILY: Record<ModuleType, ModuleFamily> = {
   holding_fund: 'fund',
   fund_router: 'fund',
   math: 'tool',
+  clock: 'tool',
+  time: 'tool',
   policy: 'control',
 };
 
@@ -98,6 +96,24 @@ export const MODULE_VISUALS: Record<ModuleType, ModuleVisual> = {
     borderStyle: 'solid',
     accent: 'dot',
     wash: 'rgba(187, 154, 247, 0.08)',
+  },
+  clock: {
+    label: 'Clock',
+    hue: '#cfc9a6',
+    family: 'tool',
+    radiusClass: 'rounded-md',
+    borderStyle: 'solid',
+    accent: 'dot',
+    wash: 'rgba(207, 201, 166, 0.1)',
+  },
+  time: {
+    label: 'Time',
+    hue: '#d4a574',
+    family: 'tool',
+    radiusClass: 'rounded-md',
+    borderStyle: 'solid',
+    accent: 'dot',
+    wash: 'rgba(212, 165, 116, 0.1)',
   },
   analyzer: {
     label: 'Analyzer',
@@ -213,11 +229,7 @@ export const LINK_PORT_VISUALS: Record<
  * Role-specific port label for the nature of data on that bus.
  * LinkKind remains the connection contract; labels are presentation-only.
  */
-export function portRoleLabel(
-  type: ModuleType,
-  kind: LinkKind,
-  direction: 'in' | 'out',
-): string {
+export function portRoleLabel(type: ModuleType, kind: LinkKind, direction: 'in' | 'out'): string {
   const base = LINK_PORT_VISUALS[kind].label;
   switch (kind) {
     case 'data_feed': {
@@ -227,7 +239,11 @@ export function portRoleLabel(
       if (type === 'librarian') return direction === 'out' ? 'Evidence' : 'Ingest';
       if (type === 'trend') return direction === 'out' ? 'Signals data' : 'Inputs';
       if (type === 'trading') return direction === 'in' ? 'Desk data' : 'Trade data';
-      if (type === 'math') return direction === 'in' ? 'Calc in' : 'Calc out';
+      if (type === 'math') return 'Calc ref';
+      if (type === 'clock') return direction === 'out' ? 'Now' : 'Clock in';
+      if (type === 'time') {
+        return direction === 'out' ? 'Duration' : 'Schedule in';
+      }
       if (type === 'analyzer') return direction === 'out' ? 'Analysis' : 'Observe';
       if (type === 'simulator') return direction === 'out' ? 'Sim data' : 'Sim in';
       if (type === 'generator') return 'Generated';
@@ -260,9 +276,7 @@ export function portRoleLabel(
 }
 
 function humanizeToken(value: string): string {
-  return value
-    .replace(/[_-]+/g, ' ')
-    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+  return value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
 /** Operator-visible subtype chip from module config (library class, venue, etc.). */
@@ -317,6 +331,20 @@ export function moduleSubtypeChip(
       const mathType = cfg.mathType;
       if (typeof mathType === 'string' && mathType.trim()) {
         return humanizeToken(mathType);
+      }
+      break;
+    }
+    case 'clock': {
+      const mode = cfg.displayMode;
+      if (typeof mode === 'string' && mode.trim()) {
+        return humanizeToken(mode);
+      }
+      break;
+    }
+    case 'time': {
+      const transform = cfg.transform;
+      if (typeof transform === 'string' && transform.trim()) {
+        return humanizeToken(transform);
       }
       break;
     }

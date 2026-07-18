@@ -42,6 +42,8 @@ function setupConfig(
     case 'fund_router':
     case 'math':
     case 'display':
+    case 'clock':
+    case 'time':
       return config;
     default: {
       const _exhaustive: never = type;

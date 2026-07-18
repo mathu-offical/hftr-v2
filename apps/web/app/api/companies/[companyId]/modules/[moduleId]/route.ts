@@ -121,6 +121,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
       if (existing.type === 'math') {
         throw new ApiError(422, 'math_module_cannot_join_engine');
       }
+      if (existing.type === 'clock' || existing.type === 'time') {
+        throw new ApiError(422, 'temporal_module_cannot_join_engine');
+      }
       if (input.engineInstanceId) {
         await scoping.getOwnedEngineInstance(db, clerkUserId, companyId, input.engineInstanceId);
       }

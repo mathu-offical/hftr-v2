@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, or } from 'drizzle-orm';
-import { moduleRequiresMath, preferredMathTypeForOwner, type ModuleType, composeModulePrimaryLabel, moduleFunctionLabel } from '@hftr/contracts';
+import {
+  moduleRequiresMath,
+  preferredMathTypeForOwner,
+  type ModuleType,
+  composeModulePrimaryLabel,
+  moduleFunctionLabel,
+} from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { moduleLinks, modules } from '@hftr/db/schema';
 
@@ -38,10 +44,8 @@ function mathPositionForOwner(owner: MathOwnerSeed): { x: number; y: number } {
 }
 
 /**
- * Provision one explicitly owned deterministic Math tool and reciprocal data
- * links per required owner. Callers pass newly-created owners, so uniqueness
- * is guaranteed by modules_tool_owner_unique and the whole tool slice is a
- * single Neon HTTP batch.
+ * Provision one explicitly owned deterministic Math tool and a single Calc-ref
+ * data_feed (math → owner) per required owner (D-088 one reference connection).
  */
 export async function provisionDedicatedMathTools(
   db: Db,
@@ -61,7 +65,6 @@ export async function provisionDedicatedMathTools(
       ownerType: owner.type,
       position: mathPositionForOwner(owner),
       name,
-      ownerToMathLinkId: randomUUID(),
       mathToOwnerLinkId: randomUUID(),
     };
   });
@@ -83,36 +86,21 @@ export async function provisionDedicatedMathTools(
       })),
     ),
     db.insert(moduleLinks).values(
-      tools.flatMap((tool) => [
-        {
-          id: tool.ownerToMathLinkId,
-          companyId,
-          fromModuleId: tool.ownerModuleId,
-          toModuleId: tool.id,
-          linkKind: 'data_feed' as const,
-        },
-        {
-          id: tool.mathToOwnerLinkId,
-          companyId,
-          fromModuleId: tool.id,
-          toModuleId: tool.ownerModuleId,
-          linkKind: 'data_feed' as const,
-        },
-      ]),
+      tools.map((tool) => ({
+        id: tool.mathToOwnerLinkId,
+        companyId,
+        fromModuleId: tool.id,
+        toModuleId: tool.ownerModuleId,
+        linkKind: 'data_feed' as const,
+      })),
     ),
   ]);
 
-  return tools.map(({ id, ownerModuleId, position, ownerToMathLinkId, mathToOwnerLinkId }) => ({
+  return tools.map(({ id, ownerModuleId, position, mathToOwnerLinkId }) => ({
     id,
     ownerModuleId,
     position,
     links: [
-      {
-        id: ownerToMathLinkId,
-        fromModuleId: ownerModuleId,
-        toModuleId: id,
-        linkKind: 'data_feed' as const,
-      },
       {
         id: mathToOwnerLinkId,
         fromModuleId: id,

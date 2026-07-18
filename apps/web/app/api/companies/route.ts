@@ -17,11 +17,7 @@ import {
 } from '@hftr/contracts';
 import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
-import {
-  bootstrapCompanyKnowledge,
-  createSystemClock,
-  loadSessionConstraints,
-} from '@hftr/engine';
+import { bootstrapCompanyKnowledge, createSystemClock, loadSessionConstraints } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import {
   cascadeEngineSetup,
@@ -101,7 +97,7 @@ export async function POST(req: Request) {
     const clock = createSystemClock();
     const createdModuleIds: string[] = [];
 
-    // Every company gets its Math hub (D-008).
+    // Every company gets its Math hub (D-008) and Master Clock (D-088).
     const [mathModule] = await db
       .insert(modules)
       .values({
@@ -119,6 +115,24 @@ export async function POST(req: Request) {
       throw new ApiError(500, 'math_module_create_failed');
     }
     createdModuleIds.push(mathModule.id);
+
+    const [clockModule] = await db
+      .insert(modules)
+      .values({
+        companyId: company.id,
+        type: 'clock',
+        name: 'Clock · —',
+        generatedNameBase: 'Clock',
+        nameCustomized: false,
+        config: { timezone: 'America/New_York', displayMode: 'session' },
+        status: 'active',
+        canvasPosition: { x: 80, y: 40 },
+      })
+      .returning({ id: modules.id });
+    if (!clockModule) {
+      throw new ApiError(500, 'clock_module_create_failed');
+    }
+    createdModuleIds.push(clockModule.id);
 
     let maxTemplateX = 0;
     let maxTemplateY = 0;

@@ -36,8 +36,12 @@ export async function POST(req: Request, ctx: Ctx) {
     const input = await parseBody(req, CreateModuleInput);
 
     // D-028: Math is repeatable and multi-attachable (n8n-style tools).
+    // D-088: Master Clock is a company singleton.
 
     const existing = await scoping.listModules(db, clerkUserId, companyId);
+    if (input.type === 'clock' && existing.some((row) => row.type === 'clock')) {
+      throw new ApiError(422, 'clock_singleton');
+    }
     const requiredSlots = moduleRequiresMath(input.type) ? 2 : 1;
     if (existing.length + requiredSlots > MAX_MODULES_PER_COMPANY) {
       throw new ApiError(422, 'module_limit_reached');
@@ -73,8 +77,14 @@ export async function POST(req: Request, ctx: Ctx) {
         nameCustomized: false,
         config,
         canvasPosition: input.canvasPosition ?? { x: 0, y: 0 },
-        status: input.type === 'math' ? 'active' : 'draft',
-        engineInstanceId: input.type === 'math' ? null : (input.engineInstanceId ?? null),
+        status:
+          input.type === 'math' || input.type === 'clock' || input.type === 'time'
+            ? 'active'
+            : 'draft',
+        engineInstanceId:
+          input.type === 'math' || input.type === 'clock' || input.type === 'time'
+            ? null
+            : (input.engineInstanceId ?? null),
         topicSectorsOverridden: false,
       })
       .returning();

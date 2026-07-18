@@ -1297,6 +1297,18 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Plan: `docs/superpowers/plans/2026-07-18-internal-paper-trade-engine.md`.
   **Status: implementing (Phase 3 — engine capital isolation).**
 
+- **D-134 (control_snapshots + atr_stream cadence + time-spaced drain, 2026-07-18):**
+  Closes D-129 follow-ons. (1) Admitted promote + successful compile persist
+  append-only `control_snapshots` rows; compile sets non-null
+  `HandoffEnvelope.controlSnapshotRef` + lineage ids. (2) `maintenance.atr_stream`
+  (from `maintenance.sweep`) refreshes open-position symbols via Alpaca 1Day bars →
+  `atr_stream:{SYMBOL}` ValueRefs; exit scans use `resolveAtrCents` (synthetic
+  fallback). (3) Multi-slice paper fills: slice[0] now, remaining
+  `dispatch.paper_trade_child_slice` with `runAfterMs`; migration **0044**
+  `deterministic_tasks.drain_state`; gap tags `child_slice_drain` +
+  `time_spaced_child_drain`. Docs: post-fill-deterministic-lifecycle.md.
+  **Status: implemented (paper).**
+
 - **D-129 (POV child-slice drain + operator exit scan, 2026-07-18):** Completes the
   paper POV follow-on from the post-fill lifecycle workstream. Paper dispatch drains
   compile `childSlices` (and operator qty≥2 via default POV planner) as sequential
@@ -1304,7 +1316,8 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   single-shot keeps `no_partial_fills`). `POST …/positions/exits` enqueues
   `maintenance.position_exits` and drains MAINTENANCE+DISPATCH. Executions API
   returns `simulatorGapTags`. Docs: post-fill-deterministic-lifecycle.md. **Status:
-  implemented (paper; time-spaced child drain still follow-on).**
+  implemented (paper; time-spaced drain + atr_stream cadence + snapshot persist
+  completed in D-134).**
 
 - **D-125 (post-fill heat + trail + weighted valves, 2026-07-18):** Compile admits
   entries only when projected portfolio heat (sum open ATR-risk / equity) stays under

@@ -182,5 +182,19 @@ Scoring: `intent-alignment-scoring.md`
 | Observed | Desk `Opp 205933` (`19bb1a62-…`): 8/8 promote drains, 6 operator ETF/names, scale-ins, 12 open symbols, `POST …/positions/exits` drained **27/27**; fee ledger rows present; heat/limits blocked some adds (expected). QQQ qty=6 fill produced **6** child legs + tag `child_slice_drain` after engine reload |
 | System fixes | `materializeChildSliceFills` + paper_sim drain; operator qty≥2 POV plan; `POST …/positions/exits`; executions expose `simulatorGapTags`; CDP `cdp-opportunistic-multi.ts` |
 | Alignment | **aligned** for paper lifecycle honesty; UI CDP flaky under disk ~100% (Next/CDP ECONNREFUSED) — API path verified |
-| Not verified | Time-spaced child drain; live atr_stream; IronBee MCP attach |
-| Decisions | D-129 |
+| Not verified | IronBee MCP attach; credentialed Alpaca atr_stream soak |
+| Decisions | D-129; follow-ons closed in D-134 |
+
+---
+
+## EXP-2026-07-18-005 — D-134 lifecycle follow-ons (snapshots / atr_stream / time-spaced drain)
+
+| Field | Value |
+|---|---|
+| Status | pass (unit) |
+| Mode | paper only |
+| Hypothesis | Three D-129 follow-ons can ship model-free without breaking compile/dispatch |
+| Observed | Parent vitest: **66** tests across control-snapshot, refresh-atr-stream, atr-stream handler, child-drain, position-exits |
+| System fixes | Commits `3b87fa4` snapshots, `cd4b377` atr_stream, `42f406c`+`b5f9bd7` time-spaced drain (**0044**) |
+| Alignment | **aligned** for paper engine; apply migration **0044** before runtime drains |
+| Decisions | D-134 |

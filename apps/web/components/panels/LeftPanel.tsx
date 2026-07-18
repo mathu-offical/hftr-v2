@@ -31,7 +31,7 @@ import { useDataView } from '@/components/panels/DataViewContext';
 import { LiveDataSourcesList } from '@/components/panels/LiveDataSourcesList';
 import { PanelTabs } from '@/components/panels/PanelTabs';
 import { PanelEdgeRail } from '@/components/panels/PanelEdgeRail';
-import { Activity, Database, Orbit } from 'lucide-react';
+import { Activity, Database, Library as LibraryIcon, Orbit } from 'lucide-react';
 
 type Tab = 'research' | 'market_posture' | 'data';
 const LEFT_TABS: Tab[] = ['research', 'market_posture', 'data'];
@@ -101,6 +101,8 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
   const [tab, setTab] = useState<Tab>('research');
   /** Bottom Libraries dock (D-095); default open, operator-hideable to a card. */
   const [librariesDockOpen, setLibrariesDockOpen] = useState(true);
+  /** D-128: rail Libraries button expands dock to full left-panel height. */
+  const [librariesFull, setLibrariesFull] = useState(false);
   const [persistReady, setPersistReady] = useState(false);
   const [concepts, setConcepts] = useState<ConceptRow[]>(() =>
     companyId ? (peekResearchResource<ConceptRow[]>({ kind: 'concepts', companyId }) ?? []) : [],
@@ -136,6 +138,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
       open?: unknown;
       tab?: unknown;
       librariesDockOpen?: unknown;
+      librariesFull?: unknown;
     }>(storageKey);
     if (stored) {
       if (typeof stored.open === 'boolean') setOpen(stored.open);
@@ -143,14 +146,17 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
       if (typeof stored.librariesDockOpen === 'boolean') {
         setLibrariesDockOpen(stored.librariesDockOpen);
       }
+      if (typeof stored.librariesFull === 'boolean') {
+        setLibrariesFull(stored.librariesFull);
+      }
     }
     setPersistReady(true);
   }, [storageKey]);
 
   useEffect(() => {
     if (!storageKey || !persistReady) return;
-    writePanelState(storageKey, { open, tab, librariesDockOpen });
-  }, [storageKey, open, tab, librariesDockOpen, persistReady]);
+    writePanelState(storageKey, { open, tab, librariesDockOpen, librariesFull });
+  }, [storageKey, open, tab, librariesDockOpen, librariesFull, persistReady]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -374,7 +380,19 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
     dataView.selectCompanyModule(moduleId, moduleName);
   }
 
-  // D-118 / D-123: wider edge rail with per-tab symbol buttons.
+  function selectLeftTab(id: Tab) {
+    setLibrariesFull(false);
+    setTab(id);
+    setOpen(true);
+  }
+
+  function openLibrariesFull() {
+    setLibrariesDockOpen(true);
+    setLibrariesFull(true);
+    setOpen(true);
+  }
+
+  // D-118 / D-123 / D-128: wider edge rail with tab symbols + Libraries full-height action.
   return (
     <div className="flex h-full min-h-0 shrink-0">
       <PanelEdgeRail
@@ -385,10 +403,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
         collapseLabel="Collapse left panel (keyboard shortcut [ or Escape)"
         expandLabel="Expand left panel (keyboard shortcut [)"
         onToggleOpen={() => setOpen((v) => !v)}
-        onSelectTab={(id) => {
-          setTab(id);
-          setOpen(true);
-        }}
+        onSelectTab={selectLeftTab}
         items={[
           {
             id: 'research',
@@ -414,6 +429,17 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
             meta: liveApiModules.length > 0 ? String(liveApiModules.length) : undefined,
           },
         ]}
+        railActions={[
+          {
+            id: 'libraries',
+            label: 'Libraries (full height)',
+            abbrev: 'LIB',
+            icon: LibraryIcon,
+            pressed: open && librariesFull,
+            meta: librariesLoaded && libraries.length > 0 ? String(libraries.length) : undefined,
+            onClick: openLibrariesFull,
+          },
+        ]}
       />
 
       {open ? (
@@ -423,7 +449,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
               aria-label="Left panel sections"
               className="min-w-0 flex-1"
               value={tab}
-              onChange={setTab}
+              onChange={selectLeftTab}
               tabs={[
                 {
                   id: 'research',
@@ -449,7 +475,12 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
             />
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4 pt-3 text-sm">
+          <div
+            className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4 pt-3 text-sm ${
+              librariesFull ? 'hidden' : ''
+            }`}
+            aria-hidden={librariesFull}
+          >
             {tab === 'research' && (
               <>
                 {topicOwnerModules.length > 0 ? (
@@ -663,11 +694,16 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
             )}
           </div>
 
-          {/* D-121: Libraries dock — elevated sheet over tab scroll (all tabs). */}
+          {/* D-121 / D-128: Libraries dock — elevated sheet; rail LIB expands to full height. */}
           {librariesDockOpen ? (
             <div
               data-testid="research-libraries-dock"
-              className="relative z-10 mx-1.5 mb-1.5 mt-0 flex max-h-[min(42vh,20rem)] shrink-0 flex-col overflow-hidden rounded-t-xl border border-[var(--color-line)] border-b-[var(--color-line)] bg-[var(--color-surface-0)] shadow-[0_-8px_24px_rgba(0,0,0,0.45)] ring-1 ring-[var(--color-line)]"
+              data-libraries-layout={librariesFull ? 'full' : 'dock'}
+              className={
+                librariesFull
+                  ? 'relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden border-t border-[var(--color-line)] bg-[var(--color-surface-0)]'
+                  : 'relative z-10 mx-1.5 mb-1.5 mt-0 flex max-h-[min(42vh,20rem)] shrink-0 flex-col overflow-hidden rounded-t-xl border border-[var(--color-line)] border-b-[var(--color-line)] bg-[var(--color-surface-0)] shadow-[0_-8px_24px_rgba(0,0,0,0.45)] ring-1 ring-[var(--color-line)]'
+              }
             >
               <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2">
                 <div className="min-w-0">
@@ -675,13 +711,18 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                     Libraries
                   </p>
                   <p className="text-[9px] text-[var(--color-ink-faint)]">
-                    Shared · all tabs · browse in Data Explorer
+                    {librariesFull
+                      ? 'Full height · other tabs restore dock size'
+                      : 'Shared · all tabs · browse in Data Explorer'}
                   </p>
                 </div>
                 <button
                   type="button"
                   data-testid="research-libraries-dock-hide"
-                  onClick={() => setLibrariesDockOpen(false)}
+                  onClick={() => {
+                    setLibrariesFull(false);
+                    setLibrariesDockOpen(false);
+                  }}
                   className="rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-1.5 py-0.5 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-ink)]"
                 >
                   Hide
@@ -741,7 +782,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                     browseLibrary(libraryId, libraryName)
                   }
                   onSelectTopic={(topicId) => {
-                    setTab('research');
+                    selectLeftTab('research');
                     void researchView.selectTopic(topicId);
                   }}
                   researchModuleId={researchModules[0]?.id ?? null}
@@ -770,7 +811,10 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
               <button
                 type="button"
                 data-testid="research-libraries-dock-card"
-                onClick={() => setLibrariesDockOpen(true)}
+                onClick={() => {
+                  setLibrariesFull(false);
+                  setLibrariesDockOpen(true);
+                }}
                 className="flex w-full items-center justify-between gap-2 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-2.5 text-left shadow-[0_-4px_16px_rgba(0,0,0,0.35)] ring-1 ring-[var(--color-line)] hover:border-[var(--color-accent)]"
               >
                 <span className="min-w-0">

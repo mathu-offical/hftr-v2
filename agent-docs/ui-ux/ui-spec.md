@@ -256,9 +256,11 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
 
 ### LEFT — Research + Market posture + Data (+ shared Libraries dock)
 - Tabs: **Research** | **Market posture** | **Data** (D-081). **Libraries** are first-class
-  left-panel chrome (D-121): elevated bottom sheet (rounded, shadowed, inset) persists across
-  **all three** tabs — not Research-only. Dock includes System / Runtime / Baseline shelves
-  plus **Company** (canvas `library` modules); create/export/curation stay in the dock.
+  left-panel chrome (D-121 / D-128): elevated bottom sheet (rounded, shadowed, inset) persists
+  across **all three** tabs — not Research-only. Left edge rail **LIB** (above collapse)
+  always opens Libraries at **full panel height**; choosing Research / Posture / Data restores
+  the compact dock. Dock includes System / Runtime / Baseline shelves plus **Company** (canvas
+  `library` modules); create/export/curation stay in the dock.
 - Research tab (**D-040**, **D-047**, **D-049**, **D-094**, **D-095**, **D-127**): scroll column —
   **Submit new topic** / **Submit research article** at top; **entity search** with Topics /
   Concepts / Tags / Libraries toggles; dedicated **Research topics** (collapsible directive

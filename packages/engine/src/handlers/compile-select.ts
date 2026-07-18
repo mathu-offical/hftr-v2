@@ -9,12 +9,18 @@ import type {
 } from '@hftr/contracts';
 import {
   actionInstructions,
+  companies,
   compileEvents,
   decisionTrees,
   leadPackages,
   modules,
   trendCandidates,
 } from '@hftr/db/schema';
+import { persistControlSnapshot } from '../control-snapshot/persist';
+import {
+  loadCompanyLinkGraph,
+  resolvePolicyModuleForTrading,
+} from '../graph/module-links';
 import { record } from '../calc/store';
 import { resolveAtrCents } from '../calc/resolve-atr';
 import { resolveCompileSizingBudget, resolveEquityCentsForLimits } from '../dispatch/balances';
@@ -38,6 +44,7 @@ import {
   resolveComplexSignalPolarization,
   type TrendStrengthBand,
 } from '../pipeline/signal-polarization';
+import { resolvePhilosophyControl } from '../pipeline/philosophy-control';
 import {
   resolveParticipationValve,
   resolveUrgencyValve,
@@ -404,6 +411,33 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
     moduleId: dispatchModuleId,
   });
 
+  const companyRows = await db
+    .select({ philosophyProfile: companies.philosophyProfile })
+    .from(companies)
+    .where(eq(companies.id, payload.companyId))
+    .limit(1);
+  const company = companyRows[0];
+  if (!company) return;
+
+  const graph = await loadCompanyLinkGraph(db, payload.companyId);
+  const policyModule = resolvePolicyModuleForTrading(graph, tradingModuleId);
+  const policyConfig = (policyModule?.config ?? {}) as { policyEnvelopeRef?: string };
+  const philosophyControl = resolvePhilosophyControl({
+    philosophyProfile: company.philosophyProfile,
+    policyEnvelopeRef: policyConfig.policyEnvelopeRef ?? null,
+    strategyFamily,
+  });
+  const persistedLeverState = leverState ?? philosophyControl.leverState;
+
+  const { id: controlSnapshotId, contentHash: controlSnapshotHash } =
+    await persistControlSnapshot(db, clock, {
+      companyId: payload.companyId,
+      moduleId: dispatchModuleId,
+      philosophyProfile: philosophyControl.philosophyProfile,
+      leverState: persistedLeverState,
+      policyEnvelopeVersion: philosophyControl.policyEnvelopeVersion,
+    });
+
   const envelope: HandoffEnvelope = {
     contractVersion: '1.0.0',
     producerRunId: job.id,
@@ -416,7 +450,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
     timeoutClass: 'SHORT',
     idempotencyKey: `promote-${payload.leadId}`,
     replayHash: null,
-    controlSnapshotRef: null,
+    controlSnapshotRef: controlSnapshotId,
     causationRefs: [trend.id, payload.leadId, payload.treeId],
     expiresAt: null,
   };
@@ -465,6 +499,8 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
       childSliceCount: childPlan.sliceCount,
       projectedHeatPct: heatProjection.projectedHeatPct,
       atrSource,
+      controlSnapshotId,
+      controlSnapshotHash,
     },
   });
 

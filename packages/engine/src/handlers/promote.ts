@@ -15,6 +15,7 @@ import {
   resolvePolicyModuleForTrading,
 } from '../graph/module-links';
 import { DEFAULT_FRESHNESS_WINDOW_MS, countGateAgreement, evaluateGates, gatesPass } from '../pipeline/gates';
+import { persistControlSnapshot } from '../control-snapshot/persist';
 import { resolvePhilosophyControl } from '../pipeline/philosophy-control';
 import { resolvePromoteRegime } from '../pipeline/resolve-promote-regime';
 import { enqueue } from '../queue/queue';
@@ -178,7 +179,7 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
       (trend.direction === 'down' && regime.trendUp <= 0.55) ||
       trend.direction === 'flat');
 
-  const controlSnapshot = {
+  const baseControlSnapshot = {
     policyEnvelopeVersion: control.policyEnvelopeVersion,
     sizingBasis: control.sizingBasis,
     sizingBasisBps: control.sizingBasisBps,
@@ -193,6 +194,21 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     gateTotal,
     directionAligned,
   };
+
+  const controlSnapshot = admitted
+    ? {
+        ...baseControlSnapshot,
+        persistedControlSnapshotId: (
+          await persistControlSnapshot(db, clock, {
+            companyId: payload.companyId,
+            moduleId: dispatchModuleId,
+            philosophyProfile: control.philosophyProfile,
+            leverState: control.leverState,
+            policyEnvelopeVersion: control.policyEnvelopeVersion,
+          })
+        ).id,
+      }
+    : baseControlSnapshot;
 
   const leadRows = await db
     .insert(leadPackages)

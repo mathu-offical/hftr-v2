@@ -3,7 +3,7 @@ import { TIMEOUT_LEASE_MS, QueueClass } from '@hftr/contracts';
 import type { Clock } from '../clock';
 import type { ModelGateway } from '../handlers/model-gateway';
 import { getHandler } from '../handlers/registry';
-import { claimJobs, completeJob, failJob } from './queue';
+import { claimJobs, completeJob, enqueue, failJob } from './queue';
 
 export interface DrainResult {
   claimed: number;
@@ -19,14 +19,30 @@ export interface DrainOptions {
   modelGateway?: ModelGateway;
 }
 
+function venueMinuteBucket(nowMs: number): string {
+  return new Date(nowMs).toISOString().slice(0, 16);
+}
+
 /**
  * Drain loop invoked by the Vercel cron route (/api/queue/drain).
  * Claims small batches until the wall-clock budget is spent so the
  * serverless invocation always finishes cleanly.
+ *
+ * Each drain tick idempotently enqueues `maintenance.sweep` (once per UTC
+ * minute) so due `job_schedules` materialize — research cadence, system:movers,
+ * and lease/retention housekeeping (D-065).
  */
 export async function drainQueues(db: Db, clock: Clock, opts: DrainOptions): Promise<DrainResult> {
   const startedAt = clock.nowMs();
   const result: DrainResult = { claimed: 0, completed: 0, failed: 0, deadlineHit: false };
+
+  await enqueue(db, clock, {
+    queueClass: 'MAINTENANCE',
+    kind: 'maintenance.sweep',
+    payload: {},
+    idempotencyKey: `maintenance-sweep-${venueMinuteBucket(startedAt)}`,
+    priority: 'LOW',
+  });
 
   for (;;) {
     if (clock.nowMs() - startedAt > opts.budgetMs) {

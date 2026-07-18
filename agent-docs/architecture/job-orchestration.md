@@ -67,7 +67,9 @@ Rules (from production-queue literature + v1 lessons):
 
 - `POST /api/queue/drain` (CRON_SECRET): time-boxed loop (budget = maxDuration − safety margin),
   claims → executes → repeats until empty or time-box hit; if work remains, self-invokes once
-  (bounded hop count header prevents runaway chains).
+  (bounded hop count header prevents runaway chains). Each drain tick **idempotently enqueues
+  `maintenance.sweep` once per UTC minute** (D-065) so due `job_schedules` materialize before
+  claim — research cadence, system:movers, lease reclaim, retention enqueue.
 - Handlers are plain async functions registered in `packages/engine/handlers/` keyed by
   `queue_class` + job kind — no framework coupling.
 - **Escalation path (documented, not built until needed):** if Vercel time-boxing proves too

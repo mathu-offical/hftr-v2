@@ -707,6 +707,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   (fail-soft: trade succeeds if projection write fails). Mark TTL default 15s.
   **Status: implemented.**
 
+- **D-065 (drain enqueues maintenance.sweep, 2026-07-17):** `/api/queue/drain` → `drainQueues`
+  idempotently enqueues `maintenance.sweep` once per UTC minute before claiming work so
+  `materializeSchedules` actually runs in production. Unblocks research cadence and
+  `library.system_movers` (`every:1440`) schedule firing (closes gap noted after D-062).
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

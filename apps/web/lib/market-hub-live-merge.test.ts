@@ -57,6 +57,7 @@ function baseHub(): MarketHubResponse {
       },
     ],
     pipeline: [],
+    capitalSources: [],
     freshness: {
       moversExpiresAt: '2026-07-19T12:00:00.000Z',
       fetchedAt: '2026-07-18T12:00:00.000Z',

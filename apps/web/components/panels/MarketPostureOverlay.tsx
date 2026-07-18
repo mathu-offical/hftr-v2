@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
-import type { MarketHubPosition } from '@hftr/contracts';
 import { useResearchView } from '@/components/research/ResearchViewContext';
 import { MarketPostureEquityChart } from '@/components/panels/MarketPostureEquityChart';
 import { MarketPostureFreshnessStrip } from '@/components/panels/MarketPostureFreshnessStrip';
 import { MarketPostureSourcesStrip } from '@/components/panels/MarketPostureSourcesStrip';
+import { MarketPostureModelCanvas } from '@/components/panels/MarketPostureModelCanvas';
+import { MarketPostureAwarenessDock } from '@/components/panels/MarketPostureAwarenessDock';
 import { SymbolTicker } from '@/components/market/SymbolTicker';
 import { MarketPosturePieChart } from '@/components/market/MarketPosturePieChart';
 import { MarketPostureMetricBars } from '@/components/market/MarketPostureMetricBars';
@@ -21,7 +22,6 @@ import {
   dollarsFromCents,
   formatOrientation,
   moversAreStale,
-  pnlLabel,
   reportKindLabel,
 } from '@/components/panels/market-posture-format';
 import { api } from '@/lib/client';
@@ -57,8 +57,8 @@ function focusRing(active: boolean): string {
 }
 
 /**
- * Canvas overlay dashboard for Market posture (D-085 / D-101) — live hub with
- * equity, movers, reports, holdings, and category grids at rail parity.
+ * Canvas overlay: day quant dashboard (D-131) — sealed tape, recommendations,
+ * synthesis Model. Holdings inventory stays on the left Posture rail.
  */
 export function MarketPostureOverlay() {
   const mp = useMarketPostureView();
@@ -72,7 +72,6 @@ export function MarketPostureOverlay() {
   );
   const synthesis = useMarketHubSynthesis(mp.companyId, { enabled: mp.overlayOpen });
   const [watchlistTierFilter, setWatchlistTierFilter] = useState<WatchlistTierFilter>('default');
-  const detailRef = useRef<HTMLElement | null>(null);
   const lastTerminalRunId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -88,25 +87,9 @@ export function MarketPostureOverlay() {
     if (runId) synthesis.setActiveRunId(runId);
   }, [analyze, synthesis.setActiveRunId]);
 
-  const selectedPosition: MarketHubPosition | null = useMemo(() => {
-    if (!hub || !mp.selectedPositionId) return null;
-    return hub.positions.find((p) => p.id === mp.selectedPositionId) ?? null;
-  }, [hub, mp.selectedPositionId]);
-
-  const selectedQty = selectedPosition ? Number(selectedPosition.qty) : null;
-  const selectedMark =
-    selectedPosition && Number.isFinite(Number(selectedPosition.markCents))
-      ? Number(selectedPosition.markCents)
-      : null;
-
   const equityLabel = hub?.equity.equityCents
     ? dollarsFromCents(hub.equity.equityCents)
     : 'Unavailable';
-
-  const pipelineForSelected = useMemo(() => {
-    if (!hub || !mp.selectedSymbol) return null;
-    return hub.pipeline.find((p) => p.symbol === mp.selectedSymbol) ?? null;
-  }, [hub, mp.selectedSymbol]);
 
   const filteredWatchlists = useMemo(() => {
     if (!hub) return [];
@@ -134,18 +117,6 @@ export function MarketPostureOverlay() {
     [mp.companyId, refresh],
   );
 
-  useEffect(() => {
-    if (!mp.overlayOpen || !mp.selectedSymbol) return;
-    const el = document.querySelector(
-      `[data-posture-focus-symbol="${CSS.escape(mp.selectedSymbol)}"]`,
-    );
-    if (el instanceof HTMLElement) {
-      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    } else if (detailRef.current) {
-      detailRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }
-  }, [mp.overlayOpen, mp.selectedSymbol, mp.selectedPositionId, mp.category]);
-
   if (!mp.overlayOpen) return null;
 
   return (
@@ -153,12 +124,12 @@ export function MarketPostureOverlay() {
       data-testid="market-posture-overlay"
       className="absolute inset-0 z-20 flex min-h-0 flex-col overflow-hidden border border-[var(--color-line)] bg-[var(--color-surface-0)]/95 shadow-lg backdrop-blur-sm"
       role="dialog"
-      aria-label="Market posture dashboard"
+      aria-label="Market posture day dashboard"
     >
       <header className="flex shrink-0 flex-col gap-1 border-b border-[var(--color-line)] px-3 py-2">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <span className="text-xs font-medium text-[var(--color-ink)]">Market posture</span>
+            <span className="text-xs font-medium text-[var(--color-ink)]">Market posture · day</span>
             {hub && hub.sectorFocuses.length > 0 ? (
               <p className="truncate text-[10px] text-[var(--color-ink-faint)]">
                 Sector lens: {hub.sectorFocuses.join(' · ')}
@@ -229,7 +200,11 @@ export function MarketPostureOverlay() {
             </p>
             <button
               type="button"
-              onClick={() => mp.setCategory('model')}
+              onClick={() => {
+                document
+                  .getElementById('market-posture-model-section')
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
               className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-accent)] hover:underline"
             >
               Open Model
@@ -258,9 +233,9 @@ export function MarketPostureOverlay() {
             <section className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
               <MarketPostureEquityChart
                 series={hub.equity.series}
-                selectedQty={Number.isFinite(selectedQty) ? selectedQty : null}
-                selectedMarkCents={selectedMark}
-                selectedSymbol={selectedPosition?.symbol ?? mp.selectedSymbol}
+                selectedQty={null}
+                selectedMarkCents={null}
+                selectedSymbol={null}
                 equityLabel={equityLabel}
                 equityStatus={hub.equity.status}
                 asOfIso={hub.equity.asOfIso}
@@ -368,156 +343,23 @@ export function MarketPostureOverlay() {
               </div>
             </section>
 
-            <section>
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                  Open positions
-                </h3>
-                <span className="text-[10px] text-[var(--color-ink-faint)]">
-                  Marks synthetic until live broker marks
-                </span>
-              </div>
-              {hub.positions.length === 0 ? (
-                <p className="rounded border border-[var(--color-line)] px-3 py-4 text-xs text-[var(--color-ink-faint)]">
-                  No open positions. Holdings appear here after paper fills.
-                </p>
-              ) : (
-                <ul className="grid gap-2 sm:grid-cols-2">
-                  {hub.positions.map((p) => {
-                    const selected = p.id === mp.selectedPositionId;
-                    return (
-                      <li key={p.id} data-posture-focus-symbol={p.symbol}>
-                        <button
-                          type="button"
-                          data-testid={`market-posture-position-${p.id}`}
-                          onClick={() =>
-                            mp.selectPosition(selected ? null : p.id, selected ? null : p.symbol)
-                          }
-                          className={`w-full rounded border px-3 py-2.5 text-left transition-colors ${
-                            selected
-                              ? 'border-[var(--color-accent)] bg-[var(--color-surface-2)]'
-                              : 'border-[var(--color-line)] bg-[var(--color-surface-1)] hover:border-[var(--color-ink-faint)]'
-                          }`}
-                        >
-                          <Justification
-                            sourceClass="derived"
-                            block
-                            lines={[
-                              'Position row from paper fill book joined with module context.',
-                              'Mark and unrealized PnL use synthetic marks until live broker marks are wired.',
-                              `Module: ${p.moduleName}${p.moduleType ? ` (${p.moduleType})` : ''}.`,
-                              p.viz.heldVsCost
-                                ? `Held vs cost: ${p.viz.heldVsCost} (P&L color wins).`
-                                : 'No held tone.',
-                            ]}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <SymbolTicker
-                                viz={p.viz}
-                                meta={
-                                  <span className="font-mono text-[10px] text-[var(--color-ink-faint)]">
-                                    qty {p.qty}
-                                    {p.realizedPnlCents != null
-                                      ? ` · rPnL ${pnlLabel(p.realizedPnlCents)}`
-                                      : ''}
-                                    {` · ${p.moduleName}`}
-                                  </span>
-                                }
-                              />
-                            </div>
-                            <div className="mt-1.5">
-                              <EngineChips engines={p.engines} />
-                            </div>
-                          </Justification>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+            <section
+              id="market-posture-model-section"
+              className="space-y-2 rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2.5"
+              data-testid="market-posture-overlay-model"
+            >
+              <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+                Synthesis model · day awareness
+              </h3>
+              <p className="text-[10px] text-[var(--color-ink-dim)]">
+                Analyze reseals movers / sector / daily and records every stage. Holdings stay on
+                the left Posture rail.
+              </p>
+              <MarketPostureModelCanvas run={synthesis.run} />
+              <MarketPostureAwarenessDock hub={hub} onOpenConcept={openReport} />
             </section>
 
-            {selectedPosition || pipelineForSelected ? (
-              <section
-                ref={detailRef}
-                data-testid="market-posture-position-detail"
-                data-posture-focus-symbol={mp.selectedSymbol ?? undefined}
-                className="rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-3"
-              >
-                <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                  Holding detail · {selectedPosition?.symbol ?? mp.selectedSymbol}
-                </h3>
-                {selectedPosition ? (
-                  <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5">
-                    <div>
-                      <dt className="text-[10px] text-[var(--color-ink-faint)]">Module</dt>
-                      <dd>{selectedPosition.moduleName}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-[10px] text-[var(--color-ink-faint)]">Qty</dt>
-                      <dd className="font-mono tabular-nums">{selectedPosition.qty}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-[10px] text-[var(--color-ink-faint)]">Avg / Mark</dt>
-                      <dd className="font-mono tabular-nums">
-                        {dollarsFromCents(selectedPosition.avgCostCents)} /{' '}
-                        {dollarsFromCents(selectedPosition.markCents)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-[10px] text-[var(--color-ink-faint)]">Unrealized</dt>
-                      <dd className="font-mono tabular-nums">
-                        {pnlLabel(selectedPosition.unrealizedPnlCents)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-[10px] text-[var(--color-ink-faint)]">Realized</dt>
-                      <dd className="font-mono tabular-nums">
-                        {pnlLabel(selectedPosition.realizedPnlCents)}
-                      </dd>
-                    </div>
-                  </dl>
-                ) : null}
-                {selectedPosition ? (
-                  <div className="mt-2">
-                    <p className="text-[10px] text-[var(--color-ink-faint)]">Presiding engines</p>
-                    <EngineChips engines={selectedPosition.engines} />
-                  </div>
-                ) : null}
-                {pipelineForSelected ? (
-                  <div className="mt-3 border-t border-[var(--color-line)] pt-2 text-xs">
-                    <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                      Pipeline · continuation / exit
-                    </p>
-                    <p className="mt-1 text-[var(--color-ink-dim)]">
-                      Lead: {pipelineForSelected.lead?.status ?? 'none'}
-                      {pipelineForSelected.lead
-                        ? ` · ${pipelineForSelected.lead.direction} · ${pipelineForSelected.lead.strategyFamily}`
-                        : ''}
-                    </p>
-                    <p className="mt-0.5 text-[var(--color-ink-dim)]">
-                      Tree: {pipelineForSelected.tree?.status ?? 'none'}
-                    </p>
-                    {pipelineForSelected.tree?.recoveryLadder?.length ? (
-                      <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">
-                        Ladder: {pipelineForSelected.tree.recoveryLadder.join(' → ')}
-                      </p>
-                    ) : (
-                      <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">
-                        No recovery ladder recorded.
-                      </p>
-                    )}
-                  </div>
-                ) : null}
-              </section>
-            ) : null}
-
-            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <MarketPosturePieChart
-                title="Allocation by symbol"
-                slices={hub.charts.allocation}
-                empty="No open position notionals"
-              />
+            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <MarketPosturePieChart
                 title="Watchlist tiers"
                 slices={hub.charts.watchlistTiers}
@@ -542,7 +384,7 @@ export function MarketPostureOverlay() {
 
             <section className="grid gap-3 md:grid-cols-3">
               <CategoryBlock
-                title="Watchlists"
+                title="Recommendations · watch"
                 empty="No watchlists for this tier"
                 count={filteredWatchlists.length}
                 headerExtra={
@@ -620,7 +462,7 @@ export function MarketPostureOverlay() {
                 })}
               </CategoryBlock>
               <CategoryBlock
-                title="Trend candidates"
+                title="Recommendations · trends"
                 empty="No trend candidates"
                 count={hub.trendCandidates.length}
               >
@@ -670,7 +512,7 @@ export function MarketPostureOverlay() {
                 })}
               </CategoryBlock>
               <CategoryBlock
-                title="Pipeline plans"
+                title="Recommendations · plans"
                 empty="No lead / tree plans"
                 count={hub.pipeline.length}
               >

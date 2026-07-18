@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
+/** Overlay recommendation focus (D-131). Left rail is holdings-only inventory. */
 export type MarketPostureCategory =
   | 'positions'
   | 'watchlists'
@@ -13,7 +14,7 @@ export interface MarketPostureFocusOpts {
   symbol?: string | null;
   positionId?: string | null;
   category?: MarketPostureCategory;
-  /** Open overlay when focusing from the left rail. Default true. */
+  /** Open day overlay when focusing. Default true. */
   openOverlay?: boolean;
 }
 
@@ -42,7 +43,7 @@ export function MarketPostureViewProvider(props: { companyId: string; children: 
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [selectedPositionId, setSelectedPositionId] = useState<string | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
-  const [category, setCategory] = useState<MarketPostureCategory>('positions');
+  const [category, setCategory] = useState<MarketPostureCategory>('watchlists');
   const [bridge, setBridge] = useState<{
     ensurePostureOpen: () => void;
     collapse: () => void;

@@ -3,9 +3,10 @@ import { QualitativeBand } from './system-libraries';
 import { SystemNormalizedViewItem } from './verified-normalize';
 
 /**
- * Market posture hub projection (D-081 / D-085 / D-101).
- * Live operating dashboard: equity series, movers, positions with engine chips,
- * watchlists / trends / pipeline categories, and report navigation targets.
+ * Market posture hub projection (D-081 / D-085 / D-101 / D-120 / D-131).
+ * Day quant dashboard + holdings inventory: equity/movers/reports/charts,
+ * recommendations (watchlists / trends / pipeline), synthesis Model,
+ * positions + capitalSources for the left rail.
  */
 
 export const MarketHubMoversItem = SystemNormalizedViewItem;
@@ -242,6 +243,23 @@ export const MarketHubSources = z.object({
 });
 export type MarketHubSources = z.infer<typeof MarketHubSources>;
 
+/**
+ * Company capital inventory for Posture left rail (D-131).
+ * Holding funds + capital-bearing desks — not market-data provider lanes.
+ */
+export const MarketHubCapitalSource = z.object({
+  id: z.string().uuid(),
+  name: z.string().max(120),
+  moduleType: z.string().max(40),
+  kind: z.enum(['holding_fund', 'trading_desk', 'math_hub', 'other']),
+  /** Orientation label (fund source enum or setup state) — no raw dollars. */
+  sourceLabel: z.string().max(80),
+  status: z.enum(['configured', 'draft', 'unavailable']),
+  /** Policy / ValueRef id when present — orientation only. */
+  allocationRef: z.string().max(120).nullable(),
+});
+export type MarketHubCapitalSource = z.infer<typeof MarketHubCapitalSource>;
+
 export const MarketHubResponse = z.object({
   sectorFocuses: z.array(z.string().max(80)).max(64).default([]),
   universeExcludes: z.array(z.string().max(12)).max(200).default([]),
@@ -252,6 +270,8 @@ export const MarketHubResponse = z.object({
   trendCandidates: z.array(MarketHubTrendCandidate).max(50),
   positions: z.array(MarketHubPosition).max(100),
   pipeline: z.array(MarketHubPipelineBySymbol).max(100),
+  /** Holding funds / capital-bearing modules for left-rail inventory (D-131). */
+  capitalSources: z.array(MarketHubCapitalSource).max(64).default([]),
   freshness: MarketHubFreshness,
   /** Latest Analyze synthesis run for Model awareness dock (D-120). */
   synthesis: MarketHubSynthesisSnapshot.optional(),

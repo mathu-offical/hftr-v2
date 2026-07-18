@@ -234,10 +234,63 @@ export async function GET(_req: Request, ctx: Ctx) {
         name: modules.name,
         type: modules.type,
         engineInstanceId: modules.engineInstanceId,
+        config: modules.config,
+        capitalAllocationRef: modules.capitalAllocationRef,
+        status: modules.status,
       })
       .from(modules)
       .where(eq(modules.companyId, companyId));
     const moduleById = new Map(moduleRows.map((m) => [m.id, m]));
+
+    const capitalSources = moduleRows
+      .filter(
+        (m) =>
+          m.type === 'holding_fund' ||
+          m.type === 'trading' ||
+          m.type === 'math' ||
+          m.type === 'fund_router',
+      )
+      .map((m) => {
+        const cfg =
+          m.config && typeof m.config === 'object' && !Array.isArray(m.config)
+            ? (m.config as Record<string, unknown>)
+            : {};
+        let kind: 'holding_fund' | 'trading_desk' | 'math_hub' | 'other' = 'other';
+        switch (m.type) {
+          case 'holding_fund':
+            kind = 'holding_fund';
+            break;
+          case 'trading':
+            kind = 'trading_desk';
+            break;
+          case 'math':
+            kind = 'math_hub';
+            break;
+          default:
+            kind = 'other';
+        }
+        const fundSource =
+          typeof cfg.source === 'string' ? cfg.source.replace(/_/g, ' ') : null;
+        const sourceLabel =
+          fundSource ??
+          (m.capitalAllocationRef ? 'allocation set' : 'capital not configured');
+        const status: 'configured' | 'draft' | 'unavailable' =
+          m.status === 'draft'
+            ? 'draft'
+            : m.type === 'holding_fund' || m.capitalAllocationRef
+              ? 'configured'
+              : 'unavailable';
+        return {
+          id: m.id,
+          name: m.name.slice(0, 120),
+          moduleType: m.type,
+          kind,
+          sourceLabel: sourceLabel.slice(0, 80),
+          status,
+          allocationRef: m.capitalAllocationRef,
+        };
+      })
+      .slice(0, 64);
 
     const enginesForModule = (moduleId: string): MarketHubEngineChip[] => {
       const mod = moduleById.get(moduleId);
@@ -745,6 +798,7 @@ export async function GET(_req: Request, ctx: Ctx) {
       trendCandidates: trendsWithViz,
       positions: positionProjection,
       pipeline,
+      capitalSources,
       freshness: {
         moversExpiresAt: movers.expiresAt,
         sectorExpiresAt,

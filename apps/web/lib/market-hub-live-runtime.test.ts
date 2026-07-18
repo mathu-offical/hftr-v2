@@ -72,6 +72,7 @@ function stubHub(): MarketHubResponse {
       },
     ],
     pipeline: [],
+    capitalSources: [],
     freshness: { moversExpiresAt: null, fetchedAt: '2026-07-18T00:00:00.000Z' },
     sources: {
       lanes: [],

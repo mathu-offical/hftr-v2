@@ -6,7 +6,8 @@ Provider clients + the schema-locked call wrapper for the three model tiers
 | Tier      | Provider         | Role                                                   |
 | --------- | ---------------- | ------------------------------------------------------ |
 | strategic | Anthropic Claude | deep analysis, strategy refinement, research synthesis |
-| tactical  | Mistral          | orchestration, curation, the built-in assistant        |
+|           | → Mistral Large  | automatic continuity when Anthropic key missing/401 (D-067) |
+| tactical  | Mistral / Cerebras | orchestration, curation, the built-in assistant      |
 | execution | Groq             | fast schema-locked formatting/compiling                |
 
 ## `callSchema(...)` — the only way to call a model

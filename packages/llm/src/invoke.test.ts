@@ -4,8 +4,9 @@ import { ConceptBatch } from '@hftr/contracts';
 import { llmArtifacts, llmBudgets, userApiKeys } from '@hftr/db/schema';
 import { encryptSecret } from '@hftr/secrets';
 import * as substituteModule from './substitute';
+import * as keysModule from './keys';
 import { invoke } from './invoke';
-import { resolveModelForTier } from './models';
+import { resolveModelForTier, resolveStrategicContinuityFallback } from './models';
 import { rawCall } from './providers';
 import { substituteInput } from './substitute';
 
@@ -371,5 +372,135 @@ describe('invoke gateway', () => {
     expect(outcome.ok).toBe(true);
     expect(outcome.output).toEqual(cached);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to Mistral Large when Anthropic key is missing on strategic tier', async () => {
+    vi.spyOn(keysModule, 'withUserApiKey').mockImplementation(
+      async (_db, _user, provider, fn) => {
+        if (provider === 'anthropic') return undefined;
+        if (provider === 'mistral') return fn('mistral-test-key');
+        return undefined;
+      },
+    );
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: { get: () => null },
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                concepts: [{ title: 'Fallback thesis', body: 'qualitative only', tags: [] }],
+                links: [],
+                escalateToStrategic: false,
+                escalateReason: 'none',
+              }),
+            },
+          },
+        ],
+        usage: { prompt_tokens: 12, completion_tokens: 20 },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const strategicRequest: LlmCallRequest = {
+      ...baseRequest,
+      tier: 'strategic',
+      schemaRef: 'concept_batch.v1',
+      systemPromptId: 'research_synthesize.v1',
+      idempotencyKey: 'idem-strategic-fallback-001',
+    };
+
+    const outcome = await invoke({
+      db: mockDb({ apiKey: null }).db,
+      clerkUserId: 'user_123',
+      companyPolicy: basePolicy,
+      request: strategicRequest,
+      outputSchema: ConceptBatch,
+      systemPrompt: 'test',
+    });
+
+    expect(outcome.ok).toBe(true);
+    expect(outcome.provider).toBe('mistral');
+    expect(outcome.model).toBe('mistral-large-latest');
+    expect(fetchMock).toHaveBeenCalled();
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).toContain('mistral.ai');
+  });
+
+  it('falls back to Mistral Large after Anthropic auth rejection', async () => {
+    vi.spyOn(keysModule, 'withUserApiKey').mockImplementation(
+      async (_db, _user, provider, fn) => {
+        if (provider === 'anthropic') return fn('sk-ant-invalid');
+        if (provider === 'mistral') return fn('mistral-test-key');
+        return undefined;
+      },
+    );
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        headers: { get: () => null },
+        json: async () => ({ error: 'unauthorized' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: { get: () => null },
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  concepts: [{ title: 'Auth fallback', body: 'qualitative only', tags: [] }],
+                  links: [],
+                  escalateToStrategic: false,
+                  escalateReason: 'none',
+                }),
+              },
+            },
+          ],
+          usage: { prompt_tokens: 8, completion_tokens: 16 },
+        }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const strategicRequest: LlmCallRequest = {
+      ...baseRequest,
+      tier: 'strategic',
+      schemaRef: 'concept_batch.v1',
+      systemPromptId: 'research_synthesize.v1',
+      idempotencyKey: 'idem-strategic-auth-fallback-001',
+    };
+
+    const outcome = await invoke({
+      db: mockDb().db,
+      clerkUserId: 'user_123',
+      companyPolicy: { ...basePolicy, privacyMode: 'strict_zdr', anthropicZdrAttested: true },
+      request: strategicRequest,
+      outputSchema: ConceptBatch,
+      systemPrompt: 'test',
+    });
+
+    expect(outcome.ok).toBe(true);
+    expect(outcome.provider).toBe('mistral');
+    expect(outcome.model).toBe('mistral-large-latest');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('resolveStrategicContinuityFallback', () => {
+  it('resolves mistral-large for strategic continuity under strict_zdr', () => {
+    const result = resolveStrategicContinuityFallback({
+      ...basePolicy,
+      privacyMode: 'strict_zdr',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.resolved.capability.provider).toBe('mistral');
+      expect(result.resolved.usedStrategicFallback).toBe(true);
+    }
   });
 });

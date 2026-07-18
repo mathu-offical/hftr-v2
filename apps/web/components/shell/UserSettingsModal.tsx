@@ -114,7 +114,7 @@ const RESEARCH_KEY_PROVIDERS: { id: ResearchKeyProvider; label: string; hint: st
 
 const PROVIDERS: { id: LlmProvider; label: string; tier: string }[] = [
   { id: 'anthropic', label: 'Anthropic (Claude)', tier: 'strategic' },
-  { id: 'mistral', label: 'Mistral', tier: 'tactical / assistant' },
+  { id: 'mistral', label: 'Mistral', tier: 'strategic fallback / tactical / assistant' },
   { id: 'groq', label: 'Groq', tier: 'execution compile' },
   { id: 'cerebras', label: 'Cerebras', tier: 'execution / tactical' },
   { id: 'fireworks', label: 'Fireworks', tier: 'tactical / execution' },

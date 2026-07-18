@@ -2,6 +2,7 @@ export { callSchema, type CallSchemaOptions } from './call';
 export { invoke, type InvokeOptions } from './invoke';
 export {
   resolveModelForTier,
+  resolveStrategicContinuityFallback,
   estimateCallCostCents,
   actualCostCents,
   type ResolvedModel,

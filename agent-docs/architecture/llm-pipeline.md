@@ -35,6 +35,17 @@ tactical/assistant `cerebras/zai-glm-4.7` (default ZDR), execution `groq/openai/
 (strict json_schema). Optional env model-id overrides must still be allowlisted.
 `HFTR_LLM_MODE=deterministic` forces placeholder handlers for CI.
 
+### Strategic continuity fallback (D-067)
+
+When a **strategic** call would use Anthropic and the operator has **no valid Anthropic key**
+(missing row / decrypt failure) **or Anthropic returns 401/403**, `invoke` automatically
+retries once with **`mistral-large-latest`** (8192 max tokens) if a Mistral user key is present.
+Ledger/artifacts record the **actual** provider used. Explicit `request.provider` overrides
+disable fallback. Explicit tier selection of Mistral still follows `admitsRetention`; the
+continuity path uses `admitsStrategicContinuityFallback` so default `strict_zdr` companies can
+keep synthesizing when only Mistral is configured. Without either key, handlers keep their
+existing deterministic placeholder fallbacks.
+
 ### Job chain (D-027 / D-039)
 
 ```

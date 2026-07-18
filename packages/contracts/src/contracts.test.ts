@@ -15,10 +15,12 @@ import { ENVIRONMENT_REQUIREMENTS } from './env';
 import { HandoffEnvelope } from './foundation';
 import {
   admitsRetention,
+  admitsStrategicContinuityFallback,
   CompanyLlmPolicy,
   DEFAULT_TIER_MODELS,
   lookupModelCapability,
   MODEL_CAPABILITY_REGISTRY,
+  STRATEGIC_CONTINUITY_FALLBACK,
 } from './llm';
 import { ConceptBatch, ResearchDirective } from './research-artifacts';
 import { leakLint } from './leak-lint';
@@ -515,6 +517,17 @@ describe('LLM capability registry (D-026)', () => {
     const cerebras = lookupModelCapability('cerebras', 'zai-glm-4.7')!;
     expect(admitsRetention(mistral, policy)).toBe(false);
     expect(admitsRetention(cerebras, policy)).toBe(true);
+  });
+
+  it('allows Mistral Large as strategic continuity fallback under strict_zdr (D-067)', () => {
+    const policy = CompanyLlmPolicy.parse({ privacyMode: 'strict_zdr' });
+    const large = lookupModelCapability(
+      STRATEGIC_CONTINUITY_FALLBACK.provider,
+      STRATEGIC_CONTINUITY_FALLBACK.modelId,
+    )!;
+    expect(large.tiers).toContain('strategic');
+    expect(admitsRetention(large, policy)).toBe(false);
+    expect(admitsStrategicContinuityFallback(large, policy)).toBe(true);
   });
 
   it('admits Anthropic only with ZDR attestation', () => {

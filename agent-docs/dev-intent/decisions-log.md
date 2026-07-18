@@ -723,6 +723,22 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   so defaults match Reflow. Docs: ui-spec §3, canvas-layout-and-dedicated-math-design.
   **Status: implemented.**
 
+- **D-067 (strategic Claude→Mistral continuity fallback, 2026-07-17):** When a strategic-tier
+  `invoke` resolves to Anthropic and the user has no Anthropic key (or Anthropic returns
+  401/403), automatically retry once with `mistral-large-latest` (8192 max tokens) if a
+  Mistral user key exists. `mistral-large-latest` is allowlisted for `strategic`. Continuity
+  retention (`admitsStrategicContinuityFallback`) admits that path under `strict_zdr` when the
+  operator has saved a Mistral key; explicit Mistral tier selection still uses `admitsRetention`.
+  Ledger records the actual provider. UI: strategic tier shows configured when Anthropic **or**
+  Mistral key is present. **Status: implemented.**
+
+- **D-067 (vault / library node silhouettes, 2026-07-17):** Operator asked for clearer
+  fund/capital and data-source appearance. Fund family chip reads **Vault**; cards get
+  rudimentary SVG chrome — vault (door/rivets/dial) for `holding_fund` / `fund_router`,
+  library shelves + spines for `library`, live-feed aperture + signal bars for `live_api`.
+  Agents unchanged. Implementation: `FamilyShapeChrome.tsx`, `MODULE_VISUALS.shape`.
+  Docs: ui-spec §3, canvas-node-dashboard-design. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

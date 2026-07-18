@@ -130,7 +130,16 @@ export function LlmConnectionStatusProvider(props: {
       configuredCount,
       refresh,
       isProviderConfigured: (provider) => byProvider[provider]?.status === 'configured',
-      isTierConfigured: (tier) => byProvider[TIER_PROVIDER[tier]]?.status === 'configured',
+      isTierConfigured: (tier) => {
+        if (tier === 'strategic') {
+          // Claude preferred; Mistral Large covers strategic when Anthropic is absent (D-067).
+          return (
+            byProvider.anthropic?.status === 'configured' ||
+            byProvider.mistral?.status === 'configured'
+          );
+        }
+        return byProvider[TIER_PROVIDER[tier]]?.status === 'configured';
+      },
     };
   }, [byProvider, budgets, ready, refresh]);
 

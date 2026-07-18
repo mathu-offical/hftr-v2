@@ -117,7 +117,7 @@ export const MODEL_CAPABILITY_REGISTRY: readonly ModelCapability[] = [
     provider: 'mistral',
     modelId: 'mistral-large-latest',
     displayName: 'Mistral Large',
-    tiers: ['tactical', 'assistant'],
+    tiers: ['strategic', 'tactical', 'assistant'],
     transport: 'mistral_chat',
     schemaMode: 'json_schema_strict',
     retentionClass: 'unclear',
@@ -126,7 +126,7 @@ export const MODEL_CAPABILITY_REGISTRY: readonly ModelCapability[] = [
     freeTierAvailable: true,
     available: true,
     notes:
-      'Excluded from strict_zdr until retention is contractually clear; API not used for training',
+      'Primary tactical/assistant; strategic continuity fallback when Anthropic key missing (D-067). Excluded from explicit strict_zdr selection until retention is contractually clear; fallback path admits operator-saved Mistral key as continuity consent.',
   },
   {
     provider: 'mistral',
@@ -258,6 +258,40 @@ export function admitsRetention(capability: ModelCapability, policy: CompanyLlmP
       return _exhaustive;
     }
   }
+}
+
+/**
+ * When Anthropic is unavailable for strategic work, prefer Mistral Large
+ * (higher-capability / longer-context substitute — D-067).
+ */
+export const STRATEGIC_CONTINUITY_FALLBACK: {
+  provider: LlmProvider;
+  modelId: string;
+} = {
+  provider: 'mistral',
+  modelId: 'mistral-large-latest',
+};
+
+/** Token budget for strategic continuity fallback (longer reasoning than default tactical). */
+export const STRATEGIC_FALLBACK_MAX_TOKENS = 8192;
+
+/**
+ * Retention gate for D-067 strategic continuity: when Claude is unavailable,
+ * an operator-saved Mistral Large key is treated as consent to use that model
+ * for strategic schema-locked calls (even under strict_zdr). Explicit
+ * operator selection of Mistral in tierModels still uses admitsRetention.
+ */
+export function admitsStrategicContinuityFallback(
+  capability: ModelCapability,
+  _policy: CompanyLlmPolicy,
+): boolean {
+  if (
+    capability.provider === STRATEGIC_CONTINUITY_FALLBACK.provider &&
+    capability.modelId === STRATEGIC_CONTINUITY_FALLBACK.modelId
+  ) {
+    return capability.retentionClass !== 'retains';
+  }
+  return false;
 }
 
 export const DEFAULT_TIER_MODELS: Record<LlmTier, { provider: LlmProvider; modelId: string }> = {

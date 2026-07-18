@@ -46,7 +46,7 @@ docs/web research at decision time; re-verify before implementation of each area
 
 | Tier | Model | Role |
 |---|---|---|
-| Strategic (top) | **Claude** (Anthropic API, Sonnet-class default; Opus-class flagged) | Deep market/sector analysis, trend synthesis, research module reasoning. Invoked *selectively by Mistral* — never on a fixed high-frequency cadence. |
+| Strategic (top) | **Claude** (Anthropic API, Sonnet-class default; Opus-class flagged) | Deep market/sector analysis, trend synthesis, research module reasoning. Invoked *selectively by Mistral* — never on a fixed high-frequency cadence. **Continuity (D-067):** if Anthropic key missing/401, `invoke` falls back to `mistral-large-latest` when a Mistral user key is present. |
 | Tactical / orchestration (mid) | **Mistral** (`mistral-large-latest` default; `mistral-medium-latest` where cheaper is fine) | Bulk analysis + orchestration middleware. Decomposes leads into decision trees, routes work, powers the built-in assistant. 256k context; strict `json_schema` structured outputs; tool calling (max 128 tools/request). |
 | Execution (bottom) | **Groq** (`llama-3.3-70b-versatile` default) | Compile/format/verify-formatting only. 500+ tok/s; strict structured outputs. Last model-bearing stage. |
 | Below execution | **No models.** Deterministic dispatch + verification, carried verbatim from v1's invariant. |

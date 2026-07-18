@@ -31,9 +31,15 @@ export class ProviderError extends Error {
   constructor(
     message: string,
     public readonly retryable: boolean,
+    public readonly status?: number,
   ) {
     super(message);
     this.name = 'ProviderError';
+  }
+
+  /** Auth / credential rejection — safe to try a continuity fallback provider. */
+  get isAuthFailure(): boolean {
+    return this.status === 401 || this.status === 403;
   }
 }
 
@@ -97,7 +103,11 @@ async function callAnthropic(input: RawCallInput, signal: AbortSignal): Promise<
   });
 
   if (!res.ok) {
-    throw new ProviderError(`anthropic ${res.status}`, res.status === 429 || res.status >= 500);
+    throw new ProviderError(
+      `anthropic ${res.status}`,
+      res.status === 429 || res.status >= 500,
+      res.status,
+    );
   }
 
   const parsed = (await res.json()) as {
@@ -149,7 +159,11 @@ async function callMistral(input: RawCallInput, signal: AbortSignal): Promise<Ra
   });
 
   if (!res.ok) {
-    throw new ProviderError(`mistral ${res.status}`, res.status === 429 || res.status >= 500);
+    throw new ProviderError(
+      `mistral ${res.status}`,
+      res.status === 429 || res.status >= 500,
+      res.status,
+    );
   }
 
   return parseOpenAiCompatibleResponse(res, input.provider);
@@ -197,6 +211,7 @@ async function callOpenAiCompatible(
     throw new ProviderError(
       `${input.provider} ${res.status}`,
       res.status === 429 || res.status >= 500,
+      res.status,
     );
   }
 

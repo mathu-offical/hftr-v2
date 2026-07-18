@@ -46,30 +46,31 @@ share one graph.
 ## 3. UI layout
 
 ```
-┌──────────── Left panel ────────────┬──────── Main content (canvas area) ──────────┐
-│ Research tab                       │  [ Galaxy | Article ]   filters / layout    │
-│  Topics list (agent orgs)          │                                               │
-│  - title, status, coverage         │  Layered overlay: rotating tag chips +        │
-│  - concept count, last queried     │  force graph (concepts) inside library nests  │
-│  Concept browser (secondary)       │                                               │
-│  Module run / admission controls   │  Topic focus: dim outsiders + darker animated │
-│  Library filters / export          │  path/hull for selected topic trace           │
+│ Research tab                       │  [ Galaxy | Page ]   filters / layout       │
+│  Topics (all company)              │                                               │
+│  Concepts & tags (searchable)      │  Layered overlay: rotating tag chips +        │
+│  Workspace Galaxy|Page             │  force graph (concepts) inside library nests  │
+│  Modules & libraries (collapsed)   │                                               │
+│                                    │  Topic focus: dim outsiders + darker animated │
+│                                    │  path/hull for selected topic trace           │
 └────────────────────────────────────┴───────────────────────────────────────────────┘
 ```
 
 ### 3.1 Left panel — Topics primary
 
-- Research tab lists **topics** first (tree if `parent_topic_id` set): title, status
-  (`active|archived|deferred`), priority, concept count, coverage hint, last-queried /
-  reference badges (text-first).
+- Research tab lists **all company topics** first (grouped by owning research module; tree
+  when `parent_topic_id` set): title, status (`active|archived|deferred`), priority, concept
+  count, coverage hint, last-queried / reference badges (text-first).
+- Next: **Concepts & tags** — company-wide searchable concept database with tag chip filters;
+  Focus opens galaxy highlight for that concept.
+- Workspace strip: **Galaxy | Page** switches the layered overlay tabs (Page = hybrid article).
+- Opening the left Research tab auto-opens the layered Research overlay over the canvas.
 - Selecting a topic:
-  1. Switches main overlay to Research view if not already open.
-  2. Activates **Galaxy** tab (unless operator is already on Article and chooses to stay —
-     default: Galaxy for spatial focus; Article available via tab).
+  1. Ensures Research overlay is open.
+  2. Activates **Galaxy** tab (Page available via tab).
   3. Applies **topic focus** on the galaxy (see §4.3).
-  4. Loads hybrid article for the Article tab.
-- Secondary: concept browser, evidence, module cards, library bulk admit — unchanged from
-  D-039 except topic list is the primary navigation affordance.
+  4. Loads hybrid article for the Page tab.
+- Secondary (collapsed): module create/run controls, libraries + Obsidian export.
 
 ### 3.2 Main content — tabbed Research overlay
 
@@ -81,7 +82,7 @@ Tabs:
 | Tab | Content |
 |---|---|
 | **Galaxy** | Full rotating concept/tag galaxy, library-nested (§4) |
-| **Article** | Hybrid wiki for the selected topic (§5) |
+| **Page** (Article) | Hybrid wiki for the selected topic (§5) |
 
 Shared chrome: search, tag filter chips, library scope multi-select, layout mode (nested
 default), zoom controls, clear-topic-focus.

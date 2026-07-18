@@ -76,10 +76,10 @@ interface ConceptRow {
 
 /**
  * Left panel (ui-ux spec): Research curation spaces and Data sources.
- * Research shows each research/trend module's scope card plus a searchable,
- * tag-filterable concepts browser; research modules get an on-demand
- * "Curate now" action. Data sources show which nodes each source hydrates
- * (derived from data_feed links). Collapsible to a slim strip.
+ * Research tab (D-040): company-wide topics, searchable concepts/tags, Galaxy|Page
+ * workspace controls; modules/libraries under a collapsed section. Data sources show
+ * which nodes each source hydrates (derived from data_feed links). Collapsible to a
+ * slim strip.
  */
 export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) {
   // page.tsx does not pass companyId; the panel only renders under
@@ -166,12 +166,20 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
     return () => clearInterval(interval);
   }, [open, loadConcepts, loadLibraries]);
 
+  // Research tab owns the layered Galaxy|Page workspace over the canvas.
+  useEffect(() => {
+    if (open && tab === 'research') {
+      researchView.openOverlay();
+    }
+  }, [open, tab, researchView.openOverlay]);
+
   const research = props.modules.filter(
     (m) => m.type === 'research' || m.type === 'librarian' || m.type === 'trend',
   );
   const researchModules = props.modules.filter(
     (m) => m.type === 'research' || m.type === 'librarian',
   );
+  const topicOwnerModules = props.modules.filter((m) => m.type === 'research');
   const [admissionOverrides, setAdmissionOverrides] = useState<
     Record<string, 'auto_admit_validated' | 'require_operator_approval'>
   >({});
@@ -236,99 +244,133 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 text-sm">
         {tab === 'research' && (
           <>
-            <NewResearchModuleForm companyId={companyId} />
-            {researchModules.length > 0 && (
-              <div className="mt-3">
-                {researchModules.map((m) => (
-                  <ResearchTopicsTree
-                    key={m.id}
-                    companyId={companyId}
-                    moduleId={m.id}
-                    moduleName={m.name}
-                    selectedTopicId={researchView.selectedTopicId}
-                    onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
-                  />
-                ))}
-              </div>
-            )}
-            <div className="mt-3 flex items-center justify-between rounded-lg border border-[var(--color-line)] px-2.5 py-2">
-              <span className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                Research galaxy
-              </span>
-              <button
-                type="button"
-                onClick={() => researchView.openOverlay({ tab: 'galaxy' })}
-                aria-pressed={researchView.overlayOpen}
-                aria-label="Open research galaxy overlay"
-                className={`rounded-md border px-2 py-0.5 text-[10px] ${
-                  researchView.overlayOpen
-                    ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
-                    : 'border-[var(--color-line)] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
-                }`}
-              >
-                Open galaxy
-              </button>
-            </div>
-            <LibrariesSection
-              companyId={companyId}
-              libraries={libraries}
-              loaded={librariesLoaded}
-              requiresOperatorApproval={requiresOperatorApproval}
-              onChanged={() => {
-                void loadLibraries();
-                void loadConcepts();
-              }}
-            />
-            {researchModules.length > 0 && (
-              <CompanySweepAction companyId={companyId} onDone={loadConcepts} />
-            )}
-            {research.length === 0 ? (
-              <p className="mt-3 px-1 text-xs text-[var(--color-ink-faint)]">
-                No research or trend modules yet. Create one above or add from the canvas palette.
-              </p>
+            {topicOwnerModules.length > 0 ? (
+              <ResearchTopicsTree
+                companyId={companyId}
+                modules={topicOwnerModules.map((m) => ({ id: m.id, name: m.name }))}
+                selectedTopicId={researchView.selectedTopicId}
+                onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
+              />
             ) : (
-              <ul className="mt-3 space-y-3">
-                {research.map((m) => (
-                  <li key={m.id} className="rounded-lg border border-[var(--color-line)] p-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium">{m.name}</span>
-                      <span className="text-[10px] uppercase text-[var(--color-ink-faint)]">
-                        {m.type}
-                      </span>
-                    </div>
-                    <div className="mt-1 text-[11px] text-[var(--color-ink-dim)]">
-                      {String(m.config.topicScope ?? m.config.focus ?? 'scope not configured yet')}
-                    </div>
-                    <div className="mt-1 text-[10px] text-[var(--color-ink-faint)]">{m.status}</div>
-                    {m.type === 'research' && (
-                      <ResearchActions
-                        companyId={companyId}
-                        moduleId={m.id}
-                        topicScope={String(m.config.topicScope ?? m.config.focus ?? '')}
-                        moduleConfig={m.config}
-                        admissionMode={
-                          admissionOverrides[m.id] ??
-                          (m.config.admissionMode === 'require_operator_approval'
-                            ? 'require_operator_approval'
-                            : 'auto_admit_validated')
-                        }
-                        onAdmissionChange={(mode) =>
-                          setAdmissionOverrides((prev) => ({ ...prev, [m.id]: mode }))
-                        }
-                        onDone={() => {
-                          void loadConcepts();
-                          void loadLibraries();
-                        }}
-                      />
-                    )}
-                    <ConceptsBrowser
-                      concepts={concepts.filter((c) => c.moduleId === m.id)}
-                      loaded={conceptsLoaded}
-                    />
-                  </li>
-                ))}
-              </ul>
+              <p className="px-1 text-xs text-[var(--color-ink-faint)]">
+                No research modules yet. Add one below or from the canvas palette to create topics.
+              </p>
             )}
+
+            <div
+              data-testid="research-concepts-browser"
+              className="mt-3 rounded-lg border border-[var(--color-line)] p-2.5"
+            >
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+                Concepts & tags
+              </p>
+              <ConceptsBrowser
+                concepts={concepts}
+                loaded={conceptsLoaded}
+                onSelectConcept={(conceptId) => researchView.focusConcept(conceptId)}
+              />
+            </div>
+
+            <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-[var(--color-line)] px-2.5 py-2">
+              <span className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+                Workspace
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => researchView.openOverlay({ tab: 'galaxy' })}
+                  aria-pressed={researchView.overlayOpen && researchView.activeTab === 'galaxy'}
+                  aria-label="Show galaxy tab"
+                  className={`rounded-md border px-2 py-0.5 text-[10px] ${
+                    researchView.overlayOpen && researchView.activeTab === 'galaxy'
+                      ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
+                      : 'border-[var(--color-line)] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
+                  }`}
+                >
+                  Galaxy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => researchView.openOverlay({ tab: 'article' })}
+                  aria-pressed={researchView.overlayOpen && researchView.activeTab === 'article'}
+                  aria-label="Show page tab"
+                  className={`rounded-md border px-2 py-0.5 text-[10px] ${
+                    researchView.overlayOpen && researchView.activeTab === 'article'
+                      ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
+                      : 'border-[var(--color-line)] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
+                  }`}
+                >
+                  Page
+                </button>
+              </div>
+            </div>
+
+            <details className="mt-3 rounded-lg border border-[var(--color-line)] p-2.5">
+              <summary className="cursor-pointer text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+                Modules & libraries
+              </summary>
+              <div className="mt-2">
+                <NewResearchModuleForm companyId={companyId} />
+              </div>
+              <LibrariesSection
+                companyId={companyId}
+                libraries={libraries}
+                loaded={librariesLoaded}
+                requiresOperatorApproval={requiresOperatorApproval}
+                onChanged={() => {
+                  void loadLibraries();
+                  void loadConcepts();
+                }}
+              />
+              {researchModules.length > 0 && (
+                <CompanySweepAction companyId={companyId} onDone={loadConcepts} />
+              )}
+              {research.length === 0 ? (
+                <p className="mt-3 px-1 text-xs text-[var(--color-ink-faint)]">
+                  No research or trend modules yet. Create one above or add from the canvas palette.
+                </p>
+              ) : (
+                <ul className="mt-3 space-y-3">
+                  {research.map((m) => (
+                    <li key={m.id} className="rounded-lg border border-[var(--color-line)] p-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">{m.name}</span>
+                        <span className="text-[10px] uppercase text-[var(--color-ink-faint)]">
+                          {m.type}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-[11px] text-[var(--color-ink-dim)]">
+                        {String(
+                          m.config.topicScope ?? m.config.focus ?? 'scope not configured yet',
+                        )}
+                      </div>
+                      <div className="mt-1 text-[10px] text-[var(--color-ink-faint)]">{m.status}</div>
+                      {m.type === 'research' && (
+                        <ResearchActions
+                          companyId={companyId}
+                          moduleId={m.id}
+                          topicScope={String(m.config.topicScope ?? m.config.focus ?? '')}
+                          moduleConfig={m.config}
+                          admissionMode={
+                            admissionOverrides[m.id] ??
+                            (m.config.admissionMode === 'require_operator_approval'
+                              ? 'require_operator_approval'
+                              : 'auto_admit_validated')
+                          }
+                          onAdmissionChange={(mode) =>
+                            setAdmissionOverrides((prev) => ({ ...prev, [m.id]: mode }))
+                          }
+                          onDone={() => {
+                            void loadConcepts();
+                            void loadLibraries();
+                          }}
+                        />
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </details>
           </>
         )}
 
@@ -1244,10 +1286,14 @@ function ResearchActions(props: {
 }
 
 /**
- * Concepts browser for one module: client-side search over title/tags/body,
- * tag chip filters, and expandable concept cards with provenance chips.
+ * Company-wide concepts & tags browser: search over title/tags/body,
+ * tag chip filters, expandable cards; optional Focus opens galaxy highlight.
  */
-function ConceptsBrowser(props: { concepts: ConceptRow[]; loaded: boolean }) {
+function ConceptsBrowser(props: {
+  concepts: ConceptRow[];
+  loaded: boolean;
+  onSelectConcept?: (conceptId: string) => void;
+}) {
   const [query, setQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -1272,34 +1318,27 @@ function ConceptsBrowser(props: { concepts: ConceptRow[]; loaded: boolean }) {
   }, [props.concepts, query, activeTag]);
 
   if (!props.loaded) {
-    return (
-      <p className="mt-2 border-t border-[var(--color-line)] pt-2 text-[10px] text-[var(--color-ink-faint)]">
-        Loading concepts…
-      </p>
-    );
+    return <p className="mt-2 text-[10px] text-[var(--color-ink-faint)]">Loading concepts…</p>;
   }
   if (props.concepts.length === 0) {
-    return (
-      <p className="mt-2 border-t border-[var(--color-line)] pt-2 text-[10px] text-[var(--color-ink-faint)]">
-        No concepts curated yet.
-      </p>
-    );
+    return <p className="mt-2 text-[10px] text-[var(--color-ink-faint)]">No concepts curated yet.</p>;
   }
 
   return (
-    <div className="mt-2 border-t border-[var(--color-line)] pt-2">
+    <div className="mt-2">
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search concepts"
+        placeholder="Search concepts and tags"
         aria-label="Search concepts by title, tag, or body"
         className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)]"
       />
       {allTags.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-1">
+        <div className="mt-1.5 flex flex-wrap gap-1" role="list" aria-label="Concept tags">
           {allTags.map((t) => (
             <button
               key={t}
+              type="button"
               onClick={() => setActiveTag(activeTag === t ? null : t)}
               aria-label={`Filter concepts by tag ${t}`}
               aria-pressed={activeTag === t}
@@ -1320,35 +1359,48 @@ function ConceptsBrowser(props: { concepts: ConceptRow[]; loaded: boolean }) {
           No concepts match the current filter.
         </p>
       ) : (
-        <ul className="mt-2 space-y-1.5">
+        <ul className="mt-2 max-h-64 space-y-1.5 overflow-y-auto">
           {filtered.map((c) => {
             const prov = provenanceChip(c.sourceClass);
             const expanded = expandedId === c.id;
             return (
               <li key={c.id} className="rounded-md border border-[var(--color-line)] p-2">
-                <button
-                  onClick={() => setExpandedId(expanded ? null : c.id)}
-                  aria-label={`${expanded ? 'Collapse' : 'Expand'} concept ${c.title}`}
-                  aria-expanded={expanded}
-                  className="block w-full text-left"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-[11px] font-medium text-[var(--color-ink)]">
-                      {c.title}
-                    </span>
-                    <span
-                      className="shrink-0 rounded-full border border-[var(--color-line)] px-1.5 py-0.5 text-[9px]"
-                      style={{ color: prov.color }}
+                <div className="flex items-start gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(expanded ? null : c.id)}
+                    aria-label={`${expanded ? 'Collapse' : 'Expand'} concept ${c.title}`}
+                    aria-expanded={expanded}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-[11px] font-medium text-[var(--color-ink)]">
+                        {c.title}
+                      </span>
+                      <span
+                        className="shrink-0 rounded-full border border-[var(--color-line)] px-1.5 py-0.5 text-[9px]"
+                        style={{ color: prov.color }}
+                      >
+                        {prov.label}
+                      </span>
+                    </div>
+                    {!expanded && (
+                      <p className="mt-0.5 text-[10px] text-[var(--color-ink-dim)]">
+                        {snippet(c.body)}
+                      </p>
+                    )}
+                  </button>
+                  {props.onSelectConcept && (
+                    <button
+                      type="button"
+                      onClick={() => props.onSelectConcept?.(c.id)}
+                      aria-label={`Focus concept ${c.title} in galaxy`}
+                      className="shrink-0 rounded border border-[var(--color-line)] px-1.5 py-0.5 text-[9px] text-[var(--color-accent)] hover:border-[var(--color-accent)]"
                     >
-                      {prov.label}
-                    </span>
-                  </div>
-                  {!expanded && (
-                    <p className="mt-0.5 text-[10px] text-[var(--color-ink-dim)]">
-                      {snippet(c.body)}
-                    </p>
+                      Focus
+                    </button>
                   )}
-                </button>
+                </div>
                 {c.tags.length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1">
                     {c.tags.map((t) => (

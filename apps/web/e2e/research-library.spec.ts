@@ -53,16 +53,19 @@ test.describe('Research library surfaces (M2)', () => {
     await page.getByRole('button', { name: /Expand left panel/ }).click();
     await expect(page.getByRole('button', { name: 'Research', exact: true })).toBeVisible();
 
+    await expect(page.getByTestId('research-topics-panel')).toBeVisible();
+    await expect(page.getByTestId('research-concepts-browser')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Show galaxy tab' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Show page tab' })).toBeVisible();
+
+    await page.getByText('Modules & libraries').click();
     await expect(page.getByRole('region', { name: 'Libraries' })).toBeVisible();
     await expect(page.getByText('E2E Export Library')).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Export E2E Export Library to Obsidian zip' }),
     ).toBeVisible();
 
-    await expect(page.getByText('Research galaxy', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Open research galaxy overlay' })).toBeVisible();
-
-    await page.getByRole('button', { name: 'Open research galaxy overlay' }).click();
+    await page.getByRole('button', { name: 'Show galaxy tab' }).click();
     await expect(page.getByTestId('research-overlay')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('galaxy-view')).toBeVisible();
 

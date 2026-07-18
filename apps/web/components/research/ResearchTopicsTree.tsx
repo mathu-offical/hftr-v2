@@ -9,6 +9,11 @@ interface TopicNode {
   children: TopicNode[];
 }
 
+export interface ResearchModuleOption {
+  id: string;
+  name: string;
+}
+
 function buildTopicTree(topics: ResearchTopic[]): TopicNode[] {
   const byParent = new Map<string | null, ResearchTopic[]>();
   for (const t of topics) {
@@ -36,8 +41,6 @@ function formatUsage(topic: ResearchTopic): string {
 function TopicBranch(props: {
   node: TopicNode;
   depth: number;
-  companyId: string;
-  moduleId: string;
   selectedTopicId: string | null;
   onSelectTopic: (topicId: string) => void;
   onResearch: (topic: ResearchTopic) => void;
@@ -93,8 +96,6 @@ function TopicBranch(props: {
               key={child.topic.id}
               node={child}
               depth={props.depth + 1}
-              companyId={props.companyId}
-              moduleId={props.moduleId}
               selectedTopicId={props.selectedTopicId}
               onSelectTopic={props.onSelectTopic}
               onResearch={props.onResearch}
@@ -109,25 +110,44 @@ function TopicBranch(props: {
 
 export interface ResearchTopicsTreeProps {
   companyId: string;
-  moduleId: string;
-  moduleName: string;
+  /** When set, scopes list + create to one module. When omitted, loads all company topics. */
+  moduleId?: string;
+  moduleName?: string;
+  /** Research modules available for create + grouping (company-wide mode). */
+  modules?: ResearchModuleOption[];
   selectedTopicId?: string | null;
   onSelectTopic?: (topicId: string) => void;
 }
 
 function ResearchTopicsTreeInner(props: ResearchTopicsTreeProps) {
+  const modules = props.modules ?? [];
+  const companyWide = !props.moduleId;
   const [topics, setTopics] = useState<ResearchTopic[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [title, setTitle] = useState('');
+  const [createModuleId, setCreateModuleId] = useState(
+    props.moduleId ?? modules[0]?.id ?? '',
+  );
   const [busy, setBusy] = useState(false);
   const [busyTopicId, setBusyTopicId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (props.moduleId) {
+      setCreateModuleId(props.moduleId);
+      return;
+    }
+    if (!createModuleId && modules[0]?.id) {
+      setCreateModuleId(modules[0].id);
+    }
+  }, [props.moduleId, modules, createModuleId]);
+
   const load = useCallback(async () => {
-    if (!props.companyId || !props.moduleId) return;
+    if (!props.companyId) return;
     try {
+      const qs = props.moduleId ? `?moduleId=${props.moduleId}` : '';
       const data = await api<{ topics: ResearchTopic[] }>(
-        `/api/companies/${props.companyId}/research/topics?moduleId=${props.moduleId}`,
+        `/api/companies/${props.companyId}/research/topics${qs}`,
       );
       setTopics(data.topics);
     } catch {
@@ -142,18 +162,42 @@ function ResearchTopicsTreeInner(props: ResearchTopicsTreeProps) {
     void load();
   }, [load]);
 
-  const tree = useMemo(() => buildTopicTree(topics), [topics]);
+  const moduleNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of modules) map.set(m.id, m.name);
+    return map;
+  }, [modules]);
+
+  const grouped = useMemo(() => {
+    if (!companyWide) {
+      return [{ moduleId: props.moduleId!, moduleName: props.moduleName ?? 'Topics', topics }];
+    }
+    const byModule = new Map<string, ResearchTopic[]>();
+    for (const t of topics) {
+      const list = byModule.get(t.moduleId) ?? [];
+      list.push(t);
+      byModule.set(t.moduleId, list);
+    }
+    const groups = [...byModule.entries()].map(([moduleId, rows]) => ({
+      moduleId,
+      moduleName: moduleNameById.get(moduleId) ?? 'Research module',
+      topics: rows,
+    }));
+    groups.sort((a, b) => a.moduleName.localeCompare(b.moduleName));
+    return groups;
+  }, [companyWide, props.moduleId, props.moduleName, topics, moduleNameById]);
 
   async function createTopic(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = title.trim();
-    if (!trimmed) return;
+    const moduleId = props.moduleId ?? createModuleId;
+    if (!trimmed || !moduleId) return;
     setBusy(true);
     setMessage(null);
     try {
       await api(`/api/companies/${props.companyId}/research/topics`, {
         method: 'POST',
-        body: { moduleId: props.moduleId, title: trimmed },
+        body: { moduleId, title: trimmed },
       });
       setTitle('');
       setMessage('Topic created.');
@@ -173,7 +217,7 @@ function ResearchTopicsTreeInner(props: ResearchTopicsTreeProps) {
     setBusyTopicId(topic.id);
     setMessage(null);
     try {
-      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}/curate`, {
+      await api(`/api/companies/${props.companyId}/modules/${topic.moduleId}/curate`, {
         method: 'POST',
         body: {
           mode: 'manual',
@@ -201,44 +245,75 @@ function ResearchTopicsTreeInner(props: ResearchTopicsTreeProps) {
     [props],
   );
 
+  const canCreate = Boolean(props.moduleId ?? createModuleId);
+  const heading = companyWide
+    ? 'Topics'
+    : `Topics · ${props.moduleName ?? 'module'}`;
+
   return (
-    <div className="mt-2 border-t border-[var(--color-line)] pt-2">
-      <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-        Topics · {props.moduleName}
-      </p>
+    <div data-testid="research-topics-panel" className="rounded-lg border border-[var(--color-line)] p-2.5">
+      <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">{heading}</p>
       {!loaded ? (
         <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">Loading topics…</p>
-      ) : tree.length === 0 ? (
+      ) : topics.length === 0 ? (
         <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">No topics yet.</p>
       ) : (
-        <ul className="mt-1">
-          {tree.map((node) => (
-            <TopicBranch
-              key={node.topic.id}
-              node={node}
-              depth={0}
-              companyId={props.companyId}
-              moduleId={props.moduleId}
-              selectedTopicId={props.selectedTopicId ?? null}
-              onSelectTopic={handleSelectTopic}
-              onResearch={(topic) => void researchTopic(topic)}
-              busyTopicId={busyTopicId}
-            />
-          ))}
-        </ul>
+        <div className="mt-1 space-y-2">
+          {grouped.map((group) => {
+            const tree = buildTopicTree(group.topics);
+            return (
+              <div key={group.moduleId}>
+                {companyWide && (
+                  <p className="mb-0.5 text-[9px] text-[var(--color-ink-faint)]">{group.moduleName}</p>
+                )}
+                {tree.length === 0 ? (
+                  <p className="text-[10px] text-[var(--color-ink-faint)]">No topics.</p>
+                ) : (
+                  <ul>
+                    {tree.map((node) => (
+                      <TopicBranch
+                        key={node.topic.id}
+                        node={node}
+                        depth={0}
+                        selectedTopicId={props.selectedTopicId ?? null}
+                        onSelectTopic={handleSelectTopic}
+                        onResearch={(topic) => void researchTopic(topic)}
+                        busyTopicId={busyTopicId}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
       <form onSubmit={(e) => void createTopic(e)} className="mt-2 space-y-1.5">
+        {companyWide && modules.length > 1 && (
+          <select
+            value={createModuleId}
+            onChange={(e) => setCreateModuleId(e.target.value)}
+            aria-label="Research module for new topic"
+            className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)]"
+          >
+            {modules.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        )}
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="New topic title"
-          aria-label={`New topic for ${props.moduleName}`}
+          aria-label="New topic title"
           className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)]"
         />
         <div className="flex items-center gap-2">
           <button
             type="submit"
-            disabled={busy || !title.trim()}
+            disabled={busy || !title.trim() || !canCreate}
             className="rounded-md border border-[var(--color-accent)] px-2 py-0.5 text-[10px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
           >
             {busy ? 'Adding…' : 'Add topic'}

@@ -401,7 +401,7 @@ function ResearchOverlayInner() {
                 : 'text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
             }`}
           >
-            Article
+            Page
           </button>
         </div>
         <div className="flex items-center gap-2">

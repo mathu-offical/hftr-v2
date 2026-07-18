@@ -165,12 +165,14 @@ editable fields.
 
 ### LEFT — Research + Data + Trends
 - Tabs: **Research** | **Data sources** | (contextual third tab when opened from a trend module).
-- Research tab (**D-040**): **topics list first** (agent-created organizations; tree when nested).
+- Research tab (**D-040**): **all company topics first** (grouped by module; tree when nested).
   Each row shows title, status, concept count, coverage, and text-first **queried /
   referenced** usage. Selecting a topic opens the Research overlay on the main content area,
-  focuses that topic’s concept trace in the galaxy, and loads its hybrid article. Secondary:
-  concept browser (search/tag filter), module progress, library management + Obsidian export.
-- Research overlay (main content, layered over canvas): tabs **Galaxy** | **Article** (see §6).
+  focuses that topic’s concept trace in the galaxy, and loads its hybrid article. Next:
+  **Concepts & tags** company-wide search/tag browser (Focus → galaxy). Workspace strip
+  switches **Galaxy | Page** tabs. Opening the left Research tab auto-opens the layered
+  overlay. Secondary (collapsed): module progress, library management + Obsidian export.
+- Research overlay (main content, layered over canvas): tabs **Galaxy** | **Page** (see §6).
   Shared chrome: search, tag chips, library scope, zoom, clear-topic-focus.
 - Research module cards (D-039): **admission mode** select (auto-admit vs require approval),
   manual query / Curate now / company sweep, multi-poll **run status** (phase · evidence ·
@@ -242,7 +244,7 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
 - Click concept → detail card (body markdown, tags, libraries, provenance, usage counters).
 - Time scrubber (concept creation over time) remains phase-gated.
 
-### Article tab
+### Article tab (Page)
 - Hybrid wiki for the selected topic: **agent synopsis** (semantic markdown with inline links
   to concepts / libraries / evidence / related topics) + **expandable ordered concept
   sections** from membership. Curation keeps article and graph coherent; all saved research

@@ -69,8 +69,10 @@ export function ResearchViewProvider(props: { companyId: string; children: React
   }, []);
 
   const focusConcept = useCallback((conceptId: string) => {
+    setOverlayOpen(true);
     setActiveTab('galaxy');
     setHighlightConceptId(conceptId);
+    setFocusConceptIds([conceptId]);
   }, []);
 
   const selectTopic = useCallback(

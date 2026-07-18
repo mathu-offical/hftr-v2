@@ -30,8 +30,20 @@ test.describe('Research articles (D-127)', () => {
     const { modules } = (await modulesRes.json()) as {
       modules: Array<{ id: string; type: string; status: string }>;
     };
-    const research = modules.find((m) => m.type === 'research' && m.status === 'active');
+    const research = modules.find((m) => m.type === 'research');
     expect(research).toBeTruthy();
+    if (research!.status !== 'active') {
+      const activateRes = await request.patch(
+        `/api/companies/${companyId}/modules/${research!.id}`,
+        {
+          data: {
+            status: 'active',
+            setup: { topicSectors: ['technology'] },
+          },
+        },
+      );
+      expect(activateRes.ok()).toBeTruthy();
+    }
 
     const libCreate = await request.post(`/api/companies/${companyId}/libraries`, {
       data: { name: 'E2E Article Shelf', topicScope: 'e2e articles' },

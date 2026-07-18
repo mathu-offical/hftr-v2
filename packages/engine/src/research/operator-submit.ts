@@ -45,7 +45,9 @@ export async function submitOperatorResearchArticle(
     .limit(1);
   if (!mod) throw new Error('module_not_found');
   if (mod.type !== 'research') throw new Error('module_type_not_research');
-  if (mod.status !== 'active') throw new Error('module_not_active');
+  if (mod.status !== 'active' && mod.status !== 'draft') {
+    throw new Error('module_not_active');
+  }
 
   if (!input.libraryId) throw new Error('library_id_required');
   {

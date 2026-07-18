@@ -18,11 +18,20 @@ import { fetchFrankfurterFx, FrankfurterFxError } from './frankfurter-fx';
 import { fetchCoinGeckoCrypto, CoinGeckoCryptoError } from './coingecko-crypto';
 import { fetchFredMacro, FredMacroError } from './fred-macro';
 import { fetchAlphaVantageNews, AlphaVantageNewsError } from './alpha-vantage-news';
+import { fetchGdeltNews, GdeltNewsError } from './gdelt-news';
+import {
+  gatherTwelveDataBarsEvidence,
+  TwelveDataBarsError,
+} from './twelve-data-bars';
+import {
+  gatherMarketstackEodEvidence,
+  MarketstackEodError,
+} from './marketstack-eod';
 import {
   fetchWorldBankIndicators,
   WorldBankIndicatorError,
 } from './world-bank-indicator';
-import { ResearchStubError, throwResearchStub } from './research-stub';
+import { ResearchStubError } from './research-stub';
 import { filterSourceKinds } from './source-matrix';
 
 export interface GatherEvidenceError {
@@ -37,6 +46,8 @@ export interface GatherCredentials {
   polygonApiKey?: string | null;
   fredApiKey?: string | null;
   alphaVantageApiKey?: string | null;
+  twelveDataApiKey?: string | null;
+  marketstackApiKey?: string | null;
   alpacaKeyId?: string | null;
   alpacaSecret?: string | null;
 }
@@ -65,6 +76,8 @@ function mergeCredentials(opts: GatherEvidencePackagesOptions): GatherCredential
     polygonApiKey: opts.polygonApiKey ?? null,
     fredApiKey: opts.fredApiKey ?? null,
     alphaVantageApiKey: opts.alphaVantageApiKey ?? null,
+    twelveDataApiKey: opts.twelveDataApiKey ?? null,
+    marketstackApiKey: opts.marketstackApiKey ?? null,
     alpacaKeyId: opts.alpacaKeyId ?? null,
     alpacaSecret: opts.alpacaSecret ?? null,
   };
@@ -78,6 +91,8 @@ function researchKeysFromCredentials(credentials: GatherCredentials): string[] {
   if (credentials.polygonApiKey?.trim()) keys.push('polygon');
   if (credentials.fredApiKey?.trim()) keys.push('fred');
   if (credentials.alphaVantageApiKey?.trim()) keys.push('alpha_vantage');
+  if (credentials.twelveDataApiKey?.trim()) keys.push('twelve_data');
+  if (credentials.marketstackApiKey?.trim()) keys.push('marketstack');
   return keys;
 }
 
@@ -107,6 +122,9 @@ function errorCode(err: unknown): string {
   if (err instanceof CoinGeckoCryptoError) return err.code;
   if (err instanceof FredMacroError) return err.code;
   if (err instanceof AlphaVantageNewsError) return err.code;
+  if (err instanceof GdeltNewsError) return err.code;
+  if (err instanceof TwelveDataBarsError) return err.code;
+  if (err instanceof MarketstackEodError) return err.code;
   if (err instanceof WorldBankIndicatorError) return err.code;
   if (err instanceof ResearchStubError) return err.code;
   if (err instanceof Error && err.message.startsWith('unsupported_source')) {
@@ -214,9 +232,23 @@ async function gatherFromSource(
         ...(fetchImpl ? { fetchImpl } : {}),
       });
     case 'gdelt_news':
+      return fetchGdeltNews({
+        query: opts.query,
+        limit: perSourceMax,
+        ...(fetchImpl ? { fetchImpl } : {}),
+      });
     case 'twelve_data':
+      return gatherTwelveDataBarsEvidence({
+        query: opts.query,
+        apiKey: credentials.twelveDataApiKey ?? '',
+        ...(fetchImpl ? { fetchImpl } : {}),
+      });
     case 'marketstack':
-      throwResearchStub(kind);
+      return gatherMarketstackEodEvidence({
+        query: opts.query,
+        apiKey: credentials.marketstackApiKey ?? '',
+        ...(fetchImpl ? { fetchImpl } : {}),
+      });
     case 'library':
       return evidenceFromLibraryConcepts(opts.libraryConcepts ?? [], {
         maxResults: perSourceMax,

@@ -319,17 +319,50 @@ describe('gatherEvidencePackages', () => {
     expect(packages.some((p) => p.sourceKind === 'alpha_vantage_news')).toBe(true);
   });
 
-  it('records not_implemented for researched stub kinds', async () => {
+  it('records missing_credentials for twelve_data and marketstack without keys', async () => {
     const { packages, errors } = await gatherEvidencePackages({
-      query: 'test',
-      sourceKinds: ['gdelt_news', 'twelve_data'],
+      query: 'AAPL',
+      sourceKinds: ['twelve_data', 'marketstack'],
       allowlist: [],
       blocklist: [],
       maxEvidence: 4,
     });
 
     expect(packages).toHaveLength(0);
-    expect(errors).toContainEqual({ sourceKind: 'gdelt_news', code: 'not_implemented' });
-    expect(errors).toContainEqual({ sourceKind: 'twelve_data', code: 'unsupported_source' });
+    expect(errors).toContainEqual({ sourceKind: 'twelve_data', code: 'missing_credentials' });
+    expect(errors).toContainEqual({ sourceKind: 'marketstack', code: 'missing_credentials' });
+  });
+
+  it('gathers gdelt_news from mocked ArtList response', async () => {
+    const fetchImpl = async (url: string | URL | Request) => {
+      const u = String(url);
+      if (u.includes('gdeltproject.org')) {
+        return new Response(
+          JSON.stringify({
+            articles: [
+              {
+                title: 'Global markets in focus',
+                url: 'https://news.example.com/gdelt',
+                domain: 'example.com',
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response('not found', { status: 404 });
+    };
+
+    const { packages, errors } = await gatherEvidencePackages({
+      query: 'semiconductor outlook',
+      sourceKinds: ['gdelt_news'],
+      allowlist: [],
+      blocklist: [],
+      maxEvidence: 4,
+      fetchImpl: fetchImpl as typeof fetch,
+    });
+
+    expect(errors).toHaveLength(0);
+    expect(packages.some((p) => p.sourceKind === 'gdelt_news')).toBe(true);
   });
 });

@@ -102,6 +102,21 @@ export {
   WorldBankIndicatorError,
   type FetchWorldBankIndicatorParams,
 } from './research/world-bank-indicator';
+export {
+  fetchGdeltNews,
+  GdeltNewsError,
+  type FetchGdeltNewsParams,
+} from './research/gdelt-news';
+export {
+  gatherTwelveDataBarsEvidence,
+  TwelveDataBarsError,
+  type GatherTwelveDataBarsEvidenceOptions,
+} from './research/twelve-data-bars';
+export {
+  gatherMarketstackEodEvidence,
+  MarketstackEodError,
+  type GatherMarketstackEodEvidenceOptions,
+} from './research/marketstack-eod';
 export { filterSourceKinds } from './research/source-matrix';
 export {
   evidenceFromLibraryConcepts,

@@ -11,11 +11,10 @@ export class ResearchStubError extends Error {
   }
 }
 
-/** Researched stub kinds that are registered but not yet wired to live adapters. */
+/** Researched stub kinds registered but not yet wired to live adapters. */
+const STUB_KINDS = new Set<ResearchSourceKind>([]);
+
 export function throwResearchStub(sourceKind: ResearchSourceKind): never {
-  const code =
-    sourceKind === 'twelve_data' || sourceKind === 'marketstack'
-      ? 'unsupported_source'
-      : 'not_implemented'; // gdelt_news until rate-limit backoff ships
+  const code = STUB_KINDS.has(sourceKind) ? 'not_implemented' : 'unsupported_source';
   throw new ResearchStubError(sourceKind, code);
 }

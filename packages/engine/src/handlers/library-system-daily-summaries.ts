@@ -18,6 +18,8 @@ const DailySummariesPayload = z.object({
   companyId: z.string().uuid(),
   /** Session phase tag for subject key / section emphasis. */
   phase: DailySummaryPhase.optional(),
+  /** Operator Analyze: re-seal even when phase seal is still valid (D-111). */
+  forceReseal: z.boolean().optional(),
 });
 
 /** Map market calendar SessionPhase → daily summary phase tag (D-070). */
@@ -113,7 +115,7 @@ registerHandler('library.system_daily_summaries', async ({ db, clock, job }) => 
     subjectKey,
     nowMs,
   });
-  if (existing) return;
+  if (existing && !payload.forceReseal) return;
 
   const companyModules = await db
     .select({ id: modules.id, type: modules.type })

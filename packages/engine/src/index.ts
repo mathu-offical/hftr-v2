@@ -425,6 +425,9 @@ export {
   buildOrientation,
   type SessionInfo,
 } from './calendar/calendar';
+export {
+  dailySummaryPhaseFromSession,
+} from './handlers/library-system-daily-summaries';
 
 // Dynamic safety foundation (D-028)
 export { computeOperatingLimits } from './limits/compute';

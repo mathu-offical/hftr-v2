@@ -23,6 +23,8 @@ import { registerHandler } from './registry';
 const SectorNewsPayload = z.object({
   companyId: z.string().uuid(),
   topicSectors: z.array(z.string().max(64)).max(12).optional(),
+  /** Operator Analyze: re-seal even when bulletin seal is still valid (D-111). */
+  forceReseal: z.boolean().optional(),
 });
 
 function buildSectorBulletinBody(opts: {
@@ -75,7 +77,7 @@ registerHandler('library.system_sector_news', async ({ db, clock, job }) => {
     subjectKey,
     nowMs,
   });
-  if (existing) return;
+  if (existing && !payload.forceReseal) return;
 
   const companyModules = await db
     .select({ id: modules.id, type: modules.type, topicSectors: modules.topicSectors })

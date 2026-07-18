@@ -54,6 +54,11 @@ import { registerHandler } from './registry';
 
 const SystemMoversPayload = z.object({
   companyId: z.string().uuid(),
+  /**
+   * Operator Analyze: re-seal even when a valid movers_board seal exists (D-111).
+   * Gather + compound + optional tactical LLM always run.
+   */
+  forceReseal: z.boolean().optional(),
 });
 
 const NEWS_KINDS: ResearchSourceKindT[] = [
@@ -431,7 +436,7 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     noteSuffix: `Verified (${thresholdSource}; corroboration floor ${thresholds.corroborationMinDomains}).`,
   });
 
-  if (existingSeal) {
+  if (existingSeal && !payload.forceReseal) {
     // Seal still valid — suggestions refreshed; skip re-seal.
     return;
   }

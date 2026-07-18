@@ -82,7 +82,7 @@ test.describe('Research bus (D-039)', () => {
     expect(sweepRes.ok()).toBeTruthy();
 
     await page.getByRole('button', { name: /Expand left panel/ }).click();
-    await expect(page.getByRole('button', { name: 'Research', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Research + Libraries', exact: true })).toBeVisible();
 
     await expect(
       page.getByRole('button', { name: /Company sweep|Curate now|Research/ }).first(),

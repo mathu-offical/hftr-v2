@@ -162,7 +162,7 @@ test.describe('Company workspace (M1 read flows)', () => {
     const expandLeft = page.getByRole('button', { name: /Expand left panel/ });
     await expect(expandLeft).toBeVisible();
     await expandLeft.click();
-    await expect(page.getByRole('button', { name: 'Research', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Research + Libraries', exact: true })).toBeVisible();
     await page.getByRole('button', { name: /Collapse left panel/ }).click();
     await expect(expandLeft).toBeVisible();
 
@@ -185,7 +185,7 @@ test.describe('Company workspace (M1 read flows)', () => {
 
     // Keyboard shortcuts per ui-spec §8 (`[`, `]`, backtick).
     await page.keyboard.press('[');
-    await expect(page.getByRole('button', { name: 'Research', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Research + Libraries', exact: true })).toBeVisible();
     await page.keyboard.press('[');
     await expect(expandLeft).toBeVisible();
 

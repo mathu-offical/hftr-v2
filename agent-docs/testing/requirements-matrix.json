@@ -607,10 +607,10 @@
     },
     {
       "id": "REQ-PAN-001",
-      "title": "Left panel Research + Data sources tabs",
+      "title": "Left panel Research + Libraries / Market posture / Data sources tabs",
       "source": "apps/web/components/panels/LeftPanel.tsx",
       "status": "implemented",
-      "evidence": ["LeftPanel.tsx"],
+      "evidence": ["LeftPanel.tsx", "MarketPosturePanel.tsx", "market-hub/route.ts"],
       "scenarios": ["company-workspace [ shortcut"],
       "venues": ["paper_sim"],
       "philosophyAxes": ["research_quality"],

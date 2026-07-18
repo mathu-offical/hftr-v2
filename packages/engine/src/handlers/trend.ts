@@ -12,6 +12,7 @@ import {
 import { resolveLookbackQuotes } from '../live-api/lookback-quotes';
 import { pollQuotes } from '../live-api/poll-quotes';
 import { enqueueLinkedResearchCurate } from '../research/enqueue-linked';
+import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
 
 const ScanPayload = z.object({
@@ -126,6 +127,15 @@ registerHandler('trend.scan', async ({ db, clock, job }) => {
       companyId: payload.companyId,
       sourceModuleId: payload.moduleId,
       queryText: symbols.join(' '),
+    });
+    // D-081: revalidate market posture movers when a large (non-flat) trend moves.
+    await enqueue(db, clock, {
+      queueClass: 'RESEARCH',
+      kind: 'library.system_movers',
+      payload: { companyId: payload.companyId },
+      idempotencyKey: `movers-after-scan-${payload.companyId}-${payload.moduleId}-${scannedAt.getTime()}`,
+      priority: 'NORMAL',
+      companyId: payload.companyId,
     });
   }
 });

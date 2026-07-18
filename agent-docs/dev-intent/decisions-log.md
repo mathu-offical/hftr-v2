@@ -838,6 +838,7 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   research-galaxy-topic-view-design, ui-spec § Research. **Status: implemented.**
 
 - **D-079 (rich seeded catalog articles, 2026-07-18):** Catalog-seeded concept bodies
+
   are full operator markdown articles: Overview, Identity KV table, trends/leads,
   tools/levers/fields as `[[sys:…]]` chips, sub-variants, compound bindings, and
   additional open fields. Tags collect catalog + qualitative axes. Topic overview
@@ -846,6 +847,22 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   families also include `compound_strategies` and `recovery_ladders`. Storage remains
   `concepts.body` markdown; Obsidian export is the `.md` path. Docs:
   research-document-shapes. **Status: implemented.**
+
+- **D-080 (inspector GFM + galaxy nest quieting, 2026-07-18):** Seeded Identity KV
+  tables require GitHub Flavored Markdown. `ResearchMarkdown` now runs `remark-gfm`
+  with scrollable table chrome; concept inspector sets `omitLeadingH1`. List previews
+  use prose-only excerpts (`excerptResearchMarkdownBody`) instead of raw mid-table
+  slices. Galaxy folder/article hull wireframes and labels are quieter so nested
+  hierarchy stays readable. Docs: ui-spec § floating inspector. **Status: implemented.**
+
+- **D-081 (Market posture left hub, 2026-07-18):** Left panel gains always-present
+  **Market posture** tab (between Research + Libraries and Data sources). Composite
+  `GET /api/companies/{id}/market-hub` projects movers_board seal, watchlists, trend
+  candidates, positions (synthetic marks labeled), and per-symbol lead/tree recovery
+  ladder stubs. Research tab label becomes **Research + Libraries**. Galaxy overlay
+  stays research-only. `POST …/market-hub` enqueues `library.system_movers`; non-flat
+  `trend.scan` and admitted `trend.promote` also enqueue movers revalidation (seal
+  idempotent). Contracts: `market-hub.ts`. **Status: implemented.**
 
 ## Open questions
 

@@ -11,10 +11,7 @@ import { ResearchLibraryShelves } from '@/components/research/ResearchLibraryShe
 import { ResearchNewTopicButton } from '@/components/research/ResearchNewTopicButton';
 import { ResearchSubmitArticle } from '@/components/research/ResearchSubmitArticle';
 import { ResearchPagesList } from '@/components/research/ResearchPagesList';
-import {
-  ResearchRunStatus,
-  type ResearchRunSnapshot,
-} from '@/components/panels/ResearchRunStatus';
+import { ResearchRunStatus, type ResearchRunSnapshot } from '@/components/panels/ResearchRunStatus';
 import { provenanceChip, snippet, toneFor } from './format';
 import { LlmAvailabilityChips } from '@/components/shell/LlmConnectionStatus';
 import {
@@ -27,9 +24,10 @@ import {
 } from '@/lib/research-resource-api';
 import { peekResearchResource } from '@/lib/research-resource-cache';
 import { isBaselineSeededLibrary } from '@/lib/research-library-shelves';
+import { MarketPosturePanel } from '@/components/panels/MarketPosturePanel';
 
-type Tab = 'research' | 'data';
-const LEFT_TABS: Tab[] = ['research', 'data'];
+type Tab = 'research' | 'market_posture' | 'data';
+const LEFT_TABS: Tab[] = ['research', 'market_posture', 'data'];
 
 function isEditableTarget(e: KeyboardEvent): boolean {
   const el = e.target;
@@ -80,11 +78,9 @@ interface LinkRow {
 type ConceptRow = ResearchConceptRow;
 
 /**
- * Left panel (ui-ux spec): Research curation spaces and Data sources.
- * Research tab (D-040): company-wide topics, searchable concepts/tags, Galaxy|Page
- * workspace controls; modules/libraries under a collapsed section. Data sources show
- * which nodes each source hydrates (derived from data_feed links). Collapsible to a
- * slim strip.
+ * Left panel (ui-ux spec): Research + Libraries, Market posture, and Data sources.
+ * Research tab (D-040 / D-049): topics, shelves, galaxy ownership. Market posture
+ * (D-081): movers / watchlists / positions hub. Data sources: live APIs + libraries.
  */
 export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) {
   // page.tsx does not pass companyId; the panel only renders under
@@ -104,14 +100,10 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
     companyId ? (peekResearchResource<Library[]>({ kind: 'libraries', companyId }) ?? []) : [],
   );
   const [librariesLoaded, setLibrariesLoaded] = useState(() =>
-    companyId
-      ? peekResearchResource<Library[]>({ kind: 'libraries', companyId }) !== null
-      : false,
+    companyId ? peekResearchResource<Library[]>({ kind: 'libraries', companyId }) !== null : false,
   );
   const [topics, setTopics] = useState<ResearchTopic[]>(() =>
-    companyId
-      ? (peekResearchResource<ResearchTopic[]>({ kind: 'topics', companyId }) ?? [])
-      : [],
+    companyId ? (peekResearchResource<ResearchTopic[]>({ kind: 'topics', companyId }) ?? []) : [],
   );
   const [topicsLoaded, setTopicsLoaded] = useState(() =>
     companyId
@@ -301,7 +293,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
         className="border-r border-[var(--color-line)] bg-[var(--color-surface-1)] px-1.5 text-[10px] tracking-widest text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
         style={{ writingMode: 'vertical-rl' }}
       >
-        RESEARCH · DATA · [
+        RESEARCH · POSTURE · DATA · [
       </button>
     );
   }
@@ -312,7 +304,8 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
         <div className="flex gap-1">
           {(
             [
-              { id: 'research', label: 'Research' },
+              { id: 'research', label: 'Research + Libraries' },
+              { id: 'market_posture', label: 'Market posture' },
               { id: 'data', label: 'Data sources' },
             ] as { id: Tab; label: string }[]
           ).map((t) => (
@@ -484,7 +477,9 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                           m.config.topicScope ?? m.config.focus ?? 'scope not configured yet',
                         )}
                       </div>
-                      <div className="mt-1 text-[10px] text-[var(--color-ink-faint)]">{m.status}</div>
+                      <div className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
+                        {m.status}
+                      </div>
                       {m.type === 'research' && (
                         <ResearchActions
                           companyId={companyId}
@@ -513,6 +508,8 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
             </details>
           </>
         )}
+
+        {tab === 'market_posture' && <MarketPosturePanel companyId={companyId} />}
 
         {tab === 'data' && (
           <>
@@ -1096,7 +1093,9 @@ function LibraryConceptsPanel(props: {
                 aria-label={`Approve all ${proposedIds.length} proposed concepts`}
                 className="rounded border border-[var(--color-ok)] px-1.5 py-0.5 text-[9px] text-[var(--color-ok)] hover:bg-[var(--color-ok)]/10 disabled:opacity-50"
               >
-                {busyConceptId === '__bulk__' ? 'Updating…' : `Approve all proposed (${proposedIds.length})`}
+                {busyConceptId === '__bulk__'
+                  ? 'Updating…'
+                  : `Approve all proposed (${proposedIds.length})`}
               </button>
               <button
                 type="button"
@@ -1126,7 +1125,9 @@ function LibraryConceptsPanel(props: {
                     </span>
                     <span
                       className="shrink-0 uppercase"
-                      style={{ color: toneFor(c.curationStatus === 'rejected' ? 'rejected' : 'flat') }}
+                      style={{
+                        color: toneFor(c.curationStatus === 'rejected' ? 'rejected' : 'flat'),
+                      }}
                     >
                       {c.curationStatus.replace(/_/g, ' ')}
                     </span>
@@ -1231,9 +1232,7 @@ function ResearchActions(props: {
     }
   }
 
-  async function setAdmissionMode(
-    next: 'auto_admit_validated' | 'require_operator_approval',
-  ) {
+  async function setAdmissionMode(next: 'auto_admit_validated' | 'require_operator_approval') {
     if (next === props.admissionMode) return;
     setBusy('admission');
     setMessage(null);

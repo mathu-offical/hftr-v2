@@ -39,7 +39,7 @@
 
   capability readout + bound company id after handshake.
 - **Canvas-centric layout** per company beneath the ribbon: slim collapsible strips on the
-  left (Research · Data), bottom (Trends · Scenarios · Watch lists · Decisions), and right
+  left (Research · Posture · Data), bottom (Trends · Scenarios · Watch lists · Decisions), and right
   (Verify · Executions · Ledger · Sims · Values) expand into panels; the canvas keeps the
   remaining space. The earlier "full slide-over" model is deferred; current panels are
   docked flex children so canvas context is never fully hidden.
@@ -198,7 +198,7 @@
 ## 4. Panels
 
 Implemented today as docked collapsible panels (`components/panels/`): `LeftPanel`
-(Research | Data sources), `BottomPanel` (Trends | Scenario engine | Watch lists |
+(Research + Libraries | Market posture | Data sources), `BottomPanel` (Trends | Scenario engine | Watch lists |
 Decisions + traces, with an all/per-module selector), `RightPanel` (Verify | Executions |
 Ledger — with open positions — | Sims | Values). Full slide-over behavior with deep-link
 routes remains the target below.
@@ -209,20 +209,26 @@ is open). Per-company `localStorage` keys `hftr:{companyId}:panel:{left|bottom|r
 open state, active tab, and bottom module filter on return visits. Shortcuts are suppressed in
 editable fields.
 
-### LEFT — Research + Data + Trends
-- Tabs: **Research** | **Data sources** | (contextual third tab when opened from a trend module).
-- Research tab (**D-040**, **D-047**, **D-049**): **Submit new topic** at top; **entity
+### LEFT — Research + Libraries + Market posture + Data
+- Tabs: **Research + Libraries** | **Market posture** | **Data sources** (D-081).
+- Research + Libraries tab (**D-040**, **D-047**, **D-049**): **Submit new topic** at top; **entity
   search** with Topics / Concepts / Tags / Libraries toggles; expandable **library shelves**
   as folders of pages — system/runtime shelves plus one **Baseline seeded** shelf with
   inline catalog folders (strategy / guardrails / session / broker / trend leads /
   **sector knowledge** per D-076) and optional **tier** / **sector** subfolders; caret
   expands page leaves; Overview opens Seeded trading mechanisms; **Pages** list (topics)
   with linked-page highlight;
-  **Archive** (D-047); collapsed Modules & tools. Opening Research opens the Galaxy overlay
+  **Archive** (D-047); collapsed Modules & tools. Opening Research + Libraries opens the Galaxy overlay
   only — detail lives in a right floating inspector over the galaxy (no Galaxy|Page tab strip).
   Library shell lists use client SWR cache (D-063) so shelf chrome returns from
   memory/session while page indexes lazy-load. Design:
   `ui-ux/research-tab-shelves-inspector-design.md`.
+- **Market posture** tab (D-081): live operating hub for baseline movers seal (`movers_board`),
+  company/module watchlist symbols, active trend candidates, open positions (synthetic marks
+  labeled), and continuation/exit stubs from latest lead + decision-tree recovery ladder per
+  symbol. Distinct from Research + Libraries (async corpus). Polls `GET …/market-hub`;
+  **Refresh posture** enqueues `library.system_movers`. Non-flat `trend.scan` and admitted
+  `trend.promote` also enqueue movers revalidation. Does **not** open the galaxy overlay.
 - Research overlay (main content, layered over canvas): **Galaxy** surface with optional
   right **inspector** (Page / Concept / Library / Tag — D-049). Overlay and inspector are
   viewport-bounded (`overflow-hidden` / `min-h-0`) with scrollable inspector body and
@@ -315,10 +321,13 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
 - Right panel over the galaxy for the selected target: **Page** (agent synopsis + member
   concepts as open-in-inspector buttons), **Concept**, **Library**, or **Tag**. Left panel
   and galaxy never expand article/concept bodies inline — they navigate only.
-- **Rich formatting (D-078):** Page synopsis and Concept body use full `ResearchMarkdown`
-  prose; membership / library / tag list rows use `ResearchConceptPreview` (markdown
-  excerpt + tags/role chips) so seeded and curated bodies stay readable without opening
-  each concept.
+- **Rich formatting (D-078 / D-080):** Page synopsis and Concept body use full
+  `ResearchMarkdown` with **remark-gfm** (tables, strikethrough, task lists). Concept
+  inspector omits the body's leading `#` title when chrome already shows it. Membership /
+  library / tag list rows use `ResearchConceptPreview` with **prose excerpts** (tables
+  skipped) so seeded GFM bodies stay readable without opening each concept.
+  Folder/article nest shells stay quieter than library/topic hulls so concept nodes read
+  first.
 - Inline synopsis links navigate in-app (inspect concept / select related topic).
 - Usage badges: queried / referenced / last queried (text-first).
 - Linked pages highlighted in the left Pages list when a page is open.

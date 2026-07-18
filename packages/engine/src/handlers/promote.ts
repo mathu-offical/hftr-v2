@@ -193,6 +193,16 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     topicScope: trend.symbol,
   });
 
+  // D-081: revalidate market posture movers when a trend is admitted.
+  await enqueue(db, clock, {
+    queueClass: 'RESEARCH',
+    kind: 'library.system_movers',
+    payload: { companyId: payload.companyId },
+    idempotencyKey: `movers-after-promote-${leadId}`,
+    priority: 'NORMAL',
+    companyId: payload.companyId,
+  });
+
   await enqueue(db, clock, {
     queueClass: 'TACTICAL',
     kind: 'tactical.expand',

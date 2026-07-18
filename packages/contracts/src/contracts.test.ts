@@ -89,7 +89,9 @@ import {
   LAYOUT_ROW_STEP,
   engineCanvasOffsetForOrigin,
   layoutCanvas,
+  layoutEngineGroup,
   layoutEngineTemplateAtOrigin,
+  placeEngineTimeHubPosition,
   placeNextEngineOrigin,
   rankEngineMembers,
   reflowEngineAtOrigin,
@@ -1517,6 +1519,49 @@ describe('canvas layout (D-033)', () => {
     expect(orderOf(q)).toBe(orderOf(x));
     // The edges do not cross: y (fed by the top producer p) sits above x.
     expect(orderOf(y)).toBeLessThan(orderOf(x));
+  });
+
+  it('pins engine Time hubs to the bottom-left of the member envelope', () => {
+    const research = '00000000-0000-4000-8000-0000000000t1';
+    const library = '00000000-0000-4000-8000-0000000000t2';
+    const analyzer = '00000000-0000-4000-8000-0000000000t3';
+    const timeHub = '00000000-0000-4000-8000-0000000000t4';
+    const modules = [
+      mkModule(research, 'research'),
+      mkModule(library, 'library'),
+      mkModule(analyzer, 'analyzer'),
+      mkModule(timeHub, 'time'),
+    ];
+    const laid = layoutEngineGroup(
+      engineId,
+      [research, library, analyzer, timeHub],
+      new Map(modules.map((m) => [m.id, m])),
+      [
+        { fromModuleId: research, toModuleId: library, linkKind: 'data_feed' },
+        { fromModuleId: library, toModuleId: analyzer, linkKind: 'data_feed' },
+      ],
+      { x: 40, y: 40 },
+      ENGINE_GROUP_PADDING,
+    );
+    const timePos = laid.modules.find((m) => m.id === timeHub)!.canvasPosition;
+    const others = laid.modules.filter((m) => m.id !== timeHub).map((m) => m.canvasPosition);
+    const maxOtherBottom = Math.max(...others.map((p) => p.y + CANVAS_LAYOUT.moduleHeight));
+    expect(timePos.y).toBeGreaterThanOrEqual(maxOtherBottom);
+    const minX = Math.min(...others.map((p) => p.x));
+    expect(timePos.x).toBe(minX);
+    expect(rankEngineMembers([research, library, analyzer, timeHub], new Map(modules.map((m) => [m.id, m])), []).every((r) => r.id !== timeHub)).toBe(true);
+  });
+
+  it('placeEngineTimeHubPosition docks bottom-left under the envelope', () => {
+    expect(
+      placeEngineTimeHubPosition([
+        { x: 0, y: 0, width: 220, height: 168 },
+        { x: 340, y: 0, width: 220, height: 168 },
+      ]),
+    ).toEqual({
+      x: 0,
+      y: 168 + CANVAS_LAYOUT.engineTimeHubGap,
+    });
   });
 
   it('reflows an engine preserving its origin with connection-safe spacing', () => {

@@ -7,6 +7,7 @@ import { engineUtilityLinks } from '@hftr/db/schema';
 import { eq } from 'drizzle-orm';
 import { EngineUtilityBus } from '@hftr/contracts';
 import { ensureAllInterEngineDataStreamLinks } from '@hftr/engine';
+import { repositionAllEngineTimeHubs } from '@/lib/time-provision';
 import { AssistantDock } from '@/components/assistant/AssistantDock';
 import { CompanyCanvas } from '@/components/canvas/CompanyCanvas';
 import { BottomPanel } from '@/components/panels/BottomPanel';
@@ -56,6 +57,13 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
       await ensureAllInterEngineDataStreamLinks(db, companyId);
     } catch (err) {
       console.error('ensureAllInterEngineDataStreamLinks failed', err);
+    }
+    // Pin engine Time hubs to bottom-left of each ENGINE envelope.
+    try {
+      await repositionAllEngineTimeHubs(db, companyId);
+      moduleRows = await scoping.listModules(db, userId, companyId);
+    } catch (err) {
+      console.error('repositionAllEngineTimeHubs failed', err);
     }
     utilityLinkRows = await db
       .select()

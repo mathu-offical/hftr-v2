@@ -1,17 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, inArray } from 'drizzle-orm';
 import {
+  CANVAS_LAYOUT,
   TIME_BEARING_MODULE_TYPES,
   composeModulePrimaryLabel,
+  placeEngineTimeHubPosition,
   type ModuleType,
 } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { moduleLinks, modules } from '@hftr/db/schema';
-
-const TIME_WIDTH = 180;
-const TIME_HEIGHT = 40;
-const OWNER_HEIGHT = 168;
-const ATTACHMENT_GAP = 12;
 
 export interface TimeHubOwnerSeed {
   id: string;
@@ -32,16 +29,29 @@ export interface ProvisionedTimeHub {
   }>;
 }
 
+function hubPositionFromMembers(members: readonly TimeHubOwnerSeed[]): { x: number; y: number } {
+  // Prefer envelope under Math docks: owners use full card height + math dock when Math-required.
+  const boxes = members.map((member) => ({
+    x: member.position.x,
+    y: member.position.y,
+    width: CANVAS_LAYOUT.moduleWidth,
+    height: CANVAS_LAYOUT.moduleHeight + CANVAS_LAYOUT.mathAttachmentGap + CANVAS_LAYOUT.mathToolHeight,
+  }));
+  return placeEngineTimeHubPosition(boxes);
+}
+
 /**
  * D-091: provision one Time hub module per engine for time-bearing members.
- * Links Master Clock → Time and Time → each time-bearing member (data_feed).
- * Idempotent when a Time module already exists for the engine.
+ * Pins to bottom-left of the member envelope. Links Master Clock → Time and
+ * Time → each time-bearing member (data_feed). Idempotent for links; always
+ * refreshes hub canvas position.
  */
 export async function provisionEngineTimeHub(
   db: Db,
   companyId: string,
   engineId: string,
   members: readonly TimeHubOwnerSeed[],
+  now = new Date(),
 ): Promise<ProvisionedTimeHub | null> {
   const bearing = members.filter((m) => TIME_BEARING_MODULE_TYPES.has(m.type));
   if (bearing.length === 0) return null;
@@ -64,16 +74,10 @@ export async function provisionEngineTimeHub(
     .where(and(eq(modules.companyId, companyId), eq(modules.type, 'clock')))
     .limit(1);
 
+  const timePosition = hubPositionFromMembers(bearing.length > 0 ? bearing : members);
   let timeId = existingTime?.id;
-  let timePosition =
-    (existingTime?.canvasPosition as { x: number; y: number } | null) ?? null;
 
   if (!timeId) {
-    const anchor = bearing[0]!;
-    timePosition = {
-      x: anchor.position.x,
-      y: anchor.position.y + OWNER_HEIGHT + ATTACHMENT_GAP,
-    };
     timeId = randomUUID();
     const name = composeModulePrimaryLabel('Time', 'Engine hub');
     await db.insert(modules).values({
@@ -89,10 +93,11 @@ export async function provisionEngineTimeHub(
       engineInstanceId: engineId,
       toolOwnerModuleId: null,
     });
-  }
-
-  if (!timePosition) {
-    timePosition = { x: 0, y: 0 };
+  } else {
+    await db
+      .update(modules)
+      .set({ canvasPosition: timePosition, updatedAt: now })
+      .where(eq(modules.id, timeId));
   }
 
   const createdLinks: ProvisionedTimeHub['links'] = [];
@@ -172,4 +177,48 @@ export async function provisionEngineTimeHub(
     position: timePosition,
     links: createdLinks,
   };
+}
+
+/**
+ * Reposition every engine Time hub to bottom-left of its members (page-load heal).
+ */
+export async function repositionAllEngineTimeHubs(
+  db: Db,
+  companyId: string,
+  now = new Date(),
+): Promise<number> {
+  const engineMembers = await db
+    .select({
+      id: modules.id,
+      type: modules.type,
+      name: modules.name,
+      canvasPosition: modules.canvasPosition,
+      engineInstanceId: modules.engineInstanceId,
+    })
+    .from(modules)
+    .where(and(eq(modules.companyId, companyId)));
+
+  const byEngine = new Map<string, typeof engineMembers>();
+  for (const row of engineMembers) {
+    if (!row.engineInstanceId) continue;
+    const list = byEngine.get(row.engineInstanceId) ?? [];
+    list.push(row);
+    byEngine.set(row.engineInstanceId, list);
+  }
+
+  let updated = 0;
+  for (const [engineId, rows] of byEngine) {
+    const members: TimeHubOwnerSeed[] = rows
+      .filter((row) => row.type !== 'time' && row.type !== 'math')
+      .map((row) => ({
+        id: row.id,
+        type: row.type,
+        name: row.name,
+        position: (row.canvasPosition as { x: number; y: number } | null) ?? { x: 0, y: 0 },
+      }));
+    if (members.length === 0) continue;
+    const result = await provisionEngineTimeHub(db, companyId, engineId, members, now);
+    if (result) updated += 1;
+  }
+  return updated;
 }

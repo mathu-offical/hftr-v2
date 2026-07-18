@@ -216,7 +216,8 @@ export const ENGINE_GROUP_PADDING = {
   right: 72,
   /** Badge + title + one wrap row of bordered setup fields (D-089). */
   top: 92,
-  bottom: 100,
+  /** Clears Math docks + bottom Time hub rail (D-091). */
+  bottom: 120,
 } as const;
 
 export function computeEngineBoundsFromPositions(

@@ -56,9 +56,10 @@ On engine insert (company create, module-store insert, template duplicate), the 
    (existing D-028 behavior).
 2. **Dedicated Math** — per D-033, one dedicated Math tool per Math-required owner inside the
    engine envelope (visually docked under owner, not a member row).
-3. **Time hub** — one `time` member per engine with time-bearing members; `clock → time` and
-   `time →` each time-bearing member (`provisionEngineTimeHub`). Activation requires Time inbound
-   for `TIME_BEARING_MODULE_TYPES`.
+3. **Time hub** — one `time` member per engine with time-bearing members, pinned to the
+   **bottom-left** of the ENGINE envelope (`placeEngineTimeHubPosition` / reflow);
+   `clock → time` and `time →` each time-bearing member (`provisionEngineTimeHub`).
+   Activation requires Time inbound for `TIME_BEARING_MODULE_TYPES`.
 4. **Clock utility bind** — `engine_utility_links` row: `bus=clock`, `from_module_id` → company
    Master Clock singleton, `to_engine_id` → inserted engine.
 5. **Funds bind (execution only)** — `bus=funds` from company `holding_fund` when the template

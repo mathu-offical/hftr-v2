@@ -19,6 +19,8 @@ export const CANVAS_LAYOUT = {
   mathAttachmentGap: 12,
   mathToolWidth: 180,
   mathToolHeight: 40,
+  /** Gap above the engine Time hub rail (below member/Math envelopes). */
+  engineTimeHubGap: 28,
   topLevelGutter: 120,
   originX: 40,
   originY: 40,
@@ -165,9 +167,11 @@ export function rankEngineMembers(
   modulesById: ReadonlyMap<string, LayoutModule>,
   links: readonly LayoutLink[],
 ): RankedMember[] {
+  // Math docks under owners; Time hubs pin to the engine bottom rail — neither
+  // participates in pipeline lane ranking (D-091).
   const members = memberIds
     .map((id) => modulesById.get(id))
-    .filter((m): m is LayoutModule => !!m && m.type !== 'math');
+    .filter((m): m is LayoutModule => !!m && m.type !== 'math' && m.type !== 'time');
 
   if (members.length === 0) return [];
 
@@ -298,11 +302,40 @@ export function computePaddedBounds(
 }
 
 /**
+ * Bottom-left dock for an engine Time hub under the laid-out member envelope.
+ * Absolute canvas coordinates (same space as member positions).
+ */
+export function placeEngineTimeHubPosition(
+  memberPositions: readonly {
+    x: number;
+    y: number;
+    width?: number;
+    height?: number;
+  }[],
+): { x: number; y: number } {
+  if (memberPositions.length === 0) {
+    return { x: 0, y: 0 };
+  }
+  let minX = Infinity;
+  let maxBottom = -Infinity;
+  for (const pos of memberPositions) {
+    const height = pos.height ?? CANVAS_LAYOUT.moduleHeight;
+    minX = Math.min(minX, pos.x);
+    maxBottom = Math.max(maxBottom, pos.y + height);
+  }
+  return {
+    x: minX,
+    y: maxBottom + CANVAS_LAYOUT.engineTimeHubGap,
+  };
+}
+
+/**
  * Place engine members in rank columns with connection-safe gutters.
  * Returns absolute positions and group bounds. Origin is the desired group top-left.
+ * Engine Time hubs pin to the bottom-middle of the member envelope (D-091).
  */
 export function layoutEngineGroup(
-  engineId: string,
+  _engineId: string,
   memberIds: readonly string[],
   modulesById: ReadonlyMap<string, LayoutModule>,
   links: readonly LayoutLink[],
@@ -359,7 +392,40 @@ export function layoutEngineGroup(
     });
   }
 
-  // Include dedicated Math docks so group chrome covers the full owner/tool envelope.
+  // D-091: pin engine Time hub(s) to bottom-left under the member/Math envelope.
+  const envelopeBoxes = [...positions.entries()].map(([id, pos]) => {
+    const mod = modulesById.get(id);
+    const isMath = mod?.type === 'math';
+    return {
+      x: pos.x,
+      y: pos.y,
+      width: isMath
+        ? CANVAS_LAYOUT.mathToolWidth
+        : Math.max(mod?.width ?? CANVAS_LAYOUT.moduleWidth, CANVAS_LAYOUT.moduleWidth),
+      height: isMath
+        ? CANVAS_LAYOUT.mathToolHeight
+        : Math.max(mod?.height ?? CANVAS_LAYOUT.moduleHeight, CANVAS_LAYOUT.moduleHeight),
+    };
+  });
+  const timeHubPos =
+    envelopeBoxes.length > 0
+      ? placeEngineTimeHubPosition(envelopeBoxes)
+      : {
+          x: origin.x + padding.left,
+          y: origin.y + padding.top,
+        };
+  const timeMembers = memberIds
+    .map((id) => modulesById.get(id))
+    .filter((m): m is LayoutModule => !!m && m.type === 'time')
+    .sort((a, b) => a.id.localeCompare(b.id));
+  timeMembers.forEach((timeMod, index) => {
+    positions.set(timeMod.id, {
+      x: timeHubPos.x,
+      y: timeHubPos.y + index * (CANVAS_LAYOUT.moduleHeight + CANVAS_LAYOUT.mathAttachmentGap),
+    });
+  });
+
+  // Include dedicated Math docks + Time rail so group chrome covers the full envelope.
   const allLayoutPositions = [...positions.values()];
   const bounds = computePaddedBounds(allLayoutPositions, padding);
 

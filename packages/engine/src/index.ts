@@ -182,6 +182,18 @@ export {
   sourceKindLabel,
 } from './research/posture-sources';
 export {
+  buildSymbolViz,
+  buildSyntheticSparkSeries,
+  directionFromSpark,
+  heldVsCostFromMarks,
+  mapTrendStrengthToBand,
+  strengthTicksFromBand,
+} from './research/symbol-viz';
+export {
+  buildMarketHubCharts,
+  qualitativeFromMoversBand,
+} from './research/market-hub-charts';
+export {
   loadCompanyLinkGraph,
   neighborIds,
   resolveDirectiveTradingTarget,

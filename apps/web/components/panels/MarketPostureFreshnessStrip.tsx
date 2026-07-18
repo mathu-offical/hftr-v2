@@ -14,6 +14,12 @@ export function MarketPostureFreshnessStrip(props: {
   const moversExp = props.freshness.moversExpiresAt
     ? formatOrientation(props.freshness.moversExpiresAt)
     : null;
+  const sectorExp = props.freshness.sectorExpiresAt
+    ? formatOrientation(props.freshness.sectorExpiresAt)
+    : null;
+  const dailyExp = props.freshness.dailyExpiresAt
+    ? formatOrientation(props.freshness.dailyExpiresAt)
+    : null;
 
   if (props.compact) {
     return (
@@ -22,7 +28,9 @@ export function MarketPostureFreshnessStrip(props: {
         className="font-mono text-[9px] tabular-nums text-[var(--color-ink-faint)]"
       >
         Fetched {fetched}
-        {moversExp ? ` · movers exp ${moversExp}` : ''}
+        {moversExp ? ` · movers ${moversExp}` : ''}
+        {sectorExp ? ` · sector ${sectorExp}` : ''}
+        {dailyExp ? ` · daily ${dailyExp}` : ''}
       </p>
     );
   }
@@ -33,7 +41,9 @@ export function MarketPostureFreshnessStrip(props: {
       className="font-mono text-[10px] tabular-nums text-[var(--color-ink-faint)]"
     >
       Hub fetched {fetched}
-      {moversExp ? ` · movers seal expires ${moversExp}` : ' · no movers expiry'}
+      {moversExp ? ` · movers expires ${moversExp}` : ' · no movers expiry'}
+      {sectorExp ? ` · sector ${sectorExp}` : ''}
+      {dailyExp ? ` · daily ${dailyExp}` : ''}
     </p>
   );
 }

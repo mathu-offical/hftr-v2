@@ -13,6 +13,7 @@ import {
 import { scoping } from '@hftr/db';
 import {
   companies,
+  concepts,
   decisionTrees,
   engineInstances,
   leadPackages,
@@ -29,6 +30,7 @@ import {
   enqueue,
   getSyntheticQuote,
   loadLatestValidSeal,
+  loadLatestSynthesisRun,
   parseVerifiedSealBundle,
   resolveResearchGatherCredentials,
   MOVERS_LANE_SOURCE_KINDS,
@@ -574,7 +576,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     const reports: MarketHubReportLink[] = [];
     const seenReportIds = new Set<string>();
     for (const lookup of REPORT_SEAL_LOOKUPS) {
-      if (reports.length >= 6) break;
+      if (reports.length >= 8) break;
       let reportSeal = null;
       try {
         reportSeal = await loadLatestValidSeal(db, {
@@ -600,7 +602,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     if (
       movers.reportConceptId &&
       !seenReportIds.has(movers.reportConceptId) &&
-      reports.length < 6
+      reports.length < 8
     ) {
       reports.push({
         id: movers.reportConceptId,
@@ -609,6 +611,73 @@ export async function GET(_req: Request, ctx: Ctx) {
         expiresAt: movers.expiresAt,
       });
     }
+
+    const [narrativeConcept] = await db
+      .select({ id: concepts.id })
+      .from(concepts)
+      .where(
+        and(
+          eq(concepts.companyId, companyId),
+          eq(concepts.title, 'posture_synthesis_narrative'),
+          eq(concepts.status, 'active'),
+        ),
+      )
+      .orderBy(desc(concepts.updatedAt))
+      .limit(1);
+    if (narrativeConcept && !seenReportIds.has(narrativeConcept.id) && reports.length < 8) {
+      seenReportIds.add(narrativeConcept.id);
+      reports.push({
+        id: narrativeConcept.id,
+        title: 'Posture synthesis narrative',
+        kind: 'posture_narrative',
+      });
+    }
+
+    let sectorExpiresAt: string | null = null;
+    let dailyExpiresAt: string | null = null;
+    try {
+      const sectorSeal = await loadLatestValidSeal(db, {
+        companyId,
+        kind: 'sector_bulletin',
+        subjectKey: 'sector_daily',
+        nowMs,
+      });
+      sectorExpiresAt = sectorSeal?.expiresAt ?? null;
+    } catch {
+      sectorExpiresAt = null;
+    }
+    try {
+      const dailySealLookups = REPORT_SEAL_LOOKUPS.filter((l) => l.kind === 'daily_summary_phase');
+      for (const lookup of dailySealLookups) {
+        const seal = await loadLatestValidSeal(db, {
+          companyId,
+          kind: lookup.kind,
+          subjectKey: lookup.subjectKey,
+          nowMs,
+        });
+        if (seal?.expiresAt) {
+          dailyExpiresAt = seal.expiresAt;
+          break;
+        }
+      }
+    } catch {
+      dailyExpiresAt = null;
+    }
+
+    const synthesisRun = await loadLatestSynthesisRun(db, { companyId });
+    const stagesDone =
+      synthesisRun?.stages.filter(
+        (s) =>
+          s.status === 'succeeded' || s.status === 'skipped' || s.status === 'failed',
+      ).length ?? 0;
+    const synthesis = {
+      runId: synthesisRun?.id ?? null,
+      status: synthesisRun?.status ?? null,
+      narrativeConceptId: narrativeConcept?.id ?? null,
+      stagesDone,
+      stagesTotal: synthesisRun?.stages.length ?? 0,
+      errorCode: synthesisRun?.errorCode ?? null,
+    };
 
     const sectorFocuses = Array.isArray(company.sectorFocuses)
       ? company.sectorFocuses.filter((s): s is string => typeof s === 'string').slice(0, 64)
@@ -678,8 +747,11 @@ export async function GET(_req: Request, ctx: Ctx) {
       pipeline,
       freshness: {
         moversExpiresAt: movers.expiresAt,
+        sectorExpiresAt,
+        dailyExpiresAt,
         fetchedAt,
       },
+      synthesis,
       sources: {
         lanes: sourceLanes,
         contributedKinds,

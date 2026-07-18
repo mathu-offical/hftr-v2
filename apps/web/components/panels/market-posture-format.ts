@@ -22,7 +22,7 @@ export function formatOrientation(iso: string | null | undefined): string {
 }
 
 export function reportKindLabel(
-  kind: 'movers_report' | 'sector_bulletin' | 'daily_summary' | 'other',
+  kind: 'movers_report' | 'sector_bulletin' | 'daily_summary' | 'posture_narrative' | 'other',
 ): string {
   switch (kind) {
     case 'movers_report':
@@ -31,6 +31,8 @@ export function reportKindLabel(
       return 'Sector';
     case 'daily_summary':
       return 'Daily';
+    case 'posture_narrative':
+      return 'Narrative';
     case 'other':
       return 'Report';
     default: {

@@ -16,6 +16,7 @@ describe('market-posture-format', () => {
     expect(reportKindLabel('movers_report')).toBe('Movers');
     expect(reportKindLabel('sector_bulletin')).toBe('Sector');
     expect(reportKindLabel('daily_summary')).toBe('Daily');
+    expect(reportKindLabel('posture_narrative')).toBe('Narrative');
     expect(reportKindLabel('other')).toBe('Report');
   });
 

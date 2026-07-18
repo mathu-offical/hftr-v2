@@ -9,6 +9,7 @@ import {
 import { MarketPostureFreshnessStrip } from '@/components/panels/MarketPostureFreshnessStrip';
 import { MarketPostureSourcesStrip } from '@/components/panels/MarketPostureSourcesStrip';
 import { MarketPostureModelCanvas } from '@/components/panels/MarketPostureModelCanvas';
+import { MarketPostureAwarenessDock } from '@/components/panels/MarketPostureAwarenessDock';
 import { SymbolTicker } from '@/components/market/SymbolTicker';
 import { Justification } from '@/components/panels/Justification';
 import { PanelTabs } from '@/components/panels/PanelTabs';
@@ -26,6 +27,7 @@ import { api } from '@/lib/client';
 import { invalidateMarketHub } from '@/lib/market-hub-cache';
 import { useMarketHub } from '@/lib/use-market-hub';
 import { useMarketHubSynthesis } from '@/lib/use-market-hub-synthesis';
+import { useResearchView } from '@/components/research/ResearchViewContext';
 
 const CATEGORIES: { id: MarketPostureCategory; label: string }[] = [
   { id: 'positions', label: 'Positions' },
@@ -43,6 +45,7 @@ const SYNTHESIS_TERMINAL = new Set(['succeeded', 'failed', 'partial']);
  */
 export function MarketPosturePanel(props: { companyId: string }) {
   const mp = useMarketPostureView();
+  const research = useResearchView();
   const { data: hub, loading, refreshing, analyzing, error, refresh, analyze } = useMarketHub(
     props.companyId,
     {
@@ -160,13 +163,20 @@ export function MarketPosturePanel(props: { companyId: string }) {
       {mp.category === 'model' && (
         <div className="space-y-2" data-testid="market-posture-model">
           <p className="text-[10px] text-[var(--color-ink-dim)]">
-            Live synthesis hub. Analyze force-reseals movers/sector/daily and records every
-            stage; Sync only reloads the hub projection.
+            Live synthesis hub plus sealed movers / sector / daily / narrative awareness.
+            Analyze force-reseals and records every stage; Sync only reloads the hub projection.
           </p>
           {synthesis.error ? (
             <p className="text-[10px] text-[var(--color-block)]">{synthesis.error}</p>
           ) : null}
           <MarketPostureModelCanvas run={synthesis.run} />
+          <MarketPostureAwarenessDock
+            hub={hub}
+            onOpenConcept={(conceptId) => {
+              research.openOverlay();
+              research.inspectConcept(conceptId);
+            }}
+          />
         </div>
       )}
       {mp.category === 'watchlists' && (

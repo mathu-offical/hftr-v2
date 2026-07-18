@@ -77,8 +77,9 @@ export async function POST(_req: Request, ctx: Ctx) {
       idempotencyKey: `market-hub-analyze-narrative-${companyId}-${runId}`,
       priority: 'LOW',
       companyId,
-      // Prefer seals first when drain runs; narrative still safe if seals lag.
-      runAfterMs: clock.nowMs() + 2_000,
+      // Narrative waits on seal stages inside the handler; short delay only
+      // reduces empty-queue claim races during inline drain.
+      runAfterMs: clock.nowMs() + 5_000,
     });
 
     let drained:

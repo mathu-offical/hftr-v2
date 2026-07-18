@@ -70,8 +70,10 @@ export function buildMarketPostureAlgorithmGraph(): PostureAlgoGraph {
     { id: 'e-rs-rank', source: 'rs', target: 'rank' },
     { id: 'e-rank-ver', source: 'rank', target: 'verify' },
     { id: 'e-ver-seal', source: 'verify', target: 'seal_movers' },
-    { id: 'e-seal-sector', source: 'seal_movers', target: 'sector' },
-    { id: 'e-sector-daily', source: 'sector', target: 'daily' },
+    // Parallel reseal fan-out (Analyze enqueues movers/sector/daily together)
+    { id: 'e-seal-sector', source: 'seal_movers', target: 'sector', label: '∥' },
+    { id: 'e-seal-daily', source: 'seal_movers', target: 'daily', label: '∥' },
+    { id: 'e-sector-narr', source: 'sector', target: 'narrative' },
     { id: 'e-daily-narr', source: 'daily', target: 'narrative' },
     { id: 'e-narr-hub', source: 'narrative', target: 'hub_ready' },
   ];

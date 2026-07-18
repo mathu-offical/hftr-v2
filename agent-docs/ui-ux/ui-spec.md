@@ -251,12 +251,17 @@ suppressed in editable fields.
   cache (D-063) so shelf chrome returns from memory/session while page indexes lazy-load.
   Design: `ui-ux/research-tab-shelves-inspector-design.md`.
   Library research (`LIBRARY_RESEARCH`) is a separate queue from posture research
-  (`POSTURE_RESEARCH`) and from execution/other LLM lanes (D-098).- **Market posture** tab (D-081 / D-085 / D-092): live operating hub. Left rail lists company-wide
-  persisted categories (positions, watchlists, trends, plans). Opening the tab opens a
-  **galaxy-style canvas overlay dashboard** with: equity chart (company series; accent path
-  follows selected holding mark), sector top movers, report navigation buttons (open sealed
-  report concepts in Research + Libraries), detailed holdings cards with **presiding engine
-  chips**, and continuation/exit stubs. Hover justification (D-083) where wired.
+  (`POSTURE_RESEARCH`) and from execution/other LLM lanes (D-098).- **Market posture** tab (D-081 / D-085 / D-092 / D-101): live operating hub. Left rail lists
+  company-wide persisted categories (positions, watchlists, trends, plans) with rich row
+  metrics (uPnL/rPnL, strengthBand/engines, lead+tree status) and **row → overlay focus**.
+  Opening the tab opens a **canvas overlay dashboard** with: equity chart (company series;
+  status · asOf · version; accent uses `series[].positionMarkCents` when present, otherwise a
+  dashed **mark (synthetic)** reference — never invents mark history), sector movers
+  (title · corroboration · verified/expires · stale cue), report buttons from multi-seal
+  targets (`movers_board`, `sector_bulletin`, `daily_summary_phase`) showing **kind + seal
+  expiry**, holdings with realized PnL + pipeline/recovery stubs, and bottom grids at rail
+  parity (tier filters including `triggered`, Confirm, Justification). Freshness strip shows
+  hub `fetchedAt` + movers expiry. Hover justification (D-083) where wired.
   Distinct from Research + Libraries (async corpus). Hub data uses client **SWR cache**
   (`market-hub-cache` + `useMarketHub`): memory + sessionStorage, 15s fresh / 10m stale,
   inflight dedupe, shell warm-prefetch so tab/overlay navigation stays seamless.
@@ -264,9 +269,9 @@ suppressed in editable fields.
   then force-revalidates. Non-flat `trend.scan` and admitted `trend.promote` also enqueue
   movers revalidation.
   **Watchlist tiers (D-092):** `suggested_search` → `suggested_verified` → `watching`
-  (+ `triggered` / `archived`). Market posture rail + bottom Watch lists filter chips
-  (default: watching + suggested_verified). **Confirm** PATCHes to `watching` and
-  invalidates market-hub cache. Overlay watchlist block defaults to watching + verified.
+  (+ `triggered` / `archived`). Market posture rail **and overlay** + bottom Watch lists
+  filter chips (default: watching + suggested_verified). **Confirm** PATCHes to `watching`
+  and invalidates market-hub cache.
 - Research concept inspector titles and TraceTimeline stage rows also use Justification hover
   (D-083) with honest source-class labels (model vs deterministic vs system seal).
 - Research overlay (main content, layered over canvas): **Galaxy** surface with optional

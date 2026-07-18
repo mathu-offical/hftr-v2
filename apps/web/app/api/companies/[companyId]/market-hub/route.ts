@@ -58,9 +58,56 @@ function uniqEngines(chips: MarketHubEngineChip[]): MarketHubEngineChip[] {
   return out.slice(0, 12);
 }
 
+/** Report seals projected into Market posture hub (D-085 / D-101). */
+const REPORT_SEAL_LOOKUPS: Array<{
+  kind: 'movers_board' | 'sector_bulletin' | 'daily_summary_phase';
+  subjectKey: string;
+  reportKind: MarketHubReportLink['kind'];
+  fallbackTitle: string;
+}> = [
+  {
+    kind: 'movers_board',
+    subjectKey: 'daily',
+    reportKind: 'movers_report',
+    fallbackTitle: 'Daily movers report',
+  },
+  {
+    kind: 'sector_bulletin',
+    subjectKey: 'sector_daily',
+    reportKind: 'sector_bulletin',
+    fallbackTitle: 'Sector bulletin',
+  },
+  {
+    kind: 'daily_summary_phase',
+    subjectKey: 'phase_pre_open',
+    reportKind: 'daily_summary',
+    fallbackTitle: 'Daily summary · pre-open',
+  },
+  {
+    kind: 'daily_summary_phase',
+    subjectKey: 'phase_midday',
+    reportKind: 'daily_summary',
+    fallbackTitle: 'Daily summary · midday',
+  },
+  {
+    kind: 'daily_summary_phase',
+    subjectKey: 'phase_close',
+    reportKind: 'daily_summary',
+    fallbackTitle: 'Daily summary · close',
+  },
+  {
+    kind: 'daily_summary_phase',
+    subjectKey: 'phase_post_analysis',
+    reportKind: 'daily_summary',
+    fallbackTitle: 'Daily summary · post',
+  },
+];
+
 /**
- * Market posture hub (D-081 / D-082): equity series, movers, positions with
- * engine chips, watchlists / trends / pipeline, and report navigation links.
+ * Market posture hub (D-081 / D-085 / D-101): equity series, movers, positions with
+ * engine chips, watchlists / trends / pipeline, and multi-seal report navigation links.
+ * `series[].positionMarkCents` stays null until a durable mark history exists —
+ * UI draws a dashed current-mark reference rather than inventing a path.
  */
 export async function GET(_req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
@@ -394,11 +441,41 @@ export async function GET(_req: Request, ctx: Ctx) {
       });
 
     const reports: MarketHubReportLink[] = [];
-    if (movers.reportConceptId) {
+    const seenReportIds = new Set<string>();
+    for (const lookup of REPORT_SEAL_LOOKUPS) {
+      if (reports.length >= 6) break;
+      let reportSeal = null;
+      try {
+        reportSeal = await loadLatestValidSeal(db, {
+          companyId,
+          kind: lookup.kind,
+          subjectKey: lookup.subjectKey,
+          nowMs,
+        });
+      } catch {
+        reportSeal = null;
+      }
+      const conceptId = reportSeal?.reportConceptId ?? null;
+      if (!conceptId || seenReportIds.has(conceptId)) continue;
+      seenReportIds.add(conceptId);
+      reports.push({
+        id: conceptId,
+        title: reportSeal?.view.title?.slice(0, 200) || lookup.fallbackTitle,
+        kind: lookup.reportKind,
+        expiresAt: reportSeal?.expiresAt ?? null,
+      });
+    }
+    // Movers board may be expired but still have a navigable report concept.
+    if (
+      movers.reportConceptId &&
+      !seenReportIds.has(movers.reportConceptId) &&
+      reports.length < 6
+    ) {
       reports.push({
         id: movers.reportConceptId,
         title: movers.title ?? 'Daily movers report',
         kind: 'movers_report',
+        expiresAt: movers.expiresAt,
       });
     }
 

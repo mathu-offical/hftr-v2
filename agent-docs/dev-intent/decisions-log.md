@@ -1060,6 +1060,17 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   orbit capped at 24 chips with quieter chrome. Helpers in `galaxy-hover-labels.ts`. Docs:
   research-galaxy-topic-view-design, ui-spec §6. **Status: implemented.**
 
+- **D-101 (Market posture hub metric completeness, 2026-07-18):** Completes the Market posture
+  live hub (D-081 / D-085 / D-092). Overlay + left rail render all `MarketHubResponse` fields
+  that matter to operators: equity status/asOf/version + freshness strip; movers title/
+  corroboration/verified/expires with stale cue; multi-seal reports (`movers_board`,
+  `sector_bulletin`, `daily_summary_phase`) with kind + expiry; positions realized PnL;
+  trends strengthBand/engines; pipeline lead+tree+recovery; watchlist tier filters including
+  `triggered` with Confirm + Justification on both surfaces; rail rows focus overlay selection.
+  Equity accent prefers `positionMarkCents` series when present; otherwise a dashed synthetic
+  current-mark line (no fabricated history). Code comments that mislabeled posture overlay as
+  D-082 corrected to D-085. Docs: ui-spec §4 left Market posture. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

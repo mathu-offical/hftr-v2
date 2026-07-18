@@ -3,7 +3,7 @@ import { QualitativeBand } from './system-libraries';
 import { SystemNormalizedViewItem } from './verified-normalize';
 
 /**
- * Market posture hub projection (D-081 / D-082).
+ * Market posture hub projection (D-081 / D-085 / D-101).
  * Live operating dashboard: equity series, movers, positions with engine chips,
  * watchlists / trends / pipeline categories, and report navigation targets.
  */
@@ -125,6 +125,8 @@ export const MarketHubReportLink = z.object({
   id: z.string().uuid(),
   title: z.string().max(200),
   kind: z.enum(['movers_report', 'sector_bulletin', 'daily_summary', 'other']),
+  /** Seal expiry when known — orientation only. */
+  expiresAt: z.string().datetime().nullable().optional(),
 });
 export type MarketHubReportLink = z.infer<typeof MarketHubReportLink>;
 

@@ -4,6 +4,14 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 
 export type MarketPostureCategory = 'positions' | 'watchlists' | 'trends' | 'pipeline';
 
+export interface MarketPostureFocusOpts {
+  symbol?: string | null;
+  positionId?: string | null;
+  category?: MarketPostureCategory;
+  /** Open overlay when focusing from the left rail. Default true. */
+  openOverlay?: boolean;
+}
+
 export interface MarketPostureViewContextValue {
   companyId: string;
   overlayOpen: boolean;
@@ -18,6 +26,8 @@ export interface MarketPostureViewContextValue {
     bridge: { ensurePostureOpen: () => void; collapse: () => void } | null,
   ) => void;
   selectPosition: (positionId: string | null, symbol?: string | null) => void;
+  /** Focus overlay on a symbol / category (rail → overlay parity). */
+  focusEntity: (opts: MarketPostureFocusOpts) => void;
   setCategory: (c: MarketPostureCategory) => void;
 }
 
@@ -52,6 +62,25 @@ export function MarketPostureViewProvider(props: { companyId: string; children: 
     setSelectedSymbol(symbol ?? null);
   }, []);
 
+  const focusEntity = useCallback(
+    (opts: MarketPostureFocusOpts) => {
+      if (opts.category) setCategory(opts.category);
+      if (opts.positionId !== undefined) {
+        setSelectedPositionId(opts.positionId);
+      }
+      if (opts.symbol !== undefined) {
+        setSelectedSymbol(opts.symbol);
+        if (opts.positionId === undefined && opts.symbol === null) {
+          setSelectedPositionId(null);
+        }
+      }
+      if (opts.openOverlay !== false) {
+        setOverlayOpen(true);
+      }
+    },
+    [],
+  );
+
   const value = useMemo<MarketPostureViewContextValue>(
     () => ({
       companyId: props.companyId,
@@ -64,6 +93,7 @@ export function MarketPostureViewProvider(props: { companyId: string; children: 
       closeWorkspace,
       registerLeftPanelBridge,
       selectPosition,
+      focusEntity,
       setCategory,
     }),
     [
@@ -77,6 +107,7 @@ export function MarketPostureViewProvider(props: { companyId: string; children: 
       closeWorkspace,
       registerLeftPanelBridge,
       selectPosition,
+      focusEntity,
     ],
   );
 

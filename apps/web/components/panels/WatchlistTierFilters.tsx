@@ -7,6 +7,7 @@ export type WatchlistTierFilter =
   | 'watching'
   | 'suggested_verified'
   | 'suggested_search'
+  | 'triggered'
   | 'archived'
   | 'all';
 
@@ -15,6 +16,7 @@ export const WATCHLIST_TIER_FILTERS: { id: WatchlistTierFilter; label: string }[
   { id: 'watching', label: 'Watching' },
   { id: 'suggested_verified', label: 'Verified suggestions' },
   { id: 'suggested_search', label: 'Search suggestions' },
+  { id: 'triggered', label: 'Triggered' },
   { id: 'archived', label: 'Archived' },
   { id: 'all', label: 'All' },
 ];
@@ -30,6 +32,8 @@ export function watchlistStatusesForFilter(filter: WatchlistTierFilter): Watchli
       return ['suggested_verified'];
     case 'suggested_search':
       return ['suggested_search'];
+    case 'triggered':
+      return ['triggered'];
     case 'archived':
       return ['archived'];
     case 'all':

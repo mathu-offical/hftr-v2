@@ -1,26 +1,28 @@
 'use client';
 
-import { useMemo, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import type { MarketHubPosition } from '@hftr/contracts';
 import { useResearchView } from '@/components/research/ResearchViewContext';
 import { MarketPostureEquityChart } from '@/components/panels/MarketPostureEquityChart';
+import { MarketPostureFreshnessStrip } from '@/components/panels/MarketPostureFreshnessStrip';
 import { useMarketPostureView } from '@/components/panels/MarketPostureViewContext';
 import { Justification } from '@/components/panels/Justification';
+import {
+  WatchlistTierFilterChips,
+  watchlistMatchesTierFilter,
+  type WatchlistTierFilter,
+} from '@/components/panels/WatchlistTierFilters';
+import {
+  dollarsFromCents,
+  formatOrientation,
+  moversAreStale,
+  pnlLabel,
+  reportKindLabel,
+} from '@/components/panels/market-posture-format';
+import { api } from '@/lib/client';
+import { invalidateMarketHub } from '@/lib/market-hub-cache';
 import { useMarketHub } from '@/lib/use-market-hub';
-
-function dollarsFromCents(cents: number | string): string {
-  const n = typeof cents === 'string' ? Number(cents) : cents;
-  if (!Number.isFinite(n)) return '—';
-  return `$${(n / 100).toFixed(2)}`;
-}
-
-function pnlLabel(centsStr: string): string {
-  const n = Number(centsStr);
-  if (!Number.isFinite(n)) return '—';
-  const sign = n > 0 ? '+' : '';
-  return `${sign}${(n / 100).toFixed(2)}`;
-}
 
 function EngineChips(props: { engines: { id: string; label: string }[] }) {
   if (props.engines.length === 0) {
@@ -41,19 +43,28 @@ function EngineChips(props: { engines: { id: string; label: string }[] }) {
   );
 }
 
+function focusRing(active: boolean): string {
+  return active
+    ? 'ring-1 ring-[var(--color-accent)] border-[var(--color-accent)]'
+    : 'border-[var(--color-line)]';
+}
+
 /**
- * Canvas overlay dashboard for Market posture (D-082) — galaxy-style main surface
- * with equity chart, sector movers, report nav, and detailed holdings.
+ * Canvas overlay dashboard for Market posture (D-085 / D-101) — live hub with
+ * equity, movers, reports, holdings, and category grids at rail parity.
  */
 export function MarketPostureOverlay() {
   const mp = useMarketPostureView();
   const research = useResearchView();
-  // Always subscribed while shell is up so overlay opens on warm cache;
-  // poll only while overlay is visible (shell warm-prefetch covers background).
-  const { data: hub, loading, refreshing, error, refreshMovers } = useMarketHub(mp.companyId, {
-    enabled: true,
-    poll: mp.overlayOpen,
-  });
+  const { data: hub, loading, refreshing, error, refresh, refreshMovers } = useMarketHub(
+    mp.companyId,
+    {
+      enabled: true,
+      poll: mp.overlayOpen,
+    },
+  );
+  const [watchlistTierFilter, setWatchlistTierFilter] = useState<WatchlistTierFilter>('default');
+  const detailRef = useRef<HTMLElement | null>(null);
 
   const selectedPosition: MarketHubPosition | null = useMemo(() => {
     if (!hub || !mp.selectedPositionId) return null;
@@ -71,14 +82,47 @@ export function MarketPostureOverlay() {
     : 'Unavailable';
 
   const pipelineForSelected = useMemo(() => {
-    if (!hub || !selectedPosition) return null;
-    return hub.pipeline.find((p) => p.symbol === selectedPosition.symbol) ?? null;
-  }, [hub, selectedPosition]);
+    if (!hub || !mp.selectedSymbol) return null;
+    return hub.pipeline.find((p) => p.symbol === mp.selectedSymbol) ?? null;
+  }, [hub, mp.selectedSymbol]);
+
+  const filteredWatchlists = useMemo(() => {
+    if (!hub) return [];
+    return hub.watchlists.filter((w) => watchlistMatchesTierFilter(w.status, watchlistTierFilter));
+  }, [hub, watchlistTierFilter]);
+
+  const moversStale = hub
+    ? moversAreStale({ status: hub.movers.status, expiresAt: hub.movers.expiresAt })
+    : false;
 
   const openReport = (conceptId: string) => {
     research.openOverlay();
     research.inspectConcept(conceptId);
   };
+
+  const confirmWatchlist = useCallback(
+    async (itemId: string) => {
+      await api(`/api/companies/${mp.companyId}/watchlists/${itemId}`, {
+        method: 'PATCH',
+        body: { status: 'watching' },
+      });
+      invalidateMarketHub({ companyId: mp.companyId });
+      await refresh(true);
+    },
+    [mp.companyId, refresh],
+  );
+
+  useEffect(() => {
+    if (!mp.overlayOpen || !mp.selectedSymbol) return;
+    const el = document.querySelector(
+      `[data-posture-focus-symbol="${CSS.escape(mp.selectedSymbol)}"]`,
+    );
+    if (el instanceof HTMLElement) {
+      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    } else if (detailRef.current) {
+      detailRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [mp.overlayOpen, mp.selectedSymbol, mp.selectedPositionId, mp.category]);
 
   if (!mp.overlayOpen) return null;
 
@@ -89,33 +133,36 @@ export function MarketPostureOverlay() {
       role="dialog"
       aria-label="Market posture dashboard"
     >
-      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--color-line)] px-3 py-2">
-        <div className="min-w-0">
-          <span className="text-xs font-medium text-[var(--color-ink)]">Market posture</span>
-          {hub && hub.sectorFocuses.length > 0 ? (
-            <p className="truncate text-[10px] text-[var(--color-ink-faint)]">
-              Sector lens: {hub.sectorFocuses.join(' · ')}
-            </p>
-          ) : null}
+      <header className="flex shrink-0 flex-col gap-1 border-b border-[var(--color-line)] px-3 py-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <span className="text-xs font-medium text-[var(--color-ink)]">Market posture</span>
+            {hub && hub.sectorFocuses.length > 0 ? (
+              <p className="truncate text-[10px] text-[var(--color-ink-faint)]">
+                Sector lens: {hub.sectorFocuses.join(' · ')}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void refreshMovers()}
+              disabled={refreshing}
+              className="border border-[var(--color-line)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--color-ink-dim)] hover:border-[var(--color-ink-faint)] hover:text-[var(--color-ink)] disabled:opacity-50"
+            >
+              {refreshing ? 'Sync…' : 'Refresh'}
+            </button>
+            <button
+              type="button"
+              onClick={mp.closeWorkspace}
+              aria-label="Close market posture"
+              className="rounded p-1 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void refreshMovers()}
-            disabled={refreshing}
-            className="border border-[var(--color-line)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--color-ink-dim)] hover:border-[var(--color-ink-faint)] hover:text-[var(--color-ink)] disabled:opacity-50"
-          >
-            {refreshing ? 'Sync…' : 'Refresh'}
-          </button>
-          <button
-            type="button"
-            onClick={mp.closeWorkspace}
-            aria-label="Close market posture"
-            className="rounded p-1 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+        {hub ? <MarketPostureFreshnessStrip freshness={hub.freshness} /> : null}
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
@@ -134,13 +181,35 @@ export function MarketPostureOverlay() {
                 series={hub.equity.series}
                 selectedQty={Number.isFinite(selectedQty) ? selectedQty : null}
                 selectedMarkCents={selectedMark}
-                selectedSymbol={selectedPosition?.symbol ?? null}
+                selectedSymbol={selectedPosition?.symbol ?? mp.selectedSymbol}
                 equityLabel={equityLabel}
+                equityStatus={hub.equity.status}
+                asOfIso={hub.equity.asOfIso}
+                version={hub.equity.version}
               />
-              <div className="space-y-2 rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2.5">
-                <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                  Top movers in sector
-                </h3>
+              <div
+                className={`space-y-2 rounded border bg-[var(--color-surface-1)] p-2.5 ${
+                  moversStale
+                    ? 'border-[var(--color-warn,var(--color-ink-faint))]'
+                    : 'border-[var(--color-line)]'
+                }`}
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-1">
+                  <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+                    {hub.movers.title ?? 'Top movers in sector'}
+                  </h3>
+                  <span className="font-mono text-[9px] uppercase text-[var(--color-ink-faint)]">
+                    {hub.movers.status}
+                    {hub.movers.corroborationBand
+                      ? ` · ${hub.movers.corroborationBand}`
+                      : ''}
+                  </span>
+                </div>
+                <p className="font-mono text-[9px] text-[var(--color-ink-faint)]">
+                  Verified {formatOrientation(hub.movers.verifiedAt)} · expires{' '}
+                  {formatOrientation(hub.movers.expiresAt)}
+                  {moversStale ? ' · stale' : ''}
+                </p>
                 {hub.movers.items.length === 0 ? (
                   <p className="text-xs text-[var(--color-ink-faint)]">
                     No movers seal yet ({hub.movers.status}).
@@ -183,9 +252,22 @@ export function MarketPostureOverlay() {
                         key={r.id}
                         type="button"
                         onClick={() => openReport(r.id)}
-                        className="rounded border border-[var(--color-line)] px-2 py-1 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+                        className="rounded border border-[var(--color-line)] px-2 py-1 text-left text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+                        title={
+                          r.expiresAt
+                            ? `Expires ${formatOrientation(r.expiresAt)}`
+                            : reportKindLabel(r.kind)
+                        }
                       >
+                        <span className="mr-1 uppercase tracking-wider text-[var(--color-ink-faint)]">
+                          {reportKindLabel(r.kind)}
+                        </span>
                         {r.title}
+                        {r.expiresAt ? (
+                          <span className="mt-0.5 block font-mono text-[8px] text-[var(--color-ink-faint)]">
+                            exp {formatOrientation(r.expiresAt)}
+                          </span>
+                        ) : null}
                       </button>
                     ))
                   )}
@@ -211,11 +293,13 @@ export function MarketPostureOverlay() {
                   {hub.positions.map((p) => {
                     const selected = p.id === mp.selectedPositionId;
                     return (
-                      <li key={p.id}>
+                      <li key={p.id} data-posture-focus-symbol={p.symbol}>
                         <button
                           type="button"
                           data-testid={`market-posture-position-${p.id}`}
-                          onClick={() => mp.selectPosition(selected ? null : p.id, p.symbol)}
+                          onClick={() =>
+                            mp.selectPosition(selected ? null : p.id, selected ? null : p.symbol)
+                          }
                           className={`w-full rounded border px-3 py-2.5 text-left transition-colors ${
                             selected
                               ? 'border-[var(--color-accent)] bg-[var(--color-surface-2)]'
@@ -239,13 +323,16 @@ export function MarketPostureOverlay() {
                                 qty {p.qty}
                               </span>
                             </div>
-                            <div className="mt-1 flex justify-between text-[10px] text-[var(--color-ink-faint)]">
+                            <div className="mt-1 flex flex-wrap justify-between gap-1 text-[10px] text-[var(--color-ink-faint)]">
                               <span>
                                 avg {dollarsFromCents(p.avgCostCents)} · mark{' '}
                                 {dollarsFromCents(p.markCents)}
                               </span>
                               <span className="font-mono tabular-nums">
                                 uPnL {pnlLabel(p.unrealizedPnlCents)}
+                                {p.realizedPnlCents != null ? (
+                                  <> · rPnL {pnlLabel(p.realizedPnlCents)}</>
+                                ) : null}
                               </span>
                             </div>
                             <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
@@ -264,51 +351,66 @@ export function MarketPostureOverlay() {
               )}
             </section>
 
-            {selectedPosition ? (
+            {selectedPosition || pipelineForSelected ? (
               <section
+                ref={detailRef}
                 data-testid="market-posture-position-detail"
+                data-posture-focus-symbol={mp.selectedSymbol ?? undefined}
                 className="rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-3"
               >
                 <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                  Holding detail · {selectedPosition.symbol}
+                  Holding detail · {selectedPosition?.symbol ?? mp.selectedSymbol}
                 </h3>
-                <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
-                  <div>
-                    <dt className="text-[10px] text-[var(--color-ink-faint)]">Module</dt>
-                    <dd>{selectedPosition.moduleName}</dd>
+                {selectedPosition ? (
+                  <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5">
+                    <div>
+                      <dt className="text-[10px] text-[var(--color-ink-faint)]">Module</dt>
+                      <dd>{selectedPosition.moduleName}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[10px] text-[var(--color-ink-faint)]">Qty</dt>
+                      <dd className="font-mono tabular-nums">{selectedPosition.qty}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[10px] text-[var(--color-ink-faint)]">Avg / Mark</dt>
+                      <dd className="font-mono tabular-nums">
+                        {dollarsFromCents(selectedPosition.avgCostCents)} /{' '}
+                        {dollarsFromCents(selectedPosition.markCents)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[10px] text-[var(--color-ink-faint)]">Unrealized</dt>
+                      <dd className="font-mono tabular-nums">
+                        {pnlLabel(selectedPosition.unrealizedPnlCents)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[10px] text-[var(--color-ink-faint)]">Realized</dt>
+                      <dd className="font-mono tabular-nums">
+                        {pnlLabel(selectedPosition.realizedPnlCents)}
+                      </dd>
+                    </div>
+                  </dl>
+                ) : null}
+                {selectedPosition ? (
+                  <div className="mt-2">
+                    <p className="text-[10px] text-[var(--color-ink-faint)]">Presiding engines</p>
+                    <EngineChips engines={selectedPosition.engines} />
                   </div>
-                  <div>
-                    <dt className="text-[10px] text-[var(--color-ink-faint)]">Qty</dt>
-                    <dd className="font-mono tabular-nums">{selectedPosition.qty}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[10px] text-[var(--color-ink-faint)]">Avg / Mark</dt>
-                    <dd className="font-mono tabular-nums">
-                      {dollarsFromCents(selectedPosition.avgCostCents)} /{' '}
-                      {dollarsFromCents(selectedPosition.markCents)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-[10px] text-[var(--color-ink-faint)]">Unrealized</dt>
-                    <dd className="font-mono tabular-nums">
-                      {pnlLabel(selectedPosition.unrealizedPnlCents)}
-                    </dd>
-                  </div>
-                </dl>
-                <div className="mt-2">
-                  <p className="text-[10px] text-[var(--color-ink-faint)]">Presiding engines</p>
-                  <EngineChips engines={selectedPosition.engines} />
-                </div>
+                ) : null}
                 {pipelineForSelected ? (
                   <div className="mt-3 border-t border-[var(--color-line)] pt-2 text-xs">
                     <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                      Continuation / exit
+                      Pipeline · continuation / exit
                     </p>
                     <p className="mt-1 text-[var(--color-ink-dim)]">
                       Lead: {pipelineForSelected.lead?.status ?? 'none'}
                       {pipelineForSelected.lead
                         ? ` · ${pipelineForSelected.lead.direction} · ${pipelineForSelected.lead.strategyFamily}`
                         : ''}
+                    </p>
+                    <p className="mt-0.5 text-[var(--color-ink-dim)]">
+                      Tree: {pipelineForSelected.tree?.status ?? 'none'}
                     </p>
                     {pipelineForSelected.tree?.recoveryLadder?.length ? (
                       <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">
@@ -327,57 +429,139 @@ export function MarketPostureOverlay() {
             <section className="grid gap-3 md:grid-cols-3">
               <CategoryBlock
                 title="Watchlists"
-                empty="No watchlist symbols"
-                count={hub.watchlists.filter(
-                  (w) => w.status === 'watching' || w.status === 'suggested_verified',
-                ).length}
+                empty="No watchlists for this tier"
+                count={filteredWatchlists.length}
+                headerExtra={
+                  <WatchlistTierFilterChips
+                    value={watchlistTierFilter}
+                    onChange={setWatchlistTierFilter}
+                    className="mt-1 flex flex-wrap gap-1"
+                  />
+                }
               >
-                {hub.watchlists
-                  .filter((w) => w.status === 'watching' || w.status === 'suggested_verified')
-                  .slice(0, 12)
-                  .map((w) => (
-                  <li key={w.id} className="text-xs">
-                    <span className="font-medium">{w.symbol}</span>
-                    <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
-                      {w.bias} · {w.status} · {w.moduleName}
-                    </span>
-                    <div className="mt-0.5">
-                      <EngineChips engines={w.engines} />
-                    </div>
-                  </li>
-                ))}
+                {filteredWatchlists.slice(0, 16).map((w) => {
+                  const focused = mp.selectedSymbol === w.symbol && mp.category === 'watchlists';
+                  return (
+                    <li
+                      key={w.id}
+                      data-posture-focus-symbol={w.symbol}
+                      className={`rounded border px-1.5 py-1 text-xs ${focusRing(focused)}`}
+                    >
+                      <Justification
+                        sourceClass={w.sourceClass === 'operator' ? 'operator' : 'derived'}
+                        lines={[
+                          w.note || 'Watchlist row',
+                          `Source: ${w.sourceClass} · status ${w.status}`,
+                        ]}
+                      >
+                        <button
+                          type="button"
+                          className="w-full text-left"
+                          onClick={() =>
+                            mp.focusEntity({
+                              symbol: w.symbol,
+                              category: 'watchlists',
+                              positionId: null,
+                              openOverlay: true,
+                            })
+                          }
+                        >
+                          <span className="font-medium">{w.symbol}</span>
+                          <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
+                            {w.bias} · {w.status} · {w.sourceClass} · {w.moduleName}
+                          </span>
+                          {w.note ? (
+                            <p className="mt-0.5 truncate text-[10px] text-[var(--color-ink-faint)]">
+                              {w.note}
+                            </p>
+                          ) : null}
+                        </button>
+                      </Justification>
+                      <div className="mt-0.5 flex items-center justify-between gap-1">
+                        <EngineChips engines={w.engines} />
+                        {w.status === 'suggested_search' || w.status === 'suggested_verified' ? (
+                          <button
+                            type="button"
+                            className="shrink-0 text-[9px] uppercase tracking-wider text-[var(--color-accent)] hover:underline"
+                            onClick={() => void confirmWatchlist(w.id)}
+                          >
+                            Confirm
+                          </button>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
               </CategoryBlock>
               <CategoryBlock
                 title="Trend candidates"
                 empty="No trend candidates"
                 count={hub.trendCandidates.length}
               >
-                {hub.trendCandidates.slice(0, 12).map((t) => (
-                  <li key={t.id} className="text-xs">
-                    <span className="font-medium">{t.symbol}</span>
-                    <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
-                      {t.direction} · {t.strengthBand} · {t.status}
-                    </span>
-                    <div className="mt-0.5">
-                      <EngineChips engines={t.engines} />
-                    </div>
-                  </li>
-                ))}
+                {hub.trendCandidates.slice(0, 12).map((t) => {
+                  const focused = mp.selectedSymbol === t.symbol && mp.category === 'trends';
+                  return (
+                    <li
+                      key={t.id}
+                      data-posture-focus-symbol={t.symbol}
+                      className={`rounded border px-1.5 py-1 text-xs ${focusRing(focused)}`}
+                    >
+                      <button
+                        type="button"
+                        className="w-full text-left"
+                        onClick={() =>
+                          mp.focusEntity({
+                            symbol: t.symbol,
+                            category: 'trends',
+                            positionId: null,
+                          })
+                        }
+                      >
+                        <span className="font-medium">{t.symbol}</span>
+                        <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
+                          {t.direction} · {t.strengthBand} · {t.status}
+                        </span>
+                      </button>
+                      <div className="mt-0.5">
+                        <EngineChips engines={t.engines} />
+                      </div>
+                    </li>
+                  );
+                })}
               </CategoryBlock>
               <CategoryBlock
                 title="Pipeline plans"
                 empty="No lead / tree plans"
                 count={hub.pipeline.length}
               >
-                {hub.pipeline.slice(0, 12).map((row) => (
-                  <li key={row.symbol} className="text-xs">
-                    <span className="font-medium">{row.symbol}</span>
-                    <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
-                      {row.lead?.status ?? 'no lead'}
-                      {row.tree ? ` · tree ${row.tree.status}` : ''}
-                    </span>
-                  </li>
-                ))}
+                {hub.pipeline.slice(0, 12).map((row) => {
+                  const focused = mp.selectedSymbol === row.symbol && mp.category === 'pipeline';
+                  return (
+                    <li
+                      key={row.symbol}
+                      data-posture-focus-symbol={row.symbol}
+                      className={`rounded border px-1.5 py-1 text-xs ${focusRing(focused)}`}
+                    >
+                      <button
+                        type="button"
+                        className="w-full text-left"
+                        onClick={() =>
+                          mp.focusEntity({
+                            symbol: row.symbol,
+                            category: 'pipeline',
+                            positionId: null,
+                          })
+                        }
+                      >
+                        <span className="font-medium">{row.symbol}</span>
+                        <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
+                          {row.lead?.status ?? 'no lead'}
+                          {row.tree ? ` · tree ${row.tree.status}` : ''}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
               </CategoryBlock>
             </section>
           </div>
@@ -392,6 +576,7 @@ function CategoryBlock(props: {
   empty: string;
   count: number;
   children: ReactNode;
+  headerExtra?: ReactNode;
 }) {
   return (
     <div className="rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2.5">
@@ -399,6 +584,7 @@ function CategoryBlock(props: {
         {props.title}{' '}
         <span className="tabular-nums text-[var(--color-ink-dim)]">({props.count})</span>
       </h3>
+      {props.headerExtra}
       {props.count === 0 ? (
         <p className="mt-2 text-xs text-[var(--color-ink-faint)]">{props.empty}</p>
       ) : (

@@ -6,12 +6,20 @@ import {
   useMarketPostureView,
   type MarketPostureCategory,
 } from '@/components/panels/MarketPostureViewContext';
+import { MarketPostureFreshnessStrip } from '@/components/panels/MarketPostureFreshnessStrip';
+import { Justification } from '@/components/panels/Justification';
 import { PanelTabs } from '@/components/panels/PanelTabs';
 import {
   WatchlistTierFilterChips,
   watchlistMatchesTierFilter,
   type WatchlistTierFilter,
 } from '@/components/panels/WatchlistTierFilters';
+import {
+  dollarsFromCents,
+  equityStatusLabel,
+  formatOrientation,
+  pnlLabel,
+} from '@/components/panels/market-posture-format';
 import { api } from '@/lib/client';
 import { invalidateMarketHub } from '@/lib/market-hub-cache';
 import { useMarketHub } from '@/lib/use-market-hub';
@@ -24,14 +32,12 @@ const CATEGORIES: { id: MarketPostureCategory; label: string }[] = [
 ];
 
 /**
- * Left-panel navigator for Market posture (D-081 / D-085 / D-092). Main dashboard lives in
- * MarketPostureOverlay; this rail lists company-wide persisted categories.
- * Hub data is shared with the overlay via market-hub cache (SWR + warm prefetch).
+ * Left-panel navigator for Market posture (D-081 / D-085 / D-092 / D-101).
+ * Rail lists company-wide categories; rows focus the overlay dashboard.
  */
 export function MarketPosturePanel(props: { companyId: string }) {
   const mp = useMarketPostureView();
   const { data: hub, loading, refreshing, error, refresh } = useMarketHub(props.companyId, {
-    // Prefetch poller already runs at shell; panel still polls while visible.
     poll: true,
   });
   const [watchlistTierFilter, setWatchlistTierFilter] = useState<WatchlistTierFilter>('default');
@@ -79,7 +85,7 @@ export function MarketPosturePanel(props: { companyId: string }) {
     <div className="space-y-3" data-testid="market-posture-panel">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] text-[var(--color-ink-faint)]">
-          Dashboard over canvas · select a holding to focus equity
+          Dashboard over canvas · select a row to focus
         </p>
         {refreshing ? (
           <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
@@ -115,14 +121,42 @@ export function MarketPosturePanel(props: { companyId: string }) {
               filteredWatchlists.map((w) => (
                 <li
                   key={w.id}
-                  className="flex items-start justify-between gap-2 rounded border border-[var(--color-line)] px-2 py-1"
+                  className={`flex items-start justify-between gap-2 rounded border px-2 py-1 ${
+                    mp.selectedSymbol === w.symbol
+                      ? 'border-[var(--color-accent)] bg-[var(--color-surface-2)]'
+                      : 'border-[var(--color-line)]'
+                  }`}
                 >
-                  <div>
-                    <span className="font-medium">{w.symbol}</span>
-                    <span className="ml-1 font-mono text-[10px] text-[var(--color-ink-faint)]">
-                      {w.bias} · {w.status} · {w.moduleName}
-                    </span>
-                  </div>
+                  <Justification
+                    sourceClass={w.sourceClass === 'operator' ? 'operator' : 'derived'}
+                    block
+                    lines={[
+                      w.note || 'Watchlist row',
+                      `Source: ${w.sourceClass} · status ${w.status}`,
+                    ]}
+                  >
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 text-left"
+                      onClick={() =>
+                        mp.focusEntity({
+                          symbol: w.symbol,
+                          category: 'watchlists',
+                          positionId: null,
+                        })
+                      }
+                    >
+                      <span className="font-medium">{w.symbol}</span>
+                      <span className="ml-1 font-mono text-[10px] text-[var(--color-ink-faint)]">
+                        {w.bias} · {w.status} · {w.sourceClass} · {w.moduleName}
+                      </span>
+                      {w.note ? (
+                        <p className="mt-0.5 truncate text-[10px] text-[var(--color-ink-faint)]">
+                          {w.note}
+                        </p>
+                      ) : null}
+                    </button>
+                  </Justification>
                   {w.status === 'suggested_search' || w.status === 'suggested_verified' ? (
                     <button
                       type="button"
@@ -145,11 +179,32 @@ export function MarketPosturePanel(props: { companyId: string }) {
             <li className="text-[var(--color-ink-faint)]">No trends</li>
           ) : (
             hub.trendCandidates.map((t) => (
-              <li key={t.id} className="rounded border border-[var(--color-line)] px-2 py-1">
-                <span className="font-medium">{t.symbol}</span>
-                <span className="ml-1 font-mono text-[10px] text-[var(--color-ink-faint)]">
-                  {t.direction} · {t.status}
-                </span>
+              <li key={t.id}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    mp.focusEntity({
+                      symbol: t.symbol,
+                      category: 'trends',
+                      positionId: null,
+                    })
+                  }
+                  className={`w-full rounded border px-2 py-1 text-left ${
+                    mp.selectedSymbol === t.symbol
+                      ? 'border-[var(--color-accent)] bg-[var(--color-surface-2)]'
+                      : 'border-[var(--color-line)] hover:border-[var(--color-ink-faint)]'
+                  }`}
+                >
+                  <span className="font-medium">{t.symbol}</span>
+                  <span className="ml-1 font-mono text-[10px] text-[var(--color-ink-faint)]">
+                    {t.direction} · {t.strengthBand} · {t.status}
+                  </span>
+                  {t.engines.length > 0 ? (
+                    <p className="mt-0.5 truncate font-mono text-[10px] text-[var(--color-ink-faint)]">
+                      {t.engines.map((e) => e.label).join(' · ')}
+                    </p>
+                  ) : null}
+                </button>
               </li>
             ))
           )}
@@ -162,21 +217,45 @@ export function MarketPosturePanel(props: { companyId: string }) {
             <li className="text-[var(--color-ink-faint)]">No plans</li>
           ) : (
             hub.pipeline.map((row) => (
-              <li key={row.symbol} className="rounded border border-[var(--color-line)] px-2 py-1">
-                <span className="font-medium">{row.symbol}</span>
-                <span className="ml-1 font-mono text-[10px] text-[var(--color-ink-faint)]">
-                  {row.lead?.status ?? 'no lead'}
-                </span>
+              <li key={row.symbol}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    mp.focusEntity({
+                      symbol: row.symbol,
+                      category: 'pipeline',
+                      positionId: null,
+                    })
+                  }
+                  className={`w-full rounded border px-2 py-1 text-left ${
+                    mp.selectedSymbol === row.symbol
+                      ? 'border-[var(--color-accent)] bg-[var(--color-surface-2)]'
+                      : 'border-[var(--color-line)] hover:border-[var(--color-ink-faint)]'
+                  }`}
+                >
+                  <span className="font-medium">{row.symbol}</span>
+                  <span className="ml-1 font-mono text-[10px] text-[var(--color-ink-faint)]">
+                    {row.lead
+                      ? `${row.lead.status} · ${row.lead.direction} · ${row.lead.strategyFamily}`
+                      : 'no lead'}
+                    {row.tree ? ` · tree ${row.tree.status}` : ''}
+                  </span>
+                </button>
               </li>
             ))
           )}
         </ul>
       )}
 
-      <p className="font-mono text-[10px] tabular-nums text-[var(--color-ink-faint)]">
-        Equity {hub.equity.status}
-        {hub.equity.equityCents ? ` · $${(Number(hub.equity.equityCents) / 100).toFixed(2)}` : ''}
-      </p>
+      <div className="space-y-0.5 border-t border-[var(--color-line)] pt-2">
+        <p className="font-mono text-[10px] tabular-nums text-[var(--color-ink-faint)]">
+          Equity {equityStatusLabel(hub.equity.status)}
+          {hub.equity.equityCents ? ` · ${dollarsFromCents(hub.equity.equityCents)}` : ''}
+          {hub.equity.asOfIso ? ` · as of ${formatOrientation(hub.equity.asOfIso)}` : ''}
+          {hub.equity.version > 0 ? ` · v${hub.equity.version}` : ''}
+        </p>
+        <MarketPostureFreshnessStrip freshness={hub.freshness} compact />
+      </div>
     </div>
   );
 }
@@ -196,8 +275,12 @@ function PositionList(props: {
           <button
             type="button"
             onClick={() => {
-              mp.selectPosition(mp.selectedPositionId === p.id ? null : p.id, p.symbol);
-              mp.openOverlay();
+              const clear = mp.selectedPositionId === p.id;
+              mp.focusEntity({
+                positionId: clear ? null : p.id,
+                symbol: clear ? null : p.symbol,
+                category: 'positions',
+              });
             }}
             className={`w-full rounded border px-2 py-1.5 text-left text-xs ${
               mp.selectedPositionId === p.id
@@ -205,10 +288,16 @@ function PositionList(props: {
                 : 'border-[var(--color-line)] hover:border-[var(--color-ink-faint)]'
             }`}
           >
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-2">
               <span className="font-medium">{p.symbol}</span>
-              <span className="font-mono tabular-nums text-[var(--color-ink-faint)]">{p.qty}</span>
+              <span className="font-mono tabular-nums text-[var(--color-ink-faint)]">
+                qty {p.qty}
+              </span>
             </div>
+            <p className="mt-0.5 font-mono text-[10px] tabular-nums text-[var(--color-ink-faint)]">
+              uPnL {pnlLabel(p.unrealizedPnlCents)}
+              {p.realizedPnlCents != null ? ` · rPnL ${pnlLabel(p.realizedPnlCents)}` : ''}
+            </p>
             {p.engines.length > 0 ? (
               <p className="mt-0.5 truncate font-mono text-[10px] text-[var(--color-ink-faint)]">
                 {p.engines.map((e) => e.label).join(' · ')}

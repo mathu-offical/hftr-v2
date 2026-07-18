@@ -288,6 +288,13 @@
       "when": 1784410000000,
       "tag": "0041_company_universe_excludes",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1784420000000,
+      "tag": "0042_market_hub_synthesis",
+      "breakpoints": true
     }
   ]
 }

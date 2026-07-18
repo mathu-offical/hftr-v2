@@ -49,6 +49,8 @@ const GatherPayload = z.object({
   polygonApiKey: z.string().optional(),
   fredApiKey: z.string().optional(),
   alphaVantageApiKey: z.string().optional(),
+  twelveDataApiKey: z.string().optional(),
+  marketstackApiKey: z.string().optional(),
 });
 
 registerHandler('research.gather', async ({ db, clock, job }) => {
@@ -102,6 +104,8 @@ registerHandler('research.gather', async ({ db, clock, job }) => {
     polygonApiKey: payload.polygonApiKey ?? null,
     fredApiKey: payload.fredApiKey ?? null,
     alphaVantageApiKey: payload.alphaVantageApiKey ?? null,
+    twelveDataApiKey: payload.twelveDataApiKey ?? null,
+    marketstackApiKey: payload.marketstackApiKey ?? null,
   };
 
   const sourceKinds: ResearchSourceKind[] =

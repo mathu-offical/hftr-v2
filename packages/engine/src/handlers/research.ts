@@ -28,6 +28,8 @@ const CuratePayload = z.object({
   polygonApiKey: z.string().optional(),
   fredApiKey: z.string().optional(),
   alphaVantageApiKey: z.string().optional(),
+  twelveDataApiKey: z.string().optional(),
+  marketstackApiKey: z.string().optional(),
 });
 
 const StrategicPayload = z.object({
@@ -111,6 +113,8 @@ registerHandler('research.curate', async ({ db, clock, job }) => {
       polygonApiKey: payload.polygonApiKey,
       fredApiKey: payload.fredApiKey,
       alphaVantageApiKey: payload.alphaVantageApiKey,
+      twelveDataApiKey: payload.twelveDataApiKey,
+      marketstackApiKey: payload.marketstackApiKey,
     },
     idempotencyKey: `research-gather-${requestId}`,
     companyId: payload.companyId,

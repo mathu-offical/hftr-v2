@@ -2,12 +2,14 @@ import { z } from 'zod';
 import { trendCandidates } from '@hftr/db/schema';
 import { record } from '../calc/store';
 import { createFixedClock } from '../clock';
+import { resolveExecutionContext } from '../dispatch/execution-context';
 import { getSyntheticQuote } from '../dispatch/quotes';
 import {
   instrumentsFromModuleConfig,
   loadCompanyLinkGraph,
   resolveInboundLiveApiModules,
 } from '../graph/module-links';
+import { pollQuotes } from '../live-api/poll-quotes';
 import { enqueueLinkedResearchCurate } from '../research/enqueue-linked';
 import { registerHandler } from './registry';
 
@@ -44,13 +46,36 @@ registerHandler('trend.scan', async ({ db, clock, job }) => {
   const symbols = [...symbolSet].slice(0, 24);
   if (symbols.length === 0) return;
 
+  const liveApiModules = resolveInboundLiveApiModules(graph, payload.moduleId);
+  let quoteAdapter = null;
+  if (liveApiModules.length > 0) {
+    try {
+      const execCtx = await resolveExecutionContext(db, clock, payload.companyId);
+      if (execCtx.adapter.venue === 'alpaca' && execCtx.companyMode === 'paper') {
+        quoteAdapter = execCtx.adapter;
+      }
+    } catch {
+      quoteAdapter = null;
+    }
+  }
+
+  const quotePoll = await pollQuotes({
+    instruments: symbols,
+    clock,
+    adapter: quoteAdapter,
+    maxSymbols: 8,
+  });
+
   const nowMs = clock.nowMs();
   const thenMs = nowMs - payload.lookbackMinutes * 60_000;
   const scannedAt = new Date(nowMs);
   let hasNonFlat = false;
 
   for (const symbol of symbols) {
-    const nowQuote = getSyntheticQuote(symbol, clock);
+    const pollStatus = quotePoll.statuses.find((s) => s.symbol === symbol);
+    const liveFeedClass = pollStatus?.feedClass ?? 'synthetic_sim';
+    const nowQuote =
+      quotePoll.quotes.get(symbol) ?? getSyntheticQuote(symbol, clock);
     const thenQuote = getSyntheticQuote(symbol, createFixedClock(thenMs));
     const nowPx = nowQuote.lastCents ?? 0;
     const thenPx = thenQuote.lastCents ?? 0;
@@ -63,7 +88,7 @@ registerHandler('trend.scan', async ({ db, clock, job }) => {
       scale: 0,
       valueInt: BigInt(driftBps),
       sourceClass: 'derived',
-      sourceId: `trend_scan:${nowQuote.symbol}:${payload.lookbackMinutes}m`,
+      sourceId: `trend_scan:${liveFeedClass}:${nowQuote.symbol}:${payload.lookbackMinutes}m`,
       ttlMs: payload.lookbackMinutes * 60_000,
       companyId: payload.companyId,
       moduleId: payload.moduleId,

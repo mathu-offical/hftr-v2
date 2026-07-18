@@ -114,6 +114,12 @@ export {
   type ResolvedExecutionContext,
 } from './dispatch/execution-context';
 export { getSyntheticQuote } from './dispatch/quotes';
+export {
+  pollQuotes,
+  type PollQuotesResult,
+  type PollQuotesOptions,
+  type QuotePollStatus,
+} from './live-api/poll-quotes';
 export { applyFill, getPosition, type PositionRow } from './dispatch/positions';
 export {
   calculateCompanyEquity,

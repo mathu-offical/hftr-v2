@@ -163,6 +163,6 @@ Scoring: `intent-alignment-scoring.md`
 | Hypothesis | Headed persistent Chrome (CDP :9222) can drive companies → canvas → promote/trade → posture → hub drain without IronBee MCP attach |
 | Observed | Promote drain 3/3; hub drain 2/2; live gate + posture panel/overlay; executions previously 500; AAPL buy/sell fills visible |
 | System fixes | `UserMenu` → `@/lib/auth-client` (stop importing `@clerk/nextjs/server` into client); executions + timeline skip non-UUID causation refs (`atr_stop_catalog`); CDP scripts under `apps/web/scripts/cdp-*.ts` |
-| Re-verify | executions 200 (2 fills); CDP SUMMARY 14/14 after Trends-before-Posture order; Chrome left on company canvas |
+| Re-verify | executions 200 (2 fills); CDP SUMMARY **14/14**; Chrome left on company canvas with posture overlay |
 | Alignment | **aligned** for processing UI paths; IronBee CallMcpTool still cannot address extension server id (use CDP attach to same profile) |
 | Notes | Disk ~100% full caused `.next` ENOENT / Next churn; prefer nohup Next + clear `.next/cache` when packs fail |

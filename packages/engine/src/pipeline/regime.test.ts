@@ -58,6 +58,28 @@ describe('buildRegimeSynthetic', () => {
     expect(a.trendUp).toBeGreaterThanOrEqual(0);
     expect(a.trendUp).toBeLessThanOrEqual(1);
   });
+
+  it('directionBias up keeps trendUp in regime_fit pass band', () => {
+    for (let i = 0; i < 40; i++) {
+      const snap = buildRegimeSynthetic({
+        seed: `bias-up-${i}`,
+        asOfRef: AS_OF_REF,
+        directionBias: 'up',
+      });
+      expect(snap.trendUp).toBeGreaterThanOrEqual(0.45);
+    }
+  });
+
+  it('directionBias down keeps trendUp in regime_fit pass band', () => {
+    for (let i = 0; i < 40; i++) {
+      const snap = buildRegimeSynthetic({
+        seed: `bias-down-${i}`,
+        asOfRef: AS_OF_REF,
+        directionBias: 'down',
+      });
+      expect(snap.trendUp).toBeLessThanOrEqual(0.55);
+    }
+  });
 });
 
 describe('regimeTrendBand', () => {

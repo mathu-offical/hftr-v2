@@ -41,7 +41,8 @@ Scoring: `intent-alignment-scoring.md`
 
 1. **Done (quantity):** EXP-03 asserts min < typical < max fill quantities across three companies.
    **Still open:** assert promote `controlSnapshot` philosophy axes / `sizingBasisBps` in E2E or DB integration
-2. Wire `capitalAllocationRef` into sizing when present (higher priority than risk BPS)
+2. **Done (2026-07-18):** `resolveCompileSizingBudget` caps compile budget via
+   `capitalAllocationRef` (D-061) before risk-axis BPS — see `balances.ts` + `compile-select.ts`
 3. **Done:** Playwright philosophy drawer save + reload (`paper-intent-alignment.spec.ts` test 1)
 
 ### Browser verification (IronBee, 2026-07-17)
@@ -111,5 +112,26 @@ Scoring: `intent-alignment-scoring.md`
 4. **System fix (fill-path provenance):** venue fill finalization (`writeFillTrace`) was writing
    empty `simulatorGapTags` for paper_sim fills, regressing honest provenance on the promote→
    dispatch path. Tags restored via `paperSimGapTags` for paper_sim filled/recovered outcomes.
-5. **Still deferred:** `capitalAllocationRef` does not yet override risk-axis sizing; live Alpaca,
-   Kalshi, Polymarket, and Coinbase cohorts require their milestone adapters and credentials.
+5. **Done (2026-07-18):** `capitalAllocationRef` now caps compile budget via
+   `resolveCompileSizingBudget` before risk-axis BPS. Live Alpaca / Kalshi / Polymarket /
+   Coinbase cohorts still require milestone adapters and credentials.
+6. **Done (2026-07-18):** Bootstrap mirrors `auto_admitted` catalog seeds into trend-linked
+   Strategy Evidence Library shelves so day_trading `evidence_fit` can pass (D-090 preserved).
+7. **Done (2026-07-18):** Model-free `maintenance.position_exits` — breakeven (spread-buffered),
+   `targetExitRef` deadline, and 60m time_stop stub → sell via `dispatch.paper_trade`.
+
+---
+
+## EXP-2026-07-18-001 — Paper money-loop + promote after evidence mirror
+
+| Field | Value |
+|---|---|
+| Status | partial pass |
+| Mode | paper only |
+| Quote source | `synthetic_sim` |
+| Hypothesis | After evidence mirror + limits table fix, promote admits and paper fills; risk ladder sizes qty |
+| Observed | Operator buy/sell ladder filled at qty 1/5/20 (round-trip −12¢/share). Promote: `evidence_fit` pass. Risk ladder at $100k seed + ~$388 synth F: qty **1 / 1 / 2** (min/typical/max). Inline drain `failed` often from deferred posture movers, not compile |
+| System fixes | Applied missing `realized_pnl_events`; evidence shelf mirror; compile allocation cap; position exits; synthetic regime **directionBias**; promote drain execution-spine-only; movers deferred 30s LOW |
+| Alignment | **partial** — core cash loop + promote fills work; risk ladder differentiates at high seed; RR/ATR exits still stub |
+| Follow-up (same day) | After regime directionBias + spine-only promote drain: **3/3** single-attempt promote fills, `failed:0`, regime/evidence pass |
+| Not verified | Alpaca paper; ATR stops; full RR ladder scale-outs |

@@ -142,6 +142,7 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
   }
 
   // D-093: Alpaca OHLC bars when connected; else deterministic synthetic (still numeric).
+  // Direction bias keeps paper seed_synthetic from randomly failing regime_fit.
   const { regime } = await resolvePromoteRegime({
     db,
     clock,
@@ -150,6 +151,7 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     symbol: trend.symbol,
     brokerConnectionId: company.brokerConnectionId,
     venue,
+    direction: trend.direction,
   });
 
   const gates = evaluateGates({
@@ -208,13 +210,15 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     topicScope: trend.symbol,
   });
 
-  // D-081: revalidate market posture movers when a trend is admitted.
+  // D-081: revalidate movers after admit — defer so inline promote drain
+  // finishes tactical→compile→dispatch before posture work can fail/steal budget.
   await enqueue(db, clock, {
     queueClass: 'POSTURE_RESEARCH',
     kind: 'library.system_movers',
     payload: { companyId: payload.companyId },
     idempotencyKey: `movers-after-promote-${leadId}`,
-    priority: 'NORMAL',
+    priority: 'LOW',
+    runAfterMs: clock.nowMs() + 30_000,
     companyId: payload.companyId,
   });
 

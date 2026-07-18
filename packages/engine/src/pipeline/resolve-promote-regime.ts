@@ -21,6 +21,8 @@ export async function resolvePromoteRegime(args: {
   symbol: string;
   brokerConnectionId: string | null;
   venue: string | null;
+  /** Lead direction — biases synthetic regime into regime_fit pass band. */
+  direction?: 'up' | 'down' | 'flat';
 }): Promise<{ regime: RegimeSnapshot; source: 'alpaca_bars' | 'synthetic' }> {
   const regimeAsOfRef = await record(args.db, args.clock, {
     kind: 'timestamp_ms',
@@ -74,6 +76,7 @@ export async function resolvePromoteRegime(args: {
     regime: buildRegimeSynthetic({
       seed: `${args.symbol}:${args.companyId}:${args.venue ?? 'paper_sim'}`,
       asOfRef,
+      ...(args.direction ? { directionBias: args.direction } : {}),
     }),
     source: 'synthetic',
   };

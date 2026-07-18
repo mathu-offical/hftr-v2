@@ -7,11 +7,11 @@ import {
   compileEvents,
   decisionTrees,
   leadPackages,
+  modules,
   trendCandidates,
 } from '@hftr/db/schema';
 import { record } from '../calc/store';
-import { getCompanyBalanceCents } from '../dispatch/paper-trade';
-import { resolveCompileBalanceCents } from '../dispatch/balances';
+import { resolveCompileSizingBudget } from '../dispatch/balances';
 import { getSyntheticQuote } from '../dispatch/quotes';
 import { compileInstruction, computeQuantity } from '../pipeline/compile';
 import { mergeCompileSelection, modelBlockReasonToCompile } from '../pipeline/compile-selection';
@@ -149,11 +149,53 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
 
   const quote = getSyntheticQuote(tree.symbol, clock);
   const tradingModuleId = payload.targetModuleId ?? payload.moduleId;
-  const { balanceCents, source: balanceSource } = await resolveCompileBalanceCents(
+  const tradingModuleRows = await db
+    .select({ capitalAllocationRef: modules.capitalAllocationRef })
+    .from(modules)
+    .where(
+      and(eq(modules.id, tradingModuleId), eq(modules.companyId, payload.companyId)),
+    )
+    .limit(1);
+  const capitalAllocationRef = tradingModuleRows[0]?.capitalAllocationRef ?? null;
+  const {
+    budgetCents,
+    balanceSource,
+    allocationCapCents,
+    source: sizingBudgetSource,
+  } = await resolveCompileSizingBudget(
     db,
     payload.companyId,
     tradingModuleId,
+    capitalAllocationRef,
   );
+
+  if (capitalAllocationRef && allocationCapCents === null) {
+    await db.insert(compileEvents).values({
+      companyId: payload.companyId,
+      treeId: payload.treeId,
+      result: 'blocked',
+      blockReason: 'policy_mismatch',
+      instructionId: null,
+      lineage: {
+        leadId: payload.leadId,
+        treeId: payload.treeId,
+        stage: 'execution_agent_compile',
+        provider: compileProvider,
+        capitalAllocationRef,
+        allocationRefUnresolved: true,
+      },
+    });
+    await db
+      .update(decisionTrees)
+      .set({ status: 'compile_blocked', updatedAt: now })
+      .where(eq(decisionTrees.id, payload.treeId));
+    await db
+      .update(leadPackages)
+      .set({ status: 'decomposed', updatedAt: now })
+      .where(eq(leadPackages.id, payload.leadId));
+    return;
+  }
+
   const priceCents = quote.askCents ?? quote.lastCents ?? 0;
 
   const baseOutcome = compileInstruction(
@@ -163,7 +205,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
       branches: tree.branches as BranchNode[],
       recoveryLadder: recoveryLadderSteps,
     },
-    { balanceCents, priceCents, sizingBasisBps },
+    { balanceCents: budgetCents, priceCents, sizingBasisBps },
   );
 
   if (baseOutcome.result === 'blocked') {
@@ -192,7 +234,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
   }
 
   const merged = mergeCompileSelection(baseOutcome.instruction, modelSelection, sizingBasisBps);
-  const quantity = computeQuantity(balanceCents, priceCents, merged.adjustedSizingBasisBps);
+  const quantity = computeQuantity(budgetCents, priceCents, merged.adjustedSizingBasisBps);
   const instruction = { ...merged.instruction, quantity };
   const provider =
     merged.provider === 'model' || compileProvider === 'model'
@@ -205,7 +247,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
     scale: 0,
     valueInt: BigInt(instruction.quantity),
     sourceClass: 'derived',
-    sourceId: `compile:sizing:${payload.leadId}:bps_${merged.adjustedSizingBasisBps}:${balanceSource}`,
+    sourceId: `compile:sizing:${payload.leadId}:bps_${merged.adjustedSizingBasisBps}:${sizingBudgetSource}`,
     ttlMs: 10 * 60_000,
     sanity: { minInt: '1', maxInt: '100', maxAgeMs: null, mustBePositive: true },
     companyId: payload.companyId,
@@ -287,6 +329,9 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
       provider,
       tacticalProvider: payload.tacticalProvider ?? 'deterministic_placeholder',
       balanceSource,
+      sizingBudgetSource,
+      allocationCapCents: allocationCapCents?.toString() ?? null,
+      capitalAllocationRef,
     },
   });
 

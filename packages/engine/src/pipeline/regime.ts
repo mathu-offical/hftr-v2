@@ -165,12 +165,39 @@ export function buildRegimeFromBars(input: RegimeBarInput): RegimeSnapshot {
   };
 }
 
-/** Deterministic seed_synthetic regime for paper loop when live bars are unavailable. */
+/**
+ * Deterministic seed_synthetic regime for paper loop when live bars are unavailable.
+ * Optional `directionBias` shifts trendUp into the gate-pass band for that lead
+ * direction so operator-authored paper trends are not randomly rejected by hash noise.
+ */
 export function buildRegimeSynthetic(input: {
   seed: string;
   asOfRef: ValueRefHandle;
+  directionBias?: 'up' | 'down' | 'flat';
 }): RegimeSnapshot {
-  const trendUp = clamp01(0.35 + hashUnit(`regime-trend:${input.seed}`) * 0.35);
+  const unit = hashUnit(`regime-trend:${input.seed}`);
+  let trendUp: number;
+  switch (input.directionBias) {
+    case 'up':
+      // [0.50, 0.78] → always ≥ 0.45 regime_fit threshold for up leads
+      trendUp = clamp01(0.5 + unit * 0.28);
+      break;
+    case 'down':
+      // [0.22, 0.50] → always ≤ 0.55 regime_fit threshold for down leads
+      trendUp = clamp01(0.22 + unit * 0.28);
+      break;
+    case 'flat':
+      trendUp = clamp01(0.42 + unit * 0.16);
+      break;
+    case undefined:
+      // Unbiased paper noise band (~28% of seeds fail up-lead regime_fit)
+      trendUp = clamp01(0.35 + unit * 0.35);
+      break;
+    default: {
+      const _exhaustive: never = input.directionBias;
+      throw new Error(`unhandled directionBias: ${String(_exhaustive)}`);
+    }
+  }
   const meanRev = clamp01(0.25 + hashUnit(`regime-mr:${input.seed}`) * 0.4);
   const volExp = clamp01(0.2 + hashUnit(`regime-vol:${input.seed}`) * 0.5);
   const shock = clamp01(hashUnit(`regime-shock:${input.seed}`) * 0.25);

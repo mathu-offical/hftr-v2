@@ -227,8 +227,8 @@ See `testing/experiment-log.md` for full scorecards.
 - Labeling synthetic quotes as `live_feed` created false provenance confidence — fixed to `synthetic_sim`.
 - Equal strategy/symbol inputs across three companies preserved the declared risk ordering in
   deterministic quantities. This validates control responsiveness, not expected profitability.
-- `capitalAllocationRef` is recorded but does not yet take priority over risk-axis sizing; treat
-  allocation-vs-risk alignment as not collected until that deterministic resolver is implemented.
+- `capitalAllocationRef` now caps compile budget via `resolveCompileSizingBudget` before risk-axis
+  BPS (D-061). Allocation-vs-risk alignment should be scored against that capped budget.
 
 ### 8.3 Operator patterns that score well
 

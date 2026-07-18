@@ -1,7 +1,9 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
+import type { Db } from '@hftr/db';
 import { resolveBrokerAdapter } from '@hftr/adapters';
-import { brokerBalancesSnapshot, brokerConnections } from '@hftr/db/schema';
+import { brokerBalancesSnapshot, brokerConnections, companies } from '@hftr/db/schema';
 import { decryptSecret } from '@hftr/secrets';
+import type { Clock } from '../clock';
 import { materializeSchedules } from '../schedules/materialize';
 import { enqueue, pruneCompleted, sweepExpiredLeases } from '../queue/queue';
 import { scrubSecretsFromJobPayloads } from '../queue/scrub-payload-secrets';
@@ -42,6 +44,7 @@ registerHandler('maintenance.sweep', async ({ db, clock }) => {
   });
   // D-084: 15s equity fallback while XNYS session is open (idempotent per window).
   await enqueueDueEquityRefreshJobs(db, clock);
+  await enqueuePositionExitMaintenanceJobs(db, clock);
 });
 
 /**
@@ -87,6 +90,27 @@ registerHandler('maintenance.materialize_schedules', async ({ db, clock }) => {
 
 function venueMinuteBucket(nowMs: number): string {
   return new Date(nowMs).toISOString().slice(0, 16);
+}
+
+/** Enqueue one idempotent position-exit scan per active paper company per minute. */
+async function enqueuePositionExitMaintenanceJobs(db: Db, clock: Clock): Promise<number> {
+  const bucket = venueMinuteBucket(clock.nowMs());
+  const rows = await db
+    .select({ id: companies.id })
+    .from(companies)
+    .where(and(isNull(companies.archivedAt), eq(companies.mode, 'paper')));
+
+  for (const row of rows) {
+    await enqueue(db, clock, {
+      queueClass: 'MAINTENANCE',
+      kind: 'maintenance.position_exits',
+      payload: { companyId: row.id },
+      idempotencyKey: `position-exits-${row.id}-${bucket}`,
+      priority: 'LOW',
+      companyId: row.id,
+    });
+  }
+  return rows.length;
 }
 
 /** No-op used by queue smoke tests and drain verification. */

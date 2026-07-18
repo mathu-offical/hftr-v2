@@ -7,6 +7,7 @@ import {
   positions,
   realizedPnlEvents,
 } from '@hftr/db/schema';
+import { resolveCapitalAllocationUsdCents } from '../fund-transfers/resolve-amount';
 
 /**
  * Realized loss magnitude for daily-loss limits (gap analysis #3).
@@ -136,4 +137,67 @@ export async function getCompanyBalanceCents(db: Db, companyId: string): Promise
     .from(ledgerEntries)
     .where(eq(ledgerEntries.companyId, companyId));
   return seed + BigInt(sums[0]?.total ?? '0');
+}
+
+export type CompileSizingBudgetSource = CompileBalanceSource | 'capital_allocation_capped';
+
+export type CompileSizingBudgetResolution = {
+  budgetCents: bigint;
+  balanceSource: CompileBalanceSource;
+  allocationCapCents: bigint | null;
+  source: CompileSizingBudgetSource;
+};
+
+/**
+ * Compile sizing budget: module/holding/company ledger balance, optionally capped
+ * by `capitalAllocationRef` (D-061). Caller fail-closes when ref is set but
+ * `allocationCapCents` is null.
+ */
+export async function resolveCompileSizingBudget(
+  db: Db,
+  companyId: string,
+  tradingModuleId: string,
+  capitalAllocationRef: string | null | undefined,
+): Promise<CompileSizingBudgetResolution> {
+  const ledger = await resolveCompileBalanceCents(db, companyId, tradingModuleId);
+  const { balanceCents: ledgerBudget, source: balanceSource } = ledger;
+
+  if (!capitalAllocationRef) {
+    return {
+      budgetCents: ledgerBudget,
+      balanceSource,
+      allocationCapCents: null,
+      source: balanceSource,
+    };
+  }
+
+  const companyPoolCents = await getCompanyBalanceCents(db, companyId);
+  const allocationCap = await resolveCapitalAllocationUsdCents(db, capitalAllocationRef, {
+    baseBalanceCents: companyPoolCents,
+  });
+
+  if (allocationCap === null) {
+    return {
+      budgetCents: ledgerBudget,
+      balanceSource,
+      allocationCapCents: null,
+      source: balanceSource,
+    };
+  }
+
+  if (allocationCap < ledgerBudget) {
+    return {
+      budgetCents: allocationCap,
+      balanceSource,
+      allocationCapCents: allocationCap,
+      source: 'capital_allocation_capped',
+    };
+  }
+
+  return {
+    budgetCents: ledgerBudget,
+    balanceSource,
+    allocationCapCents: allocationCap,
+    source: balanceSource,
+  };
 }

@@ -59,10 +59,14 @@ export async function POST(req: Request, ctx: Ctx) {
       companyId,
       moduleId,
     });
+    // Execution spine only — defer posture/library/maintenance so a failing
+    // movers/curate job cannot burn the inline budget before paper fill.
     const drained = await drainQueues(db, clock, {
       workerId: `inline:${clerkUserId.slice(0, 12)}`,
-      budgetMs: 45_000,
+      budgetMs: 50_000,
       batchSize: 8,
+      queueClasses: ['RESEARCH', 'TACTICAL', 'COMPILE', 'DISPATCH', 'VERIFY'],
+      kickMaintenanceSweep: false,
       modelGateway: createWebModelGateway(db, clerkUserId),
     });
     return { queued: true, drained };

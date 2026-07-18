@@ -1,5 +1,5 @@
 import type { Db } from '@hftr/db';
-import { TIMEOUT_LEASE_MS, QueueClass } from '@hftr/contracts';
+import { TIMEOUT_LEASE_MS, QueueClass, type QueueClass as QueueClassT } from '@hftr/contracts';
 import type { Clock } from '../clock';
 import type { ModelGateway } from '../handlers/model-gateway';
 import { getHandler } from '../handlers/registry';
@@ -17,6 +17,13 @@ export interface DrainOptions {
   budgetMs: number;
   batchSize?: number;
   modelGateway?: ModelGateway;
+  /**
+   * Restrict claim to these queue classes. Inline promote uses the execution
+   * spine so POSTURE/LIBRARY research cannot starve compile/dispatch.
+   */
+  queueClasses?: QueueClassT[];
+  /** When false, skip the per-minute maintenance.sweep kick (inline promote). */
+  kickMaintenanceSweep?: boolean;
 }
 
 function venueMinuteBucket(nowMs: number): string {
@@ -35,14 +42,18 @@ function venueMinuteBucket(nowMs: number): string {
 export async function drainQueues(db: Db, clock: Clock, opts: DrainOptions): Promise<DrainResult> {
   const startedAt = clock.nowMs();
   const result: DrainResult = { claimed: 0, completed: 0, failed: 0, deadlineHit: false };
+  const queueClasses = opts.queueClasses ?? [...QueueClass.options];
+  const kickMaintenance = opts.kickMaintenanceSweep !== false;
 
-  await enqueue(db, clock, {
-    queueClass: 'MAINTENANCE',
-    kind: 'maintenance.sweep',
-    payload: {},
-    idempotencyKey: `maintenance-sweep-${venueMinuteBucket(startedAt)}`,
-    priority: 'LOW',
-  });
+  if (kickMaintenance) {
+    await enqueue(db, clock, {
+      queueClass: 'MAINTENANCE',
+      kind: 'maintenance.sweep',
+      payload: {},
+      idempotencyKey: `maintenance-sweep-${venueMinuteBucket(startedAt)}`,
+      priority: 'LOW',
+    });
+  }
 
   for (;;) {
     if (clock.nowMs() - startedAt > opts.budgetMs) {
@@ -51,7 +62,7 @@ export async function drainQueues(db: Db, clock: Clock, opts: DrainOptions): Pro
     }
     const batch = await claimJobs(db, clock, {
       workerId: opts.workerId,
-      queueClasses: [...QueueClass.options],
+      queueClasses,
       limit: opts.batchSize ?? 5,
       leaseMs: TIMEOUT_LEASE_MS.MEDIUM,
     });

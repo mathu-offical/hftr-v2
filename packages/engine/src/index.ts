@@ -219,6 +219,7 @@ export type {
   SuggestionThresholdProposeInput,
 } from './handlers/model-gateway';
 import './handlers/maintenance';
+import './handlers/position-exits';
 import './handlers/equity-refresh';
 import './handlers/dispatch';
 import './handlers/trend';
@@ -262,9 +263,12 @@ export {
   getCompanyRealizedLossCents,
   getDailyRealizedLossCents,
   resolveCompileBalanceCents,
+  resolveCompileSizingBudget,
   resolveEquityCentsForLimits,
   type CompileBalanceSource,
   type CompileBalanceResolution,
+  type CompileSizingBudgetSource,
+  type CompileSizingBudgetResolution,
   type EquityLimitSource,
 } from './dispatch/balances';
 export {

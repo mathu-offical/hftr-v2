@@ -10,6 +10,10 @@ import {
   modules,
 } from '@hftr/db/schema';
 import { createFixedClock } from '../clock';
+import {
+  loadCompanyLinkGraph,
+  resolveInboundLibraryModules,
+} from '../graph/module-links';
 import { ensureSystemLibrarySchedule } from '../schedules/materialize';
 import { ensureAllSystemLibraries } from './ensure-system-library';
 import { ensureSectorKnowledge } from './ensure-sector-knowledge';
@@ -466,6 +470,74 @@ function resolveOwnerModuleId(companyModules: Array<{ id: string; type: string }
 }
 
 /**
+ * Copy auto_admitted / accepted catalog seeds from the mechanisms library into
+ * canvas library shelves inbound to trend modules (D-090 evidence_fit scope).
+ */
+export async function mirrorAdmittedSeedsToTrendLinkedLibraries(
+  db: Db,
+  companyId: string,
+  mechanismsLibraryId: string,
+  now: Date,
+): Promise<number> {
+  const graph = await loadCompanyLinkGraph(db, companyId);
+
+  const targetModuleIds = new Set<string>();
+  for (const mod of graph.modulesById.values()) {
+    if (mod.type !== 'trend') continue;
+    for (const libMod of resolveInboundLibraryModules(graph, mod.id)) {
+      targetModuleIds.add(libMod.id);
+    }
+  }
+  if (targetModuleIds.size === 0) return 0;
+
+  const admittedRows = await db
+    .select({ conceptId: libraryConcepts.conceptId })
+    .from(libraryConcepts)
+    .where(
+      and(
+        eq(libraryConcepts.libraryId, mechanismsLibraryId),
+        inArray(libraryConcepts.curationStatus, ['auto_admitted', 'accepted']),
+      ),
+    );
+  if (admittedRows.length === 0) return 0;
+
+  const conceptIds = admittedRows.map((row) => row.conceptId);
+  const targetLibraries = await db
+    .select({ id: libraries.id, moduleId: libraries.moduleId })
+    .from(libraries)
+    .where(
+      and(
+        eq(libraries.companyId, companyId),
+        eq(libraries.status, 'active'),
+        inArray(libraries.moduleId, [...targetModuleIds]),
+      ),
+    );
+
+  const destLibraries = targetLibraries.filter((lib) => lib.id !== mechanismsLibraryId);
+  if (destLibraries.length === 0) return 0;
+
+  let written = 0;
+  for (const lib of destLibraries) {
+    for (const conceptId of conceptIds) {
+      await db
+        .insert(libraryConcepts)
+        .values({
+          libraryId: lib.id,
+          conceptId,
+          curationStatus: 'auto_admitted',
+        })
+        .onConflictDoUpdate({
+          target: [libraryConcepts.libraryId, libraryConcepts.conceptId],
+          set: { curationStatus: 'auto_admitted', updatedAt: now },
+        });
+      written += 1;
+    }
+  }
+
+  return written;
+}
+
+/**
  * Idempotent company knowledge bootstrap: ensures library rows, seeds catalog
  * concepts into the mechanisms library, links concepts, and creates a hybrid topic page.
  */
@@ -533,6 +605,12 @@ export async function bootstrapCompanyKnowledge(opts: {
       if (mechLib) {
         // Mechanisms already seeded — rematerialize bodies, sync directive topics, sector knowledge.
         const rematerialized = await rematerializeCatalogSeedBodies(opts.db, opts.companyId, now);
+        await mirrorAdmittedSeedsToTrendLinkedLibraries(
+          opts.db,
+          opts.companyId,
+          mechLib.id,
+          now,
+        );
         const sector = await ensureSectorKnowledge(opts.db, opts.companyId, now);
         const companyModules = await opts.db
           .select({ id: modules.id, type: modules.type })
@@ -678,6 +756,13 @@ export async function bootstrapCompanyKnowledge(opts: {
         },
       });
   }
+
+  await mirrorAdmittedSeedsToTrendLinkedLibraries(
+    opts.db,
+    opts.companyId,
+    mechanismsLibraryId,
+    now,
+  );
 
   for (const link of SEED_CONCEPT_LINKS) {
     const fromId = conceptIdByTitle.get(link.fromTitle);

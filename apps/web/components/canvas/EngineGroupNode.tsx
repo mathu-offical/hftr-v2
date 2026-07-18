@@ -1,8 +1,12 @@
 'use client';
 
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { type Node, type NodeProps } from '@xyflow/react';
-import type { EngineSetupSnapshot, ModuleSetupField } from '@hftr/contracts';
+import {
+  getEngineTemplateById,
+  type EngineSetupSnapshot,
+  type ModuleSetupField,
+} from '@hftr/contracts';
 import { api } from '@/lib/client';
 import {
   EMPTY_MODULE_SETUP_DRAFT,
@@ -68,10 +72,16 @@ function draftFromSnapshot(
   };
 }
 
+function humanizeKey(key: string): string {
+  return key
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
+
 /**
  * React Flow parent node for an ENGINE instance (D-028 / D-033 / D-035):
- * labeled chrome with Reflow, full shared setup (topic, total capital envelope,
- * overall exit), template inputs, and delete.
+ * labeled chrome with Reflow, compact human-readable shared setup at top
+ * (topic, total capital envelope, overall exit), template inputs, and delete.
  */
 export const EngineGroupNode = memo(function EngineGroupNode({
   id,
@@ -86,6 +96,8 @@ export const EngineGroupNode = memo(function EngineGroupNode({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [focusField, setFocusField] = useState<ModuleSetupField | null>(null);
+  const templateInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
     setDraft(draftFromSnapshot(data.setupSnapshot, data.masterTopicSectors));
@@ -100,7 +112,19 @@ export const EngineGroupNode = memo(function EngineGroupNode({
     [draft],
   );
 
-  const templateEntries = Object.entries(templateInputs);
+  const templateInputDefs = useMemo(() => {
+    const template = getEngineTemplateById(data.templateId);
+    const entries = Object.entries(templateInputs);
+    return entries.map(([key, value]) => {
+      const def = template?.inputs.find((input) => input.key === key);
+      return {
+        key,
+        value,
+        label: def?.label ?? humanizeKey(key),
+        placeholder: def?.placeholder,
+      };
+    });
+  }, [data.templateId, templateInputs]);
 
   async function saveSetup() {
     setSaving(true);
@@ -153,7 +177,7 @@ export const EngineGroupNode = memo(function EngineGroupNode({
         boxShadow: selected ? '0 0 0 1px var(--color-accent)' : undefined,
       }}
     >
-      <div className="engine-group-drag flex items-start justify-between gap-2 border-b border-[var(--color-line)]/60 px-3 py-2">
+      <div className="engine-group-drag flex items-start justify-between gap-2 border-b border-[var(--color-line)]/60 px-3 py-1.5">
         <div className="min-w-0">
           <div className="text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
             Engine
@@ -177,31 +201,50 @@ export const EngineGroupNode = memo(function EngineGroupNode({
           </button>
         </div>
       </div>
-      <div className="nodrag nowheel max-h-[260px] space-y-2 overflow-y-auto px-3 py-2">
-        <p className="text-[9px] text-[var(--color-ink-faint)]">
-          Shared setup · capital is total envelope (split across members) · exit is overall deadline
-        </p>
+      <div className="nodrag nowheel space-y-1.5 px-3 py-2">
         <ModuleSetupFields
           requiredFields={ENGINE_SETUP_FIELDS}
           missingFields={missingFields}
           draft={draft}
           onChange={setDraft}
           compact
+          showLabels
+          hideHints
+          focusField={focusField}
+          onFocusField={setFocusField}
         />
-        {templateEntries.length > 0 && (
-          <div className="space-y-1 border-t border-[var(--color-line)]/50 pt-2">
-            <div className="text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-              Template inputs
-            </div>
-            {templateEntries.map(([key, value]) => (
-              <label key={key} className="block space-y-0.5">
-                <span className="text-[10px] text-[var(--color-ink-dim)]">{key}</span>
+        {templateInputDefs.length > 0 && (
+          <div className="space-y-1 border-t border-[var(--color-line)]/50 pt-1.5">
+            {templateInputDefs.map((input) => (
+              <label
+                key={input.key}
+                className="block space-y-0.5"
+                onPointerDown={() => {
+                  requestAnimationFrame(() => {
+                    templateInputRefs.current[input.key]?.focus();
+                  });
+                }}
+              >
+                <span
+                  className="block truncate text-[10px] font-medium text-[var(--color-ink-dim)]"
+                  title={input.label}
+                >
+                  {input.label}
+                </span>
                 <input
-                  value={value}
+                  ref={(element) => {
+                    templateInputRefs.current[input.key] = element;
+                  }}
+                  value={input.value}
                   onChange={(event) =>
-                    setTemplateInputs((current) => ({ ...current, [key]: event.target.value }))
+                    setTemplateInputs((current) => ({
+                      ...current,
+                      [input.key]: event.target.value,
+                    }))
                   }
-                  className="w-full rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-1.5 py-1 text-[10px] outline-none focus:border-[var(--color-accent)]"
+                  placeholder={input.placeholder}
+                  title={input.value}
+                  className="w-full truncate rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-1.5 py-1 text-[10px] outline-none focus:border-[var(--color-accent)]"
                 />
               </label>
             ))}

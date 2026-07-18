@@ -82,8 +82,9 @@ Layout uses measured React Flow node dimensions when available and conservative 
 | Owner → Math attachment gap | 24 px |
 | Owner/tool envelope height | card + gap + Math tool (392 px at floor) |
 | Group left/right padding | 112 px |
-| Group header/top padding | 300 px (full shared setup chrome, D-035) |
+| Group header/top padding | 200 px (compact labeled setup strip, D-035) |
 | Group bottom padding | 180 px |
+| Top-level engine gutter | 200 px (`CANVAS_LAYOUT.topLevelGutter`) — create, insert, single-engine reflow, and engine drag-stop resolve overlaps via `placeNextEngineOrigin` |
 
 An **owner/tool envelope** includes the module card, its labeled side ports, its dedicated Math tool, and the attachment gap. Layout collision checks and `LAYOUT_ROW_STEP` use envelopes rather than module card rectangles alone. Engine bounds include dedicated Math docks so group chrome covers the full envelope.
 

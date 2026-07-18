@@ -106,6 +106,13 @@ export function liveDataSourceLabel(kind: z.infer<typeof ResearchSourceKind>): s
   return kind.replace(/_/g, ' ');
 }
 
+/** DATA tab: only usable sources (credential-ready or public no-auth). */
+export function isActiveLiveDataSource(
+  row: Pick<LiveDataSourceRow, 'status'>,
+): boolean {
+  return row.status === 'ready' || row.status === 'public';
+}
+
 /**
  * Map registry descriptor + credential readiness to operator-facing status.
  * researched/stub override auth; public = no-auth sources that are ready.

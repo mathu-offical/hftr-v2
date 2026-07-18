@@ -1619,6 +1619,15 @@ describe('live data sources contracts', () => {
     expect(defaultBrowseQueryForDomain('filings')).toBe('10-K');
     expect(LiveDataSourceQueryRequest.parse({}).mode).toBe('search');
   });
+
+  it('isActiveLiveDataSource keeps ready/public only', async () => {
+    const { isActiveLiveDataSource } = await import('./live-data-sources');
+    expect(isActiveLiveDataSource({ status: 'ready' })).toBe(true);
+    expect(isActiveLiveDataSource({ status: 'public' })).toBe(true);
+    expect(isActiveLiveDataSource({ status: 'missing_key' })).toBe(false);
+    expect(isActiveLiveDataSource({ status: 'stub' })).toBe(false);
+    expect(isActiveLiveDataSource({ status: 'researched' })).toBe(false);
+  });
 });
 
 describe('research source registry', () => {

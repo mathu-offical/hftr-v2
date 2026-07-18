@@ -253,8 +253,12 @@ UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
 - **Engine execution binding (D-122):** `TradingModuleConfig.executionBinding` —
   `routingMode` (`funds_only` | `execute_on_service` | `both_verify`), optional
   `brokerConnectionId`, `useProviderLedgerAsFundsSource`. Contracts in
-  `packages/contracts/src/paper-engine.ts`. Future: durable `book_deltas` + hard engine
-  allocation rows (Phase 3–4); until then module-scoped `positions` + fund_transfers.
+  `packages/contracts/src/paper-engine.ts`. **Phase 3:** dispatch spend authority via
+  `resolveDispatchSpendAuthority` — engine members capped by
+  `engine_instances.capital_allocation_ref` (or module ref) and/or member ledger credits;
+  `capital_isolation_block` when company pool still has cash but this engine’s envelope is
+  exhausted. Explicit share remains settled `fund_transfers` / funds-bus utility links.
+  Future: durable `book_deltas` (Phase 4).
 - **training_feedback** — append-only bounded band/weight deltas only
   (`mutation_class`: `band_position` | `weight_delta`), source run/trace refs,
   optional `applied_control_snapshot_id`. Applied via `applyControlSnapshotDelta`

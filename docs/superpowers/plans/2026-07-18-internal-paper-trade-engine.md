@@ -83,8 +83,17 @@
 
 ---
 
+### Task 5: Phase 3 — engine capital isolation
+
+- [x] `capital_isolation_block` failure code
+- [x] `computeEngineSpendCapCents` + `resolveDispatchSpendAuthority`
+- [x] Wire buy admission + gauntlet `effectiveCapCents` in `paper-trade.ts`
+- [x] Contract + balances unit tests
+- [ ] Commit Phase 3
+
+---
+
 ### Later phases
 
-- Phase 3: hard engine allocation isolation
 - Phase 4: real `both_verify` + BookDelta persistence → valves
 - Phase 5: unify InternalPaperCore with `paper-sim` adapter + UI controls

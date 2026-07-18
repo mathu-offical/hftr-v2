@@ -338,8 +338,9 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
 - Data tab (D-121 / D-133): **LIVE DATA SOURCES** lists only **active** hydrators (`ready` /
   `public`) from `GET …/live-data-sources`. **Company libraries** lists canvas `library`
   modules (engine-created or manual); select opens the **shell floating inspector**. Missing-key /
-  stub / researched stay out of the live list. Live API select → **Data Explorer** Search /
-  Browse via `POST …/live-data-sources/[kind]/query`. Canvas `live_api` uses
+  stub / researched stay out of the live list. Live API select → **Data Explorer** live
+  provider view (domain form + presets + widget cards via
+  `POST …/live-data-sources/[kind]/query`). Canvas `live_api` uses
   `config.sourceKind`. Overlays mutually exclusive for backgrounds; inspector persists (D-133).
 
 ### MIDDLE BOTTOM — Exploration + Analysis + Choice (the main control panel)

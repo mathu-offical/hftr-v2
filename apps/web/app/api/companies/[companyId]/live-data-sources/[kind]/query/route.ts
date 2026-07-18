@@ -5,6 +5,9 @@ import {
   RESEARCH_SOURCE_REGISTRY,
   ResearchSourceKind,
   defaultBrowseQueryForDomain,
+  evidenceToLiveDataSourceWidget,
+  liveDataSourceFormForDomain,
+  liveDataSourcePresetsForDomain,
   resolveLiveDataSourceStatus,
   type ResearchSourceAvailability,
   type ResearchSourceDescriptor,
@@ -58,6 +61,8 @@ export async function POST(req: Request, ctx: Ctx) {
     const ready = isSourceReady(descriptor, availability);
     const status = resolveLiveDataSourceStatus(descriptor, ready);
     const fetchedAt = new Date().toISOString();
+    const presets = liveDataSourcePresetsForDomain(descriptor.domain);
+    const form = liveDataSourceFormForDomain(descriptor.domain);
 
     if (status === 'stub' || status === 'researched') {
       return LiveDataSourceQueryResponse.parse({
@@ -65,7 +70,10 @@ export async function POST(req: Request, ctx: Ctx) {
         mode: body.mode,
         query: body.query,
         status,
+        domain: descriptor.domain,
         widgets: [],
+        presets,
+        form,
         errors: [{ code: status === 'stub' ? 'not_implemented' : 'researched_only' }],
         fetchedAt,
       });
@@ -77,7 +85,10 @@ export async function POST(req: Request, ctx: Ctx) {
         mode: body.mode,
         query: body.query,
         status,
+        domain: descriptor.domain,
         widgets: [],
+        presets,
+        form,
         errors: [{ code: 'missing_key' }],
         fetchedAt,
       });
@@ -99,22 +110,23 @@ export async function POST(req: Request, ctx: Ctx) {
       marketNewsAllowDeterministicFallback: true,
     });
 
-    const widgets = packages.slice(0, body.maxResults).map((pkg, i) => ({
-      id: pkg.digest.slice(0, 16) || `${kind}-${i}`,
-      title: pkg.title,
-      summary: pkg.summary,
-      feedClass: pkg.feedClass,
-      authorityClass: pkg.authorityClass,
-      externalRef: pkg.externalRef,
-      expiresAt: pkg.expiresAt,
-    }));
+    const widgets = packages.slice(0, body.maxResults).map((pkg, i) =>
+      evidenceToLiveDataSourceWidget(pkg, {
+        domain: descriptor.domain,
+        index: i,
+        query,
+      }),
+    );
 
     return LiveDataSourceQueryResponse.parse({
       kind,
       mode: body.mode,
       query,
       status,
+      domain: descriptor.domain,
       widgets,
+      presets,
+      form,
       errors: errors.map((e) => ({ code: e.code.slice(0, 80) })),
       fetchedAt,
     });

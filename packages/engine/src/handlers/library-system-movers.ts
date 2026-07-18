@@ -1,10 +1,11 @@
 import { and, eq, ne } from 'drizzle-orm';
 import {
   EvidencePackage,
+  ResearchSourceKind,
   SystemTopicScope,
-  type ResearchSourceKind,
   type SuggestionThresholdProfile,
 } from '@hftr/contracts';
+import type { ResearchSourceKind as ResearchSourceKindT } from '@hftr/contracts';
 import { z } from 'zod';
 import {
   buildResearchQueryPlan,
@@ -42,6 +43,10 @@ import {
 } from '../libraries/watchlist-suggestions-persist';
 import { resolvePhilosophyControl } from '../pipeline/philosophy-control';
 import { resolveResearchGatherCredentials } from '../research/gather-credentials';
+import {
+  MOVERS_LANE_SOURCE_KINDS,
+  selectReadyLaneSourceKinds,
+} from '../research/posture-sources';
 import { corroborateAndNormalize } from '../research/verified-normalize';
 import { persistVerifiedBundle } from '../research/seal-persist';
 import { loadLatestValidSeal } from '../research/seal-load';
@@ -51,7 +56,7 @@ const SystemMoversPayload = z.object({
   companyId: z.string().uuid(),
 });
 
-const NEWS_KINDS: ResearchSourceKind[] = [
+const NEWS_KINDS: ResearchSourceKindT[] = [
   'gdelt_news',
   'market_news',
   'alpha_vantage_news',
@@ -59,14 +64,14 @@ const NEWS_KINDS: ResearchSourceKind[] = [
   'finnhub_news',
   'polygon_news',
 ];
-const MACRO_KINDS: ResearchSourceKind[] = [
+const MACRO_KINDS: ResearchSourceKindT[] = [
   'fred_macro',
   'frankfurter_fx',
   'coingecko_crypto',
   'world_bank_indicator',
 ];
-const WEB_KINDS: ResearchSourceKind[] = ['brave_search', 'sec_edgar'];
-const BAR_KINDS: ResearchSourceKind[] = ['alpaca_bars', 'twelve_data', 'marketstack'];
+const WEB_KINDS: ResearchSourceKindT[] = ['brave_search', 'sec_edgar'];
+const BAR_KINDS: ResearchSourceKindT[] = ['alpaca_bars', 'twelve_data', 'marketstack'];
 
 function domainCountBand(n: number): 'absent' | 'single' | 'dual' | 'multi' {
   if (n >= 3) return 'multi';
@@ -80,11 +85,17 @@ function buildMoversReportBody(opts: {
   itemHeadlines: string[];
   feedClass: string;
   thresholdSource: string;
+  sourceKinds: string[];
 }): string {
   const notes =
     opts.itemHeadlines.length > 0
       ? opts.itemHeadlines.map((h) => `- ${h}`).join('\n')
       : '- No multi-source leadership cluster sealed this window; lenses remain authoritative.';
+
+  const sources =
+    opts.sourceKinds.length > 0
+      ? opts.sourceKinds.map((k) => `- ${k.replace(/_/g, ' ')}`).join('\n')
+      : '- No entitled provider surfaces contributed this window.';
 
   return [
     '# Daily movers report',
@@ -94,6 +105,10 @@ function buildMoversReportBody(opts: {
     `Paper scan via ${opts.feedClass} with corroboration band ${opts.corroborationBand}.`,
     `Threshold profile source: ${opts.thresholdSource}.`,
     'Values stay on the ValueRef path; this report is qualitative only.',
+    '',
+    '## Provider surfaces pulled',
+    '',
+    sources,
     '',
     '## Leadership notes',
     '',
@@ -182,12 +197,8 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     cadence: 'every:1440',
   });
 
-  const sourceKinds: ResearchSourceKind[] = [
-    ...NEWS_KINDS,
-    ...MACRO_KINDS,
-    ...WEB_KINDS,
-    ...BAR_KINDS,
-  ];
+  // Only pull from operator-provided / public-ready surfaces (D-103).
+  const sourceKinds = selectReadyLaneSourceKinds(gatherCredentials, MOVERS_LANE_SOURCE_KINDS);
 
   const { packages: gathered } = await gatherEvidencePackages({
     query: plan.baseQuery,
@@ -473,6 +484,14 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     strengthBand: s.leadershipBand,
   }));
 
+  const contributed = [
+    ...new Set([
+      ...usable.map((p) => p.sourceKind),
+      ...evidence.map((p) => p.sourceKind),
+    ]),
+  ].filter((k): k is ResearchSourceKindT => ResearchSourceKind.safeParse(k).success);
+  bundle.contributingSourceKinds = contributed.slice(0, 24);
+
   const itemHeadlines = bundle.view.items
     .map((item) => item.headline ?? item.symbolOrSector ?? '')
     .filter((h) => h.length > 0)
@@ -486,6 +505,7 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     itemHeadlines,
     feedClass,
     thresholdSource,
+    sourceKinds: bundle.contributingSourceKinds ?? [],
   });
 
   await persistVerifiedBundle({

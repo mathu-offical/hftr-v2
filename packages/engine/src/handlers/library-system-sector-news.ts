@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { EvidencePackage, SystemTopicScope } from '@hftr/contracts';
+import { EvidencePackage, ResearchSourceKind, SystemTopicScope } from '@hftr/contracts';
+import type { ResearchSourceKind as ResearchSourceKindT } from '@hftr/contracts';
 import { z } from 'zod';
 import {
   buildResearchQueryPlan,
@@ -10,6 +11,10 @@ import { modules } from '@hftr/db/schema';
 import { ensureSystemLibrary } from '../libraries/ensure-system-library';
 import { getSystemLibraryEntry } from '../libraries/system-library-registry';
 import { resolveResearchGatherCredentials } from '../research/gather-credentials';
+import {
+  SECTOR_NEWS_LANE_SOURCE_KINDS,
+  selectReadyLaneSourceKinds,
+} from '../research/posture-sources';
 import { corroborateAndNormalize } from '../research/verified-normalize';
 import { persistVerifiedBundle } from '../research/seal-persist';
 import { loadLatestValidSeal } from '../research/seal-load';
@@ -96,11 +101,15 @@ registerHandler('library.system_sector_news', async ({ db, clock, job }) => {
 
   // D-074: resolve BYOK at handler time — never from job payload.
   const gatherCredentials = await resolveResearchGatherCredentials(db, payload.companyId);
+  const sourceKinds = selectReadyLaneSourceKinds(
+    gatherCredentials,
+    SECTOR_NEWS_LANE_SOURCE_KINDS,
+  );
 
   const { packages, errors } = await gatherEvidencePackages({
     query: plan.baseQuery,
     queryBySource: plan.bySource,
-    sourceKinds: ['gdelt_news', 'market_news', 'alpha_vantage_news', 'brave_search'],
+    sourceKinds,
     allowlist: [],
     blocklist: [],
     maxEvidence: 16,
@@ -156,6 +165,12 @@ registerHandler('library.system_sector_news', async ({ db, clock, job }) => {
     topicSectors,
   });
   if (!bundle) return;
+
+  bundle.contributingSourceKinds = [
+    ...new Set(evidence.map((p) => p.sourceKind)),
+  ]
+    .filter((k): k is ResearchSourceKindT => ResearchSourceKind.safeParse(k).success)
+    .slice(0, 24);
 
   const headlines = bundle.view.items
     .map((item) => item.headline ?? '')

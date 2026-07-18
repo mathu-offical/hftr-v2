@@ -174,6 +174,14 @@ export {
   type ResearchGatherCredentials,
 } from './research/gather-credentials';
 export {
+  MOVERS_LANE_SOURCE_KINDS,
+  SECTOR_NEWS_LANE_SOURCE_KINDS,
+  researchAvailabilityFromCredentials,
+  selectReadyLaneSourceKinds,
+  sourceKindDomain,
+  sourceKindLabel,
+} from './research/posture-sources';
+export {
   loadCompanyLinkGraph,
   neighborIds,
   resolveDirectiveTradingTarget,

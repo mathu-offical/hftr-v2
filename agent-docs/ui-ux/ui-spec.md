@@ -268,6 +268,10 @@ suppressed in editable fields.
   Visible surfaces poll on the fresh cadence; **Refresh** enqueues `library.system_movers`
   then force-revalidates. Non-flat `trend.scan` and admitted `trend.promote` also enqueue
   movers revalidation.
+  **Provider surfaces (D-103):** movers compound gathers only credential-ready / public kinds
+  from the operator's research keys + Alpaca paper broker (via `selectReadySourceKinds`).
+  Overlay + rail list each movers-lane provider as ready / need key / contributed on last seal.
+  Position marks remain synthetic until live broker marks.
   **Watchlist tiers (D-092):** `suggested_search` → `suggested_verified` → `watching`
   (+ `triggered` / `archived`). Market posture rail **and overlay** + bottom Watch lists
   filter chips (default: watching + suggested_verified). **Confirm** PATCHes to `watching`

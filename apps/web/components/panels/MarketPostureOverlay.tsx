@@ -6,6 +6,7 @@ import type { MarketHubPosition } from '@hftr/contracts';
 import { useResearchView } from '@/components/research/ResearchViewContext';
 import { MarketPostureEquityChart } from '@/components/panels/MarketPostureEquityChart';
 import { MarketPostureFreshnessStrip } from '@/components/panels/MarketPostureFreshnessStrip';
+import { MarketPostureSourcesStrip } from '@/components/panels/MarketPostureSourcesStrip';
 import { useMarketPostureView } from '@/components/panels/MarketPostureViewContext';
 import { Justification } from '@/components/panels/Justification';
 import {
@@ -163,6 +164,11 @@ export function MarketPostureOverlay() {
           </div>
         </div>
         {hub ? <MarketPostureFreshnessStrip freshness={hub.freshness} /> : null}
+        {hub ? (
+          <div className="px-3 pb-2">
+            <MarketPostureSourcesStrip sources={hub.sources} />
+          </div>
+        ) : null}
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">

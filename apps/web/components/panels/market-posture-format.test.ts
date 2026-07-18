@@ -83,7 +83,23 @@ describe('MarketHubResponse report expiry (D-101)', () => {
         moversExpiresAt: null,
         fetchedAt: '2026-07-18T12:00:00.000Z',
       },
+      sources: {
+        lanes: [
+          {
+            kind: 'sec_edgar',
+            domain: 'filings',
+            label: 'sec edgar',
+            authMode: 'none',
+            status: 'ready',
+            contributed: true,
+          },
+        ],
+        contributedKinds: ['sec_edgar'],
+        markFeedClass: 'synthetic',
+        scannedAt: '2026-07-18T12:00:00.000Z',
+      },
     });
     expect(body.reports[0]?.expiresAt).toBe('2026-07-19T12:00:00.000Z');
+    expect(body.sources.contributedKinds).toEqual(['sec_edgar']);
   });
 });

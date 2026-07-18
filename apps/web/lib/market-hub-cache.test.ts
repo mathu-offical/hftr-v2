@@ -33,6 +33,12 @@ function stubHub(partial?: Partial<MarketHubResponse>): MarketHubResponse {
     positions: [],
     pipeline: [],
     freshness: { moversExpiresAt: null, fetchedAt: '2026-07-18T00:00:00.000Z' },
+    sources: {
+      lanes: [],
+      contributedKinds: [],
+      markFeedClass: 'synthetic',
+      scannedAt: null,
+    },
     ...partial,
   };
 }

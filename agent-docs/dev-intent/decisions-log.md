@@ -1081,6 +1081,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   ancestry hulls. Docs: research-galaxy-topic-view-design §4.3.1, ui-spec §6. **Status:
   implemented.**
 
+- **D-103 (Market posture provider-surface honesty, 2026-07-18):** Movers / sector-news gather
+  intersects lane kinds with `selectReadySourceKinds` against operator research keys + Alpaca
+  paper credentials (never invents entitled providers). Seals store `contributingSourceKinds`.
+  Market hub projects `sources.lanes` (ready / missing_key / contributed) and UI lists which
+  providers the last scan pulled from. Marks stay synthetic until live broker marks. Docs:
+  ui-spec §4. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

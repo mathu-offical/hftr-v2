@@ -7,6 +7,7 @@ import {
   type MarketPostureCategory,
 } from '@/components/panels/MarketPostureViewContext';
 import { MarketPostureFreshnessStrip } from '@/components/panels/MarketPostureFreshnessStrip';
+import { MarketPostureSourcesStrip } from '@/components/panels/MarketPostureSourcesStrip';
 import { Justification } from '@/components/panels/Justification';
 import { PanelTabs } from '@/components/panels/PanelTabs';
 import {
@@ -248,6 +249,7 @@ export function MarketPosturePanel(props: { companyId: string }) {
       )}
 
       <div className="space-y-0.5 border-t border-[var(--color-line)] pt-2">
+        <MarketPostureSourcesStrip sources={hub.sources} compact />
         <p className="font-mono text-[10px] tabular-nums text-[var(--color-ink-faint)]">
           Equity {equityStatusLabel(hub.equity.status)}
           {hub.equity.equityCents ? ` · ${dollarsFromCents(hub.equity.equityCents)}` : ''}

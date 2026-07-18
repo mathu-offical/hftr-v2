@@ -2,11 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import {
+  RESEARCH_SOURCE_REGISTRY,
   MarketHubResponse,
   MarketHubRefreshResponse,
   type MarketHubEngineChip,
   type MarketHubPipelineBySymbol,
   type MarketHubReportLink,
+  type MarketHubSourceRow,
 } from '@hftr/contracts';
 import { scoping } from '@hftr/db';
 import {
@@ -28,6 +30,9 @@ import {
   getSyntheticQuote,
   loadLatestValidSeal,
   parseVerifiedSealBundle,
+  resolveResearchGatherCredentials,
+  MOVERS_LANE_SOURCE_KINDS,
+  researchAvailabilityFromCredentials,
 } from '@hftr/engine';
 import { withAuth } from '@/lib/api';
 
@@ -118,6 +123,8 @@ export async function GET(_req: Request, ctx: Ctx) {
     const fetchedAt = new Date(nowMs).toISOString();
 
     let seal = null;
+    let contributedKinds: string[] = [];
+    let sourcesScannedAt: string | null = null;
     try {
       seal = await loadLatestValidSeal(db, {
         companyId,
@@ -131,6 +138,8 @@ export async function GET(_req: Request, ctx: Ctx) {
 
     let movers: MarketHubResponse['movers'];
     if (seal) {
+      contributedKinds = (seal.contributingSourceKinds ?? []).slice(0, 32);
+      sourcesScannedAt = seal.verifiedAt;
       movers = {
         status: 'ready',
         title: seal.view.title,
@@ -161,6 +170,8 @@ export async function GET(_req: Request, ctx: Ctx) {
           .limit(1);
         const parsed = stale ? parseVerifiedSealBundle(stale.bundle) : null;
         if (parsed && stale && stale.expiresAt.getTime() <= nowMs) {
+          contributedKinds = (parsed.contributingSourceKinds ?? []).slice(0, 32);
+          sourcesScannedAt = parsed.verifiedAt;
           expiredMovers = {
             status: 'expired',
             title: parsed.view.title,
@@ -483,6 +494,41 @@ export async function GET(_req: Request, ctx: Ctx) {
       ? company.sectorFocuses.filter((s): s is string => typeof s === 'string').slice(0, 24)
       : [];
 
+    const gatherCredentials = await resolveResearchGatherCredentials(db, companyId);
+    const availability = researchAvailabilityFromCredentials(gatherCredentials);
+    const contributedSet = new Set(contributedKinds);
+    const sourceLanes: MarketHubSourceRow[] = MOVERS_LANE_SOURCE_KINDS.map((kind) => {
+      const descriptor = RESEARCH_SOURCE_REGISTRY[kind];
+      let status: MarketHubSourceRow['status'] = 'ready';
+      switch (descriptor.authMode) {
+        case 'none':
+          status = 'ready';
+          break;
+        case 'research_key':
+          status =
+            descriptor.keyProvider && availability.researchKeys.includes(descriptor.keyProvider)
+              ? 'ready'
+              : 'missing_key';
+          break;
+        case 'broker_paper':
+          status = availability.hasAlpacaPaper ? 'ready' : 'missing_key';
+          break;
+        default: {
+          const _exhaustive: never = descriptor.authMode;
+          void _exhaustive;
+          status = 'missing_key';
+        }
+      }
+      return {
+        kind,
+        domain: descriptor.domain,
+        label: kind.replace(/_/g, ' '),
+        authMode: descriptor.authMode,
+        status,
+        contributed: contributedSet.has(kind),
+      };
+    });
+
     const body = MarketHubResponse.parse({
       sectorFocuses,
       equity: {
@@ -501,6 +547,12 @@ export async function GET(_req: Request, ctx: Ctx) {
       freshness: {
         moversExpiresAt: movers.expiresAt,
         fetchedAt,
+      },
+      sources: {
+        lanes: sourceLanes,
+        contributedKinds,
+        markFeedClass: 'synthetic',
+        scannedAt: sourcesScannedAt,
       },
     });
 

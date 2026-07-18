@@ -7,7 +7,7 @@ Continue hftr-v2 build against the master plan.
 3. Create focused todo list for smallest spec-satisfying slice
 4. Implement following architecture, safety, and UI rules
 5. Run end-of-run workflow (`.cursor/workflows/end-of-run.md`): verify → curate → **invoke commit-message skill**
-6. Commit with per-file `Files changed` bullets; chunk unrelated domains
+6. Commit with per-file `Files changed` bullets; chunk unrelated domains (D-134 — do not wait to be asked)
 7. Report: built, verified, every SHA + subject, what's next
 
 If porting v1 pipeline/contracts: invoke `.cursor/skills/v1-reference/SKILL.md` first.

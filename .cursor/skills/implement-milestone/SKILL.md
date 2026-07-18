@@ -40,9 +40,9 @@ Invoke `verify-change` skill before claiming done.
 
 Update sprint spec progress + owning agent-docs. Log blockers as OQ-n.
 
-## 6. Commit (mandatory — invoke skill)
+## 6. Commit (mandatory after verify — invoke skill)
 
-After verification passes:
+After verification passes — **commit immediately** (D-134; do not wait to be asked):
 
 1. **Read** `.cursor/skills/commit-message/SKILL.md` (do not improvise)
 2. Inventory all dirty files; publish chunk plan (every file assigned)

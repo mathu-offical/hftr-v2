@@ -36,14 +36,15 @@ Follow rules: `architecture-monorepo`, `typescript-standards`, `hftr-safety-inva
 
 ## 6. Verify, commit, report
 
-Follow `.cursor/workflows/end-of-run.md`:
+Follow `.cursor/workflows/end-of-run.md` (D-134 — every session / every verified update):
 
 1. Verify (tests + browser)
 2. Curate agent-docs
 3. **Read and follow** `commit-message` skill — chunk plan + per-file bullets
 4. Report SHA(s), verification summary, what's next
 
-A run is incomplete with uncommitted verified work or paragraph-style commits.
+A session is incomplete with uncommitted verified work or paragraph-style commits.
+Do not wait for the user to ask before committing.
 
 ## 7. Curate
 

@@ -39,7 +39,7 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `hftr-safety-invariants.mdc` | Always apply — trading/LLM pipeline safety |
 | `zero-trust-verification.mdc` | Always apply — verify before claiming done |
 | `parallel-subagents.mdc` | Always apply — parallel delegation, composer-2.5, never Grok |
-| `git-commits.mdc` | Always apply — per-file bodies, chunked commits, end-of-run mandatory |
+| `git-commits.mdc` | Always apply — commit after every session + every verified update (D-134) |
 | `architecture-monorepo.mdc` | `packages/**`, `apps/**` |
 | `typescript-standards.mdc` | `**/*.{ts,tsx}` |
 | `ui-ux-standards.mdc` | `**/*.{tsx,css}` |
@@ -59,7 +59,7 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `verify-change` | Zero-trust verification before finishing |
 | `pipeline-engine` | Engine, dispatch, verification, bands/levers work |
 | `parallel-orchestration` | Multi-package/domain parallel sub-agent delegation |
-| `commit-message` | **MANDATORY end-of-run** — inventory files, chunk, per-file commit bodies |
+| `commit-message` | **MANDATORY** after every session + every verified update — per-file bodies |
 | `paper-experiment` | Paper-only cohort runs with preflight, provenance, intent audits |
 | `intent-alignment-audit` | Score declared vs observed vectors; hard fail on cap violations |
 | `external-integrations` | Wire Alpaca/LLM/Brave/Marketaux; smoke scripts; settings verify |
@@ -73,7 +73,7 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `implement-milestone-slice.md` | Spec → plan → implement → verify loop |
 | `agent-docs-curate.md` | Self-curation pass |
 | `verify-and-ship.md` | Verify → curate → invoke commit-message → report |
-| `end-of-run.md` | **Mandatory** close: verify + chunked per-file commits |
+| `end-of-run.md` | **Mandatory** after every session/verified update: verify + commit |
 | `commit-session.md` | Alias of end-of-run commit phase |
 | `paper-experiment-run.md` | Paper cohort: session-start → paper-experiment → end-of-run |
 | `credentialed-integrations.md` | Settings UI + CLI smoke for Alpaca/LLM/research keys |
@@ -85,9 +85,9 @@ Full index: `.cursor/rules/agent-sources.mdc`
 |---------|---------|
 | `/continue-build` | Milestone implementation loop |
 | `/curate-docs` | agent-docs curation |
-| `/verify` | Verify, then invoke commit-message if dirty |
-| `/commit-session` | Chunked per-file Conventional Commits |
-| `/end-run` | Full end-of-run: verify → curate → commit |
+| `/verify` | Verify, then **always** invoke commit-message if dirty |
+| `/commit-session` | Chunked per-file Conventional Commits (now, not later) |
+| `/end-run` | Full close: verify → curate → commit (every session) |
 | `/paper-experiment` | Paper-only experimentation cohort workflow |
 | `/secrets-audit` | Secrets hygiene audit (D-027 / D-074) |
 

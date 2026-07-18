@@ -96,8 +96,9 @@ These rules apply to any assistant or automation operating in the hftr-v2 worksp
 ## Cursor workspace
 
 - Agent rules, skills, workflows, and slash commands: `.cursor/README.md` (D-010).
-- Start substantial tasks with `session-start` skill; close with **verify → curate → commit**
-  (`/end-run` or `.cursor/workflows/end-of-run.md`). Always **invoke** `commit-message` skill.
+- Start substantial tasks with `session-start` skill; close **every** session with
+  **verify → curate → commit** (`/end-run` or `.cursor/workflows/end-of-run.md`).
+  Always **invoke** `commit-message` after verified updates (D-134) — do not wait to be asked.
 - Slash commands: `/continue-build`, `/curate-docs`, `/verify`, `/commit-session`, `/end-run`.
 
 ## Sub-agent orchestration
@@ -115,9 +116,10 @@ These rules apply to any assistant or automation operating in the hftr-v2 worksp
 - Use **Conventional Commits** with hftr-v2 scopes and a **full structured body**.
   Subject ≤72 chars; body must list **every staged file** under `Files changed`
   (path + what + why). Never paragraph-only or truncated messages.
-- **Mandatory end-of-run:** after verification, **read and follow**
-  `.cursor/skills/commit-message/SKILL.md` — inventory diffs, plan chunks, commit
-  each chunk. A run with uncommitted verified work is incomplete.
+- **Mandatory after every session and every verified update (D-134):** do **not** wait
+  for the user to ask. After verification (or docs-only close), **read and follow**
+  `.cursor/skills/commit-message/SKILL.md` — inventory diffs, plan chunks, commit each
+  chunk. Uncommitted verified work = incomplete session.
 - One logical intent per commit; bundle code with owning `agent-docs/` when same intent.
 - Cross-check: Files changed bullet count == staged file count.
 - Pre-commit: `pnpm typecheck`, `pnpm lint`, `pnpm test` for runtime code.

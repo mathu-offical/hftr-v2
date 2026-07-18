@@ -1,6 +1,7 @@
-End the current run: verify, then commit all changes with per-file messages.
+End the current session / verified update: verify, then commit all changes with per-file messages.
 
-**MANDATORY:** Read and follow `.cursor/skills/commit-message/SKILL.md` completely.
+**MANDATORY (D-134):** Read and follow `.cursor/skills/commit-message/SKILL.md` completely.
+Do not wait for the user to ask — commits are required after every session and every verified update.
 
 1. Run verify-change skill (tests + browser if applicable).
 2. Curate agent-docs if behavior changed.

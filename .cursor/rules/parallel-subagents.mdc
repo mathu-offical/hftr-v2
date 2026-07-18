@@ -110,4 +110,4 @@ parent if still failing.
 | By docs | update data-model.md ∥ update product-spec.md (non-overlapping sections) |
 
 After parallel work: parent merges, resolves conflicts, updates agent-docs once (self-curation),
-**verifies**, then **commits** before ending the run (`commit-message` skill).
+**verifies**, then **commits immediately** before ending (`commit-message` skill, D-134).

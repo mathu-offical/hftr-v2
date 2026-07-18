@@ -1,6 +1,7 @@
 # Verify, Commit, and Report Workflow
 
-Standard **end-of-run** sequence. Incomplete without invoking `commit-message` skill.
+Standard close after **every verified update** and at **end of every session** (D-134).
+Incomplete without invoking `commit-message` skill. Do not wait for the user to ask.
 
 **Sources:** `.cursor/skills/verify-change/SKILL.md`, `.cursor/skills/commit-message/SKILL.md`,
 `.cursor/workflows/end-of-run.md`
@@ -8,21 +9,20 @@ Standard **end-of-run** sequence. Incomplete without invoking `commit-message` s
 ## Fixed order
 
 ```
-implement → verify → curate docs → INVOKE commit-message skill → report
+implement / update → verify → curate docs → INVOKE commit-message skill → report
 ```
 
 ## Steps
 
 ### 1. Verify
 
-Follow `verify-change` skill steps 1–5 (+ §5b if credentials-adjacent). **Stop** if verification fails.
-Run `/secrets-audit` when touching keys, enqueue, settings, LLM invoke, or adapters.
+Follow `verify-change` skill steps 1–5. **Stop** if verification fails.
 
 ### 2. Curate
 
 Ensure agent-docs reflect verified behavior.
 
-### 3. Commit (invoke skill — mandatory)
+### 3. Commit (invoke skill — mandatory now)
 
 1. **Read** `.cursor/skills/commit-message/SKILL.md` (full file)
 2. Inventory every dirty file (`git diff --name-status`)
@@ -45,7 +45,8 @@ Only when user explicitly asks.
 
 | Condition | Commit? |
 |-----------|---------|
-| Verification passed + dirty files | **Yes — required** |
+| Verification passed + dirty files | **Yes — required immediately** |
+| Session ending with dirty files | **Yes — required** |
 | Clean tree | No |
 | Verification failed | No |
 | Only secrets/artifacts dirty | No |

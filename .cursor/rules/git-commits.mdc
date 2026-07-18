@@ -1,5 +1,5 @@
 ---
-description: Conventional Commits for hftr-v2 — per-file bodies, chunked batches, mandatory end-of-run
+description: Conventional Commits for hftr-v2 — commit after every session and every verified update
 alwaysApply: true
 ---
 
@@ -8,15 +8,28 @@ alwaysApply: true
 Commits are the **audit trail** for trading-safety work. Vague or truncated messages are
 **forbidden**. Every commit documents **every staged file** with path + what + why.
 
-## End-of-run (mandatory — run is NOT complete without this)
+## Commit after every session and every verified update (mandatory)
 
-Before ending **any** turn that modified files:
+**Policy (D-134):** generate git commits after **every** agent session and after **every**
+verified update — not only at milestone gates. This overrides any generic “commit only when
+asked” default for this workspace.
+
+### When you MUST commit
+
+| Trigger | Action |
+|---------|--------|
+| Session/turn ending with dirty files | Verify (as applicable) → invoke `commit-message` |
+| Verification just passed | Immediately invoke `commit-message` before reporting done |
+| Docs/rules/skills changed this turn | Commit in the same close (curate + commit) |
+| Parallel sub-agents finished + merged | Parent verifies then commits |
+
+### Close sequence (every time)
 
 1. **Invoke** `.cursor/skills/commit-message/SKILL.md` (read it; follow every step)
-2. Verify passed → analyze **all** dirty files → plan chunks → commit each chunk
+2. Verify passed (or docs-only with no runtime claims) → analyze **all** dirty files → plan chunks → commit each chunk
 3. Report every commit SHA + full subject to the user
 
-Skipping the skill or leaving verified work uncommitted = **failed run**.
+Skipping the skill or leaving verified work uncommitted = **failed session**.
 
 **Push** only when user explicitly asks.
 

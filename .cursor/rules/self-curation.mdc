@@ -37,7 +37,8 @@ decisions, or standards **must update owning docs in the same change**.
 If docs contradict code: code wins for runtime; log drift and fix docs (or file OQ-n if intent unclear).
 Invoke skill `.cursor/skills/agent-docs-curate/` or `/curate-docs` for full passes.
 
-## End of run
+## End of session / after every verified update
 
-Doc updates ship in the **same git commit** as the code they describe. After verification passes,
-commit via `commit-message` skill — do not leave curated docs uncommitted alongside verified code.
+Doc updates ship in the **same git commit** as the code they describe. After verification
+passes (and at end of every session with dirty files), invoke `commit-message` skill —
+do not leave curated docs uncommitted (D-134).

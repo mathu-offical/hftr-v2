@@ -1,6 +1,7 @@
-Create detailed, chunked git commits for all verified session changes.
+Create detailed, chunked git commits for all verified session / update changes.
 
-**MANDATORY:** Read `.cursor/skills/commit-message/SKILL.md` and follow every step.
+**MANDATORY (D-134):** Read `.cursor/skills/commit-message/SKILL.md` and follow every step.
+Commit after every verified update and at end of every session — do not wait to be asked.
 Do not invent a short paragraph message.
 
 1. Confirm verification passed (or run verify first).

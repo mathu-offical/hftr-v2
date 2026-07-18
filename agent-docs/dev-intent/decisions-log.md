@@ -1420,6 +1420,17 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `docs/superpowers/specs/2026-07-18-data-company-libraries-shell-inspector-design.md`.
   Docs: ui-spec §4. Extends D-049 / D-121. **Status: implemented.**
 
+- **D-134 (commit after every session + verified update, 2026-07-18):** User directive —
+  workspace agents must generate git commits after **every** session and after **every**
+  verified update, not only when asked and not only at milestone gates. Resolves **OQ-12**
+  in favor of workspace policy (overrides generic “commit only when asked” defaults for
+  this repo). Close sequence remains verify → curate → invoke `commit-message` skill →
+  report; push still user-request-only. Surfaces updated: `git-commits.mdc`,
+  `zero-trust-verification.mdc`, `self-curation.mdc`, `agent-sources.mdc`, `AGENTS.md`,
+  `commit-message` / `verify-change` / `session-start` / `implement-milestone` skills,
+  `end-of-run` / `verify-and-ship` / `commit-session` workflows, `/end-run` `/verify`
+  `/commit-session` commands, `.cursor/README.md`, `agent-docs/README.md`.
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;
@@ -1440,8 +1451,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 - **OQ-11 (open):** Experiment log home — append experiment scorecards to
   `agent-docs/testing/experiment-log.md` vs DB `simulation_runs` once that table ships (M4).
   Interim: markdown experiment-log.
-- **OQ-12 (open):** Commit policy for experiment-only sessions — user rule “commit only when
-  asked” vs workspace mandatory end-of-run. Resolve per session until productized.
+- **OQ-12 (resolved 2026-07-18, D-134):** Commit policy — workspace **requires** commits
+  after every session and every verified update; do not wait for an explicit “please commit.”
+  Push remains user-request-only. Generic user-rule “commit only when asked” does **not**
+  apply inside hftr-v2 for verified work.
 - **OQ-1 (open):** Credit pack pricing and subscription tier pricing — needs user input before M4.
 - **OQ-2 (open):** Criteria/timing for adding a dedicated always-on worker for market-hours
   watchers — decide with M3/M5 latency data. **Interim baseline (D-036):** sustained market-hours

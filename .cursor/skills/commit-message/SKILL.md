@@ -1,23 +1,25 @@
 ---
 name: commit-message
-description: MANDATORY at end of every hftr-v2 run with file changes. Analyzes every dirty file via git diff, plans logical commit chunks, writes per-file Conventional Commit bodies (never truncated subjects-as-bodies). Invoke after verification passes; use via /commit-session or /end-run.
+description: MANDATORY after every hftr-v2 session and after every verified update. Analyzes every dirty file via git diff, plans logical commit chunks, writes per-file Conventional Commit bodies. Invoke when verification passes, when ending a turn with dirty files, via /commit-session or /end-run.
 ---
 
-# hftr-v2 commit messages (mandatory end-of-run)
+# hftr-v2 commit messages (every session + every verified update)
 
-Rule: `.cursor/rules/git-commits.mdc`
+Rule: `.cursor/rules/git-commits.mdc` | Decision: **D-134**
 
-> **You MUST read and follow this entire skill before ending any turn that modified
-> files.** A run without chunked, per-file commits is incomplete.
+> **You MUST read and follow this entire skill** after every verified update and before
+> ending any session/turn that modified files. Uncommitted verified work = incomplete session.
+> Do **not** wait for the user to ask — workspace policy requires the commit.
 
 ## Step 0 — Gate
 
 | Condition | Action |
 |-----------|--------|
 | `git status` clean | Done — report no commit needed |
-| Verification failed | Fix first — do not commit |
+| Verification failed | Fix first — do not commit broken state |
 | Only secrets/artifacts dirty | Leave unstaged — report why |
-| Verified code/docs dirty | **Continue steps 1–8** |
+| Verified code/docs dirty | **Continue steps 1–8 immediately** |
+| Docs/rules-only dirty (no runtime claims) | Continue steps 1–8 (tests may be skipped with reason) |
 
 ## Step 1 — Inventory every changed file
 

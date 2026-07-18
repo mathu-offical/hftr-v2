@@ -52,5 +52,6 @@ Read sources in this priority order when resolving intent vs implementation:
 Skills/workflows: `.cursor/README.md`. Invoke `session-start` at task start.
 Credentials/secrets work: invoke `secrets-hygiene` skill + rule
 `.cursor/rules/secrets-hygiene.mdc` (D-027, D-074).
-Close every implementation run: **verify → curate → invoke `commit-message` skill**
-(`.cursor/workflows/end-of-run.md` or `/end-run`). Per-file commit bodies required.
+Close **every** session and **every** verified update: **verify → curate → invoke
+`commit-message` skill** (`.cursor/workflows/end-of-run.md` or `/end-run`). Do not wait
+for the user to ask (D-134). Per-file commit bodies required.

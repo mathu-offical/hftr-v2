@@ -42,7 +42,8 @@ Launch all independent tasks in **one parent message**.
 3. Resolve conflicts
 4. Run parent-level integration tests + browser verification
 5. Update agent-docs once (self-curation)
-6. **Commit** verified changes (`commit-message` skill) before reporting done
+6. **Commit immediately** verified changes (`commit-message` skill, D-134) before reporting done —
+   do not wait for the user to ask
 
 ## Example: M1 canvas + queue
 

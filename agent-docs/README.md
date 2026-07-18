@@ -105,8 +105,10 @@ They extend — do not replace — this directory and `AGENTS.md`.
 | `/paper-experiment` | Paper-only experimentation cohort workflow |
 | `/secrets-audit` | Secrets hygiene audit (no keys in jobs/prompts/APIs) |
 
-**End-of-run sequence:** verify → curate → **invoke `commit-message` skill** (per-file
-bodies, chunked) → report (D-018, D-020). Push only when user asks.
+**End-of-session / post-verify sequence:** verify → curate → **invoke `commit-message`
+skill** (per-file bodies, chunked) → report (D-018, D-020, **D-134**). Commits are
+required after every session and every verified update — do not wait to be asked.
+Push only when user asks.
 
 Key skills: `session-start`, `agent-docs-curate`, `v1-reference`, `implement-milestone`,
 `verify-change`, `pipeline-engine`, `parallel-orchestration`, `paper-experiment`,

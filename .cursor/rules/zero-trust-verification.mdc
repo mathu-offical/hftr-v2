@@ -35,8 +35,10 @@ provider docs). Log decisions in `tech-decisions.md` with verification status.
 
 Invoke `.cursor/skills/verify-change/` or `/verify` for structured passes.
 
-## After verification passes
+## After verification passes (every time)
 
-Commit verified changes before ending the run (`.cursor/rules/git-commits.mdc` end-of-run policy).
-Invoke `commit-message` skill or `commit-session` workflow. A task is not done with uncommitted
-verified work still in the working tree.
+**Immediately** commit verified changes — do not wait for session end or a user “please commit”
+ask (D-134). Invoke `.cursor/skills/commit-message/SKILL.md` (or `/end-run`).
+
+A verified update is **not done** with uncommitted work in the working tree. Same rule for
+session close: verify → curate → commit → report.

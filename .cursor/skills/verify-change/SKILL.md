@@ -86,9 +86,10 @@ Mark any unverified claims with explicit "unverified" until proven.
 
 Summarize for user: what was verified, how, and any remaining gaps/OQ-n.
 
-## 8. Commit (mandatory — invoke skill)
+## 8. Commit (mandatory after every verified update — invoke skill)
 
-If verification passed and the working tree has run changes:
+If verification passed and the working tree has changes — **commit now** (D-134). Do not
+defer to a later “please commit” or only at milestone end.
 
 1. **Read** `.cursor/skills/commit-message/SKILL.md` and follow it completely
 2. Inventory every dirty file; write a chunk plan listing each file per commit
@@ -96,7 +97,8 @@ If verification passed and the working tree has run changes:
 4. HEREDOC commit; cross-check bullet count equals staged file count
 5. Report every SHA + subject + file count
 
-**Forbidden:** paragraph-style messages, truncated file lists, skipping the skill.
+**Forbidden:** paragraph-style messages, truncated file lists, skipping the skill,
+ending the turn with dirty verified files.
 
 **Skip commit** only when: no changes, verification failed, or only secrets/artifacts dirty.
 

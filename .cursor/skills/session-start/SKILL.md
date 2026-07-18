@@ -31,9 +31,10 @@ milestone unless user explicitly requests otherwise. Do not skip gates.
 If task touches pipeline, bands, guardrails, verification, or contracts → read v1 paths
 listed in `agent-sources.mdc` before designing new types.
 
-## End of session
+## End of session / after every verified update
 
-Fixed closing sequence: **verify → curate → INVOKE commit-message skill → report**.
+Fixed closing sequence: **verify → curate → INVOKE commit-message skill → report** (D-134).
+Do **not** wait for the user to ask before committing.
 
 - [ ] Invoke `verify-change` skill — tests + browser as applicable
 - [ ] Update agent-docs (self-curation rule)

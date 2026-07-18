@@ -589,6 +589,17 @@ describe('generated module names', () => {
     expect(moduleFunctionLabel('math')).toBe('Math');
   });
 
+  it('moduleFunctionLabel maps research / library / analyzer specialties', () => {
+    expect(moduleFunctionLabel('research', { researchSubtype: 'external_filings' })).toBe('Filings');
+    expect(moduleFunctionLabel('research', { researchSubtype: 'event_catalyst' })).toBe('Catalyst');
+    expect(moduleFunctionLabel('library', { libraryClass: 'topic_runtime' })).toBe('TopicLib');
+    expect(moduleFunctionLabel('library', { libraryClass: 'specialty_evidence' })).toBe('SpecLib');
+    expect(moduleFunctionLabel('analyzer', { emitMode: 'to_desk_stream' })).toBe('Concat');
+    expect(moduleFunctionLabel('analyzer', { emitMode: 'verify_loopback' })).toBe('ExecMon');
+    expect(moduleFunctionLabel('time', { transform: 'elapsed' })).toBe('Elapsed');
+    expect(moduleFunctionLabel('time', { transform: 'session_window' })).toBe('Session');
+  });
+
   it('moduleFocusToken prefers topic then capital display', () => {
     expect(moduleFocusToken({ topicSectors: ['  SPY  '] })).toBe('SPY');
     expect(moduleFocusToken({ topicSectors: [], capitalAllocationDisplay: '25%' })).toBe('25%');
@@ -602,6 +613,10 @@ describe('generated module names', () => {
     });
     expect(splitCompactModuleName('Research · —')).toEqual({
       primary: 'Research · —',
+      connectionRefs: null,
+    });
+    expect(splitCompactModuleName('MktNews · —')).toEqual({
+      primary: 'MktNews · —',
       connectionRefs: null,
     });
   });
@@ -863,6 +878,26 @@ describe('engine templates', () => {
       }
       for (const input of engine.inputs) {
         expect(engine.modules[input.target.moduleIndex], `${engine.id}/${input.key}`).toBeDefined();
+      }
+    }
+  });
+
+  it('duplicate ModuleTypes in one template have distinct function labels', () => {
+    for (const engine of ENGINE_TEMPLATES) {
+      if (engine.modules.length === 0) continue;
+      const byType = new Map<string, string[]>();
+      for (const m of engine.modules) {
+        const parsed = MODULE_CONFIG_SCHEMAS[m.type].parse(m.config);
+        const fn = moduleFunctionLabel(m.type, parsed);
+        const list = byType.get(m.type) ?? [];
+        list.push(fn);
+        byType.set(m.type, list);
+      }
+      for (const [type, labels] of byType) {
+        if (labels.length < 2) continue;
+        expect(new Set(labels).size, `${engine.id} duplicate ${type}: ${labels.join(',')}`).toBe(
+          labels.length,
+        );
       }
     }
   });

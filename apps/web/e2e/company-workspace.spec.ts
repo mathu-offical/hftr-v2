@@ -43,14 +43,14 @@ test.describe('Company workspace (M1 read flows)', () => {
     await expect(canvas).toBeVisible();
     for (const [typeLabel, primary] of [
       ['Math', 'Math ·'],
-      ['Research', 'Research ·'],
-      ['Library', 'Library ·'],
-      ['Live API', 'LiveAPI ·'],
-      ['Trend', 'Trend ·'],
+      ['Research', 'MktNews ·'],
+      ['Library', 'SpecLib ·'],
+      ['Live API', 'PaperFeed ·'],
+      ['Trend', 'IntradayTrend ·'],
       ['Trading', 'DayTrade ·'],
       ['Holding fund', 'Fund ·'],
       ['Fund router', 'Router ·'],
-      ['Analyzer', 'Analyze ·'],
+      ['Analyzer', 'ExecMon ·'],
       ['Policy', 'Policy ·'],
     ] as const) {
       const node = canvas

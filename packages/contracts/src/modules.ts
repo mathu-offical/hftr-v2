@@ -819,7 +819,8 @@ function capNeighborLabels(labels: readonly string[], cap: number): string[] {
 
 /**
  * Short function lexicon for canvas identity (compact labels).
- * Prefer type + subtype/kind over long prose bases.
+ * Prefer type + subtype/kind over long prose bases so duplicate ModuleTypes
+ * in one ENGINE remain visually and semantically distinct (dev-notebook).
  */
 export function moduleFunctionLabel(type: ModuleType, config?: unknown): string {
   const cfg =
@@ -828,16 +829,90 @@ export function moduleFunctionLabel(type: ModuleType, config?: unknown): string 
       : {};
 
   switch (type) {
-    case 'research':
-      return 'Research';
-    case 'librarian':
-      return 'Librarian';
-    case 'library':
-      return 'Library';
-    case 'live_api':
-      return 'LiveAPI';
-    case 'trend':
-      return 'Trend';
+    case 'research': {
+      const subtype = ResearchSubtype.safeParse(cfg.researchSubtype);
+      if (!subtype.success) return 'WebResearch';
+      switch (subtype.data) {
+        case 'external_web':
+          return 'WebResearch';
+        case 'external_filings':
+          return 'Filings';
+        case 'external_market_news':
+          return 'MktNews';
+        case 'specialty_desk':
+          return 'DeskResearch';
+        case 'event_catalyst':
+          return 'Catalyst';
+        case 'crypto_onchain_context':
+          return 'CryptoCtx';
+        case 'prediction_niche':
+          return 'PredNiche';
+      }
+    }
+    case 'librarian': {
+      const subtype = LibrarianSubtype.safeParse(cfg.librarianSubtype);
+      if (!subtype.success) return 'Librarian';
+      switch (subtype.data) {
+        case 'librarian_relevance':
+          return 'Librarian';
+        case 'librarian_seed_keeper':
+          return 'SeedKeeper';
+      }
+    }
+    case 'library': {
+      const klass = LibraryClass.safeParse(cfg.libraryClass);
+      if (!klass.success) return 'TopicLib';
+      switch (klass.data) {
+        case 'seeded_mechanisms':
+          return 'SeedLib';
+        case 'topic_runtime':
+          return 'TopicLib';
+        case 'market_history':
+          return 'MktHist';
+        case 'runtime_market_cache':
+          return 'MktCache';
+        case 'runtime_app_logs':
+          return 'AppLogs';
+        case 'specialty_evidence':
+          return 'SpecLib';
+        case 'master_graph':
+          return 'MasterLib';
+      }
+    }
+    case 'live_api': {
+      const venue = LiveApiModuleConfig.shape.venue.safeParse(cfg.venue);
+      if (!venue.success) return 'LiveAPI';
+      switch (venue.data) {
+        case 'paper_sim':
+          return 'PaperFeed';
+        case 'alpaca':
+          return 'AlpacaFeed';
+        case 'kalshi':
+          return 'KalshiFeed';
+        case 'polymarket':
+          return 'PolyFeed';
+        case 'coinbase':
+          return 'CoinbaseFeed';
+      }
+    }
+    case 'trend': {
+      const posture = TrendPosture.safeParse(cfg.trendPosture);
+      if (!posture.success) return 'Trend';
+      switch (posture.data) {
+        case 'session_intraday':
+          return 'IntradayTrend';
+        case 'crypto_cross_cap':
+          return 'CryptoTrend';
+        case 'event_probability':
+          return 'EventTrend';
+        case 'position_horizon':
+          return 'HorizonTrend';
+        case 'microstructure_swarm':
+          return 'MicroTrend';
+        case 'research_only':
+          return 'ResearchTrend';
+      }
+    }
     case 'trading': {
       const subtype = TradingSubtype.safeParse(cfg.subtype);
       if (!subtype.success) return 'Trade';
@@ -862,18 +937,62 @@ export function moduleFunctionLabel(type: ModuleType, config?: unknown): string 
       return 'Gen';
     case 'simulator':
       return 'Sim';
-    case 'analyzer':
-      return 'Analyze';
+    case 'analyzer': {
+      const mode = AnalyzerEmitMode.safeParse(cfg.emitMode);
+      if (!mode.success) return 'ExecMon';
+      switch (mode.data) {
+        case 'verify_loopback':
+          return 'ExecMon';
+        case 'to_desk_stream':
+          return 'Concat';
+        case 'to_library':
+          return 'LibEmit';
+      }
+    }
     case 'holding_fund':
       return 'Fund';
     case 'fund_router':
       return 'Router';
-    case 'math':
-      return 'Math';
+    case 'math': {
+      const mathType = MathType.safeParse(cfg.mathType);
+      if (!mathType.success) return 'Math';
+      switch (mathType.data) {
+        case 'company_hub':
+          return 'Math';
+        case 'fund_path':
+          return 'FundMath';
+        case 'desk_execution':
+          return 'DeskMath';
+        case 'trend_signal':
+          return 'TrendMath';
+        case 'research_metric':
+          return 'ResearchMath';
+        case 'analyzer_reconcile':
+          return 'ReconcileMath';
+        case 'simulator_sandbox':
+          return 'SimMath';
+        case 'session_calendar':
+          return 'SessionMath';
+      }
+    }
     case 'clock':
       return 'Clock';
-    case 'time':
-      return 'Time';
+    case 'time': {
+      const transform = TimeTransform.safeParse(cfg.transform);
+      if (!transform.success) return 'Time';
+      switch (transform.data) {
+        case 'elapsed':
+          return 'Elapsed';
+        case 'add_duration':
+          return 'AddDuration';
+        case 'timezone_convert':
+          return 'TzConvert';
+        case 'session_window':
+          return 'Session';
+        case 'schedule_ref':
+          return 'Schedule';
+      }
+    }
     case 'display': {
       const kind = DisplayKind.safeParse(cfg.displayKind);
       if (!kind.success) return 'Display';

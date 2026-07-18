@@ -142,7 +142,9 @@
 - **Names (compact Fn · Focus):** auto-derived as `{moduleFunctionLabel} · {focusToken}` plus
   muted connection refs (`←`/`→` neighbor Fn codes, capped) until the operator customizes;
   inspector offers **Restore generated name**. Focus prefers topic/sector; unset shows `—`.
-  Seeded/palette bases use the short function lexicon (D-023 refined).
+  `moduleFunctionLabel` is **subtype-aware** (research curator, library class, trend posture,
+  analyzer emit mode, live venue, time transform, trading subtype) so two nodes of the same
+  ModuleType in one ENGINE get distinct default Fn tokens. Seeded/palette bases use that lexicon.
 - **Inspector:** always available when a node is selected (including incomplete setup). Owns
   rename/restore, status, delete, and type-specific advanced controls. **Supersedes D-024 §(c)**
   expand-selected-node / suppress-inspector-while-incomplete for setup UX.
@@ -371,6 +373,10 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
   from UI selection state (session-stable positions preferred).
 - Click concept → floating inspector (body markdown, tags, libraries, provenance, usage);
   galaxy highlights / fly-to the node (no bottom drawer).
+- **Hover (D-100):** pointer over concept / tag / nest / link shows a text-first info card
+  (nest path, admission/source, queried/referenced counts, tags; links show relation · weight ·
+  similarity). Non-neighbors dim; 1-hop edges brighten. Tag orbit chips capped (24) so filters
+  do not bury the graph.
 - Time scrubber (concept creation over time) remains phase-gated.
 
 ### Floating inspector (D-049)

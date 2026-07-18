@@ -110,6 +110,11 @@ Same Zod / catalog schemas for UI and model tool calls. `enforceScopeStrict` fai
 | `crypto_onchain_context` | Crypto narrative (not prices) |
 | `prediction_niche` | Prediction niche sources |
 
+Generated canvas Fn tokens (`moduleFunctionLabel`) map these subtypes to distinct short labels
+(e.g. `MktNews`, `Filings`, `Catalyst`, `CryptoCtx`) so duplicate research nodes in one ENGINE
+never share the same default function identity. Libraries use `libraryClass` → `TopicLib` /
+`SpecLib` / …; analyzers use `emitMode` → `Concat` / `ExecMon` / `LibEmit`.
+
 ## Librarian subtypes (`librarian.config.librarianSubtype`)
 
 | Subtype | Role |

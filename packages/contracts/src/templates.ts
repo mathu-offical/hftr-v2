@@ -190,7 +190,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'analyzer',
         name: 'Transaction Execution Monitor',
-        config: {},
+        config: {
+          emitMode: 'verify_loopback',
+          streamDescriptor: 'execution_verify_loopback',
+        },
         position: { x: 1840, y: 276 },
       },
       {
@@ -244,25 +247,41 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'research',
         name: 'Scoped Market Research',
-        config: { topicScope: 'pending_operator_scope', curiosity: 'balanced' },
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'specialty_desk',
+          curiosity: 'balanced',
+        },
         position: { x: 0, y: 0 },
       },
       {
         type: 'library',
         name: 'Research Evidence Library',
-        config: { topicScope: 'pending_operator_scope' },
+        config: {
+          topicScope: 'pending_operator_scope',
+          libraryClass: 'topic_runtime',
+          masterLibrary: false,
+        },
         position: { x: 460, y: 0 },
       },
       {
         type: 'trend',
         name: 'Scoped Trend Scanner',
-        config: { focus: 'pending_operator_scope', maxActiveTrends: 10, cadenceMinutes: 120 },
+        config: {
+          focus: 'pending_operator_scope',
+          trendPosture: 'research_only',
+          maxActiveTrends: 10,
+          cadenceMinutes: 120,
+        },
         position: { x: 920, y: 0 },
       },
       {
         type: 'analyzer',
         name: 'Research Concat',
-        config: { emitMode: 'to_desk_stream' },
+        config: {
+          emitMode: 'to_desk_stream',
+          streamDescriptor: 'trend_research_concat',
+        },
         position: { x: 1380, y: 0 },
       },
     ],
@@ -368,7 +387,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'analyzer',
         name: 'Crypto Execution Monitor',
-        config: {},
+        config: {
+          emitMode: 'verify_loopback',
+          streamDescriptor: 'crypto_execution_verify',
+        },
         position: { x: 1080, y: 500 },
       },
       {
@@ -493,7 +515,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'analyzer',
         name: 'Prediction Execution Monitor',
-        config: {},
+        config: {
+          emitMode: 'verify_loopback',
+          streamDescriptor: 'prediction_execution_verify',
+        },
         position: { x: 1080, y: 500 },
       },
       {
@@ -636,7 +661,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'analyzer',
         name: 'Horizon Execution Monitor',
-        config: {},
+        config: {
+          emitMode: 'verify_loopback',
+          streamDescriptor: 'horizon_execution_verify',
+        },
         position: { x: 1840, y: 276 },
       },
       {
@@ -1575,7 +1603,10 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
       {
         type: 'analyzer',
         name: 'Transaction Execution Monitor',
-        config: {},
+        config: {
+          emitMode: 'verify_loopback',
+          streamDescriptor: 'execution_verify_loopback',
+        },
         position: { x: 1880, y: 576 },
       },
       {

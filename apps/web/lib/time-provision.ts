@@ -87,7 +87,7 @@ export async function provisionEngineTimeHub(
       name,
       generatedNameBase: 'Time',
       nameCustomized: false,
-      config: { transform: 'elapsed' },
+      config: { transform: 'elapsed', descriptor: 'engine time hub (elapsed)' },
       status: 'active',
       canvasPosition: timePosition,
       engineInstanceId: engineId,

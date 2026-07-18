@@ -29,38 +29,62 @@ const ADDABLE: Array<{
 }> = [
   {
     type: 'research',
-    defaultConfig: { topicScope: 'General market research' },
-    hint: 'Explores topics, feeds libraries',
+    defaultConfig: {
+      topicScope: 'General market research',
+      researchSubtype: 'external_web',
+      curiosity: 'exploratory',
+    },
+    hint: 'Web discover curator → libraries',
   },
   {
     type: 'librarian',
-    defaultConfig: { topicScope: 'General library curation' },
-    hint: 'Queries libraries, relevance, topic hygiene',
+    defaultConfig: {
+      topicScope: 'General library curation',
+      librarianSubtype: 'librarian_relevance',
+    },
+    hint: 'Relevance librarian + topic hygiene',
   },
   {
     type: 'library',
-    defaultConfig: { topicScope: 'General' },
-    hint: 'Curated knowledge store',
+    defaultConfig: {
+      topicScope: 'General',
+      libraryClass: 'topic_runtime',
+      masterLibrary: false,
+    },
+    hint: 'Topic runtime knowledge store',
   },
   {
     type: 'live_api',
-    defaultConfig: { venue: 'paper_sim', instruments: ['SPY'] },
-    hint: 'Market data feed',
+    defaultConfig: {
+      venue: 'paper_sim',
+      instruments: ['SPY'],
+      feedClass: 'synthetic_sim',
+      pollSeconds: 60,
+    },
+    hint: 'Paper market / runtime feed',
   },
   {
     type: 'trend',
-    defaultConfig: { focus: 'Broad market momentum' },
-    hint: 'Finds tradeable trends',
+    defaultConfig: {
+      focus: 'Broad market momentum',
+      trendPosture: 'session_intraday',
+      maxActiveTrends: 10,
+      cadenceMinutes: 30,
+    },
+    hint: 'Intraday tradeable trends',
   },
   {
     type: 'trading',
-    defaultConfig: { subtype: 'day' },
-    hint: 'Executes a strategy pipeline',
+    defaultConfig: { subtype: 'day', strategyFamilies: ['strat-001'], exitTimelineDays: 1 },
+    hint: 'Paper day-trade execution',
   },
   {
     type: 'policy',
-    defaultConfig: {},
-    hint: 'Binds risk/goal envelopes',
+    defaultConfig: {
+      policyEnvelopeRef: 'paper_balanced_general_v1',
+      notes: 'Fail-closed paper policy verification.',
+    },
+    hint: 'Policy / verification envelope',
   },
   {
     type: 'simulator',
@@ -69,18 +93,28 @@ const ADDABLE: Array<{
   },
   {
     type: 'analyzer',
-    defaultConfig: {},
-    hint: 'Reviews outcomes',
+    defaultConfig: {
+      emitMode: 'verify_loopback',
+      streamDescriptor: 'manual_exec_monitor',
+    },
+    hint: 'Execution verify / research concat',
   },
   {
     type: 'holding_fund',
-    defaultConfig: { source: 'company_seed' },
-    hint: 'Represents a deterministic capital source',
+    defaultConfig: {
+      source: 'company_seed',
+      allocationPolicyRef: 'paper_balanced_general_v1',
+    },
+    hint: 'Company seed capital pool',
   },
   {
     type: 'fund_router',
-    defaultConfig: {},
-    hint: 'Moves allocations under policy',
+    defaultConfig: {
+      policyEnvelopeRef: 'paper_balanced_general_v1',
+      approvalMode: 'manual',
+      targetModuleIds: [],
+    },
+    hint: 'Deterministic capital router',
   },
   {
     type: 'display',
@@ -99,7 +133,7 @@ const ADDABLE: Array<{
   },
   {
     type: 'time',
-    defaultConfig: { transform: 'session_window' },
+    defaultConfig: { transform: 'session_window', descriptor: 'session cadence window' },
     hint: 'Temporal processor: elapsed, TZ, schedule, session',
   },
 ];

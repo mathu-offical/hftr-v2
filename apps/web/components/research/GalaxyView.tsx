@@ -22,9 +22,11 @@ import {
   createFolderNestForce,
   createFolderShellRadialForce,
   createForeignLibraryRepelForce,
+  createLibraryCohereForce,
   createLibraryNestForce,
   createNestShellRadialForce,
   createTagSatelliteForce,
+  crossLibraryLinkScale,
   hashSpread3D,
   nestPackingSignature,
   type GalaxySimNode,
@@ -89,6 +91,16 @@ type ForceGraphHandle = {
     z?: number,
   ) => { x: number; y: number } | undefined;
   scene?: () => { traverse: (cb: (obj: THREE.Object3D) => void) => void };
+  graphData?: () => {
+    nodes: Array<{
+      id?: string | number;
+      x?: number;
+      y?: number;
+      z?: number;
+      __kind?: string;
+      primaryLibraryId?: string | null;
+    }>;
+  };
 };
 
 type ForceGraph3DComponent = ComponentType<Record<string, unknown>>;
@@ -253,16 +265,6 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     [libraryNests, props.nodes],
   );
 
-  const packingSig = useMemo(() => nestPackingSignature(libraryCenters), [libraryCenters]);
-
-  // When Fibonacci shells move, drop stale d3 seeds so concepts re-seed into volume (D-116 P1b).
-  useEffect(() => {
-    if (packingSignatureRef.current === packingSig) return;
-    packingSignatureRef.current = packingSig;
-    layoutCommittedRef.current.clear();
-    volumeFitDoneRef.current = false;
-  }, [packingSig]);
-
   const conceptFolderIndex = useMemo(() => buildConceptFolderIndex(folderStars), [folderStars]);
 
   const conceptArticleIndex = useMemo(
@@ -284,6 +286,31 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       }),
     [libraryCenters, folderStars],
   );
+
+  const packingSig = useMemo(() => {
+    const libSig = nestPackingSignature(libraryCenters);
+    const folderParts: string[] = [];
+    for (const [id, c] of [...folderCenters.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+      folderParts.push(
+        `${id}:${Math.round(c.x)}:${Math.round(c.y)}:${Math.round(c.z)}:${Math.round(c.radius)}`,
+      );
+    }
+    return `${libSig}||${folderParts.join('|')}`;
+  }, [libraryCenters, folderCenters]);
+
+  // Sync clear during render so the same frame that gets a new packing signature
+  // also reseeds concept coords (effect-only clear races after graphData commits).
+  if (packingSignatureRef.current !== packingSig) {
+    packingSignatureRef.current = packingSig;
+    layoutCommittedRef.current.clear();
+    volumeFitDoneRef.current = false;
+  }
+
+  // When Fibonacci shells move, drop stale d3 seeds so concepts re-seed into volume (D-116 P1b).
+  useEffect(() => {
+    layoutCommittedRef.current.clear();
+    volumeFitDoneRef.current = false;
+  }, [packingSig]);
 
   const articleCenters = useMemo(
     () =>
@@ -397,13 +424,15 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           __focused: focused,
         };
         // Seed nest coordinates until the sim has committed this id (keeps d3 positions).
+        // Scale jitter to ~35% of nest radius so seeds start as tight clusters (D-132).
         if (!layoutCommittedRef.current.has(n.id)) {
           const spread = hashSpread3D(n.id);
+          const nestScale = center ? Math.min(1, (center.radius * 0.35) / 84) : 0.45;
           return {
             ...base,
-            x: center ? center.x + spread.dx : spread.dx * 0.5,
-            y: center ? center.y + spread.dy : spread.dy * 0.5,
-            z: center ? center.z + spread.dz : spread.dz * 0.5,
+            x: center ? center.x + spread.dx * nestScale : spread.dx * 0.45,
+            y: center ? center.y + spread.dy * nestScale : spread.dy * 0.45,
+            z: center ? center.z + spread.dz * nestScale : spread.dz * 0.45,
           };
         }
         return base;
@@ -430,12 +459,22 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       libraryFilter
         ? folderInputs
         : (() => {
-            const bestByLib = new Map<string, (typeof folderInputs)[number]>();
+            // D-132: large mechanism libraries need multiple folder shells to read as
+            // clusters (was: one heaviest folder per lib → one uniform cloud).
+            const byLib = new Map<string, typeof folderInputs>();
             for (const folder of folderInputs) {
-              const prev = bestByLib.get(folder.libraryId);
-              if (!prev || folder.mass > prev.mass) bestByLib.set(folder.libraryId, folder);
+              const list = byLib.get(folder.libraryId) ?? [];
+              list.push(folder);
+              byLib.set(folder.libraryId, list);
             }
-            return [...bestByLib.values()];
+            const selected: typeof folderInputs = [];
+            for (const list of byLib.values()) {
+              const ranked = [...list].sort((a, b) => b.mass - a.mass || b.radius - a.radius);
+              // Prefer more folders inside large libs; keep small libs to 1–2 shells.
+              const cap = ranked.length >= 6 ? 5 : ranked.length >= 3 ? 3 : ranked.length;
+              selected.push(...ranked.slice(0, cap));
+            }
+            return selected.sort((a, b) => b.mass - a.mass).slice(0, 14);
           })(),
     );
     // Article shells only under topic focus — dozens of article hulls read as uniform noise.
@@ -474,22 +513,25 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           focusSet !== null && focusSet.has(l.fromConceptId) && focusSet.has(l.toConceptId);
         const eitherFocused =
           focusSet !== null && (focusSet.has(l.fromConceptId) || focusSet.has(l.toConceptId));
+        const fromNode = nodeLookupById.get(l.fromConceptId);
+        const toNode = nodeLookupById.get(l.toConceptId);
         const layout = combineLinkLayout(
           l.weightBand,
           l.relation,
-          similarityBandForLink(
-            nodeLookupById.get(l.fromConceptId),
-            nodeLookupById.get(l.toConceptId),
-          ),
+          similarityBandForLink(fromNode, toNode),
         );
+        const fromLib = fromNode?.primaryLibraryId ?? null;
+        const toLib = toNode?.primaryLibraryId ?? null;
+        const sameLibrary = Boolean(fromLib && toLib && fromLib === toLib);
+        const cross = crossLibraryLinkScale(sameLibrary);
         return {
           ...l,
           source: l.fromConceptId,
           target: l.toConceptId,
           __bothFocused: bothFocused,
           __eitherFocused: eitherFocused,
-          __distance: layout.distance,
-          __strength: layout.strength,
+          __distance: layout.distance * cross.distanceMul,
+          __strength: layout.strength * cross.strengthMul,
           __directed:
             l.relation === 'causes' || l.relation === 'supports' || l.relation === 'derived_from',
         };
@@ -552,12 +594,12 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               if (n.__kind === 'tag-sat') return baseCharge * 0.28;
               return baseCharge;
             })
-            .distanceMax(420),
+            .distanceMax(560),
         );
 
         const center = fg.d3Force('center') as { strength?: (n: number) => unknown } | undefined;
-        // Near-zero global centering — Fibonacci nest shells own framing (D-116).
-        center?.strength?.(0.004);
+        // Near-zero global centering — nest shells own framing (D-116 / D-132).
+        center?.strength?.(0.002);
 
         fg.d3Force(
           'collide',
@@ -572,6 +614,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         );
         fg.d3Force('nest', createLibraryNestForce(libraryCenters));
         fg.d3Force('nestShell', createNestShellRadialForce(libraryCenters));
+        fg.d3Force('libCohere', createLibraryCohereForce());
         fg.d3Force('folderNest', createFolderNestForce(folderCenters));
         fg.d3Force('folderShell', createFolderShellRadialForce(folderCenters));
         fg.d3Force('folderCohere', createFolderCohereForce());
@@ -588,11 +631,19 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     [graphData.nodes.length, graphData.hullCount, libraryCenters, folderCenters, articleCenters],
   );
 
-  // Stable imperative handle — avoid callback-ref identity churn (causes tick races).
-  const bindGraphRef = useCallback((instance: ForceGraphHandle | null) => {
-    graphHandleRef.current = instance;
-    if (!instance) setPhysicsReady(false);
-  }, []);
+  // Stable imperative handle — configure nest forces immediately so warmup ticks
+  // do not collapse the cloud to the origin before custom forces exist (D-132).
+  const bindGraphRef = useCallback(
+    (instance: ForceGraphHandle | null) => {
+      graphHandleRef.current = instance;
+      if (!instance) {
+        setPhysicsReady(false);
+        return;
+      }
+      configurePhysics(instance);
+    },
+    [configurePhysics],
+  );
 
   useEffect(() => {
     const fg = graphHandleRef.current;
@@ -600,10 +651,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     const sig = `${graphData.nodes.length}:${graphData.links.length}:${libraryCenters.size}:${folderCenters.size}:${articleCenters.size}:${packingSig}:${use3dRenderer}`;
     if (physicsSignatureRef.current === sig && physicsReady) return;
     physicsSignatureRef.current = sig;
-    const frame = requestAnimationFrame(() => {
-      if (graphHandleRef.current === fg) configurePhysics(fg);
-    });
-    return () => cancelAnimationFrame(frame);
+    configurePhysics(fg);
   }, [
     configurePhysics,
     graphData.links.length,
@@ -943,6 +991,19 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           zSpan: number;
           zOverX: number;
         } | null;
+        clusterSeparation: {
+          minCenterGap: number;
+          minRequiredGap: number;
+          ok: boolean;
+        } | null;
+        nestMembership: {
+          assigned: number;
+          insideHomeHull: number;
+          fractionInside: number;
+          folderAssigned: number;
+          insideHomeFolder: number;
+          folderFractionInside: number;
+        } | null;
         camera: {
           position: { x: number; y: number; z: number };
           lookAt: { x: number; y: number; z: number };
@@ -988,20 +1049,96 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       },
       clear: () => clearHover(),
       layoutStats: () => {
-        const pts = [...libraryCenters.values()];
+        const pts = [...libraryCenters.entries()];
         const camera = computeVolumeCameraPose(libraryCenters);
+        let clusterSeparation: {
+          minCenterGap: number;
+          minRequiredGap: number;
+          ok: boolean;
+        } | null = null;
+        if (pts.length >= 2) {
+          let minCenterGap = Number.POSITIVE_INFINITY;
+          let minRequiredGap = 0;
+          for (let i = 0; i < pts.length; i++) {
+            for (let j = i + 1; j < pts.length; j++) {
+              const a = pts[i]![1];
+              const b = pts[j]![1];
+              const gap = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+              const required = (a.radius + b.radius) * 1.38;
+              if (gap < minCenterGap) minCenterGap = gap;
+              if (required > minRequiredGap) minRequiredGap = required;
+            }
+          }
+          clusterSeparation = {
+            minCenterGap,
+            minRequiredGap,
+            ok: minCenterGap + 1e-6 >= minRequiredGap * 0.98,
+          };
+        }
+
+        let nestMembership: {
+          assigned: number;
+          insideHomeHull: number;
+          fractionInside: number;
+          folderAssigned: number;
+          insideHomeFolder: number;
+          folderFractionInside: number;
+        } | null = null;
+        const liveNodes = graphHandleRef.current?.graphData?.()?.nodes ?? [];
+        const concepts = liveNodes.filter(
+          (n) => n.__kind !== 'nest-hull' && n.__kind !== 'tag-sat' && n.primaryLibraryId,
+        );
+        if (concepts.length > 0) {
+          let inside = 0;
+          let folderAssigned = 0;
+          let insideFolder = 0;
+          for (const node of concepts) {
+            const center = libraryCenters.get(node.primaryLibraryId!);
+            if (!center) continue;
+            const dist = Math.hypot(
+              (node.x ?? 0) - center.x,
+              (node.y ?? 0) - center.y,
+              (node.z ?? 0) - center.z,
+            );
+            if (dist <= center.radius * 1.05) inside += 1;
+            const folderKey = (node as { primaryFolderKey?: string | null }).primaryFolderKey;
+            if (folderKey) {
+              folderAssigned += 1;
+              const fCenter = folderCenters.get(`${node.primaryLibraryId}::${folderKey}`);
+              if (fCenter) {
+                const fDist = Math.hypot(
+                  (node.x ?? 0) - fCenter.x,
+                  (node.y ?? 0) - fCenter.y,
+                  (node.z ?? 0) - fCenter.z,
+                );
+                if (fDist <= fCenter.radius * 1.1) insideFolder += 1;
+              }
+            }
+          }
+          nestMembership = {
+            assigned: concepts.length,
+            insideHomeHull: inside,
+            fractionInside: inside / concepts.length,
+            folderAssigned,
+            insideHomeFolder: insideFolder,
+            folderFractionInside: folderAssigned > 0 ? insideFolder / folderAssigned : 0,
+          };
+        }
+
         if (pts.length === 0) {
           return {
             packingSig,
             conceptCount: props.nodes.length,
             libraryCount: 0,
             aabb: null,
+            clusterSeparation: null,
+            nestMembership,
             camera,
           };
         }
-        const xs = pts.map((p) => p.x);
-        const ys = pts.map((p) => p.y);
-        const zs = pts.map((p) => p.z);
+        const xs = pts.map(([, p]) => p.x);
+        const ys = pts.map(([, p]) => p.y);
+        const zs = pts.map(([, p]) => p.z);
         const span = (a: number[]) => Math.max(...a) - Math.min(...a);
         const xSpan = span(xs);
         const ySpan = span(ys);
@@ -1016,6 +1153,8 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             zSpan,
             zOverX: xSpan > 0 ? zSpan / xSpan : 0,
           },
+          clusterSeparation,
+          nestMembership,
           camera,
         };
       },
@@ -1032,6 +1171,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     conceptArticleIndex,
     conceptFolderIndex,
     degreeById,
+    folderCenters,
     folderLabelByKey,
     libraryCenters,
     libraryNameById,
@@ -1550,7 +1690,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           aria-live="polite"
         >
           {use3dRenderer && !statusText
-            ? '3D volume · Fibonacci nests · Fit frames envelope · idle orbit'
+            ? '3D clusters · separated library nests · Fit frames envelope · idle orbit'
             : null}
           {use3dRenderer && (hasTopicFocus || statusText) ? ' · ' : null}
           {hasTopicFocus && `Focused ${focusSet!.size} concepts`}
@@ -1656,6 +1796,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             </p>
           ) : use3dRenderer && ForceGraph3D ? (
             <ForceGraph3D
+              key={`galaxy3d:${packingSig}`}
               ref={bindGraphRef as never}
               graphData={graphData}
               width={graphWidth}
@@ -1702,6 +1843,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             />
           ) : threeAvailable === false || !mode3d ? (
             <ForceGraph2D
+              key={`galaxy2d:${packingSig}`}
               ref={bindGraphRef as never}
               graphData={graphData}
               width={graphWidth}

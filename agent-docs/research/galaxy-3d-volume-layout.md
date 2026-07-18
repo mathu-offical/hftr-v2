@@ -87,25 +87,37 @@ Result: orbit camera still looked like a **flat necklace of nests**, not a volum
 | ~~P1b~~ | Clear `layoutCommittedRef` on `nestPackingSignature` change | **Done** |
 | ~~P2~~ | `createNestShellRadialForce` fills nest ball volume | **Done** |
 | ~~P2b~~ | Folder shell radial + packing-derived camera / Fit / idle orbit | **Done 2026-07-18** |
+| ~~P2c~~ | Distinct library **clusters** (D-132): separate hulls, nest-dominant forces, weak cross-lib springs, brighter library shells | **Done 2026-07-18** |
 | P3 | `d3-force-clustering` for live nest centers | If pinned `fx/fy/fz` hulls fight volume |
 | P4 | Hyperbolic focus mode for >2k concepts | TD-09 LOD ladder stage |
 | P5 | Persist camera bookmarks | Product nice-to-have (design § out of scope) |
 | P6 | Faster graph GET / warm cache | Graph still ~3m cold — UX lag unrelated to packing |
 
+### D-132 cluster contract
+
+| Lever | Behavior |
+|-------|----------|
+| Packing | Cap nest radii; `separateLibraryCenters` until gap ≥ 1.38×(r₁+r₂) |
+| Nest force | Stronger restore (≈1.25α) so concepts stay inside home hull |
+| Library cohere | Live centroid pull per `primaryLibraryId` |
+| Foreign repel | Keep-out 1.28× foreign radius |
+| Cross-lib springs | Distance ×2.85, strength ×0.16 |
+| Folder LOD | Up to 5 folder shells in large libs (was 1) — catalog folders are clusters |
+| Folder packing | Outer Fibonacci band inside parent (shellR ≈ 0.72× parent) |
+| Remount | Force-graph `key` includes packing signature so seeds reapply |
+| Visual | Library + folder shell/wire opacities raised |
+| QA | `layoutStats().clusterSeparation.ok` and `nestMembership.fractionInside` |
+
 ## 6. Verification
 
 - Unit: `fibonacciSpherePoint` Z span; library centers Z/XY ratio; folder still inside parent;
-  packing signature; nest/folder shell radial; volume camera outside envelope.
+  packing signature; nest/folder shell radial; volume camera outside envelope;
+  **non-overlapping library hulls**; library cohere; cross-library link scale.
   **Verified:** `vitest run lib/galaxy-physics.test.ts` — see latest run.
 - Browser: open Research galaxy → `window.__hftrGalaxyHoverTest.layoutStats()`.
-  **Verified (Playwright, 2026-07-18):** 8 libraries, AABB
-  `xSpan≈1098`, `ySpan≈1348`, `zSpan≈967`, **`zOverX≈0.88`** (was ~0.05–0.1 on pancake).
-  Re-verify after camera pose + Fit: same AABB; `camera.envelopeRadius≈1024`;
-  camera distance outside envelope; Fit control frames volume; status
-  “Framed Fibonacci volume · company envelope”. Screenshot:
-  `/tmp/hftr-galaxy-obs/galaxy-d116-volume-fit.png`.
-- Unit suite: **16/16** pass (`vitest run lib/galaxy-physics.test.ts`).
-- Console: no Application errors after settle — pending IronBee o11y when MCP reconnects.
+  Expect `clusterSeparation.ok === true` and `nestMembership.fractionInside` high after settle
+  (target ≥0.7 once simulation cools). Volume AABB `zOverX` should remain healthy.
+- Console: no Application errors after settle — IronBee o11y when MCP available.
 
 ## 7. Citations (external)
 

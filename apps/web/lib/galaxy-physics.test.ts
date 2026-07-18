@@ -12,13 +12,16 @@ import {
   createFolderNestForce,
   createFolderShellRadialForce,
   createForeignLibraryRepelForce,
+  createLibraryCohereForce,
   createLibraryNestForce,
   createNestShellRadialForce,
   createTagSatelliteForce,
+  crossLibraryLinkScale,
   fibonacciSpherePoint,
   linkDistanceForWeight,
   linkStrengthForWeight,
   nestPackingSignature,
+  separateLibraryCenters,
 } from './galaxy-physics';
 import { linkDistanceForSimilarity } from './galaxy-similarity';
 
@@ -403,5 +406,73 @@ describe('galaxy-physics', () => {
     force(1);
     // Push further away from foreign center (x=100) → negative vx.
     expect(node.vx).toBeLessThan(0);
+  });
+
+  it('separateLibraryCenters resolves overlapping hulls', () => {
+    const centers = new Map([
+      ['a', { x: 0, y: 0, z: 0, radius: 80, name: 'A' }],
+      ['b', { x: 40, y: 0, z: 0, radius: 80, name: 'B' }],
+    ]);
+    separateLibraryCenters(centers, 1.38, 12);
+    const a = centers.get('a')!;
+    const b = centers.get('b')!;
+    const gap = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+    expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.38 - 1e-6);
+  });
+
+  it('computeLibraryCenters3D keeps hulls non-overlapping after packing', () => {
+    const centers = computeLibraryCenters3D(
+      Array.from({ length: 8 }, (_, i) => ({
+        id: `11111111-1111-4111-8111-${String(i).padStart(12, '0')}`,
+        name: `Lib ${i}`,
+        masterLibrary: false,
+        topicScope: '',
+        conceptCount: 20 + i * 8,
+      })),
+      [],
+    );
+    const entries = [...centers.values()];
+    expect(entries.length).toBe(8);
+    for (let i = 0; i < entries.length; i++) {
+      for (let j = i + 1; j < entries.length; j++) {
+        const a = entries[i]!;
+        const b = entries[j]!;
+        const gap = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+        expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.38 - 1e-3);
+      }
+    }
+  });
+
+  it('library cohere pulls members toward live centroid', () => {
+    const force = createLibraryCohereForce();
+    const a = {
+      primaryLibraryId: 'lib',
+      x: -40,
+      y: 0,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+    };
+    const b = {
+      primaryLibraryId: 'lib',
+      x: 40,
+      y: 0,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+    };
+    force.initialize([a, b]);
+    force(1);
+    expect(a.vx).toBeGreaterThan(0);
+    expect(b.vx).toBeLessThan(0);
+  });
+
+  it('crossLibraryLinkScale weakens inter-nest springs', () => {
+    expect(crossLibraryLinkScale(true)).toEqual({ distanceMul: 1, strengthMul: 1 });
+    const cross = crossLibraryLinkScale(false);
+    expect(cross.distanceMul).toBeGreaterThan(2);
+    expect(cross.strengthMul).toBeLessThan(0.25);
   });
 });

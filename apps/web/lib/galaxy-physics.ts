@@ -141,9 +141,51 @@ export function chargeStrengthForGraphSize(nodeCount: number): number {
 }
 
 /**
+ * Push library centers apart until hulls no longer overlap (D-132).
+ * Fibonacci shells alone can leave large nests intersecting when radii grow with conceptCount.
+ */
+export function separateLibraryCenters(
+  centers: Map<string, LibraryCenter3D>,
+  gapFactor = 1.38,
+  passes = 10,
+): void {
+  const entries = [...centers.entries()];
+  if (entries.length < 2) return;
+
+  for (let pass = 0; pass < passes; pass++) {
+    let moved = false;
+    for (let i = 0; i < entries.length; i++) {
+      for (let j = i + 1; j < entries.length; j++) {
+        const a = entries[i]![1];
+        const b = entries[j]![1];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dz = b.z - a.z;
+        const dist = Math.hypot(dx, dy, dz) || 1e-6;
+        const minDist = (a.radius + b.radius) * gapFactor;
+        if (dist >= minDist) continue;
+        const push = (minDist - dist) / 2;
+        const ux = dx / dist;
+        const uy = dy / dist;
+        const uz = dz / dist;
+        a.x -= ux * push;
+        a.y -= uy * push;
+        a.z -= uz * push;
+        b.x += ux * push;
+        b.y += uy * push;
+        b.z += uz * push;
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+}
+
+/**
  * Place library nests on concentric Fibonacci spheres (not an XY ring / flat spiral).
  * Larger libraries sit on a slightly outer shell with larger hull radii so the company
- * cloud uses full 3D volume (D-116).
+ * cloud uses full 3D volume (D-116). D-132: tighter radii + separation pass so nests
+ * read as distinct visual clusters instead of one overlapping cloud.
  */
 export function computeLibraryCenters3D(
   nests: ResearchGraphLibraryNest[],
@@ -168,27 +210,29 @@ export function computeLibraryCenters3D(
 
   const centers = new Map<string, LibraryCenter3D>();
   const n = Math.max(ranked.length, 1);
-  // Base shell large enough that nest hulls occupy distinct 3D volume (D-116 refine).
-  const baseShell = 220 + Math.min(280, n * 36);
+  // Wide shells so post-separation still fills volume (D-116 / D-132).
+  const baseShell = 340 + Math.min(480, n * 58);
 
   ranked.forEach((id, i) => {
     const meta = libMeta.get(id);
     const conceptCount = meta?.conceptCount ?? 3;
-    const sizeBoost = Math.min(160, conceptCount * 3.6);
+    const sizeBoost = Math.min(120, conceptCount * 2.4);
     // Size tiers → concentric shells (inner = denser/larger libs, outer = sparse).
     const tier = Math.min(2, Math.floor((i / n) * 3));
-    const shellR = baseShell + tier * 130 + sizeBoost * 0.55;
+    const shellR = baseShell + tier * 190 + sizeBoost * 0.35;
     const unit = fibonacciSpherePoint(i, n);
     const pos = scaleSpherePoint(unit, shellR);
     centers.set(id, {
       x: pos.x,
       y: pos.y,
       z: pos.z,
-      radius: 48 + Math.min(150, conceptCount * 3.6 + sizeBoost * 0.45),
+      // Cap radii so Fibonacci neighbors can separate cleanly after the gap pass.
+      radius: 34 + Math.min(95, conceptCount * 2.1 + sizeBoost * 0.28),
       name: meta?.name ?? 'Library',
     });
   });
 
+  separateLibraryCenters(centers);
   return centers;
 }
 
@@ -278,8 +322,9 @@ export function hashSpread3D(id: string): { dx: number; dy: number; dz: number }
 }
 
 /**
- * Soft spherical nest force: mild attract to library center + restore when outside hull.
- * When a folder key is present, library pull weakens so folder spheres own local structure.
+ * Spherical nest force: attract to library center + hard restore when outside hull (D-132).
+ * When a folder key is present, library pull weakens so folder spheres own local structure,
+ * but restore stays strong enough that folders cannot escape the parent nest.
  */
 export function createLibraryNestForce(centers: Map<string, LibraryCenter3D>) {
   let nodes: GalaxySimNode[] = [];
@@ -293,14 +338,14 @@ export function createLibraryNestForce(centers: Map<string, LibraryCenter3D>) {
       if (!center) continue;
 
       const hasFolder = Boolean(node.primaryFolderKey);
-      const pull = alpha * (hasFolder ? 0.018 : 0.05);
-      const restore = alpha * (hasFolder ? 0.28 : 0.62);
+      const pull = alpha * (hasFolder ? 0.04 : 0.14);
+      const restore = alpha * (hasFolder ? 0.72 : 1.25);
 
       const dx = (node.x ?? 0) - center.x;
       const dy = (node.y ?? 0) - center.y;
       const dz = (node.z ?? 0) - center.z;
       const dist = Math.hypot(dx, dy, dz) || 1e-6;
-      const maxR = center.radius * (hasFolder ? 0.92 : 0.82);
+      const maxR = center.radius * (hasFolder ? 0.88 : 0.78);
 
       if (dist > maxR) {
         const k = ((dist - maxR) / dist) * restore;
@@ -356,18 +401,19 @@ export function computeFolderCenters3D(opts: {
 
     const sorted = [...libFolders].sort((a, b) => b.mass - a.mass || b.memberCount - a.memberCount);
     const count = Math.max(sorted.length, 1);
-    // Inner sphere (~55% of parent) so folders fill volume under the library shell.
-    const shellR = parent.radius * 0.55;
+    // Push folders toward the outer half of the parent hull so multi-folder
+    // libraries read as separated satellites, not a single core pile (D-132).
+    const shellR = parent.radius * 0.72;
 
     sorted.forEach((folder, i) => {
       const unit = fibonacciSpherePoint(i, count);
-      const offset = scaleSpherePoint(unit, shellR * (0.55 + (i / count) * 0.45));
+      const offset = scaleSpherePoint(unit, shellR * (0.62 + (i / count) * 0.38));
       const key = `${libraryId}::${folder.folderKey}`;
       centers.set(key, {
         x: parent.x + offset.x,
         y: parent.y + offset.y,
         z: parent.z + offset.z,
-        radius: 18 + Math.min(48, folder.mass * 2.1 + folder.memberCount * 1.1),
+        radius: 16 + Math.min(42, folder.mass * 1.6 + folder.memberCount * 1.35),
         name: folder.label,
         folderKey: folder.folderKey,
         libraryId: folder.libraryId,
@@ -457,8 +503,9 @@ export function createFolderNestForce(centers: Map<string, FolderCenter3D>) {
   let nodes: GalaxySimNode[] = [];
 
   function force(alpha: number) {
-    const pull = alpha * 0.11;
-    const restore = alpha * 0.78;
+    // Stronger than library pull so catalog folders become the visible clusters (D-132).
+    const pull = alpha * 0.18;
+    const restore = alpha * 1.05;
     for (const node of nodes) {
       if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
       const libId = node.primaryLibraryId;
@@ -471,7 +518,7 @@ export function createFolderNestForce(centers: Map<string, FolderCenter3D>) {
       const dy = (node.y ?? 0) - center.y;
       const dz = (node.z ?? 0) - center.z;
       const dist = Math.hypot(dx, dy, dz) || 1e-6;
-      const maxR = center.radius * 0.78;
+      const maxR = center.radius * 0.72;
 
       if (dist > maxR) {
         const k = ((dist - maxR) / dist) * restore;
@@ -596,7 +643,7 @@ export function createFolderCohereForce() {
       groups.set(key, list);
     }
 
-    const strength = alpha * 0.085;
+    const strength = alpha * 0.14;
     for (const members of groups.values()) {
       if (members.length < 2) continue;
       let cx = 0;
@@ -626,13 +673,59 @@ export function createFolderCohereForce() {
 }
 
 /**
- * Push concepts out of foreign library hulls so nests stay spatially separate.
+ * Cohesion inside each library: pull members toward the live library centroid so
+ * same-library concepts form a readable blob even when cross-library springs tug (D-132).
+ */
+export function createLibraryCohereForce() {
+  let nodes: GalaxySimNode[] = [];
+
+  function force(alpha: number) {
+    const groups = new Map<string, GalaxySimNode[]>();
+    for (const node of nodes) {
+      if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
+      if (!node.primaryLibraryId) continue;
+      const list = groups.get(node.primaryLibraryId) ?? [];
+      list.push(node);
+      groups.set(node.primaryLibraryId, list);
+    }
+
+    const strength = alpha * 0.14;
+    for (const members of groups.values()) {
+      if (members.length < 2) continue;
+      let cx = 0;
+      let cy = 0;
+      let cz = 0;
+      for (const m of members) {
+        cx += m.x ?? 0;
+        cy += m.y ?? 0;
+        cz += m.z ?? 0;
+      }
+      cx /= members.length;
+      cy /= members.length;
+      cz /= members.length;
+      for (const m of members) {
+        m.vx = (m.vx ?? 0) + (cx - (m.x ?? 0)) * strength;
+        m.vy = (m.vy ?? 0) + (cy - (m.y ?? 0)) * strength;
+        m.vz = (m.vz ?? 0) + (cz - (m.z ?? 0)) * strength;
+      }
+    }
+  }
+
+  force.initialize = (initNodes: GalaxySimNode[]) => {
+    nodes = initNodes;
+  };
+
+  return force;
+}
+
+/**
+ * Push concepts out of foreign library hulls so nests stay spatially separate (D-132).
  */
 export function createForeignLibraryRepelForce(centers: Map<string, LibraryCenter3D>) {
   let nodes: GalaxySimNode[] = [];
 
   function force(alpha: number) {
-    const strength = alpha * 0.55;
+    const strength = alpha * 1.2;
     for (const node of nodes) {
       if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
       const home = node.primaryLibraryId;
@@ -643,7 +736,7 @@ export function createForeignLibraryRepelForce(centers: Map<string, LibraryCente
         const dy = (node.y ?? 0) - center.y;
         const dz = (node.z ?? 0) - center.z;
         const dist = Math.hypot(dx, dy, dz) || 1e-6;
-        const keepOut = center.radius * 1.05;
+        const keepOut = center.radius * 1.28;
         if (dist >= keepOut) continue;
         const k = ((keepOut - dist) / dist) * strength;
         node.vx = (node.vx ?? 0) + dx * k;
@@ -658,6 +751,18 @@ export function createForeignLibraryRepelForce(centers: Map<string, LibraryCente
   };
 
   return force;
+}
+
+/**
+ * Scale spring layout when endpoints belong to different primary libraries (D-132).
+ * Cross-library edges remain visible but must not collapse separate nests into one cloud.
+ */
+export function crossLibraryLinkScale(sameLibrary: boolean): {
+  distanceMul: number;
+  strengthMul: number;
+} {
+  if (sameLibrary) return { distanceMul: 1, strengthMul: 1 };
+  return { distanceMul: 2.85, strengthMul: 0.16 };
 }
 
 /** Weaker article-orbit attractor keyed by primaryArticleId. */

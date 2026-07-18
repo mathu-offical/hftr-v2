@@ -16,9 +16,11 @@ function baseOpacities(hullKind: NestHullKind): OpacitySet {
     case 'company':
       return { shell: 0.02, wire: 0.14, ring: 0.1, meridian: 0.08 };
     case 'library':
-      return { shell: 0.07, wire: 0.52, ring: 0.42, meridian: 0.28 };
+      // Higher idle opacity so library nests read as distinct clusters (D-132).
+      return { shell: 0.14, wire: 0.72, ring: 0.55, meridian: 0.38 };
     case 'folder':
-      return { shell: 0.045, wire: 0.34, ring: 0.3, meridian: 0.14 };
+      // Brighter folder shells — primary visual cluster unit inside large libs (D-132).
+      return { shell: 0.11, wire: 0.58, ring: 0.48, meridian: 0.26 };
     case 'article':
       return { shell: 0.035, wire: 0.28, ring: 0.22, meridian: 0.1 };
     case 'topic':

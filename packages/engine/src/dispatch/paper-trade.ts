@@ -51,7 +51,7 @@ import {
   type ResolvedInstruction,
 } from './instruction-finalizer';
 import { recomputeCompanyEquity } from '../equity/recompute';
-import { resolveMarketQuote } from '../paper/market-model';
+import { resolveMarketQuote, loadAdapterMarketQuote } from '../paper/market-model';
 
 /**
  * The deterministic paper-trade path (broker-integration.md, dispatch README):
@@ -258,13 +258,9 @@ export async function executePaperTrade(
 
   let liveQuote: QuoteSnapshot | null = null;
   if (venue !== 'paper_sim') {
-    try {
-      liveQuote = await adapter.getQuote(req.symbol);
-    } catch {
-      liveQuote = null;
-      if (submitToProvider) {
-        return blockedSimple(db, req, 'broker_policy_block', 'quote unavailable', venue);
-      }
+    liveQuote = await loadAdapterMarketQuote(adapter, req.symbol);
+    if (!liveQuote && submitToProvider) {
+      return blockedSimple(db, req, 'broker_policy_block', 'quote unavailable', venue);
     }
   }
   const market = resolveMarketQuote({ symbol: req.symbol, clock, liveQuote });

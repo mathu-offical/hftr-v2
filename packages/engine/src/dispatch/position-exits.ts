@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, gt } from 'drizzle-orm';
-import type { HandoffEnvelope, SessionPhase } from '@hftr/contracts';
+import type { HandoffEnvelope, QuoteSnapshot, SessionPhase } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { actionInstructions, engineInstances, modules, positions } from '@hftr/db/schema';
 import type { Clock } from '../clock';
@@ -13,7 +13,8 @@ import {
 } from '../pipeline/bands';
 import { resolveTrailMultiplier } from '../pipeline/lever-resolver';
 import { enqueue } from '../queue/queue';
-import { getSyntheticQuote } from './quotes';
+import { resolveMarketQuoteWithAdapter } from '../paper/market-model';
+import { resolveExecutionContext } from './execution-context';
 
 /**
  * Model-free position lifecycle exits (maintenance.position_exits).
@@ -63,7 +64,7 @@ const MEASURABLE_GAIN_NET_BPS = 25;
 const HFT_MEASURABLE_GAIN_NET_BPS = 40;
 /** Synthetic paper round-trip fee proxy (commission+fees), bps of notional. */
 const PAPER_ROUND_TRIP_FEE_BPS = 5;
-/** Half-spread proxy matching getSyntheticQuote (2 bps of mid, min 1¢). */
+/** Half-spread proxy matching synthetic quote model (2 bps of mid, min 1¢). */
 const SYNTHETIC_HALF_SPREAD_BPS = 2;
 
 /**
@@ -287,7 +288,7 @@ function dayBucket(nowMs: number): string {
   return new Date(nowMs).toISOString().slice(0, 10);
 }
 
-function resolveMarkCents(quote: ReturnType<typeof getSyntheticQuote>): number | null {
+function resolveMarkCents(quote: QuoteSnapshot): number | null {
   const mark = quote.lastCents ?? quote.bidCents;
   return mark != null && mark > 0 ? mark : null;
 }
@@ -561,10 +562,24 @@ export async function scanPositionExitSignals(
 
   const signals: PositionExitSignal[] = [];
 
+  let adapter = null as Awaited<ReturnType<typeof resolveExecutionContext>>['adapter'] | null;
+  try {
+    const execCtx = await resolveExecutionContext(db, clock, companyId);
+    adapter = execCtx.adapter;
+  } catch {
+    // Fail open to MarketModel synthetic when broker/live gate blocks — exits stay model-free.
+    adapter = null;
+  }
+
   for (const row of rows) {
     if (row.qty <= 0n) continue;
 
-    const quote = getSyntheticQuote(row.symbol, clock);
+    const market = await resolveMarketQuoteWithAdapter({
+      symbol: row.symbol,
+      clock,
+      adapter,
+    });
+    const quote = market.quote;
     const markCents = resolveMarkCents(quote);
     if (markCents === null) continue;
 

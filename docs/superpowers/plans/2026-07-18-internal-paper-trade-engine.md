@@ -35,7 +35,7 @@
 - [x] **Step 2: Run test to verify it fails**
 - [x] **Step 3: Implement contracts**
 - [x] **Step 4: Run tests to verify they pass**
-- [ ] **Step 5: Commit** (only if user requested commits this session)
+- [x] **Step 5: Commit** (Phase 1: `f2e1dc5` / `2f06a85` / `9b4b4de`)
 
 ---
 
@@ -55,26 +55,36 @@
 - [x] **Step 2: Implement `resolveMarketQuote`**
 - [x] **Step 3: Load module config in `executePaperTrade`; branch on routingMode** (`funds_only` default → internal fill; `execute_on_service`/`both_verify` → venue submit)
 - [x] **Step 4: Update gap tags** (`live_market_quote`, `funds_only_routing`, …)
-- [x] **Step 5: Run** `pnpm --filter @hftr/engine` typecheck + market-model / paper-trade-compiled tests — PASS
-- [ ] **Step 6: Commit** (only if user requested)
+- [x] **Step 6: Commit** (Phase 1 engine: `2f06a85`)
 
 ---
 
-### Task 3: Docs curation (same change)
+### Task 3: Docs curation (Phase 1)
+
+- [x] Design + plan + owning agent-docs committed (`9b4b4de`)
+
+---
+
+### Task 4: Phase 2 — MarketModel fusion + awareness + exits
 
 **Files:**
-- `agent-docs/architecture/broker-integration.md` — D-122 binding/routing section
-- `agent-docs/product/product-spec.md` — paper engine / binding paragraph
-- `agent-docs/plans/master-build-plan.md` — G3 remaining + D-122
-- `agent-docs/architecture/data-model.md` — pointer to engine binding / book deltas
-- `agent-docs/dev-intent/decisions-log.md` — D-122 status → implementing Phase 1
-- `agent-docs/research/paper-experimentation-protocol.md` — funds_only live-model teacher note
+- Modify: `packages/engine/src/paper/market-model.ts`
+- Create: `packages/engine/src/paper/awareness-adapters.ts`
+- Modify: `packages/engine/src/paper/market-model.test.ts`
+- Modify: `packages/engine/src/dispatch/position-exits.ts`
+- Modify: `packages/engine/src/dispatch/paper-trade.ts`
+- Modify: `packages/engine/src/index.ts`
+
+- [x] **Step 1: Fuse multi-candidate quotes + `resolveMarketQuoteWithAdapter`**
+- [x] **Step 2: Awareness adapters project posture hub + current awareness**
+- [x] **Step 3: Wire `scanPositionExitSignals` to MarketModel (adapter live quote when entitled)**
+- [x] **Step 4: Tests + typecheck PASS**
+- [ ] **Step 5: Commit Phase 2**
 
 ---
 
-### Later phases (not this PR)
+### Later phases
 
-- Phase 2: full MarketModel fusion + awareness adapters
 - Phase 3: hard engine allocation isolation
 - Phase 4: real `both_verify` + BookDelta persistence → valves
 - Phase 5: unify InternalPaperCore with `paper-sim` adapter + UI controls

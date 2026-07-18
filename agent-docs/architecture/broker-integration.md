@@ -85,7 +85,9 @@ Approved design: `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-
   spend requires explicit share/transfer (fund_router).
 - **Main book:** company rollup of engine books.
 - **Deltas:** `both_verify` (and sim-vs-live marks) produce `BookDelta` artifacts for
-  weighting / valve training (D-125). Phase 1 ships contracts + `funds_only` dispatch path.
+  weighting / valve training (D-125). Phase 1: contracts + `funds_only` dispatch.
+  Phase 2: MarketModel multi-candidate fusion + awareness adapters (posture hub /
+  current awareness) + position-exits marks via MarketModel.
 - Company-level `broker_connections` bind remains for credentials; it no longer implies
   automatic venue submit for every paper trade (routing mode decides).
 

@@ -315,6 +315,19 @@ export {
 } from './dispatch/execution-context';
 export { getSyntheticQuote } from './dispatch/quotes';
 export {
+  resolveMarketQuote,
+  resolveMarketQuoteWithAdapter,
+  fuseQuoteCandidates,
+  loadAdapterMarketQuote,
+  type ResolvedMarketQuote,
+  type ResolveMarketQuoteOpts,
+} from './paper/market-model';
+export {
+  projectMarketModelToAwareness,
+  type AwarenessSurfaceId,
+  type MarketAwarenessProjection,
+} from './paper/awareness-adapters';
+export {
   resolvePositionExitReason,
   exitReasonLabel,
   recoveryPhaseForExit,

@@ -119,8 +119,8 @@ fail-closed; NRA/ValueRefs; `simulatorGapTags` honesty.
 
 | Phase | Deliverable |
 |-------|-------------|
-| **1** | Contracts + `funds_only` default: live/adapter quote + internal fill when company has provider; no auto venue submit |
-| **2** | MarketModel module + wire marks/exits; awareness adapter stubs to hub/topics |
+| **1** | Contracts + `funds_only` default: live/adapter quote + internal fill when company has provider; no auto venue submit — **done** |
+| **2** | MarketModel fusion (multi-candidate quotes) + awareness adapter stubs (posture hub + current awareness); position-exits use MarketModel — **done** |
 | **3** | Engine allocation enforcement + explicit share |
 | **4** | `both_verify` dual path + BookDelta → training_feedback / valves |
 | **5** | Unify InternalPaperCore with `paper-sim` adapter; UI binding controls |

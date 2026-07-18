@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { MarketHubResponse } from '@hftr/contracts';
 import {
+  directionGlyph,
   equityStatusLabel,
+  heldSparkStroke,
   moversAreStale,
+  pnlToneClass,
+  relevanceTickFill,
   reportKindLabel,
+  strengthTicksDisplay,
 } from './market-posture-format';
 
 describe('market-posture-format', () => {
@@ -37,6 +42,19 @@ describe('market-posture-format', () => {
     expect(equityStatusLabel('fresh')).toBe('Fresh');
     expect(equityStatusLabel('stale')).toBe('Stale');
     expect(equityStatusLabel('unavailable')).toBe('Unavailable');
+  });
+
+  it('encodes direction and strength without relying on color alone (D-109)', () => {
+    expect(directionGlyph('up')).toBe('▲');
+    expect(directionGlyph('down')).toBe('▼');
+    expect(directionGlyph('flat')).toBe('—');
+    expect(strengthTicksDisplay(3)).toBe('●●●');
+    expect(strengthTicksDisplay(1)).toBe('●○○');
+    expect(heldSparkStroke('up')).toContain('ok');
+    expect(heldSparkStroke(null)).toContain('ink');
+    expect(relevanceTickFill('high')).toContain('relevance-high');
+    expect(pnlToneClass('down')).toContain('block');
+    expect(pnlToneClass(null)).toContain('ink-faint');
   });
 });
 

@@ -19,7 +19,7 @@ const LINK_COLORS: Record<LinkKind, string> = {
 
 /** Compact preview card size (create-form canvas). */
 export const PREVIEW_MODULE_WIDTH = 128;
-export const PREVIEW_MODULE_HEIGHT = 40;
+export const PREVIEW_MODULE_HEIGHT = 48;
 export const PREVIEW_GROUP_PADDING = {
   left: 20,
   right: 20,
@@ -46,6 +46,7 @@ export type PreviewModuleNodeData = {
   name: string;
   moduleType: string;
   engineKey: string;
+  config?: Record<string, unknown>;
 };
 
 export type PreviewEngineGroupNodeData = {
@@ -300,6 +301,7 @@ function appendEngineNodes(
         name: module.name,
         moduleType: module.type,
         engineKey: seed.key,
+        config: module.config,
       },
       style: { width: PREVIEW_MODULE_WIDTH, height: PREVIEW_MODULE_HEIGHT },
       selectable: false,

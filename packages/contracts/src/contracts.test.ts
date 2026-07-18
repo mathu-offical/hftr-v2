@@ -854,6 +854,8 @@ describe('Research bus (D-039)', () => {
     expect(ResearchKeyProvider.options).toContain('polygon');
     expect(ResearchKeyProvider.options).toContain('fred');
     expect(ResearchKeyProvider.options).toContain('alpha_vantage');
+    expect(ResearchKeyProvider.options).toContain('twelve_data');
+    expect(ResearchKeyProvider.options).toContain('marketstack');
     expect(ResearchSourceKind.options).toContain('finnhub_news');
     expect(ResearchSourceKind.options).toContain('polygon_news');
     expect(ResearchSourceKind.options).toContain('fred_macro');
@@ -958,11 +960,13 @@ describe('research source registry', () => {
     expect(ready).toContain('frankfurter_fx');
     expect(ready).toContain('coingecko_crypto');
     expect(ready).toContain('world_bank_indicator');
+    expect(ready).toContain('gdelt_news');
     expect(ready).not.toContain('catalog');
     expect(ready).not.toContain('library');
     expect(ready).not.toContain('operator');
     expect(ready).not.toContain('fred_macro');
-    expect(ready).not.toContain('gdelt_news');
+    expect(ready).not.toContain('twelve_data');
+    expect(ready).not.toContain('marketstack');
     expect(ready.length).toBeLessThanOrEqual(24);
 
     const withFred = selectReadySourceKinds(
@@ -980,7 +984,9 @@ describe('research source registry', () => {
 
     expect(RESEARCH_SOURCE_REGISTRY.frankfurter_fx.implementation).toBe('shipped');
     expect(RESEARCH_SOURCE_REGISTRY.world_bank_indicator.implementation).toBe('shipped');
-    expect(RESEARCH_SOURCE_REGISTRY.twelve_data.implementation).toBe('researched');
+    expect(RESEARCH_SOURCE_REGISTRY.gdelt_news.implementation).toBe('shipped');
+    expect(RESEARCH_SOURCE_REGISTRY.twelve_data.implementation).toBe('shipped');
+    expect(RESEARCH_SOURCE_REGISTRY.marketstack.implementation).toBe('shipped');
     expect(listSourcesByDomain('fx').map((d) => d.kind)).toContain('frankfurter_fx');
   });
 });

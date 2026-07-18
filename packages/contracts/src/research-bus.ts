@@ -163,8 +163,16 @@ export const ResearchKeyProvider = z.enum([
   'polygon',
   'fred',
   'alpha_vantage',
+  'twelve_data',
+  'marketstack',
 ]);
 export type ResearchKeyProvider = z.infer<typeof ResearchKeyProvider>;
+
+export const ResearchKeyVerifyResult = z.object({
+  ok: z.boolean(),
+  failure: z.string().nullable(),
+});
+export type ResearchKeyVerifyResult = z.infer<typeof ResearchKeyVerifyResult>;
 
 export const CreateResearchQueryInput = z.object({
   mode: ResearchQueryMode.default('manual'),

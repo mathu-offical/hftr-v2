@@ -553,9 +553,9 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               setMode3d(true);
               setStatusText(null);
             }}
-            aria-pressed={use3dRenderer}
+            aria-pressed={mode3d && threeAvailable !== false}
             className={`rounded px-2 py-0.5 text-[10px] uppercase tracking-wide ${
-              use3dRenderer
+              mode3d && threeAvailable !== false
                 ? 'border border-[var(--color-accent)] text-[var(--color-accent)]'
                 : 'border border-[var(--color-line)] text-[var(--color-ink-faint)]'
             }`}
@@ -568,9 +568,9 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               setMode3d(false);
               setStatusText('2D fallback — springs + charge still apply in plane.');
             }}
-            aria-pressed={!use3dRenderer}
+            aria-pressed={!mode3d || threeAvailable === false}
             className={`rounded px-2 py-0.5 text-[10px] uppercase tracking-wide ${
-              !use3dRenderer
+              !mode3d || threeAvailable === false
                 ? 'border border-[var(--color-accent)] text-[var(--color-accent)]'
                 : 'border border-[var(--color-line)] text-[var(--color-ink-faint)]'
             }`}

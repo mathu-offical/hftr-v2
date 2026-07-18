@@ -40,6 +40,13 @@ function stubHub(partial?: Partial<MarketHubResponse>): MarketHubResponse {
       markFeedClass: 'synthetic',
       scannedAt: null,
     },
+    charts: {
+      allocation: [],
+      watchlistTiers: [],
+      trendStrength: [],
+      moverDirections: [],
+      sourceReady: [],
+    },
     ...partial,
   };
 }

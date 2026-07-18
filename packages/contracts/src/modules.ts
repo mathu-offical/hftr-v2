@@ -333,6 +333,32 @@ export function parseStreamHandle(
 }
 
 /**
+ * D-077: synthetic stream peer for per-trend directive-out handles.
+ * Encoded as `trend:{candidateUuid}` so {@link parseStreamHandle} still works.
+ */
+export const TREND_CANDIDATE_PEER_PREFIX = 'trend:' as const;
+
+/** Stable handle id for a trend-list row connection output. */
+export function handleIdForTrendCandidate(candidateId: string): string {
+  return handleIdForStream('directive', 'out', `${TREND_CANDIDATE_PEER_PREFIX}${candidateId}`);
+}
+
+/**
+ * Extract trend candidate id from a source handle, or null if not a trend-item port.
+ */
+export function parseTrendCandidateHandle(handle: string | null | undefined): string | null {
+  if (!handle) return null;
+  const parsed = parseStreamHandle(handle);
+  if (!parsed || parsed.kind !== 'directive' || parsed.direction !== 'out') return null;
+  const peer = parsed.peerModuleId;
+  if (!peer?.startsWith(TREND_CANDIDATE_PEER_PREFIX)) return null;
+  const id = peer.slice(TREND_CANDIDATE_PEER_PREFIX.length);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+    ? id
+    : null;
+}
+
+/**
  * Inbound/outbound stream ports for a module: one bus per kind, then one stream
  * per existing link peer. Peers sort in pipeline / capital-flow order (D-073),
  * not raw UUID order, so Math and multi-attach stacks stay logical.

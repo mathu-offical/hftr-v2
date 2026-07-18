@@ -104,7 +104,10 @@ export async function GET(_req: Request, ctx: Ctx) {
       if (!treeByLead.has(tree.leadId)) treeByLead.set(tree.leadId, tree.id);
     }
 
-    function resolveUpstream(taskId: string | null): { leadId: string | null; treeId: string | null } {
+    function resolveUpstream(taskId: string | null): {
+      leadId: string | null;
+      treeId: string | null;
+    } {
       if (!taskId) return { leadId: null, treeId: null };
       const task = taskById.get(taskId);
       if (!task) return { leadId: null, treeId: null };

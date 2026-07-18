@@ -1044,6 +1044,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   enqueue `research.curate` jobs on LIBRARY_RESEARCH (`POST …/research/topics/research`). Docs:
   job-orchestration, ui-spec. **Status: implemented.**
 
+- **D-099 (bottom panel real-data wiring, 2026-07-18):** Continues D-097. Approvals tab loads
+  fund transfers **and** pending `assistant_edits` (Confirm/Reject via existing proposal
+  routes) plus live-gate status (Save evidence when checklist fails / stale). Lineage Queue
+  shows pending+active jobs from new `GET …/jobs/pending` alongside dead letters.
+  `GET …/executions` returns `leadId`/`treeId` via the same causation walk as the trace
+  timeline so Scenario/Lineage join without relying solely on symbol substrings. Docs: ui-spec
+  §4 middle-bottom. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

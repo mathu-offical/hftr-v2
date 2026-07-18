@@ -304,7 +304,12 @@ suppressed in editable fields.
   via `modules.engine_instance_id`); shared-structure indicators: avatar-chips of other modules
   currently reading/analyzing/editing each structure (from `watchlist_access` + active job
   projections) remain roadmap.
-- Approval inbox (fund requests, live-gate confirmations, assistant edits pending).
+- Approval inbox (fund requests, **assistant edit proposals** with Confirm/Reject, live-gate
+  evidence review when checklist fails or evidence is stale — D-099). Arm/disarm stays on the
+  top-bar mode switch.
+- **Lineage Queue (D-099):** pending + active `jobs` from `GET …/jobs/pending` plus dead
+  letters; engine-scoped like other tabs. Scenario/Lineage prefer execution `leadId`/`treeId`
+  from the executions API (timeline causation walk) over symbol heuristics.
 
 ### RIGHT — Execution + Verification + Simulation results
 - Ledger of all trades/results/responses: filterable table (module, venue, mode, outcome),

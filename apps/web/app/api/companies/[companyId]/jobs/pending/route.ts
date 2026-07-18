@@ -32,9 +32,7 @@ export async function GET(_req: Request, ctx: Ctx) {
         updatedAt: jobs.updatedAt,
       })
       .from(jobs)
-      .where(
-        and(eq(jobs.companyId, companyId), inArray(jobs.status, [...PENDING_STATUSES])),
-      )
+      .where(and(eq(jobs.companyId, companyId), inArray(jobs.status, [...PENDING_STATUSES])))
       .orderBy(desc(jobs.updatedAt))
       .limit(100);
     return {

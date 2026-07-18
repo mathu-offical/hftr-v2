@@ -542,7 +542,7 @@ export function BottomPanel(props: {
                   : 'No verification record linked to this trace yet.',
               ];
               return [
-                <Justification key="o" sourceClass="derived" lines={outcomeLines}>
+                <Justification key="o" sourceClass="deterministic_scan" lines={outcomeLines}>
                   <button
                     onClick={openTrace}
                     aria-label={`Open decision trace for execution ${e.id}`}
@@ -940,7 +940,7 @@ function ScenarioView(props: {
               </span>
               <span className="text-[var(--color-ink-dim)]">{lead.strategyFamily}</span>
               <Justification
-                sourceClass="derived"
+                sourceClass="deterministic_scan"
                 lines={[
                   `Admission status "${lead.status}" is the outcome of the six-gate contract: ${
                     lead.gates.filter((g) => g.result === 'pass').length
@@ -979,7 +979,7 @@ function ScenarioView(props: {
                 return (
                   <Justification
                     key={key}
-                    sourceClass="derived"
+                    sourceClass="deterministic_scan"
                     lines={[
                       `Gate "${key}" result: ${gate.result}.`,
                       gate.evidence || 'No evidence text recorded for this gate.',
@@ -1068,9 +1068,14 @@ function ApprovalsView(props: {
   const [busyId, setBusyId] = useState<string | null>(null);
   const pending = props.transfers.filter((t) => t.status === 'requested');
   const failedGates = (props.liveGate?.checklist ?? []).filter((c) => !c.pass);
-  const liveGateNeedsAttention =
+  const liveGateActionable =
+    props.liveGate != null && (!props.liveGate.overallPass || !props.liveGate.evidenceFresh);
+  const liveGateReadyToArm =
     props.liveGate != null &&
-    (!props.liveGate.overallPass || !props.liveGate.evidenceFresh || !props.liveGate.liveArmedAt);
+    props.liveGate.overallPass &&
+    props.liveGate.evidenceFresh &&
+    !props.liveGate.liveArmedAt;
+  const liveGateNeedsAttention = liveGateActionable || liveGateReadyToArm;
 
   async function decideTransfer(id: string, decision: 'approve' | 'reject') {
     setBusyId(id);
@@ -1109,8 +1114,7 @@ function ApprovalsView(props: {
     }
   }
 
-  const empty =
-    pending.length === 0 && props.proposals.length === 0 && !liveGateNeedsAttention;
+  const empty = pending.length === 0 && props.proposals.length === 0 && !liveGateNeedsAttention;
 
   if (empty) {
     return (
@@ -1129,7 +1133,11 @@ function ApprovalsView(props: {
             <span className="font-mono uppercase tracking-wider text-[var(--color-ink-faint)]">
               Live gate
             </span>
-            <span style={{ color: props.liveGate.overallPass ? 'var(--color-ok)' : 'var(--color-block)' }}>
+            <span
+              style={{
+                color: props.liveGate.overallPass ? 'var(--color-ok)' : 'var(--color-block)',
+              }}
+            >
               {props.liveGate.overallPass ? 'checklist pass' : 'checklist blocked'}
             </span>
             <span className="text-[var(--color-ink-dim)]">
@@ -1246,8 +1254,7 @@ function ApprovalsView(props: {
 }
 
 function summarizeProposal(proposal: AssistantProposalRow['proposal']): string {
-  const tool = proposal.tool;
-  switch (tool) {
+  switch (proposal.tool) {
     case 'create_module':
       return `Create ${String(proposal.type ?? 'module')} “${String(proposal.name ?? '')}”`;
     case 'rename_module':
@@ -1267,7 +1274,7 @@ function summarizeProposal(proposal: AssistantProposalRow['proposal']): string {
     case 'trigger_tier':
       return 'Trigger tier action';
     default:
-      return tool;
+      return proposal.tool;
   }
 }
 
@@ -1650,6 +1657,7 @@ function LineageView(props: {
                     kind: 'execution',
                     id: e.id,
                     moduleId: e.moduleId,
+                    leadId: e.leadId,
                     description: e.description,
                   })
                 : false;
@@ -1683,42 +1691,73 @@ function LineageView(props: {
 
         <LineageColumn title="Queue">
           <p className="px-1 pb-1 text-[9px] text-[var(--color-ink-faint)]">
-            Dead letters below; active pending jobs appear on the canvas.
+            Pending / active jobs first; dead letters below.
           </p>
-          {sortedDead.length === 0 ? (
+          {sortedPending.length === 0 && sortedDead.length === 0 ? (
             <p className="px-1 py-2 text-[10px] text-[var(--color-ink-faint)]">
-              No failed instructions.
+              No queued or failed instructions.
             </p>
           ) : (
-            sortedDead.map((j) => {
-              const key = `dead:${j.id}`;
-              const linked = ctx
-                ? isLineageLinked(ctx, {
-                    kind: 'dead',
-                    id: j.id,
-                    moduleId: j.moduleId,
-                  })
-                : false;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => toggleKey(key)}
-                  className={rowClass(key, linked)}
-                  aria-pressed={props.selectedKey === key}
-                >
-                  <span className="font-mono text-[10px]">{j.kind}</span>{' '}
-                  <span className="text-[var(--color-block)]">failed</span>
-                  <div className="truncate text-[10px] text-[var(--color-ink-faint)]">
-                    {j.lastError ?? j.queueClass}
-                  </div>
-                  <div className="text-[10px] text-[var(--color-ink-faint)]">
-                    {j.moduleId ? props.moduleName(j.moduleId) : 'company scope'} · {j.attempts}{' '}
-                    attempts
-                  </div>
-                </button>
-              );
-            })
+            <>
+              {sortedPending.map((j) => {
+                const key = `pending:${j.id}`;
+                const linked = ctx
+                  ? isLineageLinked(ctx, {
+                      kind: 'pending',
+                      id: j.id,
+                      moduleId: j.moduleId,
+                    })
+                  : false;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => toggleKey(key)}
+                    className={rowClass(key, linked)}
+                    aria-pressed={props.selectedKey === key}
+                  >
+                    <span className="font-mono text-[10px]">{j.kind}</span>{' '}
+                    <span style={{ color: 'var(--color-accent)' }}>{j.status}</span>
+                    <div className="truncate text-[10px] text-[var(--color-ink-faint)]">
+                      {j.queueClass}
+                    </div>
+                    <div className="text-[10px] text-[var(--color-ink-faint)]">
+                      {j.moduleId ? props.moduleName(j.moduleId) : 'company scope'} · {j.attempts}{' '}
+                      attempts
+                    </div>
+                  </button>
+                );
+              })}
+              {sortedDead.map((j) => {
+                const key = `dead:${j.id}`;
+                const linked = ctx
+                  ? isLineageLinked(ctx, {
+                      kind: 'dead',
+                      id: j.id,
+                      moduleId: j.moduleId,
+                    })
+                  : false;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => toggleKey(key)}
+                    className={rowClass(key, linked)}
+                    aria-pressed={props.selectedKey === key}
+                  >
+                    <span className="font-mono text-[10px]">{j.kind}</span>{' '}
+                    <span className="text-[var(--color-block)]">failed</span>
+                    <div className="truncate text-[10px] text-[var(--color-ink-faint)]">
+                      {j.lastError ?? j.queueClass}
+                    </div>
+                    <div className="text-[10px] text-[var(--color-ink-faint)]">
+                      {j.moduleId ? props.moduleName(j.moduleId) : 'company scope'} · {j.attempts}{' '}
+                      attempts
+                    </div>
+                  </button>
+                );
+              })}
+            </>
           )}
         </LineageColumn>
       </div>
@@ -1749,6 +1788,7 @@ function LineageColumn(props: { title: string; children: React.ReactNode }) {
 function DeadLettersView(props: {
   companyId: string;
   jobs: DeadJobRow[];
+  moduleName: (id: string) => string;
   onRefetch: () => Promise<void>;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -1849,7 +1889,7 @@ function DeadLettersView(props: {
             {j.kind}
           </span>,
           <span key="m" className="font-mono text-[10px]">
-            {j.moduleId ?? '—'}
+            {j.moduleId ? props.moduleName(j.moduleId) : '—'}
           </span>,
           j.queueClass,
           <span key="e" className="block max-w-xs truncate" title={j.lastError ?? ''}>

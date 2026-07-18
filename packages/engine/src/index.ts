@@ -150,7 +150,11 @@ export {
   loadLatestSynthesisRun,
   finalizeSynthesisRun,
   completeSynthesisRunAfterNarrative,
+  countTerminalSealStages,
+  getSealStageOutcomes,
+  waitForSealStages,
 } from './research/market-hub-synthesis';
+export { buildPostureContextRollup } from './research/posture-context-rollup';
 export {
   assertBatchEvidenceGrounded,
   allowedRefsFromEvidence,
@@ -533,6 +537,10 @@ export {
 export { computeAtrCents, trueRangeCents, atrStreamSourceId, type OhlcBarCents } from './calc/atr';
 export { resolveAtrCents } from './calc/resolve-atr';
 export { planChildSlices, normalizeChildSliceFraction } from './dispatch/child-order-scheduler';
+export {
+  materializeChildSliceFills,
+  normalizeChildSlicesForDrain,
+} from './dispatch/child-slice-fills';
 export { feeCentsFromNotional, roundTripFeeBpsFromAmounts } from './dispatch/fees';
 export { applyControlSnapshotDelta } from './training/apply-control-snapshot-delta';
 export { loadLatestBySourceId } from './calc/store';

@@ -115,7 +115,10 @@ registerHandler('library.system_sector_news', async ({ db, clock, job }) => {
     companyModules.find((m) => m.type === 'research')?.id ??
     companyModules.find((m) => m.type === 'librarian')?.id ??
     companyModules.find((m) => m.type === 'library')?.id;
-  if (!ownerModuleId) return;
+  if (!ownerModuleId) {
+    await stage('failed', 'No research/library module to own sector seal');
+    return;
+  }
 
   const topicSectors =
     payload.topicSectors ??
@@ -228,5 +231,8 @@ registerHandler('library.system_sector_news', async ({ db, clock, job }) => {
     tags: entry.kindTags,
     now,
   });
-  await stage('succeeded', `Sealed sector bulletin (${bundle.corroborationBand})`);
+  await stage(
+    'succeeded',
+    `Sealed sector bulletin (${bundle.corroborationBand}) · ${headlines.length} headlines · focus ${sectorLabel}`,
+  );
 });

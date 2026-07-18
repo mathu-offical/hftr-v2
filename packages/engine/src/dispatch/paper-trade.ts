@@ -13,6 +13,7 @@ import type { Db } from '@hftr/db';
 import {
   actionInstructions,
   actionTraces,
+  compileEvents,
   deterministicTasks,
   dispatchReconciliationEvents,
   ledgerEntries,
@@ -31,6 +32,7 @@ import {
   getDailyRealizedLossCents,
   resolveEquityCentsForLimits,
 } from './balances';
+import { materializeChildSliceFills } from './child-slice-fills';
 import { resolveExecutionContext } from './execution-context';
 import { feeCentsFromNotional } from './fees';
 import { preDispatchGauntlet } from './pre-dispatch';
@@ -584,18 +586,46 @@ export async function executePaperTrade(
     };
   }
 
+  const compileSlices = compiled
+    ? await loadCompileChildSlices(db, instructionId)
+    : null;
+  const childMaterialized = materializeChildSliceFills({
+    parentQty: req.quantity,
+    slices: compileSlices,
+    basePriceCents: fill.priceCents,
+    actionVerb: req.actionVerb,
+    quoteRef,
+    venueOrderId: fill.venueOrderId,
+  });
+
   return finalizeFilledTrade(db, clock, req, {
     task,
     taskId,
     instructionId,
-    fillPriceCents: fill.priceCents,
+    fillPriceCents: childMaterialized.vwapCents,
     venueOrderId: fill.venueOrderId,
     quote,
     quoteRef,
     sessionSnapshot,
     venue,
     brokerConnectionId,
+    childFills: childMaterialized.fills,
+    usedChildDrain: childMaterialized.usedChildDrain,
   });
+}
+
+async function loadCompileChildSlices(
+  db: Db,
+  instructionId: string,
+): Promise<unknown> {
+  const rows = await db
+    .select({ lineage: compileEvents.lineage })
+    .from(compileEvents)
+    .where(eq(compileEvents.instructionId, instructionId))
+    .limit(1);
+  const lineage = rows[0]?.lineage;
+  if (!lineage || typeof lineage !== 'object' || Array.isArray(lineage)) return null;
+  return (lineage as { childSlices?: unknown }).childSlices ?? null;
 }
 
 interface VenueTradeContext {
@@ -825,6 +855,16 @@ interface FinalizeContext {
   sessionSnapshot: Record<string, unknown>;
   venue: Venue;
   brokerConnectionId?: string | null;
+  /** POV child fill legs when compile planned multiple slices. */
+  childFills?: Array<{
+    qtyInt: string;
+    qtyScale: number;
+    priceCents: number;
+    atRef: string;
+    sliceIndex?: number;
+    venueOrderId?: string;
+  }>;
+  usedChildDrain?: boolean;
 }
 
 interface AppliedVenueFill {
@@ -837,7 +877,11 @@ interface AppliedVenueFill {
 async function applyVenueFillFinalization(
   db: Db,
   clock: Clock,
-  args: FinalizeRecoveredVenueFillArgs & { traceOutcome: 'filled' | 'recovered' },
+  args: FinalizeRecoveredVenueFillArgs & {
+    traceOutcome: 'filled' | 'recovered';
+    childFills?: FinalizeContext['childFills'];
+    usedChildDrain?: boolean;
+  },
 ): Promise<AppliedVenueFill> {
   const {
     companyId,
@@ -857,14 +901,28 @@ async function applyVenueFillFinalization(
     quantityInt,
     traceOutcome,
     brokerConnectionId,
+    childFills,
+    usedChildDrain,
   } = args;
 
-  const fillRecord = {
-    qtyInt: quantityInt,
-    qtyScale: 0,
-    priceCents: fillPriceCents,
-    atRef: quoteRef,
-  };
+  const fillRecords =
+    childFills && childFills.length > 0
+      ? childFills.map((f) => ({
+          qtyInt: f.qtyInt,
+          qtyScale: f.qtyScale,
+          priceCents: f.priceCents,
+          atRef: f.atRef,
+          ...(f.sliceIndex !== undefined ? { sliceIndex: f.sliceIndex } : {}),
+          ...(f.venueOrderId !== undefined ? { childVenueOrderId: f.venueOrderId } : {}),
+        }))
+      : [
+          {
+            qtyInt: quantityInt,
+            qtyScale: 0,
+            priceCents: fillPriceCents,
+            atRef: quoteRef,
+          },
+        ];
 
   await db
     .update(deterministicTasks)
@@ -880,10 +938,11 @@ async function applyVenueFillFinalization(
     moduleId,
     taskId,
     outcome: traceOutcome,
-    fills: [fillRecord],
+    fills: fillRecords,
     sessionSnapshot,
     failureCode: null,
     venue,
+    usedChildDrain: usedChildDrain === true,
   });
 
   const fieldResults = buildFillVerificationFields({
@@ -1011,6 +1070,8 @@ async function finalizeFilledTrade(
       quantityInt: task.quantityInt,
       brokerConnectionId: brokerConnectionId ?? null,
       traceOutcome: 'filled',
+      ...(ctx.childFills !== undefined ? { childFills: ctx.childFills } : {}),
+      ...(ctx.usedChildDrain !== undefined ? { usedChildDrain: ctx.usedChildDrain } : {}),
     },
   );
 
@@ -1095,9 +1156,17 @@ function computeFill(
   return { ok: true, priceCents, venueOrderId: `psim_${task.idempotencyKey.slice(7, 19)}` };
 }
 
-function paperSimGapTags(outcome: 'filled' | 'rejected' | 'blocked'): string[] {
+function paperSimGapTags(
+  outcome: 'filled' | 'rejected' | 'blocked',
+  usedChildDrain = false,
+): string[] {
   if (outcome === 'filled') {
-    return ['synthetic_quote', 'inline_fill_model', 'no_venue_latency', 'no_partial_fills'];
+    return [
+      'synthetic_quote',
+      'inline_fill_model',
+      'no_venue_latency',
+      usedChildDrain ? 'child_slice_drain' : 'no_partial_fills',
+    ];
   }
   return ['synthetic_quote', 'pre_dispatch_block'];
 }
@@ -1113,6 +1182,7 @@ async function writeFillTrace(
     sessionSnapshot: Record<string, unknown>;
     failureCode: string | null;
     venue: Venue;
+    usedChildDrain?: boolean;
   },
 ): Promise<string> {
   const rows = await db
@@ -1131,7 +1201,10 @@ async function writeFillTrace(
       // the fill still came from the synthetic path; non-paper venues leave tags empty.
       simulatorGapTags:
         params.venue === 'paper_sim'
-          ? paperSimGapTags(params.outcome === 'recovered' ? 'filled' : params.outcome)
+          ? paperSimGapTags(
+              params.outcome === 'recovered' ? 'filled' : params.outcome,
+              params.usedChildDrain === true,
+            )
           : [],
       failureCode: params.failureCode,
     })

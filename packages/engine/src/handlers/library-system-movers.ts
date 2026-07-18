@@ -176,7 +176,10 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
   });
 
   const entry = getSystemLibraryEntry(SystemTopicScope.MOVERS);
-  if (!entry) return;
+  if (!entry) {
+    await stage('gather', 'failed', 'Movers library registry missing');
+    return;
+  }
 
   const companyModules = await db
     .select({
@@ -193,7 +196,10 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     companyModules.find((m) => m.type === 'librarian')?.id ??
     companyModules.find((m) => m.type === 'library')?.id ??
     companyModules.find((m) => m.type === 'math')?.id;
-  if (!ownerModuleId) return;
+  if (!ownerModuleId) {
+    await stage('gather', 'failed', 'No research/library module to own seals');
+    return;
+  }
 
   const topicSectors =
     companyModules.find((m) => (m.topicSectors?.length ?? 0) > 0)?.topicSectors ?? [];

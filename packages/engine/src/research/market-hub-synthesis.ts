@@ -137,28 +137,6 @@ export async function finalizeSynthesisRun(
     );
 }
 
-/** After narrative: mark hub_ready and close the run. */
-export async function completeSynthesisRunAfterNarrative(
-  db: Db,
-  opts: { runId: string; companyId: string; now: Date; partial?: boolean },
-): Promise<void> {
-  await recordSynthesisStage(db, {
-    runId: opts.runId,
-    companyId: opts.companyId,
-    stageId: 'hub_ready',
-    status: 'succeeded',
-    summary: 'Hub projection ready for Sync / live merge',
-    justificationLines: ['Deterministic hub GET; seals dual-persisted'],
-    now: opts.now,
-  });
-  await finalizeSynthesisRun(db, {
-    runId: opts.runId,
-    companyId: opts.companyId,
-    status: opts.partial ? 'partial' : 'succeeded',
-    now: opts.now,
-  });
-}
-
 function mapStageRow(row: typeof marketHubSynthesisStages.$inferSelect): MarketHubSynthesisStage {
   const lines = Array.isArray(row.justificationLines)
     ? (row.justificationLines as unknown[]).filter((x): x is string => typeof x === 'string')
@@ -230,6 +208,29 @@ export async function countTerminalSealStages(
   db: Db,
   runId: string,
 ): Promise<{ movers: boolean; sector: boolean; daily: boolean }> {
+  const outcomes = await getSealStageOutcomes(db, runId);
+  return {
+    movers: outcomes.movers.terminal,
+    sector: outcomes.sector.terminal,
+    daily: outcomes.daily.terminal,
+  };
+}
+
+export type SealStageOutcome = {
+  status: MarketHubSynthesisStageStatus | null;
+  terminal: boolean;
+  ok: boolean;
+};
+
+/** Seal-path stage outcomes for narrative gating (D-120). */
+export async function getSealStageOutcomes(
+  db: Db,
+  runId: string,
+): Promise<{
+  movers: SealStageOutcome;
+  sector: SealStageOutcome;
+  daily: SealStageOutcome;
+}> {
   const rows = await db
     .select({
       stageId: marketHubSynthesisStages.stageId,
@@ -238,14 +239,94 @@ export async function countTerminalSealStages(
     .from(marketHubSynthesisStages)
     .where(eq(marketHubSynthesisStages.runId, runId));
 
-  const byId = new Map(rows.map((r) => [r.stageId, r.status]));
-  const done = (id: string) => {
-    const s = byId.get(id);
-    return s === 'succeeded' || s === 'skipped' || s === 'failed';
+  const byId = new Map(rows.map((r) => [r.stageId, r.status as MarketHubSynthesisStageStatus]));
+  const outcome = (id: MarketHubSynthesisStageId): SealStageOutcome => {
+    const status = byId.get(id) ?? null;
+    const terminal =
+      status === 'succeeded' || status === 'skipped' || status === 'failed';
+    const ok = status === 'succeeded' || status === 'skipped';
+    return { status, terminal, ok };
   };
   return {
-    movers: done('seal_movers'),
-    sector: done('sector'),
-    daily: done('daily'),
+    movers: outcome('seal_movers'),
+    sector: outcome('sector'),
+    daily: outcome('daily'),
   };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Poll until movers/sector/daily stages are terminal (or timeout).
+ * Narrative must not compose before parallel reseal jobs finish.
+ */
+export async function waitForSealStages(
+  db: Db,
+  runId: string,
+  opts?: { timeoutMs?: number; pollMs?: number },
+): Promise<{
+  movers: SealStageOutcome;
+  sector: SealStageOutcome;
+  daily: SealStageOutcome;
+  timedOut: boolean;
+}> {
+  const timeoutMs = opts?.timeoutMs ?? 90_000;
+  const pollMs = opts?.pollMs ?? 1_500;
+  const deadline = Date.now() + timeoutMs;
+  let last = await getSealStageOutcomes(db, runId);
+  while (Date.now() < deadline) {
+    if (last.movers.terminal && last.sector.terminal && last.daily.terminal) {
+      return { ...last, timedOut: false };
+    }
+    await sleep(pollMs);
+    last = await getSealStageOutcomes(db, runId);
+  }
+  return { ...last, timedOut: true };
+}
+
+/** After narrative: mark hub_ready and close the run (partial if seals missing/failed). */
+export async function completeSynthesisRunAfterNarrative(
+  db: Db,
+  opts: {
+    runId: string;
+    companyId: string;
+    now: Date;
+    partial?: boolean;
+    failed?: boolean;
+    errorCode?: string | null;
+  },
+): Promise<void> {
+  const seals = await getSealStageOutcomes(db, opts.runId);
+  const sealFailed = !seals.movers.ok || !seals.sector.ok || !seals.daily.ok;
+  const partial = Boolean(opts.partial) || sealFailed;
+  const failed = Boolean(opts.failed);
+
+  await recordSynthesisStage(db, {
+    runId: opts.runId,
+    companyId: opts.companyId,
+    stageId: 'hub_ready',
+    status: failed ? 'failed' : 'succeeded',
+    summary: failed
+      ? 'Hub not ready — narrative or upstream stage failed'
+      : partial
+        ? 'Hub projection ready with partial seals'
+        : 'Hub projection ready for Sync / live merge',
+    justificationLines: [
+      'Deterministic hub GET; seals dual-persisted when present',
+      `seal_movers ${seals.movers.status ?? 'missing'}`,
+      `sector ${seals.sector.status ?? 'missing'}`,
+      `daily ${seals.daily.status ?? 'missing'}`,
+    ],
+    now: opts.now,
+  });
+
+  await finalizeSynthesisRun(db, {
+    runId: opts.runId,
+    companyId: opts.companyId,
+    status: failed ? 'failed' : partial ? 'partial' : 'succeeded',
+    ...(opts.errorCode !== undefined ? { errorCode: opts.errorCode } : {}),
+    now: opts.now,
+  });
 }

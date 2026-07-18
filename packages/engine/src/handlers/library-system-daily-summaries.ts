@@ -153,7 +153,10 @@ registerHandler('library.system_daily_summaries', async ({ db, clock, job }) => 
     companyModules.find((m) => m.type === 'research')?.id ??
     companyModules.find((m) => m.type === 'librarian')?.id ??
     companyModules.find((m) => m.type === 'library')?.id;
-  if (!ownerModuleId) return;
+  if (!ownerModuleId) {
+    await stage('failed', 'No research/library module to own daily seal');
+    return;
+  }
 
   const moversSeal = await loadLatestValidSeal(db, {
     companyId: payload.companyId,
@@ -253,5 +256,8 @@ registerHandler('library.system_daily_summaries', async ({ db, clock, job }) => 
     tags: entry.kindTags,
     now,
   });
-  await stage('succeeded', `Sealed daily summary (${phase})`);
+  await stage(
+    'succeeded',
+    `Sealed daily ${phase} (${enriched.corroborationBand}) · movers ${moversSeal ? 'present' : 'stale'} · sector ${sectorSeal ? 'present' : 'stale'}`,
+  );
 });

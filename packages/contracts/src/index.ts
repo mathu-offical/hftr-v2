@@ -17,6 +17,7 @@ export * from './libraries';
 export * from './env';
 export * from './templates';
 export * from './services';
+export * from './money';
 export * from './engines';
 export * from './process-layers';
 export * from './canvas-layout';

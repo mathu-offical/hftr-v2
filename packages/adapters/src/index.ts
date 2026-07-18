@@ -77,6 +77,31 @@ export {
   PolygonNewsError,
   type FetchPolygonNewsParams,
 } from './research/polygon-news';
+export {
+  fetchAlphaVantageNews,
+  AlphaVantageNewsError,
+  type FetchAlphaVantageNewsParams,
+} from './research/alpha-vantage-news';
+export {
+  fetchFrankfurterFx,
+  FrankfurterFxError,
+  type FetchFrankfurterFxParams,
+} from './research/frankfurter-fx';
+export {
+  fetchCoinGeckoCrypto,
+  CoinGeckoCryptoError,
+  type FetchCoinGeckoCryptoParams,
+} from './research/coingecko-crypto';
+export {
+  fetchFredMacro,
+  FredMacroError,
+  type FetchFredMacroParams,
+} from './research/fred-macro';
+export {
+  fetchWorldBankIndicators,
+  WorldBankIndicatorError,
+  type FetchWorldBankIndicatorParams,
+} from './research/world-bank-indicator';
 export { filterSourceKinds } from './research/source-matrix';
 export {
   evidenceFromLibraryConcepts,
@@ -84,6 +109,8 @@ export {
 } from './research/library-concepts';
 export {
   gatherEvidencePackages,
+  resolveDefaultSourceKinds,
   type GatherEvidencePackagesOptions,
   type GatherEvidenceError,
+  type GatherCredentials,
 } from './research/gather';

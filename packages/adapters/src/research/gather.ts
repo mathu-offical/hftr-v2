@@ -1,4 +1,5 @@
 import type { EvidencePackage, ResearchSourceKind } from '@hftr/contracts';
+import { selectReadySourceKinds } from '@hftr/contracts';
 import { AlpacaNewsError, fetchAlpacaNews } from '../alpaca/news';
 import { BraveSearchError, searchBrave } from './brave-search';
 import {
@@ -13,6 +14,15 @@ import { fetchFinnhubNews, FinnhubNewsError } from './finnhub-news';
 import { fetchMarketNews, MarketNewsError } from './market-news';
 import { fetchPolygonNews, PolygonNewsError } from './polygon-news';
 import { searchSecFilings, SecFilingsError } from './sec-filings';
+import { fetchFrankfurterFx, FrankfurterFxError } from './frankfurter-fx';
+import { fetchCoinGeckoCrypto, CoinGeckoCryptoError } from './coingecko-crypto';
+import { fetchFredMacro, FredMacroError } from './fred-macro';
+import { fetchAlphaVantageNews, AlphaVantageNewsError } from './alpha-vantage-news';
+import {
+  fetchWorldBankIndicators,
+  WorldBankIndicatorError,
+} from './world-bank-indicator';
+import { ResearchStubError, throwResearchStub } from './research-stub';
 import { filterSourceKinds } from './source-matrix';
 
 export interface GatherEvidenceError {
@@ -20,18 +30,23 @@ export interface GatherEvidenceError {
   code: string;
 }
 
-export interface GatherEvidencePackagesOptions {
+export interface GatherCredentials {
+  braveApiKey?: string | null;
+  marketNewsApiKey?: string | null;
+  finnhubApiKey?: string | null;
+  polygonApiKey?: string | null;
+  fredApiKey?: string | null;
+  alphaVantageApiKey?: string | null;
+  alpacaKeyId?: string | null;
+  alpacaSecret?: string | null;
+}
+
+export interface GatherEvidencePackagesOptions extends GatherCredentials {
   query: string;
   sourceKinds: ResearchSourceKind[];
   allowlist: string[];
   blocklist: string[];
   maxEvidence: number;
-  braveApiKey?: string | null;
-  marketNewsApiKey?: string | null;
-  alpacaKeyId?: string | null;
-  alpacaSecret?: string | null;
-  finnhubApiKey?: string | null;
-  polygonApiKey?: string | null;
   fetchImpl?: typeof fetch;
   /** Passed to SEC adapter for test resilience. */
   secAllowEmptyOnError?: boolean;
@@ -42,6 +57,44 @@ export interface GatherEvidencePackagesOptions {
   libraryConcepts?: LibraryConceptEvidenceInput[];
 }
 
+function mergeCredentials(opts: GatherEvidencePackagesOptions): GatherCredentials {
+  return {
+    braveApiKey: opts.braveApiKey ?? null,
+    marketNewsApiKey: opts.marketNewsApiKey ?? null,
+    finnhubApiKey: opts.finnhubApiKey ?? null,
+    polygonApiKey: opts.polygonApiKey ?? null,
+    fredApiKey: opts.fredApiKey ?? null,
+    alphaVantageApiKey: opts.alphaVantageApiKey ?? null,
+    alpacaKeyId: opts.alpacaKeyId ?? null,
+    alpacaSecret: opts.alpacaSecret ?? null,
+  };
+}
+
+function researchKeysFromCredentials(credentials: GatherCredentials): string[] {
+  const keys: string[] = [];
+  if (credentials.braveApiKey?.trim()) keys.push('brave');
+  if (credentials.marketNewsApiKey?.trim()) keys.push('market_news');
+  if (credentials.finnhubApiKey?.trim()) keys.push('finnhub');
+  if (credentials.polygonApiKey?.trim()) keys.push('polygon');
+  if (credentials.fredApiKey?.trim()) keys.push('fred');
+  if (credentials.alphaVantageApiKey?.trim()) keys.push('alpha_vantage');
+  return keys;
+}
+
+/** Default shipped source kinds ready for the supplied credential bag. */
+export function resolveDefaultSourceKinds(credentials: GatherCredentials): ResearchSourceKind[] {
+  const hasAlpacaPaper = Boolean(
+    credentials.alpacaKeyId?.trim() && credentials.alpacaSecret?.trim(),
+  );
+  return selectReadySourceKinds(
+    {
+      researchKeys: researchKeysFromCredentials(credentials),
+      hasAlpacaPaper,
+    },
+    undefined,
+  );
+}
+
 function errorCode(err: unknown): string {
   if (err instanceof BraveSearchError) return err.code;
   if (err instanceof SecFilingsError) return err.code;
@@ -50,6 +103,12 @@ function errorCode(err: unknown): string {
   if (err instanceof AlpacaBarsEvidenceError) return err.code;
   if (err instanceof FinnhubNewsError) return err.code;
   if (err instanceof PolygonNewsError) return err.code;
+  if (err instanceof FrankfurterFxError) return err.code;
+  if (err instanceof CoinGeckoCryptoError) return err.code;
+  if (err instanceof FredMacroError) return err.code;
+  if (err instanceof AlphaVantageNewsError) return err.code;
+  if (err instanceof WorldBankIndicatorError) return err.code;
+  if (err instanceof ResearchStubError) return err.code;
   if (err instanceof Error && err.message.startsWith('unsupported_source')) {
     return 'unsupported_source';
   }
@@ -60,6 +119,7 @@ function errorCode(err: unknown): string {
 async function gatherFromSource(
   kind: ResearchSourceKind,
   opts: GatherEvidencePackagesOptions,
+  credentials: GatherCredentials,
 ): Promise<EvidencePackage[]> {
   const perSourceMax = Math.min(Math.max(1, opts.maxEvidence), 20);
   const fetchImpl = opts.fetchImpl;
@@ -68,7 +128,7 @@ async function gatherFromSource(
     case 'brave_search':
       return searchBrave({
         query: opts.query,
-        apiKey: opts.braveApiKey ?? '',
+        apiKey: credentials.braveApiKey ?? '',
         maxResults: perSourceMax,
         ...(fetchImpl ? { fetchImpl } : {}),
       });
@@ -86,7 +146,7 @@ async function gatherFromSource(
         query: opts.query,
         maxResults: perSourceMax,
         ...(fetchImpl ? { fetchImpl } : {}),
-        ...(opts.marketNewsApiKey ? { apiKey: opts.marketNewsApiKey } : {}),
+        ...(credentials.marketNewsApiKey ? { apiKey: credentials.marketNewsApiKey } : {}),
         ...(opts.marketNewsFeedUrl ? { feedUrl: opts.marketNewsFeedUrl } : {}),
         allowDeterministicFallback: opts.marketNewsAllowDeterministicFallback ?? true,
       });
@@ -95,8 +155,8 @@ async function gatherFromSource(
         query: opts.query,
         limit: perSourceMax,
         credentials: {
-          keyId: opts.alpacaKeyId ?? '',
-          secret: opts.alpacaSecret ?? '',
+          keyId: credentials.alpacaKeyId ?? '',
+          secret: credentials.alpacaSecret ?? '',
         },
         ...(fetchImpl ? { fetchImpl } : {}),
       });
@@ -104,8 +164,8 @@ async function gatherFromSource(
       return gatherAlpacaBarsEvidence({
         query: opts.query,
         credentials: {
-          keyId: opts.alpacaKeyId ?? '',
-          secret: opts.alpacaSecret ?? '',
+          keyId: credentials.alpacaKeyId ?? '',
+          secret: credentials.alpacaSecret ?? '',
         },
         ...(fetchImpl ? { fetchImpl } : {}),
       });
@@ -113,16 +173,50 @@ async function gatherFromSource(
       return fetchFinnhubNews({
         query: opts.query,
         limit: perSourceMax,
-        apiKey: opts.finnhubApiKey ?? '',
+        apiKey: credentials.finnhubApiKey ?? '',
         ...(fetchImpl ? { fetchImpl } : {}),
       });
     case 'polygon_news':
       return fetchPolygonNews({
         query: opts.query,
         limit: perSourceMax,
-        apiKey: opts.polygonApiKey ?? '',
+        apiKey: credentials.polygonApiKey ?? '',
         ...(fetchImpl ? { fetchImpl } : {}),
       });
+    case 'frankfurter_fx':
+      return fetchFrankfurterFx({
+        limit: perSourceMax,
+        ...(fetchImpl ? { fetchImpl } : {}),
+      });
+    case 'coingecko_crypto':
+      return fetchCoinGeckoCrypto({
+        limit: perSourceMax,
+        ...(fetchImpl ? { fetchImpl } : {}),
+      });
+    case 'fred_macro':
+      return fetchFredMacro({
+        query: opts.query,
+        limit: perSourceMax,
+        apiKey: credentials.fredApiKey ?? '',
+        ...(fetchImpl ? { fetchImpl } : {}),
+      });
+    case 'alpha_vantage_news':
+      return fetchAlphaVantageNews({
+        query: opts.query,
+        limit: perSourceMax,
+        apiKey: credentials.alphaVantageApiKey ?? '',
+        ...(fetchImpl ? { fetchImpl } : {}),
+      });
+    case 'world_bank_indicator':
+      return fetchWorldBankIndicators({
+        query: opts.query,
+        limit: perSourceMax,
+        ...(fetchImpl ? { fetchImpl } : {}),
+      });
+    case 'gdelt_news':
+    case 'twelve_data':
+    case 'marketstack':
+      throwResearchStub(kind);
     case 'library':
       return evidenceFromLibraryConcepts(opts.libraryConcepts ?? [], {
         maxResults: perSourceMax,
@@ -143,6 +237,7 @@ async function gatherFromSource(
 export async function gatherEvidencePackages(
   opts: GatherEvidencePackagesOptions,
 ): Promise<{ packages: EvidencePackage[]; errors: GatherEvidenceError[] }> {
+  const credentials = mergeCredentials(opts);
   const filtered = filterSourceKinds(opts.sourceKinds, opts.allowlist, opts.blocklist);
   const errors: GatherEvidenceError[] = [];
   const packages: EvidencePackage[] = [];
@@ -150,7 +245,7 @@ export async function gatherEvidencePackages(
   await Promise.all(
     filtered.map(async (kind) => {
       try {
-        const batch = await gatherFromSource(kind, opts);
+        const batch = await gatherFromSource(kind, opts, credentials);
         packages.push(...batch);
       } catch (err) {
         errors.push({ sourceKind: kind, code: errorCode(err) });

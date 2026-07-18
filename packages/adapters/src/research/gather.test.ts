@@ -250,4 +250,86 @@ describe('gatherEvidencePackages', () => {
     expect(errors).toContainEqual({ sourceKind: 'finnhub_news', code: 'missing_credentials' });
     expect(errors).toContainEqual({ sourceKind: 'polygon_news', code: 'missing_credentials' });
   });
+
+  it('gathers frankfurter_fx and coingecko_crypto without API keys', async () => {
+    const fetchImpl = async (url: string | URL | Request) => {
+      const u = String(url);
+      if (u.includes('frankfurter.dev')) {
+        return new Response(
+          JSON.stringify({ base: 'USD', rates: { EUR: 0.91, GBP: 0.78 } }),
+          { status: 200 },
+        );
+      }
+      if (u.includes('coingecko.com')) {
+        return new Response(
+          JSON.stringify([{ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }]),
+          { status: 200 },
+        );
+      }
+      return new Response('not found', { status: 404 });
+    };
+
+    const { packages, errors } = await gatherEvidencePackages({
+      query: 'macro crypto backdrop',
+      sourceKinds: ['frankfurter_fx', 'coingecko_crypto'],
+      allowlist: [],
+      blocklist: [],
+      maxEvidence: 8,
+      fetchImpl: fetchImpl as typeof fetch,
+    });
+
+    expect(errors).toHaveLength(0);
+    expect(packages.some((p) => p.sourceKind === 'frankfurter_fx')).toBe(true);
+    expect(packages.some((p) => p.sourceKind === 'coingecko_crypto')).toBe(true);
+  });
+
+  it('gathers fred_macro and alpha_vantage_news when API keys present', async () => {
+    const fetchImpl = async (url: string | URL | Request) => {
+      const u = String(url);
+      if (u.includes('stlouisfed.org')) {
+        return new Response(
+          JSON.stringify({ seriess: [{ id: 'GDP', title: 'Gross Domestic Product' }] }),
+          { status: 200 },
+        );
+      }
+      if (u.includes('alphavantage.co')) {
+        return new Response(
+          JSON.stringify({
+            feed: [{ title: 'Sector watch', summary: 'Broad sentiment steady.', url: 'https://x' }],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response('not found', { status: 404 });
+    };
+
+    const { packages, errors } = await gatherEvidencePackages({
+      query: 'gdp outlook',
+      sourceKinds: ['fred_macro', 'alpha_vantage_news'],
+      allowlist: [],
+      blocklist: [],
+      maxEvidence: 8,
+      fredApiKey: 'fred-test',
+      alphaVantageApiKey: 'av-test',
+      fetchImpl: fetchImpl as typeof fetch,
+    });
+
+    expect(errors).toHaveLength(0);
+    expect(packages.some((p) => p.sourceKind === 'fred_macro')).toBe(true);
+    expect(packages.some((p) => p.sourceKind === 'alpha_vantage_news')).toBe(true);
+  });
+
+  it('records not_implemented for researched stub kinds', async () => {
+    const { packages, errors } = await gatherEvidencePackages({
+      query: 'test',
+      sourceKinds: ['gdelt_news', 'twelve_data'],
+      allowlist: [],
+      blocklist: [],
+      maxEvidence: 4,
+    });
+
+    expect(packages).toHaveLength(0);
+    expect(errors).toContainEqual({ sourceKind: 'gdelt_news', code: 'not_implemented' });
+    expect(errors).toContainEqual({ sourceKind: 'twelve_data', code: 'unsupported_source' });
+  });
 });

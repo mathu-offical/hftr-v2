@@ -7,6 +7,7 @@ import {
 } from '@hftr/db/schema';
 import {
   engineCategoryExposesFunds,
+  engineUtilityBusesForCategory,
   getEngineTemplateById,
   type EngineUtilityBus,
 } from '@hftr/contracts';
@@ -192,7 +193,8 @@ export async function ensureAllEngineClockBinds(
 }
 
 /**
- * Full motherboard bind pass: clock + funds (when applicable) + analyzer data_out + hydrate.
+ * Full motherboard bind pass: clock + funds + analyzer data_out + inter-engine
+ * data streams + hydrate.
  */
 export async function ensureEngineMotherboardUtilities(
   db: Db,
@@ -203,20 +205,151 @@ export async function ensureEngineMotherboardUtilities(
   clockBound: boolean;
   fundsBound: boolean;
   dataOutBound: boolean;
+  interEngineLinked: number;
   topicProjected: number;
   focusProjected: number;
 }> {
   const clock = await ensureEngineClockUtilityBind(db, companyId, engineId, now);
   const funds = await ensureEngineFundsUtilityBind(db, companyId, engineId, now);
   const dataOut = await ensureEngineAnalyzerDataOut(db, companyId, engineId, now);
+  const inter = await ensureInterEngineDataStreamLinks(db, companyId, engineId, now);
   const hydrate = await hydrateEngineMembersFromUtilities(db, companyId, engineId, now);
   return {
     clockBound: clock.bound,
     fundsBound: funds.bound,
     dataOutBound: dataOut.bound,
+    interEngineLinked: inter.linked,
     topicProjected: hydrate.topicProjected,
     focusProjected: hydrate.focusProjected,
   };
+}
+
+/**
+ * D-091: when an engine is added, wire established data_out peers ↔ data_in.
+ * - New engine with data_in ← every other engine that already publishes data_out
+ * - New engine with data_out → every other engine that exposes data_in
+ * Idempotent; skips self and existing pairs.
+ */
+export async function ensureInterEngineDataStreamLinks(
+  db: Db,
+  companyId: string,
+  engineId: string,
+  now = new Date(),
+): Promise<{ linked: number }> {
+  const [engine] = await db
+    .select({ id: engineInstances.id, templateId: engineInstances.templateId })
+    .from(engineInstances)
+    .where(and(eq(engineInstances.id, engineId), eq(engineInstances.companyId, companyId)))
+    .limit(1);
+  if (!engine) return { linked: 0 };
+
+  const template = getEngineTemplateById(engine.templateId);
+  const buses = engineUtilityBusesForCategory(template?.category ?? 'research');
+  const peers = await db
+    .select({ id: engineInstances.id, templateId: engineInstances.templateId })
+    .from(engineInstances)
+    .where(eq(engineInstances.companyId, companyId));
+
+  const existing = await db
+    .select()
+    .from(engineUtilityLinks)
+    .where(eq(engineUtilityLinks.companyId, companyId));
+
+  const hasPair = (fromEngineId: string, toEngineId: string) =>
+    existing.some(
+      (row) =>
+        row.bus === 'data_in' &&
+        row.toEngineId === toEngineId &&
+        row.fromEngineId === fromEngineId,
+    );
+
+  const dataOutByEngine = new Map<string, (typeof existing)[number]>();
+  for (const row of existing) {
+    if (row.bus === 'data_out' && row.toEngineId) {
+      dataOutByEngine.set(row.toEngineId, row);
+    }
+  }
+
+  let linked = 0;
+
+  if (buses.includes('data_in')) {
+    for (const peer of peers) {
+      if (peer.id === engineId) continue;
+      const upstreamOut = dataOutByEngine.get(peer.id);
+      if (!upstreamOut) continue;
+      if (hasPair(peer.id, engineId)) continue;
+      const [row] = await db
+        .insert(engineUtilityLinks)
+        .values({
+          companyId,
+          toEngineId: engineId,
+          bus: 'data_in',
+          fromEngineId: peer.id,
+          fromModuleId: null,
+          streamId: upstreamOut.streamId,
+          streamDescriptor: upstreamOut.streamDescriptor ?? 'Engine stream',
+          updatedAt: now,
+        })
+        .onConflictDoNothing()
+        .returning();
+      if (row) {
+        linked += 1;
+        existing.push(row);
+      }
+    }
+  }
+
+  if (buses.includes('data_out')) {
+    const ourOut = dataOutByEngine.get(engineId);
+    if (ourOut) {
+      for (const peer of peers) {
+        if (peer.id === engineId) continue;
+        const peerTemplate = getEngineTemplateById(peer.templateId);
+        const peerBuses = engineUtilityBusesForCategory(peerTemplate?.category ?? 'research');
+        if (!peerBuses.includes('data_in')) continue;
+        if (hasPair(engineId, peer.id)) continue;
+        const [row] = await db
+          .insert(engineUtilityLinks)
+          .values({
+            companyId,
+            toEngineId: peer.id,
+            bus: 'data_in',
+            fromEngineId: engineId,
+            fromModuleId: null,
+            streamId: ourOut.streamId,
+            streamDescriptor: ourOut.streamDescriptor ?? 'Engine stream',
+            updatedAt: now,
+          })
+          .onConflictDoNothing()
+          .returning();
+        if (row) {
+          linked += 1;
+          existing.push(row);
+          await hydrateEngineMembersFromUtilities(db, companyId, peer.id, now);
+        }
+      }
+    }
+  }
+
+  return { linked };
+}
+
+/** Idempotent repair: wire data streams for every engine in the company. */
+export async function ensureAllInterEngineDataStreamLinks(
+  db: Db,
+  companyId: string,
+  now = new Date(),
+): Promise<number> {
+  const engines = await db
+    .select({ id: engineInstances.id })
+    .from(engineInstances)
+    .where(eq(engineInstances.companyId, companyId));
+  let total = 0;
+  for (const engine of engines) {
+    const result = await ensureInterEngineDataStreamLinks(db, companyId, engine.id, now);
+    total += result.linked;
+  }
+  return total;
 }
 
 export type HydrateEngineResult = {

@@ -8,6 +8,12 @@ import { Justification } from './Justification';
 import { TraceTimeline } from './TraceTimeline';
 import { LlmAvailabilityChips } from '@/components/shell/LlmConnectionStatus';
 import { PanelTabs } from './PanelTabs';
+import {
+  WatchlistTierFilterChips,
+  watchlistMatchesTierFilter,
+  type WatchlistTierFilter,
+} from './WatchlistTierFilters';
+import { invalidateMarketHub } from '@/lib/market-hub-cache';
 
 type Tab = 'trends' | 'scenarios' | 'watchlists' | 'decisions' | 'lineage' | 'approvals' | 'dead';
 const TABS: { id: Tab; label: string; rail: string }[] = [
@@ -172,6 +178,7 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
   const [executions, setExecutions] = useState<ExecutionRow[]>([]);
   const [verifications, setVerifications] = useState<VerificationRow[]>([]);
   const [watchlists, setWatchlists] = useState<WatchlistRow[]>([]);
+  const [watchlistTierFilter, setWatchlistTierFilter] = useState<WatchlistTierFilter>('default');
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [trees, setTrees] = useState<TreeRow[]>([]);
   const [transfers, setTransfers] = useState<FundTransferRow[]>([]);
@@ -253,6 +260,18 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
   );
   const byModule = <T extends { moduleId: string }>(rows: T[]) =>
     moduleFilter === 'all' ? rows : rows.filter((r) => r.moduleId === moduleFilter);
+
+  const confirmWatchlist = useCallback(
+    async (itemId: string) => {
+      await api(`/api/companies/${props.companyId}/watchlists/${itemId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'watching' }),
+      });
+      invalidateMarketHub({ companyId: props.companyId });
+      await load();
+    },
+    [props.companyId, load],
+  );
 
   if (!open) {
     return (

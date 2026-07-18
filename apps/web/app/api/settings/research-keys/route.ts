@@ -1,6 +1,7 @@
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { ResearchKeyProvider } from '@hftr/contracts';
 import { userResearchKeys } from '@hftr/db/schema';
+import { resolveAllOwnedCompanyServiceBindings } from '@hftr/engine';
 import { z } from 'zod';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import { encryptSecret } from '@/lib/secrets';
@@ -70,6 +71,12 @@ export async function PUT(req: Request) {
         keyHint: userResearchKeys.keyHint,
         updatedAt: userResearchKeys.updatedAt,
       });
+
+    try {
+      await resolveAllOwnedCompanyServiceBindings(db, clerkUserId);
+    } catch (err) {
+      console.error('resolveAllOwnedCompanyServiceBindings failed after research key upsert', err);
+    }
 
     return rows[0]!;
   });

@@ -7,7 +7,6 @@ import { modules } from '@hftr/db/schema';
 import { createSystemClock, drainQueues, enqueue, estimateLlmJobCost } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import { createWebModelGateway } from '@/lib/model-gateway';
-import { loadResearchGatherKeys } from '@/lib/research-keys';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -45,7 +44,7 @@ export async function POST(req: Request, ctx: Ctx) {
       moduleId = first.id;
     }
 
-    const gatherKeys = await loadResearchGatherKeys(db, clerkUserId);
+    // D-074: identity + intent only — gather keys resolve inside research.gather.
     const clock = createSystemClock();
     await enqueue(db, clock, {
       queueClass: 'RESEARCH',
@@ -59,7 +58,6 @@ export async function POST(req: Request, ctx: Ctx) {
         topicId: input.topicId,
         topicScope: input.topicScope,
         sourceKinds: input.sourceKinds,
-        ...gatherKeys,
       },
       idempotencyKey: `research-query-${randomUUID()}`,
       priority: 'NORMAL',

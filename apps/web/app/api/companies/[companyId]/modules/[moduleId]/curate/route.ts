@@ -5,7 +5,6 @@ import { scoping } from '@hftr/db';
 import { createSystemClock, drainQueues, enqueue, estimateLlmJobCost } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import { createWebModelGateway } from '@/lib/model-gateway';
-import { loadResearchGatherKeys } from '@/lib/research-keys';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -26,6 +25,7 @@ const CurateInput = z
 /**
  * Trigger research curation (RESEARCH queue). Uses the LLM gateway when the
  * operator has configured admitted keys; otherwise deterministic catalog fallback.
+ * Gather credentials are resolved inside research.gather (D-074) — never in job payloads.
  */
 export async function POST(req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
@@ -39,7 +39,6 @@ export async function POST(req: Request, ctx: Ctx) {
     const topicScope = input.topicScope ?? config.topicScope ?? config.focus ?? '';
     const queryText = input.queryText ?? topicScope;
     const mode = input.mode ?? (input.queryText ? 'manual' : 'opportunistic');
-    const gatherKeys = await loadResearchGatherKeys(db, clerkUserId);
 
     const clock = createSystemClock();
     await enqueue(db, clock, {
@@ -54,7 +53,6 @@ export async function POST(req: Request, ctx: Ctx) {
         mode,
         topicId: input.topicId,
         sourceKinds: input.sourceKinds,
-        ...gatherKeys,
       },
       idempotencyKey: `curate-${randomUUID()}`,
       priority: 'NORMAL',

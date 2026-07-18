@@ -3,6 +3,7 @@ import {
   bigint,
   boolean,
   index,
+  integer,
   jsonb,
   pgTable,
   text,
@@ -42,6 +43,14 @@ export const companies = pgTable(
     seedCreditsCents: bigint('seed_credits_cents', { mode: 'bigint' })
       .notNull()
       .default(sql`0`),
+    /** Materialized equity read projection (cents); authoritative calc via equity_ref. */
+    equityCents: bigint('equity_cents', { mode: 'bigint' }),
+    equityRef: text('equity_ref'),
+    equityAsOf: timestamp('equity_as_of', { withTimezone: true }),
+    equityStatus: text('equity_status', { enum: ['fresh', 'stale', 'unavailable'] })
+      .notNull()
+      .default('unavailable'),
+    equityVersion: integer('equity_version').notNull().default(0),
     /** Exclusive bind: unique so one broker connection serves at most one company. */
     brokerConnectionId: uuid('broker_connection_id').references(() => brokerConnections.id),
     autoFundPolicy: jsonb('auto_fund_policy').notNull().default({}),

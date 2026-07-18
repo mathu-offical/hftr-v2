@@ -34,6 +34,7 @@ export const libraries = pgTable(
     status: text('status', { enum: ['active', 'archived'] })
       .notNull()
       .default('active'),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
     ...timestamps,
   },
   (t) => [
@@ -87,6 +88,10 @@ export const researchTopics = pgTable(
     status: text('status', { enum: ['active', 'archived', 'deferred'] })
       .notNull()
       .default('active'),
+    confidenceBand: text('confidence_band', { enum: ['low', 'medium', 'high'] })
+      .notNull()
+      .default('medium'),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
     priority: text('priority', { enum: ['low', 'normal', 'high'] })
       .notNull()
       .default('normal'),

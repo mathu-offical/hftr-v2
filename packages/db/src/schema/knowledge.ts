@@ -53,6 +53,10 @@ export const concepts = pgTable(
     status: text('status', { enum: ['active', 'archived'] })
       .notNull()
       .default('active'),
+    confidenceBand: text('confidence_band', { enum: ['low', 'medium', 'high'] })
+      .notNull()
+      .default('medium'),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
     /**
      * Primary library for hard nested galaxy layout (D-040).
      * FK enforced in migration; uuid-only here to avoid circular import with libraries.ts.

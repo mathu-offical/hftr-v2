@@ -204,6 +204,27 @@
       "when": 1784335000000,
       "tag": "0029_twelve_data_marketstack_research",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1784336000000,
+      "tag": "0030_company_equity_projection",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1784336100000,
+      "tag": "0031_company_equity_seed_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1784336200000,
+      "tag": "0032_research_archive_confidence",
+      "breakpoints": true
     }
   ]
 }

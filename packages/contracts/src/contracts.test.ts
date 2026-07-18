@@ -1312,6 +1312,25 @@ describe('Research bus (D-039)', () => {
       }).mode,
     ).toBe('manual');
 
+    const { InitiateTopicResearchInput, InitiateTopicResearchResult, QueueClass } = await import(
+      './index'
+    );
+    expect(QueueClass.options).toEqual(
+      expect.arrayContaining(['LIBRARY_RESEARCH', 'POSTURE_RESEARCH']),
+    );
+    expect(InitiateTopicResearchInput.parse({ all: true })).toEqual({ all: true });
+    expect(
+      InitiateTopicResearchInput.parse({ topicIds: [envelope.moduleId!] }).topicIds,
+    ).toHaveLength(1);
+    expect(() => InitiateTopicResearchInput.parse({})).toThrow();
+    expect(
+      InitiateTopicResearchResult.parse({
+        queued: 1,
+        topicIds: [envelope.moduleId!],
+        queueClass: 'LIBRARY_RESEARCH',
+      }).queueClass,
+    ).toBe('LIBRARY_RESEARCH');
+
     expect(
       ResearchModuleConfig.parse({
         topicScope: 'chips',

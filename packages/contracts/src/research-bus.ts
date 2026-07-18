@@ -190,6 +190,35 @@ export const CreateResearchQueryInput = z.object({
 export type CreateResearchQueryInput = z.infer<typeof CreateResearchQueryInput>;
 
 /**
+ * Initiate library-lane research for one or more research topics (D-098).
+ * Omitting topicIds (with all=true) queues every active company topic.
+ */
+export const InitiateTopicResearchInput = z
+  .object({
+    /** When true, enqueue every active research topic for the company. */
+    all: z.boolean().optional(),
+    topicIds: z.array(z.string().uuid()).max(200).optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.all === true) return;
+    if (!val.topicIds || val.topicIds.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'topicIds_or_all_required',
+        path: ['topicIds'],
+      });
+    }
+  });
+export type InitiateTopicResearchInput = z.infer<typeof InitiateTopicResearchInput>;
+
+export const InitiateTopicResearchResult = z.object({
+  queued: z.number().int().nonnegative(),
+  topicIds: z.array(z.string().uuid()),
+  queueClass: z.literal('LIBRARY_RESEARCH'),
+});
+export type InitiateTopicResearchResult = z.infer<typeof InitiateTopicResearchResult>;
+
+/**
  * Operator article ingest (D-079) — link URL and/or raw text.
  * Model-free; concepts get sourceClass `operator`. Link fetch deferred (OQ).
  */

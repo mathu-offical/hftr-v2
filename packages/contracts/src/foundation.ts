@@ -20,6 +20,10 @@ export type MutationClass = z.infer<typeof MutationClass>;
 
 export const QueueClass = z.enum([
   'RESEARCH',
+  /** Library / topic research lane — separate from posture and execution (D-098). */
+  'LIBRARY_RESEARCH',
+  /** Market-posture / system-library research lane (movers, sector news, …). */
+  'POSTURE_RESEARCH',
   'STRATEGIC',
   'TACTICAL',
   'COMPILE',

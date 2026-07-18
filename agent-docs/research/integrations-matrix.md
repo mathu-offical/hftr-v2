@@ -1,7 +1,7 @@
 # Integrations matrix (hftr-v2)
 
 Provider inventory across domains: auth, implementation, live posture, smoke, docs.
-Updated 2026-07-17 (D-046, D-048, D-050).
+Updated 2026-07-17 (D-046, D-048, D-050, D-055).
 
 **Decisions:** D-027 (user keys), D-039 (research gather), D-031 (live gate),
 D-046 (direct market/news), D-048 (multi-domain registry), D-050 (GDELT/Twelve/Marketstack
@@ -32,6 +32,8 @@ Evidence is leak-linted — never raw OHLC/FX/quote digits in model-facing text.
 `POST /api/settings/research-keys/{provider}/verify` via `apps/web/lib/research-verify.ts`.
 Providers: brave, market_news, finnhub, polygon, fred, alpha_vantage, twelve_data, marketstack.
 Saved key or draft (≥8 chars). Returns `{ ok, failure }` — no plaintext.
+Settings modal **auto-probes** saved keys on open (D-055). Gather key load
+soft-skips decrypt failures so one drifted ciphertext cannot block the fan-out.
 
 ## live_api → trend quotes (D-050 / D-051)
 

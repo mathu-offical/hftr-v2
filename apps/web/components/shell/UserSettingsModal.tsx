@@ -34,6 +34,42 @@ function formatSaveError(err: unknown): string {
   }
 }
 
+/** Operator-facing copy for verify route failure codes (text-first). */
+function formatVerifyFailure(code: string | null | undefined): string {
+  switch (code) {
+    case 'auth_rejected':
+      return 'Provider rejected credentials.';
+    case 'ping_timeout':
+      return 'Provider did not respond in time.';
+    case 'decrypt_failed':
+      return 'Cannot decrypt saved key — Delete and re-enter after checking SETTINGS_ENCRYPTION_KEY.';
+    case null:
+    case undefined:
+      return 'unknown';
+    default:
+      if (code.startsWith('provider_http_')) {
+        return `Provider HTTP ${code.slice('provider_http_'.length)}.`;
+      }
+      return code;
+  }
+}
+
+async function mapPool<T>(
+  items: readonly T[],
+  concurrency: number,
+  fn: (item: T) => Promise<void>,
+): Promise<void> {
+  const queue = [...items];
+  const workers = Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
+    while (queue.length > 0) {
+      const item = queue.shift();
+      if (item === undefined) return;
+      await fn(item);
+    }
+  });
+  await Promise.all(workers);
+}
+
 function VerifyStatusBadge(props: { status: KeyVerifyUiStatus }) {
   const label =
     props.status === 'verified'
@@ -155,7 +191,10 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
   >({});
   const [busy, setBusy] = useState<LlmProvider | ResearchKeyProvider | 'brokers' | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<{
+    llm: KeyRow[];
+    research: ResearchKeyRow[];
+  }> => {
     try {
       const [llm, research] = await Promise.all([
         api<{ keys: KeyRow[] }>('/api/settings/keys'),
@@ -167,15 +206,88 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
       setResearchKeys(research.keys);
       const anthropic = llm.keys.find((k) => k.provider === 'anthropic');
       setAnthropicZdr(anthropic?.retentionAttested === 'org_zdr');
+      return { llm: llm.keys, research: research.keys };
     } catch {
       setKeys([]);
       setResearchKeys([]);
+      return { llm: [], research: [] };
     }
   }, []);
 
   useEffect(() => {
     if (!props.open) return;
-    void load();
+    let cancelled = false;
+
+    void (async () => {
+      const data = await load();
+      if (cancelled) return;
+
+      const seeded: Partial<Record<LlmProvider | ResearchKeyProvider, KeyVerifyUiStatus>> = {};
+      for (const row of data.llm) seeded[row.provider] = 'unknown';
+      for (const row of data.research) seeded[row.provider] = 'unknown';
+      setVerifyStatus(seeded);
+
+      const llmProviders = data.llm.map((r) => r.provider);
+      const researchProviders = data.research.map((r) => r.provider);
+
+      await mapPool(llmProviders, 3, async (provider) => {
+        try {
+          const res = await api<{ ok: boolean; failure: string | null; deferred?: boolean }>(
+            `/api/settings/keys/${provider}/verify`,
+            { method: 'POST' },
+          );
+          if (cancelled) return;
+          if (res.ok && res.deferred) {
+            setVerifyStatus((s) => ({ ...s, [provider]: 'verified_deferred' }));
+          } else if (res.ok) {
+            setVerifyStatus((s) => ({ ...s, [provider]: 'verified' }));
+          } else {
+            setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+            setMessages((m) => ({
+              ...m,
+              [provider]: `Verify failed: ${formatVerifyFailure(res.failure)}`,
+            }));
+          }
+        } catch (err) {
+          if (cancelled) return;
+          setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+          setMessages((m) => ({
+            ...m,
+            [provider]: err instanceof RequestError ? formatSaveError(err) : 'Verify failed.',
+          }));
+        }
+      });
+
+      await mapPool(researchProviders, 3, async (provider) => {
+        try {
+          const res = await api<{ ok: boolean; failure: string | null }>(
+            `/api/settings/research-keys/${provider}/verify`,
+            { method: 'POST' },
+          );
+          if (cancelled) return;
+          if (res.ok) {
+            setVerifyStatus((s) => ({ ...s, [provider]: 'verified' }));
+          } else {
+            setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+            setMessages((m) => ({
+              ...m,
+              [provider]: `Verify failed: ${formatVerifyFailure(res.failure)}`,
+            }));
+          }
+        } catch (err) {
+          if (cancelled) return;
+          setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+          setMessages((m) => ({
+            ...m,
+            [provider]: err instanceof RequestError ? formatSaveError(err) : 'Verify failed.',
+          }));
+        }
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [props.open, load]);
 
   useEffect(() => {
@@ -232,7 +344,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
         setMessages((m) => ({
           ...m,
-          [provider]: `Not saved — verify failed: ${check.failure ?? 'unknown'}`,
+          [provider]: `Not saved — verify failed: ${formatVerifyFailure(check.failure)}`,
         }));
         return;
       }
@@ -297,6 +409,11 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
       await api(`/api/settings/keys/${provider}`, { method: 'DELETE' });
       if (provider === 'anthropic') setAnthropicZdr(false);
       setMessages((m) => ({ ...m, [provider]: 'Removed.' }));
+      setVerifyStatus((s) => {
+        const next = { ...s };
+        delete next[provider];
+        return next;
+      });
       notifyLlmCredentialsChanged();
       await load();
     } catch {
@@ -337,7 +454,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
         setMessages((m) => ({
           ...m,
-          [provider]: `Verify failed: ${res.failure ?? 'unknown'}`,
+          [provider]: `Verify failed: ${formatVerifyFailure(res.failure)}`,
         }));
       }
     } catch (err) {
@@ -379,7 +496,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
         setMessages((m) => ({
           ...m,
-          [provider]: `Verify failed: ${res.failure ?? 'unknown'}`,
+          [provider]: `Verify failed: ${formatVerifyFailure(res.failure)}`,
         }));
       }
     } catch (err) {
@@ -413,7 +530,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
         setMessages((m) => ({
           ...m,
-          [provider]: `Not saved — verify failed: ${check.failure ?? 'unknown'}`,
+          [provider]: `Not saved — verify failed: ${formatVerifyFailure(check.failure)}`,
         }));
         return;
       }
@@ -438,6 +555,11 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
     try {
       await api(`/api/settings/research-keys/${provider}`, { method: 'DELETE' });
       setMessages((m) => ({ ...m, [provider]: 'Removed.' }));
+      setVerifyStatus((s) => {
+        const next = { ...s };
+        delete next[provider];
+        return next;
+      });
       await load();
     } catch {
       setMessages((m) => ({ ...m, [provider]: 'Delete failed.' }));

@@ -45,23 +45,43 @@ export async function loadResearchGatherKeys(
 
   const keys: ResearchGatherKeys = {};
   for (const row of rows) {
-    const plain = await withDecryptedSecret(row.ciphertext, 'research_settings', (p) => p);
-    if (row.provider === 'brave') {
-      keys.braveApiKey = plain;
-    } else if (row.provider === 'market_news') {
-      keys.marketNewsApiKey = plain;
-    } else if (row.provider === 'finnhub') {
-      keys.finnhubApiKey = plain;
-    } else if (row.provider === 'polygon') {
-      keys.polygonApiKey = plain;
-    } else if (row.provider === 'fred') {
-      keys.fredApiKey = plain;
-    } else if (row.provider === 'alpha_vantage') {
-      keys.alphaVantageApiKey = plain;
-    } else if (row.provider === 'twelve_data') {
-      keys.twelveDataApiKey = plain;
-    } else if (row.provider === 'marketstack') {
-      keys.marketstackApiKey = plain;
+    // Soft-skip undecryptable rows (encryption-key drift). One bad ciphertext
+    // must not abort gather for every other ready source.
+    let plain: string;
+    try {
+      plain = await withDecryptedSecret(row.ciphertext, 'research_settings', (p) => p);
+    } catch {
+      continue;
+    }
+    switch (row.provider) {
+      case 'brave':
+        keys.braveApiKey = plain;
+        break;
+      case 'market_news':
+        keys.marketNewsApiKey = plain;
+        break;
+      case 'finnhub':
+        keys.finnhubApiKey = plain;
+        break;
+      case 'polygon':
+        keys.polygonApiKey = plain;
+        break;
+      case 'fred':
+        keys.fredApiKey = plain;
+        break;
+      case 'alpha_vantage':
+        keys.alphaVantageApiKey = plain;
+        break;
+      case 'twelve_data':
+        keys.twelveDataApiKey = plain;
+        break;
+      case 'marketstack':
+        keys.marketstackApiKey = plain;
+        break;
+      default: {
+        const _exhaustive: never = row.provider;
+        void _exhaustive;
+      }
     }
   }
 
@@ -82,11 +102,15 @@ export async function loadResearchGatherKeys(
     .limit(1);
 
   if (alpacaConn && alpacaConn.status !== 'revoked') {
-    const plain = decryptSecret(alpacaConn.ciphertext, 'broker_credentials');
-    const creds = parseAlpacaBrokerCredentials(plain);
-    if (creds) {
-      keys.alpacaKeyId = creds.keyId;
-      keys.alpacaSecret = creds.secret;
+    try {
+      const plain = decryptSecret(alpacaConn.ciphertext, 'broker_credentials');
+      const creds = parseAlpacaBrokerCredentials(plain);
+      if (creds) {
+        keys.alpacaKeyId = creds.keyId;
+        keys.alpacaSecret = creds.secret;
+      }
+    } catch {
+      // Soft-skip — paper Alpaca news/bars simply omit credentials.
     }
   }
 

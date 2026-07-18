@@ -33,7 +33,7 @@
   loads), company `llm_policy` with tier
   model cost/privacy labels from `MODEL_CAPABILITY_REGISTRY`, broker bind + feed entitlement,
   recent `llm_calls` metadata (request id truncated, retention class — no prompts/outputs).
-  User settings modal chrome is **fixed height** (`min(36rem, 90vh)`) with a scrollable tab panel only — short tabs do not shrink the dialog. User settings: per-provider **Verify** status badge + **Save & verify** (`POST …/verify` before persist — fail-closed; Anthropic format-ok deferred ping). Research gather keys use the same Save & verify gate. Alpaca paper / Kalshi demo: **Save & verify** rolls back credentials if handshake fails.
+  User settings modal chrome is **fixed height** (`min(36rem, 90vh)`) with a scrollable tab panel only — short tabs do not shrink the dialog. User settings: per-provider **Verify** status badge + **Save & verify** (`POST …/verify` before persist — fail-closed; Anthropic format-ok deferred ping). Opening Settings **auto-probes saved keys** (concurrency 3) so badges reflect live connectivity; humanized failure copy for `decrypt_failed` / `auth_rejected` / timeouts. Research gather keys use the same Save & verify gate. Alpaca paper / Kalshi demo: **Save & verify** rolls back credentials if handshake fails.
   (`POST /api/settings/keys/:provider/verify` accepts draft `apiKey` or saved decrypt);
   Alpaca paper: paste API Key ID + Secret Key, one **Save & verify** action (no OAuth);
 

@@ -608,6 +608,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Kalshi demo Save & verify delete provisional credentials if handshake fails.
   **Status: implemented.**
 
+- **D-055 (integration resilience + Settings auto-probe, 2026-07-17):**
+  Connected-service test pass found: (1) saved-key badges stayed **Not verified**
+  until manual Verify; (2) one undecryptable research ciphertext aborted
+  `loadResearchGatherKeys` and blocked entire gather/query. Fix: Settings open
+  auto-probes saved LLM + research keys (pool concurrency 3) with humanized
+  failure copy; gather key load soft-skips decrypt failures so public/ready
+  sources still run. Operators must Delete + Save & verify after
+  `SETTINGS_ENCRYPTION_KEY` drift. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

@@ -94,6 +94,10 @@ Approved design: `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-
   the provider produces append-only `book_deltas` + observation `training_feedback`
   (`mutation_class=book_delta`). Gap tags: `both_verify_linked` /
   `both_verify_no_provider`.
+  Phase 5: `computeInternalPaperFill` (InternalPaperCore) shared by dispatch and
+  `paper-sim`; module `executionBinding.brokerConnectionId` overrides company bind;
+  elevate modes fail closed without a connected service; trading inspector exposes
+  routing + connection controls.
 - Company-level `broker_connections` bind remains for credentials; it no longer implies
   automatic venue submit for every paper trade (routing mode decides).
 

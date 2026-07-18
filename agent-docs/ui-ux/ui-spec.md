@@ -121,6 +121,10 @@
   `config`); fields are not auto-saved on blur/Enter for capital setup. Activity / status line
   remains text-first. Clicking card chrome opens the floating inspector (full / secondary
   settings); interacting with inline fields does not open the inspector or change card geometry.
+- **Trading execution binding (D-122):** inspector `TradingConfigForm` exposes routing mode
+  (`funds_only` default | `execute_on_service` | `both_verify`), optional dedicated paper
+  service connection (or inherit company broker), and provider-ledger-as-funds toggle.
+  Text-first safety copy; elevate modes call out that a connected paper service is required.
 - **Trend item ports (D-077):** under Trend cards, `TrendListChrome` lists
   `trend_candidates` (candidate + promoted, capped by `maxActiveTrends`). Each row exposes
   `directive-out__trend:{candidateId}`; connecting to a trading module persists

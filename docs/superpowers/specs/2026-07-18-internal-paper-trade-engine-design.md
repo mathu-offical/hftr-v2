@@ -123,7 +123,7 @@ fail-closed; NRA/ValueRefs; `simulatorGapTags` honesty.
 | **2** | MarketModel fusion (multi-candidate quotes) + awareness adapter stubs (posture hub + current awareness); position-exits use MarketModel — **done** |
 | **3** | Engine allocation enforcement + explicit share — **done** (`resolveDispatchSpendAuthority`, `capital_isolation_block`) |
 | **4** | `both_verify` dual path + BookDelta → training_feedback / valves — **done** (`book_deltas` + shadow verify; observation `training_feedback.book_delta`) |
-| **5** | Unify InternalPaperCore with `paper-sim` adapter; UI binding controls |
+| **5** | Unify InternalPaperCore with `paper-sim` adapter; UI binding controls — **done** (`computeInternalPaperFill` shared; trading inspector execution binding) |
 
 ## 9. Non-goals (this design)
 

@@ -263,6 +263,9 @@ UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
   `mutation_class=book_delta` (observation-only — not applied by
   `applyControlSnapshotDelta`). Internal fill remains authoritative for the HFTR
   ledger; provider submit is shadow-only under `both_verify`.
+  **Phase 5:** InternalPaperCore (`computeInternalPaperFill`) unifies dispatch and
+  `paper-sim` fill math; `executionBinding.brokerConnectionId` is honored by
+  `resolveExecutionContext` (inherit company when omitted).
 - **training_feedback** — append-only bounded band/weight deltas
   (`mutation_class`: `band_position` | `weight_delta` | `book_delta`), source run/trace refs,
   optional `applied_control_snapshot_id`. Applied via `applyControlSnapshotDelta`

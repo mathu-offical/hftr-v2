@@ -102,6 +102,16 @@
 
 ---
 
+### Task 7: Phase 5 — InternalPaperCore unify + UI binding
+
+- [x] `computeInternalPaperFill` in contracts; paper-sim + dispatch share it
+- [x] `resolveExecutionContext` honors module `executionBinding.brokerConnectionId`
+- [x] Block `execute_on_service` / `both_verify` when venue is `paper_sim`
+- [x] Trading inspector: routing mode, service connection, provider-ledger toggle
+- [x] Commit Phase 5 (`c43315b` / `cbcdd57` / `900321c` / `81d92fe`)
+
+---
+
 ### Later phases
 
-- Phase 5: unify InternalPaperCore with `paper-sim` adapter + UI controls
+- (none — D-122 phased delivery complete through Phase 5)

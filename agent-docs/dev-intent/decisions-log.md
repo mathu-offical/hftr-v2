@@ -1295,7 +1295,7 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Related: D-002, D-014, D-023, D-025, D-027, D-059, D-061, D-120, D-125, D-126; OQ-13
   (resolved). Spec: `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-design.md`.
   Plan: `docs/superpowers/plans/2026-07-18-internal-paper-trade-engine.md`.
-  **Status: implementing (Phase 4 done; Phase 5 — InternalPaperCore unify + UI binding).**
+  **Status: complete through Phase 5 (InternalPaperCore + UI binding).**
 
 - **D-135 (heat atr_stream + mid-drain partial traces, 2026-07-18):** Compile portfolio
   heat prefers `resolveAtrCents` per open position (`loadCompanyOpenPositionRisksWithAtr`)
@@ -1437,6 +1437,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `commit-message` / `verify-change` / `session-start` / `implement-milestone` skills,
   `end-of-run` / `verify-and-ship` / `commit-session` workflows, `/end-run` `/verify`
   `/commit-session` commands, `.cursor/README.md`, `agent-docs/README.md`.
+
+- **D-135 (galaxy free-float + soft orbits/systems, 2026-07-18):** Concepts and tags
+  **free-float** on semantic weight + similarity springs. Articles apply **soft orbital**
+  radial bands; folders apply **loose system** bounds. Library framing is faint only.
+  Hierarchy gently biases springs (`hierarchicalLinkScale`); cross-membership edges stay
+  strong enough that systems/orbits **intersect**. Replaces D-132 hard nest dominance as
+  the primary clustering metaphor. Docs: `research/galaxy-3d-volume-layout.md`,
+  `ui-ux/research-galaxy-topic-view-design.md` §4.1. **Status: implemented.**
 
 ## Open questions
 

@@ -153,7 +153,9 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   functions. Bound provider ledger = **added funds source**. Default `funds_only` fills on
   the internal core against the **live market model** (shared with posture hub + current
   awareness). Engines spend only their **allocated capital** unless explicitly shared.
-  Design: `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-design.md`.
+  Operator configures binding in the trading module inspector (routing mode, optional
+  dedicated paper connection, provider-ledger toggle). Design:
+  `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-design.md`.
 - **Position lifecycle (paper):** `maintenance.position_exits` applies model-free exits —
   targetExit deadline, RR ladder scale-outs (`rr_target_ladder` tp1/tp2/tp3),
   **trail_stop** (chandelier: peak − `trail_multiplier`×ATR after tp1 peak),

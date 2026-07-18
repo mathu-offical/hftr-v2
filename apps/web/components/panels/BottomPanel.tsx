@@ -181,7 +181,7 @@ interface LiveGateStatusRow {
   overallPass: boolean;
   liveArmedAt: string | null;
   evidenceFresh: boolean;
-  checklist: { id: string; pass: boolean; label: string }[];
+  checklist: { gateId: string; pass: boolean; evidence: string }[];
 }
 
 interface FundTransferRow {
@@ -1152,8 +1152,9 @@ function ApprovalsView(props: {
           {failedGates.length > 0 && (
             <ul className="mt-1.5 space-y-0.5 text-[11px] text-[var(--color-ink-dim)]">
               {failedGates.slice(0, 6).map((g) => (
-                <li key={g.id}>
-                  <span style={{ color: 'var(--color-block)' }}>fail</span> {g.label}
+                <li key={g.gateId}>
+                  <span style={{ color: 'var(--color-block)' }}>fail</span> {g.gateId}
+                  {g.evidence ? ` — ${g.evidence}` : ''}
                 </li>
               ))}
             </ul>
@@ -1313,6 +1314,7 @@ function buildLineageContext(
     trees: TreeRow[];
     executions: ExecutionRow[];
     deadJobs: DeadJobRow[];
+    pendingJobs: PendingJobRow[];
     knownSymbols: Set<string>;
   },
 ): LineageContext | null {
@@ -1393,6 +1395,14 @@ function buildLineageContext(
     return ctx;
   }
 
+  if (kind === 'pending') {
+    const job = data.pendingJobs.find((j) => j.id === id);
+    if (!job) return null;
+    if (job.moduleId) ctx.moduleIds.add(job.moduleId);
+    ctx.primaryLink = 'module';
+    return ctx;
+  }
+
   if (kind === 'dead') {
     const job = data.deadJobs.find((j) => j.id === id);
     if (!job) return null;
@@ -1407,12 +1417,12 @@ function buildLineageContext(
 function isLineageLinked(
   ctx: LineageContext,
   row: {
-    kind: 'trend' | 'lead' | 'tree' | 'execution' | 'dead';
+    kind: 'trend' | 'lead' | 'tree' | 'execution' | 'dead' | 'pending';
     id: string;
     moduleId?: string | null;
     symbol?: string;
     trendId?: string;
-    leadId?: string;
+    leadId?: string | null;
     description?: string | null;
   },
 ): boolean {
@@ -1455,6 +1465,7 @@ function LineageView(props: {
   trees: TreeRow[];
   executions: ExecutionRow[];
   verifications: VerificationRow[];
+  pendingJobs: PendingJobRow[];
   deadJobs: DeadJobRow[];
   moduleName: (id: string) => string;
   selectedKey: string | null;
@@ -1472,6 +1483,7 @@ function LineageView(props: {
         trees: props.trees,
         executions: props.executions,
         deadJobs: props.deadJobs,
+        pendingJobs: props.pendingJobs,
         knownSymbols: known,
       })
     : null;
@@ -1505,6 +1517,9 @@ function LineageView(props: {
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
   const sortedDead = [...props.deadJobs].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  );
+  const sortedPending = [...props.pendingJobs].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   );
 

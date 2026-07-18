@@ -1,9 +1,8 @@
 'use client';
 
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronRight, FileText, FolderOpen } from 'lucide-react';
+import { ChevronRight, FileText, FolderOpen, RefreshCw } from 'lucide-react';
 import type { Library } from '@hftr/contracts';
-import { api } from '@/lib/client';
 import {
   BASELINE_SEEDED_LIBRARY_NAME,
   classifyLibraryShelf,
@@ -17,12 +16,23 @@ import {
   type SeededPageRow,
   type SeededSubfolder,
 } from '@/lib/research-library-shelves';
+import { fetchLibraryConceptPages } from '@/lib/research-resource-api';
+import {
+  peekResearchResource,
+  readResearchShelfUiState,
+  writeResearchShelfUiState,
+  type ResearchShelfUiState,
+} from '@/lib/research-resource-cache';
 
 export interface ResearchLibraryShelvesProps {
   companyId: string;
   libraries: Library[];
   /** Company topics — used to attach an overview page to a library folder by title. */
   topics?: Array<{ id: string; title: string }>;
+  /** Soft background refresh of libraries/topics/concepts in progress. */
+  shellRefreshing?: boolean;
+  /** Force refresh of library shell lists. */
+  onRefreshShell?: () => void;
   onSelectConcept: (conceptId: string) => void;
   /** Primary click when no matching overview topic — library inspector + nest. */
   onSelectLibrary?: (libraryId: string, libraryName: string) => void;
@@ -115,12 +125,17 @@ function catalogPageCount(group: SeededCatalogGroup): number {
 /** Inline catalog folder under Baseline seeded (same chrome as runtime library folders). */
 function SeededCatalogFolderRow(props: {
   group: SeededCatalogGroup;
-  defaultOpen?: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onSelectConcept: (conceptId: string) => void;
 }) {
-  const [open, setOpen] = useState(props.defaultOpen ?? false);
+  const open = props.open;
   const count = catalogPageCount(props.group);
   const hasPages = count > 0;
+  const setOpen = (next: boolean | ((prev: boolean) => boolean)) => {
+    const value = typeof next === 'function' ? next(open) : next;
+    props.onOpenChange(value);
+  };
 
   return (
     <div data-testid={`seeded-catalog-folder-${props.group.shelfId}`}>
@@ -189,6 +204,9 @@ function SeededCatalogFolderRow(props: {
 function BaselineSeededShelfSection(props: {
   groups: SeededCatalogGroup[];
   loading: boolean;
+  refreshing: boolean;
+  openCatalogFolderIds: string[];
+  onToggleCatalogFolder: (shelfId: string, open: boolean) => void;
   overviewTopicId: string | null;
   libraryId: string | null;
   onSelectConcept: (conceptId: string) => void;
@@ -196,6 +214,7 @@ function BaselineSeededShelfSection(props: {
   onSelectLibrary?: (libraryId: string, libraryName: string) => void;
 }) {
   const hasAnyPages = props.groups.some((g) => catalogPageCount(g) > 0);
+  const openSet = useMemo(() => new Set(props.openCatalogFolderIds), [props.openCatalogFolderIds]);
 
   return (
     <details
@@ -205,10 +224,16 @@ function BaselineSeededShelfSection(props: {
     >
       <summary className="cursor-pointer text-[10px] uppercase tracking-wide text-[var(--color-ink-faint)] marker:content-none [&::-webkit-details-marker]:hidden">
         {LIBRARY_SHELF_LABELS.baseline_seeded}
+        {props.refreshing ? (
+          <span className="ml-1 normal-case tracking-normal text-[9px]">updating…</span>
+        ) : null}
       </summary>
       <div className="mt-1 max-h-72 space-y-0.5 overflow-y-auto overscroll-contain">
         {props.loading ? (
-          <p className="text-[10px] text-[var(--color-ink-faint)]" data-testid="seeded-catalog-shelf-loading">
+          <p
+            className="text-[10px] text-[var(--color-ink-faint)]"
+            data-testid="seeded-catalog-shelf-loading"
+          >
             Loading folders…
           </p>
         ) : (
@@ -247,14 +272,20 @@ function BaselineSeededShelfSection(props: {
             {props.groups.length === 0 ? (
               <p className="text-[10px] text-[var(--color-ink-faint)]">None yet.</p>
             ) : (
-              props.groups.map((group) => (
-                <SeededCatalogFolderRow
-                  key={group.shelfId}
-                  group={group}
-                  defaultOpen={group.showOverview}
-                  onSelectConcept={props.onSelectConcept}
-                />
-              ))
+              props.groups.map((group) => {
+                const isOpen =
+                  openSet.has(group.shelfId) ||
+                  (props.openCatalogFolderIds.length === 0 && group.showOverview);
+                return (
+                  <SeededCatalogFolderRow
+                    key={group.shelfId}
+                    group={group}
+                    open={isOpen}
+                    onOpenChange={(next) => props.onToggleCatalogFolder(group.shelfId, next)}
+                    onSelectConcept={props.onSelectConcept}
+                  />
+                );
+              })
             )}
           </>
         )}
@@ -271,39 +302,47 @@ function LibraryPageLeaves(props: {
   onSelectConcept: (conceptId: string) => void;
   onSelectTopic?: (topicId: string) => void;
 }) {
-  const [pages, setPages] = useState<SeededPageRow[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const cached = peekResearchResource<SeededPageRow[]>({
+    kind: 'libraryConcepts',
+    companyId: props.companyId,
+    libraryId: props.libraryId,
+  });
+  const [pages, setPages] = useState<SeededPageRow[] | null>(cached);
+  const [loading, setLoading] = useState(cached === null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await api<{
-        libraryConcepts: { conceptId: string; title: string; tags?: string[] }[];
-      }>(`/api/companies/${props.companyId}/libraries/${props.libraryId}/concepts`);
-      setPages(
-        data.libraryConcepts
-          .map((row) => ({
-            conceptId: row.conceptId,
-            title: row.title,
-            tags: Array.isArray(row.tags) ? row.tags : [],
-          }))
-          .sort((a, b) => a.title.localeCompare(b.title)),
-      );
-    } catch {
-      setPages([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [props.companyId, props.libraryId]);
+  const load = useCallback(
+    async (force = false) => {
+      const had = peekResearchResource<SeededPageRow[]>({
+        kind: 'libraryConcepts',
+        companyId: props.companyId,
+        libraryId: props.libraryId,
+      });
+      if (had) setRefreshing(true);
+      else setLoading(true);
+      try {
+        const next = await fetchLibraryConceptPages(props.companyId, props.libraryId, {
+          force,
+        });
+        setPages(next);
+      } catch {
+        if (!had) setPages([]);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [props.companyId, props.libraryId],
+  );
 
   useEffect(() => {
-    if (!props.open || pages !== null) return;
-    void load();
-  }, [props.open, pages, load]);
+    if (!props.open) return;
+    void load(false);
+  }, [props.open, load]);
 
   if (!props.open) return null;
 
-  if (loading || pages === null) {
+  if (loading && pages === null) {
     return <p className="py-0.5 pl-5 text-[9px] text-[var(--color-ink-faint)]">Loading pages…</p>;
   }
 
@@ -312,6 +351,11 @@ function LibraryPageLeaves(props: {
       className="max-h-48 space-y-0.5 overflow-y-auto overscroll-contain pl-5"
       data-testid={`library-folder-pages-${props.libraryId}`}
     >
+      {refreshing ? (
+        <li>
+          <p className="py-0.5 text-[9px] text-[var(--color-ink-faint)]">Updating pages…</p>
+        </li>
+      ) : null}
       {props.overviewTopicId && props.onSelectTopic && (
         <li>
           <button
@@ -325,12 +369,12 @@ function LibraryPageLeaves(props: {
           </button>
         </li>
       )}
-      {pages.length === 0 ? (
+      {(pages ?? []).length === 0 ? (
         <li>
           <p className="py-0.5 text-[9px] text-[var(--color-ink-faint)]">No pages in this folder.</p>
         </li>
       ) : (
-        pages.map((p) => (
+        (pages ?? []).map((p) => (
           <li key={p.conceptId}>
             <PageLeafButton
               conceptId={p.conceptId}
@@ -348,12 +392,13 @@ function LibraryFolderRow(props: {
   companyId: string;
   library: Library;
   overviewTopicId: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onSelectConcept: (conceptId: string) => void;
   onSelectLibrary?: (libraryId: string, libraryName: string) => void;
   onSelectTopic?: (topicId: string) => void;
-  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(props.defaultOpen ?? false);
+  const open = props.open;
 
   const openFolder = () => {
     if (props.overviewTopicId && props.onSelectTopic) {
@@ -374,7 +419,7 @@ function LibraryFolderRow(props: {
               ? `Collapse folder ${props.library.name}`
               : `Expand folder ${props.library.name}`
           }
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => props.onOpenChange(!open)}
           className="shrink-0 rounded p-0.5 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
         >
           <ChevronRight
@@ -410,10 +455,14 @@ function RuntimeShelfSection(props: {
   libraries: Library[];
   companyId: string;
   topics: Array<{ id: string; title: string }>;
+  openLibraryIds: string[];
+  onToggleLibrary: (libraryId: string, open: boolean) => void;
   onSelectConcept: (conceptId: string) => void;
   onSelectLibrary?: (libraryId: string, libraryName: string) => void;
   onSelectTopic?: (topicId: string) => void;
 }) {
+  const openSet = useMemo(() => new Set(props.openLibraryIds), [props.openLibraryIds]);
+
   return (
     <details className="rounded border border-[var(--color-line)] px-2 py-1">
       <summary className="cursor-pointer text-[10px] uppercase tracking-wide text-[var(--color-ink-faint)] marker:content-none [&::-webkit-details-marker]:hidden">
@@ -431,6 +480,8 @@ function RuntimeShelfSection(props: {
                 companyId={props.companyId}
                 library={lib}
                 overviewTopicId={overview?.id ?? null}
+                open={openSet.has(lib.id)}
+                onOpenChange={(next) => props.onToggleLibrary(lib.id, next)}
                 onSelectConcept={props.onSelectConcept}
                 {...(props.onSelectLibrary ? { onSelectLibrary: props.onSelectLibrary } : {})}
                 {...(props.onSelectTopic ? { onSelectTopic: props.onSelectTopic } : {})}
@@ -444,45 +495,82 @@ function RuntimeShelfSection(props: {
 }
 
 function useBaselineSeededPages(companyId: string, libraryId: string | null) {
-  const [pages, setPages] = useState<SeededPageRow[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const cached =
+    libraryId != null
+      ? peekResearchResource<SeededPageRow[]>({
+          kind: 'libraryConcepts',
+          companyId,
+          libraryId,
+        })
+      : [];
+  const [pages, setPages] = useState<SeededPageRow[] | null>(
+    libraryId == null ? [] : cached,
+  );
+  const [loading, setLoading] = useState(libraryId != null && cached === null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (!libraryId) {
       setPages([]);
+      setLoading(false);
       return;
     }
     let cancelled = false;
-    setLoading(true);
-    void api<{
-      libraryConcepts: { conceptId: string; title: string; tags?: string[] }[];
-    }>(`/api/companies/${companyId}/libraries/${libraryId}/concepts`)
-      .then((data) => {
-        if (cancelled) return;
-        setPages(
-          data.libraryConcepts.map((row) => ({
-            conceptId: row.conceptId,
-            title: row.title,
-            tags: Array.isArray(row.tags) ? row.tags : [],
-          })),
-        );
+    const had = peekResearchResource<SeededPageRow[]>({
+      kind: 'libraryConcepts',
+      companyId,
+      libraryId,
+    });
+    if (had) {
+      setPages(had);
+      setLoading(false);
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    void fetchLibraryConceptPages(companyId, libraryId, { force: false })
+      .then((next) => {
+        if (!cancelled) setPages(next);
       })
       .catch(() => {
-        if (!cancelled) setPages([]);
+        if (!cancelled && !had) setPages([]);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [companyId, libraryId]);
 
-  return { pages, loading };
+  return { pages, loading, refreshing };
+}
+
+function toggleIdInList(ids: string[], id: string, open: boolean): string[] {
+  if (open) return ids.includes(id) ? ids : [...ids, id];
+  return ids.filter((x) => x !== id);
 }
 
 function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
   const topics = props.topics ?? [];
+  const [shelfUi, setShelfUi] = useState<ResearchShelfUiState>(() =>
+    readResearchShelfUiState(props.companyId),
+  );
+
+  useEffect(() => {
+    setShelfUi(readResearchShelfUiState(props.companyId));
+  }, [props.companyId]);
+
+  const persistShelfUi = useCallback(
+    (next: ResearchShelfUiState) => {
+      setShelfUi(next);
+      writeResearchShelfUiState(props.companyId, next);
+    },
+    [props.companyId],
+  );
 
   const { runtimeLibraries, systemLibraries, baselineLibraries } = useMemo(() => {
     const runtime: Library[] = [];
@@ -511,30 +599,81 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
     ? findLibraryOverviewTopic(primaryBaseline.name, topics)
     : findLibraryOverviewTopic(BASELINE_SEEDED_LIBRARY_NAME, topics);
 
-  const { pages: seededPages, loading: seededLoading } = useBaselineSeededPages(
-    props.companyId,
-    primaryBaseline?.id ?? null,
-  );
+  const {
+    pages: seededPages,
+    loading: seededLoading,
+    refreshing: seededRefreshing,
+  } = useBaselineSeededPages(props.companyId, primaryBaseline?.id ?? null);
 
   const seededGroups = useMemo(
     () => groupSeededPagesIntoCatalogShelves(seededPages ?? []),
     [seededPages],
   );
 
+  // First visit: open the overview catalog folder by default and persist it.
+  useEffect(() => {
+    if (shelfUi.openCatalogFolderIds.length > 0) return;
+    const first = seededGroups.find((g) => g.showOverview);
+    if (!first) return;
+    const current = readResearchShelfUiState(props.companyId);
+    if (current.openCatalogFolderIds.length > 0) {
+      setShelfUi(current);
+      return;
+    }
+    persistShelfUi({
+      ...current,
+      openCatalogFolderIds: [first.shelfId],
+    });
+  }, [
+    seededGroups,
+    shelfUi.openCatalogFolderIds.length,
+    persistShelfUi,
+    props.companyId,
+  ]);
+
   return (
     <div
       data-testid="research-library-shelves"
       className="rounded-lg border border-[var(--color-line)] p-2.5"
     >
-      <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-        Library shelves
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+          Library shelves
+        </p>
+        {props.onRefreshShell ? (
+          <button
+            type="button"
+            data-testid="research-library-shelves-refresh"
+            aria-label="Refresh library shelves"
+            title="Refresh library lists"
+            onClick={() => props.onRefreshShell?.()}
+            className="rounded p-0.5 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+          >
+            <RefreshCw
+              size={11}
+              aria-hidden
+              className={props.shellRefreshing ? 'animate-spin' : undefined}
+            />
+          </button>
+        ) : null}
+      </div>
       <div className="mt-1.5 space-y-1.5">
         <RuntimeShelfSection
           kind="system_curated"
           libraries={systemLibraries}
           companyId={props.companyId}
           topics={topics}
+          openLibraryIds={shelfUi.openSystemLibraryIds}
+          onToggleLibrary={(libraryId, open) =>
+            persistShelfUi({
+              ...shelfUi,
+              openSystemLibraryIds: toggleIdInList(
+                shelfUi.openSystemLibraryIds,
+                libraryId,
+                open,
+              ),
+            })
+          }
           onSelectConcept={props.onSelectConcept}
           {...(props.onSelectLibrary ? { onSelectLibrary: props.onSelectLibrary } : {})}
           {...(props.onSelectTopic ? { onSelectTopic: props.onSelectTopic } : {})}
@@ -544,6 +683,17 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
           libraries={runtimeLibraries}
           companyId={props.companyId}
           topics={topics}
+          openLibraryIds={shelfUi.openRuntimeLibraryIds}
+          onToggleLibrary={(libraryId, open) =>
+            persistShelfUi({
+              ...shelfUi,
+              openRuntimeLibraryIds: toggleIdInList(
+                shelfUi.openRuntimeLibraryIds,
+                libraryId,
+                open,
+              ),
+            })
+          }
           onSelectConcept={props.onSelectConcept}
           {...(props.onSelectLibrary ? { onSelectLibrary: props.onSelectLibrary } : {})}
           {...(props.onSelectTopic ? { onSelectTopic: props.onSelectTopic } : {})}
@@ -551,7 +701,19 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
 
         <BaselineSeededShelfSection
           groups={seededGroups}
-          loading={seededLoading || seededPages === null}
+          loading={seededLoading && seededPages === null}
+          refreshing={seededRefreshing || Boolean(props.shellRefreshing)}
+          openCatalogFolderIds={shelfUi.openCatalogFolderIds}
+          onToggleCatalogFolder={(shelfId, open) =>
+            persistShelfUi({
+              ...shelfUi,
+              openCatalogFolderIds: toggleIdInList(
+                shelfUi.openCatalogFolderIds,
+                shelfId,
+                open,
+              ),
+            })
+          }
           overviewTopicId={overview?.id ?? null}
           libraryId={primaryBaseline?.id ?? null}
           onSelectConcept={props.onSelectConcept}

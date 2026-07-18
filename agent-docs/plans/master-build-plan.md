@@ -142,7 +142,8 @@ approve/reject + Approvals tab; ValueRef lineage walk API + Values tab. Engine t
    partial.**
 6. Fund model v1: seed allocations, fund router (calc-op resolved amounts), approval inbox.
    **Approval inbox shipped; approve→`settled` with module↔module paired ledger (D-059); fixed
-   `usd_cents` allocation resolve on propose when `commit` + `sourceModuleId` (pct deferred).**
+   `usd_cents` and scale-4 `pct` allocation resolve on propose when `commit` + `sourceModuleId`
+   (D-061; pct uses company pool balance).**
 Gate G3: full paper loop research→trade visible end-to-end on canvas + panels; every artifact
 schema-validated; live mode provably fail-closed; **numeric/temporal audit passes — an
 llm_calls scan of the demo run shows zero raw financial digits or authoritative datetimes in

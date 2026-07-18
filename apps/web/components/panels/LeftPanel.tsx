@@ -16,6 +16,16 @@ import {
 } from '@/components/panels/ResearchRunStatus';
 import { provenanceChip, snippet, toneFor } from './format';
 import { LlmAvailabilityChips } from '@/components/shell/LlmConnectionStatus';
+import {
+  fetchCompanyConcepts,
+  fetchCompanyLibraries,
+  fetchCompanyTopics,
+  invalidateAfterResearchMutation,
+  type ResearchConceptRow,
+  warmLibraryConceptPages,
+} from '@/lib/research-resource-api';
+import { peekResearchResource } from '@/lib/research-resource-cache';
+import { isBaselineSeededLibrary } from '@/lib/research-library-shelves';
 
 type Tab = 'research' | 'data';
 const LEFT_TABS: Tab[] = ['research', 'data'];
@@ -66,17 +76,7 @@ interface LinkRow {
   linkKind: string;
 }
 
-interface ConceptRow {
-  id: string;
-  moduleId: string;
-  title: string;
-  body: string;
-  tags: string[];
-  sourceClass: 'catalog_seed' | 'deterministic_placeholder' | 'model_generated' | 'operator';
-  sourceRef: string;
-  status: string;
-  createdAt: string;
-}
+type ConceptRow = ResearchConceptRow;
 
 /**
  * Left panel (ui-ux spec): Research curation spaces and Data sources.
@@ -96,11 +96,28 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('research');
   const [persistReady, setPersistReady] = useState(false);
-  const [concepts, setConcepts] = useState<ConceptRow[]>([]);
-  const [libraries, setLibraries] = useState<Library[]>([]);
-  const [librariesLoaded, setLibrariesLoaded] = useState(false);
-  const [topics, setTopics] = useState<ResearchTopic[]>([]);
-  const [topicsLoaded, setTopicsLoaded] = useState(false);
+  const [concepts, setConcepts] = useState<ConceptRow[]>(() =>
+    companyId ? (peekResearchResource<ConceptRow[]>({ kind: 'concepts', companyId }) ?? []) : [],
+  );
+  const [libraries, setLibraries] = useState<Library[]>(() =>
+    companyId ? (peekResearchResource<Library[]>({ kind: 'libraries', companyId }) ?? []) : [],
+  );
+  const [librariesLoaded, setLibrariesLoaded] = useState(() =>
+    companyId
+      ? peekResearchResource<Library[]>({ kind: 'libraries', companyId }) !== null
+      : false,
+  );
+  const [topics, setTopics] = useState<ResearchTopic[]>(() =>
+    companyId
+      ? (peekResearchResource<ResearchTopic[]>({ kind: 'topics', companyId }) ?? [])
+      : [],
+  );
+  const [topicsLoaded, setTopicsLoaded] = useState(() =>
+    companyId
+      ? peekResearchResource<ResearchTopic[]>({ kind: 'topics', companyId }) !== null
+      : false,
+  );
+  const [shellRefreshing, setShellRefreshing] = useState(false);
   const researchView = useResearchView();
 
   useEffect(() => {
@@ -136,54 +153,99 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
-  const loadConcepts = useCallback(async () => {
-    if (!companyId) return;
-    try {
-      const data = await api<{ concepts: ConceptRow[] }>(`/api/companies/${companyId}/concepts`);
-      setConcepts(data.concepts);
-    } catch {
-      // Route may not be deployed yet; keep whatever we have.
-    }
-  }, [companyId]);
+  const loadConcepts = useCallback(
+    async (force = false) => {
+      if (!companyId) return;
+      try {
+        const next = await fetchCompanyConcepts(companyId, { force });
+        setConcepts(next);
+      } catch {
+        // Route may not be deployed yet; keep whatever we have.
+      }
+    },
+    [companyId],
+  );
 
-  const loadLibraries = useCallback(async () => {
+  const loadLibraries = useCallback(
+    async (force = false) => {
+      if (!companyId) return;
+      try {
+        const next = await fetchCompanyLibraries(companyId, { force });
+        setLibraries(next);
+        // Warm baseline folder indexes so catalog chrome paints without a second wait.
+        for (const lib of next) {
+          if (lib.status === 'active' && isBaselineSeededLibrary(lib)) {
+            warmLibraryConceptPages(companyId, lib.id);
+          }
+        }
+      } catch {
+        if (peekResearchResource<Library[]>({ kind: 'libraries', companyId }) === null) {
+          setLibraries([]);
+        }
+      } finally {
+        setLibrariesLoaded(true);
+      }
+    },
+    [companyId],
+  );
+
+  const loadTopics = useCallback(
+    async (force = false) => {
+      if (!companyId) return;
+      try {
+        const next = await fetchCompanyTopics(companyId, { force });
+        setTopics(next);
+      } catch {
+        if (peekResearchResource<ResearchTopic[]>({ kind: 'topics', companyId }) === null) {
+          setTopics([]);
+        }
+      } finally {
+        setTopicsLoaded(true);
+      }
+    },
+    [companyId],
+  );
+
+  const refreshShell = useCallback(
+    async (force = false) => {
+      if (!companyId) return;
+      setShellRefreshing(true);
+      try {
+        await Promise.all([loadLibraries(force), loadTopics(force), loadConcepts(force)]);
+      } finally {
+        setShellRefreshing(false);
+      }
+    },
+    [companyId, loadLibraries, loadTopics, loadConcepts],
+  );
+
+  // Hydrate / warm shell as soon as the company page mounts (panel may stay collapsed).
+  useEffect(() => {
     if (!companyId) return;
-    try {
-      const data = await api<{ libraries: Library[] }>(`/api/companies/${companyId}/libraries`);
-      setLibraries(data.libraries);
-    } catch {
-      setLibraries([]);
-    } finally {
+    const cachedLibs = peekResearchResource<Library[]>({ kind: 'libraries', companyId });
+    const cachedTopics = peekResearchResource<ResearchTopic[]>({ kind: 'topics', companyId });
+    const cachedConcepts = peekResearchResource<ConceptRow[]>({ kind: 'concepts', companyId });
+    if (cachedLibs) {
+      setLibraries(cachedLibs);
       setLibrariesLoaded(true);
     }
-  }, [companyId]);
-
-  const loadTopics = useCallback(async () => {
-    if (!companyId) return;
-    try {
-      const data = await api<{ topics: ResearchTopic[] }>(
-        `/api/companies/${companyId}/research/topics`,
-      );
-      setTopics(data.topics);
-    } catch {
-      setTopics([]);
-    } finally {
+    if (cachedTopics) {
+      setTopics(cachedTopics);
       setTopicsLoaded(true);
     }
-  }, [companyId]);
+    if (cachedConcepts) setConcepts(cachedConcepts);
+    void refreshShell(false);
+  }, [companyId, refreshShell]);
 
+  // While the Research panel is open, soft-revalidate on an interval (SWR, not hard wipe).
   useEffect(() => {
     if (!open) return;
-    void loadConcepts();
-    void loadLibraries();
-    void loadTopics();
+    void refreshShell(false);
     const interval = setInterval(() => {
-      void loadConcepts();
-      void loadLibraries();
-      void loadTopics();
+      void refreshShell(false);
     }, 30_000);
     return () => clearInterval(interval);
-  }, [open, loadConcepts, loadLibraries, loadTopics]);
+  }, [open, refreshShell]);
 
   // Research tab owns the layered Galaxy|Page workspace over the canvas.
   useEffect(() => {
@@ -267,7 +329,10 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
               <ResearchNewTopicButton
                 companyId={companyId}
                 modules={topicOwnerModules.map((m) => ({ id: m.id, name: m.name }))}
-                onCreated={() => void loadTopics()}
+                onCreated={() => {
+                  invalidateAfterResearchMutation(companyId, 'topics');
+                  void loadTopics(true);
+                }}
               />
             ) : (
               <p className="px-1 text-xs text-[var(--color-ink-faint)]">
@@ -306,6 +371,8 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                 companyId={companyId}
                 libraries={libraries}
                 topics={topics.map((t) => ({ id: t.id, title: t.title }))}
+                shellRefreshing={shellRefreshing}
+                onRefreshShell={() => void refreshShell(true)}
                 onSelectConcept={(conceptId) => researchView.inspectConcept(conceptId)}
                 onSelectLibrary={(libraryId, libraryName) =>
                   researchView.inspectLibrary(libraryId, libraryName)
@@ -335,9 +402,8 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
             <ResearchArchiveSection
               companyId={companyId}
               onChanged={() => {
-                void loadConcepts();
-                void loadLibraries();
-                void loadTopics();
+                invalidateAfterResearchMutation(companyId, 'all');
+                void refreshShell(true);
               }}
             />
 
@@ -354,12 +420,19 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                 loaded={librariesLoaded}
                 requiresOperatorApproval={requiresOperatorApproval}
                 onChanged={() => {
-                  void loadLibraries();
-                  void loadConcepts();
+                  invalidateAfterResearchMutation(companyId, 'libraries');
+                  void loadLibraries(true);
+                  void loadConcepts(true);
                 }}
               />
               {researchModules.length > 0 && (
-                <CompanySweepAction companyId={companyId} onDone={loadConcepts} />
+                <CompanySweepAction
+                  companyId={companyId}
+                  onDone={() => {
+                    invalidateAfterResearchMutation(companyId, 'concepts');
+                    void loadConcepts(true);
+                  }}
+                />
               )}
               {research.length === 0 ? (
                 <p className="mt-3 px-1 text-xs text-[var(--color-ink-faint)]">
@@ -397,9 +470,8 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                             setAdmissionOverrides((prev) => ({ ...prev, [m.id]: mode }))
                           }
                           onDone={() => {
-                            void loadConcepts();
-                            void loadLibraries();
-                            void loadTopics();
+                            invalidateAfterResearchMutation(companyId, 'all');
+                            void refreshShell(true);
                           }}
                         />
                       )}

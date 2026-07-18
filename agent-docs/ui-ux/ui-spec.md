@@ -201,7 +201,9 @@ editable fields.
   mechanisms; **Pages** list (topics) with linked-page highlight;
   **Archive** (D-047); collapsed Modules & tools. Opening Research opens the Galaxy overlay
   only — detail lives in a right floating inspector over the galaxy (no Galaxy|Page tab strip).
-  Design: `ui-ux/research-tab-shelves-inspector-design.md`.
+  Library shell lists use client SWR cache (D-063) so shelf chrome returns from
+  memory/session while page indexes lazy-load. Design:
+  `ui-ux/research-tab-shelves-inspector-design.md`.
 - Research overlay (main content, layered over canvas): **Galaxy** surface with optional
   right **inspector** (Page / Concept / Library / Tag — D-049). Overlay and inspector are
   viewport-bounded (`overflow-hidden` / `min-h-0`) with scrollable inspector body and

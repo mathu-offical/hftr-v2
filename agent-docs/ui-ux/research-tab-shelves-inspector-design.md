@@ -45,6 +45,20 @@ Living design for the left Research tab layout and floating in-galaxy inspector.
 | System curated | `topicScope` starts with `system:` — **`system:movers`** → Daily movers watch (bootstrap + `library.system_movers` handler); other `system:*` scopes ship incrementally |
 | Runtime | All other active libraries |
 
+## Client caching (library UI)
+
+Stale-while-revalidate via `apps/web/lib/research-resource-cache.ts` + `research-resource-api.ts`:
+
+| Resource | Persist | Role |
+|----------|---------|------|
+| `libraries` | memory + sessionStorage | Shelf chrome (names / scopes) — hydrate before network |
+| `topics` | memory + sessionStorage | Pages list + folder overview links |
+| `libraryConcepts` | memory + sessionStorage | Folder page indexes (lazy on expand; baseline warm-prefetched) |
+| `concepts` | memory only | Search corpus (bodies); not session-persisted |
+| Shelf expand UI | sessionStorage | Which catalog / runtime / system folders are open |
+
+Refresh rules: soft revalidate on company mount + every 30s while the left panel is open (never wipe chrome first). Mutations (topic create, archive, curate, research run) invalidate then force-refresh. Manual refresh control on the Library shelves header.
+
 ## Related
 
 - D-040 topics / galaxy / hybrid articles

@@ -690,6 +690,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   payload; called from `bootstrapCompanyKnowledge` after library seed so materializer can
   enqueue daily placeholder refresh. **Status: implemented.**
 
+- **D-063 (research library UI resource cache, 2026-07-17):** Library shelf chrome uses
+  client stale-while-revalidate (`research-resource-cache` / `research-resource-api`):
+  libraries, topics, and library page indexes hydrate from memory/sessionStorage; concept
+  bodies stay memory-only; folder expand state persists in session. Soft revalidate on
+  company mount + 30s while panel open; mutations invalidate then force-refresh; shelves
+  header exposes manual refresh. Baseline `libraryConcepts` warm-prefetched after libraries
+  load. Design: `ui-ux/research-tab-shelves-inspector-design.md` §Client caching.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

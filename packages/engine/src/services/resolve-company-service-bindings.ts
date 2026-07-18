@@ -88,6 +88,7 @@ export async function resolveCompanyServiceBindings(
     c.bindings.map((b) => ({
       companyId,
       moduleId: b.moduleId,
+      sourceKind: b.sourceKind,
       capability: b.capability,
       brokerConnectionId: b.sourceKind === 'broker_connection' ? b.sourceId : null,
       userApiKeyId: b.sourceKind === 'user_api_key' ? b.sourceId : null,

@@ -30,8 +30,9 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   **D-082:** companion append-only **operator_philosophy_directives** (company_id,
   module_id nullable, body, created_by_clerk_user_id, created_at) — immutable operator
   constraints folded into synthesize; never agent-writable. Migration `0035`.
-  **D-090:** **module_service_bindings** (company_id, module_id, capability,
-  broker_connection_id XOR user_api_key_id, status `bound|stale|missing|revoked`) —
+  **D-090:** **module_service_bindings** (company_id, module_id, source_kind
+  `broker_connection|user_api_key`, capability, broker_connection_id XOR user_api_key_id,
+  status `bound|stale|missing|revoked`) —
   persisted coverage from verified sources; resolved on broker verify and module/engine/
   company create. GET `/api/companies/:id/service-coverage`. Migration `0036`.
   **realized_pnl_events** append-only fill-time PnL for session daily-loss limits

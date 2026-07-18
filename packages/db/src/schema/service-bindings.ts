@@ -32,6 +32,8 @@ export const moduleServiceBindings = pgTable(
     moduleId: uuid('module_id')
       .notNull()
       .references(() => modules.id),
+    /** Denormalized source discriminator for queries (matches XOR FKs). */
+    sourceKind: text('source_kind', { enum: ['broker_connection', 'user_api_key'] }).notNull(),
     capability: text('capability').notNull(),
     brokerConnectionId: uuid('broker_connection_id').references(() => brokerConnections.id),
     userApiKeyId: uuid('user_api_key_id').references(() => userApiKeys.id),

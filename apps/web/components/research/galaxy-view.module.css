@@ -1,12 +1,13 @@
 .orbitRing {
   position: absolute;
-  inset: 8px;
+  inset: 10px;
   pointer-events: none;
+  z-index: 2;
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .orbitRing {
-    animation: galaxy-orbit 90s linear infinite;
+    animation: galaxy-orbit 110s linear infinite;
   }
 }
 
@@ -16,6 +17,17 @@
   left: 50%;
   pointer-events: auto;
   transform-origin: center center;
+  backdrop-filter: blur(4px);
+  background: rgba(8, 12, 20, 0.72);
+  box-shadow: 0 0 0 1px rgba(122, 162, 247, 0.08);
+  transition:
+    color 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.orbitChip:hover {
+  background: rgba(16, 22, 34, 0.92);
 }
 
 @keyframes galaxy-orbit {
@@ -41,4 +53,63 @@
   to {
     stroke-dashoffset: -14;
   }
+}
+
+/* Force-graph injects .graph-tooltip / .scene-tooltip for HTML labels. */
+:global(.graph-tooltip),
+:global(.scene-tooltip) {
+  z-index: 40 !important;
+  padding: 8px 10px !important;
+  border-radius: 6px !important;
+  border: 1px solid rgba(122, 162, 247, 0.35) !important;
+  background: rgba(10, 14, 22, 0.94) !important;
+  color: #c8d0e0 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+  pointer-events: none !important;
+}
+
+.hoverCard {
+  position: absolute;
+  z-index: 30;
+  max-width: 16.5rem;
+  pointer-events: none;
+  border-radius: 6px;
+  border: 1px solid rgba(122, 162, 247, 0.35);
+  background: rgba(10, 14, 22, 0.94);
+  padding: 8px 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  transform: translate(12px, 12px);
+}
+
+.hoverCardTitle {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #e8ecf4;
+}
+
+.hoverCardLine {
+  margin-top: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  line-height: 1.35;
+  color: rgba(200, 210, 230, 0.82);
+}
+
+.hoverHint {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: 4px;
+  border: 1px solid rgba(74, 85, 104, 0.55);
+  background: rgba(8, 12, 20, 0.78);
+  padding: 4px 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(160, 170, 190, 0.75);
 }

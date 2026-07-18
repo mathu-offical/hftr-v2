@@ -94,10 +94,11 @@ export function linkStrengthForWeight(weightBand: ResearchGraphLink['weightBand'
 }
 
 export function chargeStrengthForGraphSize(nodeCount: number): number {
-  if (nodeCount > 400) return -45;
-  if (nodeCount > 200) return -70;
-  if (nodeCount > 80) return -95;
-  return -120;
+  // Slightly stronger repulsion so nests read as clouds rather than stacked blobs.
+  if (nodeCount > 400) return -52;
+  if (nodeCount > 200) return -78;
+  if (nodeCount > 80) return -105;
+  return -132;
 }
 
 /** Place library nests on a 3D ring with slight vertical stagger. */
@@ -158,9 +159,10 @@ export function createLibraryNestForce(centers: Map<string, LibraryCenter3D>) {
   let nodes: GalaxySimNode[] = [];
 
   function force(alpha: number) {
-    const pull = alpha * 0.04;
-    const restore = alpha * 0.45;
+    const pull = alpha * 0.055;
+    const restore = alpha * 0.52;
     for (const node of nodes) {
+      if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
       const libId = node.primaryLibraryId;
       if (!libId) continue;
       const center = centers.get(libId);
@@ -170,7 +172,7 @@ export function createLibraryNestForce(centers: Map<string, LibraryCenter3D>) {
       const dy = (node.y ?? 0) - center.y;
       const dz = (node.z ?? 0) - center.z;
       const dist = Math.hypot(dx, dy, dz) || 1e-6;
-      const maxR = center.radius * 0.88;
+      const maxR = center.radius * 0.86;
 
       if (dist > maxR) {
         const k = ((dist - maxR) / dist) * restore;
@@ -320,9 +322,11 @@ export function createFolderNestForce(centers: Map<string, FolderCenter3D>) {
   let nodes: GalaxySimNode[] = [];
 
   function force(alpha: number) {
-    const pull = alpha * 0.04;
-    const restore = alpha * 0.45;
+    // Folders win over library soft-pull so catalog spheres stay coherent.
+    const pull = alpha * 0.07;
+    const restore = alpha * 0.58;
     for (const node of nodes) {
+      if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
       const libId = node.primaryLibraryId;
       const folderKey = node.primaryFolderKey;
       if (!libId || !folderKey) continue;
@@ -333,7 +337,7 @@ export function createFolderNestForce(centers: Map<string, FolderCenter3D>) {
       const dy = (node.y ?? 0) - center.y;
       const dz = (node.z ?? 0) - center.z;
       const dist = Math.hypot(dx, dy, dz) || 1e-6;
-      const maxR = center.radius * 0.88;
+      const maxR = center.radius * 0.84;
 
       if (dist > maxR) {
         const k = ((dist - maxR) / dist) * restore;
@@ -360,9 +364,10 @@ export function createArticleOrbitForce(centers: Map<string, ArticleOrbitCenter3
   let nodes: GalaxySimNode[] = [];
 
   function force(alpha: number) {
-    const pull = alpha * 0.06;
-    const restore = alpha * 0.35;
+    const pull = alpha * 0.08;
+    const restore = alpha * 0.42;
     for (const node of nodes) {
+      if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
       const articleId = node.primaryArticleId;
       if (!articleId) continue;
       const center = centers.get(articleId);
@@ -372,7 +377,7 @@ export function createArticleOrbitForce(centers: Map<string, ArticleOrbitCenter3
       const dy = (node.y ?? 0) - center.y;
       const dz = (node.z ?? 0) - center.z;
       const dist = Math.hypot(dx, dy, dz) || 1e-6;
-      const maxR = center.radius * 0.88;
+      const maxR = center.radius * 0.84;
 
       if (dist > maxR) {
         const k = ((dist - maxR) / dist) * restore;
@@ -405,8 +410,8 @@ export function createTagSatelliteForce() {
       byId.set(String(node.id), node);
     }
 
-    const restDistance = 12;
-    const strength = 0.32;
+    const restDistance = 14;
+    const strength = 0.28;
 
     for (const node of nodes) {
       if (node.__kind !== 'tag-sat') continue;

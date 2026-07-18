@@ -39,6 +39,12 @@ import {
   type NestHullNode,
 } from '@/lib/galaxy-nest-hulls';
 import { createNestHullObject3d, paintNestHull2d } from '@/lib/galaxy-nest-mesh';
+import {
+  conceptHoverLines,
+  linkHoverLines,
+  nestHoverLines,
+  tagHoverLines,
+} from '@/lib/galaxy-hover-labels';
 import { humanizeConceptTitle, shortLibraryLabel } from '@/lib/research-library-shelves';
 import styles from './galaxy-view.module.css';
 
@@ -160,10 +166,19 @@ function GalaxyViewInner(props: GalaxyViewProps) {
   const [statusText, setStatusText] = useState<string | null>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [physicsReady, setPhysicsReady] = useState(false);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [hoveredLinkKey, setHoveredLinkKey] = useState<string | null>(null);
+  const [hoverCard, setHoverCard] = useState<{
+    lines: string[];
+    x: number;
+    y: number;
+  } | null>(null);
   const graphBox = useGraphDimensions();
   const graphHandleRef = useRef<ForceGraphHandle | null>(null);
   const physicsSignatureRef = useRef('');
   const layoutCommittedRef = useRef(new Set<string>());
+  const pointerRef = useRef({ x: 0, y: 0 });
+  const graphSurfaceRef = useRef<HTMLDivElement | null>(null);
 
   /** Prefer 3D always; 2D only for WebGL failure or explicit toggle (TD-09). */
   const prefer2dFallback = false;
@@ -257,6 +272,45 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     }
     return map;
   }, [props.links]);
+
+  const adjacency = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const link of props.links) {
+      const a = map.get(link.fromConceptId) ?? new Set<string>();
+      a.add(link.toConceptId);
+      map.set(link.fromConceptId, a);
+      const b = map.get(link.toConceptId) ?? new Set<string>();
+      b.add(link.fromConceptId);
+      map.set(link.toConceptId, b);
+    }
+    return map;
+  }, [props.links]);
+
+  const libraryNameById = useMemo(
+    () => new Map(libraryNests.map((lib) => [lib.id, lib.name])),
+    [libraryNests],
+  );
+
+  const folderLabelByKey = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const folder of folderStars) {
+      map.set(`${folder.libraryId}::${folder.folderKey}`, folder.label);
+    }
+    return map;
+  }, [folderStars]);
+
+  const articleTitleById = useMemo(
+    () => new Map(articleOrbits.map((article) => [article.topicId, article.title])),
+    [articleOrbits],
+  );
+
+  const hoverNeighborIds = useMemo(() => {
+    if (!hoveredNodeId) return null;
+    const set = new Set<string>([hoveredNodeId]);
+    const neighbors = adjacency.get(hoveredNodeId);
+    if (neighbors) for (const id of neighbors) set.add(id);
+    return set;
+  }, [hoveredNodeId, adjacency]);
 
   const filteredNodeIds = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -421,7 +475,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           | undefined;
         linkForce?.distance?.((l) => l.__distance ?? 48);
         linkForce?.strength?.((l) => l.__strength ?? 0.5);
-        linkForce?.iterations?.(2);
+        linkForce?.iterations?.(3);
 
         const baseCharge = chargeStrengthForGraphSize(
           Math.max(1, graphData.nodes.length - graphData.hullCount),
@@ -433,25 +487,26 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             .strength((node: unknown) => {
               const n = node as GalaxySimNode & { __kind?: string };
               if (n.__kind === 'nest-hull') return 0;
-              if (n.__kind === 'tag-sat') return baseCharge * 0.3;
+              if (n.__kind === 'tag-sat') return baseCharge * 0.28;
               return baseCharge;
             })
-            .distanceMax(420),
+            .distanceMax(380),
         );
 
         const center = fg.d3Force('center') as { strength?: (n: number) => unknown } | undefined;
-        center?.strength?.(0.05);
+        // Soft global centering — nest forces own local structure.
+        center?.strength?.(0.028);
 
         fg.d3Force(
           'collide',
           forceCollide((node: unknown) => {
             const n = node as GalaxySimNode & { __kind?: string };
             if (n.__kind === 'nest-hull') return 0;
-            if (n.__kind === 'tag-sat') return Math.cbrt(n.val ?? 0.35) * 2.2;
-            return Math.cbrt(n.val ?? 1) * 4.2;
+            if (n.__kind === 'tag-sat') return Math.cbrt(n.val ?? 0.35) * 2.6;
+            return Math.cbrt(n.val ?? 1) * 4.8;
           })
-            .strength(0.85)
-            .iterations(2),
+            .strength(0.92)
+            .iterations(3),
         );
         fg.d3Force('nest', createLibraryNestForce(libraryCenters));
         fg.d3Force('folderNest', createFolderNestForce(folderCenters));
@@ -556,6 +611,156 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     [props],
   );
 
+  const placeHoverCard = useCallback((lines: string[]) => {
+    const surface = graphSurfaceRef.current;
+    if (!surface || lines.length === 0) {
+      setHoverCard(null);
+      return;
+    }
+    const rect = surface.getBoundingClientRect();
+    const localX = Math.min(Math.max(8, pointerRef.current.x - rect.left), rect.width - 8);
+    const localY = Math.min(Math.max(8, pointerRef.current.y - rect.top), rect.height - 8);
+    setHoverCard({ lines, x: localX, y: localY });
+  }, []);
+
+  const clearHover = useCallback(() => {
+    setHoveredNodeId(null);
+    setHoveredLinkKey(null);
+    setHoverCard(null);
+  }, []);
+
+  const onNodeHover = useCallback(
+    (
+      node: {
+        id?: string | number;
+        title?: string;
+        tags?: string[];
+        __kind?: string;
+        __label?: string;
+        __hullKind?: string;
+        __parentConceptId?: string;
+        primaryLibraryId?: string | null;
+        primaryFolderKey?: string | null;
+        primaryArticleId?: string | null;
+        sourceClass?: string;
+        curationStatus?: string | null;
+        queryCount?: number;
+        referenceCount?: number;
+      } | null,
+    ) => {
+      if (!node || node.id === undefined) {
+        clearHover();
+        return;
+      }
+
+      if (isNestHullNode(node)) {
+        setHoveredNodeId(null);
+        setHoveredLinkKey(null);
+        placeHoverCard(
+          nestHoverLines({
+            kind: 'nest-hull',
+            hullKind: node.__hullKind ?? null,
+            label: String(node.__label ?? node.title ?? 'Nest'),
+          }),
+        );
+        return;
+      }
+
+      if (isTagSatelliteNode(node)) {
+        const parentId = node.__parentConceptId ?? null;
+        setHoveredNodeId(parentId);
+        setHoveredLinkKey(null);
+        const parent = parentId ? nodeLookupById.get(parentId) : null;
+        placeHoverCard(
+          tagHoverLines({
+            kind: 'tag-sat',
+            title: String(node.title ?? ''),
+            parentTitle: parent?.title ?? null,
+          }),
+        );
+        return;
+      }
+
+      const id = String(node.id);
+      setHoveredNodeId(id);
+      setHoveredLinkKey(null);
+      const folderKey =
+        node.primaryLibraryId && node.primaryFolderKey
+          ? `${node.primaryLibraryId}::${node.primaryFolderKey}`
+          : null;
+      placeHoverCard(
+        conceptHoverLines({
+          kind: 'concept',
+          title: String(node.title ?? ''),
+          tags: node.tags ?? [],
+          sourceClass: node.sourceClass ?? null,
+          curationStatus: node.curationStatus ?? null,
+          queryCount: node.queryCount ?? null,
+          referenceCount: node.referenceCount ?? null,
+          libraryName: node.primaryLibraryId
+            ? (libraryNameById.get(node.primaryLibraryId) ?? null)
+            : null,
+          folderLabel: folderKey ? (folderLabelByKey.get(folderKey) ?? null) : null,
+          articleTitle: node.primaryArticleId
+            ? (articleTitleById.get(node.primaryArticleId) ?? null)
+            : null,
+          degree: degreeById.get(id) ?? 0,
+        }),
+      );
+    },
+    [
+      articleTitleById,
+      clearHover,
+      degreeById,
+      folderLabelByKey,
+      libraryNameById,
+      nodeLookupById,
+      placeHoverCard,
+    ],
+  );
+
+  const onLinkHover = useCallback(
+    (
+      link: {
+        fromConceptId?: string;
+        toConceptId?: string;
+        relation?: string;
+        weightBand?: string;
+        source?: string | { id?: string | number };
+        target?: string | { id?: string | number };
+      } | null,
+    ) => {
+      if (!link) {
+        clearHover();
+        return;
+      }
+      const fromId =
+        link.fromConceptId ??
+        (typeof link.source === 'string' ? link.source : String(link.source?.id ?? ''));
+      const toId =
+        link.toConceptId ??
+        (typeof link.target === 'string' ? link.target : String(link.target?.id ?? ''));
+      if (!fromId || !toId) {
+        clearHover();
+        return;
+      }
+      setHoveredNodeId(null);
+      setHoveredLinkKey(`${fromId}→${toId}`);
+      const fromNode = nodeLookupById.get(fromId);
+      const toNode = nodeLookupById.get(toId);
+      placeHoverCard(
+        linkHoverLines({
+          relation: String(link.relation ?? 'mentions'),
+          weightBand: String(link.weightBand ?? 'typical'),
+          similarityBand: similarityBandForLink(fromNode, toNode),
+          fromTitle: fromNode?.title ?? null,
+          toTitle: toNode?.title ?? null,
+        }),
+      );
+    },
+    [clearHover, nodeLookupById, placeHoverCard],
+  );
+
   const nodeThreeObject = useCallback((node: object) => {
     if (!isNestHullNode(node as NestHullNode)) return undefined;
     return createNestHullObject3d(node as NestHullNode);
@@ -568,23 +773,39 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       __focused?: boolean;
       __kind?: string;
       __color?: string;
+      __parentConceptId?: string;
     }) => {
       if (isNestHullNode(node)) return node.__color ?? '#4a5568';
       if (isTagSatelliteNode(node)) {
         const tag = node.tags?.[0];
-        return tag ? tagColor(tag, props.tags) : '#7dcfff';
+        const base = tag ? tagColor(tag, props.tags) : '#7dcfff';
+        if (hoverNeighborIds && node.__parentConceptId && hoverNeighborIds.has(node.__parentConceptId)) {
+          return base;
+        }
+        if (hoverNeighborIds) return 'rgba(120, 130, 150, 0.22)';
+        return base;
       }
+      const id = node.id === undefined ? null : String(node.id);
       const tag = node.tags?.[0];
       const base = tag ? tagColor(tag, props.tags) : '#9aa4b8';
-      if (props.highlightConceptId && String(node.id) === props.highlightConceptId) {
+      if (props.highlightConceptId && id === props.highlightConceptId) {
         return '#7aa2f7';
+      }
+      if (hoveredNodeId && id === hoveredNodeId) {
+        return '#c0caf5';
+      }
+      if (hoverNeighborIds && id && hoverNeighborIds.has(id)) {
+        return base;
+      }
+      if (hoverNeighborIds) {
+        return 'rgba(120, 130, 150, 0.22)';
       }
       if (hasTopicFocus && node.__focused === false) {
         return 'rgba(120, 130, 150, 0.28)';
       }
       return base;
     },
-    [props.tags, props.highlightConceptId, hasTopicFocus],
+    [props.tags, props.highlightConceptId, hasTopicFocus, hoveredNodeId, hoverNeighborIds],
   );
 
   const paintNode2d = useCallback(
@@ -601,6 +822,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         __radius?: number;
         __color?: string;
         __label?: string;
+        __parentConceptId?: string;
         val?: number;
       },
       ctx: CanvasRenderingContext2D,
@@ -610,51 +832,98 @@ function GalaxyViewInner(props: GalaxyViewProps) {
 
       const x = node.x ?? 0;
       const y = node.y ?? 0;
+      const id = node.id === undefined ? null : String(node.id);
       const isTagSat = isTagSatelliteNode(node);
       const isHighlight = Boolean(
-        props.highlightConceptId && String(node.id) === props.highlightConceptId,
+        props.highlightConceptId && id === props.highlightConceptId,
       );
+      const isHovered = Boolean(hoveredNodeId && id === hoveredNodeId);
+      const isNeighbor = Boolean(hoverNeighborIds && id && hoverNeighborIds.has(id));
       const isFocused = !hasTopicFocus || node.__focused !== false;
       const r =
-        (isTagSat ? 2.2 : isHighlight ? 7 : isFocused ? 4.5 : 3) /
+        (isTagSat ? 2.2 : isHighlight || isHovered ? 7.2 : isFocused ? 4.5 : 3) /
         Math.max(globalScale * 0.35, 0.5);
       const fill = nodeColor(node);
 
+      if ((isHovered || isHighlight) && !isTagSat) {
+        ctx.beginPath();
+        ctx.arc(x, y, r + 3 / Math.max(globalScale, 0.5), 0, 2 * Math.PI);
+        ctx.strokeStyle = 'rgba(122, 162, 247, 0.85)';
+        ctx.lineWidth = 1.4 / Math.max(globalScale * 0.4, 0.45);
+        ctx.stroke();
+      }
+
       ctx.beginPath();
       ctx.arc(x, y, r, 0, 2 * Math.PI);
-      ctx.fillStyle = isHighlight ? '#7aa2f7' : fill;
-      ctx.globalAlpha = isTagSat ? 0.75 : hasTopicFocus && node.__focused === false ? 0.28 : 0.95;
+      ctx.fillStyle = isHighlight || isHovered ? '#7aa2f7' : fill;
+      ctx.globalAlpha = isTagSat
+        ? 0.75
+        : hoverNeighborIds && !isNeighbor
+          ? 0.2
+          : hasTopicFocus && node.__focused === false
+            ? 0.28
+            : 0.95;
       ctx.fill();
       ctx.globalAlpha = 1;
 
-      if (!isTagSat && (isHighlight || (isFocused && globalScale > 1.35))) {
+      const showLabel =
+        !isTagSat &&
+        (isHighlight ||
+          isHovered ||
+          (isFocused && !hoverNeighborIds && globalScale > 1.35) ||
+          (isNeighbor && globalScale > 1.1));
+      if (showLabel) {
         const label = humanizeConceptTitle(node.title ?? '');
         if (label) {
           const fontSize = Math.max(8 / globalScale, 2);
-          const maxChars = isHighlight ? 36 : 22;
+          const maxChars = isHighlight || isHovered ? 36 : 22;
           const text = label.length > maxChars ? `${label.slice(0, maxChars - 1)}…` : label;
-          ctx.font = `${isHighlight ? 600 : 400} ${fontSize}px sans-serif`;
+          ctx.font = `${isHighlight || isHovered ? 600 : 400} ${fontSize}px sans-serif`;
           const metrics = ctx.measureText(text);
           const pad = 2 / globalScale;
-          ctx.fillStyle = 'rgba(12, 16, 24, 0.72)';
+          ctx.fillStyle = 'rgba(12, 16, 24, 0.78)';
           ctx.fillRect(
             x - (metrics.width + pad * 2) / 2,
             y + r + 1 / globalScale,
             metrics.width + pad * 2,
             fontSize + pad * 2,
           );
-          ctx.fillStyle = isHighlight ? '#e8ecf4' : 'rgba(200, 210, 230, 0.9)';
+          ctx.fillStyle = isHighlight || isHovered ? '#e8ecf4' : 'rgba(200, 210, 230, 0.9)';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
           ctx.fillText(text, x, y + r + pad + 1 / globalScale);
         }
       }
     },
-    [hasTopicFocus, nodeColor, props.highlightConceptId],
+    [hasTopicFocus, hoverNeighborIds, hoveredNodeId, nodeColor, props.highlightConceptId],
   );
 
   const linkColor = useCallback(
-    (link: { __bothFocused?: boolean; __eitherFocused?: boolean; weightBand?: string }) => {
+    (link: {
+      __bothFocused?: boolean;
+      __eitherFocused?: boolean;
+      weightBand?: string;
+      fromConceptId?: string;
+      toConceptId?: string;
+      source?: string | { id?: string | number };
+      target?: string | { id?: string | number };
+    }) => {
+      const fromId =
+        link.fromConceptId ??
+        (typeof link.source === 'string' ? link.source : String(link.source?.id ?? ''));
+      const toId =
+        link.toConceptId ??
+        (typeof link.target === 'string' ? link.target : String(link.target?.id ?? ''));
+      const linkKey = `${fromId}→${toId}`;
+      if (hoveredLinkKey && linkKey === hoveredLinkKey) {
+        return '#c0caf5';
+      }
+      if (hoverNeighborIds) {
+        if (fromId && toId && hoverNeighborIds.has(fromId) && hoverNeighborIds.has(toId)) {
+          return 'rgba(122, 162, 247, 0.75)';
+        }
+        return 'rgba(80, 90, 110, 0.08)';
+      }
       if (hasTopicFocus) {
         if (link.__bothFocused) return '#7aa2f7';
         if (link.__eitherFocused) return 'rgba(122, 162, 247, 0.28)';
@@ -664,15 +933,42 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       if (link.weightBand === 'weak') return 'rgba(120, 130, 150, 0.22)';
       return 'rgba(140, 150, 170, 0.35)';
     },
-    [hasTopicFocus],
+    [hasTopicFocus, hoverNeighborIds, hoveredLinkKey],
   );
 
-  const linkWidth = useCallback((link: { __bothFocused?: boolean; weightBand?: string }) => {
-    if (link.__bothFocused) return 2.4;
-    if (link.weightBand === 'strong') return 1.6;
-    if (link.weightBand === 'weak') return 0.6;
-    return 1;
-  }, []);
+  const linkWidth = useCallback(
+    (link: {
+      __bothFocused?: boolean;
+      weightBand?: string;
+      fromConceptId?: string;
+      toConceptId?: string;
+      source?: string | { id?: string | number };
+      target?: string | { id?: string | number };
+    }) => {
+      const fromId =
+        link.fromConceptId ??
+        (typeof link.source === 'string' ? link.source : String(link.source?.id ?? ''));
+      const toId =
+        link.toConceptId ??
+        (typeof link.target === 'string' ? link.target : String(link.target?.id ?? ''));
+      const linkKey = `${fromId}→${toId}`;
+      if (hoveredLinkKey && linkKey === hoveredLinkKey) return 2.8;
+      if (
+        hoverNeighborIds &&
+        fromId &&
+        toId &&
+        hoverNeighborIds.has(fromId) &&
+        hoverNeighborIds.has(toId)
+      ) {
+        return 2.1;
+      }
+      if (link.__bothFocused) return 2.4;
+      if (link.weightBand === 'strong') return 1.6;
+      if (link.weightBand === 'weak') return 0.6;
+      return 1;
+    },
+    [hoverNeighborIds, hoveredLinkKey],
+  );
 
   const linkParticles = useCallback(
     (link: { __bothFocused?: boolean; weightBand?: string }) => {
@@ -767,7 +1063,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           aria-live="polite"
         >
           {use3dRenderer && !statusText
-            ? '3D physics space · nest sphere outlines · link springs'
+            ? '3D physics · nest hierarchy · hover for refs / similarity'
             : null}
           {use3dRenderer && (hasTopicFocus || statusText) ? ' · ' : null}
           {hasTopicFocus && `Focused ${focusSet!.size} concepts`}
@@ -795,13 +1091,39 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           No concepts match the current filters.
         </p>
       ) : (
-        <div ref={graphBox.ref} className="relative min-h-0 flex-1 overflow-hidden bg-[#070a10]">
+        <div
+          ref={(el) => {
+            graphBox.ref(el);
+            graphSurfaceRef.current = el;
+          }}
+          className="relative min-h-0 flex-1 overflow-hidden bg-[#070a10]"
+          onMouseMove={(e) => {
+            pointerRef.current = { x: e.clientX, y: e.clientY };
+            setHoverCard((prev) => {
+              if (!prev) return prev;
+              const surface = graphSurfaceRef.current;
+              if (!surface) return prev;
+              const rect = surface.getBoundingClientRect();
+              const localX = Math.min(
+                Math.max(8, pointerRef.current.x - rect.left),
+                rect.width - 8,
+              );
+              const localY = Math.min(
+                Math.max(8, pointerRef.current.y - rect.top),
+                rect.height - 8,
+              );
+              if (prev.x === localX && prev.y === localY) return prev;
+              return { ...prev, x: localX, y: localY };
+            });
+          }}
+          onMouseLeave={clearHover}
+        >
           {props.tags.length > 0 && (
             <div className={`${styles.orbitRing} overflow-hidden`} aria-label="Tag filter orbit">
-              {props.tags.map((t, i) => {
-                const count = props.tags.length;
+              {props.tags.slice(0, 24).map((t, i) => {
+                const count = Math.min(props.tags.length, 24);
                 const angle = (360 / count) * i;
-                const radius = reducedMotion ? 36 : 42;
+                const radius = reducedMotion ? 34 : Math.min(48, 28 + count * 0.7);
                 return (
                   <button
                     key={t}
@@ -826,6 +1148,25 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             </div>
           )}
 
+          {hoverCard ? (
+            <div
+              className={styles.hoverCard}
+              style={{ left: hoverCard.x, top: hoverCard.y }}
+              role="status"
+              aria-live="polite"
+              data-testid="galaxy-hover-card"
+            >
+              <div className={styles.hoverCardTitle}>{hoverCard.lines[0]}</div>
+              {hoverCard.lines.slice(1).map((line, i) => (
+                <div key={`${i}-${line}`} className={styles.hoverCardLine}>
+                  {line}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className={styles.hoverHint}>Hover · inspect · click opens panel</div>
+          )}
+
           {!graphWidth || !graphHeight ? (
             <p className="flex h-full items-center justify-center text-[10px] text-[var(--color-ink-faint)]">
               Measuring galaxy viewport…
@@ -840,20 +1181,15 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               numDimensions={3}
               forceEngine="d3"
               controlType="orbit"
-              warmupTicks={reducedMotion ? 0 : 80}
-              cooldownTicks={reducedMotion ? 0 : 120}
-              d3AlphaDecay={0.022}
-              d3VelocityDecay={0.32}
-              nodeLabel={(n: { title?: string; __kind?: string; __label?: string }) =>
-                isNestHullNode(n)
-                  ? String(n.__label ?? n.title ?? '')
-                  : isTagSatelliteNode(n)
-                    ? String(n.title ?? '')
-                    : humanizeConceptTitle(String(n.title ?? '')).slice(0, 40)
-              }
+              warmupTicks={reducedMotion ? 0 : 90}
+              cooldownTicks={reducedMotion ? 0 : 140}
+              d3AlphaDecay={0.02}
+              d3VelocityDecay={0.34}
+              nodeLabel={() => ''}
+              linkLabel={() => ''}
               nodeVal="val"
               nodeRelSize={4.2}
-              nodeOpacity={hasTopicFocus ? 0.95 : 0.9}
+              nodeOpacity={hasTopicFocus || hoverNeighborIds ? 0.96 : 0.9}
               nodeColor={nodeColor as (node: object) => string}
               nodeThreeObject={nodeThreeObject as (node: object) => object | undefined}
               nodeThreeObjectExtend={false}
@@ -872,6 +1208,9 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               showNavInfo={false}
               enableNodeDrag={!reducedMotion}
               onNodeClick={onNodeClick}
+              onNodeHover={onNodeHover as (node: object | null) => void}
+              onLinkHover={onLinkHover as (link: object | null) => void}
+              onBackgroundClick={clearHover}
               onEngineStop={() => {
                 if (hasTopicFocus) fitFocusedNodes();
               }}
@@ -887,7 +1226,8 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               cooldownTicks={reducedMotion ? 0 : 80}
               d3AlphaDecay={0.025}
               d3VelocityDecay={0.35}
-              nodeLabel="title"
+              nodeLabel={() => ''}
+              linkLabel={() => ''}
               nodeRelSize={4}
               nodeColor={nodeColor as (node: object) => string}
               linkColor={linkColor as (link: object) => string}
@@ -895,6 +1235,9 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               linkDirectionalParticles={linkParticles as (link: object) => number}
               linkDirectionalParticleWidth={linkParticleWidth as (link: object) => number}
               onNodeClick={onNodeClick}
+              onNodeHover={onNodeHover as (node: object | null) => void}
+              onLinkHover={onLinkHover as (link: object | null) => void}
+              onBackgroundClick={clearHover}
               nodeCanvasObjectMode={() => 'replace'}
               nodeCanvasObject={
                 paintNode2d as (

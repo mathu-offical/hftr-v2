@@ -166,6 +166,18 @@ On topic select (left panel or deep-link):
 
 Clearing topic focus restores full brightness; nest layout stays.
 
+### 4.3.1 Hover, labels, and reference readout (D-100)
+
+- Hovering a concept / tag satellite / nest hull / link opens a terminal-styled **info card**
+  near the pointer (`data-testid="galaxy-hover-card"`): nest path (library / folder / article),
+  curation + source class, link degree, **Queried / Referenced** usage, and up to four tags.
+  Links show relation · weight band · qualitative similarity and endpoint titles.
+- Visual: hovered node brightens; 1-hop neighbors stay lit; other nodes/edges dim. 2D mode
+  paints a ring + label on hover even when zoomed out.
+- Nest physics: stronger folder/article restore than library soft-pull so hierarchy reads as
+  nested spheres; slightly stronger charge + collide to reduce stacked blobs.
+- Tag orbit: max 24 chips; quieter chip chrome; pointer-events only on chips.
+
 ### 4.4 Performance (TD-09)
 
 - Prefer 3D physics space; 2D fallback only on WebGL failure or explicit operator toggle.

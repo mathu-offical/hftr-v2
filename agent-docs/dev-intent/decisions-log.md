@@ -1052,6 +1052,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   timeline so Scenario/Lineage join without relying solely on symbol substrings. Docs: ui-spec
   §4 middle-bottom. **Status: implemented.**
 
+- **D-100 (galaxy hover cards + nest physics polish, 2026-07-18):** Galaxy view gains a
+  terminal-styled hover card (concept nest path, curation/source, query/reference counts, tags;
+  link relation · weight · qualitative similarity; nest hull kind labels). Hover dims
+  non-neighbors and brightens 1-hop edges; 2D paint draws hover rings + early labels. Nest
+  forces strengthened (library → folder → article hierarchy), collision/charge retuned, tag
+  orbit capped at 24 chips with quieter chrome. Helpers in `galaxy-hover-labels.ts`. Docs:
+  research-galaxy-topic-view-design, ui-spec §6. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

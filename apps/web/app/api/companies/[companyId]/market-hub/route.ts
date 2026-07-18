@@ -163,6 +163,7 @@ export async function GET(_req: Request, ctx: Ctx) {
         sealId: seal.sealId,
         corroborationBand: seal.corroborationBand,
         items: seal.view.items,
+        itemViz: [],
         verifiedAt: seal.verifiedAt,
         expiresAt: seal.expiresAt,
         reportConceptId: seal.reportConceptId ?? null,
@@ -195,6 +196,7 @@ export async function GET(_req: Request, ctx: Ctx) {
             sealId: parsed.sealId,
             corroborationBand: parsed.corroborationBand,
             items: parsed.view.items,
+            itemViz: [],
             verifiedAt: parsed.verifiedAt,
             expiresAt: parsed.expiresAt,
             reportConceptId: parsed.reportConceptId ?? null,
@@ -211,6 +213,7 @@ export async function GET(_req: Request, ctx: Ctx) {
           sealId: null,
           corroborationBand: null,
           items: [],
+          itemViz: [],
           verifiedAt: null,
           expiresAt: null,
           reportConceptId: null,
@@ -412,39 +415,50 @@ export async function GET(_req: Request, ctx: Ctx) {
     const watchlistsWithViz = watchlists.map((w) => {
       const held = heldBySymbol.get(w.symbol.toUpperCase());
       const relevance = watchRelevance(w.status, w.sourceClass);
-      const viz = buildSymbolViz({
-        symbol: w.symbol,
-        clock,
-        strengthBand: relevance,
-        relevanceBand: relevance,
-        held: held
-          ? {
+      const viz = held
+        ? buildSymbolViz({
+            symbol: w.symbol,
+            clock,
+            strengthBand: relevance,
+            relevanceBand: relevance,
+            held: {
               markCents: held.markCents,
               avgCostCents: held.avgCostCents,
               unrealizedPnlCents: held.unrealizedPnlCents,
-            }
-          : undefined,
-      });
+            },
+          })
+        : buildSymbolViz({
+            symbol: w.symbol,
+            clock,
+            strengthBand: relevance,
+            relevanceBand: relevance,
+          });
       return { ...w, viz };
     });
 
     const trendsWithViz = trendCandidateRows.map((t) => {
       const held = heldBySymbol.get(t.symbol.toUpperCase());
       const strength = mapTrendStrengthToBand(t.strengthBand);
-      const viz = buildSymbolViz({
-        symbol: t.symbol,
-        clock,
-        direction: t.direction,
-        strengthBand: strength,
-        relevanceBand: strength,
-        held: held
-          ? {
+      const viz = held
+        ? buildSymbolViz({
+            symbol: t.symbol,
+            clock,
+            direction: t.direction,
+            strengthBand: strength,
+            relevanceBand: strength,
+            held: {
               markCents: held.markCents,
               avgCostCents: held.avgCostCents,
               unrealizedPnlCents: held.unrealizedPnlCents,
-            }
-          : undefined,
-      });
+            },
+          })
+        : buildSymbolViz({
+            symbol: t.symbol,
+            clock,
+            direction: t.direction,
+            strengthBand: strength,
+            relevanceBand: strength,
+          });
       return { ...t, viz };
     });
 
@@ -456,19 +470,24 @@ export async function GET(_req: Request, ctx: Ctx) {
       const strength = (item.strengthBand ?? 'medium') as QualitativeBand;
       const relevance = (item.directionBand ?? strength) as QualitativeBand;
       moversItemViz.push(
-        buildSymbolViz({
-          symbol: sym,
-          clock,
-          strengthBand: strength,
-          relevanceBand: relevance,
-          held: held
-            ? {
+        held
+          ? buildSymbolViz({
+              symbol: sym,
+              clock,
+              strengthBand: strength,
+              relevanceBand: relevance,
+              held: {
                 markCents: held.markCents,
                 avgCostCents: held.avgCostCents,
                 unrealizedPnlCents: held.unrealizedPnlCents,
-              }
-            : undefined,
-        }),
+              },
+            })
+          : buildSymbolViz({
+              symbol: sym,
+              clock,
+              strengthBand: strength,
+              relevanceBand: relevance,
+            }),
       );
     }
     movers = { ...movers, itemViz: moversItemViz };

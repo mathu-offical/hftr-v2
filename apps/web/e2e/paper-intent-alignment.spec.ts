@@ -264,13 +264,15 @@ test.describe('Paper intent alignment', () => {
       expect(trace.venue).toBe('paper_sim');
       expect(trace.verification?.result).toBe('pass');
       expect(trace.simulatorGapTags).toEqual(
-        expect.arrayContaining([
-          'synthetic_quote',
-          'inline_fill_model',
-          'no_venue_latency',
-          'no_partial_fills',
-        ]),
+        expect.arrayContaining(['synthetic_quote', 'inline_fill_model', 'no_venue_latency']),
       );
+      // Compile path may drain POV childSlices (`child_slice_drain`); operator
+      // one-shot fills keep `no_partial_fills`. Never both honesty tags together.
+      const tags = trace.simulatorGapTags ?? [];
+      expect(
+        tags.includes('child_slice_drain') || tags.includes('no_partial_fills'),
+      ).toBeTruthy();
+      expect(tags.includes('child_slice_drain') && tags.includes('no_partial_fills')).toBeFalsy();
     }
 
     const conservativeQuantity = Number(conservativeTrace.fills[0]?.qtyInt);

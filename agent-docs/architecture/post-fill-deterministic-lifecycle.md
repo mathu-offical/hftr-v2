@@ -3,8 +3,10 @@
 **Status:** implemented (paper) · **Owner:** engine/dispatch · **Freeze:** model-free below compile
 
 Linked: D-124 (polarization sizing), D-125 (heat + trail + weighted valves),
-D-126 (POV plan + training_feedback + atr_stream resolver + fee ledger),
-`product-spec.md` §Trading modules, `data-model.md` jobs, `seeded-strategy-catalog.json`
+D-124 (polarization sizing), D-125 (heat + trail + valves),
+D-126 shorthand for POV plan / training_feedback / atr_stream / fees (see
+post-fill workstream; research-topics also uses D-126), D-129 (POV drain +
+positions/exits),`product-spec.md` §Trading modules, `data-model.md` jobs, `seeded-strategy-catalog.json`
 bands, `academic-quant-tool-catalog.md`.
 
 ## 1. Scope and boundaries
@@ -86,8 +88,11 @@ Live broker commissions should replace the proxy when adapters emit fee amounts.
 
 `planChildSlices` produces a qty schedule from participation % × urgency ×
 `child_slice_band`. Compile records `childSlices` in `compile_events.lineage`.
-**Dispatch still fills the parent as one market order** until partial-fill
-semantics ship (gap tag `no_partial_fills`).
+Paper dispatch loads that plan and **drains slices as sequential fill legs**
+(1¢ adverse walk, VWAP ledger price) when ≥2 slices sum to parent qty
+(gap tag `child_slice_drain`). Operator multi-share fills (≥2) use the same
+POV planner with default participation/urgency when no compile lineage exists.
+Single-share / one-shot paths keep `no_partial_fills`.
 
 ## 7. Recovery binding
 
@@ -102,17 +107,19 @@ on handoff envelopes for operator lineage and future IS trajectory realignment
 | Synthetic ATR (50 bps) | `atr_stream` from OHLC bars (`resolveAtrCents`) |
 | Synthetic half-spread 2 bps | Quote feed half-spread |
 | Paper fee 5 bps ledger row | Broker commission + fees |
-| Immediate market fill | POV drain of child plan under participation valve |
+| Immediate market fill (operator) | POV child-slice drain on compile path |
 
 ## 9. Verification
 
-- Unit: atr, fees, child-order-scheduler, apply-control-snapshot-delta,
-  portfolio-heat, weighted-valves, position-exits, WeightEnvelope contracts
+- Unit: atr, fees, child-order-scheduler, child-slice-fills,
+  apply-control-snapshot-delta, portfolio-heat, weighted-valves,
+  position-exits, WeightEnvelope contracts
 - Intention alignment: gains clear fee floor; heat blocks over-leverage;
   training deltas stay in-band
+- Operator: `POST …/positions/exits` enqueues + drains lifecycle sells
 
 ## 10. Open follow-ons
 
-- Drain `childSlices` as sequential partial fills
 - Persist `control_snapshots` rows on every promote/compile
 - Alpaca bars → atr_stream at maintenance tick cadence
+- Time-spaced child drain (currently sequential in one dispatch tick)

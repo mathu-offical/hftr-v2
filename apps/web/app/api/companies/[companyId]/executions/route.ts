@@ -139,6 +139,7 @@ export async function GET(_req: Request, ctx: Ctx) {
           outcome: t.outcome,
           failureCode: t.failureCode,
           fills: t.fills,
+          simulatorGapTags: t.simulatorGapTags ?? [],
           createdAt: t.createdAt,
           amountCents: ledger ? ledger.amountCents : null,
           description: ledger ? ledger.description : null,

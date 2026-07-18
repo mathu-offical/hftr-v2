@@ -261,17 +261,12 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   always opens Libraries at **full panel height**; choosing Research / Posture / Data restores
   the compact dock. Dock includes System / Runtime / Baseline shelves plus **Company** (canvas
   `library` modules); create/export/curation stay in the dock.
-- Research tab (**D-040**, **D-047**, **D-049**, **D-094**, **D-095**, **D-127**): scroll column —
-  **Submit new topic** / **Submit research article** at top; **entity search** with Topics /
-  Concepts / Tags / Libraries toggles; dedicated **Research topics** (collapsible directive
-  tree — shortened nested labels, Program/Group/Directive kinds, concept counts; per-topic
-  **Research** + **Research all** enqueue on the library research lane — D-098); **Articles**
-  list (agent/operator concepts with `hftr:article`, saved into a library; **1–3 tag chips**
-  on each line; flexibly viewable here while shelf membership stays library-backed);
-  **Agent activity** under articles (per research-module run / evidence / admission);
-  **Archive** (D-047); collapsed Modules & tools (inventory + sweep). Opening Research opens
-  the Galaxy overlay — detail in a right floating inspector. Galaxy **traces**
-  topics/connections; library **content browse** uses Data Explorer (D-121). Shelves design:
+- Research tab (**D-040**, **D-047**, **D-049**, **D-094**, **D-095**, **D-127**, **D-130**):
+  scroll column is **topic create** + **planned/in-progress topics** + **Articles** only.
+  Entity search lives in the **Galaxy** overlay chrome (concepts default). Agent activity,
+  archive, and Modules & tools were removed from this column (canvas / elsewhere for module
+  create). Libraries dock unchanged (D-121/D-128). Galaxy **traces** topics/connections;
+  library **content browse** uses Data Explorer (D-121). Shelves design:
   `ui-ux/research-tab-shelves-inspector-design.md`. Runtime (custom) library rows expose
   librarian **Curate / Verify / Refresh** (D-127). Library research (`LIBRARY_RESEARCH`) is a
   separate queue from posture research (`POSTURE_RESEARCH`) and from execution/other LLM lanes
@@ -388,10 +383,12 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   from the executions API (timeline causation walk) over symbol heuristics.
 
 ### RIGHT — Execution + Verification + Positions + Simulation results
-- **Positions (D-125):** dedicated tab listing open holdings (market-hub live marks +
+- **Positions (D-125 / D-129):** dedicated tab listing open holdings (market-hub live marks +
   `SymbolTicker` stability). Select a row for the inspector: held-vs-cost stability,
   automatic recovery (tree `recoveryLadder` + next model-free exit candidate from
   `GET …/positions`), lead/tree status, and recent agent executions (open `TraceTimeline`).
+  Operator lifecycle: `POST …/positions/exits` runs model-free exit scan + drain.
+  Executions expose `simulatorGapTags` (`child_slice_drain` vs `no_partial_fills`).
   Market posture Positions category remains the overlay navigator — not removed.
 - Ledger of all trades/results/responses: filterable table (module, venue, mode, outcome),
   immutable trace rows → trace inspector modal (full ActionTrace lineage: lead → tree →

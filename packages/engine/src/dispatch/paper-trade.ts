@@ -33,6 +33,7 @@ import {
   resolveEquityCentsForLimits,
 } from './balances';
 import { materializeChildSliceFills } from './child-slice-fills';
+import { planChildSlices } from './child-order-scheduler';
 import { resolveExecutionContext } from './execution-context';
 import { feeCentsFromNotional } from './fees';
 import { preDispatchGauntlet } from './pre-dispatch';
@@ -589,9 +590,21 @@ export async function executePaperTrade(
   const compileSlices = compiled
     ? await loadCompileChildSlices(db, instructionId)
     : null;
+  // Operator path: when no compile plan, still POV-slice qty≥2 so multi-share
+  // opportunistic entries get honest partial-fill legs (same planner as compile).
+  const slicesForDrain =
+    compileSlices ??
+    (req.quantity >= 2 && !compiled
+      ? planChildSlices({
+          parentQty: req.quantity,
+          participationPct: 40,
+          urgencyScalar: 1.2,
+          childSliceFraction: 0.6,
+        }).slices
+      : null);
   const childMaterialized = materializeChildSliceFills({
     parentQty: req.quantity,
-    slices: compileSlices,
+    slices: slicesForDrain,
     basePriceCents: fill.priceCents,
     actionVerb: req.actionVerb,
     quoteRef,

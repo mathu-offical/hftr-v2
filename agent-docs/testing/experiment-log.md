@@ -169,3 +169,18 @@ Scoring: `intent-alignment-scoring.md`
 | Re-verify | executions 200 (2 fills); CDP SUMMARY **14/14**; Chrome left on company canvas with posture overlay |
 | Alignment | **aligned** for processing UI paths; IronBee CallMcpTool still cannot address extension server id (use CDP attach to same profile) |
 | Notes | Disk ~100% full caused `.next` ENOENT / Next churn; prefer nohup Next + clear `.next/cache` when packs fail. Trader desk session flattened NVDA/AAPL via weekend `session_close` at a small loss — fixed by measurable_gain_take priority + skip session_close when opened while cash session already closed. |
+
+---
+
+## EXP-2026-07-18-004 — Opportunistic multi-symbol + POV child-slice drain
+
+| Field | Value |
+|---|---|
+| Status | pass with refinements |
+| Mode | paper only |
+| Hypothesis | Deep multi-symbol leverage + full position lifecycle (promote → scale → trim → exit scan) stays fail-closed; POV child slices drain as honest partial fills |
+| Observed | Desk `Opp 205933` (`19bb1a62-…`): 8/8 promote drains, 6 operator ETF/names, scale-ins, 12 open symbols, `POST …/positions/exits` drained **27/27**; fee ledger rows present; heat/limits blocked some adds (expected). QQQ qty=6 fill produced **6** child legs + tag `child_slice_drain` after engine reload |
+| System fixes | `materializeChildSliceFills` + paper_sim drain; operator qty≥2 POV plan; `POST …/positions/exits`; executions expose `simulatorGapTags`; CDP `cdp-opportunistic-multi.ts` |
+| Alignment | **aligned** for paper lifecycle honesty; UI CDP flaky under disk ~100% (Next/CDP ECONNREFUSED) — API path verified |
+| Not verified | Time-spaced child drain; live atr_stream; IronBee MCP attach |
+| Decisions | D-129 |

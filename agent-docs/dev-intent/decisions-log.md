@@ -1285,20 +1285,24 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
      posture hub / synthesis (D-120)** and **seeded Current awareness research topics /
      seals (D-126)**, with room to attach further Analyze / library / live-source consumers
      without a paper-only fork. Prefer **flexible adapters** over a single hard-wired path.
-  8. The **hybrid combination** of bindings + routing modes **hydrates the company’s
-     main book**.
+  8. **Capital isolation:** each **execution engine** manages its **own allocated slice** of
+     company total capital. Engines **cannot share funds** unless capital is **explicitly
+     shared** (approved fund_router / transfer / allocation change). Main book = rollup of
+     engine books + company-level seed/unallocated remainder.
+  9. The **hybrid combination** of bindings + routing modes **hydrates the company’s
+     main book** (rollup), while engine books remain the spend authority for dispatch.
 
-  Related: D-002, D-014, D-025, D-027, D-120, D-126; OQ-13.
-  **Status: decided (design pending).**
+  Related: D-002, D-014, D-023, D-025, D-027, D-059, D-061, D-120, D-126; OQ-13
+  (resolved). **Status: decided (design pending).**
 
-- **D-126 (POV plan + training_feedback + atr_stream + fee ledger, 2026-07-18):**
-  Compile records participation/urgency valves and a deterministic **POV child-slice
-  plan** (`planChildSlices` + `child_slice_band`) in lineage (full partial-fill drain
-  still follow-on). `WeightEnvelope` contract + `training_feedback` table (migration
-  **0043**) + `applyControlSnapshotDelta` (fail-closed). Paper fills write ledger
-  `fee` rows (5 bps proxy). `resolveAtrCents` prefers `atr_stream` ValueRef / OHLC
-  ATR, else synthetic. Docs: post-fill-deterministic-lifecycle.md. **Status:
-  implemented (paper partial).**
+- **D-129 (POV child-slice drain + operator exit scan, 2026-07-18):** Completes the
+  paper POV follow-on from the post-fill lifecycle workstream. Paper dispatch drains
+  compile `childSlices` (and operator qty≥2 via default POV planner) as sequential
+  fill legs with 1¢ adverse walk + VWAP ledger (`child_slice_drain` gap tag;
+  single-shot keeps `no_partial_fills`). `POST …/positions/exits` enqueues
+  `maintenance.position_exits` and drains MAINTENANCE+DISPATCH. Executions API
+  returns `simulatorGapTags`. Docs: post-fill-deterministic-lifecycle.md. **Status:
+  implemented (paper; time-spaced child drain still follow-on).**
 
 - **D-125 (post-fill heat + trail + weighted valves, 2026-07-18):** Compile admits
   entries only when projected portfolio heat (sum open ATR-risk / equity) stays under
@@ -1308,7 +1312,7 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   (participation, urgency, heat, trail, polarization) are continuous modulators inside
   catalog envelopes — learning adjusts in-band positions via `proposeValvePositionDelta`,
   not hard switches. Architecture: `post-fill-deterministic-lifecycle.md`. **Status:
-  implemented** (paper; POV child-slice + training_feedback table still follow-on).
+  implemented** (paper; POV child-slice drain completed in D-129).
 
 - **D-124 (complex-signal polarization → capital leverage, 2026-07-18):** No v1 term
   `polarization`; v2 defines it as agreement strength of a complex signal (trend
@@ -1364,6 +1368,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   other left tab (rail or header tabs) restores the compact dock size. Hide collapses to the
   Libraries card. Docs: ui-spec §4. **Status: implemented.**
 
+- **D-130 (Research panel slim + galaxy entity search, 2026-07-18):** Left Research scroll
+  column shows only **topic create**, **planned/in-progress topics** (`active` + `deferred`),
+  and **Articles**. Entity search moves into Galaxy overlay chrome (default Concepts). Agent
+  activity, archive, and Modules & tools removed from the Research column (module create stays
+  on canvas). Docs: ui-spec §4, research-tab-shelves-inspector-design. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;
@@ -1397,11 +1407,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 - **OQ-5 (open):** Polymarket wallet/key custody design before that adapter ships.
 - **OQ-6 (open):** Dashboard/diagnostics slide direction conflict from v1 DevSpecs (top vs
   bottom) — v2 resolves via the three-panel model; confirm no separate diagnostics slide needed.
-- **OQ-13 (open, D-122):** Dual paper books + engine→service binding. **Resolved so far:**
-  per-engine bind; unbound → paper functions; bound → provider ledger as **funds source**;
-  order routing switchable (`funds_only` | `execute_on_service` | `both_verify`);
-  safest default = **`funds_only`**; `both_verify` for provider-fill deltas; **`funds_only`
-  teacher = live market model only**; awareness = **shared flexible substrate** (posture
-  hub D-120 + current-awareness topics D-126 + extensible consumers). Hybrid hydrates
-  company **main book**.
-  **Still open:** multi-engine cash pool / symbol conflict rules in one main book.
+- **OQ-13 (resolved 2026-07-18, D-122):** Dual paper books + engine→service binding —
+  resolved: per-engine bind; unbound → paper functions; bound → provider ledger as funds
+  source; switchable routing with `funds_only` default; `both_verify` for provider-fill
+  deltas; live market model only as `funds_only` teacher; flexible awareness substrate
+  (D-120 + D-126 + extensible); **engine-allocated capital with no cross-engine spend
+  unless explicitly shared**; main book = rollup.

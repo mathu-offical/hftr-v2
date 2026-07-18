@@ -67,7 +67,8 @@ share one graph.
 - Next: **Concepts & tags** — company-wide searchable concept database with tag chip filters;
   Focus opens galaxy highlight for that concept.
 - Workspace strip: **Galaxy | Page** switches the layered overlay tabs (Page = hybrid article).
-- Opening the left Research tab auto-opens the layered Research overlay over the canvas.
+- Opening the left Research panel (Research tab) auto-opens the Galaxy overlay; collapsing
+  the left panel (or selecting Data) hides it. Overlay close collapses the left panel.
 - Selecting a topic:
   1. Ensures Research overlay is open.
   2. Activates **Galaxy** tab (Page available via tab).

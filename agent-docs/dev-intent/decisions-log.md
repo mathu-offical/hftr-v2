@@ -560,11 +560,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   runtime, plus one **Baseline seeded** shelf with inline catalog folders by bootstrap
   seed tags — strategy / guardrails / session / broker / trend leads — and optional **tier
   subfolders**) → Pages (topics) list with linked-page highlight → Archive → collapsed
-  modules. Galaxy is the sole overlay surface; detail for Page / Concept / Library / Tag
-  opens in a **right floating inspector** (no Galaxy|Page tab strip, no left/galaxy inline
-  expand). Folder caret expands page leaves; Overview at top of Baseline seeded opens
-  Seeded trading mechanisms when present. Design:
-  `ui-ux/research-tab-shelves-inspector-design.md`. **Status: implemented.**
+  modules. Galaxy is the sole overlay surface and is **owned by the left Research panel**
+  (opens/closes with that panel; overlay × collapses left too; Data tab hides galaxy while
+  left stays open). Detail for Page / Concept / Library / Tag opens in a **right floating
+  inspector** (no Galaxy|Page tab strip, no left/galaxy inline expand). Folder caret expands
+  page leaves; Overview at top of Baseline seeded opens Seeded trading mechanisms when
+  present. Design: `ui-ux/research-tab-shelves-inspector-design.md`. **Status: implemented.**
 
 - **D-050 (complete research provider connect + live_api Alpaca poll, 2026-07-17):**
   Finish remaining researched gather sources: GDELT DOC ArtList (one retry on 429;

@@ -179,8 +179,10 @@ function ResearchOverlayInner() {
           )}
           <button
             type="button"
-            onClick={rv.closeOverlay}
-            aria-label="Close research overlay"
+            onClick={rv.closeResearchWorkspace}
+            aria-label="Close research workspace"
+            title="Close research panel"
+            data-testid="close-research-workspace"
             className="rounded p-1 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
           >
             <X size={16} aria-hidden />

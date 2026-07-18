@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -42,7 +43,17 @@ export interface ResearchViewContextValue {
   /** When true and a topic is focused, galaxy focus includes 1-hop graph neighbors. */
   includeNeighbors: boolean;
   openOverlay: (opts?: { tab?: ResearchOverlayTab }) => void;
+  /** Hide galaxy only (left panel may stay open, e.g. Data tab). */
   closeOverlay: () => void;
+  /**
+   * Galaxy is owned by the left Research panel: collapse left + hide overlay.
+   * Used by the overlay close control.
+   */
+  closeResearchWorkspace: () => void;
+  /** LeftPanel registers open/collapse so galaxy stays coupled to the panel. */
+  registerLeftPanelBridge: (
+    bridge: { ensureResearchOpen: () => void; collapse: () => void } | null,
+  ) => void;
   openPageInspector: () => void;
   closePageInspector: () => void;
   setActiveTab: (tab: ResearchOverlayTab) => void;
@@ -78,6 +89,10 @@ export function ResearchViewProvider(props: { companyId: string; children: React
   const [focusConceptIds, setFocusConceptIds] = useState<string[] | null>(null);
   const [highlightConceptId, setHighlightConceptId] = useState<string | null>(null);
   const [includeNeighbors, setIncludeNeighbors] = useState(false);
+  const leftBridgeRef = useRef<{
+    ensureResearchOpen: () => void;
+    collapse: () => void;
+  } | null>(null);
 
   const applySynopsisLinks = useCallback((synopsisMd: string) => {
     const parsed = parseSynopsisWikilinks(synopsisMd);
@@ -98,13 +113,26 @@ export function ResearchViewProvider(props: { companyId: string; children: React
     [props.companyId, applySynopsisLinks],
   );
 
+  const registerLeftPanelBridge = useCallback(
+    (bridge: { ensureResearchOpen: () => void; collapse: () => void } | null) => {
+      leftBridgeRef.current = bridge;
+    },
+    [],
+  );
+
   const openOverlay = useCallback((opts?: { tab?: ResearchOverlayTab }) => {
+    leftBridgeRef.current?.ensureResearchOpen();
     setOverlayOpen(true);
     if (opts?.tab) setActiveTab(opts.tab);
   }, []);
 
   const closeOverlay = useCallback(() => {
     setOverlayOpen(false);
+  }, []);
+
+  const closeResearchWorkspace = useCallback(() => {
+    setOverlayOpen(false);
+    leftBridgeRef.current?.collapse();
   }, []);
 
   const openPageInspector = useCallback(() => {
@@ -244,6 +272,8 @@ export function ResearchViewProvider(props: { companyId: string; children: React
       includeNeighbors,
       openOverlay,
       closeOverlay,
+      closeResearchWorkspace,
+      registerLeftPanelBridge,
       openPageInspector,
       closePageInspector,
       setActiveTab,
@@ -274,6 +304,8 @@ export function ResearchViewProvider(props: { companyId: string; children: React
       includeNeighbors,
       openOverlay,
       closeOverlay,
+      closeResearchWorkspace,
+      registerLeftPanelBridge,
       openPageInspector,
       closePageInspector,
       selectTopic,

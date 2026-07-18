@@ -247,12 +247,25 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
     return () => clearInterval(interval);
   }, [open, refreshShell]);
 
-  // Research tab owns the layered Galaxy|Page workspace over the canvas.
+  // Galaxy overlay is owned by the left Research panel — open/close together.
+  useEffect(() => {
+    researchView.registerLeftPanelBridge({
+      ensureResearchOpen: () => {
+        setOpen(true);
+        setTab('research');
+      },
+      collapse: () => setOpen(false),
+    });
+    return () => researchView.registerLeftPanelBridge(null);
+  }, [researchView.registerLeftPanelBridge]);
+
   useEffect(() => {
     if (open && tab === 'research') {
       researchView.openOverlay();
+    } else {
+      researchView.closeOverlay();
     }
-  }, [open, tab, researchView.openOverlay]);
+  }, [open, tab, researchView.openOverlay, researchView.closeOverlay]);
 
   const research = props.modules.filter(
     (m) => m.type === 'research' || m.type === 'librarian' || m.type === 'trend',

@@ -81,8 +81,9 @@ type ConceptRow = ResearchConceptRow;
 
 /**
  * Left panel (ui-ux spec): Research + Libraries, Market posture, and Data sources.
- * Research tab (D-040 / D-049): topics, shelves, galaxy ownership. Market posture
- * (D-081): movers / watchlists / positions hub. Data sources: live APIs + libraries.
+ * Research tab (D-040 / D-049 / D-094 / D-095): topics + agent activity in the scroll
+ * column; library shelves live in a bottom-anchored show/hide Libraries dock.
+ * Market posture (D-081): movers / watchlists / positions hub. Data sources: live APIs.
  */
 export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) {
   // page.tsx does not pass companyId; the panel only renders under
@@ -94,6 +95,8 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
 
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('research');
+  /** Bottom Libraries dock (D-095); default open, operator-hideable to a card. */
+  const [librariesDockOpen, setLibrariesDockOpen] = useState(true);
   const [persistReady, setPersistReady] = useState(false);
   const [concepts, setConcepts] = useState<ConceptRow[]>(() =>
     companyId ? (peekResearchResource<ConceptRow[]>({ kind: 'concepts', companyId }) ?? []) : [],
@@ -121,18 +124,25 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
       setPersistReady(true);
       return;
     }
-    const stored = readPanelState<{ open?: unknown; tab?: unknown }>(storageKey);
+    const stored = readPanelState<{
+      open?: unknown;
+      tab?: unknown;
+      librariesDockOpen?: unknown;
+    }>(storageKey);
     if (stored) {
       if (typeof stored.open === 'boolean') setOpen(stored.open);
       if (isLeftTab(stored.tab)) setTab(stored.tab);
+      if (typeof stored.librariesDockOpen === 'boolean') {
+        setLibrariesDockOpen(stored.librariesDockOpen);
+      }
     }
     setPersistReady(true);
   }, [storageKey]);
 
   useEffect(() => {
     if (!storageKey || !persistReady) return;
-    writePanelState(storageKey, { open, tab });
-  }, [storageKey, open, tab, persistReady]);
+    writePanelState(storageKey, { open, tab, librariesDockOpen });
+  }, [storageKey, open, tab, librariesDockOpen, persistReady]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -348,9 +358,9 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 text-sm">
-        {tab === 'research' && (
-          <>
+      {tab === 'research' ? (
+        <>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 text-sm">
             {topicOwnerModules.length > 0 ? (
               <>
                 <ResearchNewTopicButton
@@ -407,23 +417,8 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
             </div>
 
             <div className="mt-3">
-              <ResearchLibraryShelves
-                companyId={companyId}
-                libraries={libraries}
-                topics={topics.map((t) => ({ id: t.id, title: t.title }))}
-                shellRefreshing={shellRefreshing}
-                onRefreshShell={() => void refreshShell(true)}
-                onSelectConcept={(conceptId) => researchView.inspectConcept(conceptId)}
-                onSelectLibrary={(libraryId, libraryName) =>
-                  researchView.inspectLibrary(libraryId, libraryName)
-                }
-                onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
-              />
-            </div>
-
-            <div className="mt-3">
               {!topicsLoaded ? (
-                <p className="text-[10px] text-[var(--color-ink-faint)]">Loading pages…</p>
+                <p className="text-[10px] text-[var(--color-ink-faint)]">Loading research topics…</p>
               ) : (
                 <ResearchPagesList
                   topics={topics.map((t) => ({
@@ -431,12 +426,67 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                     title: t.title,
                     moduleId: t.moduleId,
                     parentTopicId: t.parentTopicId ?? null,
+                    ...(typeof t.conceptCount === 'number'
+                      ? { conceptCount: t.conceptCount }
+                      : {}),
+                    status: t.status,
+                    priority: t.priority,
+                    provenance: t.provenance ?? null,
                   }))}
                   selectedTopicId={researchView.selectedTopicId}
                   linkedTopicIds={researchView.linkedTopicIds}
                   linkedTopicTitles={researchView.linkedTopicTitles}
                   onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
                 />
+              )}
+            </div>
+
+            <div
+              data-testid="research-agent-activity"
+              className="mt-3 rounded-lg border border-[var(--color-line)] p-2.5"
+            >
+              <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-ink-faint)]">
+                Agent activity
+              </p>
+              <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">
+                Research module runs · evidence · admission
+              </p>
+              {topicOwnerModules.length === 0 ? (
+                <p className="mt-2 text-[11px] text-[var(--color-ink-faint)]">
+                  No research modules yet. Add one under Modules & tools.
+                </p>
+              ) : (
+                <ul className="mt-2 space-y-2">
+                  {topicOwnerModules.map((m) => (
+                    <li key={m.id} className="rounded-md border border-[var(--color-line)] p-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-xs font-medium">{m.name}</span>
+                        <span className="shrink-0 text-[10px] text-[var(--color-ink-faint)]">
+                          {m.status}
+                        </span>
+                      </div>
+                      <ResearchActions
+                        companyId={companyId}
+                        moduleId={m.id}
+                        topicScope={String(m.config.topicScope ?? m.config.focus ?? '')}
+                        moduleConfig={m.config}
+                        admissionMode={
+                          admissionOverrides[m.id] ??
+                          (m.config.admissionMode === 'require_operator_approval'
+                            ? 'require_operator_approval'
+                            : 'auto_admit_validated')
+                        }
+                        onAdmissionChange={(mode) =>
+                          setAdmissionOverrides((prev) => ({ ...prev, [m.id]: mode }))
+                        }
+                        onDone={() => {
+                          invalidateAfterResearchMutation(companyId, 'all');
+                          void refreshShell(true);
+                        }}
+                      />
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
 
@@ -455,17 +505,6 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
               <div className="mt-2">
                 <NewResearchModuleForm companyId={companyId} />
               </div>
-              <LibrariesSection
-                companyId={companyId}
-                libraries={libraries}
-                loaded={librariesLoaded}
-                requiresOperatorApproval={requiresOperatorApproval}
-                onChanged={() => {
-                  invalidateAfterResearchMutation(companyId, 'libraries');
-                  void loadLibraries(true);
-                  void loadConcepts(true);
-                }}
-              />
               {researchModules.length > 0 && (
                 <CompanySweepAction
                   companyId={companyId}
@@ -497,79 +536,124 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                       <div className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
                         {m.status}
                       </div>
-                      {m.type === 'research' && (
-                        <ResearchActions
-                          companyId={companyId}
-                          moduleId={m.id}
-                          topicScope={String(m.config.topicScope ?? m.config.focus ?? '')}
-                          moduleConfig={m.config}
-                          admissionMode={
-                            admissionOverrides[m.id] ??
-                            (m.config.admissionMode === 'require_operator_approval'
-                              ? 'require_operator_approval'
-                              : 'auto_admit_validated')
-                          }
-                          onAdmissionChange={(mode) =>
-                            setAdmissionOverrides((prev) => ({ ...prev, [m.id]: mode }))
-                          }
-                          onDone={() => {
-                            invalidateAfterResearchMutation(companyId, 'all');
-                            void refreshShell(true);
-                          }}
-                        />
-                      )}
                     </li>
                   ))}
                 </ul>
               )}
             </details>
-          </>
-        )}
+          </div>
 
-        {tab === 'market_posture' && <MarketPosturePanel companyId={companyId} />}
+          {librariesDockOpen ? (
+            <div
+              data-testid="research-libraries-dock"
+              className="flex max-h-[42vh] shrink-0 flex-col border-t border-[var(--color-line)] bg-[var(--color-surface-1)]"
+            >
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--color-line)] px-3 py-1.5">
+                <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-ink-faint)]">
+                  Libraries
+                </p>
+                <button
+                  type="button"
+                  data-testid="research-libraries-dock-hide"
+                  onClick={() => setLibrariesDockOpen(false)}
+                  className="rounded border border-[var(--color-line)] px-1.5 py-0.5 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-ink)]"
+                >
+                  Hide
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2 text-sm">
+                <ResearchLibraryShelves
+                  companyId={companyId}
+                  libraries={libraries}
+                  topics={topics.map((t) => ({ id: t.id, title: t.title }))}
+                  shellRefreshing={shellRefreshing}
+                  onRefreshShell={() => void refreshShell(true)}
+                  onSelectConcept={(conceptId) => researchView.inspectConcept(conceptId)}
+                  onSelectLibrary={(libraryId, libraryName) =>
+                    researchView.inspectLibrary(libraryId, libraryName)
+                  }
+                  onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
+                />
+                <LibrariesSection
+                  companyId={companyId}
+                  libraries={libraries}
+                  loaded={librariesLoaded}
+                  requiresOperatorApproval={requiresOperatorApproval}
+                  onChanged={() => {
+                    invalidateAfterResearchMutation(companyId, 'libraries');
+                    void loadLibraries(true);
+                    void loadConcepts(true);
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="shrink-0 border-t border-[var(--color-line)] px-3 py-2">
+              <button
+                type="button"
+                data-testid="research-libraries-dock-card"
+                onClick={() => setLibrariesDockOpen(true)}
+                className="flex w-full items-center justify-between gap-2 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-2 text-left hover:border-[var(--color-accent)]"
+              >
+                <span className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-ink-faint)]">
+                  Libraries
+                </span>
+                <span className="text-[10px] text-[var(--color-ink-dim)]">
+                  {librariesLoaded
+                    ? `${libraries.length} librar${libraries.length === 1 ? 'y' : 'ies'} · Show`
+                    : 'Show'}
+                </span>
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 text-sm">
+          {tab === 'market_posture' && <MarketPosturePanel companyId={companyId} />}
 
-        {tab === 'data' && (
-          <>
-            <NewDataSourceForm companyId={companyId} />
-            {sources.length === 0 ? (
-              <p className="mt-3 px-1 text-xs text-[var(--color-ink-faint)]">
-                No data sources yet. Add one above or from the canvas palette.
-              </p>
-            ) : (
-              <ul className="mt-3 space-y-2">
-                {sources.map((m) => {
-                  const hydrates = props.links
-                    .filter((l) => l.fromModuleId === m.id && l.linkKind === 'data_feed')
-                    .map((l) => nameOf(l.toModuleId));
-                  return (
-                    <li key={m.id} className="rounded-lg border border-[var(--color-line)] p-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium">{m.name}</span>
-                        <span className="text-[10px] uppercase text-[var(--color-ink-faint)]">
-                          {m.type === 'live_api' ? 'live api' : 'library'}
-                        </span>
-                      </div>
-                      {m.type === 'live_api' && (
-                        <div className="mt-1 text-[11px] text-[var(--color-ink-dim)]">
-                          venue {String(m.config.venue ?? '—')} ·{' '}
-                          {Array.isArray(m.config.instruments)
-                            ? `${m.config.instruments.length} instruments`
-                            : 'no instruments'}
+          {tab === 'data' && (
+            <>
+              <NewDataSourceForm companyId={companyId} />
+              {sources.length === 0 ? (
+                <p className="mt-3 px-1 text-xs text-[var(--color-ink-faint)]">
+                  No data sources yet. Add one above or from the canvas palette.
+                </p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {sources.map((m) => {
+                    const hydrates = props.links
+                      .filter((l) => l.fromModuleId === m.id && l.linkKind === 'data_feed')
+                      .map((l) => nameOf(l.toModuleId));
+                    return (
+                      <li key={m.id} className="rounded-lg border border-[var(--color-line)] p-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium">{m.name}</span>
+                          <span className="text-[10px] uppercase text-[var(--color-ink-faint)]">
+                            {m.type === 'live_api' ? 'live api' : 'library'}
+                          </span>
                         </div>
-                      )}
-                      <div className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
-                        {hydrates.length > 0
-                          ? `hydrates: ${hydrates.join(', ')}`
-                          : 'not feeding any node yet'}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </>
-        )}
-      </div>
+                        {m.type === 'live_api' && (
+                          <div className="mt-1 text-[11px] text-[var(--color-ink-dim)]">
+                            venue {String(m.config.venue ?? '—')} ·{' '}
+                            {Array.isArray(m.config.instruments)
+                              ? `${m.config.instruments.length} instruments`
+                              : 'no instruments'}
+                          </div>
+                        )}
+                        <div className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
+                          {hydrates.length > 0
+                            ? `hydrates: ${hydrates.join(', ')}`
+                            : 'not feeding any node yet'}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </aside>
   );
 }

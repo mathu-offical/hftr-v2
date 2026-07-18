@@ -230,19 +230,22 @@ editable fields.
 
 ### LEFT — Research + Libraries + Market posture + Data
 - Tabs: **Research + Libraries** | **Market posture** | **Data sources** (D-081).
-- Research + Libraries tab (**D-040**, **D-047**, **D-049**): **Submit new topic** at top; **entity
-  search** with Topics / Concepts / Tags / Libraries toggles; expandable **library shelves**
-  as folders of pages — system/runtime shelves plus one **Baseline seeded** shelf with
-  inline catalog folders (strategy / guardrails / session / broker / trend leads /
-  **sector knowledge** per D-076) and optional **tier** / **sector** subfolders; caret
-  expands page leaves; Overview opens Seeded trading mechanisms; **Pages** list (topics)
-  with linked-page highlight;
-  **Archive** (D-047); collapsed Modules & tools. Opening Research + Libraries opens the Galaxy overlay
-  only — detail lives in a right floating inspector over the galaxy (no Galaxy|Page tab strip).
-  Library shell lists use client SWR cache (D-063) so shelf chrome returns from
-  memory/session while page indexes lazy-load. Design:
-  `ui-ux/research-tab-shelves-inspector-design.md`.
-- **Market posture** tab (D-081 / D-085): live operating hub. Left rail lists company-wide
+- Research + Libraries tab (**D-040**, **D-047**, **D-049**, **D-094**, **D-095**): scroll column —
+  **Submit new topic** at top; **entity search** with Topics / Concepts / Tags / Libraries
+  toggles; dedicated **Research topics** (collapsible directive tree — shortened nested labels,
+  Program/Group/Directive kinds, concept counts); **Agent activity** under topics (per
+  research-module run / evidence / admission); **Archive** (D-047); collapsed Modules & tools
+  (inventory + sweep). **Libraries** live in a **bottom-anchored dock** (show/hide into a
+  Libraries card; persisted with left panel state) with expandable shelves as folders of
+  pages — system/runtime shelves plus one **Baseline seeded** shelf with inline catalog
+  folders (strategy / guardrails / session / broker / trend leads / **sector knowledge** per
+  D-076) and optional **tier** / **sector** subfolders; caret expands page leaves; Overview
+  opens Seeded trading mechanisms; linked-topic highlight in Research topics. Opening
+  Research + Libraries opens the Galaxy overlay only — detail lives in a right floating
+  inspector over the galaxy (no Galaxy|Page tab strip). Library shell lists use client SWR
+  cache (D-063) so shelf chrome returns from memory/session while page indexes lazy-load.
+  Design: `ui-ux/research-tab-shelves-inspector-design.md`.
+- **Market posture** tab (D-081 / D-085 / D-092): live operating hub. Left rail lists company-wide
   persisted categories (positions, watchlists, trends, plans). Opening the tab opens a
   **galaxy-style canvas overlay dashboard** with: equity chart (company series; accent path
   follows selected holding mark), sector top movers, report navigation buttons (open sealed
@@ -254,6 +257,10 @@ editable fields.
   Visible surfaces poll on the fresh cadence; **Refresh** enqueues `library.system_movers`
   then force-revalidates. Non-flat `trend.scan` and admitted `trend.promote` also enqueue
   movers revalidation.
+  **Watchlist tiers (D-092):** `suggested_search` → `suggested_verified` → `watching`
+  (+ `triggered` / `archived`). Market posture rail + bottom Watch lists filter chips
+  (default: watching + suggested_verified). **Confirm** PATCHes to `watching` and
+  invalidates market-hub cache. Overlay watchlist block defaults to watching + verified.
 - Research concept inspector titles and TraceTimeline stage rows also use Justification hover
   (D-083) with honest source-class labels (model vs deterministic vs system seal).
 - Research overlay (main content, layered over canvas): **Galaxy** surface with optional

@@ -1,6 +1,7 @@
 'use client';
 
 import { memo, useMemo, useState } from 'react';
+import { researchTopicDisplayLabel } from '@/lib/research-topic-display';
 
 export type ResearchEntityType = 'topics' | 'concepts' | 'tags' | 'libraries';
 
@@ -57,10 +58,14 @@ function ResearchEntitySearchInner(props: ResearchEntitySearchProps) {
     const q = normalizedQuery;
     switch (entityType) {
       case 'topics': {
-        const rows = props.topics.filter((t) => !q || t.title.toLowerCase().includes(q));
+        const rows = props.topics.filter((t) => {
+          if (!q) return true;
+          const display = researchTopicDisplayLabel(t.title, 1).toLowerCase();
+          return t.title.toLowerCase().includes(q) || display.includes(q);
+        });
         return rows.slice(0, MAX_RESULTS).map((t) => ({
           key: t.id,
-          label: t.title,
+          label: researchTopicDisplayLabel(t.title, 1),
           meta: props.highlightedTopicIds?.includes(t.id) ? 'linked' : undefined,
           onSelect: () => props.onSelectTopic(t.id),
         }));

@@ -1000,6 +1000,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   with the Seeded trading mechanisms program expanded. Docs: research-tab-shelves-inspector-design,
   ui-spec. **Status: implemented.**
 
+- **D-095 (research agent activity + Libraries dock, 2026-07-18):** Left Research tab scroll
+  column places **Agent activity** (per research-module run/admission controls) directly under
+  **Research topics**. Library shelves + create/export move to a **bottom-anchored Libraries
+  dock** (max ~42vh, independently scrollable) that collapses to a **Libraries** card and
+  expands on click; open/closed persists in `hftr:{companyId}:panel:left`. Modules & tools
+  keeps module inventory/sweep only (no duplicate run actions or libraries section). Docs:
+  research-tab-shelves-inspector-design, ui-spec. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

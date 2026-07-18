@@ -548,13 +548,6 @@ export const MODULE_CONFIG_SCHEMAS: Record<ModuleType, z.ZodTypeAny> = {
 
 // ── API payloads ─────────────────────────────────────────────────────────────
 
-/** Per-index setup for modules seeded by the selected company template. */
-export const TemplateModuleSetupEntry = z.object({
-  moduleIndex: z.number().int().nonnegative(),
-  setup: ModuleSetupInput,
-});
-export type TemplateModuleSetupEntry = z.infer<typeof TemplateModuleSetupEntry>;
-
 /** Extra standalone modules added during company creation. */
 export const CreateCompanyExtraModule = z.object({
   type: ModuleType,
@@ -565,14 +558,21 @@ export const CreateCompanyExtraModule = z.object({
 });
 export type CreateCompanyExtraModule = z.infer<typeof CreateCompanyExtraModule>;
 
-/** Extra ENGINE templates inserted during company creation. */
-export const CreateCompanyExtraEngine = z.object({
+/**
+ * ENGINE seed at company creation (D-043): at least one required.
+ * Same shape as module-store insert (template inputs + shared setup).
+ */
+export const CreateCompanyEngine = z.object({
   templateId: z.string().min(1).max(80),
   inputs: z.record(z.string(), z.string()).default({}),
   setup: ModuleSetupInput.optional(),
   canvasOffset: CanvasPosition.optional(),
 });
-export type CreateCompanyExtraEngine = z.infer<typeof CreateCompanyExtraEngine>;
+export type CreateCompanyEngine = z.infer<typeof CreateCompanyEngine>;
+
+/** @deprecated Use CreateCompanyEngine — kept as alias for transitional imports. */
+export const CreateCompanyExtraEngine = CreateCompanyEngine;
+export type CreateCompanyExtraEngine = CreateCompanyEngine;
 
 export const CreateCompanyInput = z.object({
   name: z.string().min(1).max(80),
@@ -580,18 +580,12 @@ export const CreateCompanyInput = z.object({
   mode: TradingMode.default('paper'),
   seedCreditsCents: z.number().int().min(0).max(100_000_000_00).default(0),
   /**
-   * Shared fallback setup applied to matching template nodes when a per-module
-   * entry is absent (backward compatible with the original single form).
+   * Required ENGINE seeds (min 1). Sole graph seed path — company Math hub
+   * is always auto-provisioned; standalone extras are optional.
    */
-  templateSetup: ModuleSetupInput.optional(),
-  /** Preferred: inline setup keyed to each seeded template module index. */
-  templateModuleSetups: z.array(TemplateModuleSetupEntry).max(40).optional(),
-  /** Additional modules beyond the company template seed. */
+  engines: z.array(CreateCompanyEngine).min(1, 'at least one engine required').max(5),
+  /** Optional standalone modules outside engines. */
   extraModules: z.array(CreateCompanyExtraModule).max(40).optional(),
-  /** Additional ENGINE templates inserted at create time. */
-  extraEngines: z.array(CreateCompanyExtraEngine).max(5).optional(),
-  // Template selection is composed in the route from CompanyTemplateId
-  // (templates.ts) — the single source of truth for available templates.
 });
 export type CreateCompanyInput = z.infer<typeof CreateCompanyInput>;
 

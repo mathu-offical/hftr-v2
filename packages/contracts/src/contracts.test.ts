@@ -23,8 +23,8 @@ import {
 import { ConceptBatch, ResearchDirective } from './research-artifacts';
 import { leakLint } from './leak-lint';
 import {
-  allowedLinkKinds,
   CapitalAllocationInput,
+  CreateCompanyInput,
   CreateModuleInput,
   deriveGeneratedModuleName,
   handleIdForLink,
@@ -38,6 +38,7 @@ import {
   ModuleType,
   requiredModuleSetupFields,
   UpdateModuleInput,
+  allowedLinkKinds,
 } from './modules';
 import { ValueRefHandle, CalcRequest } from './numeric';
 import { ActionInstruction } from './pipeline';
@@ -1031,5 +1032,30 @@ describe('canvas layout (D-033)', () => {
     expect(second!.canvasBounds.x).toBeGreaterThanOrEqual(
       first!.canvasBounds.x + first!.canvasBounds.width,
     );
+  });
+});
+
+describe('CreateCompanyInput (D-043)', () => {
+  it('requires at least one engine', () => {
+    const empty = CreateCompanyInput.safeParse({
+      name: 'Desk',
+      philosophyPrompt: 'Patient paper desk.',
+      engines: [],
+    });
+    expect(empty.success).toBe(false);
+    if (!empty.success) {
+      expect(empty.error.issues.some((issue) => /at least one engine/i.test(issue.message))).toBe(
+        true,
+      );
+    }
+  });
+
+  it('accepts a single engine seed', () => {
+    const ok = CreateCompanyInput.safeParse({
+      name: 'Desk',
+      philosophyPrompt: 'Patient paper desk.',
+      engines: [{ templateId: 'engine_day_trading', inputs: {} }],
+    });
+    expect(ok.success).toBe(true);
   });
 });

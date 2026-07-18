@@ -230,6 +230,7 @@ export async function claimJobs(db: Db, clock: Clock, opts: ClaimOptions): Promi
           OR NOT EXISTS (
             SELECT 1 FROM jobs active_job
             WHERE active_job.company_id = jobs.company_id
+              AND active_job.queue_class = jobs.queue_class
               AND active_job.status = 'active'
               AND active_job.locked_until >= ${now.toISOString()}
           )
@@ -245,8 +246,9 @@ export async function claimJobs(db: Db, clock: Clock, opts: ClaimOptions): Promi
 }
 
 /**
- * Keep ≤1 job per company_id in a claim batch; requeue extras as pending
- * (attempts rolled back one) so sibling engine work waits on the company queue.
+ * Keep ≤1 job per (company_id, queue_class) in a claim batch; requeue extras as pending
+ * (attempts rolled back one). Library research, posture research, and execution lanes
+ * may run in parallel for the same company (D-098); same-lane work stays serial (D-052).
  */
 export async function releaseExtraCompanyClaims(
   db: Db,
@@ -256,7 +258,7 @@ export async function releaseExtraCompanyClaims(
 ): Promise<ClaimedJob[]> {
   const keep: ClaimedJob[] = [];
   const release: ClaimedJob[] = [];
-  const seenCompanies = new Set<string>();
+  const seenSerialKeys = new Set<string>();
 
   for (const job of claimed) {
     if (keep.length >= limit) {
@@ -267,11 +269,12 @@ export async function releaseExtraCompanyClaims(
       keep.push(job);
       continue;
     }
-    if (seenCompanies.has(job.companyId)) {
+    const serialKey = `${job.companyId}::${job.queueClass}`;
+    if (seenSerialKeys.has(serialKey)) {
       release.push(job);
       continue;
     }
-    seenCompanies.add(job.companyId);
+    seenSerialKeys.add(serialKey);
     keep.push(job);
   }
 

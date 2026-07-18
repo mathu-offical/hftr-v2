@@ -10,6 +10,7 @@ import { upsertResearchRun } from '../research/run-state';
 import { enqueue } from '../queue/queue';
 import { curateDeterministic } from './research-deterministic';
 import { registerHandler } from './registry';
+import { continueResearchLane } from '../research/lanes';
 
 /** Identity + intent only — never API keys (D-074; resolved in research.gather). */
 const CuratePayload = z.object({
@@ -87,7 +88,7 @@ registerHandler('research.curate', async ({ db, clock, job }) => {
   });
 
   await enqueue(db, clock, {
-    queueClass: 'RESEARCH',
+    queueClass: continueResearchLane(job.queueClass),
     kind: 'research.gather',
     payload: {
       companyId: payload.companyId,

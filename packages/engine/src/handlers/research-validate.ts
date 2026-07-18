@@ -13,6 +13,7 @@ import {
 } from '../research/run-state';
 import { enqueue } from '../queue/queue';
 import { estimateLlmJobCost } from '../queue/llm-cost-estimate';
+import { continueResearchLane } from '../research/lanes';
 import { registerHandler } from './registry';
 
 const ValidatePayload = z.object({
@@ -138,7 +139,7 @@ registerHandler('research.validate', async ({ db, clock, job }) => {
     .where(eq(researchRequests.id, payload.requestId));
 
   await enqueue(db, clock, {
-    queueClass: 'STRATEGIC',
+    queueClass: continueResearchLane(job.queueClass),
     kind: 'research.synthesize',
     payload: {
       companyId: payload.companyId,

@@ -35,7 +35,7 @@ function mockDb() {
 }
 
 describe('releaseExtraCompanyClaims', () => {
-  it('keeps one job per company and requeues extras; null-company stays parallel', async () => {
+  it('keeps one job per company+queueClass; null-company stays parallel', async () => {
     const dbStub = mockDb();
     const claimed = [
       job({ id: 'a1', companyId: 'c1', attempts: 2 }),
@@ -53,6 +53,19 @@ describe('releaseExtraCompanyClaims', () => {
     );
 
     expect(keep.map((row) => row.id)).toEqual(['a1', 'b1', 'm1', 'm2']);
+    expect(dbStub.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows same company on different research/execution lanes (D-098)', async () => {
+    const dbStub = mockDb();
+    const claimed = [
+      job({ id: 'lib1', companyId: 'c1', queueClass: 'LIBRARY_RESEARCH' }),
+      job({ id: 'post1', companyId: 'c1', queueClass: 'POSTURE_RESEARCH', kind: 'library.system_movers' }),
+      job({ id: 'disp1', companyId: 'c1', queueClass: 'DISPATCH', kind: 'paper.trade' }),
+      job({ id: 'lib2', companyId: 'c1', queueClass: 'LIBRARY_RESEARCH' }),
+    ];
+    const keep = await releaseExtraCompanyClaims(dbStub as never, createFixedClock(0), claimed, 10);
+    expect(keep.map((row) => row.id)).toEqual(['lib1', 'post1', 'disp1']);
     expect(dbStub.update).toHaveBeenCalledTimes(1);
   });
 

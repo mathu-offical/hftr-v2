@@ -4,6 +4,7 @@ import { companies, jobSchedules } from '@hftr/db/schema';
 import type { Db } from '@hftr/db';
 import type { Clock } from '../clock';
 import { enqueue } from '../queue/queue';
+import { LIBRARY_RESEARCH_QUEUE, POSTURE_RESEARCH_QUEUE } from '../research/lanes';
 
 export interface ParsedScheduleExpr {
   kind: 'interval';
@@ -136,7 +137,7 @@ export async function ensureResearchCadenceSchedule(
       .update(jobSchedules)
       .set({
         cronExpr,
-        queueClass: 'RESEARCH',
+        queueClass: LIBRARY_RESEARCH_QUEUE,
         kind: 'research.curate',
         payloadTemplate,
         moduleId: opts.moduleId,
@@ -150,7 +151,7 @@ export async function ensureResearchCadenceSchedule(
   await db.insert(jobSchedules).values({
     name,
     cronExpr,
-    queueClass: 'RESEARCH',
+    queueClass: LIBRARY_RESEARCH_QUEUE,
     kind: 'research.curate',
     payloadTemplate,
     companyId: opts.companyId,
@@ -194,7 +195,7 @@ export async function ensureSystemLibrarySchedule(
       .update(jobSchedules)
       .set({
         cronExpr,
-        queueClass: 'RESEARCH',
+        queueClass: POSTURE_RESEARCH_QUEUE,
         kind: opts.kind,
         payloadTemplate,
         moduleId: null,
@@ -208,7 +209,7 @@ export async function ensureSystemLibrarySchedule(
   await db.insert(jobSchedules).values({
     name: opts.scheduleName,
     cronExpr,
-    queueClass: 'RESEARCH',
+    queueClass: POSTURE_RESEARCH_QUEUE,
     kind: opts.kind,
     payloadTemplate,
     companyId: opts.companyId,

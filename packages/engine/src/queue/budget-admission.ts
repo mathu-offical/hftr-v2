@@ -4,6 +4,8 @@ export const BUDGET_QUEUED_ERROR = 'budget_queued';
 
 export const LLM_BUDGET_QUEUE_CLASSES = [
   'RESEARCH',
+  'LIBRARY_RESEARCH',
+  'POSTURE_RESEARCH',
   'STRATEGIC',
   'TACTICAL',
   'COMPILE',

@@ -3,6 +3,7 @@ import type { Clock } from '../clock';
 import { venueDate } from '../calendar/calendar';
 import { loadCompanyLinkGraph, resolveLinkedResearchModules } from '../graph/module-links';
 import { enqueue } from '../queue/queue';
+import { LIBRARY_RESEARCH_QUEUE } from './lanes';
 
 export interface EnqueueLinkedResearchInput {
   companyId: string;
@@ -16,6 +17,7 @@ export interface EnqueueLinkedResearchInput {
  * via canvas edges: direct data_feed/verification, or research→library→trend
  * multi-hop (seeded template topology). Keys omitted — gather fails closed on
  * Brave without operator keys at the API layer.
+ * Uses LIBRARY_RESEARCH lane (D-098).
  */
 export async function enqueueLinkedResearchCurate(
   db: Db,
@@ -31,7 +33,7 @@ export async function enqueueLinkedResearchCurate(
 
   for (const researchMod of researchModules) {
     await enqueue(db, clock, {
-      queueClass: 'RESEARCH',
+      queueClass: LIBRARY_RESEARCH_QUEUE,
       kind: 'research.curate',
       payload: {
         companyId: input.companyId,

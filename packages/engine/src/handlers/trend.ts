@@ -128,7 +128,7 @@ registerHandler('trend.scan', async ({ db, clock, job }) => {
     });
     // D-081: revalidate market posture movers when a large (non-flat) trend moves.
     await enqueue(db, clock, {
-      queueClass: 'RESEARCH',
+      queueClass: 'POSTURE_RESEARCH',
       kind: 'library.system_movers',
       payload: { companyId: payload.companyId },
       idempotencyKey: `movers-after-scan-${payload.companyId}-${payload.moduleId}-${scannedAt.getTime()}`,

@@ -35,6 +35,7 @@ import {
   upsertResearchRun,
 } from '../research/run-state';
 import { enqueue } from '../queue/queue';
+import { continueResearchLane } from '../research/lanes';
 import { registerHandler } from './registry';
 import { loadCatalogHints } from './research-deterministic';
 
@@ -201,7 +202,7 @@ registerHandler('research.gather', async ({ db, clock, job }) => {
     .where(eq(researchRequests.id, payload.requestId));
 
   await enqueue(db, clock, {
-    queueClass: 'RESEARCH',
+    queueClass: continueResearchLane(job.queueClass),
     kind: 'research.validate',
     payload: {
       companyId: payload.companyId,

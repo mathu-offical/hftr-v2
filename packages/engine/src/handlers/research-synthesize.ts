@@ -14,6 +14,7 @@ import { loadSealSummariesForSynthesize } from '../research/seal-load';
 import { enqueue } from '../queue/queue';
 import { venueDate } from '../calendar/calendar';
 import { estimateLlmJobCost } from '../queue/llm-cost-estimate';
+import { continueResearchLane } from '../research/lanes';
 import { registerHandler } from './registry';
 
 const SynthesizePayload = z.object({
@@ -113,7 +114,7 @@ registerHandler('research.synthesize', async ({ db, clock, job, modelGateway }) 
     .where(eq(researchRequests.id, payload.requestId));
 
   await enqueue(db, clock, {
-    queueClass: 'RESEARCH',
+    queueClass: continueResearchLane(job.queueClass),
     kind: 'research.admit',
     payload: {
       companyId: payload.companyId,

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { modules } from '@hftr/db/schema';
 import { venueDate } from '../calendar/calendar';
 import { enqueue } from '../queue/queue';
+import { LIBRARY_RESEARCH_QUEUE } from '../research/lanes';
 import { registerHandler } from './registry';
 
 const CompanySweepPayload = z.object({
@@ -37,7 +38,7 @@ registerHandler('research.company_sweep', async ({ db, clock, job }) => {
         : '';
 
     await enqueue(db, clock, {
-      queueClass: 'RESEARCH',
+      queueClass: LIBRARY_RESEARCH_QUEUE,
       kind: 'research.curate',
       payload: {
         companyId: payload.companyId,

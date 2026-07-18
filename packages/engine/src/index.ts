@@ -85,7 +85,11 @@ export {
   SEEDED_TOPIC_PROGRAM_TITLE,
   SEEDED_TOPIC_SPECS,
   SEEDED_TOPIC_TITLES,
+  SEEDED_TOPIC_CATALOG_ROOT_TITLES,
+  DESK_FOCUS_TOPIC_PREFIX,
   isSeededTopicTitle,
+  buildDeskFocusTopicSpecs,
+  buildSeededTopicSpecsForCompany,
   type SeededCatalogEntry,
 } from './libraries/bootstrap';
 export { ensureSectorKnowledge } from './libraries/ensure-sector-knowledge';
@@ -153,6 +157,17 @@ export {
 } from './research/operator-submit';
 export { loadOperatorDirectiveHints } from './research/operator-directives';
 export {
+  enqueueLibraryTopicResearch,
+  loadActiveResearchTopicsForQueue,
+  type TopicResearchTarget,
+} from './research/enqueue-topic-research';
+export {
+  LIBRARY_RESEARCH_QUEUE,
+  POSTURE_RESEARCH_QUEUE,
+  continueResearchLane,
+  isResearchLaneQueue,
+} from './research/lanes';
+export {
   resolveResearchGatherCredentials,
   type ResearchGatherCredentials,
 } from './research/gather-credentials';
@@ -186,6 +201,8 @@ export {
   ensureEngineAnalyzerDataOut,
   ensureAllEngineClockBinds,
   ensureEngineMotherboardUtilities,
+  ensureInterEngineDataStreamLinks,
+  ensureAllInterEngineDataStreamLinks,
   hydrateEngineMembersFromUtilities,
   listEngineUtilityLinks,
   createEngineUtilityLink,

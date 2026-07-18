@@ -5,7 +5,7 @@ import {
   type ServiceCapability,
 } from '@hftr/contracts';
 
-export type ServiceSourceKind = 'broker_connection' | 'user_api_key';
+export type ServiceSourceKind = 'broker_connection' | 'user_api_key' | 'user_research_key';
 
 export type ModuleServiceSource = {
   id: string;

@@ -1,16 +1,18 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import {
   AdapterCapabilities as AdapterCapabilitiesSchema,
   type ModuleType,
   type ServiceCapability,
   normalizeAdapterServiceCapabilities,
+  normalizeResearchKeyServiceCapabilities,
 } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import {
   brokerConnections,
+  companies,
   moduleServiceBindings,
   modules,
-  userApiKeys,
+  userResearchKeys,
 } from '@hftr/db/schema';
 import {
   resolveModuleServiceCoverage,
@@ -20,10 +22,10 @@ import {
 
 /**
  * Load verified user sources, resolve coverage per company module, and replace
- * persisted `module_service_bindings` rows (D-090).
+ * persisted `module_service_bindings` rows (D-090 / D-092).
  *
- * Uses stored broker `capabilities` JSON (written on verify) — no live adapter
- * instantiation required for coverage resolution.
+ * Sources: connected brokers (stored capabilities JSON) + research gather keys.
+ * LLM BYOK keys are not market/research service sources.
  */
 export async function resolveCompanyServiceBindings(
   db: Db,
@@ -45,31 +47,36 @@ export async function resolveCompanyServiceBindings(
       ),
     );
 
-  const keys = await db
-    .select({ id: userApiKeys.id })
-    .from(userApiKeys)
-    .where(eq(userApiKeys.clerkUserId, clerkUserId));
+  const researchKeys = await db
+    .select({ id: userResearchKeys.id, provider: userResearchKeys.provider })
+    .from(userResearchKeys)
+    .where(eq(userResearchKeys.clerkUserId, clerkUserId));
 
   const sources: ModuleServiceSource[] = [
     ...brokers.map((b) => {
       const caps = b.capabilities
         ? AdapterCapabilitiesSchema.safeParse(b.capabilities)
         : null;
+      const normalized = normalizeAdapterServiceCapabilities(
+        caps?.success ? caps.data : null,
+      );
+      // Alpaca paper market-data path can also fetch OHLC (promote / evidence).
+      const withBars =
+        b.venue === 'alpaca' && !normalized.includes('historical_bars')
+          ? ([...normalized, 'historical_bars'] as ServiceCapability[]).sort()
+          : normalized;
       return {
         id: b.id,
         kind: 'broker_connection' as const,
         available: true,
-        capabilities: normalizeAdapterServiceCapabilities(
-          caps?.success ? caps.data : null,
-        ),
+        capabilities: withBars,
       };
     }),
-    ...keys.map((k) => ({
+    ...researchKeys.map((k) => ({
       id: k.id,
-      kind: 'user_api_key' as const,
+      kind: 'user_research_key' as const,
       available: true,
-      // LLM BYOK keys are not market service sources; research-keys land later.
-      capabilities: [] as ServiceCapability[],
+      capabilities: normalizeResearchKeyServiceCapabilities(k.provider),
     })),
   ];
 
@@ -92,6 +99,7 @@ export async function resolveCompanyServiceBindings(
       capability: b.capability,
       brokerConnectionId: b.sourceKind === 'broker_connection' ? b.sourceId : null,
       userApiKeyId: b.sourceKind === 'user_api_key' ? b.sourceId : null,
+      userResearchKeyId: b.sourceKind === 'user_research_key' ? b.sourceId : null,
       status: 'bound' as const,
       lastVerifiedAt: now,
       updatedAt: now,
@@ -103,4 +111,18 @@ export async function resolveCompanyServiceBindings(
   }
 
   return coverage;
+}
+
+/** Re-resolve bindings for every active company owned by the user (D-092). */
+export async function resolveAllOwnedCompanyServiceBindings(
+  db: Db,
+  clerkUserId: string,
+): Promise<void> {
+  const owned = await db
+    .select({ id: companies.id })
+    .from(companies)
+    .where(and(eq(companies.clerkUserId, clerkUserId), isNull(companies.archivedAt)));
+  for (const company of owned) {
+    await resolveCompanyServiceBindings(db, clerkUserId, company.id);
+  }
 }

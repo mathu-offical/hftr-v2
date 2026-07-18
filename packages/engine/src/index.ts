@@ -195,6 +195,7 @@ export type {
   ResearchSynthesizeInput,
   TreeExpandInput,
   CompileSelectionInput,
+  SuggestionThresholdProposeInput,
 } from './handlers/model-gateway';
 import './handlers/maintenance';
 import './handlers/equity-refresh';
@@ -297,7 +298,7 @@ export {
   type ResolvedModuleServiceCoverage,
   type ServiceSourceKind,
 } from './services/resolve-module-services';
-export { resolveCompanyServiceBindings } from './services/resolve-company-service-bindings';
+export { resolveCompanyServiceBindings, resolveAllOwnedCompanyServiceBindings } from './services/resolve-company-service-bindings';
 export {
   summarizeCompanyServiceCoverage,
   type ServiceCoverageSummary,
@@ -449,3 +450,30 @@ export {
   type ProposeFundRouteTransfersOutcome,
   type ProposeFundRouteTransfersResult,
 } from './fund-transfers/fund-route-walker';
+
+// D-092 compound movers / watchlist suggestion algorithm
+export {
+  resolveSuggestionThresholds,
+  leadershipBandFromAbsBps,
+  volumeBandFromRatio,
+  corroborationBandFromDomains,
+  bandAtLeast,
+  bandRank,
+  TYPICAL_FLAT_BPS,
+  TYPICAL_STRONG_BPS,
+} from './libraries/suggestion-thresholds';
+export {
+  scoreCompoundSymbol,
+  rankCompoundScores,
+  compareCompoundScores,
+  buildMoversUniverse,
+  extractTickerCandidates,
+  passesVerifyCorroboration,
+  DEFAULT_LIQUID_FALLBACK,
+} from './libraries/movers-compound';
+export {
+  evaluateSuggestionVerifyGates,
+  suggestionVerifyPasses,
+} from './libraries/suggestion-verify';
+export { proposeThresholdProfileHeuristic } from './libraries/suggestion-threshold-propose';
+export { computeRelStrength } from './libraries/movers-rel-strength';

@@ -27,6 +27,8 @@ export const companies = pgTable(
     clerkUserId: text('clerk_user_id').notNull(),
     name: text('name').notNull(),
     philosophyPrompt: text('philosophy_prompt').notNull(),
+    /** Multi-select from SECTOR_FOCUS_PRESETS; pre-seeds engine topic/sectors. */
+    sectorFocuses: text('sector_focuses').array().notNull().default([]),
     /** Structured slideable philosophy axes → LeverSetting band positions. */
     philosophyProfile: jsonb('philosophy_profile').notNull().default({}),
     /** Company LLM tier model + privacy policy (allowlisted model ids only). */

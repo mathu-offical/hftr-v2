@@ -104,7 +104,7 @@ Result: orbit camera still looked like a **flat necklace of nests**, not a volum
 | Cross-lib springs | Distance ×2.85, strength ×0.16 |
 | Folder LOD | Up to 5 folder shells in large libs (was 1) — catalog folders are clusters |
 | Folder packing | Outer Fibonacci band inside parent (shellR ≈ 0.72× parent) |
-| Remount | Force-graph `key` includes packing signature so seeds reapply |
+| Remount | Avoided — live FG coords reseeded on packing signature change |
 | Visual | Library + folder shell/wire opacities raised |
 | QA | `layoutStats().clusterSeparation.ok` and `nestMembership.fractionInside` |
 

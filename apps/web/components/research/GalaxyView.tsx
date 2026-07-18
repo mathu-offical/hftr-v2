@@ -664,6 +664,58 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     use3dRenderer,
   ]);
 
+  // When nest packing changes, push live FG coords back onto seeds (FG keeps stale x/y/z by id).
+  const lastReseedSigRef = useRef('');
+  useEffect(() => {
+    const fg = graphHandleRef.current;
+    if (!fg?.graphData || !physicsReady) return;
+    if (lastReseedSigRef.current === packingSig) return;
+    lastReseedSigRef.current = packingSig;
+    const live = fg.graphData();
+    if (!live?.nodes?.length) return;
+    let moved = 0;
+    for (const node of live.nodes) {
+      if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
+      const id = node.id === undefined ? null : String(node.id);
+      if (!id) continue;
+      const concept = nodeLookupById.get(id);
+      if (!concept) continue;
+      const folderMembership = conceptFolderIndex.get(id);
+      const primaryFolderKey = folderMembership?.folderKey ?? null;
+      const primaryArticleId = conceptArticleIndex.get(id) ?? null;
+      const articleCenter = primaryArticleId ? articleCenters.get(primaryArticleId) : null;
+      const folderCenter =
+        concept.primaryLibraryId && primaryFolderKey
+          ? folderCenters.get(`${concept.primaryLibraryId}::${primaryFolderKey}`)
+          : null;
+      const libCenter = concept.primaryLibraryId
+        ? libraryCenters.get(concept.primaryLibraryId)
+        : null;
+      const center = articleCenter ?? folderCenter ?? libCenter;
+      if (!center) continue;
+      const spread = hashSpread3D(id);
+      const nestScale = Math.min(1, (center.radius * 0.35) / 84);
+      node.x = center.x + spread.dx * nestScale;
+      node.y = center.y + spread.dy * nestScale;
+      node.z = center.z + spread.dz * nestScale;
+      moved += 1;
+    }
+    if (moved > 0) {
+      layoutCommittedRef.current.clear();
+      fg.d3ReheatSimulation?.();
+      volumeFitDoneRef.current = false;
+    }
+  }, [
+    packingSig,
+    physicsReady,
+    nodeLookupById,
+    conceptFolderIndex,
+    conceptArticleIndex,
+    articleCenters,
+    folderCenters,
+    libraryCenters,
+  ]);
+
   useEffect(() => {
     const fg = graphHandleRef.current;
     if (!fg || graphWidth === undefined || graphHeight === undefined) return;
@@ -1796,7 +1848,6 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             </p>
           ) : use3dRenderer && ForceGraph3D ? (
             <ForceGraph3D
-              key={`galaxy3d:${packingSig}`}
               ref={bindGraphRef as never}
               graphData={graphData}
               width={graphWidth}
@@ -1843,7 +1894,6 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             />
           ) : threeAvailable === false || !mode3d ? (
             <ForceGraph2D
-              key={`galaxy2d:${packingSig}`}
               ref={bindGraphRef as never}
               graphData={graphData}
               width={graphWidth}

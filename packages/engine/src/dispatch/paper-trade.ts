@@ -37,6 +37,7 @@ import {
   resolveInstructionFromRefs,
   type ResolvedInstruction,
 } from './instruction-finalizer';
+import { recomputeCompanyEquity } from '../equity/recompute';
 
 /**
  * The deterministic paper-trade path (broker-integration.md, dispatch README):
@@ -911,6 +912,21 @@ export async function finalizeRecoveredVenueFill(
   args: FinalizeRecoveredVenueFillArgs,
 ): Promise<void> {
   await applyVenueFillFinalization(db, clock, { ...args, traceOutcome: 'recovered' });
+  try {
+    await recomputeCompanyEquity(db, clock, args.companyId, 'reconcile', {
+      marks: [
+        {
+          sourceId: `paper_fill_recovered:${args.taskId}`,
+          symbol: args.symbol,
+          kind: 'paper_quote',
+          valueCents: BigInt(args.fillPriceCents),
+          capturedAtMs: clock.nowMs(),
+        },
+      ],
+    });
+  } catch {
+    // Reconciliation fill must succeed even if equity projection write fails.
+  }
 }
 
 async function finalizeFilledTrade(
@@ -953,6 +969,22 @@ async function finalizeFilledTrade(
       traceOutcome: 'filled',
     },
   );
+
+  try {
+    await recomputeCompanyEquity(db, clock, req.companyId, 'fill', {
+      marks: [
+        {
+          sourceId: `paper_fill:${traceId}`,
+          symbol: quote.symbol,
+          kind: 'paper_quote',
+          valueCents: BigInt(fillPriceCents),
+          capturedAtMs: clock.nowMs(),
+        },
+      ],
+    });
+  } catch {
+    // Fill must succeed even if equity projection write fails; next trigger retries.
+  }
 
   return {
     outcome: 'filled',

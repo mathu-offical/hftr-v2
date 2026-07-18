@@ -175,6 +175,13 @@ export {
   type EquityMarkCandidate,
   type EquityMarkKind,
 } from './equity/equity';
+export {
+  recomputeCompanyEquity,
+  nextEquityFields,
+  DEFAULT_EQUITY_MARK_TTL_MS,
+  type EquityTrigger,
+  type RecomputeCompanyEquityOpts,
+} from './equity/recompute';
 
 // Service resolution (company-equity-and-service-sources design)
 export {

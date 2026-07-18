@@ -699,6 +699,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   load. Design: `ui-ux/research-tab-shelves-inspector-design.md` §Client caching.
   **Status: implemented.**
 
+- **D-064 (company equity recompute on fill, 2026-07-17):** `recomputeCompanyEquity` loads
+  company cash + open positions, runs `calculateCompanyEquity`, records derived
+  `usd_cents` ValueRef on success, and writes the company projection. Unavailable calc
+  preserves last good cents as `stale`. Wired after paper fill and recovered venue fill
+  (fail-soft: trade succeeds if projection write fails). Mark TTL default 15s.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

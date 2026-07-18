@@ -26,7 +26,11 @@ export async function createCompanyFromTemplate(
   _templateButton?: RegExp | string,
   options?: { skipSetup?: boolean },
 ): Promise<void> {
-  const nameField = page.getByRole('textbox', { name: 'Name', exact: true });
+  const summary = page.getByTestId('create-identity-summary');
+  if (await summary.isVisible()) {
+    await summary.click();
+  }
+  const nameField = page.getByRole('textbox', { name: /Name/ });
   if (!(await nameField.inputValue()).trim()) {
     await nameField.fill(e2eCompanyName('from-template'));
   }
@@ -34,6 +38,7 @@ export async function createCompanyFromTemplate(
   if (!(await philosophy.inputValue()).trim()) {
     await philosophy.fill('E2E day-trading company philosophy.');
   }
+  await page.getByRole('button', { name: 'Open execution store' }).click();
   await page.getByRole('button', { name: 'Add Day trading engine' }).click();
   await expect(page.getByTestId('engine-seed-card').first()).toBeVisible({
     timeout: CREATE_FORM_TIMEOUT_MS,
@@ -52,7 +57,9 @@ export async function createCompanyFromTemplate(
 
 /** Company create form name field (avoids colliding with company-list aria-labels). */
 export function companyNameField(page: Page) {
-  return page.getByRole('textbox', { name: 'Name', exact: true });
+  return page
+    .getByRole('dialog', { name: 'New company' })
+    .getByRole('textbox', { name: /Name/ });
 }
 
 /**

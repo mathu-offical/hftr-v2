@@ -100,6 +100,8 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
               philosophyProfile={company.philosophyProfile}
               seedCreditsCents={company.seedCreditsCents.toString()}
               createdAt={company.createdAt.toISOString()}
+              sectorFocuses={company.sectorFocuses ?? []}
+              universeExcludes={company.universeExcludes ?? []}
             />
           </div>
           <ExecutionTicker companyId={companyId} />

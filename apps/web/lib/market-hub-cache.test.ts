@@ -10,6 +10,7 @@ import {
 function stubHub(partial?: Partial<MarketHubResponse>): MarketHubResponse {
   return {
     sectorFocuses: [],
+    universeExcludes: [],
     equity: {
       status: 'unavailable',
       equityCents: null,

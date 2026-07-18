@@ -141,6 +141,9 @@ export function MarketPostureOverlay() {
             {hub && hub.sectorFocuses.length > 0 ? (
               <p className="truncate text-[10px] text-[var(--color-ink-faint)]">
                 Sector lens: {hub.sectorFocuses.join(' · ')}
+                {hub.universeExcludes.length > 0
+                  ? ` · Exclude: ${hub.universeExcludes.join(', ')}`
+                  : ''}
               </p>
             ) : null}
           </div>

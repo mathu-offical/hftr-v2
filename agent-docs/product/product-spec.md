@@ -33,12 +33,16 @@ watches, steers, and approves through the canvas + three panels + the assistant.
   disables company `job_schedules`, and pauses active modules. Scoped company APIs and
   `resolveExecutionContext` treat archived companies as not found; schedule materialization skips
   archived company schedules.
-- **Company creation (D-024 + D-043):** engine-centric. Create requires **≥1 ENGINE**; operators
+- **Company creation (D-024 + D-043 + D-106):** engine-centric. Create requires **≥1 ENGINE**; operators
   add/remove engines freely (Create/Skip blocked at zero). Each engine is its own card with
   inline **basic definition** (template inputs + shared topic/capital/exit — same contract as
   module-store insert). Capital defaults cascade as an equal split of paper seed across
   capital-bearing members; overall exit defaults to one week ahead (D-035). Optional standalone
-  modules may be added outside engines. Missing fields validate in place with per-field
+  modules may be added outside engines. **Sector groups (D-106):** create picks broad groups
+  only; all group specifics expand into `companies.sector_focuses` by default. Company drawer
+  **Sectors** tab refines by deselecting specifics (narrow-only) and curates separate
+  `universe_excludes` ticker carve-outs. Preset `overlapPeers` / shared seed targets are
+  intentional confirmation signals. Cap = full catalog. Missing fields validate in place with per-field
   **Required · label** chips and warning borders; confirmed fields use neutral borders and
   subtle in-field green checks. **Skip setup & open canvas** still applies default capital/
   exit cascades; topic/sector stays operator-required on-canvas until filled.

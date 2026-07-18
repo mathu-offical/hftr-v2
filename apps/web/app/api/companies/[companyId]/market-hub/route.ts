@@ -491,7 +491,10 @@ export async function GET(_req: Request, ctx: Ctx) {
     }
 
     const sectorFocuses = Array.isArray(company.sectorFocuses)
-      ? company.sectorFocuses.filter((s): s is string => typeof s === 'string').slice(0, 24)
+      ? company.sectorFocuses.filter((s): s is string => typeof s === 'string').slice(0, 64)
+      : [];
+    const universeExcludes = Array.isArray(company.universeExcludes)
+      ? company.universeExcludes.filter((s): s is string => typeof s === 'string').slice(0, 200)
       : [];
 
     const gatherCredentials = await resolveResearchGatherCredentials(db, companyId);
@@ -531,6 +534,7 @@ export async function GET(_req: Request, ctx: Ctx) {
 
     const body = MarketHubResponse.parse({
       sectorFocuses,
+      universeExcludes,
       equity: {
         status: equityStatus,
         equityCents,
@@ -577,19 +581,27 @@ export async function POST(_req: Request, ctx: Ctx) {
       priority: 'NORMAL',
       companyId,
     });
+    let drained:
+      | { claimed: number; completed: number; failed: number; deadlineHit: boolean }
+      | undefined;
+    let drainError: string | undefined;
     try {
-      await drainQueues(db, clock, {
+      drained = await drainQueues(db, clock, {
         workerId: `inline:${clerkUserId.slice(0, 12)}`,
-        budgetMs: 60_000,
+        budgetMs: 45_000,
         batchSize: 4,
         queueClasses: ['POSTURE_RESEARCH'],
+        kickMaintenanceSweep: false,
       });
-    } catch {
+    } catch (err) {
       // Enqueued; drain may fail if seal table/handler prerequisites missing.
+      drainError = err instanceof Error ? err.message : String(err);
     }
     return MarketHubRefreshResponse.parse({
       enqueued: true,
       kind: 'library.system_movers',
+      ...(drained ? { drained } : {}),
+      ...(drainError ? { drainError } : {}),
     });
   });
 }

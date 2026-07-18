@@ -306,7 +306,7 @@ export function createWebModelGateway(db: Db, clerkUserId: string): ModelGateway
       const directive = {
         philosophyAxisLabels: input.philosophyAxisLabels,
         libraryLensTitles: input.libraryLensTitles.slice(0, 24),
-        sectorFocuses: input.sectorFocuses.slice(0, 12),
+        sectorFocuses: input.sectorFocuses.slice(0, 64),
         lanePresence: input.lanePresence,
         sessionPhase: input.sessionPhase,
         priorProfileNote: input.priorProfileNote ?? 'none',

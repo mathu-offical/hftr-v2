@@ -6,10 +6,12 @@ import {
   ENGINE_TEMPLATES,
   MAX_ENGINES_PER_COMPANY,
   MAX_MODULES_PER_COMPANY,
-  SECTOR_FOCUS_PRESETS,
+  SECTOR_FOCUS_GROUP_DEFS,
   defaultEngineCapitalEnvelope,
   defaultTargetExitLocal,
   engineCreateSection,
+  expandSectorGroupsToFocuses,
+  groupLabel,
   listEngineTemplatesForCreateSection,
   projectedModuleSlotsForCreate,
   researchDependenciesForExecutionEngine,
@@ -19,6 +21,7 @@ import {
   type EngineTemplate,
   type ModuleSetupField,
   type ModuleType,
+  type SectorFocusGroupId,
 } from '@hftr/contracts';
 import { EngineCanvasPreview } from '@/components/canvas/EngineCanvasPreview';
 import {
@@ -190,7 +193,8 @@ export function CreateCompanyForm() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [philosophy, setPhilosophy] = useState('');
-  const [sectorFocuses, setSectorFocuses] = useState<string[]>([]);
+  const [sectorGroups, setSectorGroups] = useState<SectorFocusGroupId[]>([]);
+  const sectorFocuses = expandSectorGroupsToFocuses(sectorGroups);
   const [seedDollars, setSeedDollars] = useState('10000');
   const [engines, setEngines] = useState<EngineSeed[]>([]);
   const [extraModules, setExtraModules] = useState<ModuleSeed[]>([]);
@@ -264,17 +268,12 @@ export function CreateCompanyForm() {
     );
   }
 
-  function addSectorFocus(label: string) {
-    if (sectorFocuses.includes(label) || sectorFocuses.length >= 12) return;
-    const next = [...sectorFocuses, label];
-    setSectorFocuses(next);
-    applySectorFocusesToEngines(next);
-  }
-
-  function removeSectorFocus(label: string) {
-    const next = sectorFocuses.filter((item) => item !== label);
-    setSectorFocuses(next);
-    applySectorFocusesToEngines(next);
+  function toggleSectorGroup(groupId: SectorFocusGroupId) {
+    const next = sectorGroups.includes(groupId)
+      ? sectorGroups.filter((id) => id !== groupId)
+      : [...sectorGroups, groupId];
+    setSectorGroups(next);
+    applySectorFocusesToEngines(expandSectorGroupsToFocuses(next));
   }
 
   function cascadeDraftToDeps(
@@ -633,11 +632,7 @@ export function CreateCompanyForm() {
                           className="min-h-[3.25rem] w-full resize-y rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--color-accent)]"
                         />
                       </label>
-                      <SectorFocusCombobox
-                        selected={sectorFocuses}
-                        onAdd={addSectorFocus}
-                        onRemove={removeSectorFocus}
-                      />
+                      <SectorGroupPicker selected={sectorGroups} onToggle={toggleSectorGroup} />
                     </div>
                     <div className="flex justify-end sm:col-span-2">
                       <button
@@ -669,11 +664,11 @@ export function CreateCompanyForm() {
                     <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--color-ink-faint)]">
                       {philosophy}
                     </span>
-                    {sectorFocuses.length > 0 && (
+                    {sectorGroups.length > 0 && (
                       <span className="max-w-[10rem] shrink-0 truncate text-[10px] text-[var(--color-accent)]">
-                        {sectorFocuses.length === 1
-                          ? sectorFocuses[0]
-                          : `${sectorFocuses[0]} +${sectorFocuses.length - 1}`}
+                        {sectorGroups.length === 1
+                          ? groupLabel(sectorGroups[0]!)
+                          : `${groupLabel(sectorGroups[0]!)} +${sectorGroups.length - 1}`}
                       </span>
                     )}
                     <span className="shrink-0 text-[10px] text-[var(--color-accent)]">Edit</span>
@@ -1047,163 +1042,42 @@ function EngineNavRow(props: {
   );
 }
 
-/** Searchable multi-select for SECTOR_FOCUS_PRESETS (type to filter, Enter to add). */
-function SectorFocusCombobox(props: {
-  selected: string[];
-  onAdd: (label: string) => void;
-  onRemove: (label: string) => void;
+/** Broad sector groups for create (D-106); expands to all specifics on submit. */
+function SectorGroupPicker(props: {
+  selected: SectorFocusGroupId[];
+  onToggle: (groupId: SectorFocusGroupId) => void;
 }) {
-  const [query, setQuery] = useState('');
-  const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const listId = useId();
-  const atLimit = props.selected.length >= 12;
-
-  const filtered = SECTOR_FOCUS_PRESETS.filter((preset) => {
-    if (props.selected.includes(preset.label)) return false;
-    const q = query.trim().toLowerCase();
-    if (!q) return true;
-    return preset.label.toLowerCase().includes(q);
-  });
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [query, open]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDown(event: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    window.addEventListener('mousedown', onDown);
-    return () => window.removeEventListener('mousedown', onDown);
-  }, [open]);
-
-  function commitLabel(label: string) {
-    if (atLimit) return;
-    props.onAdd(label);
-    setQuery('');
-    setOpen(false);
-  }
-
-  function commitFromQuery() {
-    if (atLimit) return;
-    const q = query.trim().toLowerCase();
-    const exact = SECTOR_FOCUS_PRESETS.find(
-      (preset) => !props.selected.includes(preset.label) && preset.label.toLowerCase() === q,
-    );
-    const pick = exact ?? filtered[activeIndex] ?? filtered[0];
-    if (pick) commitLabel(pick.label);
-  }
-
   return (
-    <div ref={rootRef} className="flex min-w-0 flex-col gap-1" data-testid="create-sector-focuses">
+    <div className="flex min-w-0 flex-col gap-1" data-testid="create-sector-focuses">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-xs leading-4 text-[var(--color-ink-dim)]">Sector focus</span>
+        <span className="text-xs leading-4 text-[var(--color-ink-dim)]">Sector groups</span>
         <span className="font-mono text-[10px] text-[var(--color-ink-faint)]">
-          {props.selected.length}/12
+          {props.selected.length}/{SECTOR_FOCUS_GROUP_DEFS.length}
         </span>
       </div>
-      <div className="relative">
-        <input
-          type="text"
-          role="combobox"
-          aria-expanded={open}
-          aria-controls={listId}
-          aria-autocomplete="list"
-          aria-label="Sector focus"
-          disabled={atLimit}
-          value={query}
-          placeholder={atLimit ? 'Limit reached' : 'Search or select…'}
-          onFocus={() => setOpen(true)}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setOpen(true);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              event.stopPropagation();
-              setOpen(false);
-              return;
-            }
-            if (event.key === 'ArrowDown') {
-              event.preventDefault();
-              setOpen(true);
-              setActiveIndex((index) =>
-                filtered.length === 0 ? 0 : Math.min(index + 1, filtered.length - 1),
-              );
-              return;
-            }
-            if (event.key === 'ArrowUp') {
-              event.preventDefault();
-              setActiveIndex((index) => Math.max(index - 1, 0));
-              return;
-            }
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              commitFromQuery();
-            }
-          }}
-          className="h-9 w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 pr-7 text-sm outline-none focus:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50"
-        />
-        <span
-          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[var(--color-ink-faint)]"
-          aria-hidden
-        >
-          ▾
-        </span>
-        {open && !atLimit && (
-          <ul
-            id={listId}
-            role="listbox"
-            aria-label="Sector focus presets"
-            className="absolute left-0 right-0 top-full z-50 mt-1 max-h-44 overflow-y-auto overscroll-contain rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] p-1 shadow-xl"
-          >
-            {filtered.length === 0 ? (
-              <li className="px-2 py-1.5 text-[10px] text-[var(--color-ink-faint)]">
-                No matching presets
-              </li>
-            ) : (
-              filtered.map((preset, index) => (
-                <li key={preset.id} role="option" aria-selected={index === activeIndex}>
-                  <button
-                    type="button"
-                    onMouseEnter={() => setActiveIndex(index)}
-                    onClick={() => commitLabel(preset.label)}
-                    className={
-                      index === activeIndex
-                        ? 'w-full rounded px-2 py-1.5 text-left text-[11px] text-[var(--color-ink)] bg-[var(--color-accent)]/15'
-                        : 'w-full rounded px-2 py-1.5 text-left text-[11px] text-[var(--color-ink)] hover:bg-[var(--color-accent)]/10'
-                    }
-                  >
-                    {preset.label}
-                  </button>
-                </li>
-              ))
-            )}
-          </ul>
-        )}
-      </div>
-      {props.selected.length > 0 && (
-        <div className="flex flex-wrap gap-1" data-testid="create-sector-focuses-selected">
-          {props.selected.map((label) => (
+      <p className="text-[10px] text-[var(--color-ink-faint)]">
+        Broad categories only — all specifics included by default. Refine in Company → Sectors.
+      </p>
+      <div className="flex flex-wrap gap-1" data-testid="create-sector-focuses-selected" role="group" aria-label="Sector groups">
+        {SECTOR_FOCUS_GROUP_DEFS.map((group) => {
+          const on = props.selected.includes(group.id);
+          return (
             <button
-              key={label}
+              key={group.id}
               type="button"
-              onClick={() => props.onRemove(label)}
-              className="inline-flex max-w-full items-center gap-1 rounded-full border border-[var(--color-accent)] bg-[var(--color-accent)]/15 px-2 py-0.5 text-[10px] text-[var(--color-accent)]"
-              aria-label={`Remove sector focus ${label}`}
+              aria-pressed={on}
+              onClick={() => props.onToggle(group.id)}
+              className={
+                on
+                  ? 'inline-flex items-center rounded-full border border-[var(--color-accent)] bg-[var(--color-accent)]/15 px-2 py-0.5 text-[10px] text-[var(--color-accent)]'
+                  : 'inline-flex items-center rounded-full border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)]/50'
+              }
             >
-              <span className="truncate">{label}</span>
-              <span aria-hidden>×</span>
+              {group.label}
             </button>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 }

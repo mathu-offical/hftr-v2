@@ -52,6 +52,7 @@ export async function POST(_req: Request, ctx: Ctx) {
       name: truncateName(`${source.name} (copy)`),
       philosophyPrompt: source.philosophyPrompt,
       sectorFocuses: source.sectorFocuses,
+      universeExcludes: source.universeExcludes,
       philosophyProfile: source.philosophyProfile,
       llmPolicy: source.llmPolicy,
       goals: source.goals,

@@ -104,14 +104,10 @@ test.describe('Companies directory', () => {
     await ensureIdentityFields(page);
     await page.getByRole('textbox', { name: /Name/ }).fill(e2eCompanyName('create-gate'));
     await page.getByRole('textbox', { name: /Philosophy/ }).fill('E2E create-gate philosophy.');
-    await page.getByRole('combobox', { name: 'Sector focus' }).fill('Semi');
-    await page.getByRole('option', { name: 'Semiconductors' }).click();
-    await page.getByRole('combobox', { name: 'Sector focus' }).fill('Clean energy');
-    await page.getByRole('combobox', { name: 'Sector focus' }).press('Enter');
-    await expect(page.getByTestId('create-sector-focuses-selected')).toContainText('Semiconductors');
-    await expect(page.getByTestId('create-sector-focuses-selected')).toContainText(
-      'Clean energy & utilities',
-    );
+    await page.getByTestId('create-sector-focuses-selected').getByRole('button', { name: 'Technology' }).click();
+    await page.getByTestId('create-sector-focuses-selected').getByRole('button', { name: 'Energy' }).click();
+    await expect(page.getByTestId('create-sector-focuses-selected')).toContainText('Technology');
+    await expect(page.getByTestId('create-sector-focuses-selected')).toContainText('Energy');
     await expect(page.getByTestId('engine-inspector-panel')).toContainText(/Semiconductors/);
     await confirmIdentity(page);
     await expect(page.getByRole('button', { name: 'Skip setup & open canvas' })).toBeEnabled();

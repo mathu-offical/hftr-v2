@@ -19,14 +19,16 @@ import {
 } from '@hftr/contracts';
 import { api } from '@/lib/client';
 import { useOptionalLlmConnectionStatus } from '@/components/shell/LlmConnectionStatus';
+import { CompanySectorsTab } from '@/components/shell/CompanySectorsTab';
 
-type Tab = 'ledger' | 'profile' | 'operating' | 'settings' | 'philosophy';
+type Tab = 'ledger' | 'profile' | 'operating' | 'settings' | 'philosophy' | 'sectors';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'ledger', label: 'Ledger / PnL' },
   { id: 'profile', label: 'Trading profile' },
   { id: 'operating', label: 'LLM / operating' },
   { id: 'settings', label: 'Settings' },
   { id: 'philosophy', label: 'Philosophy' },
+  { id: 'sectors', label: 'Sectors' },
 ];
 
 interface LedgerRow {
@@ -57,8 +59,8 @@ function dollars(cents: string | number): string {
 
 /**
  * Top drawer sliding from the app-shell ribbon (ui-ux spec): company ledger
- * and PnL rollup, trading profile summary, settings, and the editable
- * philosophy prompt.
+ * and PnL rollup, trading profile summary, settings, philosophy, and sector
+ * focus refinement (D-106). Near-fullscreen under the ribbon.
  */
 export function TopDrawer(props: {
   companyId: string;
@@ -67,6 +69,8 @@ export function TopDrawer(props: {
   philosophyProfile?: unknown;
   seedCreditsCents: string;
   createdAt: string;
+  sectorFocuses?: string[];
+  universeExcludes?: string[];
 }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('ledger');
@@ -109,8 +113,11 @@ export function TopDrawer(props: {
       </button>
 
       {open && (
-        <div className="absolute inset-x-0 top-full z-40 border-b border-[var(--color-line)] bg-[var(--color-surface-1)] shadow-2xl">
-          <div className="mx-auto flex max-w-5xl gap-6 px-6 py-4">
+        <div
+          className="absolute inset-x-0 top-full z-40 flex h-[min(92vh,calc(100vh-2.75rem))] flex-col border-b border-[var(--color-line)] bg-[var(--color-surface-1)] shadow-2xl"
+          data-testid="company-top-drawer"
+        >
+          <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 gap-6 px-6 py-4">
             <nav className="w-44 shrink-0 space-y-0.5 border-r border-[var(--color-line)] pr-4" aria-label="Company sections">
               {TABS.map((t) => (
                 <button
@@ -128,7 +135,7 @@ export function TopDrawer(props: {
               ))}
             </nav>
 
-            <div className="min-h-48 max-h-80 min-w-0 flex-1 overflow-y-auto pr-2">
+            <div className="min-h-0 min-w-0 flex-1 overflow-y-auto pr-2">
               {tab === 'ledger' && (
                 <div className="space-y-4">
                   <div className="flex gap-8">
@@ -205,6 +212,14 @@ export function TopDrawer(props: {
                   companyId={props.companyId}
                   philosophy={props.philosophy}
                   philosophyProfile={props.philosophyProfile}
+                />
+              )}
+
+              {tab === 'sectors' && (
+                <CompanySectorsTab
+                  companyId={props.companyId}
+                  initialFocuses={props.sectorFocuses ?? []}
+                  initialExcludes={props.universeExcludes ?? []}
                 />
               )}
             </div>

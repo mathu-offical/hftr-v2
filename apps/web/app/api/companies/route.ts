@@ -84,6 +84,7 @@ export async function POST(req: Request) {
         name: input.name,
         philosophyPrompt: input.philosophyPrompt,
         sectorFocuses: input.sectorFocuses,
+        universeExcludes: input.universeExcludes ?? [],
         philosophyProfile: DEFAULT_PHILOSOPHY_PROFILE,
         mode: input.mode,
         seedCreditsCents: seedCents,

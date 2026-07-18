@@ -14,7 +14,9 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 
 ## Companies & modules
 
-- **companies** — clerk_user_id, name, philosophy_prompt, sector_focuses text[] (D-045 presets),
+- **companies** — clerk_user_id, name, philosophy_prompt, sector_focuses text[] (D-044/D-106
+  active refined specifics; create expands selected groups), universe_excludes text[] (D-106
+  operator ticker carve-outs; separate from focuses),
   philosophy_profile jsonb (slideable
   axes → LeverSetting; D-025), llm_policy jsonb (privacy mode, tier model ids, profile;
   D-027), goals jsonb, reinvestment_policy jsonb, scoping_policies jsonb, mode `paper|live`,
@@ -31,10 +33,13 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   module_id nullable, body, created_by_clerk_user_id, created_at) — immutable operator
   constraints folded into synthesize; never agent-writable. Migration `0035`.
   **D-090:** **module_service_bindings** (company_id, module_id, source_kind
-  `broker_connection|user_api_key`, capability, broker_connection_id XOR user_api_key_id,
-  status `bound|stale|missing|revoked`) —
+  `broker_connection|user_api_key|user_research_key`, capability, exactly one of
+  broker_connection_id / user_api_key_id / user_research_key_id, status
+  `bound|stale|missing|revoked`) —
   persisted coverage from verified sources; resolved on broker verify and module/engine/
-  company create. GET `/api/companies/:id/service-coverage`. Migration `0036`.
+  company create. GET `/api/companies/:id/service-coverage`. Migration `0036`; research-key
+  widen `0039`; **0040** drops legacy Neon CHECK `module_service_bindings_source_check`
+  that 500'd coverage when binding research keys.
   **realized_pnl_events** append-only fill-time PnL for session daily-loss limits
   (cash ledger stays cash-only).
   **D-093:** `user_research_key_id` on bindings + source_kind `user_research_key`;

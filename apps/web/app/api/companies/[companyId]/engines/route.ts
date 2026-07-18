@@ -4,6 +4,7 @@ import {
   computeEngineBoundsFromPositions,
   InsertEngineInput,
   listResolvedEngineTemplates,
+  MAX_MODULES_PER_COMPANY,
   MODULE_CONFIG_SCHEMAS,
   moduleRequiresMath,
   withDefaultEngineSetup,
@@ -27,8 +28,6 @@ export const dynamic = 'force-dynamic';
 
 const Params = z.object({ companyId: z.string().uuid() });
 type Ctx = { params: Promise<{ companyId: string }> };
-
-const MAX_MODULES_PER_COMPANY = 60;
 
 function serializeEngine(row: typeof engineInstances.$inferSelect, memberModuleIds: string[]) {
   return {

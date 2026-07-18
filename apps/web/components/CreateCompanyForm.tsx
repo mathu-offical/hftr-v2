@@ -4,11 +4,14 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ENGINE_TEMPLATES,
+  MAX_ENGINES_PER_COMPANY,
+  MAX_MODULES_PER_COMPANY,
   SECTOR_FOCUS_PRESETS,
   defaultEngineCapitalEnvelope,
   defaultTargetExitLocal,
   engineCreateSection,
   listEngineTemplatesForCreateSection,
+  projectedModuleSlotsForCreate,
   researchDependenciesForExecutionEngine,
   requiredModuleSetupFields,
   sectorFocusDraftString,
@@ -201,7 +204,7 @@ export function CreateCompanyForm() {
   // Include gated templates so Research/Execution show locked add buttons with reasons.
   const researchCatalog = listEngineTemplatesForCreateSection('research');
   const executionCatalog = listEngineTemplatesForCreateSection('execution');
-  const atEngineLimit = engines.length >= 10;
+  const atEngineLimit = engines.length >= MAX_ENGINES_PER_COMPANY;
   const selectedEngine = engines.find((item) => item.key === selectedEngineKey) ?? null;
   const previewEngines = engines.map((item) => ({
     ...item,
@@ -296,7 +299,7 @@ export function CreateCompanyForm() {
 
   function addResearchEngine(templateId: string) {
     if (atEngineLimit) {
-      setError('Engine limit reached (10). Remove one to add another.');
+      setError(`Engine limit reached (${MAX_ENGINES_PER_COMPANY}). Remove one to add another.`);
       return;
     }
     const seed = makeEngineSeed(templateId, seedCentsFromDollars(seedDollars));
@@ -311,7 +314,7 @@ export function CreateCompanyForm() {
       availableEngines.some((engine) => engine.id === depId),
     );
     const slotsNeeded = 1 + depIds.length;
-    if (engines.length + slotsNeeded > 10) {
+    if (engines.length + slotsNeeded > MAX_ENGINES_PER_COMPANY) {
       setError(
         `Need ${slotsNeeded} free engine slots (execution + research deps). Remove engines first.`,
       );
@@ -464,6 +467,19 @@ export function CreateCompanyForm() {
   async function createCompany(skipSetup: boolean) {
     if (engines.length < 1) {
       setError('Add at least one engine to create this company.');
+      return;
+    }
+    const projectedSlots = projectedModuleSlotsForCreate({
+      engineModuleTypes: engines.map((item) => {
+        const template = ENGINE_TEMPLATES.find((entry) => entry.id === item.templateId);
+        return (template?.modules ?? []).map((module) => module.type);
+      }),
+      extraModuleTypes: extraModules.map((item) => item.type),
+    });
+    if (projectedSlots > MAX_MODULES_PER_COMPANY) {
+      setError(
+        `This setup needs ${projectedSlots} modules (limit ${MAX_MODULES_PER_COMPANY}). Remove an engine or standalone module.`,
+      );
       return;
     }
     setBusy(true);
@@ -958,7 +974,7 @@ function humanize(err: RequestError): string {
     case 'company_limit_reached':
       return 'You have reached the company limit.';
     case 'module_limit_reached':
-      return 'Too many modules for one company.';
+      return `Too many modules for one company (limit ${MAX_MODULES_PER_COMPANY}). Remove an engine or standalone module.`;
     case 'invalid_input':
       return err.issues?.map((i) => `${i.path}: ${i.message}`).join('; ') ?? 'Invalid input.';
     case 'engine_template_not_found':

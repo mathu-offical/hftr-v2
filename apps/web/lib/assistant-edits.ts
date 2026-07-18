@@ -4,6 +4,7 @@ import {
   allowedLinkKinds,
   AssistantEditProposal,
   isLegalFundRoute,
+  MAX_MODULES_PER_COMPANY,
   MODULE_CONFIG_SCHEMAS,
   moduleRequiresMath,
   ModuleType,
@@ -18,8 +19,6 @@ import { ApiError } from '@/lib/api';
 import { recordModuleSetup } from '@/lib/module-setup';
 import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
 import { provisionDedicatedMathTools } from '@/lib/math-provision';
-
-const MAX_MODULES_PER_COMPANY = 60;
 
 export interface ApplyAssistantEditContext {
   userMessageText?: string;

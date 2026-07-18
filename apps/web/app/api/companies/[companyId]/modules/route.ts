@@ -1,6 +1,11 @@
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { CreateModuleInput, MODULE_CONFIG_SCHEMAS, moduleRequiresMath } from '@hftr/contracts';
+import {
+  CreateModuleInput,
+  MAX_MODULES_PER_COMPANY,
+  MODULE_CONFIG_SCHEMAS,
+  moduleRequiresMath,
+} from '@hftr/contracts';
 import { libraries, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
 import { bootstrapCompanyKnowledge, createSystemClock } from '@hftr/engine';
@@ -12,8 +17,6 @@ export const dynamic = 'force-dynamic';
 
 const Params = z.object({ companyId: z.string().uuid() });
 type Ctx = { params: Promise<{ companyId: string }> };
-
-const MAX_MODULES_PER_COMPANY = 60;
 
 export async function GET(_req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {

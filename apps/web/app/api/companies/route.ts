@@ -4,8 +4,9 @@ import {
   CreateCompanyInput,
   DEFAULT_PHILOSOPHY_PROFILE,
   listResolvedEngineTemplates,
+  MAX_MODULES_PER_COMPANY,
   MODULE_CONFIG_SCHEMAS,
-  moduleRequiresMath,
+  projectedModuleSlotsForCreate,
   withDefaultEngineSetup,
 } from '@hftr/contracts';
 import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
@@ -29,7 +30,6 @@ import { fundRouterToTradingMathLinks } from '@/lib/fund-route-links';
 export const dynamic = 'force-dynamic';
 
 const MAX_COMPANIES_PER_USER = 20;
-const MAX_MODULES_PER_COMPANY = 60;
 
 export async function GET() {
   return withAuth(async ({ db, clerkUserId }) => {
@@ -62,18 +62,13 @@ export async function POST(req: Request) {
     }
 
     const extraModules = input.extraModules ?? [];
-    const projectedCount =
-      1 +
-      extraModules.length +
-      extraModules.filter((module) => moduleRequiresMath(module.type)).length +
-      input.engines.reduce((sum, seed) => {
+    const projectedCount = projectedModuleSlotsForCreate({
+      engineModuleTypes: input.engines.map((seed) => {
         const resolved = engineCatalog.find((item) => item.id === seed.templateId);
-        return (
-          sum +
-          (resolved?.modules.length ?? 0) +
-          (resolved?.modules.filter((module) => moduleRequiresMath(module.type)).length ?? 0)
-        );
-      }, 0);
+        return (resolved?.modules ?? []).map((module) => module.type);
+      }),
+      extraModuleTypes: extraModules.map((module) => module.type),
+    });
     if (projectedCount > MAX_MODULES_PER_COMPANY) {
       throw new ApiError(422, 'module_limit_reached');
     }

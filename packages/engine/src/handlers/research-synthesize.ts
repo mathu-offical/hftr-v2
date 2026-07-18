@@ -10,6 +10,7 @@ import {
   upsertResearchRun,
 } from '../research/run-state';
 import { buildDeterministicBatchFromEvidence, runResearchSynthesis } from '../research/synthesis';
+import { loadSealSummariesForSynthesize } from '../research/seal-load';
 import { enqueue } from '../queue/queue';
 import { venueDate } from '../calendar/calendar';
 import { estimateLlmJobCost } from '../queue/llm-cost-estimate';
@@ -36,6 +37,12 @@ registerHandler('research.synthesize', async ({ db, clock, job, modelGateway }) 
   const evidenceRows = await listEvidenceForRequest(db, payload.requestId);
   const evidencePackages = evidenceRows.map((row) => EvidencePackage.parse(row.package ?? row));
 
+  // D-072: pass valid seals so synthesize can cite seal:{id} without re-verify.
+  const sealSummaries = await loadSealSummariesForSynthesize(db, {
+    companyId: payload.companyId,
+    nowMs: clock.nowMs(),
+  });
+
   let batch =
     modelGateway && process.env.HFTR_LLM_MODE !== 'deterministic'
       ? await runResearchSynthesis({
@@ -46,6 +53,8 @@ registerHandler('research.synthesize', async ({ db, clock, job, modelGateway }) 
           companyId: payload.companyId,
           moduleId: payload.moduleId,
           topicScope,
+          evidencePackages,
+          sealSummaries,
         })
       : null;
   const synthesizedViaModel = batch != null;

@@ -19,6 +19,10 @@ export interface ResearchSynthesizeInput {
     tier: string | null;
   }>;
   existingConceptTitles: string[];
+  /** Leak-linted evidence digests for grounded synthesize (D-070). */
+  evidenceSummaries?: Array<{ digest: string; title: string; summary: string }>;
+  /** Valid seals the model may cite via seal:{id} without re-verify (D-072). */
+  sealSummaries?: Array<{ sealId: string; kind: string; title: string }>;
 }
 
 /** Qualitative tactical input — no raw money, prices, or authoritative datetimes. */

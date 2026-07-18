@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { EvidencePackage } from '@hftr/contracts';
 import { concepts, researchRequests } from '@hftr/db/schema';
 import { validateEvidencePackages } from '../research/validation';
+import { recordCurationScoreEvent } from '../research/curation-score';
+import { buildRejectRepairHints } from '../research/reject-repair';
 import {
   listEvidenceForRequest,
   loadResearchRequest,
@@ -48,7 +50,36 @@ registerHandler('research.validate', async ({ db, clock, job }) => {
     nowMs: clock.nowMs(),
   });
 
+  // Weak-supervision prior telemetry (D-071) — raw ratios stay in rawMeta only.
+  for (const gate of validation.gates) {
+    await recordCurationScoreEvent({
+      db,
+      companyId: payload.companyId,
+      gateId: gate.gateId,
+      scoreBand: gate.scoreBand,
+      passed: gate.passed,
+      reason: gate.reason,
+      rawMeta: {
+        evidenceCount: evidencePackages.length,
+        relevanceBand: validation.relevanceBand,
+      },
+      now,
+    });
+  }
+
   const evidenceIds = evidenceRows.map((r) => r.id);
+
+  // D-071: band-only repairHints for librarian reject-repair (never raw ratios).
+  const failedGates = validation.gates.filter((g) => !g.passed);
+  const repairHints = buildRejectRepairHints({
+    shapeOk: failedGates.every((g) => g.gateId !== 'coherence'),
+    overallBand: validation.relevanceBand,
+    grounded: failedGates.every(
+      (g) => g.gateId !== 'source_entitlement' && g.gateId !== 'leak_recheck',
+    ),
+    existingHints: failedGates.map((g) => g.reason).filter((r) => r.length > 0),
+  }).map((h) => h.hint);
+  const validationWithHints = { ...validation, repairHints };
 
   if (!validation.overallPass) {
     await upsertResearchRun(db, {
@@ -68,11 +99,8 @@ registerHandler('research.validate', async ({ db, clock, job }) => {
       status: 'validation_failed',
       evidenceIds,
       artifactRefs: validation.artifactRefs,
-      validation,
-      failureReason: validation.gates
-        .filter((g) => !g.passed)
-        .map((g) => g.gateId)
-        .join(','),
+      validation: validationWithHints,
+      failureReason: failedGates.map((g) => g.gateId).join(','),
       envelope: request.envelope as Record<string, unknown>,
       now,
     });
@@ -101,7 +129,7 @@ registerHandler('research.validate', async ({ db, clock, job }) => {
     status: 'validated',
     evidenceIds,
     artifactRefs: validation.artifactRefs,
-    validation,
+    validation: validationWithHints,
     envelope: request.envelope as Record<string, unknown>,
     now,
   });

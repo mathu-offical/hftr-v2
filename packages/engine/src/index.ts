@@ -45,6 +45,7 @@ export type {
 export {
   materializeSchedules,
   ensureResearchCadenceSchedule,
+  ensureSystemLibrarySchedule,
   ensureSystemMoversSchedule,
   parseScheduleExpr,
   isScheduleDue,
@@ -81,6 +82,17 @@ export {
   SEED_CATALOG_TARGETS,
   type SeededCatalogEntry,
 } from './libraries/bootstrap';
+export { ensureSectorKnowledge } from './libraries/ensure-sector-knowledge';
+export {
+  ensureSystemLibrary,
+  ensureAllSystemLibraries,
+  type EnsureSystemLibraryOpts,
+} from './libraries/ensure-system-library';
+export {
+  SYSTEM_LIBRARY_REGISTRY,
+  type SystemLibraryRegistryEntry,
+  type SystemLibraryPlaceholderSeed,
+} from './libraries/system-library-registry';
 export {
   ensureSystemMoversLibrary,
   MOVERS_LIBRARY_NAME,
@@ -88,6 +100,40 @@ export {
   MOVERS_TOPIC_SCOPE,
   type EnsureSystemMoversLibraryOpts,
 } from './libraries/system-movers';
+export {
+  validateDocumentShape,
+  countDocumentWikilinks,
+  hasWikilink,
+  type ValidateDocumentShapeInput,
+} from './research/document-shape';
+export {
+  scoreDocumentCuration,
+  recordCurationScoreEvent,
+  SYSTEM_DOC_KIND_TTL_MS,
+  type ScoreDocumentCurationInput,
+  type RecordCurationScoreEventInput,
+} from './research/curation-score';
+export {
+  corroborateAndNormalize,
+  isSealValid,
+  type CorroborateAndNormalizeInput,
+} from './research/verified-normalize';
+export { persistVerifiedBundle, systemDocKindForView, type PersistVerifiedBundleInput } from './research/seal-persist';
+export {
+  loadLatestValidSeal,
+  loadSealSummariesForSynthesize,
+  type SealSummary,
+} from './research/seal-load';
+export {
+  assertBatchEvidenceGrounded,
+  allowedRefsFromEvidence,
+} from './research/evidence-grounding';
+export {
+  buildRejectRepairHints,
+  canContinueRejectRepair,
+  librarianEnvelopeFromBatch,
+} from './research/reject-repair';
+export { validateEvidencePackages, type ValidateEvidencePackagesInput } from './research/validation';
 export {
   resolveResearchGatherCredentials,
   type ResearchGatherCredentials,
@@ -139,6 +185,8 @@ import './handlers/reconcile';
 import './handlers/simulation';
 import './handlers/analyzer';
 import './handlers/library-system-movers';
+import './handlers/library-system-sector-news';
+import './handlers/library-system-daily-summaries';
 
 // Dispatch
 export {
@@ -210,6 +258,15 @@ export * as fixed from './calc/fixed';
 export { describe as describeValue, type BandDefinition } from './calc/descriptors';
 export { leakLint, type LeakLintResult } from './calc/leak-lint';
 export { checkEnvelope, checkInput, type SanityCheckResult } from './calc/sanity';
+export {
+  tokenizeQualitativeText,
+  tokenOverlapRatio,
+  overlapToRelevanceBand,
+  scoreRelevanceBand,
+  titleSimilarity,
+  similarityBandBetweenTexts,
+  type RelevanceBand,
+} from './research/relevance';
 
 // Pipeline (pure lead→tree→compile logic; handlers wire the DB flow)
 export {

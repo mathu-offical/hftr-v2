@@ -6,6 +6,10 @@ import type { Clock } from '../clock';
 import type { ClaimedJob } from '../queue/queue';
 import { loadCatalogHints } from '../handlers/research-deterministic';
 import type { ModelGateway } from '../handlers/model-gateway';
+import {
+  allowedRefsFromEvidence,
+  assertBatchEvidenceGrounded,
+} from './evidence-grounding';
 
 export function buildDeterministicBatchFromEvidence(opts: {
   evidencePackages: EvidencePackage[];
@@ -23,7 +27,7 @@ export function buildDeterministicBatchFromEvidence(opts: {
       `Evidence-backed qualitative note from ${pkg.sourceKind} (${pkg.feedClass}). ` +
       `${pkg.summary}`,
     tags: [...new Set([pkg.sourceKind, ...scopeTags])].slice(0, 16),
-    sourceRef: pkg.externalRef ?? `evidence:${pkg.digest}`,
+    sourceRef: `evidence:${pkg.digest}`,
   }));
 
   return ConceptBatch.parse({
@@ -42,6 +46,8 @@ export async function runResearchSynthesis(ctx: {
   companyId: string;
   moduleId: string;
   topicScope: string;
+  evidencePackages: EvidencePackage[];
+  sealSummaries?: Array<{ sealId: string; kind: string; title: string }>;
 }): Promise<ConceptBatch | null> {
   const [company] = await ctx.db
     .select({
@@ -69,6 +75,14 @@ export async function runResearchSynthesis(ctx: {
       ? Object.keys(company.philosophyProfile as Record<string, unknown>).slice(0, 16)
       : [];
 
+  const evidenceSummaries = ctx.evidencePackages.slice(0, 24).map((pkg) => ({
+    digest: pkg.digest,
+    title: pkg.title.slice(0, 300),
+    summary: pkg.summary.slice(0, 500),
+  }));
+
+  const sealSummaries = (ctx.sealSummaries ?? []).slice(0, 8);
+
   const result = await ctx.modelGateway.synthesizeResearch({
     companyId: ctx.companyId,
     moduleId: ctx.moduleId,
@@ -78,8 +92,16 @@ export async function runResearchSynthesis(ctx: {
     philosophyAxes,
     catalogHints,
     existingConceptTitles: existing.map((r) => r.title),
+    evidenceSummaries,
+    sealSummaries,
   });
 
   if (!result.ok) return null;
-  return result.batch;
+
+  const allowed = allowedRefsFromEvidence(
+    ctx.evidencePackages,
+    sealSummaries.map((s) => s.sealId),
+  );
+  const grounded = assertBatchEvidenceGrounded(result.batch, allowed);
+  return grounded;
 }

@@ -12,8 +12,10 @@ import {
 } from '@hftr/db/schema';
 import { leakLint } from '../calc/leak-lint';
 import { createFixedClock } from '../clock';
-import { ensureSystemMoversSchedule } from '../schedules/materialize';
-import { ensureSystemMoversLibrary } from './system-movers';
+import { ensureSystemLibrarySchedule } from '../schedules/materialize';
+import { ensureAllSystemLibraries } from './ensure-system-library';
+import { ensureSectorKnowledge } from './ensure-sector-knowledge';
+import { SYSTEM_LIBRARY_REGISTRY } from './system-library-registry';
 
 const MECHANISMS_LIBRARY_NAME = 'Seeded trading mechanisms';
 const SEEDED_TOPIC_TITLE = 'Seeded trading mechanisms';
@@ -194,6 +196,32 @@ export function buildSeededConceptBody(entry: SeededCatalogEntry): string {
   pushSection(lines, 'Special rules', asStringList(payload.specialRules, 5));
   pushSection(lines, 'Verification signals', asStringList(payload.verificationSignals));
   pushSection(lines, 'Operator visibility', asStringList(payload.operatorVisibility));
+  pushSection(lines, 'Subsectors', asStringList(payload.subsectors));
+  pushSection(lines, 'Lead gathering patterns', asStringList(payload.leadGatheringPatterns));
+  pushSection(lines, 'Event drivers', asStringList(payload.eventDrivers));
+  pushSection(lines, 'Trend vectors', asStringList(payload.trendVectors));
+  pushSection(lines, 'Baseline knowledge', asStringList(payload.baselineKnowledge));
+
+  const strategyBias =
+    payload.strategyBias && typeof payload.strategyBias === 'object' && !Array.isArray(payload.strategyBias)
+      ? (payload.strategyBias as Record<string, unknown>)
+      : null;
+  if (strategyBias) {
+    pushSection(lines, 'Preferred strategies', asStringList(strategyBias.preferred ?? strategyBias.amplify));
+    pushSection(lines, 'Suppress strategies', asStringList(strategyBias.suppress ?? strategyBias.veto));
+  }
+
+  const liquidity =
+    typeof payload.liquidityClass === 'string' ? leakSafeLabel(payload.liquidityClass) : '';
+  if (liquidity && isLeakSafeText(liquidity)) {
+    lines.push('', `Liquidity class: ${liquidity}.`);
+  }
+
+  const macroSens =
+    typeof payload.macroSensitivity === 'string' ? leakSafeLabel(payload.macroSensitivity) : '';
+  if (macroSens && isLeakSafeText(macroSens)) {
+    lines.push(`Macro sensitivity: ${macroSens}.`);
+  }
 
   const handoff =
     payload.trendLeadBindings &&
@@ -368,10 +396,37 @@ export async function bootstrapCompanyKnowledge(opts: {
 }): Promise<{ librariesEnsured: number; conceptsUpserted: number; topicId: string | null }> {
   const now = opts.now ?? new Date();
 
-  await ensureSystemMoversLibrary(opts.db, opts.companyId, now);
-  await ensureSystemMoversSchedule(opts.db, createFixedClock(now.getTime()), {
-    companyId: opts.companyId,
-  });
+  await ensureAllSystemLibraries(opts.db, opts.companyId, now);
+
+  const clock = createFixedClock(now.getTime());
+  const dailyPhases = ['pre_open', 'midday', 'close', 'post_analysis'] as const;
+  for (const entry of SYSTEM_LIBRARY_REGISTRY) {
+    if (!entry.scheduleKind || !entry.cadenceMinutes) continue;
+    // D-070: daily summaries get one schedule per session phase (distinct subject keys).
+    if (entry.scheduleKind === 'library.system_daily_summaries') {
+      for (const phase of dailyPhases) {
+        await ensureSystemLibrarySchedule(opts.db, clock, {
+          companyId: opts.companyId,
+          scheduleName: `system-daily_summaries-${phase}-${opts.companyId}`,
+          kind: entry.scheduleKind,
+          cadenceMinutes: entry.cadenceMinutes,
+          payloadTemplate: {
+            companyId: opts.companyId,
+            topicScope: entry.topicScope,
+            phase,
+          },
+        });
+      }
+      continue;
+    }
+    await ensureSystemLibrarySchedule(opts.db, clock, {
+      companyId: opts.companyId,
+      scheduleName: `${entry.topicScope.replace(':', '-')}-${opts.companyId}`,
+      kind: entry.scheduleKind,
+      cadenceMinutes: entry.cadenceMinutes,
+      payloadTemplate: { companyId: opts.companyId, topicScope: entry.topicScope },
+    });
+  }
 
   if (opts.skipIfSeeded !== false) {
     const [existingSeed] = await opts.db
@@ -397,7 +452,13 @@ export async function bootstrapCompanyKnowledge(opts: {
         )
         .limit(1);
       if (mechLib) {
-        return { librariesEnsured: 0, conceptsUpserted: 0, topicId: null };
+        // Mechanisms already seeded — still ensure sector knowledge for current focuses.
+        const sector = await ensureSectorKnowledge(opts.db, opts.companyId, now);
+        return {
+          librariesEnsured: 0,
+          conceptsUpserted: sector.conceptsUpserted,
+          topicId: null,
+        };
       }
     }
   }
@@ -434,7 +495,12 @@ export async function bootstrapCompanyKnowledge(opts: {
 
   const ownerModuleId = resolveOwnerModuleId(companyModules);
   if (!ownerModuleId) {
-    return { librariesEnsured, conceptsUpserted: 0, topicId: null };
+    const sector = await ensureSectorKnowledge(opts.db, opts.companyId, now);
+    return {
+      librariesEnsured,
+      conceptsUpserted: sector.conceptsUpserted,
+      topicId: null,
+    };
   }
 
   const catalogRows = await opts.db
@@ -488,7 +554,12 @@ export async function bootstrapCompanyKnowledge(opts: {
   }
 
   if (seededTitles.length === 0) {
-    return { librariesEnsured, conceptsUpserted: 0, topicId: null };
+    const sector = await ensureSectorKnowledge(opts.db, opts.companyId, now);
+    return {
+      librariesEnsured,
+      conceptsUpserted: sector.conceptsUpserted,
+      topicId: null,
+    };
   }
 
   const conceptRows = await opts.db
@@ -542,7 +613,12 @@ export async function bootstrapCompanyKnowledge(opts: {
 
   const ownerModule = companyModules.find((m) => m.id === ownerModuleId);
   if (ownerModule?.type !== 'research') {
-    return { librariesEnsured, conceptsUpserted, topicId: null };
+    const sector = await ensureSectorKnowledge(opts.db, opts.companyId, now);
+    return {
+      librariesEnsured,
+      conceptsUpserted: conceptsUpserted + sector.conceptsUpserted,
+      topicId: null,
+    };
   }
 
   const synopsisMd = buildTopicSynopsisMd(seededTitles);
@@ -593,5 +669,10 @@ export async function bootstrapCompanyKnowledge(opts: {
     });
   }
 
-  return { librariesEnsured, conceptsUpserted, topicId };
+  const sector = await ensureSectorKnowledge(opts.db, opts.companyId, now);
+  return {
+    librariesEnsured,
+    conceptsUpserted: conceptsUpserted + sector.conceptsUpserted,
+    topicId,
+  };
 }

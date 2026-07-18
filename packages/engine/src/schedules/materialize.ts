@@ -166,21 +166,25 @@ function systemMoversScheduleName(companyId: string): string {
   return `system-movers-${companyId}`;
 }
 
-/** Upsert company-scoped daily schedule for `library.system_movers` (D-062). */
-export async function ensureSystemMoversSchedule(
+export async function ensureSystemLibrarySchedule(
   db: Db,
   clock: Clock,
-  opts: { companyId: string },
+  opts: {
+    companyId: string;
+    scheduleName: string;
+    kind: string;
+    cadenceMinutes: number;
+    payloadTemplate?: Record<string, unknown>;
+  },
 ): Promise<void> {
   const now = new Date(clock.nowMs());
-  const name = systemMoversScheduleName(opts.companyId);
-  const cronExpr = `${EVERY_PREFIX}${SYSTEM_MOVERS_CADENCE_MINUTES}`;
-  const payloadTemplate = { companyId: opts.companyId };
+  const cronExpr = `${EVERY_PREFIX}${opts.cadenceMinutes}`;
+  const payloadTemplate = opts.payloadTemplate ?? { companyId: opts.companyId };
 
   const existing = await db
     .select({ id: jobSchedules.id })
     .from(jobSchedules)
-    .where(and(eq(jobSchedules.companyId, opts.companyId), eq(jobSchedules.name, name)))
+    .where(and(eq(jobSchedules.companyId, opts.companyId), eq(jobSchedules.name, opts.scheduleName)))
     .limit(1);
 
   if (existing[0]) {
@@ -189,7 +193,7 @@ export async function ensureSystemMoversSchedule(
       .set({
         cronExpr,
         queueClass: 'RESEARCH',
-        kind: 'library.system_movers',
+        kind: opts.kind,
         payloadTemplate,
         moduleId: null,
         enabled: true,
@@ -200,13 +204,28 @@ export async function ensureSystemMoversSchedule(
   }
 
   await db.insert(jobSchedules).values({
-    name,
+    name: opts.scheduleName,
     cronExpr,
     queueClass: 'RESEARCH',
-    kind: 'library.system_movers',
+    kind: opts.kind,
     payloadTemplate,
     companyId: opts.companyId,
     moduleId: null,
     enabled: true,
+  });
+}
+
+/** Upsert company-scoped daily schedule for `library.system_movers` (D-062). */
+export async function ensureSystemMoversSchedule(
+  db: Db,
+  clock: Clock,
+  opts: { companyId: string },
+): Promise<void> {
+  await ensureSystemLibrarySchedule(db, clock, {
+    companyId: opts.companyId,
+    scheduleName: systemMoversScheduleName(opts.companyId),
+    kind: 'library.system_movers',
+    cadenceMinutes: SYSTEM_MOVERS_CADENCE_MINUTES,
+    payloadTemplate: { companyId: opts.companyId },
   });
 }

@@ -112,6 +112,8 @@ export function createWebModelGateway(db: Db, clerkUserId: string): ModelGateway
         philosophyAxes: input.philosophyAxes,
         catalogHints: input.catalogHints,
         existingConceptTitles: input.existingConceptTitles,
+        evidenceSummaries: input.evidenceSummaries ?? [],
+        sealSummaries: input.sealSummaries ?? [],
       });
 
       const systemPrompt = promptForId('research_synthesize.v1');

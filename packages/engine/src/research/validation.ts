@@ -146,5 +146,6 @@ export function validateEvidencePackages(
     gates,
     relevanceBand,
     artifactRefs: [...new Set(artifactRefs)].slice(0, 24),
+    repairHints: [],
   };
 }

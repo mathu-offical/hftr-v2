@@ -343,9 +343,26 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
           value={tab}
           onChange={setTab}
           tabs={[
-            { id: 'research', label: 'Research', title: 'Research + Libraries' },
-            { id: 'market_posture', label: 'Posture', title: 'Market posture' },
-            { id: 'data', label: 'Data', title: 'Data sources' },
+            {
+              id: 'research',
+              label: 'Research',
+              title: 'Research + Libraries',
+              meta:
+                concepts.length + topics.length > 0
+                  ? String(concepts.length + topics.length)
+                  : undefined,
+            },
+            {
+              id: 'market_posture',
+              label: 'Posture',
+              title: 'Market posture',
+            },
+            {
+              id: 'data',
+              label: 'Data',
+              title: 'Data sources',
+              meta: sources.length > 0 ? String(sources.length) : undefined,
+            },
           ]}
         />
         <button
@@ -418,7 +435,9 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
 
             <div className="mt-3">
               {!topicsLoaded ? (
-                <p className="text-[10px] text-[var(--color-ink-faint)]">Loading research topics…</p>
+                <p className="text-[10px] text-[var(--color-ink-faint)]">
+                  Loading research topics…
+                </p>
               ) : (
                 <ResearchPagesList
                   companyId={companyId}
@@ -427,9 +446,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                     title: t.title,
                     moduleId: t.moduleId,
                     parentTopicId: t.parentTopicId ?? null,
-                    ...(typeof t.conceptCount === 'number'
-                      ? { conceptCount: t.conceptCount }
-                      : {}),
+                    ...(typeof t.conceptCount === 'number' ? { conceptCount: t.conceptCount } : {}),
                     status: t.status,
                     priority: t.priority,
                     provenance: t.provenance ?? null,

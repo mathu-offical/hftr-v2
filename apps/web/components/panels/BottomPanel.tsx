@@ -38,6 +38,8 @@ const TABS: { id: Tab; label: string; rail: string }[] = [
 ];
 const BOTTOM_TABS: Tab[] = TABS.map((t) => t.id);
 const DEFAULT_OPEN_TABS: Tab[] = ['trends'];
+/** Max rows rendered inside a condensed multi-pane column. */
+const CONDENSED_LIST_CAP = 48;
 
 function isEditableTarget(e: KeyboardEvent): boolean {
   const el = e.target;
@@ -447,6 +449,60 @@ export function BottomPanel(props: {
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const scopedWatchlists = byEngine(watchlists).filter((w) =>
+    watchlistMatchesTierFilter(w.status, watchlistTierFilter),
+  );
+  const scopedLeads = byEngine(leads);
+  const scopedTrees = byEngine(trees);
+  const scopedExecutions = byEngine(executions);
+  const scopedDead = byEngineOptionalModule(deadJobs);
+  const scopedPending = byEngineOptionalModule(pendingJobs);
+  const scopedTrends = byEngine(trends);
+  const pendingApprovals =
+    scopedTransfers().filter((t) => t.status === 'requested').length +
+    proposals.length +
+    (liveGate != null && (!liveGate.overallPass || !liveGate.evidenceFresh || !liveGate.liveArmedAt)
+      ? 1
+      : 0);
+
+  const trendCandidateCount = scopedTrends.filter(
+    (t) => t.status === 'candidate' || t.status === 'promoted',
+  ).length;
+
+  const paneCount = (id: Tab): number => {
+    switch (id) {
+      case 'trends':
+        return trendCandidateCount;
+      case 'scenarios':
+        return scopedLeads.length;
+      case 'watchlists':
+        return scopedWatchlists.length;
+      case 'positions':
+        return openPositions.length;
+      case 'policies':
+        return policyModules.length;
+      case 'decisions':
+        return scopedExecutions.length;
+      case 'lineage':
+        return (
+          scopedTrends.length +
+          scopedLeads.length +
+          scopedTrees.length +
+          scopedExecutions.length +
+          scopedPending.length +
+          scopedDead.length
+        );
+      case 'approvals':
+        return pendingApprovals;
+      case 'dead':
+        return scopedDead.length;
+      default: {
+        const _exhaustive: never = id;
+        return _exhaustive;
+      }
+    }
+  };
+
   const ribbon = (
     <div
       className={`flex w-full items-stretch gap-2 bg-[var(--color-surface-1)] ${
@@ -460,11 +516,15 @@ export function BottomPanel(props: {
         className="min-w-0 flex-1"
         values={openTabs}
         onToggle={toggleTab}
-        tabs={TABS.map((t) => ({
-          id: t.id,
-          label: t.rail,
-          title: `${t.label}${openTabs.includes(t.id) ? ' (open — click to hide)' : ' (click to open)'}`,
-        }))}
+        tabs={TABS.map((t) => {
+          const count = paneCount(t.id);
+          return {
+            id: t.id,
+            label: t.rail,
+            meta: count > 0 ? String(count) : undefined,
+            title: `${t.label}${openTabs.includes(t.id) ? ' (open — click to hide)' : ' (click to open)'}`,
+          };
+        })}
       />
       <div className="flex shrink-0 items-center gap-2 px-2">
         <select
@@ -503,6 +563,7 @@ export function BottomPanel(props: {
   }
 
   const orderedOpenTabs = TABS.map((t) => t.id).filter((id) => openTabs.includes(id));
+  const expandedPaneCount = orderedOpenTabs.filter((id) => !collapsedPanes.includes(id)).length;
 
   return (
     <section className="flex shrink-0 flex-col bg-[var(--color-surface-1)]">
@@ -516,19 +577,22 @@ export function BottomPanel(props: {
           orderedOpenTabs.map((id) => {
             const meta = TABS.find((t) => t.id === id)!;
             const collapsed = collapsedPanes.includes(id);
+            const soleExpanded = !collapsed && expandedPaneCount === 1;
             return (
               <PaneShell
                 key={id}
                 title={meta.label}
                 rail={meta.rail}
+                count={paneCount(id)}
                 collapsed={collapsed}
+                soleExpanded={soleExpanded}
                 onToggleCollapse={() => togglePaneCollapse(id)}
                 onHide={() => hideTab(id)}
               >
                 {id === 'trends' ? (
                   <TrendsView
                     companyId={props.companyId}
-                    trends={byEngine(trends)}
+                    trends={scopedTrends}
                     modules={scopedModules()}
                     engines={props.engines}
                     onRefetch={load}
@@ -537,23 +601,21 @@ export function BottomPanel(props: {
                 ) : null}
                 {id === 'scenarios' ? (
                   <ScenarioView
-                    leads={byEngine(leads)}
-                    trees={byEngine(trees)}
-                    executions={byEngine(executions)}
+                    leads={scopedLeads}
+                    trees={scopedTrees}
+                    executions={scopedExecutions}
                     moduleName={moduleName}
                     condensed
                   />
                 ) : null}
                 {id === 'watchlists' ? (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <WatchlistTierFilterChips
                       value={watchlistTierFilter}
                       onChange={setWatchlistTierFilter}
                     />
                     <CondensedWatchlistList
-                      rows={byEngine(watchlists).filter((w) =>
-                        watchlistMatchesTierFilter(w.status, watchlistTierFilter),
-                      )}
+                      rows={scopedWatchlists}
                       onConfirm={(itemId) => void confirmWatchlist(itemId)}
                     />
                   </div>
@@ -564,13 +626,13 @@ export function BottomPanel(props: {
                 {id === 'policies' ? <CondensedPoliciesList modules={policyModules} /> : null}
                 {id === 'lineage' ? (
                   <LineageView
-                    trends={byEngine(trends)}
-                    leads={byEngine(leads)}
-                    trees={byEngine(trees)}
-                    executions={byEngine(executions)}
+                    trends={scopedTrends}
+                    leads={scopedLeads}
+                    trees={scopedTrees}
+                    executions={scopedExecutions}
                     verifications={verifications}
-                    pendingJobs={byEngineOptionalModule(pendingJobs)}
-                    deadJobs={byEngineOptionalModule(deadJobs)}
+                    pendingJobs={scopedPending}
+                    deadJobs={scopedDead}
                     moduleName={moduleName}
                     selectedKey={selectedLineageKey}
                     onSelectKey={setSelectedLineageKey}
@@ -579,7 +641,7 @@ export function BottomPanel(props: {
                 ) : null}
                 {id === 'decisions' ? (
                   <CondensedDecisionsList
-                    executions={byEngine(executions)}
+                    executions={scopedExecutions}
                     verifications={verifications}
                     moduleName={moduleName}
                     onOpenTrace={setOpenTraceId}
@@ -599,7 +661,7 @@ export function BottomPanel(props: {
                 {id === 'dead' ? (
                   <DeadLettersView
                     companyId={props.companyId}
-                    jobs={byEngineOptionalModule(deadJobs)}
+                    jobs={scopedDead}
                     moduleName={moduleName}
                     onRefetch={load}
                     condensed
@@ -625,22 +687,33 @@ export function BottomPanel(props: {
 function PaneShell(props: {
   title: string;
   rail: string;
+  count: number;
   collapsed: boolean;
+  soleExpanded?: boolean;
   onToggleCollapse: () => void;
   onHide: () => void;
   children: ReactNode;
 }) {
+  const widthClass = props.collapsed
+    ? 'w-[9.5rem]'
+    : props.soleExpanded
+      ? 'min-w-[18rem] flex-1'
+      : 'w-[min(22rem,80vw)] min-w-[15rem]';
   return (
     <section
-      className={`flex shrink-0 flex-col overflow-hidden rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] ${
-        props.collapsed ? 'w-[10.5rem]' : 'w-[min(22rem,80vw)] min-w-[16rem]'
-      }`}
+      className={`flex shrink-0 flex-col overflow-hidden rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] ${widthClass}`}
       aria-label={`${props.title} pane`}
     >
       <header className="flex shrink-0 items-center gap-1 border-b border-[var(--color-line)] px-2 py-1.5">
         <h3 className="min-w-0 flex-1 truncate font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--color-ink)]">
           {props.rail}
         </h3>
+        <span
+          className="shrink-0 font-mono text-[10px] tabular-nums text-[var(--color-ink-faint)]"
+          aria-label={`${props.count} items`}
+        >
+          {props.count}
+        </span>
         <button
           type="button"
           onClick={props.onToggleCollapse}
@@ -664,7 +737,10 @@ function PaneShell(props: {
         </button>
       </header>
       {props.collapsed ? (
-        <p className="px-2 py-2 text-[10px] text-[var(--color-ink-faint)]">{props.title}</p>
+        <p className="px-2 py-2 text-[10px] text-[var(--color-ink-faint)]">
+          {props.title}
+          {props.count > 0 ? ` · ${props.count}` : ''}
+        </p>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">{props.children}</div>
       )}
@@ -672,13 +748,38 @@ function PaneShell(props: {
   );
 }
 
+function CondensedSection(props: { label: string; count: number }) {
+  return (
+    <p className="sticky top-0 z-[1] bg-[var(--color-surface-0)] pb-1 pt-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--color-ink-faint)] first:pt-0">
+      {props.label}
+      <span className="ml-1 tabular-nums">{props.count}</span>
+    </p>
+  );
+}
+
+function CondensedMore(props: { shown: number; total: number }) {
+  if (props.total <= props.shown) return null;
+  return (
+    <p className="pt-1.5 text-[10px] text-[var(--color-ink-faint)]">
+      Showing {props.shown} of {props.total}
+    </p>
+  );
+}
+
+function takeCondensed<T>(rows: T[]): { shown: T[]; total: number } {
+  return { shown: rows.slice(0, CONDENSED_LIST_CAP), total: rows.length };
+}
+
 function CondensedRow(props: {
   primary: ReactNode;
   secondary?: ReactNode;
   meta?: ReactNode;
+  active?: boolean;
   onClick?: () => void;
 }) {
-  const className = 'w-full border-b border-[var(--color-line)] py-1.5 text-left last:border-b-0';
+  const className = `w-full border-b border-[var(--color-line)] py-1.5 text-left last:border-b-0 ${
+    props.active ? 'bg-[var(--color-accent)]/10' : ''
+  }`;
   const body = (
     <>
       <div className="flex items-baseline justify-between gap-2">
@@ -699,6 +800,7 @@ function CondensedRow(props: {
       <button
         type="button"
         onClick={props.onClick}
+        aria-pressed={props.active}
         className={`${className} hover:bg-[var(--color-surface-1)]`}
       >
         {body}
@@ -719,9 +821,10 @@ function CondensedPositionsList(props: {
   if (props.rows.length === 0) {
     return <CondensedEmpty>No open positions in this engine scope.</CondensedEmpty>;
   }
+  const { shown, total } = takeCondensed(props.rows);
   return (
     <div>
-      {props.rows.map((p) => {
+      {shown.map((p) => {
         const pnl = Number(p.unrealizedPnlCents);
         return (
           <CondensedRow
@@ -740,6 +843,7 @@ function CondensedPositionsList(props: {
           />
         );
       })}
+      <CondensedMore shown={shown.length} total={total} />
     </div>
   );
 }
@@ -748,9 +852,10 @@ function CondensedPoliciesList(props: { modules: ModuleOption[] }) {
   if (props.modules.length === 0) {
     return <CondensedEmpty>No policy modules in this engine scope.</CondensedEmpty>;
   }
+  const { shown, total } = takeCondensed(props.modules);
   return (
     <div>
-      {props.modules.map((m) => (
+      {shown.map((m) => (
         <CondensedRow
           key={m.id}
           primary={m.name}
@@ -760,6 +865,7 @@ function CondensedPoliciesList(props: { modules: ModuleOption[] }) {
           meta={m.status ?? '—'}
         />
       ))}
+      <CondensedMore shown={shown.length} total={total} />
     </div>
   );
 }
@@ -768,9 +874,10 @@ function CondensedWatchlistList(props: { rows: WatchlistRow[]; onConfirm: (id: s
   if (props.rows.length === 0) {
     return <CondensedEmpty>No watched symbols for this tier filter.</CondensedEmpty>;
   }
+  const { shown, total } = takeCondensed(props.rows);
   return (
     <div>
-      {props.rows.map((w) => (
+      {shown.map((w) => (
         <div key={w.id} className="border-b border-[var(--color-line)] py-1.5 last:border-b-0">
           <div className="flex items-baseline justify-between gap-2">
             <span className="font-mono text-xs text-[var(--color-ink)]">
@@ -793,6 +900,7 @@ function CondensedWatchlistList(props: { rows: WatchlistRow[]; onConfirm: (id: s
           ) : null}
         </div>
       ))}
+      <CondensedMore shown={shown.length} total={total} />
     </div>
   );
 }
@@ -806,9 +914,10 @@ function CondensedDecisionsList(props: {
   if (props.executions.length === 0) {
     return <CondensedEmpty>No decisions traced yet.</CondensedEmpty>;
   }
+  const { shown, total } = takeCondensed(props.executions);
   return (
     <div>
-      {props.executions.map((e) => {
+      {shown.map((e) => {
         const v = props.verifications.find((x) => x.traceId === e.id);
         return (
           <CondensedRow
@@ -824,6 +933,7 @@ function CondensedDecisionsList(props: {
           />
         );
       })}
+      <CondensedMore shown={shown.length} total={total} />
     </div>
   );
 }
@@ -925,16 +1035,13 @@ function TrendsView(props: {
       return <CondensedEmpty>No trend modules in this engine scope.</CondensedEmpty>;
     }
     return (
-      <div className="space-y-3">
-        <LlmAvailabilityChips tiers={['tactical', 'execution']} />
+      <div className="space-y-2">
         {trendModules.map((mod) => {
           const maxActive = mod.maxActiveTrends ?? 10;
           const rows = listRowsForModule(mod.id, maxActive);
           return (
             <div key={mod.id}>
-              <p className="mb-1 font-mono text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-                {mod.name} · {rows.length}/{maxActive}
-              </p>
+              <CondensedSection label={mod.name} count={rows.length} />
               {rows.length === 0 ? (
                 <CondensedEmpty>No candidates.</CondensedEmpty>
               ) : (
@@ -952,7 +1059,7 @@ function TrendsView(props: {
                       </span>
                     </div>
                     <p className="mt-0.5 text-[10px] text-[var(--color-ink-dim)]">
-                      {t.strengthBand} · {engineLabel(mod.engineInstanceId)}
+                      {t.strengthBand} · {rows.length}/{maxActive}
                     </p>
                     {t.status === 'candidate' ? (
                       <button
@@ -1263,9 +1370,10 @@ function ScenarioView(props: {
   );
 
   if (props.condensed) {
+    const { shown, total } = takeCondensed(sorted);
     return (
       <div>
-        {sorted.map((lead) => {
+        {shown.map((lead) => {
           const tree = props.trees.find((t) => t.leadId === lead.id);
           return (
             <CondensedRow
@@ -1276,6 +1384,7 @@ function ScenarioView(props: {
             />
           );
         })}
+        <CondensedMore shown={shown.length} total={total} />
       </div>
     );
   }
@@ -1977,51 +2086,92 @@ function LineageView(props: {
   );
 
   if (props.condensed) {
-    const items: { key: string; primary: string; secondary: string }[] = [
-      ...sortedTrends.map((t) => ({
-        key: `trend:${t.id}`,
-        primary: `Trend · ${t.symbol} · ${t.direction}`,
-        secondary: `${t.status} · ${props.moduleName(t.moduleId)}`,
-      })),
-      ...sortedLeads.map((l) => ({
-        key: `lead:${l.id}`,
-        primary: `Lead · ${l.symbol} · ${l.status}`,
-        secondary: `${l.strategyFamily} · ${props.moduleName(l.moduleId)}`,
-      })),
-      ...sortedTrees.map((tr) => ({
-        key: `tree:${tr.id}`,
-        primary: `Tree · ${tr.symbol} · ${tr.status}`,
-        secondary: props.moduleName(tr.moduleId),
-      })),
-      ...sortedExecutions.map((e) => ({
-        key: `exec:${e.id}`,
-        primary: `Exec · ${e.outcome}`,
-        secondary: `${e.description ?? e.venue} · ${props.moduleName(e.moduleId)}`,
-      })),
-      ...sortedPending.map((j) => ({
-        key: `pending:${j.id}`,
-        primary: `Queue · ${j.kind} · ${j.status}`,
-        secondary: j.moduleId ? props.moduleName(j.moduleId) : 'company scope',
-      })),
-      ...sortedDead.map((j) => ({
-        key: `dead:${j.id}`,
-        primary: `Dead · ${j.kind}`,
-        secondary: j.lastError ?? (j.moduleId ? props.moduleName(j.moduleId) : 'company scope'),
-      })),
+    type LineageItem = { key: string; primary: string; secondary: string; section: string };
+    const sections: { id: string; label: string; items: LineageItem[] }[] = [
+      {
+        id: 'trends',
+        label: 'Trends',
+        items: sortedTrends.map((t) => ({
+          key: `trend:${t.id}`,
+          section: 'trends',
+          primary: `${t.symbol} · ${t.direction}`,
+          secondary: `${t.status} · ${props.moduleName(t.moduleId)}`,
+        })),
+      },
+      {
+        id: 'directives',
+        label: 'Leads / trees',
+        items: [
+          ...sortedLeads.map((l) => ({
+            key: `lead:${l.id}`,
+            section: 'directives',
+            primary: `${l.symbol} · ${l.status}`,
+            secondary: `Lead · ${l.strategyFamily} · ${props.moduleName(l.moduleId)}`,
+          })),
+          ...sortedTrees.map((tr) => ({
+            key: `tree:${tr.id}`,
+            section: 'directives',
+            primary: `${tr.symbol} · ${tr.status}`,
+            secondary: `Tree · ${props.moduleName(tr.moduleId)}`,
+          })),
+        ],
+      },
+      {
+        id: 'exec',
+        label: 'Executions',
+        items: sortedExecutions.map((e) => ({
+          key: `exec:${e.id}`,
+          section: 'exec',
+          primary: e.outcome,
+          secondary: `${e.description ?? e.venue} · ${props.moduleName(e.moduleId)}`,
+        })),
+      },
+      {
+        id: 'queue',
+        label: 'Queue',
+        items: [
+          ...sortedPending.map((j) => ({
+            key: `pending:${j.id}`,
+            section: 'queue',
+            primary: `${j.kind} · ${j.status}`,
+            secondary: j.moduleId ? props.moduleName(j.moduleId) : 'company scope',
+          })),
+          ...sortedDead.map((j) => ({
+            key: `dead:${j.id}`,
+            section: 'queue',
+            primary: `Dead · ${j.kind}`,
+            secondary: j.lastError ?? (j.moduleId ? props.moduleName(j.moduleId) : 'company scope'),
+          })),
+        ],
+      },
     ];
-    if (items.length === 0) {
+    const total = sections.reduce((n, s) => n + s.items.length, 0);
+    if (total === 0) {
       return <CondensedEmpty>No lineage rows in this engine scope.</CondensedEmpty>;
     }
+    let remaining = CONDENSED_LIST_CAP;
     return (
       <div>
-        {items.map((item) => (
-          <CondensedRow
-            key={item.key}
-            primary={item.primary}
-            secondary={item.secondary}
-            onClick={() => toggleKey(item.key)}
-          />
-        ))}
+        {sections.map((section) => {
+          if (section.items.length === 0 || remaining <= 0) return null;
+          const take = section.items.slice(0, remaining);
+          remaining -= take.length;
+          return (
+            <div key={section.id} className="mb-2 last:mb-0">
+              <CondensedSection label={section.label} count={section.items.length} />
+              {take.map((item) => (
+                <CondensedRow
+                  key={item.key}
+                  primary={item.primary}
+                  secondary={item.secondary}
+                  active={props.selectedKey === item.key}
+                  onClick={() => toggleKey(item.key)}
+                />
+              ))}
+            </div>
+          );
+        })}
+        <CondensedMore shown={Math.min(CONDENSED_LIST_CAP, total)} total={total} />
       </div>
     );
   }
@@ -2349,12 +2499,13 @@ function DeadLettersView(props: {
   }
 
   if (props.condensed) {
+    const { shown, total } = takeCondensed(props.jobs);
     return (
       <div>
         {message ? (
           <p className="mb-1 text-[10px] text-[var(--color-ink-faint)]">{message}</p>
         ) : null}
-        {props.jobs.map((j) => (
+        {shown.map((j) => (
           <div key={j.id} className="border-b border-[var(--color-line)] py-1.5 last:border-b-0">
             <CondensedRow
               primary={j.kind}
@@ -2371,6 +2522,7 @@ function DeadLettersView(props: {
             </button>
           </div>
         ))}
+        <CondensedMore shown={shown.length} total={total} />
       </div>
     );
   }

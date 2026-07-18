@@ -335,13 +335,14 @@ suppressed in editable fields.
   dropdown + chevron as a slim **bottom ribbon**. When expanded, that same chrome moves to the
   **top** of the panel window (tabs above content); `` ` `` / Esc / chevron still toggle height.
   Content defaults to **~70vh** (capped at 48rem, floor 16rem) below the top chrome (D-105).
-  **Multi-open panes (D-114):** ribbon tabs toggle independently (`aria-pressed`); several
+  **Multi-open panes (D-114 / D-117):** ribbon tabs toggle independently (`aria-pressed`); several
   condensed side-by-side panes can be open at once in a **horizontally scrollable** row
   (Trends, Scenarios, Watch, **Open positions**, **Policies**, Decisions, Lineage, Approvals,
-  Dead). Pane headers collapse/expand or hide independently of whole-panel show/hide;
-  `openTabs` + `collapsedPanes` persist per company (legacy single `tab` migrates). Positions
-  list non-zero qty from `GET …/positions`; Policies list canvas policy modules (envelope /
-  notes / status).
+  Dead). Pane headers show **item counts**, collapse/expand or hide independently of whole-panel
+  show/hide; a sole expanded pane stretches. Lists cap at 48 rows with a “showing N of M”
+  footer. `openTabs` + `collapsedPanes` persist per company (legacy single `tab` migrates).
+  Positions list non-zero qty from `GET …/positions`; Policies list canvas policy modules
+  (envelope / notes / status). Ribbon and left/right panel tabs show count meta when > 0.
 - **Engine scope (D-097):** dropdown selects `All engines` or one `engine_instances` row.
   Every tab filters durable API projections to modules whose `engine_instance_id` matches
   (trends, leads/trees, watchlists, positions, policies, executions/decisions, lineage columns,

@@ -237,7 +237,23 @@ export function RightPanel(props: { companyId: string }) {
           className="min-w-0 flex-1"
           value={tab}
           onChange={setTab}
-          tabs={TABS}
+          tabs={TABS.map((t) => {
+            const count =
+              t.id === 'verification'
+                ? verifications.length
+                : t.id === 'executions'
+                  ? executions.length
+                  : t.id === 'ledger'
+                    ? ledger.length + positions.filter((p) => String(p.qty) !== '0').length
+                    : t.id === 'simulation'
+                      ? simulations.length
+                      : values.length;
+            return {
+              id: t.id,
+              label: t.label,
+              meta: count > 0 ? String(count) : undefined,
+            };
+          })}
         />
         <button
           onClick={() => setOpen(false)}

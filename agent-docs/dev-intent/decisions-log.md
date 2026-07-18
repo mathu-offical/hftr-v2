@@ -1182,6 +1182,11 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Policies list policy modules with envelope refs. Docs: ui-spec §4 middle-bottom.
   **Status: implemented.**
 
+- **D-117 (panel condensed density + count chrome, 2026-07-18):** Bottom condensed panes
+  show header counts, stretch when sole-expanded, sectioned lineage lists with selection
+  highlight, and a 48-row cap with “showing N of M”. Ribbon + left/right `PanelTabs` expose
+  count `meta` when non-zero. Docs: ui-spec §4. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

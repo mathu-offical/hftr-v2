@@ -13,7 +13,7 @@ for topic/connection tracing.
 ### Scroll column (top → bottom)
 
 1. **Submit new topic** — primary control at top; creates a research topic (module picker when multiple research modules exist).
-2. **Submit research article** (D-079) — link URL (+ optional notes) or raw text/markdown; model-free; lands as `sourceClass: operator` concept on Runtime shelf (optional library picker).
+2. **Submit research article** (D-079 / D-127) — link URL (+ optional notes) or raw text/markdown; model-free; requires a target **library**; 1–3 display tags; lands as `sourceClass: operator` + `hftr:article` concept.
 3. **Entity search** — single search field; entity-type buttons switch the corpus:
    - `Topics` · `Concepts` · `Tags` · `Libraries`
 4. **Research topics** — company research-module **research points** as a collapsible forest:
@@ -24,10 +24,13 @@ for topic/connection tracing.
    **Research all**. Library research is separate from **POSTURE_RESEARCH** and from
    execution/other LLM lanes (D-098). Filter appears when the list is large. Selection opens
    the Page inspector / galaxy focus.
-5. **Agent activity** — per research-module run / evidence / admission controls (moved out of
+5. **Articles** (D-127) — agent/operator research articles (`hftr:article`), library-backed but
+   listed here with **tag chips** (1–3) and short library label. Selecting opens the concept
+   inspector. Distinct from topics (directives) and from catalog seed pages on shelves.
+6. **Agent activity** — per research-module run / evidence / admission controls (moved out of
    Modules & tools so module work sits under topics).
-6. **Archive** (D-047) — soft-deleted research; Restore / Clear archive.
-7. **Modules & tools** (collapsed) — new module form, company sweep, module inventory (no
+7. **Archive** (D-047) — soft-deleted research; Restore / Clear archive.
+8. **Modules & tools** (collapsed) — new module form, company sweep, module inventory (no
    duplicate run actions; libraries create/export live in the dock).
 
 ### Libraries dock (bottom-anchored)
@@ -39,6 +42,8 @@ for topic/connection tracing.
    - Caret expands the folder to list pages (catalog / admitted concepts as readable page leaves).
    - **Folder name click** opens the matching **overview topic** when one exists (same title as the library, e.g. Seeded trading mechanisms); otherwise opens the library inspector + galaxy nest.
    - **Page leaf click** opens that page in the floating inspector and traces it in the galaxy.
+   - **Runtime (custom) libraries (D-127):** each row exposes librarian **Curate / Verify /
+     Refresh** so company libraries curated by librarian agents can be driven from the dock.
    - Shelves:
      - **System curated (runtime)** — cadence libraries for all `system:*` scopes (D-069): movers, execution logs, daily summaries, runtime policies, trend lists, sector news. Movers/sector/daily jobs seal verified-normalized views + readable reports (D-070/D-072); other folders bootstrap with shaped placeholders. Shelf visible even when a slice is empty.
      - **Runtime (user / engine)** — operator-created and engine-admitted libraries (not baseline seed).

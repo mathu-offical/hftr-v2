@@ -1254,22 +1254,25 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 
 - **D-122 (dual paper books + engine→service binding + delta training, 2026-07-18):**
   Paper execution uses **explicit dual books** with linked delta resolution, plus a
-  **per-engine service binding** model:
+  **per-engine service binding** model that hydrates the company **main book**:
 
   1. **Operator binds each trading engine** (canvas trading module / engine group) to a
      **real service** (Alpaca paper, Kalshi demo, …) when available. Binding is user-defined —
-     not an automatic “company has one broker” override of every engine.
+     not an automatic company-wide override of every engine.
   2. **If no real service is bound** for that engine, dispatch uses **internal paper
-     functions** (hftr paper engine / `paper_sim` realism layer).
-  3. The **hybrid combination** of those bindings **hydrates the company’s main book**
-     (cash, positions, equity, capital admission for that company). Main book is one
-     company ledger/position set composed from whatever each engine executed against.
+     functions** (hftr paper engine / `paper_sim` realism layer) for that engine’s activity.
+  3. **When bound to a real service:** do **not** run a parallel internal fill twin.
+     Take that service’s **ledger amount as an added funds source** into the company main
+     book (capital / cash hydration from the provider ledger — not dual-path order
+     shadowing).
+  4. The **hybrid combination** (unbound engines → paper functions; bound engines →
+     provider ledger as funds source + whatever execution policy the design locks next)
+     **hydrates the company’s main book**.
 
-  Dual books remain linked for **delta** artifacts (fill price, latency, partials, marks,
-  reject codes) used to **train / weight** the internal sim. Provider paper stays available
-  on top of internal paper functions; operators may bind/unbind without abandoning the
-  learning loop. Full design pending brainstorm. Related: D-002, D-014, D-025, D-027;
-  OQ-13. **Status: decided (design pending).**
+  Dual-book **deltas** (for train / weight) remain in scope but are **not** “always mirror
+  every bound fill on internal paper.” Exact delta teacher (live market marks vs provider
+  fills vs both) still open under OQ-13. Related: D-002, D-014, D-025, D-027.
+  **Status: decided (design pending).**
 
 - **D-125 (post-fill heat + trail + weighted valves, 2026-07-18):** Compile admits
   entries only when projected portfolio heat (sum open ATR-risk / equity) stays under
@@ -1361,9 +1364,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 - **OQ-6 (open):** Dashboard/diagnostics slide direction conflict from v1 DevSpecs (top vs
   bottom) — v2 resolves via the three-panel model; confirm no separate diagnostics slide needed.
 - **OQ-13 (open, D-122):** Dual paper books + engine→service binding. **Resolved so far:**
-  user binds each engine to a real service or falls back to paper functions; hybrid
-  hydrates the company **main book**. **Still open:** when an engine *is* bound to a
-  real service, does the internal paper twin still run in parallel for deltas (always /
-  opt-in), or only when unbound? Which delta dimensions feed weighting first? How do
-  multi-engine / multi-venue fills stay consistent in one main book (symbol conflicts,
-  cash pool)? Resolve in paper-engine design brainstorm.
+  per-engine bind; unbound → paper functions; bound → provider **ledger as added funds
+  source** (no parallel internal fill twin); hybrid hydrates company **main book**.
+  **Still open:** when bound, do **orders** also route to the real service, or does the
+  service only contribute funds while orders stay on the internal paper engine? What is
+  the delta teacher for weighting (live market marks vs provider fills vs both)? How do
+  multi-engine cash pools / symbol conflicts resolve in one main book?

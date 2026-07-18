@@ -56,14 +56,15 @@ does not make Research the dock owner.
 
 ### DATA tab primary list
 
-Inventory of **all** hydrators available to the operator:
+Inventory of **active** hydrators only (`isActiveLiveDataSource`: **ready** with credentials,
+or **public** no-auth). Missing-key / stub / researched stay out of the DATA tab (configure
+keys in Settings).
 
 - Source: `RESEARCH_SOURCE_REGISTRY` plus broker/paper feed surfaces used as live ingress
   (same readiness model as D-103 / `selectReadySourceKinds`).
-- Each row: display name, domain, auth mode, readiness (**ready** / **need key** / **public** /
-  **stub** / **researched**), feed class, optional freshness when known.
+- Each row: display name, domain, optional on-canvas hint — no redundant status chips.
 - Row select → open **Data Explorer** for that hydrator.
-- Entitled rows expose **Place on canvas** → create `live_api` module bound to that hydrator.
+- **Place on canvas** → create `live_api` module bound to that hydrator.
 
 ### Canvas `live_api` = hydrator identity
 

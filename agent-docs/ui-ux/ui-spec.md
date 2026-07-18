@@ -259,17 +259,22 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   left-panel chrome (D-121): elevated bottom sheet (rounded, shadowed, inset) persists across
   **all three** tabs — not Research-only. Dock includes System / Runtime / Baseline shelves
   plus **Company** (canvas `library` modules); create/export/curation stay in the dock.
-- Research tab (**D-040**, **D-047**, **D-049**, **D-094**, **D-095**): scroll column —
-  **Submit new topic** at top; **entity search** with Topics / Concepts / Tags / Libraries
-  toggles; dedicated **Research topics** (collapsible directive tree — shortened nested labels,
-  Program/Group/Directive kinds, concept counts; per-topic **Research** + **Research all**
-  enqueue on the library research lane — D-098); **Agent activity** under topics (per
-  research-module run / evidence / admission); **Archive** (D-047); collapsed Modules & tools
-  (inventory + sweep). Opening Research opens the Galaxy overlay — detail in a right floating
-  inspector. Galaxy **traces** topics/connections; library **content browse** uses Data
-  Explorer (D-121). Shelves design: `ui-ux/research-tab-shelves-inspector-design.md`.
-  Library research (`LIBRARY_RESEARCH`) is a separate queue from posture research
-  (`POSTURE_RESEARCH`) and from execution/other LLM lanes (D-098).- **Market posture** tab (D-081 / D-085 / D-092 / D-101): live operating hub. Left rail lists
+- Research tab (**D-040**, **D-047**, **D-049**, **D-094**, **D-095**, **D-127**): scroll column —
+  **Submit new topic** / **Submit research article** at top; **entity search** with Topics /
+  Concepts / Tags / Libraries toggles; dedicated **Research topics** (collapsible directive
+  tree — shortened nested labels, Program/Group/Directive kinds, concept counts; per-topic
+  **Research** + **Research all** enqueue on the library research lane — D-098); **Articles**
+  list (agent/operator concepts with `hftr:article`, saved into a library; **1–3 tag chips**
+  on each line; flexibly viewable here while shelf membership stays library-backed);
+  **Agent activity** under articles (per research-module run / evidence / admission);
+  **Archive** (D-047); collapsed Modules & tools (inventory + sweep). Opening Research opens
+  the Galaxy overlay — detail in a right floating inspector. Galaxy **traces**
+  topics/connections; library **content browse** uses Data Explorer (D-121). Shelves design:
+  `ui-ux/research-tab-shelves-inspector-design.md`. Runtime (custom) library rows expose
+  librarian **Curate / Verify / Refresh** (D-127). Library research (`LIBRARY_RESEARCH`) is a
+  separate queue from posture research (`POSTURE_RESEARCH`) and from execution/other LLM lanes
+  (D-098).
+- **Market posture** tab (D-081 / D-085 / D-092 / D-101): live operating hub. Left rail lists
   company-wide persisted categories (positions, watchlists, trends, plans) with rich row
   metrics (uPnL/rPnL, strengthBand/engines, lead+tree status) and **row → overlay focus**.
   Opening the tab opens a **canvas overlay dashboard** with: equity chart (company series;
@@ -333,11 +338,12 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   ring + fly-to; focus dims non-members. Inspector shows text-first **library admission**,
   **evidence ref**, **research run** provenance, **usage**, **confidence**, Verify / Delete.
   Bodies render via `ResearchMarkdown` with optional `[[sys:…]]` chips (D-047).
-- Data tab (D-121): **LIVE DATA SOURCES** via `GET …/live-data-sources` (registry + readiness);
-  client **SWR cache** for inventory metadata (existence / status / canvas binds — live payloads
-  not cached). Selecting a source opens **Data Explorer** with **Search** + **Browse current**
-  against `POST …/live-data-sources/[kind]/query` (lazy gather → widget cards). Canvas
-  `live_api` uses `config.sourceKind`. Overlays mutually exclusive with Galaxy and Market posture.
+- Data tab (D-121): **LIVE DATA SOURCES** lists only **active** hydrators (`ready` with
+  verified credentials, or `public` no-auth) from `GET …/live-data-sources` (client SWR
+  metadata cache — live payloads not cached). Missing-key / stub / researched stay out of
+  the tab. Select → **Data Explorer** **Search** / **Browse current** via
+  `POST …/live-data-sources/[kind]/query`. Canvas `live_api` uses `config.sourceKind`.
+  Overlays mutually exclusive with Galaxy and Market posture.
 
 ### MIDDLE BOTTOM — Exploration + Analysis + Choice (the main control panel)
 - **Persistent ribbon (D-097 / D-113 / D-114 / D-118):** collapsed view keeps tab buttons +
@@ -419,6 +425,10 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
   overview topic — **not** catalog class mirrors (those stay on the library shelf). Legacy
   D-096 desk-focus / catalog-directive topics prune on next bootstrap. Concepts remain in the
   mechanisms library so galaxy/Article have baseline catalog content without a research run.
+- **Articles (D-127)** — research-module (or operator) outputs: concepts marked `hftr:article`,
+  **must** save into a company library, listed in the Research **Articles** group with up to
+  three display-tag chips. Distinct from topics (directives) and from catalog seed pages.
+  Librarians curate runtime libraries via Curate / Verify / Refresh.
 - **Galaxy nodes** — concepts (primary) and tags (secondary / color / filter). Typed
   `concept_links` remain edges. **D-045** materializes compile-time catalog targets into
   company concepts + library nests on create/ensure so galaxy is never empty of baseline

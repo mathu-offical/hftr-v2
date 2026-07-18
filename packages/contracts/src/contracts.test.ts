@@ -1673,6 +1673,26 @@ describe('paper engine binding (D-122)', () => {
     }).kind).toBe('fill_price_bps');
   });
 
+  it('computeInternalPaperFill matches 2 bps taker model', async () => {
+    const { computeInternalPaperFill } = await import('./paper-engine');
+    const buy = computeInternalPaperFill({
+      actionVerb: 'buy',
+      orderType: 'market',
+      limitPriceCents: null,
+      quote: { bidCents: 100, askCents: 100, lastCents: 100 },
+    });
+    expect(buy).toEqual({ ok: true, priceCents: 100 });
+    const sell = computeInternalPaperFill({
+      actionVerb: 'sell',
+      orderType: 'market',
+      limitPriceCents: null,
+      quote: { bidCents: 10_000, askCents: 10_020, lastCents: 10_010 },
+      slippageBps: 2,
+    });
+    expect(sell.ok).toBe(true);
+    if (sell.ok) expect(sell.priceCents).toBe(9_998);
+  });
+
   it('parses BookDelta with dimensions', async () => {
     const { BookDelta } = await import('./paper-engine');
     const d = BookDelta.parse({

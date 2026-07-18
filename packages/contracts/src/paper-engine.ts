@@ -147,6 +147,41 @@ export function buildFillPriceBookDeltaDimension(args: {
   };
 }
 
+/** Default taker slippage for InternalPaperCore / paper-sim (2 bps). */
+export const DEFAULT_INTERNAL_PAPER_SLIPPAGE_BPS = 2;
+
+export type InternalPaperFillQuote = {
+  bidCents: number | null;
+  askCents: number | null;
+  lastCents: number | null;
+};
+
+/**
+ * Pure InternalPaperCore fill price (D-122 Phase 5).
+ * Shared by dispatch inline fills and the paper-sim adapter — identical slippage/limit rules.
+ */
+export function computeInternalPaperFill(args: {
+  actionVerb: 'buy' | 'sell';
+  orderType: 'market' | 'limit';
+  limitPriceCents: number | null;
+  quote: InternalPaperFillQuote;
+  /** Slippage in basis points against the taker side (default 2). */
+  slippageBps?: number;
+}): { ok: true; priceCents: number } | { ok: false; reason: 'no_quote' | 'unmarketable' } {
+  const isBuy = args.actionVerb === 'buy';
+  const side = isBuy ? args.quote.askCents : args.quote.bidCents;
+  const reference = side ?? args.quote.lastCents;
+  if (reference === null) return { ok: false, reason: 'no_quote' };
+  const slippageBps = args.slippageBps ?? DEFAULT_INTERNAL_PAPER_SLIPPAGE_BPS;
+  const slip = Math.max(0, Math.round((reference * slippageBps) / 10_000));
+  const priceCents = isBuy ? reference + slip : Math.max(1, reference - slip);
+  if (args.orderType === 'limit' && args.limitPriceCents !== null) {
+    if (isBuy && priceCents > args.limitPriceCents) return { ok: false, reason: 'unmarketable' };
+    if (!isBuy && priceCents < args.limitPriceCents) return { ok: false, reason: 'unmarketable' };
+  }
+  return { ok: true, priceCents };
+}
+
 export const EngineSpendSource = z.enum([
   'company_pool',
   'engine_allocation',

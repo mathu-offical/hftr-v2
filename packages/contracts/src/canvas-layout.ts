@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import type { LinkKind, ModuleType } from './modules';
+import { MODULE_COLUMN, MODULE_LANE_ROW } from './modules';
 import { isMathToolAttachment } from './engines';
 
 /**
- * Connection-safe canvas layout constants and pure reflow helpers (D-033).
+ * Connection-safe canvas layout constants and pure reflow helpers (D-033 / D-064).
+ * Columns prefer type lanes (research/data left → execution/verify right); unused lanes compress.
  * Ordinary drag stays freeform; Reflow buttons call these deterministically.
  */
 
@@ -93,19 +95,26 @@ export interface LayoutResult {
 
 type RankedMember = { id: string; type: ModuleType; rank: number; order: number };
 
-/**
- * Stable pipeline ranks from member→member links (Math excluded from ranking).
- * Cycles fall back to insertion order among remaining nodes.
- */
-export function rankEngineMembers(
-  memberIds: readonly string[],
-  modulesById: ReadonlyMap<string, LayoutModule>,
-  links: readonly LayoutLink[],
-): RankedMember[] {
-  const members = memberIds
-    .map((id) => modulesById.get(id))
-    .filter((m): m is LayoutModule => !!m && m.type !== 'math');
+/** Map used MODULE_COLUMN lanes to consecutive ranks (compress unused lanes). */
+function compressModuleLanes(lanes: Iterable<number>): Map<number, number> {
+  const sorted = [...new Set(lanes)].sort((a, b) => a - b);
+  const compressed = new Map<number, number>();
+  sorted.forEach((lane, index) => compressed.set(lane, index));
+  return compressed;
+}
 
+function templateSyntheticModuleId(index: number): string {
+  return `00000000-0000-4000-8000-${index.toString(16).padStart(12, '0')}`;
+}
+
+/**
+ * Stable topological order from member→member links (Math excluded).
+ * Cycles and unreachable nodes sort after the DAG frontier in id order.
+ */
+function computeMemberTopoOrder(
+  members: readonly LayoutModule[],
+  links: readonly LayoutLink[],
+): Map<string, number> {
   const memberSet = new Set(members.map((m) => m.id));
   const indegree = new Map<string, number>();
   const outbound = new Map<string, string[]>();
@@ -121,32 +130,56 @@ export function rankEngineMembers(
     indegree.set(link.toModuleId, (indegree.get(link.toModuleId) ?? 0) + 1);
   }
 
-  const rank = new Map<string, number>();
+  const order = new Map<string, number>();
   const queue = members
     .filter((m) => (indegree.get(m.id) ?? 0) === 0)
     .sort((a, b) => a.id.localeCompare(b.id))
     .map((m) => m.id);
 
-  for (const id of queue) rank.set(id, 0);
-
+  let nextOrder = 0;
   let head = 0;
   while (head < queue.length) {
     const id = queue[head++]!;
-    const r = rank.get(id) ?? 0;
+    order.set(id, nextOrder++);
     for (const next of outbound.get(id) ?? []) {
-      rank.set(next, Math.max(rank.get(next) ?? 0, r + 1));
       const nextDeg = (indegree.get(next) ?? 1) - 1;
       indegree.set(next, nextDeg);
       if (nextDeg === 0) queue.push(next);
     }
   }
 
-  // Cycle / unreachable leftovers: append after max known rank in id order.
-  const maxRank = [...rank.values()].reduce((a, b) => Math.max(a, b), 0);
-  const leftovers = members.filter((m) => !rank.has(m.id)).sort((a, b) => a.id.localeCompare(b.id));
-  leftovers.forEach((m, index) => {
-    rank.set(m.id, maxRank + 1 + Math.floor(index / 2));
-  });
+  const leftovers = members
+    .filter((m) => !order.has(m.id))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  for (const m of leftovers) {
+    order.set(m.id, nextOrder++);
+  }
+  return order;
+}
+
+/**
+ * Type-preferred pipeline ranks from MODULE_COLUMN (compressed), not pure topology.
+ * Within a lane: MODULE_LANE_ROW, then topo order, then id; barycenter sweeps refine rows.
+ */
+export function rankEngineMembers(
+  memberIds: readonly string[],
+  modulesById: ReadonlyMap<string, LayoutModule>,
+  links: readonly LayoutLink[],
+): RankedMember[] {
+  const members = memberIds
+    .map((id) => modulesById.get(id))
+    .filter((m): m is LayoutModule => !!m && m.type !== 'math');
+
+  if (members.length === 0) return [];
+
+  const laneById = new Map(members.map((m) => [m.id, MODULE_COLUMN[m.type]]));
+  const laneCompress = compressModuleLanes(laneById.values());
+  const rank = new Map(
+    members.map((m) => [m.id, laneCompress.get(MODULE_COLUMN[m.type]) ?? 0]),
+  );
+
+  const topoOrder = computeMemberTopoOrder(members, links);
+  const memberSet = new Set(members.map((m) => m.id));
 
   const byRank = new Map<number, LayoutModule[]>();
   for (const m of members) {
@@ -158,6 +191,14 @@ export function rankEngineMembers(
 
   const rankKeys = [...byRank.keys()].sort((a, b) => a - b);
 
+  const compareWithinLane = (a: LayoutModule, b: LayoutModule): number => {
+    const rowDiff = MODULE_LANE_ROW[a.type] - MODULE_LANE_ROW[b.type];
+    if (rowDiff !== 0) return rowDiff;
+    const topoDiff = (topoOrder.get(a.id) ?? 0) - (topoOrder.get(b.id) ?? 0);
+    if (topoDiff !== 0) return topoDiff;
+    return a.id.localeCompare(b.id);
+  };
+
   // Undirected neighbor map for connection-aware ordering (both link directions).
   const neighbors = new Map<string, string[]>();
   for (const m of members) neighbors.set(m.id, []);
@@ -168,12 +209,11 @@ export function rankEngineMembers(
     neighbors.get(link.toModuleId)!.push(link.fromModuleId);
   }
 
-  // Seed each rank's order by id for determinism, then refine with median
-  // (barycenter) sweeps so connected nodes settle into adjacent rows.
   const orderIndex = new Map<string, number>();
   for (const r of rankKeys) {
-    const list = (byRank.get(r) ?? []).sort((a, b) => a.id.localeCompare(b.id));
+    const list = (byRank.get(r) ?? []).sort(compareWithinLane);
     list.forEach((m, index) => orderIndex.set(m.id, index));
+    byRank.set(r, list);
   }
 
   const medianOfNeighbors = (id: string, otherRank: number): number | null => {
@@ -194,8 +234,6 @@ export function rankEngineMembers(
       const median = medianOfNeighbors(m.id, referenceRank);
       return {
         m,
-        // Unconnected nodes sort after connected peers so barycenter clustering
-        // is not interrupted by id-stable placeholders in the middle of the rank.
         key: median ?? Number.POSITIVE_INFINITY,
         tie: orderIndex.get(m.id) ?? 0,
       };
@@ -203,7 +241,7 @@ export function rankEngineMembers(
     keyed.sort((a, b) => {
       if (a.key !== b.key) return a.key - b.key;
       if (a.tie !== b.tie) return a.tie - b.tie;
-      return a.m.id.localeCompare(b.m.id);
+      return compareWithinLane(a.m, b.m);
     });
     keyed.forEach((entry, index) => orderIndex.set(entry.m.id, index));
     byRank.set(
@@ -213,11 +251,9 @@ export function rankEngineMembers(
   };
 
   for (let sweep = 0; sweep < 4; sweep += 1) {
-    // Forward: order each rank by the median of its predecessors.
     for (let i = 1; i < rankKeys.length; i += 1) {
       reorderRank(rankKeys[i]!, rankKeys[i - 1]!);
     }
-    // Backward: order each rank by the median of its successors.
     for (let i = rankKeys.length - 2; i >= 0; i -= 1) {
       reorderRank(rankKeys[i]!, rankKeys[i + 1]!);
     }
@@ -383,10 +419,31 @@ export function layoutCanvas(
     .filter((m) => m.type !== 'math' && !memberIds.has(m.id) && !resultModules.has(m.id))
     .sort((a, b) => a.id.localeCompare(b.id));
 
-  let freeY = originY;
+  const freeByLane = new Map<number, LayoutModule[]>();
   for (const m of free) {
-    resultModules.set(m.id, { x: cursorX, y: freeY });
-    freeY += LAYOUT_ROW_STEP;
+    const lane = MODULE_COLUMN[m.type];
+    const list = freeByLane.get(lane) ?? [];
+    list.push(m);
+    freeByLane.set(lane, list);
+  }
+
+  const compareFreeWithinLane = (a: LayoutModule, b: LayoutModule): number => {
+    const rowDiff = MODULE_LANE_ROW[a.type] - MODULE_LANE_ROW[b.type];
+    if (rowDiff !== 0) return rowDiff;
+    return a.id.localeCompare(b.id);
+  };
+
+  const freeLaneCompress = compressModuleLanes(freeByLane.keys());
+  const freeLaneKeys = [...freeByLane.keys()].sort((a, b) => a - b);
+  for (const lane of freeLaneKeys) {
+    const compressedRank = freeLaneCompress.get(lane) ?? 0;
+    const list = (freeByLane.get(lane) ?? []).sort(compareFreeWithinLane);
+    list.forEach((m, rowIndex) => {
+      resultModules.set(m.id, {
+        x: cursorX + compressedRank * LAYOUT_COLUMN_STEP,
+        y: originY + rowIndex * LAYOUT_ROW_STEP,
+      });
+    });
   }
 
   // Unattached Math left after free column.
@@ -568,5 +625,66 @@ export function translateLayoutResultToOrigin(
           }
         : item,
     ),
+  };
+}
+
+export interface TemplateLayoutModule {
+  type: ModuleType;
+}
+
+export interface TemplateLayoutLink {
+  fromIndex: number | 'math';
+  toIndex: number | 'math';
+  linkKind: LinkKind;
+}
+
+/**
+ * Lay out an engine template graph at `origin` using synthetic module ids.
+ * Skips `math` link endpoints (company Math is provisioned separately).
+ */
+export function layoutEngineTemplateAtOrigin(
+  modules: readonly TemplateLayoutModule[],
+  links: readonly TemplateLayoutLink[],
+  origin: { x: number; y: number },
+  padding: { left: number; right: number; top: number; bottom: number },
+): {
+  modulePositions: Array<{ x: number; y: number }>;
+  canvasBounds: { x: number; y: number; width: number; height: number };
+} {
+  const layoutModules: LayoutModule[] = modules.map((module, index) => ({
+    id: templateSyntheticModuleId(index),
+    type: module.type,
+    engineInstanceId: '00000000-0000-4000-8000-00000000e000',
+    toolOwnerModuleId: null,
+    position: { x: 0, y: 0 },
+  }));
+
+  const modulesById = new Map(layoutModules.map((m) => [m.id, m]));
+  const layoutLinks: LayoutLink[] = [];
+  for (const link of links) {
+    if (link.fromIndex === 'math' || link.toIndex === 'math') continue;
+    layoutLinks.push({
+      fromModuleId: templateSyntheticModuleId(link.fromIndex),
+      toModuleId: templateSyntheticModuleId(link.toIndex),
+      linkKind: link.linkKind,
+    });
+  }
+
+  const laid = layoutEngineGroup(
+    '00000000-0000-4000-8000-00000000e000',
+    layoutModules.map((m) => m.id),
+    modulesById,
+    layoutLinks,
+    origin,
+    padding,
+  );
+
+  const positionById = new Map(laid.modules.map((m) => [m.id, m.canvasPosition]));
+  return {
+    modulePositions: modules.map((_, index) => {
+      const pos = positionById.get(templateSyntheticModuleId(index));
+      return pos ?? { x: origin.x + padding.left, y: origin.y + padding.top };
+    }),
+    canvasBounds: laid.canvasBounds,
   };
 }

@@ -84,6 +84,7 @@ import {
   LAYOUT_ROW_STEP,
   engineCanvasOffsetForOrigin,
   layoutCanvas,
+  layoutEngineTemplateAtOrigin,
   placeNextEngineOrigin,
   rankEngineMembers,
   reflowEngineAtOrigin,
@@ -1212,30 +1213,64 @@ describe('canvas layout (D-033)', () => {
     );
   });
 
-  it('ranks members downstream from their producers', () => {
-    const a = '00000000-0000-4000-8000-0000000000a1';
-    const b = '00000000-0000-4000-8000-0000000000a2';
-    const c = '00000000-0000-4000-8000-0000000000a3';
-    const modulesById = new Map([a, b, c].map((id) => [id, mkModule(id)]));
-    const ranked = rankEngineMembers([a, b, c], modulesById, [
-      { fromModuleId: a, toModuleId: b, linkKind: 'data_feed' },
-      { fromModuleId: b, toModuleId: c, linkKind: 'data_feed' },
+  it('places type-preferred lanes left-to-right regardless of link direction', () => {
+    const researchId = '00000000-0000-4000-8000-0000000000a1';
+    const tradingId = '00000000-0000-4000-8000-0000000000a2';
+    const modulesById = new Map([
+      [researchId, mkModule(researchId, 'research')],
+      [tradingId, mkModule(tradingId, 'trading')],
+    ]);
+    const ranked = rankEngineMembers([researchId, tradingId], modulesById, [
+      { fromModuleId: tradingId, toModuleId: researchId, linkKind: 'verification' },
     ]);
     const rankOf = (id: string) => ranked.find((r) => r.id === id)!.rank;
-    expect(rankOf(a)).toBe(0);
-    expect(rankOf(b)).toBe(1);
-    expect(rankOf(c)).toBe(2);
+    expect(rankOf(researchId)).toBeLessThan(rankOf(tradingId));
+  });
+
+  it('stacks same-lane types by MODULE_LANE_ROW', () => {
+    const researchId = '00000000-0000-4000-8000-0000000000b1';
+    const librarianId = '00000000-0000-4000-8000-0000000000b2';
+    const modulesById = new Map([
+      [researchId, mkModule(researchId, 'research')],
+      [librarianId, mkModule(librarianId, 'librarian')],
+    ]);
+    const ranked = rankEngineMembers([researchId, librarianId], modulesById, []);
+    const rankOf = (id: string) => ranked.find((r) => r.id === id)!.rank;
+    const orderOf = (id: string) => ranked.find((r) => r.id === id)!.order;
+    expect(rankOf(researchId)).toBe(rankOf(librarianId));
+    expect(orderOf(researchId)).toBeLessThan(orderOf(librarianId));
+  });
+
+  it('keeps capital and verification modules on the right without links', () => {
+    const researchId = '00000000-0000-4000-8000-0000000000c1';
+    const tradingId = '00000000-0000-4000-8000-0000000000c2';
+    const policyId = '00000000-0000-4000-8000-0000000000c3';
+    const modulesById = new Map([
+      [researchId, mkModule(researchId, 'research')],
+      [tradingId, mkModule(tradingId, 'trading')],
+      [policyId, mkModule(policyId, 'policy')],
+    ]);
+    const ranked = rankEngineMembers([researchId, tradingId, policyId], modulesById, []);
+    const rankOf = (id: string) => ranked.find((r) => r.id === id)!.rank;
+    expect(rankOf(researchId)).toBe(0);
+    expect(rankOf(tradingId)).toBeGreaterThan(rankOf(researchId));
+    expect(rankOf(policyId)).toBeGreaterThan(rankOf(tradingId));
   });
 
   it('aligns producers with their specific consumers (barycenter crossing reduction)', () => {
-    // p (id a1) → y (id b2); q (id a2) → x (id b1). Pure id ordering would place
-    // x above y and cross the edges. Connection-aware ordering must instead put
+    // p (research) → y (trading); q (research) → x (trading). Pure id ordering would
+    // place x above y and cross the edges. Connection-aware ordering must instead put
     // each producer in the same row as the consumer it feeds.
     const p = '00000000-0000-4000-8000-0000000000a1';
     const q = '00000000-0000-4000-8000-0000000000a2';
     const x = '00000000-0000-4000-8000-0000000000b1';
     const y = '00000000-0000-4000-8000-0000000000b2';
-    const modulesById = new Map([p, q, x, y].map((id) => [id, mkModule(id)]));
+    const modulesById = new Map([
+      [p, mkModule(p, 'research')],
+      [q, mkModule(q, 'research')],
+      [x, mkModule(x, 'trading')],
+      [y, mkModule(y, 'trading')],
+    ]);
     const ranked = rankEngineMembers([p, q, x, y], modulesById, [
       { fromModuleId: p, toModuleId: y, linkKind: 'data_feed' },
       { fromModuleId: q, toModuleId: x, linkKind: 'data_feed' },
@@ -1250,7 +1285,7 @@ describe('canvas layout (D-033)', () => {
   it('reflows an engine preserving its origin with connection-safe spacing', () => {
     const a = '00000000-0000-4000-8000-0000000000c1';
     const b = '00000000-0000-4000-8000-0000000000c2';
-    const modules = [mkModule(a), mkModule(b)];
+    const modules = [mkModule(a, 'research'), mkModule(b, 'library')];
     const result = reflowEngineAtOrigin(
       { id: engineId, memberModuleIds: [a, b] },
       modules,
@@ -1263,8 +1298,27 @@ describe('canvas layout (D-033)', () => {
     expect(bounds.y).toBe(300);
     const posA = result.modules.find((m) => m.id === a)!.canvasPosition;
     const posB = result.modules.find((m) => m.id === b)!.canvasPosition;
-    // Downstream node sits one full column to the right.
+    // Library sits one full column to the right of research.
     expect(posB.x - posA.x).toBe(LAYOUT_COLUMN_STEP);
+  });
+
+  it('lays out day-trading engine template at origin (research left, policy right, multi-row)', () => {
+    const day = ENGINE_TEMPLATES.find((engine) => engine.id === 'engine_day_trading');
+    expect(day).toBeTruthy();
+    const { modulePositions, canvasBounds } = layoutEngineTemplateAtOrigin(
+      day!.modules,
+      day!.links,
+      { x: 100, y: 200 },
+      ENGINE_GROUP_PADDING,
+    );
+    expect(canvasBounds.x).toBe(100);
+    expect(canvasBounds.y).toBe(200);
+
+    const researchIdx = day!.modules.findIndex((module) => module.type === 'research');
+    const policyIdx = day!.modules.findIndex((module) => module.type === 'policy');
+    const librarianIdx = day!.modules.findIndex((module) => module.type === 'librarian');
+    expect(modulePositions[researchIdx]!.x).toBeLessThan(modulePositions[policyIdx]!.x);
+    expect(modulePositions[researchIdx]!.y).not.toBe(modulePositions[librarianIdx]!.y);
   });
 
   it('lays out multiple engines side by side without overlap', () => {

@@ -419,22 +419,47 @@ export function linkKindForHandlePair(
   return null;
 }
 
-/** Canvas column per module type (left → right ordering, ui-spec §3). */
+/**
+ * Preferred canvas lane per module type (left → right, D-064 / ui-spec §3).
+ * Research + data sources left; sense-making mid; execution then verification right.
+ * Reflow compresses unused lanes so sparse engines stay compact.
+ */
 export const MODULE_COLUMN: Record<ModuleType, number> = {
   research: 0,
   librarian: 0,
   library: 1,
   live_api: 1,
   math: 1,
-  analyzer: 1,
-  holding_fund: 1,
   trend: 2,
+  holding_fund: 2,
   trading: 3,
   simulator: 3,
   generator: 3,
   fund_router: 3,
+  analyzer: 4,
   policy: 4,
   display: 4,
+};
+
+/**
+ * Preferred vertical order within a lane (top → bottom) when multiple types share a column.
+ * Connection-aware barycenter may still refine row placement.
+ */
+export const MODULE_LANE_ROW: Record<ModuleType, number> = {
+  research: 0,
+  librarian: 1,
+  library: 0,
+  live_api: 1,
+  math: 0,
+  trend: 0,
+  holding_fund: 1,
+  trading: 0,
+  simulator: 0,
+  generator: 1,
+  fund_router: 2,
+  analyzer: 0,
+  policy: 1,
+  display: 2,
 };
 
 export const CanvasPosition = z.object({ x: z.number(), y: z.number() });

@@ -2,6 +2,7 @@ export * from './foundation';
 export * from './numeric';
 export * from './operating-budget';
 export * from './modules';
+export * from './sector-focus';
 export * from './pipeline';
 export * from './philosophy';
 export * from './broker';

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TradingMode } from './foundation';
+import { CompanySectorFocuses } from './sector-focus';
 
 /**
  * Company + module domain contracts (agent-docs/product/product-spec.md,
@@ -579,6 +580,11 @@ export const CreateCompanyInput = z.object({
   philosophyPrompt: z.string().min(1).max(4000),
   mode: TradingMode.default('paper'),
   seedCreditsCents: z.number().int().min(0).max(100_000_000_00).default(0),
+  /**
+   * Optional multi-select from SECTOR_FOCUS_PRESETS. Persisted on the company
+   * and used to pre-seed engine master topic/sectors when engine setup omits them.
+   */
+  sectorFocuses: CompanySectorFocuses,
   /**
    * Required ENGINE seeds (min 1). Sole graph seed path — company Math hub
    * is always auto-provisioned; standalone extras are optional.

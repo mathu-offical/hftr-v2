@@ -763,6 +763,9 @@ describe('Libraries and research graph (M2)', () => {
     ).toBe(false);
     expect(CurationStatus.options).toContain('proposed');
     expect(CurationStatus.options).toContain('auto_admitted');
+    const { ConceptSourceClass } = await import('./libraries');
+    expect(ConceptSourceClass.options).toContain('catalog_seed');
+    expect(ConceptSourceClass.options).toContain('deterministic_placeholder');
     const graph = ResearchGraphResponse.parse({
       nodes: [
         {
@@ -771,7 +774,7 @@ describe('Libraries and research graph (M2)', () => {
           title: 'Supply',
           body: 'Qualitative note',
           tags: ['chips'],
-          sourceClass: 'deterministic_placeholder',
+          sourceClass: 'catalog_seed',
           status: 'active',
           primaryLibraryId: '33333333-3333-3333-3333-333333333333',
           queryCount: 1,
@@ -1061,6 +1064,27 @@ describe('CreateCompanyInput (D-043)', () => {
       engines: [{ templateId: 'engine_day_trading', inputs: {} }],
     });
     expect(ok.success).toBe(true);
+  });
+
+  it('accepts predefined sector focuses and rejects unknown labels', () => {
+    const ok = CreateCompanyInput.safeParse({
+      name: 'Desk',
+      philosophyPrompt: 'Patient paper desk.',
+      sectorFocuses: ['Semiconductors', 'Macro · rates & FX'],
+      engines: [{ templateId: 'engine_day_trading', inputs: {} }],
+    });
+    expect(ok.success).toBe(true);
+    if (ok.success) {
+      expect(ok.data.sectorFocuses).toEqual(['Semiconductors', 'Macro · rates & FX']);
+    }
+
+    const bad = CreateCompanyInput.safeParse({
+      name: 'Desk',
+      philosophyPrompt: 'Patient paper desk.',
+      sectorFocuses: ['Not a real sector'],
+      engines: [{ templateId: 'engine_day_trading', inputs: {} }],
+    });
+    expect(bad.success).toBe(false);
   });
 
   it('maps execution engines to research dependency packs', () => {

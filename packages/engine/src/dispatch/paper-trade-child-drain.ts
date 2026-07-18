@@ -120,7 +120,7 @@ function parseDrainState(raw: unknown): ChildDrainState | null {
   return s;
 }
 
-async function applySliceFillAndLedger(
+async function applySliceFill(
   db: Db,
   args: {
     companyId: string;
@@ -130,8 +130,9 @@ async function applySliceFillAndLedger(
     fill: ChildSliceFillLeg;
     venue: Venue;
     brokerConnectionId: string | null;
+    traceId: string | null;
   },
-): Promise<bigint> {
+): Promise<void> {
   const qty = Number(args.fill.qtyInt);
   await applyFill(db, {
     companyId: args.companyId,
@@ -142,24 +143,42 @@ async function applySliceFillAndLedger(
     priceCents: args.fill.priceCents,
     connectionId: args.brokerConnectionId,
     venue: args.venue,
-    traceId: null,
+    traceId: args.traceId,
   });
+}
+
+async function writeSliceLedger(
+  db: Db,
+  args: {
+    companyId: string;
+    moduleId: string;
+    symbol: string;
+    actionVerb: 'buy' | 'sell';
+    fill: ChildSliceFillLeg;
+    venue: Venue;
+    traceId: string;
+  },
+): Promise<{ balanceAfter: bigint; ledgerId: string }> {
+  const qty = Number(args.fill.qtyInt);
   const notional = qty * args.fill.priceCents;
   const delta = args.actionVerb === 'buy' ? -BigInt(notional) : BigInt(notional);
   const balanceAfter = (await getCompanyBalanceCents(db, args.companyId)) + delta;
-  await db.insert(ledgerEntries).values({
-    companyId: args.companyId,
-    moduleId: args.moduleId,
-    kind: 'trade',
-    amountCents: delta,
-    balanceAfterCents: balanceAfter,
-    traceId: null,
-    description:
-      args.actionVerb === 'sell'
-        ? `sell ${qty} ${args.symbol} @ ${args.venue} child slice ${args.fill.sliceIndex}`
-        : `buy ${qty} ${args.symbol} @ ${args.venue} child slice ${args.fill.sliceIndex}`,
-  });
-  return balanceAfter;
+  const ledgerRows = await db
+    .insert(ledgerEntries)
+    .values({
+      companyId: args.companyId,
+      moduleId: args.moduleId,
+      kind: 'trade',
+      amountCents: delta,
+      balanceAfterCents: balanceAfter,
+      traceId: args.traceId,
+      description:
+        args.actionVerb === 'sell'
+          ? `sell ${qty} ${args.symbol} @ ${args.venue} child slice ${args.fill.sliceIndex}`
+          : `buy ${qty} ${args.symbol} @ ${args.venue} child slice ${args.fill.sliceIndex}`,
+    })
+    .returning({ id: ledgerEntries.id });
+  return { balanceAfter, ledgerId: ledgerRows[0]!.id };
 }
 
 async function writePartialDrainTrace(
@@ -389,16 +408,6 @@ export async function startTimeSpacedChildDrain(
     venueOrderId: ctx.venueOrderId,
   });
 
-  await applySliceFillAndLedger(db, {
-    companyId: req.companyId,
-    moduleId: req.moduleId,
-    symbol: ctx.quote.symbol,
-    actionVerb: req.actionVerb,
-    fill: fill0,
-    venue: ctx.venue,
-    brokerConnectionId: ctx.brokerConnectionId,
-  });
-
   const drainState: ChildDrainState = {
     slices: ctx.slices,
     filledThroughIndex: 0,
@@ -424,37 +433,50 @@ export async function startTimeSpacedChildDrain(
     shadowTask: ctx.shadowVerify === true ? ctx.task : null,
   };
 
-  await db
-    .update(deterministicTasks)
-    .set({
-      status: 'pending',
-      venueOrderId: ctx.venueOrderId,
-      drainState,
-      updatedAt: new Date(clock.nowMs()),
-    })
-    .where(eq(deterministicTasks.id, ctx.taskId));
+  const sliceArgs = {
+    companyId: req.companyId,
+    moduleId: req.moduleId,
+    symbol: ctx.quote.symbol,
+    actionVerb: req.actionVerb,
+    fill: fill0,
+    venue: ctx.venue,
+    brokerConnectionId: ctx.brokerConnectionId,
+  };
 
   if (ctx.slices.length > 1) {
-    await writePartialDrainTrace(db, drainState, ctx.taskId);
+    await db
+      .update(deterministicTasks)
+      .set({
+        status: 'pending',
+        venueOrderId: ctx.venueOrderId,
+        drainState,
+        updatedAt: new Date(clock.nowMs()),
+      })
+      .where(eq(deterministicTasks.id, ctx.taskId));
+
+    const partialTraceId = await writePartialDrainTrace(db, drainState, ctx.taskId);
+    await applySliceFill(db, { ...sliceArgs, traceId: partialTraceId });
+    await writeSliceLedger(db, { ...sliceArgs, traceId: partialTraceId });
     await enqueueNextChildSlice(db, clock, drainState, ctx.taskId, 1);
-  } else {
-    const traceId = await finalizeTimeSpacedChildDrain(db, clock, drainState, ctx.taskId);
     return {
       outcome: 'filled',
       failureCode: null,
-      detail: 'child slice drain complete (single slice)',
-      traceId,
+      detail: 'child slice drain started; remaining slices enqueued',
+      traceId: partialTraceId,
       fillPriceCents: fill0.priceCents,
       notionalCents: Number(fill0.qtyInt) * fill0.priceCents,
       balanceAfterCents: (await getCompanyBalanceCents(db, req.companyId)).toString(),
     };
   }
 
+  await applySliceFill(db, { ...sliceArgs, traceId: null });
+  const traceId = await finalizeTimeSpacedChildDrain(db, clock, drainState, ctx.taskId);
+  await writeSliceLedger(db, { ...sliceArgs, traceId });
   return {
     outcome: 'filled',
     failureCode: null,
-    detail: 'child slice drain started; remaining slices enqueued',
-    traceId: null,
+    detail: 'child slice drain complete (single slice)',
+    traceId,
     fillPriceCents: fill0.priceCents,
     notionalCents: Number(fill0.qtyInt) * fill0.priceCents,
     balanceAfterCents: (await getCompanyBalanceCents(db, req.companyId)).toString(),
@@ -497,7 +519,13 @@ export async function executePaperTradeChildSlice(
     venueOrderId: state.venueOrderId,
   });
 
-  await applySliceFillAndLedger(db, {
+  const nextState: ChildDrainState = {
+    ...state,
+    filledThroughIndex: sliceIndex,
+    fills: [...state.fills, fill],
+  };
+
+  const sliceArgs = {
     companyId: state.companyId,
     moduleId: state.moduleId,
     symbol: state.symbol,
@@ -505,17 +533,18 @@ export async function executePaperTradeChildSlice(
     fill,
     venue: state.venue,
     brokerConnectionId: state.brokerConnectionId,
-  });
-
-  const nextState: ChildDrainState = {
-    ...state,
-    filledThroughIndex: sliceIndex,
-    fills: [...state.fills, fill],
   };
 
   const isLast = sliceIndex === state.slices.length - 1;
   if (isLast) {
-    await finalizeTimeSpacedChildDrain(db, clock, nextState, payload.taskId);
+    await applySliceFill(db, { ...sliceArgs, traceId: null });
+    const filledTraceId = await finalizeTimeSpacedChildDrain(
+      db,
+      clock,
+      nextState,
+      payload.taskId,
+    );
+    await writeSliceLedger(db, { ...sliceArgs, traceId: filledTraceId });
     return;
   }
 
@@ -524,6 +553,8 @@ export async function executePaperTradeChildSlice(
     .set({ drainState: nextState, updatedAt: new Date(clock.nowMs()) })
     .where(eq(deterministicTasks.id, payload.taskId));
 
-  await writePartialDrainTrace(db, nextState, payload.taskId);
+  const partialTraceId = await writePartialDrainTrace(db, nextState, payload.taskId);
+  await applySliceFill(db, { ...sliceArgs, traceId: partialTraceId });
+  await writeSliceLedger(db, { ...sliceArgs, traceId: partialTraceId });
   await enqueueNextChildSlice(db, clock, nextState, payload.taskId, sliceIndex + 1);
 }

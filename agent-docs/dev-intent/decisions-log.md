@@ -1446,6 +1446,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   the primary clustering metaphor. Docs: `research/galaxy-3d-volume-layout.md`,
   `ui-ux/research-galaxy-topic-view-design.md` §4.1. **Status: implemented.**
 
+- **D-137 (atr cred discovery + drain ledger↔trace, 2026-07-18):**
+  `defaultLoadAlpacaPaperCredentials` fail-open chain:
+  `companies.brokerConnectionId` → bound `module_service_bindings` alpaca paper →
+  owner-scoped connected alpaca paper (`broker_connections.clerkUserId`). Time-spaced
+  child drain inserts per-slice `ledger_entries` with non-null `traceId` after writing
+  the matching `partial` / `filled` `action_traces` row (no ledger UPDATE). Mid-drain
+  start returns the partial `traceId`. Soak helper caps companies; credentialed refresh
+  verified on Neon. Docs: post-fill-deterministic-lifecycle.md. **Status: implemented (paper).**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

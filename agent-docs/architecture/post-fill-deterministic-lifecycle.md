@@ -7,6 +7,7 @@ D-126 shorthand for POV plan / training_feedback / atr_stream / fees (see
 post-fill workstream; research-topics also uses D-126), D-129 (POV drain +
 positions/exits), D-134 (control_snapshots + atr_stream maintenance +
 time-spaced child drain), D-135 (heat atr_stream + mid-drain partial traces),
+D-137 (atr credential discovery + drain ledger↔trace),
 `product-spec.md` §Trading modules, `data-model.md` jobs,
 `seeded-strategy-catalog.json` bands, `academic-quant-tool-catalog.md`.
 
@@ -124,5 +125,7 @@ on handoff envelopes for operator lineage and future IS trajectory realignment
 
 ## 10. Open follow-ons
 
-- Credentialed Alpaca soak for atr_stream refresh (needs company.brokerConnectionId)
-- Wire mid-drain ledger `traceId` to partial traces (fills attach today; ledger rows still null until final fee)
+- Optional: set `companies.brokerConnectionId` explicitly when operator binds execution
+  (discovery already falls back to module bindings + owner alpaca paper — D-137)
+- Optional: backfill position `traceId` provenance on final drain slice (ledger already linked)
+- Live broker commission adapters (still out of scope for paper fee proxy)

@@ -565,8 +565,10 @@ export { computeAtrCents, trueRangeCents, atrStreamSourceId, type OhlcBarCents }
 export { resolveAtrCents } from './calc/resolve-atr';
 export {
   refreshAtrStreamForCompany,
+  defaultLoadAlpacaPaperCredentials,
   mapOhlcBarsToCents,
   type RefreshAtrStreamDeps,
+  type AlpacaPaperCredentials,
 } from './calc/refresh-atr-stream';
 export { planChildSlices, normalizeChildSliceFraction } from './dispatch/child-order-scheduler';
 export {

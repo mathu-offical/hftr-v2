@@ -211,3 +211,29 @@ Scoring: `intent-alignment-scoring.md`
 | Observed | Migration **0044** applied on Neon; portfolio-heat uses per-position ATR; mid-drain writes `partial` traces; atr soak: open positions exist but **no** `companies.brokerConnectionId` → refresh skipped (fail-open) |
 | Alignment | **aligned** for heat/partials; atr_stream live bars need broker-bound company |
 | Decisions | D-135 |
+
+---
+
+## EXP-2026-07-18-007 — Atr cred discovery + drain ledger↔trace
+
+| Field | Value |
+|---|---|
+| Status | pass (unit + credentialed soak) |
+| Mode | paper only |
+| Hypothesis | Owner/module Alpaca fallback unblocks atr_stream without forcing company.brokerConnectionId; per-slice ledger rows can carry partial/filled traceIds |
+| Observed | `defaultLoadAlpacaPaperCredentials` returns creds via owner alpaca paper; soak refreshed AAPL/NVDA (`refreshed≥1`, `skipped:0`) on open-position desks; child-drain inserts ledger after partial/filled traces |
+| Alignment | **aligned** |
+| Decisions | D-137 |
+
+---
+
+## EXP-2026-07-18-007 — Atr cred discovery + drain ledger↔trace
+
+| Field | Value |
+|---|---|
+| Status | pass (unit + credentialed soak) |
+| Mode | paper only |
+| Hypothesis | Owner/module Alpaca fallback unblocks atr_stream without forcing company.brokerConnectionId; per-slice ledger rows can carry partial/filled traceIds |
+| Observed | `defaultLoadAlpacaPaperCredentials` returns creds via owner alpaca paper; soak refreshed AAPL/NVDA (`refreshed≥1`, `skipped:0`) on open-position desks; child-drain inserts ledger after partial/filled traces |
+| Alignment | **aligned** |
+| Decisions | D-137 |

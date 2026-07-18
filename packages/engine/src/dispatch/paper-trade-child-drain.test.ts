@@ -1,7 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { createFixedClock } from '../clock';
 import { sliceDrainIntervalMs } from './child-order-scheduler';
-import { enqueueNextChildSlice, type ChildDrainState } from './paper-trade-child-drain';
+import {
+  childDrainGapTags,
+  enqueueNextChildSlice,
+  type ChildDrainState,
+} from './paper-trade-child-drain';
 
 const enqueueMock = vi.fn();
 
@@ -33,6 +37,26 @@ function baseDrainState(slices: number[]): ChildDrainState {
     routingMode: 'funds_only',
   };
 }
+
+describe('childDrainGapTags', () => {
+  it('tags mid-drain progress separately from complete drain', () => {
+    const mid = childDrainGapTags({
+      usedLiveMarketQuote: false,
+      routingMode: 'funds_only',
+      inProgress: true,
+    });
+    expect(mid).toContain('time_spaced_drain_in_progress');
+    expect(mid).toContain('child_slice_drain');
+
+    const done = childDrainGapTags({
+      usedLiveMarketQuote: true,
+      routingMode: 'funds_only',
+      inProgress: false,
+    });
+    expect(done).not.toContain('time_spaced_drain_in_progress');
+    expect(done).toContain('live_market_quote');
+  });
+});
 
 describe('enqueueNextChildSlice', () => {
   const clock = createFixedClock(1_750_000_000_000);

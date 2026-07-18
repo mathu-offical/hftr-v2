@@ -163,9 +163,10 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   HFT-oriented short horizons), protective ATR stop with catalog **breakeven_on_tp1**
   half-R lock, spread-buffered breakeven, `time_stop_band.typical_min`, and
   **session_close** flatten when XNYS is closed/overnight **only if the position opened
-  during an open cash session**. Exits enqueue through `dispatch.paper_trade`. Live
-  Live `atr_stream` via `resolveAtrCents` (ValueRef/bars, else synthetic). See
-  `architecture/post-fill-deterministic-lifecycle.md`.
+  during an open cash session**. Exits enqueue through `dispatch.paper_trade`.
+  Live `atr_stream` via `resolveAtrCents` (ValueRef/bars, else synthetic); maintenance
+  refresh resolves Alpaca paper creds from company bind, module bindings, or owner
+  connected paper (D-137). See `architecture/post-fill-deterministic-lifecycle.md`.
 - **Entry sizing (compile):** philosophy `sizingBasisBps` × **complex-signal polarization**
   (D-124), **min(budget qty, ATR-risk qty)**, **portfolio heat gate** (D-125), then
   participation/urgency valves + **POV child-slice plan** in lineage (D-126; partial-fill

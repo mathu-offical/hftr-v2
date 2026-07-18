@@ -23,9 +23,7 @@ function assertLeakClean(body: string): void {
   }
 }
 
-function resolveOwnerModuleId(
-  companyModules: Array<{ id: string; type: string }>,
-): string | null {
+function resolveOwnerModuleId(companyModules: Array<{ id: string; type: string }>): string | null {
   const research = companyModules.find((m) => m.type === 'research');
   if (research) return research.id;
   const librarian = companyModules.find((m) => m.type === 'librarian');

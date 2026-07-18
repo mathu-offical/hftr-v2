@@ -4,10 +4,7 @@ import {
   SubmitResearchArticleInput,
   type SubmitResearchArticleResult,
 } from '@hftr/contracts';
-import {
-  deriveOperatorArticleTitle,
-  normalizeOperatorArticleEvidence,
-} from '@hftr/adapters';
+import { deriveOperatorArticleTitle, normalizeOperatorArticleEvidence } from '@hftr/adapters';
 import type { Db } from '@hftr/db';
 import {
   concepts,
@@ -53,9 +50,7 @@ export async function submitOperatorResearchArticle(
     const [lib] = await opts.db
       .select({ id: libraries.id })
       .from(libraries)
-      .where(
-        and(eq(libraries.id, input.libraryId), eq(libraries.companyId, opts.companyId)),
-      )
+      .where(and(eq(libraries.id, input.libraryId), eq(libraries.companyId, opts.companyId)))
       .limit(1);
     if (!lib) throw new Error('library_not_found');
   }

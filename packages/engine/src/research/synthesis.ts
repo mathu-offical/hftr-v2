@@ -6,10 +6,7 @@ import type { Clock } from '../clock';
 import type { ClaimedJob } from '../queue/queue';
 import { loadCatalogHints } from '../handlers/research-deterministic';
 import type { ModelGateway } from '../handlers/model-gateway';
-import {
-  allowedRefsFromEvidence,
-  assertBatchEvidenceGrounded,
-} from './evidence-grounding';
+import { allowedRefsFromEvidence, assertBatchEvidenceGrounded } from './evidence-grounding';
 import { loadOperatorDirectiveHints } from './operator-directives';
 
 export function buildDeterministicBatchFromEvidence(opts: {

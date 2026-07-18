@@ -213,6 +213,28 @@ describe('v1-parity six-gate admission', () => {
       expect(gateResult(gates, 'market_structure_fit').evidence).toContain('waiver');
     });
 
+    it('fails unknown feed class in live mode (D-090)', () => {
+      const gates = evaluateGates(
+        baseInput({
+          mode: 'live',
+          feedClass: null,
+          venue: 'alpaca',
+          brokerConnected: true,
+          brokerConnectionMode: 'live',
+        }),
+      );
+      expect(gateResult(gates, 'market_structure_fit').result).toBe('fail');
+      expect(gateResult(gates, 'market_structure_fit').evidence).toContain('fail-closed');
+    });
+
+    it('waives unknown feed class in paper mode', () => {
+      const gates = evaluateGates(
+        baseInput({ mode: 'paper', feedClass: null, venue: 'alpaca' }),
+      );
+      expect(gateResult(gates, 'market_structure_fit').result).toBe('pass');
+      expect(gateResult(gates, 'market_structure_fit').evidence).toContain('waiver');
+    });
+
     it('passes synthetic_sim on paper_sim venue', () => {
       const gates = evaluateGates(baseInput({ feedClass: 'synthetic_sim', venue: 'paper_sim' }));
       expect(gateResult(gates, 'market_structure_fit').result).toBe('pass');

@@ -10,9 +10,7 @@ describe('resolveCapitalAllocationUsdCents', () => {
       valueInt: 75_000n,
     } as Awaited<ReturnType<typeof store.load>>);
 
-    await expect(resolveCapitalAllocationUsdCents({} as never, 'nv_test')).resolves.toBe(
-      75_000n,
-    );
+    await expect(resolveCapitalAllocationUsdCents({} as never, 'nv_test')).resolves.toBe(75_000n);
   });
 
   it('returns null for missing refs', async () => {

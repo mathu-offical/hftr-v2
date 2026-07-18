@@ -133,6 +133,7 @@ registerHandler('verify.reconcile_order', async ({ db, clock, job }) => {
       venue: execCtx.venue,
       limitPriceCents: task.limitPriceCents,
       quantityInt: task.quantityInt,
+      brokerConnectionId: execCtx.brokerConnectionId,
     });
 
     await db.insert(dispatchReconciliationEvents).values({

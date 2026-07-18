@@ -1,9 +1,7 @@
 import type { AdmissionMode, CurationStatus } from '@hftr/contracts';
 
 /** Map module admission mode to library curation status. */
-export function resolveAdmissionStatus(
-  admissionMode: AdmissionMode,
-): 'auto_admitted' | 'proposed' {
+export function resolveAdmissionStatus(admissionMode: AdmissionMode): 'auto_admitted' | 'proposed' {
   switch (admissionMode) {
     case 'auto_admit_validated':
       return 'auto_admitted';
@@ -16,6 +14,8 @@ export function resolveAdmissionStatus(
   }
 }
 
-export function admissionStatusToCuration(admissionStatus: 'auto_admitted' | 'proposed'): CurationStatus {
+export function admissionStatusToCuration(
+  admissionStatus: 'auto_admitted' | 'proposed',
+): CurationStatus {
   return admissionStatus;
 }

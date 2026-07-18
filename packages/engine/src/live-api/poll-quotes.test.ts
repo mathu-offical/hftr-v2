@@ -3,9 +3,7 @@ import type { BrokerAdapter, QuoteSnapshot } from '@hftr/contracts';
 import { createFixedClock } from '../clock';
 import { pollQuotes } from './poll-quotes';
 
-function mockAdapter(
-  getQuote: (symbol: string) => Promise<QuoteSnapshot>,
-): BrokerAdapter {
+function mockAdapter(getQuote: (symbol: string) => Promise<QuoteSnapshot>): BrokerAdapter {
   return {
     venue: 'alpaca',
     mode: 'paper',
@@ -69,9 +67,7 @@ describe('pollQuotes', () => {
       adapter: mockAdapter(getQuote),
     });
     expect(getQuote).toHaveBeenCalledWith('AAPL');
-    expect(result.statuses).toEqual([
-      { symbol: 'AAPL', feedClass: 'alpaca_iex_paper', ok: true },
-    ]);
+    expect(result.statuses).toEqual([{ symbol: 'AAPL', feedClass: 'alpaca_iex_paper', ok: true }]);
     expect(result.quotes.get('AAPL')?.lastCents).toBe(10_050);
   });
 

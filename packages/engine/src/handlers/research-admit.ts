@@ -4,7 +4,11 @@ import { ResearchModuleConfig } from '@hftr/contracts';
 import { libraryConcepts, modules, researchRequests } from '@hftr/db/schema';
 import { bumpConceptConfidence } from '../libraries/archive';
 import { resolveAdmissionStatus } from '../research/admission';
-import { loadResearchRequest, upsertResearchResult, upsertResearchRun } from '../research/run-state';
+import {
+  loadResearchRequest,
+  upsertResearchResult,
+  upsertResearchRun,
+} from '../research/run-state';
 import { registerHandler } from './registry';
 
 const AdmitPayload = z.object({

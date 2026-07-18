@@ -1,12 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { ConceptValidationResult, ResearchResultStatus } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
-import {
-  researchEvidence,
-  researchRequests,
-  researchResults,
-  researchRuns,
-} from '@hftr/db/schema';
+import { researchEvidence, researchRequests, researchResults, researchRuns } from '@hftr/db/schema';
 
 export async function loadResearchRequest(db: Db, requestId: string) {
   const rows = await db
@@ -110,8 +105,5 @@ export async function upsertResearchResult(
 }
 
 export async function listEvidenceForRequest(db: Db, requestId: string) {
-  return db
-    .select()
-    .from(researchEvidence)
-    .where(eq(researchEvidence.requestId, requestId));
+  return db.select().from(researchEvidence).where(eq(researchEvidence.requestId, requestId));
 }

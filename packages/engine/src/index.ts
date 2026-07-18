@@ -228,9 +228,12 @@ export {
   getCompanyBalanceCents,
   getModuleBalanceCents,
   getCompanyRealizedLossCents,
+  getDailyRealizedLossCents,
   resolveCompileBalanceCents,
+  resolveEquityCentsForLimits,
   type CompileBalanceSource,
   type CompileBalanceResolution,
+  type EquityLimitSource,
 } from './dispatch/balances';
 export {
   resolveExecutionContext,
@@ -284,6 +287,7 @@ export {
   type ResolvedModuleServiceCoverage,
   type ServiceSourceKind,
 } from './services/resolve-module-services';
+export { resolveCompanyServiceBindings } from './services/resolve-company-service-bindings';
 
 // Calc / NRA
 export * as calcStore from './calc/store';

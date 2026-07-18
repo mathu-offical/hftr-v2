@@ -28,10 +28,7 @@ export type LinkDirection = 'out' | 'in' | 'either';
  * Load all module_links + modules for a company into an in-memory graph.
  * Pipeline handlers use this so canvas edges drive data transfer, not only UI.
  */
-export async function loadCompanyLinkGraph(
-  db: Db,
-  companyId: string,
-): Promise<CompanyLinkGraph> {
+export async function loadCompanyLinkGraph(db: Db, companyId: string): Promise<CompanyLinkGraph> {
   const [edgeRows, moduleRows] = await Promise.all([
     db
       .select({
@@ -97,10 +94,7 @@ export function neighborIds(
     ) {
       out.add(edge.toModuleId);
     }
-    if (
-      (opts.direction === 'in' || opts.direction === 'either') &&
-      edge.toModuleId === moduleId
-    ) {
+    if ((opts.direction === 'in' || opts.direction === 'either') && edge.toModuleId === moduleId) {
       out.add(edge.fromModuleId);
     }
   }
@@ -265,8 +259,7 @@ export function resolvePolicyModuleForTrading(
     if (mod.type !== 'policy') continue;
     const touching = graph.edges.some(
       (e) =>
-        e.linkKind === 'verification' &&
-        (e.fromModuleId === mod.id || e.toModuleId === mod.id),
+        e.linkKind === 'verification' && (e.fromModuleId === mod.id || e.toModuleId === mod.id),
     );
     if (touching) return mod;
   }

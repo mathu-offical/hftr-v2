@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { leakLint } from '../calc/leak-lint';
-import {
-  MOVERS_LIBRARY_NAME,
-  MOVERS_PLACEHOLDER_SEEDS,
-  MOVERS_TOPIC_SCOPE,
-} from './system-movers';
+import { MOVERS_LIBRARY_NAME, MOVERS_PLACEHOLDER_SEEDS, MOVERS_TOPIC_SCOPE } from './system-movers';
 
 describe('system:movers library constants', () => {
   it('uses the system curated shelf scope string', () => {

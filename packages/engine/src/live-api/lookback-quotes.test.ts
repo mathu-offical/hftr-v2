@@ -62,9 +62,7 @@ describe('resolveLookbackQuotes', () => {
       adapter: mockAdapter(getQuoteAt),
     });
     expect(getQuoteAt).toHaveBeenCalledOnce();
-    expect(result.statuses).toEqual([
-      { symbol: 'AAPL', feedClass: 'alpaca_iex_paper', ok: true },
-    ]);
+    expect(result.statuses).toEqual([{ symbol: 'AAPL', feedClass: 'alpaca_iex_paper', ok: true }]);
     expect(result.quotes.get('AAPL')?.lastCents).toBe(9_925);
   });
 

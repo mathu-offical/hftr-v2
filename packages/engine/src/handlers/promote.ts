@@ -120,16 +120,20 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     }
   }
 
-  const { refs: admittedArtifactRefs, libraryConceptCount } = await loadAdmittedArtifactRefs(
+  const linkedLibraryModuleIds = linkedLibraryMods.map((m) => m.id);
+  const { refs: admittedArtifactRefs } = await loadAdmittedArtifactRefs(
     db,
     payload.companyId,
-    linkedLibraryMods.length > 0
-      ? { libraryModuleIds: linkedLibraryMods.map((m) => m.id) }
-      : undefined,
+    {
+      // Always pass module ids (possibly empty) so we never company-wide-scan
+      // when the trend has no inbound library→trend edges (D-090).
+      libraryModuleIds: linkedLibraryModuleIds,
+    },
   );
-  // D-039: when any library concepts exist, evidence_fit consults admitted refs
-  // (not freshness alone). Cold companies with empty libraries keep freshness-only.
-  const evidenceFitRefs = libraryConceptCount > 0 ? admittedArtifactRefs : undefined;
+  // D-039/D-090: linked libraries → always consult admitted refs (empty fails).
+  // Unlinked trends → freshness-only cold-start.
+  const evidenceFitRefs =
+    linkedLibraryModuleIds.length > 0 ? admittedArtifactRefs : undefined;
 
   if (admittedArtifactRefs.length > 0) {
     await db

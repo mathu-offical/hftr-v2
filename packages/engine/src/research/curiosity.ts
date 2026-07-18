@@ -20,8 +20,6 @@ export function resolveCuriosityMaxEvidence(
   return Math.min(Math.max(1, requestedMax), cap);
 }
 
-export function curiosityFromConfig(
-  config: z.infer<typeof ResearchModuleConfig>,
-): CuriosityLevel {
+export function curiosityFromConfig(config: z.infer<typeof ResearchModuleConfig>): CuriosityLevel {
   return CuriosityLevel.parse(config.curiosity);
 }

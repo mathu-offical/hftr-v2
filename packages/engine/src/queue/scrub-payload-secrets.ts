@@ -22,10 +22,7 @@ export async function scrubSecretsFromJobPayloads(db: Db): Promise<number> {
       Object.prototype.hasOwnProperty.call(payload, key),
     );
     if (!dirty) continue;
-    await db
-      .update(jobs)
-      .set({ payload: next, updatedAt: new Date() })
-      .where(eq(jobs.id, row.id));
+    await db.update(jobs).set({ payload: next, updatedAt: new Date() }).where(eq(jobs.id, row.id));
     updated += 1;
   }
   return updated;

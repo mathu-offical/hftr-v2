@@ -20,7 +20,16 @@ const SystemMoversPayload = z.object({
 });
 
 /** Liquid universe for paper movers scan — qualitative ranking only. */
-const DEFAULT_MOVERS_UNIVERSE = ['SPY', 'QQQ', 'IWM', 'AAPL', 'MSFT', 'NVDA', 'AMZN', 'META'] as const;
+const DEFAULT_MOVERS_UNIVERSE = [
+  'SPY',
+  'QQQ',
+  'IWM',
+  'AAPL',
+  'MSFT',
+  'NVDA',
+  'AMZN',
+  'META',
+] as const;
 
 function buildMoversReportBody(opts: {
   corroborationBand: string;
@@ -79,7 +88,12 @@ async function loadAlpacaPaperCredentials(
 
   try {
     const plain = decryptSecret(conn.ciphertext, 'broker_credentials');
-    const credentials = JSON.parse(plain) as { keyId?: string; secret?: string; apiKeyId?: string; apiSecret?: string };
+    const credentials = JSON.parse(plain) as {
+      keyId?: string;
+      secret?: string;
+      apiKeyId?: string;
+      apiSecret?: string;
+    };
     const keyId = credentials.keyId ?? credentials.apiKeyId;
     const secret = credentials.secret ?? credentials.apiSecret;
     if (!keyId?.trim() || !secret?.trim()) return null;

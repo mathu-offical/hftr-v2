@@ -60,12 +60,9 @@ function computeSealId(parts: {
   title: string;
   digests: string[];
 }): string {
-  const payload = [
-    parts.kind,
-    parts.subjectKey,
-    parts.title,
-    ...[...parts.digests].sort(),
-  ].join('|');
+  const payload = [parts.kind, parts.subjectKey, parts.title, ...[...parts.digests].sort()].join(
+    '|',
+  );
   const hex = createHash('sha256').update(payload, 'utf8').digest('hex').slice(0, 32);
   return `sha256-${hex}`;
 }
@@ -172,11 +169,7 @@ export function corroborateAndNormalize(
   const credibility = sourceCredibilityGate(input.evidence);
   if (!credibility.passed) return null;
 
-  const sector = sectorScopeGate(
-    input.evidence,
-    input.topicScope ?? '',
-    input.topicSectors ?? [],
-  );
+  const sector = sectorScopeGate(input.evidence, input.topicScope ?? '', input.topicSectors ?? []);
   const corroboration = corroborationGate(domains.size);
   const gatesSnapshot: ValidationGateResult[] = [sector, credibility, corroboration];
 
@@ -213,10 +206,7 @@ export function corroborateAndNormalize(
 }
 
 /** TTL + non-empty digest guard for seal reuse. */
-export function isSealValid(
-  bundle: VerifiedNormalizedBundle,
-  nowMs: number,
-): boolean {
+export function isSealValid(bundle: VerifiedNormalizedBundle, nowMs: number): boolean {
   if (bundle.sourceDigests.length === 0) return false;
   const expiresMs = Date.parse(bundle.expiresAt);
   if (!Number.isFinite(expiresMs) || expiresMs <= nowMs) return false;

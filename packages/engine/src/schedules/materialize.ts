@@ -184,7 +184,9 @@ export async function ensureSystemLibrarySchedule(
   const existing = await db
     .select({ id: jobSchedules.id })
     .from(jobSchedules)
-    .where(and(eq(jobSchedules.companyId, opts.companyId), eq(jobSchedules.name, opts.scheduleName)))
+    .where(
+      and(eq(jobSchedules.companyId, opts.companyId), eq(jobSchedules.name, opts.scheduleName)),
+    )
     .limit(1);
 
   if (existing[0]) {

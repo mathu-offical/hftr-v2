@@ -19,7 +19,13 @@ registerHandler('research.company_sweep', async ({ db, clock, job }) => {
       config: modules.config,
     })
     .from(modules)
-    .where(and(eq(modules.companyId, payload.companyId), eq(modules.type, 'research'), eq(modules.status, 'active')));
+    .where(
+      and(
+        eq(modules.companyId, payload.companyId),
+        eq(modules.type, 'research'),
+        eq(modules.status, 'active'),
+      ),
+    );
 
   for (const mod of researchModules) {
     const topicScope =

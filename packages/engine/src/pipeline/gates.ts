@@ -174,13 +174,19 @@ export function evaluateGates(input: GateInput): GateEvidence[] {
       evidence:
         'synthetic_sim feed treated as continuously quotable for paper_sim admission (honest simulator gap)',
     });
+  } else if (input.mode === 'live') {
+    gates.push({
+      gate: 'market_structure_fit',
+      result: 'fail',
+      evidence:
+        'live mode requires a known quote feed class (broker_state); feed class unknown — fail-closed',
+    });
   } else {
     gates.push({
       gate: 'market_structure_fit',
       result: 'pass',
       evidence:
-        'deterministic placeholder basis: market-structure profile not yet model-backed; ' +
-        'venue feed class unknown — admitted pending structure snapshot integration',
+        'paper_mode_feed_waiver: market-structure profile unknown — admitted pending structure snapshot',
     });
   }
 

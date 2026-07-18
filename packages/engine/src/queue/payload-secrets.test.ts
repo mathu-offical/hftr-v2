@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  assertNoSecretsInJobPayload,
-  stripSecretsFromJobPayload,
-} from './payload-secrets';
+import { assertNoSecretsInJobPayload, stripSecretsFromJobPayload } from './payload-secrets';
 
 describe('assertNoSecretsInJobPayload', () => {
   it('allows identity + intent payloads', () => {

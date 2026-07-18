@@ -28,7 +28,8 @@ import type { LimitContext } from '../limits/context';
 import { enqueue } from '../queue/queue';
 import {
   getCompanyBalanceCents,
-  getCompanyRealizedLossCents,
+  getDailyRealizedLossCents,
+  resolveEquityCentsForLimits,
 } from './balances';
 import { resolveExecutionContext } from './execution-context';
 import { preDispatchGauntlet } from './pre-dispatch';
@@ -90,8 +91,10 @@ const ORDER_FREQ_WINDOW_MS = 60_000;
 export { getCompanyBalanceCents } from './balances';
 export {
   getCompanyRealizedLossCents,
+  getDailyRealizedLossCents,
   getModuleBalanceCents,
   resolveCompileBalanceCents,
+  resolveEquityCentsForLimits,
 } from './balances';
 
 /**
@@ -444,7 +447,13 @@ export async function executePaperTrade(
       nowMs,
     );
     const activeGuardrailPackageIds = await resolveActiveGuardrailPackageIds(db, req.moduleId);
-    const realizedLossCents = await getCompanyRealizedLossCents(db, req.companyId);
+    const sessionOpenMs = session?.openMsUtc ?? nowMs - 24 * 60 * 60 * 1000;
+    const realizedLossCents = await getDailyRealizedLossCents(db, req.companyId, sessionOpenMs);
+    const { equityCents } = await resolveEquityCentsForLimits(
+      db,
+      req.companyId,
+      execCtx.virtualBalanceCents,
+    );
     const limitCtx: LimitContext = {
       companyId: req.companyId,
       moduleId: req.moduleId,
@@ -452,7 +461,7 @@ export async function executePaperTrade(
       nowMs,
       sessionPhase: phase,
       virtualBalanceCents: execCtx.virtualBalanceCents,
-      equityCents: execCtx.virtualBalanceCents,
+      equityCents,
       realizedLossCents,
       brokerEnvelopeId: DEFAULT_BROKER_ENVELOPE_ID,
       recentTraceTimestampsMs,
@@ -584,6 +593,7 @@ export async function executePaperTrade(
     quoteRef,
     sessionSnapshot,
     venue,
+    brokerConnectionId,
   });
 }
 
@@ -632,6 +642,7 @@ async function executeVenueTrade(
         quoteRef,
         sessionSnapshot,
         venue,
+        brokerConnectionId,
       });
     }
   }
@@ -737,6 +748,7 @@ async function executeVenueTrade(
       quoteRef,
       sessionSnapshot,
       venue,
+      brokerConnectionId,
     });
   }
 
@@ -797,6 +809,8 @@ export interface FinalizeRecoveredVenueFillArgs {
   venue: Venue;
   limitPriceCents: number | null;
   quantityInt: string;
+  /** Broker connection for position provenance when known (D-090). */
+  brokerConnectionId?: string | null;
 }
 
 interface FinalizeContext {
@@ -809,6 +823,7 @@ interface FinalizeContext {
   quoteRef: string;
   sessionSnapshot: Record<string, unknown>;
   venue: Venue;
+  brokerConnectionId?: string | null;
 }
 
 interface AppliedVenueFill {
@@ -840,6 +855,7 @@ async function applyVenueFillFinalization(
     limitPriceCents,
     quantityInt,
     traceOutcome,
+    brokerConnectionId,
   } = args;
 
   const fillRecord = {
@@ -893,6 +909,9 @@ async function applyVenueFillFinalization(
     side: actionVerb,
     qty: quantity,
     priceCents: fillPriceCents,
+    connectionId: brokerConnectionId ?? null,
+    venue,
+    traceId,
   });
   const actualNotional = quantity * fillPriceCents;
   const delta = actionVerb === 'buy' ? -BigInt(actualNotional) : BigInt(actualNotional);
@@ -952,6 +971,7 @@ async function finalizeFilledTrade(
     quoteRef,
     sessionSnapshot,
     venue,
+    brokerConnectionId,
   } = ctx;
 
   const { traceId, verifyPass, actualNotional, balanceAfter } = await applyVenueFillFinalization(
@@ -973,6 +993,7 @@ async function finalizeFilledTrade(
       venue,
       limitPriceCents: task.limitPriceCents,
       quantityInt: task.quantityInt,
+      brokerConnectionId: brokerConnectionId ?? null,
       traceOutcome: 'filled',
     },
   );

@@ -1,8 +1,5 @@
 import { z } from 'zod';
-import {
-  executePaperTrade,
-  executePaperTradeFromInstruction,
-} from '../dispatch/paper-trade';
+import { executePaperTrade, executePaperTradeFromInstruction } from '../dispatch/paper-trade';
 import { registerHandler } from './registry';
 
 const OperatorPaperTradePayload = z.object({

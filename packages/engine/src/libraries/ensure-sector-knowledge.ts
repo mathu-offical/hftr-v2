@@ -23,9 +23,7 @@ async function loadSeededBodyHelpers(): Promise<{
   };
 }
 
-function resolveOwnerModuleId(
-  companyModules: Array<{ id: string; type: string }>,
-): string | null {
+function resolveOwnerModuleId(companyModules: Array<{ id: string; type: string }>): string | null {
   const research = companyModules.find((m) => m.type === 'research');
   if (research) return research.id;
   const librarian = companyModules.find((m) => m.type === 'librarian');
@@ -136,11 +134,7 @@ export async function ensureSectorKnowledge(
       tier: null,
       payload: entry.payload,
     };
-    const tags = [
-      ...collectSeededConceptTags(bodyEntry),
-      folderTag,
-      'baseline_sector',
-    ];
+    const tags = [...collectSeededConceptTags(bodyEntry), folderTag, 'baseline_sector'];
     const body = buildSeededConceptBody(bodyEntry);
     const sourceRef = `sector_seeds/${entry.entryKey}`;
 

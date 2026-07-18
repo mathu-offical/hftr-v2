@@ -39,7 +39,11 @@ describe('activationGraphBlockers', () => {
 
     it('allows trading with inbound data_feed from live_api', () => {
       expect(
-        activationGraphBlockers(trading, [link('live1', 'tr1', 'data_feed')], peers(liveApi, trading)),
+        activationGraphBlockers(
+          trading,
+          [link('live1', 'tr1', 'data_feed')],
+          peers(liveApi, trading),
+        ),
       ).toEqual([]);
     });
 
@@ -108,7 +112,11 @@ describe('activationGraphBlockers', () => {
 
   describe('trend', () => {
     it('blocks trend with no inbound data_feed from library or live_api', () => {
-      const reasons = activationGraphBlockers(trend, [link('m1', 't1', 'data_feed')], peers(math, trend));
+      const reasons = activationGraphBlockers(
+        trend,
+        [link('m1', 't1', 'data_feed')],
+        peers(math, trend),
+      );
       expect(reasons).toHaveLength(1);
       expect(reasons[0]).toMatch(/library or live API/i);
     });
@@ -128,14 +136,22 @@ describe('activationGraphBlockers', () => {
 
   describe('library', () => {
     it('blocks library with no inbound data_feed from research or librarian', () => {
-      const reasons = activationGraphBlockers(library, [link('live1', 'lib1', 'data_feed')], peers(liveApi, library));
+      const reasons = activationGraphBlockers(
+        library,
+        [link('live1', 'lib1', 'data_feed')],
+        peers(liveApi, library),
+      );
       expect(reasons).toHaveLength(1);
       expect(reasons[0]).toMatch(/research or librarian/i);
     });
 
     it('allows library with inbound data_feed from research', () => {
       expect(
-        activationGraphBlockers(library, [link('r1', 'lib1', 'data_feed')], peers(research, library)),
+        activationGraphBlockers(
+          library,
+          [link('r1', 'lib1', 'data_feed')],
+          peers(research, library),
+        ),
       ).toEqual([]);
     });
 

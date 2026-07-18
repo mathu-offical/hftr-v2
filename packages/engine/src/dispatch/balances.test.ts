@@ -48,3 +48,27 @@ describe('compile balance preference', () => {
     ).toEqual({ balanceCents: 1_000_000n, source: 'company_pool' });
   });
 });
+
+describe('equity limit preference', () => {
+  it('documents fresh projection over virtual balance', () => {
+    type Source = 'equity_projection' | 'virtual_balance';
+    function pick(
+      status: 'fresh' | 'stale' | 'unavailable',
+      equity: bigint | null,
+      fallback: bigint,
+    ): { equityCents: bigint; source: Source } {
+      if (status === 'fresh' && equity != null) {
+        return { equityCents: equity, source: 'equity_projection' };
+      }
+      return { equityCents: fallback, source: 'virtual_balance' };
+    }
+    expect(pick('fresh', 900_000n, 100_000n)).toEqual({
+      equityCents: 900_000n,
+      source: 'equity_projection',
+    });
+    expect(pick('stale', 900_000n, 100_000n)).toEqual({
+      equityCents: 100_000n,
+      source: 'virtual_balance',
+    });
+  });
+});

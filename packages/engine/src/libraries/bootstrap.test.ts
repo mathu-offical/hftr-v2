@@ -10,10 +10,7 @@ import {
   type SeededCatalogEntry,
 } from './bootstrap';
 
-const CATALOG_DIR = join(
-  dirname(fileURLToPath(import.meta.url)),
-  '../../../db/src/seed/catalogs',
-);
+const CATALOG_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../../db/src/seed/catalogs');
 
 function loadPayload(file: string, arrayKey: string, id: string): Record<string, unknown> {
   const data = JSON.parse(readFileSync(join(CATALOG_DIR, file), 'utf8')) as Record<
@@ -58,7 +55,7 @@ const SAMPLE_ENTRIES: SeededCatalogEntry[] = [
 
 describe('SEED_CATALOG_TARGETS', () => {
   it('lists representative bootstrap catalog pairs once', () => {
-    expect(SEED_CATALOG_TARGETS.length).toBe(14);
+    expect(SEED_CATALOG_TARGETS.length).toBe(18);
     const keys = new Set(SEED_CATALOG_TARGETS.map((t) => `${t.catalog}/${t.entryKey}`));
     expect(keys.size).toBe(SEED_CATALOG_TARGETS.length);
     expect(keys.has('strategy_families/strat-001')).toBe(true);
@@ -77,9 +74,10 @@ describe('buildSeededConceptBody', () => {
     for (const entry of SAMPLE_ENTRIES) {
       const body = buildSeededConceptBody(entry);
       const lint = leakLint(body, []);
-      expect(lint.ok, `leak on ${entry.catalog}/${entry.entryKey}: ${JSON.stringify(lint.leaks)}`).toBe(
-        true,
-      );
+      expect(
+        lint.ok,
+        `leak on ${entry.catalog}/${entry.entryKey}: ${JSON.stringify(lint.leaks)}`,
+      ).toBe(true);
       expect(body.toLowerCase()).not.toContain('placeholder');
       expect(body).toContain('#');
       expect(body).toContain(entry.title.replace(/_/g, ' '));

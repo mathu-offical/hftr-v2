@@ -7,8 +7,6 @@ import {
   libraries,
   libraryConcepts,
   modules,
-  researchTopics,
-  topicConcepts,
 } from '@hftr/db/schema';
 import { createFixedClock } from '../clock';
 import { ensureSystemLibrarySchedule } from '../schedules/materialize';
@@ -17,10 +15,13 @@ import { ensureSectorKnowledge } from './ensure-sector-knowledge';
 import { SYSTEM_LIBRARY_REGISTRY } from './system-library-registry';
 import {
   buildSeededConceptBody,
-  buildSeededTopicSynopsisMd,
   collectSeededConceptTags,
   type SeededCatalogEntry,
 } from './seeded-concept-body';
+import {
+  ensureSeededResearchTopics,
+  type ConceptSeedRow,
+} from './seeded-topics';
 
 export {
   buildSeededConceptBody,
@@ -29,77 +30,17 @@ export {
   type SeededCatalogEntry,
 } from './seeded-concept-body';
 
+export {
+  SEEDED_TOPIC_PROGRAM_TITLE,
+  SEEDED_TOPIC_SPECS,
+  SEEDED_TOPIC_TITLE,
+  SEEDED_TOPIC_TITLES,
+  isSeededTopicTitle,
+  ensureSeededResearchTopics,
+  buildSeededDirectiveSynopsisMd,
+} from './seeded-topics';
+
 const MECHANISMS_LIBRARY_NAME = 'Seeded trading mechanisms';
-const SEEDED_TOPIC_TITLE = 'Seeded trading mechanisms';
-
-/**
- * Refresh catalog_seed concept bodies/tags from current builders (D-079 / D-080).
- * Runs even when skipIfSeeded short-circuits the full first-time seed path.
- */
-async function rematerializeCatalogSeedBodies(
-  db: Db,
-  companyId: string,
-  now: Date,
-): Promise<number> {
-  const catalogRows = await db
-    .select()
-    .from(catalogEntries)
-    .where(inArray(catalogEntries.catalog, [...SEED_CATALOG_NAMES]))
-    .orderBy(catalogEntries.catalog, catalogEntries.entryKey);
-
-  let updated = 0;
-  for (const entry of catalogRows) {
-    const bodyEntry: SeededCatalogEntry = {
-      catalog: entry.catalog,
-      entryKey: entry.entryKey,
-      title: entry.title,
-      tier: entry.tier,
-      payload: entry.payload,
-    };
-    const tags = collectSeededConceptTags(bodyEntry);
-    const body = buildSeededConceptBody(bodyEntry);
-    const sourceRef = `${entry.catalog}/${entry.entryKey}`;
-
-    const result = await db
-      .update(concepts)
-      .set({
-        body,
-        tags,
-        status: 'active',
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(concepts.companyId, companyId),
-          eq(concepts.sourceClass, 'catalog_seed'),
-          eq(concepts.sourceRef, sourceRef),
-        ),
-      );
-    // drizzle neon returns rowCount on some drivers; treat any completed update as progress
-    void result;
-    updated += 1;
-  }
-
-  // Keep the seeded topic synopsis aligned with current catalog membership.
-  const members = catalogRows.map((entry) => ({
-    title: entry.title,
-    catalog: entry.catalog,
-  }));
-  if (members.length > 0) {
-    const synopsisMd = buildSeededTopicSynopsisMd(members);
-    await db
-      .update(researchTopics)
-      .set({ synopsisMd, status: 'active', updatedAt: now })
-      .where(
-        and(
-          eq(researchTopics.companyId, companyId),
-          eq(researchTopics.title, SEEDED_TOPIC_TITLE),
-        ),
-      );
-  }
-
-  return updated;
-}
 
 /** Catalog families materialized into the compile-time mechanisms library. */
 export const SEED_CATALOG_NAMES = [
@@ -110,7 +51,199 @@ export const SEED_CATALOG_NAMES = [
   'session_constraints',
   'broker_policy_envelopes',
   'trend_lead_patterns',
+  'compliance_packages',
+  'event_archetypes',
+  'macro_triggers',
+  'sector_seeds',
 ] as const;
+
+function catalogClassFromPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const row = payload as Record<string, unknown>;
+  if (typeof row.class === 'string' && row.class.trim()) return row.class;
+  if (typeof row.sector === 'string' && row.sector.trim()) return row.sector;
+  return null;
+}
+
+async function loadCatalogMeta(db: Db): Promise<{
+  tierBySourceRef: Map<string, string | null>;
+  classBySourceRef: Map<string, string | null>;
+}> {
+  const rows = await db
+    .select({
+      catalog: catalogEntries.catalog,
+      entryKey: catalogEntries.entryKey,
+      tier: catalogEntries.tier,
+      payload: catalogEntries.payload,
+    })
+    .from(catalogEntries)
+    .where(inArray(catalogEntries.catalog, [...SEED_CATALOG_NAMES]));
+  const tierBySourceRef = new Map<string, string | null>();
+  const classBySourceRef = new Map<string, string | null>();
+  for (const row of rows) {
+    const ref = `${row.catalog}/${row.entryKey}`;
+    tierBySourceRef.set(ref, row.tier);
+    classBySourceRef.set(ref, catalogClassFromPayload(row.payload));
+  }
+  return { tierBySourceRef, classBySourceRef };
+}
+
+async function syncSeededTopicsForResearchModule(opts: {
+  db: Db;
+  companyId: string;
+  researchModuleId: string;
+  now: Date;
+}): Promise<string | null> {
+  const conceptRows: ConceptSeedRow[] = await opts.db
+    .select({
+      id: concepts.id,
+      title: concepts.title,
+      sourceRef: concepts.sourceRef,
+    })
+    .from(concepts)
+    .where(
+      and(
+        eq(concepts.companyId, opts.companyId),
+        eq(concepts.sourceClass, 'catalog_seed'),
+        eq(concepts.status, 'active'),
+      ),
+    );
+  const { tierBySourceRef, classBySourceRef } = await loadCatalogMeta(opts.db);
+  const result = await ensureSeededResearchTopics({
+    db: opts.db,
+    companyId: opts.companyId,
+    researchModuleId: opts.researchModuleId,
+    now: opts.now,
+    conceptRows,
+    tierBySourceRef,
+    classBySourceRef,
+  });
+  return result.programTopicId;
+}
+
+/**
+ * Refresh catalog_seed concept bodies/tags from current builders (D-079 / D-080 / D-081).
+ * Also upserts any missing catalog families so expanded SEED_CATALOG_NAMES backfill.
+ */
+async function rematerializeCatalogSeedBodies(
+  db: Db,
+  companyId: string,
+  now: Date,
+  opts?: { ownerModuleId?: string; mechanismsLibraryId?: string },
+): Promise<number> {
+  const catalogRows = await db
+    .select()
+    .from(catalogEntries)
+    .where(inArray(catalogEntries.catalog, [...SEED_CATALOG_NAMES]))
+    .orderBy(catalogEntries.catalog, catalogEntries.entryKey);
+
+  const existingSeeds = await db
+    .select({
+      id: concepts.id,
+      body: concepts.body,
+      sourceRef: concepts.sourceRef,
+      moduleId: concepts.moduleId,
+    })
+    .from(concepts)
+    .where(and(eq(concepts.companyId, companyId), eq(concepts.sourceClass, 'catalog_seed')));
+
+  const byRef = new Map(
+    existingSeeds
+      .filter((row): row is typeof row & { sourceRef: string } => Boolean(row.sourceRef))
+      .map((row) => [row.sourceRef, row] as const),
+  );
+
+  let ownerModuleId = opts?.ownerModuleId ?? null;
+  let mechanismsLibraryId = opts?.mechanismsLibraryId ?? null;
+  if (!ownerModuleId || !mechanismsLibraryId) {
+    const companyModules = await db
+      .select({ id: modules.id, type: modules.type, name: modules.name, config: modules.config })
+      .from(modules)
+      .where(eq(modules.companyId, companyId));
+    ownerModuleId = ownerModuleId ?? resolveOwnerModuleId(companyModules);
+    if (!mechanismsLibraryId) {
+      const [mech] = await db
+        .select({ id: libraries.id })
+        .from(libraries)
+        .where(and(eq(libraries.companyId, companyId), eq(libraries.name, MECHANISMS_LIBRARY_NAME)))
+        .limit(1);
+      mechanismsLibraryId = mech?.id ?? null;
+    }
+  }
+  if (!ownerModuleId || !mechanismsLibraryId) return 0;
+
+  let updated = 0;
+  for (const entry of catalogRows) {
+    const sourceRef = `${entry.catalog}/${entry.entryKey}`;
+    const existing = byRef.get(sourceRef);
+    const bodyEntry: SeededCatalogEntry = {
+      catalog: entry.catalog,
+      entryKey: entry.entryKey,
+      title: entry.title,
+      tier: entry.tier,
+      payload: entry.payload,
+    };
+    const tags = collectSeededConceptTags(bodyEntry);
+    const body = buildSeededConceptBody(bodyEntry);
+
+    if (
+      existing &&
+      existing.body.includes('## Overview') &&
+      existing.body.includes('| Field |') &&
+      existing.body.includes('[[sys:')
+    ) {
+      continue;
+    }
+
+    await db
+      .insert(concepts)
+      .values({
+        companyId,
+        moduleId: ownerModuleId,
+        title: entry.title,
+        body,
+        tags,
+        sourceClass: 'catalog_seed',
+        sourceRef,
+        status: 'active',
+        primaryLibraryId: mechanismsLibraryId,
+      })
+      .onConflictDoUpdate({
+        target: [concepts.moduleId, concepts.title],
+        set: {
+          body,
+          tags,
+          sourceClass: 'catalog_seed',
+          sourceRef,
+          primaryLibraryId: mechanismsLibraryId,
+          status: 'active',
+          updatedAt: now,
+        },
+      });
+
+    const [row] = await db
+      .select({ id: concepts.id })
+      .from(concepts)
+      .where(and(eq(concepts.moduleId, ownerModuleId), eq(concepts.title, entry.title)))
+      .limit(1);
+    if (row) {
+      await db
+        .insert(libraryConcepts)
+        .values({
+          libraryId: mechanismsLibraryId,
+          conceptId: row.id,
+          curationStatus: 'auto_admitted',
+        })
+        .onConflictDoUpdate({
+          target: [libraryConcepts.libraryId, libraryConcepts.conceptId],
+          set: { curationStatus: 'auto_admitted', updatedAt: now },
+        });
+    }
+    updated += 1;
+  }
+
+  return updated;
+}
 
 /**
  * Representative pairs kept for link coverage in tests and curated edges.
@@ -131,6 +264,10 @@ export const SEED_CATALOG_TARGETS = [
   { catalog: 'trend_lead_patterns', entryKey: 'lead-001' },
   { catalog: 'trend_lead_patterns', entryKey: 'lead-002' },
   { catalog: 'trend_lead_patterns', entryKey: 'lead-003' },
+  { catalog: 'compliance_packages', entryKey: 'cmp-001' },
+  { catalog: 'event_archetypes', entryKey: 'evt-001' },
+  { catalog: 'macro_triggers', entryKey: 'macro-001' },
+  { catalog: 'sector_seeds', entryKey: 'sec-001' },
 ] as const;
 
 const SEED_CONCEPT_LINKS: ReadonlyArray<{
@@ -200,10 +337,7 @@ async function ensureLibraryForModule(
     .limit(1);
 
   if (row && row.moduleId === null) {
-    await db
-      .update(libraries)
-      .set({ moduleId, updatedAt: now })
-      .where(eq(libraries.id, row.id));
+    await db.update(libraries).set({ moduleId, updatedAt: now }).where(eq(libraries.id, row.id));
   }
 }
 
@@ -281,9 +415,7 @@ async function ensureMasterLibrary(
     .where(eq(libraries.id, mechanismsLibraryId));
 }
 
-function resolveOwnerModuleId(
-  companyModules: Array<{ id: string; type: string }>,
-): string | null {
+function resolveOwnerModuleId(companyModules: Array<{ id: string; type: string }>): string | null {
   const research = companyModules.find((m) => m.type === 'research');
   if (research) return research.id;
   const librarian = companyModules.find((m) => m.type === 'librarian');
@@ -356,24 +488,31 @@ export async function bootstrapCompanyKnowledge(opts: {
         .select({ id: libraries.id })
         .from(libraries)
         .where(
-          and(
-            eq(libraries.companyId, opts.companyId),
-            eq(libraries.name, MECHANISMS_LIBRARY_NAME),
-          ),
+          and(eq(libraries.companyId, opts.companyId), eq(libraries.name, MECHANISMS_LIBRARY_NAME)),
         )
         .limit(1);
       if (mechLib) {
-        // Mechanisms already seeded — rematerialize article bodies, then sector knowledge.
-        const rematerialized = await rematerializeCatalogSeedBodies(
-          opts.db,
-          opts.companyId,
-          now,
-        );
+        // Mechanisms already seeded — rematerialize bodies, sync directive topics, sector knowledge.
+        const rematerialized = await rematerializeCatalogSeedBodies(opts.db, opts.companyId, now);
         const sector = await ensureSectorKnowledge(opts.db, opts.companyId, now);
+        const companyModules = await opts.db
+          .select({ id: modules.id, type: modules.type })
+          .from(modules)
+          .where(eq(modules.companyId, opts.companyId));
+        const research = companyModules.find((m) => m.type === 'research');
+        let topicId: string | null = null;
+        if (research) {
+          topicId = await syncSeededTopicsForResearchModule({
+            db: opts.db,
+            companyId: opts.companyId,
+            researchModuleId: research.id,
+            now,
+          });
+        }
         return {
           librariesEnsured: 0,
           conceptsUpserted: rematerialized + sector.conceptsUpserted,
-          topicId: null,
+          topicId,
         };
       }
     }
@@ -401,13 +540,7 @@ export async function bootstrapCompanyKnowledge(opts: {
   );
   librariesEnsured += 1;
 
-  await ensureMasterLibrary(
-    opts.db,
-    opts.companyId,
-    libraryModules,
-    mechanismsLibraryId,
-    now,
-  );
+  await ensureMasterLibrary(opts.db, opts.companyId, libraryModules, mechanismsLibraryId, now);
 
   const ownerModuleId = resolveOwnerModuleId(companyModules);
   if (!ownerModuleId) {
@@ -483,9 +616,7 @@ export async function bootstrapCompanyKnowledge(opts: {
   const conceptRows = await opts.db
     .select({ id: concepts.id, title: concepts.title })
     .from(concepts)
-    .where(
-      and(eq(concepts.moduleId, ownerModuleId), inArray(concepts.title, seededTitles)),
-    );
+    .where(and(eq(concepts.moduleId, ownerModuleId), inArray(concepts.title, seededTitles)));
 
   const conceptIdByTitle = new Map(conceptRows.map((r) => [r.title, r.id] as const));
   const conceptIds = seededTitles
@@ -539,55 +670,15 @@ export async function bootstrapCompanyKnowledge(opts: {
     };
   }
 
-  const synopsisMd = buildSeededTopicSynopsisMd(seededMembers);
-
-  const [existingTopic] = await opts.db
-    .select({ id: researchTopics.id })
-    .from(researchTopics)
-    .where(
-      and(
-        eq(researchTopics.companyId, opts.companyId),
-        eq(researchTopics.moduleId, ownerModuleId),
-        eq(researchTopics.title, SEEDED_TOPIC_TITLE),
-      ),
-    )
-    .limit(1);
-
-  let topicId: string;
-  if (existingTopic) {
-    topicId = existingTopic.id;
-    await opts.db
-      .update(researchTopics)
-      .set({ synopsisMd, status: 'active', updatedAt: now })
-      .where(eq(researchTopics.id, topicId));
-  } else {
-    const [inserted] = await opts.db
-      .insert(researchTopics)
-      .values({
-        companyId: opts.companyId,
-        moduleId: ownerModuleId,
-        title: SEEDED_TOPIC_TITLE,
-        synopsisMd,
-        status: 'active',
-        provenance: 'deterministic_bootstrap',
-      })
-      .returning({ id: researchTopics.id });
-    topicId = inserted!.id;
-  }
-
-  await opts.db.delete(topicConcepts).where(eq(topicConcepts.topicId, topicId));
-
-  for (let sortOrder = 0; sortOrder < conceptIds.length; sortOrder += 1) {
-    const conceptId = conceptIds[sortOrder]!;
-    await opts.db.insert(topicConcepts).values({
-      topicId,
-      conceptId,
-      sortOrder,
-      role: null,
-    });
-  }
-
+  // Sector knowledge first so sector_seeds concepts exist for the Sector knowledge topic.
   const sector = await ensureSectorKnowledge(opts.db, opts.companyId, now);
+  const topicId = await syncSeededTopicsForResearchModule({
+    db: opts.db,
+    companyId: opts.companyId,
+    researchModuleId: ownerModuleId,
+    now,
+  });
+
   return {
     librariesEnsured,
     conceptsUpserted: conceptsUpserted + sector.conceptsUpserted,

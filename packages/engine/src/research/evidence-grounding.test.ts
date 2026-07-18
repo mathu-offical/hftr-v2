@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ConceptBatch } from '@hftr/contracts';
-import {
-  allowedRefsFromEvidence,
-  assertBatchEvidenceGrounded,
-} from './evidence-grounding';
+import { allowedRefsFromEvidence, assertBatchEvidenceGrounded } from './evidence-grounding';
 
 describe('assertBatchEvidenceGrounded', () => {
   it('accepts evidence: and seal: refs in the allow sets', () => {

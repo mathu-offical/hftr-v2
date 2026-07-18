@@ -85,7 +85,10 @@ export async function persistVerifiedBundle(
   });
 
   const [existingView] = await input.db
-    .select({ id: systemNormalizedViews.id, reportConceptId: systemNormalizedViews.reportConceptId })
+    .select({
+      id: systemNormalizedViews.id,
+      reportConceptId: systemNormalizedViews.reportConceptId,
+    })
     .from(systemNormalizedViews)
     .where(
       and(
@@ -129,9 +132,7 @@ export async function persistVerifiedBundle(
     const [conceptRow] = await input.db
       .select({ id: concepts.id })
       .from(concepts)
-      .where(
-        and(eq(concepts.moduleId, input.ownerModuleId), eq(concepts.title, input.reportTitle)),
-      )
+      .where(and(eq(concepts.moduleId, input.ownerModuleId), eq(concepts.title, input.reportTitle)))
       .limit(1);
 
     if (!conceptRow) {

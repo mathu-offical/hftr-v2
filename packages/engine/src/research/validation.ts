@@ -49,10 +49,7 @@ export function validateEvidencePackages(
   const { band: relevanceBand, bestRatio } = scoreRelevanceBand({
     queryText: input.queryText,
     topicScope: input.topicScope,
-    corpusTexts:
-      corpusTexts.length > 0
-        ? corpusTexts
-        : input.existingConceptTitles.map((t) => t),
+    corpusTexts: corpusTexts.length > 0 ? corpusTexts : input.existingConceptTitles.map((t) => t),
   });
 
   const relevancePassed =
@@ -101,7 +98,9 @@ export function validateEvidencePackages(
       'duplicate',
       duplicatePassed,
       duplicatePassed ? 'high' : 'low',
-      duplicatePassed ? 'no duplicate titles' : `similar to: ${duplicateHits.slice(0, 2).join(', ')}`,
+      duplicatePassed
+        ? 'no duplicate titles'
+        : `similar to: ${duplicateHits.slice(0, 2).join(', ')}`,
     ),
     gateResult(
       'source_entitlement',
@@ -132,9 +131,7 @@ export function validateEvidencePackages(
   ];
 
   const overallPass = input.requiredGateIds
-    ? gates
-        .filter((g) => input.requiredGateIds!.includes(g.gateId))
-        .every((g) => g.passed)
+    ? gates.filter((g) => input.requiredGateIds!.includes(g.gateId)).every((g) => g.passed)
     : gates.every((g) => g.passed);
 
   const artifactRefs = input.evidencePackages.flatMap((pkg) =>

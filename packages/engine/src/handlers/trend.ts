@@ -85,11 +85,9 @@ registerHandler('trend.scan', async ({ db, clock, job }) => {
     const lookbackStatus = lookbackPoll.statuses.find((s) => s.symbol === symbol);
     const liveFeedClass = pollStatus?.feedClass ?? 'synthetic_sim';
     const lookbackFeedClass = lookbackStatus?.feedClass ?? 'synthetic_sim';
-    const nowQuote =
-      quotePoll.quotes.get(symbol) ?? getSyntheticQuote(symbol, clock);
+    const nowQuote = quotePoll.quotes.get(symbol) ?? getSyntheticQuote(symbol, clock);
     const thenQuote =
-      lookbackPoll.quotes.get(symbol) ??
-      getSyntheticQuote(symbol, createFixedClock(thenMs));
+      lookbackPoll.quotes.get(symbol) ?? getSyntheticQuote(symbol, createFixedClock(thenMs));
     const nowPx = nowQuote.lastCents ?? 0;
     const thenPx = thenQuote.lastCents ?? 0;
     if (nowPx === 0 || thenPx === 0) continue;

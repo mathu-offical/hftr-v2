@@ -144,9 +144,7 @@ registerHandler('library.system_sector_news', async ({ db, clock, job }) => {
 
   void errors;
 
-  const sectorLabel =
-    topicSectors[0]?.trim() ||
-    'company sector focus';
+  const sectorLabel = topicSectors[0]?.trim() || 'company sector focus';
 
   const bundle = corroborateAndNormalize({
     evidence,

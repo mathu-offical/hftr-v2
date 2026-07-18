@@ -1,11 +1,17 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, gte, sql } from 'drizzle-orm';
 import type { Db } from '@hftr/db';
-import { companies, ledgerEntries, modules, positions } from '@hftr/db/schema';
+import {
+  companies,
+  ledgerEntries,
+  modules,
+  positions,
+  realizedPnlEvents,
+} from '@hftr/db/schema';
 
 /**
  * Realized loss magnitude for daily-loss limits (gap analysis #3).
- * Sums `-min(0, realized_pnl)` across company positions — lifetime book until
- * day-bucketed PnL ledger ships. Never invents numbers; empty book → 0n.
+ * Sums `-min(0, realized_pnl)` across company positions — lifetime book.
+ * Prefer `getDailyRealizedLossCents` for session-scoped limits (D-090).
  */
 export async function getCompanyRealizedLossCents(db: Db, companyId: string): Promise<bigint> {
   const rows = await db
@@ -15,6 +21,53 @@ export async function getCompanyRealizedLossCents(db: Db, companyId: string): Pr
     .from(positions)
     .where(eq(positions.companyId, companyId));
   return BigInt(rows[0]?.total ?? '0');
+}
+
+/**
+ * Session-window realized-loss magnitude from append-only fill events (D-090).
+ * Cash ledger is not used (buys are debits, not losses). Empty window → 0n.
+ */
+export async function getDailyRealizedLossCents(
+  db: Db,
+  companyId: string,
+  sinceMs: number,
+): Promise<bigint> {
+  const since = new Date(sinceMs);
+  const rows = await db
+    .select({
+      total: sql<string>`coalesce(sum(case when ${realizedPnlEvents.realizedCents} < 0 then -${realizedPnlEvents.realizedCents} else 0 end), 0)::text`,
+    })
+    .from(realizedPnlEvents)
+    .where(
+      and(eq(realizedPnlEvents.companyId, companyId), gte(realizedPnlEvents.createdAt, since)),
+    );
+  return BigInt(rows[0]?.total ?? '0');
+}
+
+export type EquityLimitSource = 'equity_projection' | 'virtual_balance';
+
+/**
+ * Prefer fresh company equity projection for daily-loss / size limits; fall back
+ * to virtual cash balance when projection is stale or unavailable (D-090).
+ */
+export async function resolveEquityCentsForLimits(
+  db: Db,
+  companyId: string,
+  fallbackVirtualBalanceCents: bigint,
+): Promise<{ equityCents: bigint; source: EquityLimitSource }> {
+  const rows = await db
+    .select({
+      equityCents: companies.equityCents,
+      equityStatus: companies.equityStatus,
+    })
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1);
+  const row = rows[0];
+  if (row?.equityStatus === 'fresh' && row.equityCents != null) {
+    return { equityCents: row.equityCents, source: 'equity_projection' };
+  }
+  return { equityCents: fallbackVirtualBalanceCents, source: 'virtual_balance' };
 }
 
 export type CompileBalanceSource =

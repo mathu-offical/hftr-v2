@@ -29,7 +29,11 @@ import {
 } from '../graph/module-links';
 import { curiosityFromConfig, resolveCuriosityMaxEvidence } from '../research/curiosity';
 import { resolveResearchGatherCredentials } from '../research/gather-credentials';
-import { loadResearchRequest, upsertResearchResult, upsertResearchRun } from '../research/run-state';
+import {
+  loadResearchRequest,
+  upsertResearchResult,
+  upsertResearchRun,
+} from '../research/run-state';
 import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
 import { loadCatalogHints } from './research-deterministic';
@@ -91,9 +95,7 @@ registerHandler('research.gather', async ({ db, clock, job }) => {
   const gatherCredentials = await resolveResearchGatherCredentials(db, payload.companyId);
 
   const sourceKinds: ResearchSourceKind[] =
-    externalKinds.length > 0
-      ? [...externalKinds]
-      : resolveDefaultSourceKinds(gatherCredentials);
+    externalKinds.length > 0 ? [...externalKinds] : resolveDefaultSourceKinds(gatherCredentials);
   if (libraryConceptsForGather.length > 0 && !sourceKinds.includes('library')) {
     sourceKinds.push('library');
   }
@@ -185,7 +187,10 @@ registerHandler('research.gather', async ({ db, clock, job }) => {
     envelope: request.envelope as Record<string, unknown>,
     failureReason:
       gatherErrors.length > 0
-        ? gatherErrors.map((e) => `${e.sourceKind}:${e.code}`).join(';').slice(0, 300)
+        ? gatherErrors
+            .map((e) => `${e.sourceKind}:${e.code}`)
+            .join(';')
+            .slice(0, 300)
         : null,
     now,
   });
@@ -225,9 +230,7 @@ async function loadLinkedLibraryConceptEvidence(
     direction: 'in',
     activeOnly: false,
   });
-  const libraryModuleIds = [
-    ...new Set([...outbound, ...inbound].map((m) => m.id)),
-  ];
+  const libraryModuleIds = [...new Set([...outbound, ...inbound].map((m) => m.id))];
   if (libraryModuleIds.length === 0) return [];
 
   const libRows = await db

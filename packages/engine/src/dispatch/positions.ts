@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import type { Db } from '@hftr/db';
-import { positions } from '@hftr/db/schema';
+import { positions, realizedPnlEvents } from '@hftr/db/schema';
 
 /**
  * Position bookkeeping — written ONLY from the dispatch layer at fill time.
@@ -62,11 +62,20 @@ export async function applyFill(
     side: 'buy' | 'sell';
     qty: number;
     priceCents: number;
+    /** Optional broker provenance (D-090). */
+    connectionId?: string | null;
+    venue?: string | null;
+    /** When set with non-zero realized, writes realized_pnl_events (D-090). */
+    traceId?: string | null;
   },
 ): Promise<bigint> {
   const existing = await getPosition(db, args.moduleId, args.symbol);
   const fillQty = BigInt(args.qty);
   const now = new Date();
+  const provenance = {
+    ...(args.connectionId != null ? { connectionId: args.connectionId } : {}),
+    ...(args.venue != null ? { venue: args.venue } : {}),
+  };
 
   if (args.side === 'buy') {
     if (!existing) {
@@ -76,6 +85,7 @@ export async function applyFill(
         symbol: args.symbol,
         qty: fillQty,
         avgCostCents: args.priceCents,
+        ...provenance,
       });
       return 0n;
     }
@@ -83,7 +93,7 @@ export async function applyFill(
     const newAvg = nextAverageCost(existing.qty, existing.avgCostCents, fillQty, args.priceCents);
     await db
       .update(positions)
-      .set({ qty: newQty, avgCostCents: newAvg, updatedAt: now })
+      .set({ qty: newQty, avgCostCents: newAvg, updatedAt: now, ...provenance })
       .where(and(eq(positions.moduleId, args.moduleId), eq(positions.symbol, args.symbol)));
     return 0n;
   }
@@ -99,7 +109,19 @@ export async function applyFill(
       qty: existing.qty - fillQty,
       realizedPnlCents: existing.realizedPnlCents + realized,
       updatedAt: now,
+      ...provenance,
     })
     .where(and(eq(positions.moduleId, args.moduleId), eq(positions.symbol, args.symbol)));
+
+  if (realized !== 0n) {
+    await db.insert(realizedPnlEvents).values({
+      companyId: args.companyId,
+      moduleId: args.moduleId,
+      symbol: args.symbol,
+      realizedCents: realized,
+      traceId: args.traceId ?? null,
+    });
+  }
+
   return realized;
 }

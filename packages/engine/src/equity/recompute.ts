@@ -14,13 +14,7 @@ import {
 /** Quote / mark freshness window for equity (plan: 15s fallback while live data available). */
 export const DEFAULT_EQUITY_MARK_TTL_MS = 15_000;
 
-export type EquityTrigger =
-  | 'fill'
-  | 'reconcile'
-  | 'quote'
-  | 'schedule'
-  | 'manual'
-  | 'create';
+export type EquityTrigger = 'fill' | 'reconcile' | 'quote' | 'schedule' | 'manual' | 'create';
 
 export type RecomputeCompanyEquityOpts = {
   marks?: readonly EquityMarkCandidate[];

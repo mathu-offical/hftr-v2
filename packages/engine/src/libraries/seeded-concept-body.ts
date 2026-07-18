@@ -67,7 +67,10 @@ function asStringList(value: unknown, max = 12): string[] {
 }
 
 /** Chip id must be leak-safe (no digit runs). Prefer snake tokens without digits. */
-function sysChip(kind: 'tool' | 'lever' | 'catalog' | 'module' | 'band' | 'field' | 'symbol', id: string): string {
+function sysChip(
+  kind: 'tool' | 'lever' | 'catalog' | 'module' | 'band' | 'field' | 'symbol',
+  id: string,
+): string {
   const safeId = id
     .trim()
     .toLowerCase()
@@ -165,7 +168,13 @@ export function collectSeededConceptTags(entry: SeededCatalogEntry): string[] {
   if (entry.tier) tags.add(entry.tier);
   tags.add('catalog_seed');
 
-  for (const key of ['class', 'assetClass', 'horizon', 'liquidityClass', 'macroSensitivity'] as const) {
+  for (const key of [
+    'class',
+    'assetClass',
+    'horizon',
+    'liquidityClass',
+    'macroSensitivity',
+  ] as const) {
     const raw = payload[key];
     if (typeof raw === 'string' && raw.trim()) tags.add(raw.trim());
   }
@@ -215,14 +224,16 @@ export function buildSeededConceptBody(entry: SeededCatalogEntry): string {
         ? payload.assetClass
         : null;
   if (mechanismClass) identityRows.push({ key: 'mechanism class', value: mechanismClass });
-  if (typeof payload.horizon === 'string') identityRows.push({ key: 'horizon', value: payload.horizon });
+  if (typeof payload.horizon === 'string')
+    identityRows.push({ key: 'horizon', value: payload.horizon });
   if (typeof payload.liquidityClass === 'string') {
     identityRows.push({ key: 'liquidity class', value: payload.liquidityClass });
   }
   if (typeof payload.macroSensitivity === 'string') {
     identityRows.push({ key: 'macro sensitivity', value: payload.macroSensitivity });
   }
-  if (typeof payload.sector === 'string') identityRows.push({ key: 'sector', value: payload.sector });
+  if (typeof payload.sector === 'string')
+    identityRows.push({ key: 'sector', value: payload.sector });
   if (typeof payload.behaviorProfile === 'string') {
     identityRows.push({ key: 'behavior profile', value: payload.behaviorProfile });
   }
@@ -245,7 +256,11 @@ export function buildSeededConceptBody(entry: SeededCatalogEntry): string {
       : null;
   if (trendBindings) {
     pushSection(lines, 'Trend inputs', asStringList(trendBindings.trendInputs));
-    pushSection(lines, 'Lead selection patterns', asStringList(trendBindings.leadSelectionPatterns));
+    pushSection(
+      lines,
+      'Lead selection patterns',
+      asStringList(trendBindings.leadSelectionPatterns),
+    );
     pushProse(lines, 'Handoff expectation', trendBindings.handoffExpectation);
   }
   pushSection(lines, 'Trend vectors', asStringList(payload.trendVectors));
@@ -259,24 +274,54 @@ export function buildSeededConceptBody(entry: SeededCatalogEntry): string {
   // Functions / controls / tools as sys chips
   pushChipSection(lines, 'Hard controls (tools)', 'tool', asStringList(payload.hardControls, 16));
   pushChipSection(lines, 'Recovery branches', 'tool', asStringList(payload.recoveryBranches, 12));
-  pushChipSection(lines, 'Platform guardrails', 'tool', asStringList(payload.platformGuardrails, 12));
+  pushChipSection(
+    lines,
+    'Platform guardrails',
+    'tool',
+    asStringList(payload.platformGuardrails, 12),
+  );
   pushChipSection(lines, 'Primary triggers', 'tool', asStringList(payload.primaryTriggers, 12));
   pushChipSection(lines, 'Failure codes', 'tool', asStringList(payload.failureCodes, 12));
-  pushChipSection(lines, 'Order workflows', 'tool', asStringList(payload.orderWorkflowCompatibility, 12));
+  pushChipSection(
+    lines,
+    'Order workflows',
+    'tool',
+    asStringList(payload.orderWorkflowCompatibility, 12),
+  );
   pushChipSection(
     lines,
     'Bounded levers',
     'lever',
     asStringList(payload.boundedLevers ?? payload.boundedRangeFamilies, 16),
   );
-  pushChipSection(lines, 'Guardrail packages', 'catalog', asStringList(payload.guardrailPackages, 8));
+  pushChipSection(
+    lines,
+    'Guardrail packages',
+    'catalog',
+    asStringList(payload.guardrailPackages, 8),
+  );
   pushChipSection(lines, 'Family stack', 'catalog', asStringList(payload.familyStack, 8));
 
   // Verification fields / symbols / KV
-  pushChipSection(lines, 'Verification fields', 'field', asStringList(payload.verificationFields, 16));
-  pushChipSection(lines, 'Verification signals', 'field', asStringList(payload.verificationSignals, 12));
+  pushChipSection(
+    lines,
+    'Verification fields',
+    'field',
+    asStringList(payload.verificationFields, 16),
+  );
+  pushChipSection(
+    lines,
+    'Verification signals',
+    'field',
+    asStringList(payload.verificationSignals, 12),
+  );
   pushChipSection(lines, 'Inputs', 'field', asStringList(payload.inputs, 12));
-  pushChipSection(lines, 'Confirmation signals', 'field', asStringList(payload.confirmationSignals, 12));
+  pushChipSection(
+    lines,
+    'Confirmation signals',
+    'field',
+    asStringList(payload.confirmationSignals, 12),
+  );
   pushSection(lines, 'Suppress when', asStringList(payload.suppressWhen));
   pushSection(lines, 'Modes', asStringList(payload.modes));
   pushSection(lines, 'Routing scope', asStringList(payload.routingScope));
@@ -292,12 +337,22 @@ export function buildSeededConceptBody(entry: SeededCatalogEntry): string {
   pushSection(lines, 'Research modes', asStringList(payload.researchModes));
 
   const strategyBias =
-    payload.strategyBias && typeof payload.strategyBias === 'object' && !Array.isArray(payload.strategyBias)
+    payload.strategyBias &&
+    typeof payload.strategyBias === 'object' &&
+    !Array.isArray(payload.strategyBias)
       ? (payload.strategyBias as Record<string, unknown>)
       : null;
   if (strategyBias) {
-    pushSection(lines, 'Preferred strategies', asStringList(strategyBias.preferred ?? strategyBias.amplify));
-    pushSection(lines, 'Suppress strategies', asStringList(strategyBias.suppress ?? strategyBias.veto));
+    pushSection(
+      lines,
+      'Preferred strategies',
+      asStringList(strategyBias.preferred ?? strategyBias.amplify),
+    );
+    pushSection(
+      lines,
+      'Suppress strategies',
+      asStringList(strategyBias.suppress ?? strategyBias.veto),
+    );
   }
 
   // Research support as open KV

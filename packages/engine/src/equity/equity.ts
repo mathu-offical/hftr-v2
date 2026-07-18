@@ -79,9 +79,7 @@ function deterministicMedian(values: readonly bigint[]): bigint {
 }
 
 /** Dedupe by sourceId keeping newest capturedAtMs; tie-break keeps lexicographically smaller sourceId. */
-function dedupeMarksBySourceId(
-  marks: readonly EquityMarkCandidate[],
-): EquityMarkCandidate[] {
+function dedupeMarksBySourceId(marks: readonly EquityMarkCandidate[]): EquityMarkCandidate[] {
   const bySource = new Map<string, EquityMarkCandidate>();
   for (const candidate of marks) {
     const existing = bySource.get(candidate.sourceId);
@@ -97,9 +95,7 @@ function dedupeMarksBySourceId(
 /**
  * Among deduped marks, pick newest capturedAtMs; on tie, lexicographically smallest sourceId.
  */
-function pickNewestMark(
-  marks: readonly EquityMarkCandidate[],
-): EquityMarkCandidate | null {
+function pickNewestMark(marks: readonly EquityMarkCandidate[]): EquityMarkCandidate | null {
   const deduped = dedupeMarksBySourceId(marks);
   if (deduped.length === 0) return null;
 
@@ -110,10 +106,7 @@ function pickNewestMark(
       best = candidate;
       continue;
     }
-    if (
-      candidate.capturedAtMs === best.capturedAtMs &&
-      candidate.sourceId < best.sourceId
-    ) {
+    if (candidate.capturedAtMs === best.capturedAtMs && candidate.sourceId < best.sourceId) {
       best = candidate;
     }
   }
@@ -152,8 +145,7 @@ function resolvePositionMark(
     if (position.venue) {
       const venueMark = pickNewestMark(
         freshForSymbol.filter(
-          (candidate) =>
-            candidate.kind === 'venue_quote' && candidate.venue === position.venue,
+          (candidate) => candidate.kind === 'venue_quote' && candidate.venue === position.venue,
         ),
       );
       if (venueMark) {
@@ -171,8 +163,7 @@ function resolvePositionMark(
   if (position.venue) {
     const venueMark = pickNewestMark(
       freshForSymbol.filter(
-        (candidate) =>
-          candidate.kind === 'venue_quote' && candidate.venue === position.venue,
+        (candidate) => candidate.kind === 'venue_quote' && candidate.venue === position.venue,
       ),
     );
     if (venueMark) {

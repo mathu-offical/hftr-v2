@@ -32,9 +32,7 @@ registerHandler('research.validate', async ({ db, clock, job }) => {
   }
 
   const evidenceRows = await listEvidenceForRequest(db, payload.requestId);
-  const evidencePackages = evidenceRows.map((row) =>
-    EvidencePackage.parse(row.package ?? row),
-  );
+  const evidencePackages = evidenceRows.map((row) => EvidencePackage.parse(row.package ?? row));
 
   const existing = await db
     .select({ title: concepts.title })

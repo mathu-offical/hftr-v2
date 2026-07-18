@@ -73,9 +73,7 @@ export function validateDocumentShape(input: ValidateDocumentShapeInput): Docume
   const lint = leakLint(input.body, []);
   if (!lint.ok) {
     failedChecks.push('leak_lint');
-    repairHints.push(
-      'Remove raw digits, currency, percentages, and clock literals from the body.',
-    );
+    repairHints.push('Remove raw digits, currency, percentages, and clock literals from the body.');
   }
 
   return {

@@ -63,12 +63,7 @@ describe('releaseExtraCompanyClaims', () => {
       job({ id: 'b1', companyId: 'c2' }),
       job({ id: 'd1', companyId: 'c3' }),
     ];
-    const keep = await releaseExtraCompanyClaims(
-      dbStub as never,
-      createFixedClock(0),
-      claimed,
-      2,
-    );
+    const keep = await releaseExtraCompanyClaims(dbStub as never, createFixedClock(0), claimed, 2);
     expect(keep.map((row) => row.id)).toEqual(['a1', 'b1']);
     expect(dbStub.update).toHaveBeenCalledTimes(1);
   });

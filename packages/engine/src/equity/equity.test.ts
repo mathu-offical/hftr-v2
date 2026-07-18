@@ -21,9 +21,7 @@ function position(
   return { symbol, qty, ...overrides };
 }
 
-function mark(
-  overrides: EquityMarkCandidate,
-): EquityMarkCandidate {
+function mark(overrides: EquityMarkCandidate): EquityMarkCandidate {
   return overrides;
 }
 
@@ -471,25 +469,19 @@ describe('calculateCompanyEquity', () => {
       marks: [] as EquityMarkCandidate[],
     };
 
-    expect(
-      calculateCompanyEquity({ ...base, nowMs: Number.NaN, ttlMs: TTL_MS }),
-    ).toEqual({
+    expect(calculateCompanyEquity({ ...base, nowMs: Number.NaN, ttlMs: TTL_MS })).toEqual({
       status: 'unavailable',
       reason: 'invalid_timing',
       missingSymbols: [],
     });
 
-    expect(
-      calculateCompanyEquity({ ...base, nowMs: -1, ttlMs: TTL_MS }),
-    ).toEqual({
+    expect(calculateCompanyEquity({ ...base, nowMs: -1, ttlMs: TTL_MS })).toEqual({
       status: 'unavailable',
       reason: 'invalid_timing',
       missingSymbols: [],
     });
 
-    expect(
-      calculateCompanyEquity({ ...base, nowMs: NOW_MS, ttlMs: 0 }),
-    ).toEqual({
+    expect(calculateCompanyEquity({ ...base, nowMs: NOW_MS, ttlMs: 0 })).toEqual({
       status: 'unavailable',
       reason: 'invalid_timing',
       missingSymbols: [],
@@ -590,18 +582,14 @@ describe('calculateCompanyEquity', () => {
       ttlMs: TTL_MS,
     };
 
-    expect(
-      calculateCompanyEquity({ ...input, marks: [older, newer] }),
-    ).toEqual({
+    expect(calculateCompanyEquity({ ...input, marks: [older, newer] })).toEqual({
       status: 'fresh',
       equityCents: 200_000n,
       positionValueCents: 200_000n,
       usedSourceIds: ['broker-b'],
     });
 
-    expect(
-      calculateCompanyEquity({ ...input, marks: [newer, older] }),
-    ).toEqual({
+    expect(calculateCompanyEquity({ ...input, marks: [newer, older] })).toEqual({
       status: 'fresh',
       equityCents: 200_000n,
       positionValueCents: 200_000n,
@@ -633,18 +621,14 @@ describe('calculateCompanyEquity', () => {
       ttlMs: TTL_MS,
     };
 
-    expect(
-      calculateCompanyEquity({ ...input, marks: [markZ, markA] }),
-    ).toEqual({
+    expect(calculateCompanyEquity({ ...input, marks: [markZ, markA] })).toEqual({
       status: 'fresh',
       equityCents: 222_000n,
       positionValueCents: 222_000n,
       usedSourceIds: ['broker-a'],
     });
 
-    expect(
-      calculateCompanyEquity({ ...input, marks: [markA, markZ] }),
-    ).toEqual({
+    expect(calculateCompanyEquity({ ...input, marks: [markA, markZ] })).toEqual({
       status: 'fresh',
       equityCents: 222_000n,
       positionValueCents: 222_000n,
@@ -676,18 +660,14 @@ describe('calculateCompanyEquity', () => {
       ttlMs: TTL_MS,
     };
 
-    expect(
-      calculateCompanyEquity({ ...input, marks: [older, newer] }),
-    ).toEqual({
+    expect(calculateCompanyEquity({ ...input, marks: [older, newer] })).toEqual({
       status: 'fresh',
       equityCents: 200_000n,
       positionValueCents: 200_000n,
       usedSourceIds: ['venue-new'],
     });
 
-    expect(
-      calculateCompanyEquity({ ...input, marks: [newer, older] }),
-    ).toEqual({
+    expect(calculateCompanyEquity({ ...input, marks: [newer, older] })).toEqual({
       status: 'fresh',
       equityCents: 200_000n,
       positionValueCents: 200_000n,

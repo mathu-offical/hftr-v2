@@ -116,12 +116,7 @@ describe('promote / policy / inputs helpers', () => {
 
   it('prefers trading→policy directive over company-wide verification', () => {
     const g = graph(
-      [
-        mod('tr1', 'trading'),
-        mod('p1', 'policy'),
-        mod('p2', 'policy'),
-        mod('a1', 'analyzer'),
-      ],
+      [mod('tr1', 'trading'), mod('p1', 'policy'), mod('p2', 'policy'), mod('a1', 'analyzer')],
       [
         { fromModuleId: 'tr1', toModuleId: 'p1', linkKind: 'directive' },
         { fromModuleId: 'a1', toModuleId: 'p2', linkKind: 'verification' },

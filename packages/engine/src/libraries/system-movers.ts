@@ -1,10 +1,7 @@
 import type { Db } from '@hftr/db';
 import { SystemTopicScope } from '@hftr/contracts';
 import { ensureSystemLibrary } from './ensure-system-library';
-import {
-  MOVERS_LENS_PLACEHOLDER_SEEDS,
-  SYSTEM_LIBRARY_REGISTRY,
-} from './system-library-registry';
+import { MOVERS_LENS_PLACEHOLDER_SEEDS, SYSTEM_LIBRARY_REGISTRY } from './system-library-registry';
 
 export const MOVERS_LIBRARY_NAME = 'Daily movers watch';
 export const MOVERS_TOPIC_SCOPE = SystemTopicScope.MOVERS;

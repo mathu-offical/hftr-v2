@@ -1,4 +1,4 @@
-import { and, eq, inArray, ne, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, ne, notInArray, or, sql } from 'drizzle-orm';
 import type { Db } from '@hftr/db';
 import {
   conceptLinks,
@@ -8,9 +8,14 @@ import {
   researchTopics,
   topicConcepts,
 } from '@hftr/db/schema';
+import {
+  isSeededTopicTitle,
+  SEEDED_TOPIC_TITLE,
+  SEEDED_TOPIC_TITLES,
+} from './seeded-topics';
 
 export const SEEDED_LIBRARY_NAME = 'Seeded trading mechanisms';
-export const SEEDED_TOPIC_TITLE = 'Seeded trading mechanisms';
+export { SEEDED_TOPIC_TITLE, SEEDED_TOPIC_TITLES, isSeededTopicTitle };
 
 export type ConfidenceBand = 'low' | 'medium' | 'high';
 export type ConfidenceDirection = 'up' | 'down' | 'verify';
@@ -196,10 +201,6 @@ function isSeededLibraryName(name: string): boolean {
   return name === SEEDED_LIBRARY_NAME;
 }
 
-function isSeededTopicTitle(title: string): boolean {
-  return title === SEEDED_TOPIC_TITLE;
-}
-
 export async function softArchiveConcept(
   db: Db,
   companyId: string,
@@ -373,7 +374,7 @@ export async function archiveAllRuntimeResearch(
       and(
         eq(researchTopics.companyId, companyId),
         eq(researchTopics.status, 'active'),
-        ne(researchTopics.title, SEEDED_TOPIC_TITLE),
+        notInArray(researchTopics.title, [...SEEDED_TOPIC_TITLES]),
       ),
     )
     .returning({ id: researchTopics.id });
@@ -448,7 +449,7 @@ export async function clearArchive(db: Db, companyId: string): Promise<ArchiveCo
       and(
         eq(researchTopics.companyId, companyId),
         eq(researchTopics.status, 'archived'),
-        ne(researchTopics.title, SEEDED_TOPIC_TITLE),
+        notInArray(researchTopics.title, [...SEEDED_TOPIC_TITLES]),
       ),
     );
   const archivedLibraryRows = await db

@@ -313,7 +313,9 @@ export async function POST(req: Request, ctx: Ctx) {
       console.error('resolveCompanyServiceBindings failed on engine create', err);
     }
 
-    const utilityLinks = await listEngineUtilityLinks(db, companyId, engineRow.id);
+    // Company-wide utility links so the canvas can draw every engine↔engine edge
+    // (including data_in rows on peer engines that reference this engine as from).
+    const utilityLinks = await listEngineUtilityLinks(db, companyId);
     const refreshedModules = await scoping.listModules(db, clerkUserId, companyId);
     const memberIds = new Set(created.map((m) => m.id));
     if (timeHub) memberIds.add(timeHub.id);
@@ -328,6 +330,7 @@ export async function POST(req: Request, ctx: Ctx) {
       links: createdLinks,
       utilityLinks: utilityLinks.map((row) => ({
         id: row.id,
+        toEngineId: row.toEngineId,
         bus: row.bus,
         fromEngineId: row.fromEngineId,
         fromModuleId: row.fromModuleId,

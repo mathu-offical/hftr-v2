@@ -102,6 +102,32 @@ test.describe('Live demo (watch)', () => {
     await page.waitForTimeout(1200);
   });
 
+  test('trading results: open company with fills and show Executions', async ({ page }) => {
+    // Prefer a company that already traded (set by API money-loop); else skip gracefully.
+    const listing = await page.request.get('/api/companies');
+    expect(listing.ok()).toBeTruthy();
+    const { companies } = (await listing.json()) as {
+      companies: Array<{ id: string; name: string }>;
+    };
+    const traded =
+      companies.find((c) => c.name.startsWith('Trade core')) ??
+      companies.find((c) => c.name.startsWith('Trade risk-')) ??
+      companies[0];
+    expect(traded, 'need at least one company to view').toBeTruthy();
+
+    await page.goto(`/companies/${traded!.id}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('button', { name: 'Live trading (gated)' })).toBeVisible({
+      timeout: 90_000,
+    });
+    await page.waitForTimeout(1000);
+    await page.getByRole('tab', { name: 'Executions' }).click();
+    await page.waitForTimeout(1500);
+    await expect(page.getByText(/filled|No executions|paper|MSFT|AAPL/i).first()).toBeVisible({
+      timeout: 30_000,
+    });
+    await page.waitForTimeout(1500);
+  });
+
   test('directory: company card menu then open canvas', async ({
     page,
     request,

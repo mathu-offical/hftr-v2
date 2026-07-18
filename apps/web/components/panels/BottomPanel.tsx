@@ -93,6 +93,8 @@ interface ExecutionRow {
   amountCents: string | null;
   description: string | null;
   createdAt: string;
+  leadId: string | null;
+  treeId: string | null;
 }
 
 interface VerificationRow {
@@ -156,6 +158,32 @@ interface DeadJobRow {
   updatedAt: string;
 }
 
+interface PendingJobRow {
+  id: string;
+  kind: string;
+  queueClass: string;
+  moduleId: string | null;
+  status: 'pending' | 'active';
+  attempts: number;
+  runAfter: string;
+  updatedAt: string;
+}
+
+interface AssistantProposalRow {
+  id: string;
+  tool: string;
+  status: string;
+  createdAt: string;
+  proposal: { tool: string; [key: string]: unknown };
+}
+
+interface LiveGateStatusRow {
+  overallPass: boolean;
+  liveArmedAt: string | null;
+  evidenceFresh: boolean;
+  checklist: { id: string; pass: boolean; label: string }[];
+}
+
 interface FundTransferRow {
   id: string;
   fromKind: string;
@@ -194,6 +222,9 @@ export function BottomPanel(props: {
   const [trees, setTrees] = useState<TreeRow[]>([]);
   const [transfers, setTransfers] = useState<FundTransferRow[]>([]);
   const [deadJobs, setDeadJobs] = useState<DeadJobRow[]>([]);
+  const [pendingJobs, setPendingJobs] = useState<PendingJobRow[]>([]);
+  const [proposals, setProposals] = useState<AssistantProposalRow[]>([]);
+  const [liveGate, setLiveGate] = useState<LiveGateStatusRow | null>(null);
   const [openTraceId, setOpenTraceId] = useState<string | null>(null);
   const [selectedLineageKey, setSelectedLineageKey] = useState<string | null>(null);
 
@@ -253,6 +284,9 @@ export function BottomPanel(props: {
       api<{ trees: TreeRow[] }>(`${base}/trees`),
       api<{ transfers: FundTransferRow[] }>(`${base}/fund-transfers`),
       api<{ jobs: DeadJobRow[] }>(`${base}/jobs/dead`),
+      api<{ jobs: PendingJobRow[] }>(`${base}/jobs/pending`),
+      api<{ proposals: AssistantProposalRow[] }>(`${base}/assistant/proposals`),
+      api<LiveGateStatusRow>(`${base}/live-gates/status`),
     ]);
     if (results[0].status === 'fulfilled') setTrends(results[0].value.trends);
     if (results[1].status === 'fulfilled') setExecutions(results[1].value.executions);
@@ -262,6 +296,9 @@ export function BottomPanel(props: {
     if (results[5].status === 'fulfilled') setTrees(results[5].value.trees);
     if (results[6].status === 'fulfilled') setTransfers(results[6].value.transfers);
     if (results[7].status === 'fulfilled') setDeadJobs(results[7].value.jobs);
+    if (results[8].status === 'fulfilled') setPendingJobs(results[8].value.jobs);
+    if (results[9].status === 'fulfilled') setProposals(results[9].value.proposals);
+    if (results[10].status === 'fulfilled') setLiveGate(results[10].value);
   }, [props.companyId]);
 
   useEffect(() => {
@@ -481,6 +518,7 @@ export function BottomPanel(props: {
             trees={byEngine(trees)}
             executions={byEngine(executions)}
             verifications={verifications}
+            pendingJobs={byEngineOptionalModule(pendingJobs)}
             deadJobs={byEngineOptionalModule(deadJobs)}
             moduleName={moduleName}
             selectedKey={selectedLineageKey}
@@ -504,7 +542,7 @@ export function BottomPanel(props: {
                   : 'No verification record linked to this trace yet.',
               ];
               return [
-                <Justification key="o" sourceClass="deterministic_placeholder" lines={outcomeLines}>
+                <Justification key="o" sourceClass="derived" lines={outcomeLines}>
                   <button
                     onClick={openTrace}
                     aria-label={`Open decision trace for execution ${e.id}`}
@@ -549,6 +587,8 @@ export function BottomPanel(props: {
           <ApprovalsView
             companyId={props.companyId}
             transfers={scopedTransfers()}
+            proposals={proposals}
+            liveGate={liveGate}
             moduleName={moduleName}
             onRefetch={load}
           />
@@ -558,6 +598,7 @@ export function BottomPanel(props: {
           <DeadLettersView
             companyId={props.companyId}
             jobs={byEngineOptionalModule(deadJobs)}
+            moduleName={moduleName}
             onRefetch={load}
           />
         )}
@@ -883,7 +924,9 @@ function ScenarioView(props: {
     <ul className="space-y-2.5">
       {sorted.map((lead) => {
         const tree = props.trees.find((t) => t.leadId === lead.id);
-        const related = props.executions.filter((e) => (e.description ?? '').includes(lead.symbol));
+        const related = props.executions.filter(
+          (e) => e.leadId === lead.id || (e.description ?? '').includes(lead.symbol),
+        );
         // Order the delivered gates by the canonical six-gate layout.
         const orderedGates = GATE_KEYS.map(
           (key) => lead.gates.find((g) => gateLabel(g.gate) === key) ?? null,
@@ -897,7 +940,7 @@ function ScenarioView(props: {
               </span>
               <span className="text-[var(--color-ink-dim)]">{lead.strategyFamily}</span>
               <Justification
-                sourceClass="deterministic_placeholder"
+                sourceClass="derived"
                 lines={[
                   `Admission status "${lead.status}" is the outcome of the six-gate contract: ${
                     lead.gates.filter((g) => g.result === 'pass').length
@@ -936,7 +979,7 @@ function ScenarioView(props: {
                 return (
                   <Justification
                     key={key}
-                    sourceClass="deterministic_placeholder"
+                    sourceClass="derived"
                     lines={[
                       `Gate "${key}" result: ${gate.result}.`,
                       gate.evidence || 'No evidence text recorded for this gate.',
@@ -1017,13 +1060,19 @@ function endpointLabel(kind: string, moduleId: string | null, moduleName: (id: s
 function ApprovalsView(props: {
   companyId: string;
   transfers: FundTransferRow[];
+  proposals: AssistantProposalRow[];
+  liveGate: LiveGateStatusRow | null;
   moduleName: (id: string) => string;
   onRefetch: () => Promise<void>;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const pending = props.transfers.filter((t) => t.status === 'requested');
+  const failedGates = (props.liveGate?.checklist ?? []).filter((c) => !c.pass);
+  const liveGateNeedsAttention =
+    props.liveGate != null &&
+    (!props.liveGate.overallPass || !props.liveGate.evidenceFresh || !props.liveGate.liveArmedAt);
 
-  async function decide(id: string, decision: 'approve' | 'reject') {
+  async function decideTransfer(id: string, decision: 'approve' | 'reject') {
     setBusyId(id);
     try {
       await api(`/api/companies/${props.companyId}/fund-transfers/${id}`, {
@@ -1037,46 +1086,188 @@ function ApprovalsView(props: {
     }
   }
 
-  if (pending.length === 0) {
+  async function decideProposal(id: string, action: 'confirm' | 'reject') {
+    setBusyId(id);
+    try {
+      await api(`/api/companies/${props.companyId}/assistant/proposals/${id}/${action}`, {
+        method: 'POST',
+      });
+      window.dispatchEvent(new Event(ACTIVITY_REFRESH_EVENT));
+      await props.onRefetch();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function reviewLiveGate() {
+    setBusyId('live-gate');
+    try {
+      await api(`/api/companies/${props.companyId}/live-gates/review`, { method: 'POST' });
+      await props.onRefetch();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const empty =
+    pending.length === 0 && props.proposals.length === 0 && !liveGateNeedsAttention;
+
+  if (empty) {
     return (
       <p className="py-3 text-xs text-[var(--color-ink-faint)]">
-        No pending fund transfers. Requests appear here until approved or rejected.
+        No pending approvals — fund transfers, assistant edit proposals, and live-gate follow-ups
+        appear here.
       </p>
     );
   }
 
   return (
-    <Table
-      head={['From', 'To', 'Amount', 'Requested', 'Actions']}
-      rows={pending.map((t) => [
-        endpointLabel(t.fromKind, t.fromModuleId, props.moduleName),
-        endpointLabel(t.toKind, t.toModuleId, props.moduleName),
-        <span key="a" className="font-mono">
-          {dollars(t.amountCents)}
-        </span>,
-        new Date(t.createdAt).toLocaleTimeString(),
-        <span key="act" className="flex gap-1">
-          <button
-            type="button"
-            disabled={busyId !== null}
-            onClick={() => void decide(t.id, 'approve')}
-            className="rounded border border-[var(--color-ok)] px-2 py-0.5 text-[11px] text-[var(--color-ok)] hover:bg-[var(--color-ok)]/10 disabled:opacity-50"
-          >
-            {busyId === t.id ? '…' : 'Approve'}
-          </button>
-          <button
-            type="button"
-            disabled={busyId !== null}
-            onClick={() => void decide(t.id, 'reject')}
-            className="rounded border border-[var(--color-block)] px-2 py-0.5 text-[11px] text-[var(--color-block)] hover:bg-[var(--color-block)]/10 disabled:opacity-50"
-          >
-            Reject
-          </button>
-        </span>,
-      ])}
-      empty="No pending fund transfers."
-    />
+    <div className="space-y-4">
+      {liveGateNeedsAttention && props.liveGate && (
+        <div className="rounded-lg border border-[var(--color-line)] p-2.5">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="font-mono uppercase tracking-wider text-[var(--color-ink-faint)]">
+              Live gate
+            </span>
+            <span style={{ color: props.liveGate.overallPass ? 'var(--color-ok)' : 'var(--color-block)' }}>
+              {props.liveGate.overallPass ? 'checklist pass' : 'checklist blocked'}
+            </span>
+            <span className="text-[var(--color-ink-dim)]">
+              {props.liveGate.liveArmedAt
+                ? `armed ${new Date(props.liveGate.liveArmedAt).toLocaleString()}`
+                : 'not armed'}
+            </span>
+            {!props.liveGate.evidenceFresh && (
+              <span style={{ color: 'var(--color-warn)' }}>evidence stale</span>
+            )}
+            <button
+              type="button"
+              disabled={busyId !== null}
+              onClick={() => void reviewLiveGate()}
+              className="ml-auto rounded border border-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+            >
+              {busyId === 'live-gate' ? '…' : 'Save evidence'}
+            </button>
+          </div>
+          {failedGates.length > 0 && (
+            <ul className="mt-1.5 space-y-0.5 text-[11px] text-[var(--color-ink-dim)]">
+              {failedGates.slice(0, 6).map((g) => (
+                <li key={g.id}>
+                  <span style={{ color: 'var(--color-block)' }}>fail</span> {g.label}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
+            Arm / disarm remains on the top-bar mode switch after checklist evidence is fresh.
+          </p>
+        </div>
+      )}
+
+      {props.proposals.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+            Assistant proposals
+          </p>
+          <Table
+            head={['Tool', 'Summary', 'Requested', 'Actions']}
+            rows={props.proposals.map((p) => [
+              <span key="t" className="font-mono text-[10px]">
+                {p.tool}
+              </span>,
+              <span key="s" className="block max-w-md truncate text-[11px]">
+                {summarizeProposal(p.proposal)}
+              </span>,
+              new Date(p.createdAt).toLocaleTimeString(),
+              <span key="act" className="flex gap-1">
+                <button
+                  type="button"
+                  disabled={busyId !== null}
+                  onClick={() => void decideProposal(p.id, 'confirm')}
+                  className="rounded border border-[var(--color-ok)] px-2 py-0.5 text-[11px] text-[var(--color-ok)] hover:bg-[var(--color-ok)]/10 disabled:opacity-50"
+                >
+                  {busyId === p.id ? '…' : 'Confirm'}
+                </button>
+                <button
+                  type="button"
+                  disabled={busyId !== null}
+                  onClick={() => void decideProposal(p.id, 'reject')}
+                  className="rounded border border-[var(--color-block)] px-2 py-0.5 text-[11px] text-[var(--color-block)] hover:bg-[var(--color-block)]/10 disabled:opacity-50"
+                >
+                  Reject
+                </button>
+              </span>,
+            ])}
+            empty="No assistant proposals."
+          />
+        </div>
+      )}
+
+      {pending.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+            Fund transfers
+          </p>
+          <Table
+            head={['From', 'To', 'Amount', 'Requested', 'Actions']}
+            rows={pending.map((t) => [
+              endpointLabel(t.fromKind, t.fromModuleId, props.moduleName),
+              endpointLabel(t.toKind, t.toModuleId, props.moduleName),
+              <span key="a" className="font-mono">
+                {dollars(t.amountCents)}
+              </span>,
+              new Date(t.createdAt).toLocaleTimeString(),
+              <span key="act" className="flex gap-1">
+                <button
+                  type="button"
+                  disabled={busyId !== null}
+                  onClick={() => void decideTransfer(t.id, 'approve')}
+                  className="rounded border border-[var(--color-ok)] px-2 py-0.5 text-[11px] text-[var(--color-ok)] hover:bg-[var(--color-ok)]/10 disabled:opacity-50"
+                >
+                  {busyId === t.id ? '…' : 'Approve'}
+                </button>
+                <button
+                  type="button"
+                  disabled={busyId !== null}
+                  onClick={() => void decideTransfer(t.id, 'reject')}
+                  className="rounded border border-[var(--color-block)] px-2 py-0.5 text-[11px] text-[var(--color-block)] hover:bg-[var(--color-block)]/10 disabled:opacity-50"
+                >
+                  Reject
+                </button>
+              </span>,
+            ])}
+            empty="No pending fund transfers."
+          />
+        </div>
+      )}
+    </div>
   );
+}
+
+function summarizeProposal(proposal: AssistantProposalRow['proposal']): string {
+  const tool = proposal.tool;
+  switch (tool) {
+    case 'create_module':
+      return `Create ${String(proposal.type ?? 'module')} “${String(proposal.name ?? '')}”`;
+    case 'rename_module':
+      return `Rename → “${String(proposal.name ?? '')}”`;
+    case 'allocate_funds':
+      return 'Allocate funds (confirm to apply)';
+    case 'add_watchlist_item':
+    case 'create_watchlist':
+      return `Watch ${String(proposal.symbol ?? 'symbol')}`;
+    case 'link_modules':
+      return 'Link modules';
+    case 'set_policy':
+      return 'Set policy envelope';
+    case 'update_module_config':
+    case 'patch_module_config':
+      return 'Update module config';
+    case 'trigger_tier':
+      return 'Trigger tier action';
+    default:
+      return tool;
+  }
 }
 
 type LineageLinkReason = 'module' | 'symbol' | 'trend' | 'lead' | 'trace';
@@ -1181,13 +1372,23 @@ function buildLineageContext(
     if (!exec) return null;
     ctx.moduleIds.add(exec.moduleId);
     ctx.traceIds.add(exec.id);
-    const sym = extractSymbolFromDescription(exec.description, data.knownSymbols);
-    if (sym) ctx.symbols.add(sym);
-    ctx.primaryLink = 'trace';
-    for (const lead of data.leads.filter((l) => symbolInText(l.symbol, exec.description))) {
-      ctx.leadIds.add(lead.id);
-      ctx.trendIds.add(lead.trendId);
-      ctx.symbols.add(lead.symbol.toUpperCase());
+    if (exec.leadId) {
+      ctx.leadIds.add(exec.leadId);
+      ctx.primaryLink = 'lead';
+      const lead = data.leads.find((l) => l.id === exec.leadId);
+      if (lead) {
+        ctx.trendIds.add(lead.trendId);
+        ctx.symbols.add(lead.symbol.toUpperCase());
+      }
+    } else {
+      const sym = extractSymbolFromDescription(exec.description, data.knownSymbols);
+      if (sym) ctx.symbols.add(sym);
+      ctx.primaryLink = 'trace';
+      for (const lead of data.leads.filter((l) => symbolInText(l.symbol, exec.description))) {
+        ctx.leadIds.add(lead.id);
+        ctx.trendIds.add(lead.trendId);
+        ctx.symbols.add(lead.symbol.toUpperCase());
+      }
     }
     return ctx;
   }

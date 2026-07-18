@@ -1118,6 +1118,7 @@ export function AnalyzerConfigForm(props: { companyId: string; moduleId: string 
   const [config, setConfig] = useState<AnalyzerConfig | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [running, setRunning] = useState(false);
 
   useEffect(() => {
     let stopped = false;
@@ -1154,6 +1155,25 @@ export function AnalyzerConfigForm(props: { companyId: string; moduleId: string 
     }
   }
 
+  async function runConcat() {
+    if (!config || config.emitMode === 'verify_loopback') {
+      setMessage('Switch emit mode to Desk stream or Library to run concat.');
+      return;
+    }
+    setRunning(true);
+    setMessage(null);
+    try {
+      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}/concat`, {
+        method: 'POST',
+      });
+      setMessage('Concat queued — data_out / library updated when the job finishes.');
+    } catch {
+      setMessage('Could not enqueue analyzer concat.');
+    } finally {
+      setRunning(false);
+    }
+  }
+
   if (!config) {
     return <p className="text-xs text-[var(--color-ink-faint)]">Loading analyzer…</p>;
   }
@@ -1165,7 +1185,7 @@ export function AnalyzerConfigForm(props: { companyId: string; moduleId: string 
         <span className="text-[10px] text-[var(--color-ink-dim)]">Emit mode</span>
         <select
           value={config.emitMode}
-          disabled={saving}
+          disabled={saving || running}
           onChange={(e) =>
             void saveConfig({
               ...config,
@@ -1183,12 +1203,22 @@ export function AnalyzerConfigForm(props: { companyId: string; moduleId: string 
         <span className="text-[10px] text-[var(--color-ink-dim)]">Stream descriptor</span>
         <input
           value={config.streamDescriptor ?? ''}
-          disabled={saving}
+          disabled={saving || running}
           onChange={(e) => void saveConfig({ ...config, streamDescriptor: e.target.value })}
           placeholder="Qualitative package label"
           className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
         />
       </label>
+      {config.emitMode !== 'verify_loopback' && (
+        <button
+          type="button"
+          disabled={saving || running}
+          onClick={() => void runConcat()}
+          className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2 py-1 text-xs text-[var(--color-ink)] hover:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          {running ? 'Running concat…' : 'Run concat'}
+        </button>
+      )}
       {message && <p className="text-xs text-[var(--color-block)]">{message}</p>}
     </div>
   );

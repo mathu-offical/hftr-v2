@@ -675,7 +675,8 @@ function toUtilityEdge(link: UtilityLinkEdgeInput): Edge | null {
       source: link.fromModuleId,
       target: link.toEngineId,
       type: 'smoothstep',
-      sourceHandle: handleIdForStream('data_feed', 'out', link.toEngineId),
+      // Bus handle (no peer suffix) — utility binds are not module_links peers.
+      sourceHandle: handleIdForStream('data_feed', 'out'),
       targetHandle: engineUtilityTargetHandleId(link.bus),
       label,
       style,
@@ -691,15 +692,77 @@ function toUtilityEdge(link: UtilityLinkEdgeInput): Edge | null {
   return null;
 }
 
+type UtilityLinkView = {
+  id: string;
+  bus: EngineUtilityBus;
+  toEngineId?: string;
+  fromEngineId?: string | null;
+  fromModuleId?: string | null;
+  streamId?: string | null;
+  streamDescriptor?: string | null;
+};
+
 function utilityEdgesFromEngines(engines: readonly CanvasEngineGroup[]): Edge[] {
   const edges: Edge[] = [];
+  const seen = new Set<string>();
   for (const engine of engines) {
     for (const link of engine.utilityLinks ?? []) {
       const edge = toUtilityEdge({ ...link, toEngineId: engine.id });
-      if (edge) edges.push(edge);
+      if (!edge || seen.has(edge.id)) continue;
+      seen.add(edge.id);
+      edges.push(edge);
     }
   }
   return edges;
+}
+
+/** Rebuild utility edges from current engine-group node data (keeps module_links edges). */
+function mergeUtilityEdgesFromNodes(current: Edge[], nodes: CanvasFlowNode[]): Edge[] {
+  const moduleEdges = current.filter((edge) => !String(edge.id).startsWith('util-'));
+  const engines: CanvasEngineGroup[] = nodes.filter(isEngineGroupNode).map((node) => ({
+    id: node.id,
+    templateId: node.data.templateId,
+    label: node.data.label,
+    masterTopicSectors: node.data.masterTopicSectors,
+    canvasBounds: null,
+    memberModuleIds: node.data.memberModuleIds,
+    ...(node.data.utilityLinks ? { utilityLinks: node.data.utilityLinks } : {}),
+  }));
+  return [...moduleEdges, ...utilityEdgesFromEngines(engines)];
+}
+
+/** Apply company-wide utility link rows onto engine nodes (keyed by toEngineId). */
+function applyUtilityLinksToEngineNodes(
+  nodes: CanvasFlowNode[],
+  links: readonly UtilityLinkView[],
+): CanvasFlowNode[] {
+  const byEngine = new Map<string, UtilityLinkView[]>();
+  for (const link of links) {
+    const toId = link.toEngineId;
+    if (!toId) continue;
+    const list = byEngine.get(toId) ?? [];
+    list.push(link);
+    byEngine.set(toId, list);
+  }
+  return nodes.map((node) => {
+    if (!isEngineGroupNode(node)) return node;
+    const nextLinks = byEngine.get(node.id);
+    if (!nextLinks) return node;
+    return {
+      ...node,
+      data: {
+        ...node.data,
+        utilityLinks: nextLinks.map((link) => ({
+          id: link.id,
+          bus: link.bus,
+          fromEngineId: link.fromEngineId ?? null,
+          fromModuleId: link.fromModuleId ?? null,
+          streamId: link.streamId ?? null,
+          streamDescriptor: link.streamDescriptor ?? null,
+        })),
+      },
+    };
+  });
 }
 
 function appendUtilityLinkToEngineNodes(
@@ -1495,11 +1558,15 @@ export function CompanyCanvas(props: {
               fromEngineId: from.id,
             },
           });
-          setNodes((current) => appendUtilityLinkToEngineNodes(current, to.id, utilityLink));
-          const edge = toUtilityEdge({ ...utilityLink, toEngineId: to.id });
-          if (edge) {
-            setEdges((current) => [...current, edge]);
-          }
+          setNodes((current) => {
+            const withLink = appendUtilityLinkToEngineNodes(current, to.id, utilityLink);
+            setEdges((edges) => {
+              const edge = toUtilityEdge({ ...utilityLink, toEngineId: to.id });
+              const next = edge ? [...edges, edge] : edges;
+              return mergeUtilityEdgesFromNodes(next, withLink);
+            });
+            return withLink;
+          });
         } catch {
           flash('Could not create engine utility link.');
         }
@@ -1550,11 +1617,15 @@ export function CompanyCanvas(props: {
               fromModuleId: from.id,
             },
           });
-          setNodes((current) => appendUtilityLinkToEngineNodes(current, to.id, utilityLink));
-          const edge = toUtilityEdge({ ...utilityLink, toEngineId: to.id });
-          if (edge) {
-            setEdges((current) => [...current, edge]);
-          }
+          setNodes((current) => {
+            const withLink = appendUtilityLinkToEngineNodes(current, to.id, utilityLink);
+            setEdges((edges) => {
+              const edge = toUtilityEdge({ ...utilityLink, toEngineId: to.id });
+              const next = edge ? [...edges, edge] : edges;
+              return mergeUtilityEdgesFromNodes(next, withLink);
+            });
+            return withLink;
+          });
         } catch {
           flash('Could not bind that module to the engine utility.');
         }
@@ -1861,6 +1932,7 @@ export function CompanyCanvas(props: {
           links: CanvasLink[];
           utilityLinks?: Array<{
             id: string;
+            toEngineId: string;
             bus: EngineUtilityBus;
             fromEngineId?: string | null;
             fromModuleId?: string | null;
@@ -1885,21 +1957,11 @@ export function CompanyCanvas(props: {
               .map((m) => (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number }),
           );
 
-        const utilityLinks = response.utilityLinks ?? [];
-        const newEdges = [
-          ...response.links.map(toEdge),
-          ...utilityEdgesFromEngines([
-            {
-              id: response.engine.id,
-              templateId: response.engine.templateId,
-              label: response.engine.label,
-              masterTopicSectors: response.engine.masterTopicSectors,
-              canvasBounds: bounds,
-              memberModuleIds: response.engine.memberModuleIds,
-              utilityLinks,
-            },
-          ]),
-        ];
+        const utilityLinks = (response.utilityLinks ?? []).map((link) => ({
+          ...link,
+          toEngineId: link.toEngineId,
+        }));
+        const newModuleEdges = response.links.map(toEdge);
         const insertedNodes = buildInitialGraph(
           response.modules.map((row) => moduleRowToCanvas(row)),
           [
@@ -1914,7 +1976,7 @@ export function CompanyCanvas(props: {
               templateInputs: response.engine.templateInputs ?? inputs,
               canvasBounds: bounds,
               memberModuleIds: response.engine.memberModuleIds,
-              utilityLinks,
+              utilityLinks: utilityLinks.filter((link) => link.toEngineId === response.engine.id),
             },
           ],
           response.links,
@@ -1922,10 +1984,14 @@ export function CompanyCanvas(props: {
           stableEngineCallbacks,
         );
 
-        setNodes((current) =>
-          applyMathAttachments([...current, ...insertedNodes], [...edges, ...newEdges]),
-        );
-        setEdges((current) => [...current, ...newEdges]);
+        setNodes((current) => {
+          const merged = applyUtilityLinksToEngineNodes(
+            applyMathAttachments([...current, ...insertedNodes], [...edges, ...newModuleEdges]),
+            utilityLinks,
+          );
+          setEdges((edgeState) => mergeUtilityEdgesFromNodes([...edgeState, ...newModuleEdges], merged));
+          return merged;
+        });
         flash(`${engine.label} inserted — activate its modules to start.`);
       } catch {
         flash('Engine insert failed.');

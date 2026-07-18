@@ -23,6 +23,7 @@ const HANDLER_TO_LAYER: Record<string, string> = {
   'verify.reconcile_order': 'loop_refine',
   'simulation.run': 'paper_parallel',
   'analyzer.summarize': 'reconcile',
+  'analyzer.concat': 'concat_emit',
 };
 
 export function layerIdForJobKind(kind: string, layers: readonly ProcessLayerDef[]): string | null {

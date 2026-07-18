@@ -12,6 +12,7 @@ import {
   resolveBudgetProvider,
   type JobCostEstimate,
 } from './budget-admission';
+import { assertNoSecretsInJobPayload } from './payload-secrets';
 
 /**
  * Custom Postgres queue (agent-docs/architecture/job-orchestration.md).
@@ -36,6 +37,8 @@ export type { JobCostEstimate };
 
 /** Insert a job; duplicate idempotency keys are silently ignored (dedup). */
 export async function enqueue(db: Db, clock: Clock, def: EnqueueDef): Promise<void> {
+  // D-074: fail-closed — never persist operator secrets into jobs.payload jsonb.
+  assertNoSecretsInJobPayload(def.payload);
   await db
     .insert(jobs)
     .values({

@@ -4,6 +4,7 @@ import { brokerBalancesSnapshot, brokerConnections } from '@hftr/db/schema';
 import { decryptSecret } from '@hftr/secrets';
 import { materializeSchedules } from '../schedules/materialize';
 import { enqueue, pruneCompleted, sweepExpiredLeases } from '../queue/queue';
+import { scrubSecretsFromJobPayloads } from '../queue/scrub-payload-secrets';
 import { archiveStaleHotRows } from '../retention/archive';
 import { registerHandler } from './registry';
 
@@ -17,6 +18,11 @@ function parseStoredCredentials(plain: string): unknown {
 /** Defensive sweep: reclaim expired leases, prune old completed jobs, materialize schedules, enqueue balance snapshot. */
 registerHandler('maintenance.sweep', async ({ db, clock }) => {
   await sweepExpiredLeases(db, clock);
+  // D-074: redact any legacy plaintext keys left in jobs.payload before prune.
+  const scrubbed = await scrubSecretsFromJobPayloads(db);
+  if (scrubbed > 0) {
+    console.info('maintenance.sweep: scrubbed secret fields from job payloads', { scrubbed });
+  }
   await pruneCompleted(db, clock, COMPLETED_RETENTION_MS);
   await materializeSchedules(db, clock);
   await enqueue(db, clock, {

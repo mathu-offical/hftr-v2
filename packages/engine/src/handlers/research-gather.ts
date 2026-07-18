@@ -1,6 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import {
+  buildResearchQueryPlan,
   gatherEvidencePackages,
   normalizeToEvidencePackage,
   resolveDefaultSourceKinds,
@@ -27,11 +28,13 @@ import {
   resolveOutboundLibraryModules,
 } from '../graph/module-links';
 import { curiosityFromConfig, resolveCuriosityMaxEvidence } from '../research/curiosity';
+import { resolveResearchGatherCredentials } from '../research/gather-credentials';
 import { loadResearchRequest, upsertResearchResult, upsertResearchRun } from '../research/run-state';
 import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
 import { loadCatalogHints } from './research-deterministic';
 
+/** Identity + intent only — credentials resolved server-side (D-074). */
 const GatherPayload = z.object({
   companyId: z.string().uuid(),
   moduleId: z.string().uuid(),
@@ -41,16 +44,6 @@ const GatherPayload = z.object({
   sourceKinds: z.array(ResearchSourceKind).max(24).optional(),
   maxEvidence: z.number().int().min(1).max(48).optional(),
   causationRefs: z.array(z.string()).max(24).optional(),
-  braveApiKey: z.string().optional(),
-  marketNewsApiKey: z.string().optional(),
-  alpacaKeyId: z.string().optional(),
-  alpacaSecret: z.string().optional(),
-  finnhubApiKey: z.string().optional(),
-  polygonApiKey: z.string().optional(),
-  fredApiKey: z.string().optional(),
-  alphaVantageApiKey: z.string().optional(),
-  twelveDataApiKey: z.string().optional(),
-  marketstackApiKey: z.string().optional(),
 });
 
 registerHandler('research.gather', async ({ db, clock, job }) => {
@@ -68,7 +61,7 @@ registerHandler('research.gather', async ({ db, clock, job }) => {
     .where(eq(researchRequests.id, payload.requestId));
 
   const [mod] = await db
-    .select({ config: modules.config })
+    .select({ config: modules.config, topicSectors: modules.topicSectors })
     .from(modules)
     .where(and(eq(modules.id, payload.moduleId), eq(modules.companyId, payload.companyId)))
     .limit(1);
@@ -95,18 +88,7 @@ registerHandler('research.gather', async ({ db, clock, job }) => {
     ? await loadLinkedLibraryConceptEvidence(db, payload.companyId, payload.moduleId)
     : [];
 
-  const gatherCredentials = {
-    braveApiKey: payload.braveApiKey ?? null,
-    marketNewsApiKey: payload.marketNewsApiKey ?? null,
-    alpacaKeyId: payload.alpacaKeyId ?? null,
-    alpacaSecret: payload.alpacaSecret ?? null,
-    finnhubApiKey: payload.finnhubApiKey ?? null,
-    polygonApiKey: payload.polygonApiKey ?? null,
-    fredApiKey: payload.fredApiKey ?? null,
-    alphaVantageApiKey: payload.alphaVantageApiKey ?? null,
-    twelveDataApiKey: payload.twelveDataApiKey ?? null,
-    marketstackApiKey: payload.marketstackApiKey ?? null,
-  };
+  const gatherCredentials = await resolveResearchGatherCredentials(db, payload.companyId);
 
   const sourceKinds: ResearchSourceKind[] =
     externalKinds.length > 0
@@ -116,8 +98,15 @@ registerHandler('research.gather', async ({ db, clock, job }) => {
     sourceKinds.push('library');
   }
 
+  const queryPlan = buildResearchQueryPlan({
+    topicScope,
+    topicSectors: mod.topicSectors ?? [],
+    queryText,
+  });
+
   const { packages: gathered, errors: gatherErrors } = await gatherEvidencePackages({
-    query: queryText || topicScope,
+    query: queryPlan.baseQuery || queryText || topicScope,
+    queryBySource: queryPlan.bySource,
     sourceKinds,
     allowlist: config.sourceAllowlist,
     blocklist: config.sourceBlocklist,

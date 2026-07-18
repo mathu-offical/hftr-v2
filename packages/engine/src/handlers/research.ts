@@ -11,6 +11,7 @@ import { enqueue } from '../queue/queue';
 import { curateDeterministic } from './research-deterministic';
 import { registerHandler } from './registry';
 
+/** Identity + intent only — never API keys (D-074; resolved in research.gather). */
 const CuratePayload = z.object({
   companyId: z.string().uuid(),
   moduleId: z.string().uuid(),
@@ -20,16 +21,6 @@ const CuratePayload = z.object({
   topicId: z.string().uuid().optional(),
   sourceModuleId: z.string().uuid().optional(),
   sourceKinds: z.array(z.string()).max(24).optional(),
-  braveApiKey: z.string().optional(),
-  marketNewsApiKey: z.string().optional(),
-  alpacaKeyId: z.string().optional(),
-  alpacaSecret: z.string().optional(),
-  finnhubApiKey: z.string().optional(),
-  polygonApiKey: z.string().optional(),
-  fredApiKey: z.string().optional(),
-  alphaVantageApiKey: z.string().optional(),
-  twelveDataApiKey: z.string().optional(),
-  marketstackApiKey: z.string().optional(),
 });
 
 const StrategicPayload = z.object({
@@ -105,16 +96,6 @@ registerHandler('research.curate', async ({ db, clock, job }) => {
       queryText,
       topicScope,
       sourceKinds: payload.sourceKinds,
-      braveApiKey: payload.braveApiKey,
-      marketNewsApiKey: payload.marketNewsApiKey,
-      alpacaKeyId: payload.alpacaKeyId,
-      alpacaSecret: payload.alpacaSecret,
-      finnhubApiKey: payload.finnhubApiKey,
-      polygonApiKey: payload.polygonApiKey,
-      fredApiKey: payload.fredApiKey,
-      alphaVantageApiKey: payload.alphaVantageApiKey,
-      twelveDataApiKey: payload.twelveDataApiKey,
-      marketstackApiKey: payload.marketstackApiKey,
     },
     idempotencyKey: `research-gather-${requestId}`,
     companyId: payload.companyId,
@@ -149,6 +130,7 @@ registerHandler('research.strategic', async ({ db, clock, job, modelGateway }) =
     companyId: payload.companyId,
     moduleId: payload.moduleId,
     topicScope: payload.topicScope,
+    evidencePackages: [],
   });
 
   if (batch) {

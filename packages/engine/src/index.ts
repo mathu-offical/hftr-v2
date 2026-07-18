@@ -17,6 +17,12 @@ export {
   type JobCostEstimate,
 } from './queue/queue';
 export {
+  assertNoSecretsInJobPayload,
+  stripSecretsFromJobPayload,
+  FORBIDDEN_JOB_PAYLOAD_SECRET_KEYS,
+} from './queue/payload-secrets';
+export { scrubSecretsFromJobPayloads } from './queue/scrub-payload-secrets';
+export {
   BUDGET_QUEUED_ERROR,
   LLM_BUDGET_QUEUE_CLASSES,
   hasNonEmptyCostEstimate,
@@ -82,6 +88,10 @@ export {
   MOVERS_TOPIC_SCOPE,
   type EnsureSystemMoversLibraryOpts,
 } from './libraries/system-movers';
+export {
+  resolveResearchGatherCredentials,
+  type ResearchGatherCredentials,
+} from './research/gather-credentials';
 export {
   loadCompanyLinkGraph,
   neighborIds,

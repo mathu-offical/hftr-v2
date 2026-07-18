@@ -1140,6 +1140,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Spec: `docs/superpowers/specs/2026-07-18-symbol-ticker-posture-viz-design.md`. Docs:
   ui-spec §4. **Status: implemented.**
 
+- **D-110 (canvas node styling + default ENGINE spines, 2026-07-18):** Closes remaining
+  template orphan/librarian spines (`engine_crypto` / `engine_prediction` / trend research /
+  research packs) with distinct Fn-aligned module names. Live cards: richer subtype chips
+  (trend/analyzer/policy/funds), denser nature port labels + MathPortBuses labels, clock_in
+  vs Math-dock spacing, agent/control family silhouettes, MathToolNode token parity with hub
+  Math, EngineGroupNode nature utility labels, create preview parity via `NodePortBuses` +
+  `FamilyShapeChrome` + category wash. Docs: ui-spec §3 node families;
+  `canvas-connection-point-audit.md`. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

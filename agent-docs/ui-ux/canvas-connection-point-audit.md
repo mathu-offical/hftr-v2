@@ -41,6 +41,10 @@ Info-type labels only (no peer names as primary). Distinct per nature on one car
 | engine_long_term | full spine + funds | dual research→librarian→library; Horizon Fund Router |
 | engine_hft | empty stub | unchanged |
 
+**Chrome (D-110):** Fn + subtype chips, nature rails/labels, family silhouettes on dominant
+agent/control types, Math tool token parity, create-preview bus parity — operators should not
+need manual cleanup to read a default day-trading or research ENGINE insert.
+
 ## Nature map
 
 | Nature | LinkKinds / slots | Visual |

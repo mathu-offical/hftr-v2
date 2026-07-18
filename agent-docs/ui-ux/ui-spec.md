@@ -138,14 +138,19 @@
   bottom-left under the member envelope. Port roles: Now / Authority in / Schedule / Time bus /
   Clock in. Engines receive clock authority via motherboard `clock` utility bind; Time → members
   land on clock_in.
-- **Node families (D-056 / D-068 / D-073 / D-088):** cards distinguish **Data source** (`library` shelves /
-  book-spine silhouette; `live_api` aperture + signal bars — dashed border), **Agent** (solid +
-  left bar), **Vault** / fund (`holding_fund`, `fund_router` — vault door, rivets, dial chrome;
-  double border), **Tool** (Math, Clock, Time), **Control** (policy). Silhouette structure strokes are
-  low-contrast background wash. Subtype chips show library class, venue,
-  trading subtype, etc. Engine groups use **category-colored** washes/stripes from template
-  category. Shape chrome is decorative; text-first family labels remain authoritative.
-  Stream peers and engine-template Math `fund_route` links order by capital-flow / pipeline lane.
+- **Node families (D-056 / D-068 / D-073 / D-088 / D-110):** cards distinguish **Data source**
+  (`library` shelves / book-spine silhouette; `live_api` aperture + signal bars — dashed border),
+  **Agent** (solid + left bar) with low-contrast silhouettes for `research` / `librarian` /
+  `trend` / `trading` / `analyzer`, **Vault** / fund (`holding_fund`, `fund_router` — vault door,
+  rivets, dial chrome; double border), **Tool** (Math, Clock, Time — Math tools share
+  `MODULE_VISUALS.math` tokens with hub Math; Calc-ref / Fund port labels), **Control** (`policy`
+  shield silhouette). Engine motherboard utility handles use **nature-colored** outward labels
+  (data / time / fund / system). Subtype chips cover library class, venue, trend posture,
+  analyzer emitMode, policy envelope, simulator/generator, holding_fund / fund_router so cards
+  in a default ENGINE read distinctly. Create-flow preview cards reuse `NodePortBuses` +
+  `FamilyShapeChrome` + category wash (`engineVisualForTemplate`) for insert parity. Shape chrome
+  is decorative; text-first family labels remain authoritative. Stream peers and engine-template
+  Math `fund_route` links order by capital-flow / pipeline lane.
 - **Density (D-057 / D-088):** module cards ~220×168 layout floor (was 220×240); Math tools
   180×40; tighter ModuleNode/context/trend padding; engine padding and gutters; React Flow
   `minZoom=0.15` so full engines fit in view.

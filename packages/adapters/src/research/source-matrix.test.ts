@@ -18,9 +18,9 @@ describe('filterSourceKinds', () => {
   it('matches feed class aliases on allowlist', () => {
     expect(filterSourceKinds([...kinds], ['sec_edgar_free'], [])).toEqual(['sec_edgar']);
     expect(filterSourceKinds([...kinds], ['market_news_public'], [])).toEqual(['market_news']);
-    expect(filterSourceKinds(['alpaca_news', 'alpaca_bars'], ['alpaca_benzinga_news'], [])).toEqual([
-      'alpaca_news',
-    ]);
+    expect(filterSourceKinds(['alpaca_news', 'alpaca_bars'], ['alpaca_benzinga_news'], [])).toEqual(
+      ['alpaca_news'],
+    );
     expect(filterSourceKinds(['finnhub_news'], ['finnhub_company_news'], [])).toEqual([
       'finnhub_news',
     ]);
@@ -40,12 +40,9 @@ describe('filterSourceKinds', () => {
   });
 
   it('deduplicates kinds', () => {
-    expect(
-      filterSourceKinds(
-        ['brave_search', 'brave_search', 'sec_edgar'],
-        [],
-        [],
-      ),
-    ).toEqual(['brave_search', 'sec_edgar']);
+    expect(filterSourceKinds(['brave_search', 'brave_search', 'sec_edgar'], [], [])).toEqual([
+      'brave_search',
+      'sec_edgar',
+    ]);
   });
 });

@@ -2,14 +2,8 @@ import type { EvidencePackage, ResearchSourceKind } from '@hftr/contracts';
 import { selectReadySourceKinds } from '@hftr/contracts';
 import { AlpacaNewsError, fetchAlpacaNews } from '../alpaca/news';
 import { BraveSearchError, searchBrave } from './brave-search';
-import {
-  AlpacaBarsEvidenceError,
-  gatherAlpacaBarsEvidence,
-} from './alpaca-bars-evidence';
-import {
-  evidenceFromLibraryConcepts,
-  type LibraryConceptEvidenceInput,
-} from './library-concepts';
+import { AlpacaBarsEvidenceError, gatherAlpacaBarsEvidence } from './alpaca-bars-evidence';
+import { evidenceFromLibraryConcepts, type LibraryConceptEvidenceInput } from './library-concepts';
 import { fetchFinnhubNews, FinnhubNewsError } from './finnhub-news';
 import { fetchMarketNews, MarketNewsError } from './market-news';
 import { fetchPolygonNews, PolygonNewsError } from './polygon-news';
@@ -19,18 +13,9 @@ import { fetchCoinGeckoCrypto, CoinGeckoCryptoError } from './coingecko-crypto';
 import { fetchFredMacro, FredMacroError } from './fred-macro';
 import { fetchAlphaVantageNews, AlphaVantageNewsError } from './alpha-vantage-news';
 import { fetchGdeltNews, GdeltNewsError } from './gdelt-news';
-import {
-  gatherTwelveDataBarsEvidence,
-  TwelveDataBarsError,
-} from './twelve-data-bars';
-import {
-  gatherMarketstackEodEvidence,
-  MarketstackEodError,
-} from './marketstack-eod';
-import {
-  fetchWorldBankIndicators,
-  WorldBankIndicatorError,
-} from './world-bank-indicator';
+import { gatherTwelveDataBarsEvidence, TwelveDataBarsError } from './twelve-data-bars';
+import { gatherMarketstackEodEvidence, MarketstackEodError } from './marketstack-eod';
+import { fetchWorldBankIndicators, WorldBankIndicatorError } from './world-bank-indicator';
 import { ResearchStubError } from './research-stub';
 import { filterSourceKinds } from './source-matrix';
 
@@ -136,10 +121,7 @@ function errorCode(err: unknown): string {
   return 'unknown_error';
 }
 
-function resolveSourceQuery(
-  kind: ResearchSourceKind,
-  opts: GatherEvidencePackagesOptions,
-): string {
+function resolveSourceQuery(kind: ResearchSourceKind, opts: GatherEvidencePackagesOptions): string {
   return opts.queryBySource?.[kind]?.trim() || opts.query;
 }
 

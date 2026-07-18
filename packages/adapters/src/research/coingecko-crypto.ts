@@ -24,8 +24,7 @@ interface CoinGeckoMarketRow {
 }
 
 const USER_AGENT = 'hftr-v2-research-gather/1.0 (+https://hftr.local)';
-const QUALITATIVE_SUMMARY =
-  'Market-cap ranked crypto listing; price and volume levels redacted.';
+const QUALITATIVE_SUMMARY = 'Market-cap ranked crypto listing; price and volume levels redacted.';
 
 function sanitizeQualitativeField(raw: string | undefined, fallback: string): string {
   const trimmed = raw?.trim() || fallback;

@@ -25,9 +25,9 @@ function pkg(title: string, summary: string): EvidencePackage {
 
 describe('canonicalizeUrl', () => {
   it('lowercases host, strips hash, and drops tracking params', () => {
-    expect(
-      canonicalizeUrl('HTTPS://Example.COM/path/?utm_source=x&b=2#section'),
-    ).toBe('https://example.com/path?b=2');
+    expect(canonicalizeUrl('HTTPS://Example.COM/path/?utm_source=x&b=2#section')).toBe(
+      'https://example.com/path?b=2',
+    );
   });
 });
 

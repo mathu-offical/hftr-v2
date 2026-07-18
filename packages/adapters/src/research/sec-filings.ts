@@ -41,9 +41,7 @@ const DEFAULT_USER_AGENT = 'hftr-v2-research research@hftr.local';
 /**
  * Deterministic SEC EDGAR full-text search → EvidencePackage[].
  */
-export async function searchSecFilings(
-  opts: SearchSecFilingsOptions,
-): Promise<EvidencePackage[]> {
+export async function searchSecFilings(opts: SearchSecFilingsOptions): Promise<EvidencePackage[]> {
   const count = Math.min(Math.max(1, opts.maxResults ?? 5), 20);
   const fetchFn = opts.fetchImpl ?? fetch;
   const userAgent = opts.userAgent ?? DEFAULT_USER_AGENT;

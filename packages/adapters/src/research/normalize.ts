@@ -37,12 +37,7 @@ export function normalizeToEvidencePackage(input: NormalizeEvidenceInput): Evide
   const summary = redactDigitHeavyText(input.summary.trim());
   const externalRef = input.externalRef ?? null;
 
-  const digest = digestEvidence([
-    input.sourceKind,
-    title,
-    summary,
-    externalRef ?? '',
-  ]);
+  const digest = digestEvidence([input.sourceKind, title, summary, externalRef ?? '']);
 
   return EvidencePackage.parse({
     sourceKind: input.sourceKind,

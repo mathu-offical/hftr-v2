@@ -49,9 +49,21 @@ export const ENVIRONMENT_REQUIREMENTS: readonly EnvRequirement[] = [
     requiredIn: [],
     consumer: 'unused for auth (D-027; CI smoke)',
   },
-  { name: 'HFTR_LLM_SMOKE', requiredIn: [], consumer: 'scripts/smoke-llm-providers.mjs opt-in gate' },
-  { name: 'BRAVE_API_KEY', requiredIn: [], consumer: 'CI smoke + offline tooling (D-039 runtime: user keys)' },
-  { name: 'MARKETAUX_API_KEY', requiredIn: [], consumer: 'CI smoke (D-039 runtime: user_research_keys)' },
+  {
+    name: 'HFTR_LLM_SMOKE',
+    requiredIn: [],
+    consumer: 'scripts/smoke-llm-providers.mjs opt-in gate',
+  },
+  {
+    name: 'BRAVE_API_KEY',
+    requiredIn: [],
+    consumer: 'CI smoke + offline tooling (D-039 runtime: user keys)',
+  },
+  {
+    name: 'MARKETAUX_API_KEY',
+    requiredIn: [],
+    consumer: 'CI smoke (D-039 runtime: user_research_keys)',
+  },
   {
     name: 'MARKET_NEWS_API_KEY',
     requiredIn: [],

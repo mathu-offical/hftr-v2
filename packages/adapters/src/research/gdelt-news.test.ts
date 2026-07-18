@@ -90,8 +90,7 @@ describe('fetchGdeltNews', () => {
   });
 
   it('throws parse_error for invalid JSON shape', async () => {
-    const fetchImpl = async () =>
-      new Response(JSON.stringify({ results: [] }), { status: 200 });
+    const fetchImpl = async () => new Response(JSON.stringify({ results: [] }), { status: 200 });
 
     await expect(
       fetchGdeltNews({

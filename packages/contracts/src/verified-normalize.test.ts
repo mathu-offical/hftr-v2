@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { ResearchDirective, EvidenceSummaryForSynth, SealSummaryForSynth } from './research-artifacts';
+import {
+  ResearchDirective,
+  EvidenceSummaryForSynth,
+  SealSummaryForSynth,
+} from './research-artifacts';
 import { ResearchArtifactRef, ValidationGateId } from './research-bus';
 import {
   ResearchQueryPlan,

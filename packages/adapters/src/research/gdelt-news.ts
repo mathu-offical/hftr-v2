@@ -4,11 +4,7 @@ import { normalizeToEvidencePackage, redactDigitHeavyText } from './normalize';
 
 export class GdeltNewsError extends Error {
   constructor(
-    public readonly code:
-      | 'http_error'
-      | 'rate_limited'
-      | 'parse_error'
-      | 'network_error',
+    public readonly code: 'http_error' | 'rate_limited' | 'parse_error' | 'network_error',
     message?: string,
   ) {
     super(message ?? code);
@@ -55,10 +51,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchGdeltOnce(
-  url: string,
-  fetchFn: typeof fetch,
-): Promise<Response> {
+async function fetchGdeltOnce(url: string, fetchFn: typeof fetch): Promise<Response> {
   try {
     return await fetchFn(url, {
       method: 'GET',
@@ -76,9 +69,7 @@ async function fetchGdeltOnce(
  * Fetch global news from GDELT DOC 2.0 ArtList.
  * On HTTP 429: one retry after 1.5s; still 429 throws rate_limited.
  */
-export async function fetchGdeltNews(
-  params: FetchGdeltNewsParams,
-): Promise<EvidencePackage[]> {
+export async function fetchGdeltNews(params: FetchGdeltNewsParams): Promise<EvidencePackage[]> {
   const limit = Math.min(Math.max(1, params.limit), 50);
   const fetchFn = params.fetchImpl ?? fetch;
   const url = buildGdeltUrl(params.query, limit);

@@ -255,16 +255,14 @@ describe('gatherEvidencePackages', () => {
     const fetchImpl = async (url: string | URL | Request) => {
       const u = String(url);
       if (u.includes('frankfurter.dev')) {
-        return new Response(
-          JSON.stringify({ base: 'USD', rates: { EUR: 0.91, GBP: 0.78 } }),
-          { status: 200 },
-        );
+        return new Response(JSON.stringify({ base: 'USD', rates: { EUR: 0.91, GBP: 0.78 } }), {
+          status: 200,
+        });
       }
       if (u.includes('coingecko.com')) {
-        return new Response(
-          JSON.stringify([{ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }]),
-          { status: 200 },
-        );
+        return new Response(JSON.stringify([{ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }]), {
+          status: 200,
+        });
       }
       return new Response('not found', { status: 404 });
     };

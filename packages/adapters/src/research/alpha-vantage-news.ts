@@ -5,11 +5,7 @@ import { extractTickerFromQuery } from './alpaca-bars-evidence';
 
 export class AlphaVantageNewsError extends Error {
   constructor(
-    public readonly code:
-      | 'missing_credentials'
-      | 'http_error'
-      | 'parse_error'
-      | 'network_error',
+    public readonly code: 'missing_credentials' | 'http_error' | 'parse_error' | 'network_error',
     message?: string,
   ) {
     super(message ?? code);
@@ -32,8 +28,7 @@ interface AlphaVantageNewsRow {
   source?: string;
 }
 
-const QUALITATIVE_SUMMARY_FALLBACK =
-  'Alpha Vantage news sentiment item; numeric detail redacted.';
+const QUALITATIVE_SUMMARY_FALLBACK = 'Alpha Vantage news sentiment item; numeric detail redacted.';
 const QUALITATIVE_TITLE_FALLBACK = 'Alpha Vantage market news';
 
 function sanitizeQualitativeField(raw: string | undefined, fallback: string): string {

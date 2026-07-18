@@ -78,7 +78,11 @@ function macroQuery(topicScope: string, cadence?: string): string {
   return joinQueryParts(['macro economy indicators', topicScope, cadence]);
 }
 
-function secCompanyEventQuery(symbols: string[], queryText: string | undefined, topicScope: string): string {
+function secCompanyEventQuery(
+  symbols: string[],
+  queryText: string | undefined,
+  topicScope: string,
+): string {
   if (symbols.length > 0) {
     return joinQueryParts([...symbols, 'SEC filings', 'company events']);
   }

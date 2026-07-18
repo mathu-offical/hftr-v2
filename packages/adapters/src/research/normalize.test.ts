@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  digestEvidence,
-  normalizeToEvidencePackage,
-  redactDigitHeavyText,
-} from './normalize';
+import { digestEvidence, normalizeToEvidencePackage, redactDigitHeavyText } from './normalize';
 
 describe('redactDigitHeavyText', () => {
   it('replaces digit runs with [n]', () => {
@@ -13,9 +9,7 @@ describe('redactDigitHeavyText', () => {
   });
 
   it('leaves text without digits unchanged', () => {
-    expect(redactDigitHeavyText('Qualitative market backdrop')).toBe(
-      'Qualitative market backdrop',
-    );
+    expect(redactDigitHeavyText('Qualitative market backdrop')).toBe('Qualitative market backdrop');
   });
 });
 

@@ -336,9 +336,7 @@ export function selectReadySourceKinds(
   return out;
 }
 
-export function listSourcesByDomain(
-  domain: ResearchSourceDomain,
-): ResearchSourceDescriptor[] {
+export function listSourcesByDomain(domain: ResearchSourceDomain): ResearchSourceDescriptor[] {
   return Object.values(RESEARCH_SOURCE_REGISTRY).filter((d) => d.domain === domain);
 }
 

@@ -4,11 +4,7 @@ import { normalizeToEvidencePackage, redactDigitHeavyText } from './normalize';
 
 export class FredMacroError extends Error {
   constructor(
-    public readonly code:
-      | 'missing_credentials'
-      | 'http_error'
-      | 'parse_error'
-      | 'network_error',
+    public readonly code: 'missing_credentials' | 'http_error' | 'parse_error' | 'network_error',
     message?: string,
   ) {
     super(message ?? code);

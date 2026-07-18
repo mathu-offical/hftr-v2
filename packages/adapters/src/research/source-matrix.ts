@@ -1,7 +1,4 @@
-import {
-  RESEARCH_SOURCE_FEED_CLASS,
-  type ResearchSourceKind,
-} from '@hftr/contracts';
+import { RESEARCH_SOURCE_FEED_CLASS, type ResearchSourceKind } from '@hftr/contracts';
 
 /** Feed-class aliases that map back to a ResearchSourceKind for allow/block matching. */
 const FEED_CLASS_ALIASES: Record<string, ResearchSourceKind> = {

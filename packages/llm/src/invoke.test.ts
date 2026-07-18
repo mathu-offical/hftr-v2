@@ -375,13 +375,11 @@ describe('invoke gateway', () => {
   });
 
   it('falls back to Mistral Large when Anthropic key is missing on strategic tier', async () => {
-    vi.spyOn(keysModule, 'withUserApiKey').mockImplementation(
-      async (_db, _user, provider, fn) => {
-        if (provider === 'anthropic') return undefined;
-        if (provider === 'mistral') return fn('mistral-test-key');
-        return undefined;
-      },
-    );
+    vi.spyOn(keysModule, 'withUserApiKey').mockImplementation(async (_db, _user, provider, fn) => {
+      if (provider === 'anthropic') return undefined;
+      if (provider === 'mistral') return fn('mistral-test-key');
+      return undefined;
+    });
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -430,13 +428,11 @@ describe('invoke gateway', () => {
   });
 
   it('falls back to Mistral Large after Anthropic auth rejection', async () => {
-    vi.spyOn(keysModule, 'withUserApiKey').mockImplementation(
-      async (_db, _user, provider, fn) => {
-        if (provider === 'anthropic') return fn('sk-ant-invalid');
-        if (provider === 'mistral') return fn('mistral-test-key');
-        return undefined;
-      },
-    );
+    vi.spyOn(keysModule, 'withUserApiKey').mockImplementation(async (_db, _user, provider, fn) => {
+      if (provider === 'anthropic') return fn('sk-ant-invalid');
+      if (provider === 'mistral') return fn('mistral-test-key');
+      return undefined;
+    });
 
     const fetchMock = vi
       .fn()

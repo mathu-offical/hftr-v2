@@ -4,11 +4,7 @@ import { normalizeToEvidencePackage, redactDigitHeavyText } from './normalize';
 
 export class PolygonNewsError extends Error {
   constructor(
-    public readonly code:
-      | 'missing_credentials'
-      | 'http_error'
-      | 'parse_error'
-      | 'network_error',
+    public readonly code: 'missing_credentials' | 'http_error' | 'parse_error' | 'network_error',
     message?: string,
   ) {
     super(message ?? code);
@@ -72,9 +68,7 @@ function extractSymbolsFromQuery(query: string | undefined): string[] {
  * Fetch reference news from Polygon.io v2 API.
  * Maps title/description to leak-linted EvidencePackage rows.
  */
-export async function fetchPolygonNews(
-  params: FetchPolygonNewsParams,
-): Promise<EvidencePackage[]> {
+export async function fetchPolygonNews(params: FetchPolygonNewsParams): Promise<EvidencePackage[]> {
   const apiKey = params.apiKey?.trim();
   if (!apiKey) {
     throw new PolygonNewsError('missing_credentials');
@@ -122,8 +116,7 @@ export async function fetchPolygonNews(
 
   const feedClass = RESEARCH_SOURCE_FEED_CLASS.polygon_news;
   const symbolHint =
-    ticker ??
-    (symbols.length > 0 ? symbols.join(', ') : records[0]?.tickers?.join(', ') ?? '');
+    ticker ?? (symbols.length > 0 ? symbols.join(', ') : (records[0]?.tickers?.join(', ') ?? ''));
 
   return records.slice(0, limit).map((item, index) => {
     const hint = symbolHint ? ` (${symbolHint})` : '';

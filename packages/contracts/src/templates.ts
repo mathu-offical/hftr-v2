@@ -1324,7 +1324,8 @@ export function getEngineTemplateById(id: string): EngineTemplate | undefined {
   const template = ENGINE_TEMPLATES.find((item) => item.id === id);
   if (!template) return undefined;
   const links = orderTemplateLinks(template.links);
-  const alreadyOrdered = links.length === template.links.length && links.every((link, i) => link === template.links[i]);
+  const alreadyOrdered =
+    links.length === template.links.length && links.every((link, i) => link === template.links[i]);
   return alreadyOrdered ? template : { ...template, links };
 }
 

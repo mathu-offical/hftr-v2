@@ -74,7 +74,10 @@ export const CompanySectorFocuses = z
 export type CompanySectorFocuses = z.infer<typeof CompanySectorFocuses>;
 
 export function sectorFocusDraftString(focuses: readonly string[]): string {
-  return focuses.map((value) => value.trim()).filter(Boolean).join(', ');
+  return focuses
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join(', ');
 }
 
 export function isSectorFocusLabel(value: string): boolean {

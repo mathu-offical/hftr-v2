@@ -93,9 +93,7 @@ function canAttemptStrategicFallback(
   explicitProviderOverride: boolean,
 ): boolean {
   return (
-    request.tier === 'strategic' &&
-    capability.provider === 'anthropic' &&
-    !explicitProviderOverride
+    request.tier === 'strategic' && capability.provider === 'anthropic' && !explicitProviderOverride
   );
 }
 
@@ -167,10 +165,7 @@ export async function invoke<T>(opts: InvokeOptions<T>): Promise<LlmCallOutcome>
 
   let hasKey = await providerKeyPresent(opts.db, opts.clerkUserId, capability.provider);
 
-  if (
-    !hasKey &&
-    canAttemptStrategicFallback(request, capability, explicitProviderOverride)
-  ) {
+  if (!hasKey && canAttemptStrategicFallback(request, capability, explicitProviderOverride)) {
     const continuity = resolveStrategicContinuityFallback(policy);
     if (
       continuity.ok &&
@@ -254,8 +249,7 @@ export async function invoke<T>(opts: InvokeOptions<T>): Promise<LlmCallOutcome>
   }
 
   const maxTokens =
-    opts.maxTokens ??
-    (active.usedStrategicFallback ? STRATEGIC_FALLBACK_MAX_TOKENS : 4096);
+    opts.maxTokens ?? (active.usedStrategicFallback ? STRATEGIC_FALLBACK_MAX_TOKENS : 4096);
 
   const runProviderCall = async (
     target: ModelCapability,

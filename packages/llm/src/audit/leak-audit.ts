@@ -109,9 +109,7 @@ export function buildCompanyLeakAuditReport(
     artifacts.map((a) => ({ id: a.llmCallId, content: a.output })),
   );
   const auditedCallIds = new Set(artifacts.map((a) => a.llmCallId));
-  const reasonsByCallId = new Map(
-    artifactAudit.failures.map((f) => [f.id, f.reasons] as const),
-  );
+  const reasonsByCallId = new Map(artifactAudit.failures.map((f) => [f.id, f.reasons] as const));
 
   for (const call of calls) {
     if (call.failure) {

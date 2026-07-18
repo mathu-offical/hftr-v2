@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  deriveOperatorArticleTitle,
-  normalizeOperatorArticleEvidence,
-} from './operator-evidence';
+import { deriveOperatorArticleTitle, normalizeOperatorArticleEvidence } from './operator-evidence';
 
 describe('operator article evidence (D-079)', () => {
   it('derives title from first markdown heading for text', () => {

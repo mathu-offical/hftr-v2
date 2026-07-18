@@ -4,12 +4,12 @@ import { fetchFredMacro, FredMacroError } from './fred-macro';
 
 describe('fetchFredMacro', () => {
   it('throws missing_credentials when api key absent', async () => {
-    await expect(
-      fetchFredMacro({ query: 'gdp', apiKey: '', limit: 3 }),
-    ).rejects.toMatchObject({ code: 'missing_credentials' });
-    await expect(
-      fetchFredMacro({ query: 'gdp', apiKey: '', limit: 3 }),
-    ).rejects.toBeInstanceOf(FredMacroError);
+    await expect(fetchFredMacro({ query: 'gdp', apiKey: '', limit: 3 })).rejects.toMatchObject({
+      code: 'missing_credentials',
+    });
+    await expect(fetchFredMacro({ query: 'gdp', apiKey: '', limit: 3 })).rejects.toBeInstanceOf(
+      FredMacroError,
+    );
   });
 
   it('maps FRED series search to leak-linted evidence', async () => {

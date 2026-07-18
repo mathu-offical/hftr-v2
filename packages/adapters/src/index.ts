@@ -92,21 +92,13 @@ export {
   CoinGeckoCryptoError,
   type FetchCoinGeckoCryptoParams,
 } from './research/coingecko-crypto';
-export {
-  fetchFredMacro,
-  FredMacroError,
-  type FetchFredMacroParams,
-} from './research/fred-macro';
+export { fetchFredMacro, FredMacroError, type FetchFredMacroParams } from './research/fred-macro';
 export {
   fetchWorldBankIndicators,
   WorldBankIndicatorError,
   type FetchWorldBankIndicatorParams,
 } from './research/world-bank-indicator';
-export {
-  fetchGdeltNews,
-  GdeltNewsError,
-  type FetchGdeltNewsParams,
-} from './research/gdelt-news';
+export { fetchGdeltNews, GdeltNewsError, type FetchGdeltNewsParams } from './research/gdelt-news';
 export {
   gatherTwelveDataBarsEvidence,
   TwelveDataBarsError,

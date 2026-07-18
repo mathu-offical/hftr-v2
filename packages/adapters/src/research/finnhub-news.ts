@@ -4,11 +4,7 @@ import { normalizeToEvidencePackage, redactDigitHeavyText } from './normalize';
 
 export class FinnhubNewsError extends Error {
   constructor(
-    public readonly code:
-      | 'missing_credentials'
-      | 'http_error'
-      | 'parse_error'
-      | 'network_error',
+    public readonly code: 'missing_credentials' | 'http_error' | 'parse_error' | 'network_error',
     message?: string,
   ) {
     super(message ?? code);
@@ -66,10 +62,7 @@ function isoDateDaysAgo(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function buildFinnhubUrl(params: {
-  apiKey: string;
-  symbol: string | null;
-}): string {
+function buildFinnhubUrl(params: { apiKey: string; symbol: string | null }): string {
   const token = encodeURIComponent(params.apiKey);
   if (params.symbol) {
     const from = isoDateDaysAgo(30);
@@ -87,9 +80,7 @@ function buildFinnhubUrl(params: {
  * Fetch news from Finnhub company-news or general category feed.
  * Maps headline/summary to leak-linted EvidencePackage rows.
  */
-export async function fetchFinnhubNews(
-  params: FetchFinnhubNewsParams,
-): Promise<EvidencePackage[]> {
+export async function fetchFinnhubNews(params: FetchFinnhubNewsParams): Promise<EvidencePackage[]> {
   const apiKey = params.apiKey?.trim();
   if (!apiKey) {
     throw new FinnhubNewsError('missing_credentials');

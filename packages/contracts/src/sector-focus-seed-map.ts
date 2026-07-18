@@ -73,9 +73,10 @@ export function resolveSectorSeedTargetFromLabel(label: string): SectorSeedTarge
 }
 
 /** Unique sector keys (+ optional subsectors) for a company focus list. */
-export function collectSectorSeedTargets(
-  focuses: readonly string[],
-): { sectorKeys: string[]; subsectorKeysBySector: Map<string, Set<string>> } {
+export function collectSectorSeedTargets(focuses: readonly string[]): {
+  sectorKeys: string[];
+  subsectorKeysBySector: Map<string, Set<string>>;
+} {
   const sectorKeys = new Set<string>();
   const subsectorKeysBySector = new Map<string, Set<string>>();
 

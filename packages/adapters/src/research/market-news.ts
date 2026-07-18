@@ -126,7 +126,11 @@ async function fetchFeedUrl(
   const contentType = res.headers.get('content-type') ?? '';
   const text = await res.text();
 
-  if (contentType.includes('json') || text.trimStart().startsWith('{') || text.trimStart().startsWith('[')) {
+  if (
+    contentType.includes('json') ||
+    text.trimStart().startsWith('{') ||
+    text.trimStart().startsWith('[')
+  ) {
     let parsed: unknown;
     try {
       parsed = JSON.parse(text) as unknown;
@@ -161,7 +165,8 @@ async function fetchFeedUrl(
   for (let i = start; i < titleMatches.length && packages.length < count; i++) {
     const title = titleMatches[i]![1]!.replace(/<[^>]+>/g, '').trim();
     const summary =
-      descMatches[i]?.[1]?.replace(/<[^>]+>/g, '').trim() || 'RSS news item for qualitative review.';
+      descMatches[i]?.[1]?.replace(/<[^>]+>/g, '').trim() ||
+      'RSS news item for qualitative review.';
     if (!title) continue;
     packages.push(
       normalizeToEvidencePackage({

@@ -16,9 +16,7 @@ describe('evidenceFromLibraryConcepts', () => {
     expect(pkgs[0]?.sourceKind).toBe('library');
     expect(pkgs[0]?.feedClass).toBe('company_library');
     expect(pkgs[0]?.title).toContain('[n]');
-    expect(pkgs[0]?.artifactRefs).toContain(
-      'concept:11111111-1111-1111-1111-111111111111',
-    );
+    expect(pkgs[0]?.artifactRefs).toContain('concept:11111111-1111-1111-1111-111111111111');
   });
 
   it('returns empty when no rows', () => {

@@ -45,6 +45,8 @@ describe('credential envelope', () => {
 
   it('fails closed in production without keys', () => {
     process.env.NODE_ENV = 'production';
-    expect(() => encryptSecret('x', 'llm_settings')).toThrow(/encryption_key_missing:SETTINGS_ENCRYPTION_KEY/);
+    expect(() => encryptSecret('x', 'llm_settings')).toThrow(
+      /encryption_key_missing:SETTINGS_ENCRYPTION_KEY/,
+    );
   });
 });

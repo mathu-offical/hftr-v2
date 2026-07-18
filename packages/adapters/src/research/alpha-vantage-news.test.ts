@@ -4,12 +4,12 @@ import { fetchAlphaVantageNews, AlphaVantageNewsError } from './alpha-vantage-ne
 
 describe('fetchAlphaVantageNews', () => {
   it('throws missing_credentials when api key absent', async () => {
-    await expect(
-      fetchAlphaVantageNews({ apiKey: '', limit: 3 }),
-    ).rejects.toMatchObject({ code: 'missing_credentials' });
-    await expect(
-      fetchAlphaVantageNews({ apiKey: '', limit: 3 }),
-    ).rejects.toBeInstanceOf(AlphaVantageNewsError);
+    await expect(fetchAlphaVantageNews({ apiKey: '', limit: 3 })).rejects.toMatchObject({
+      code: 'missing_credentials',
+    });
+    await expect(fetchAlphaVantageNews({ apiKey: '', limit: 3 })).rejects.toBeInstanceOf(
+      AlphaVantageNewsError,
+    );
   });
 
   it('maps Alpha Vantage news to leak-linted evidence with optional tickers', async () => {

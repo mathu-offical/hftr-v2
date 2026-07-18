@@ -59,8 +59,6 @@ export const ResearchQueryPlan = z.object({
   topicScope: z.string().min(1).max(200),
   /** Cadence token (e.g. `every:1440`, phase tag). */
   cadence: z.string().min(1).max(80),
-  bySource: z
-    .record(ResearchSourceKind, ResearchQueryPlanEntry)
-    .default({}),
+  bySource: z.record(ResearchSourceKind, ResearchQueryPlanEntry).default({}),
 });
 export type ResearchQueryPlan = z.infer<typeof ResearchQueryPlan>;

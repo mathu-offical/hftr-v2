@@ -129,3 +129,17 @@ export {
   type GatherEvidenceError,
   type GatherCredentials,
 } from './research/gather';
+export { extractTickerSymbols } from './research/symbol-resolve';
+export { mapSectorToQueryPhrases } from './research/sector-synonyms';
+export {
+  canonicalizeUrl,
+  simHash64,
+  simHash64Hex,
+  hammingDistance,
+  dedupeEvidenceByNearHash,
+} from './research/evidence-quality';
+export {
+  buildResearchQueryPlan,
+  type ResearchQueryPlan,
+  type BuildResearchQueryPlanInput,
+} from './research/query-plan';

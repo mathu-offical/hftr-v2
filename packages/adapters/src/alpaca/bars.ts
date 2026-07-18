@@ -91,7 +91,8 @@ export async function fetchBars(params: FetchBarsParams): Promise<FetchBarsResul
 
   const res = await client.getData<AlpacaBarsResponse>(path);
   if (!res.ok) {
-    throw new BarsFetchError('bars_fetch_failed', res.errorBody ?? `status:${res.status}`);
+    // Never put provider error bodies into Error.message — may surface in jobs.lastError (D-074).
+    throw new BarsFetchError('bars_fetch_failed', `status:${res.status}`);
   }
 
   const bars = (res.data?.bars ?? []).map((b): OhlcBar => ({

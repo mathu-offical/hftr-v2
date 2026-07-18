@@ -54,6 +54,8 @@ export interface GatherCredentials {
 
 export interface GatherEvidencePackagesOptions extends GatherCredentials {
   query: string;
+  /** Per-source query overrides from `buildResearchQueryPlan`. */
+  queryBySource?: Partial<Record<ResearchSourceKind, string>>;
   sourceKinds: ResearchSourceKind[];
   allowlist: string[];
   blocklist: string[];
@@ -134,6 +136,13 @@ function errorCode(err: unknown): string {
   return 'unknown_error';
 }
 
+function resolveSourceQuery(
+  kind: ResearchSourceKind,
+  opts: GatherEvidencePackagesOptions,
+): string {
+  return opts.queryBySource?.[kind]?.trim() || opts.query;
+}
+
 async function gatherFromSource(
   kind: ResearchSourceKind,
   opts: GatherEvidencePackagesOptions,
@@ -141,18 +150,19 @@ async function gatherFromSource(
 ): Promise<EvidencePackage[]> {
   const perSourceMax = Math.min(Math.max(1, opts.maxEvidence), 20);
   const fetchImpl = opts.fetchImpl;
+  const query = resolveSourceQuery(kind, opts);
 
   switch (kind) {
     case 'brave_search':
       return searchBrave({
-        query: opts.query,
+        query,
         apiKey: credentials.braveApiKey ?? '',
         maxResults: perSourceMax,
         ...(fetchImpl ? { fetchImpl } : {}),
       });
     case 'sec_edgar':
       return searchSecFilings({
-        query: opts.query,
+        query,
         maxResults: perSourceMax,
         ...(fetchImpl ? { fetchImpl } : {}),
         ...(opts.secAllowEmptyOnError !== undefined
@@ -161,7 +171,7 @@ async function gatherFromSource(
       });
     case 'market_news':
       return fetchMarketNews({
-        query: opts.query,
+        query,
         maxResults: perSourceMax,
         ...(fetchImpl ? { fetchImpl } : {}),
         ...(credentials.marketNewsApiKey ? { apiKey: credentials.marketNewsApiKey } : {}),
@@ -170,7 +180,7 @@ async function gatherFromSource(
       });
     case 'alpaca_news':
       return fetchAlpacaNews({
-        query: opts.query,
+        query,
         limit: perSourceMax,
         credentials: {
           keyId: credentials.alpacaKeyId ?? '',
@@ -180,7 +190,7 @@ async function gatherFromSource(
       });
     case 'alpaca_bars':
       return gatherAlpacaBarsEvidence({
-        query: opts.query,
+        query,
         credentials: {
           keyId: credentials.alpacaKeyId ?? '',
           secret: credentials.alpacaSecret ?? '',
@@ -189,14 +199,14 @@ async function gatherFromSource(
       });
     case 'finnhub_news':
       return fetchFinnhubNews({
-        query: opts.query,
+        query,
         limit: perSourceMax,
         apiKey: credentials.finnhubApiKey ?? '',
         ...(fetchImpl ? { fetchImpl } : {}),
       });
     case 'polygon_news':
       return fetchPolygonNews({
-        query: opts.query,
+        query,
         limit: perSourceMax,
         apiKey: credentials.polygonApiKey ?? '',
         ...(fetchImpl ? { fetchImpl } : {}),
@@ -213,39 +223,39 @@ async function gatherFromSource(
       });
     case 'fred_macro':
       return fetchFredMacro({
-        query: opts.query,
+        query,
         limit: perSourceMax,
         apiKey: credentials.fredApiKey ?? '',
         ...(fetchImpl ? { fetchImpl } : {}),
       });
     case 'alpha_vantage_news':
       return fetchAlphaVantageNews({
-        query: opts.query,
+        query,
         limit: perSourceMax,
         apiKey: credentials.alphaVantageApiKey ?? '',
         ...(fetchImpl ? { fetchImpl } : {}),
       });
     case 'world_bank_indicator':
       return fetchWorldBankIndicators({
-        query: opts.query,
+        query,
         limit: perSourceMax,
         ...(fetchImpl ? { fetchImpl } : {}),
       });
     case 'gdelt_news':
       return fetchGdeltNews({
-        query: opts.query,
+        query,
         limit: perSourceMax,
         ...(fetchImpl ? { fetchImpl } : {}),
       });
     case 'twelve_data':
       return gatherTwelveDataBarsEvidence({
-        query: opts.query,
+        query,
         apiKey: credentials.twelveDataApiKey ?? '',
         ...(fetchImpl ? { fetchImpl } : {}),
       });
     case 'marketstack':
       return gatherMarketstackEodEvidence({
-        query: opts.query,
+        query,
         apiKey: credentials.marketstackApiKey ?? '',
         ...(fetchImpl ? { fetchImpl } : {}),
       });

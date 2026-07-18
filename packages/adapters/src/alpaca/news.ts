@@ -112,7 +112,8 @@ export async function fetchAlpacaNews(params: FetchAlpacaNewsParams): Promise<Ev
   }
 
   if (!res.ok) {
-    throw new AlpacaNewsError('http_error', res.errorBody ?? `status:${res.status}`);
+    // Never put provider error bodies into Error.message — may surface in jobs.lastError (D-074).
+    throw new AlpacaNewsError('http_error', `status:${res.status}`);
   }
 
   const records = res.data?.news ?? [];

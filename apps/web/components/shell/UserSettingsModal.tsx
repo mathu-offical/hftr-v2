@@ -624,23 +624,27 @@ function AlpacaBrokerSection(props: {
     void load();
   }, [load]);
 
-  async function save() {
+  /** Most direct path: paste Key ID + Secret, then encrypt + handshake in one action. */
+  async function saveAndVerify() {
     if (keyId.trim().length < 8 || secret.trim().length < 8) {
-      props.onMessage('Key ID and secret must each be at least 8 characters.');
+      props.onMessage(
+        'Paste your Alpaca paper API Key ID and Secret Key (each at least 8 characters).',
+      );
       return;
     }
     props.onBusy('brokers');
     try {
-      await api('/api/settings/brokers/alpaca', {
+      const saved = await api<{ id: string }>('/api/settings/brokers/alpaca', {
         method: 'PUT',
         body: { keyId: keyId.trim(), secret: secret.trim(), mode: 'paper' },
       });
       setKeyId('');
       setSecret('');
-      props.onMessage('Alpaca paper credentials saved — verify to connect.');
+      await api(`/api/settings/brokers/${saved.id}/verify`, { method: 'POST' });
+      props.onMessage('Alpaca paper connected.');
       await load();
     } catch {
-      props.onMessage('Save failed.');
+      props.onMessage('Connect failed. Check Key ID and Secret, then try again.');
     } finally {
       props.onBusy(null);
     }
@@ -679,7 +683,8 @@ function AlpacaBrokerSection(props: {
       <div>
         <h3 className="text-xs font-medium text-[var(--color-ink)]">Alpaca paper</h3>
         <p className="mt-0.5 text-[11px] text-[var(--color-ink-faint)]">
-          Paper trading credentials bind per company from the company drawer.
+          Paste API Key ID + Secret from the Alpaca paper dashboard (no OAuth). Bind the
+          connection to a company from that company&apos;s drawer.
         </p>
       </div>
 
@@ -737,33 +742,35 @@ function AlpacaBrokerSection(props: {
 
       <div className="space-y-2">
         <label className="block space-y-1">
-          <span className="text-[11px] text-[var(--color-ink-dim)]">Key ID</span>
+          <span className="text-[11px] text-[var(--color-ink-dim)]">API Key ID</span>
           <input
             type="password"
             value={keyId}
             onChange={(e) => setKeyId(e.target.value)}
             autoComplete="off"
+            placeholder="PK…"
             aria-label="Alpaca key ID"
             className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
           />
         </label>
         <label className="block space-y-1">
-          <span className="text-[11px] text-[var(--color-ink-dim)]">Secret</span>
+          <span className="text-[11px] text-[var(--color-ink-dim)]">Secret Key</span>
           <input
             type="password"
             value={secret}
             onChange={(e) => setSecret(e.target.value)}
             autoComplete="off"
+            placeholder="Paste secret key"
             aria-label="Alpaca secret"
             className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
           />
         </label>
         <button
-          onClick={() => void save()}
+          onClick={() => void saveAndVerify()}
           disabled={props.busy}
           className="rounded-md border border-[var(--color-accent)] px-3 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
         >
-          Save credentials
+          Save & verify
         </button>
       </div>
 

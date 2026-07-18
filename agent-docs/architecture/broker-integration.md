@@ -40,8 +40,10 @@ payloads with precision-safe rounding tables per instrument.
 
 ## 3. Connection & credential UX
 
-- Settings → Integrations: per-venue connect cards (enter keys / OAuth / wallet as applicable),
-  live verification handshake with capability readout, key last-four display only.
+- Settings → Brokers: **Alpaca paper** is the most direct path — paste **API Key ID** +
+  **Secret Key** from the Alpaca paper dashboard, then one **Save & verify** (encrypt +
+  handshake). No OAuth for Alpaca. Other venues may use keys / OAuth / wallet as applicable;
+  capability readout and key last-four only after save.
 - Credentials encrypted at rest (AES-GCM, app KMS key); never sent to the browser after entry;
   decryption only inside adapter calls (server).
 - `broker_connections.status` drives fail-closed behavior: any company in live mode whose

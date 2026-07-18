@@ -44,7 +44,7 @@ test.describe('Service settings & operating observability', () => {
     await expect(page.getByText('Alpaca paper')).toBeVisible();
     await expect(page.getByLabel('Alpaca key ID')).toBeVisible();
     await expect(page.getByLabel('Alpaca secret')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Save credentials' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Save & verify' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Close settings' }).click();
 

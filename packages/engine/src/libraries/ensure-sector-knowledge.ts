@@ -12,13 +12,15 @@ import {
 const MECHANISMS_LIBRARY_NAME = 'Seeded trading mechanisms';
 
 /** Lazy import avoids circular dependency with bootstrap → ensureSectorKnowledge. */
-async function seededConceptBody(
-  entry: Parameters<
-    typeof import('./bootstrap').buildSeededConceptBody
-  >[0],
-): Promise<string> {
-  const { buildSeededConceptBody } = await import('./bootstrap');
-  return buildSeededConceptBody(entry);
+async function loadSeededBodyHelpers(): Promise<{
+  buildSeededConceptBody: typeof import('./seeded-concept-body').buildSeededConceptBody;
+  collectSeededConceptTags: typeof import('./seeded-concept-body').collectSeededConceptTags;
+}> {
+  const mod = await import('./seeded-concept-body');
+  return {
+    buildSeededConceptBody: mod.buildSeededConceptBody,
+    collectSeededConceptTags: mod.collectSeededConceptTags,
+  };
 }
 
 function resolveOwnerModuleId(
@@ -126,14 +128,20 @@ export async function ensureSectorKnowledge(
         : entry.title.toLowerCase().replace(/\s+/g, '_');
     const folderTag = sectorFolderTag(sectorKey);
     const title = `sector_${sectorKey}`;
-    const tags = ['sector_seeds', folderTag, 'baseline_sector'];
-    const body = await seededConceptBody({
-      catalog: 'sector_seeds',
+    const { buildSeededConceptBody, collectSeededConceptTags } = await loadSeededBodyHelpers();
+    const bodyEntry = {
+      catalog: 'sector_seeds' as const,
       entryKey: entry.entryKey,
       title: sectorKey,
       tier: null,
       payload: entry.payload,
-    });
+    };
+    const tags = [
+      ...collectSeededConceptTags(bodyEntry),
+      folderTag,
+      'baseline_sector',
+    ];
+    const body = buildSeededConceptBody(bodyEntry);
     const sourceRef = `sector_seeds/${entry.entryKey}`;
 
     await db
@@ -177,9 +185,8 @@ export async function ensureSectorKnowledge(
       if (wantedSubs && wantedSubs.size > 0 && !wantedSubs.has(name)) continue;
 
       const subTitle = `subsector_${name}`;
-      const subTags = ['sector_seeds', folderTag, `subsector_${name}`, 'baseline_sector'];
-      const subBody = await seededConceptBody({
-        catalog: 'sector_seeds',
+      const subEntry = {
+        catalog: 'sector_seeds' as const,
         entryKey: `${entry.entryKey}/${name}`,
         title: name,
         tier: null,
@@ -190,7 +197,14 @@ export async function ensureSectorKnowledge(
           preferredFamilies: profile.preferredStrategies,
           sector: sectorKey,
         },
-      });
+      };
+      const subTags = [
+        ...collectSeededConceptTags(subEntry),
+        folderTag,
+        `subsector_${name}`,
+        'baseline_sector',
+      ];
+      const subBody = buildSeededConceptBody(subEntry);
       const subRef = `sector_seeds/${entry.entryKey}/${name}`;
 
       await db

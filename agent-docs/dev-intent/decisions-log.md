@@ -837,6 +837,16 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `ResearchConceptPreview` / `ResearchMarkdown`. Docs: research-relevance-graph,
   research-galaxy-topic-view-design, ui-spec § Research. **Status: implemented.**
 
+- **D-079 (rich seeded catalog articles, 2026-07-18):** Catalog-seeded concept bodies
+  are full operator markdown articles: Overview, Identity KV table, trends/leads,
+  tools/levers/fields as `[[sys:…]]` chips, sub-variants, compound bindings, and
+  additional open fields. Tags collect catalog + qualitative axes. Topic overview
+  synopsis lists members by catalog with wikilinks. Bootstrap rematerializes bodies
+  on upsert. Sys chip kinds extended with `band` / `field` / `symbol`. Seeded
+  families also include `compound_strategies` and `recovery_ladders`. Storage remains
+  `concepts.body` markdown; Obsidian export is the `.md` path. Docs:
+  research-document-shapes. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

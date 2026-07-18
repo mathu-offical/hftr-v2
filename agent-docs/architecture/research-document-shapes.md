@@ -14,6 +14,7 @@ Philosophy intent: `DevSpecs/research-library-philosophy.spec.md` (read-only). D
 | `runtime_policy` | `system:runtime_policies` | H1; `## Scope`; `## Constraints`; `## Escalation` |
 | `trend_list` | `system:trend_lists` | H1; `## Active trends`; `## Watch`; `## Deferred` |
 | `sector_bulletin` | `system:sector_news` | H1; `## Sector focus`; `## Headlines`; `## Cross-links` |
+| `catalog_seed` | baseline `compile_time_mechanisms` | H1 title; `## Overview` when summary present; Identity KV; optional Trends / Tools / Fields / Sub-variants; System links with `[[sys:…]]` chips (**D-079**) |
 
 ## Fail-closed gates (`validateDocumentShape`)
 

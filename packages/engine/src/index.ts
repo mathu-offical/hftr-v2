@@ -78,6 +78,8 @@ export {
 export {
   bootstrapCompanyKnowledge,
   buildSeededConceptBody,
+  buildSeededTopicSynopsisMd,
+  collectSeededConceptTags,
   SEED_CATALOG_NAMES,
   SEED_CATALOG_TARGETS,
   type SeededCatalogEntry,

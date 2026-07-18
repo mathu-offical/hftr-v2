@@ -90,11 +90,13 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   **library_concepts** join (library_id, concept_id, curation_status
   `proposed|accepted|auto_admitted|rejected|archived`). **D-040:** primary library membership
   drives hard nested galaxy nests; secondary memberships are badges, not duplicate nodes.
-  **D-045:** `bootstrapCompanyKnowledge` ensures library rows for every `library` module,
+  **D-045 / D-079:** `bootstrapCompanyKnowledge` ensures library rows for every `library` module,
   creates a dedicated **Seeded trading mechanisms** library, and seeds full vendored
-  catalog families (`strategy_families`, `guardrail_packages`, `session_constraints`,
-  `broker_policy_envelopes`, `trend_lead_patterns`) as `catalog_seed` concepts with
-  operator-readable bodies from catalog payloads (not placeholder stubs).
+  catalog families (`strategy_families`, `compound_strategies`, `recovery_ladders`,
+  `guardrail_packages`, `session_constraints`, `broker_policy_envelopes`,
+  `trend_lead_patterns`) as `catalog_seed` concepts with rich operator markdown bodies
+  (overview, KV identity, trends, `[[sys:…]]` tool/lever/field chips, sub-variants) from
+  catalog payloads; bodies rematerialize on upsert.
   **D-069:** system-curated folders use `system:*` topic scopes (`movers`, `execution_logs`,
   `daily_summaries`, `runtime_policies`, `trend_lists`, `sector_news`) via
   `SYSTEM_LIBRARY_REGISTRY` + rigid `SystemDocKind` shapes.
@@ -152,9 +154,10 @@ UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
 - **catalog_entries** — generic seeded-catalog store: (catalog, entry_key) unique,
   catalog_version, title, tier, payload jsonb. Seeded from
   `packages/db/src/seed/catalogs/*.json` via `seed-catalogs.ts` (97 entries at
-  `v1_snapshot_2026_07_16`). D-016. **D-045:** full families in `SEED_CATALOG_NAMES` (plus
+  `v1_snapshot_2026_07_16`). D-016. **D-045 / D-079:** full families in `SEED_CATALOG_NAMES` (plus
   representative `SEED_CATALOG_TARGETS` for tests/links) are materialized into company `concepts` +
-  library membership on company create and idempotent research/library ensure paths.
+  library membership on company create and idempotent research/library ensure paths; concept
+  `body` is leak-lint-clean markdown suitable for inspector + Obsidian `.md` export.
 - **watchlist_items** — (module_id, symbol) unique; bias `long|short|neutral`, note,
   source_class `operator|trend_promotion`, status `watching|triggered|archived`. Owned by
   trading/trend modules only (API 422s otherwise); surfaces in the bottom panel's

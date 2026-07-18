@@ -58,7 +58,7 @@ const SAMPLE_ENTRIES: SeededCatalogEntry[] = [
 
 describe('SEED_CATALOG_TARGETS', () => {
   it('lists representative bootstrap catalog pairs once', () => {
-    expect(SEED_CATALOG_TARGETS.length).toBe(12);
+    expect(SEED_CATALOG_TARGETS.length).toBe(14);
     const keys = new Set(SEED_CATALOG_TARGETS.map((t) => `${t.catalog}/${t.entryKey}`));
     expect(keys.size).toBe(SEED_CATALOG_TARGETS.length);
     expect(keys.has('strategy_families/strat-001')).toBe(true);
@@ -83,7 +83,9 @@ describe('buildSeededConceptBody', () => {
       expect(body.toLowerCase()).not.toContain('placeholder');
       expect(body).toContain('#');
       expect(body).toContain(entry.title.replace(/_/g, ' '));
+      expect(body).toContain('[[sys:catalog:');
       if (typeof (entry.payload as { summary?: string })?.summary === 'string') {
+        expect(body).toContain('## Overview');
         expect(body).toContain((entry.payload as { summary: string }).summary);
       }
     }
@@ -92,6 +94,16 @@ describe('buildSeededConceptBody', () => {
   it('builds leak-clean bodies for every vendored row in SEED_CATALOG_NAMES files', () => {
     const collections: Array<{ file: string; arrayKey: string; catalog: string }> = [
       { file: 'seeded-strategy-catalog.json', arrayKey: 'families', catalog: 'strategy_families' },
+      {
+        file: 'seeded-strategy-catalog.json',
+        arrayKey: 'compoundStrategies',
+        catalog: 'compound_strategies',
+      },
+      {
+        file: 'seeded-strategy-catalog.json',
+        arrayKey: 'recoveryLadderTemplates',
+        catalog: 'recovery_ladders',
+      },
       {
         file: 'guardrail-recovery-package-catalog.json',
         arrayKey: 'packages',
@@ -131,9 +143,10 @@ describe('buildSeededConceptBody', () => {
         });
         expect(leakLint(body, []).ok, `${col.catalog}/${row.id}`).toBe(true);
         expect(body.toLowerCase()).not.toContain('placeholder');
+        expect(body).toMatch(/^# /m);
         count += 1;
       }
     }
-    expect(count).toBeGreaterThan(30);
+    expect(count).toBeGreaterThan(40);
   });
 });

@@ -4,7 +4,7 @@ import { parseSysChipHref, preprocessSysChips } from './research-sys-chips';
 describe('research-sys-chips', () => {
   it('rewrites [[sys:kind:id]] into hftr-sys markdown links', () => {
     const out = preprocessSysChips('Use [[sys:tool:momentum_guard]] then [[sys:catalog:strategies]].');
-    expect(out).toContain('[tool:momentum_guard](hftr-sys:tool:momentum_guard)');
+    expect(out).toContain('[tool:momentum guard](hftr-sys:tool:momentum_guard)');
     expect(out).toContain('[catalog:strategies](hftr-sys:catalog:strategies)');
   });
 
@@ -17,7 +17,12 @@ describe('research-sys-chips', () => {
     expect(parseSysChipHref('hftr-sys:lever:size_band')).toEqual({
       kind: 'lever',
       id: 'size_band',
-      label: 'size_band',
+      label: 'size band',
+    });
+    expect(parseSysChipHref('hftr-sys:field:or_high')).toEqual({
+      kind: 'field',
+      id: 'or_high',
+      label: 'or high',
     });
     expect(parseSysChipHref('https://example.com')).toBeNull();
   });

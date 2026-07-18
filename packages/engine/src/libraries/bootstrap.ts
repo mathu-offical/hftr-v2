@@ -10,12 +10,24 @@ import {
   researchTopics,
   topicConcepts,
 } from '@hftr/db/schema';
-import { leakLint } from '../calc/leak-lint';
 import { createFixedClock } from '../clock';
 import { ensureSystemLibrarySchedule } from '../schedules/materialize';
 import { ensureAllSystemLibraries } from './ensure-system-library';
 import { ensureSectorKnowledge } from './ensure-sector-knowledge';
 import { SYSTEM_LIBRARY_REGISTRY } from './system-library-registry';
+import {
+  buildSeededConceptBody,
+  buildSeededTopicSynopsisMd,
+  collectSeededConceptTags,
+  type SeededCatalogEntry,
+} from './seeded-concept-body';
+
+export {
+  buildSeededConceptBody,
+  buildSeededTopicSynopsisMd,
+  collectSeededConceptTags,
+  type SeededCatalogEntry,
+} from './seeded-concept-body';
 
 const MECHANISMS_LIBRARY_NAME = 'Seeded trading mechanisms';
 const SEEDED_TOPIC_TITLE = 'Seeded trading mechanisms';
@@ -23,6 +35,8 @@ const SEEDED_TOPIC_TITLE = 'Seeded trading mechanisms';
 /** Catalog families materialized into the compile-time mechanisms library. */
 export const SEED_CATALOG_NAMES = [
   'strategy_families',
+  'compound_strategies',
+  'recovery_ladders',
   'guardrail_packages',
   'session_constraints',
   'broker_policy_envelopes',
@@ -38,6 +52,8 @@ export const SEED_CATALOG_TARGETS = [
   { catalog: 'strategy_families', entryKey: 'strat-003' },
   { catalog: 'strategy_families', entryKey: 'strat-004' },
   { catalog: 'strategy_families', entryKey: 'strat-006' },
+  { catalog: 'compound_strategies', entryKey: 'comp-001' },
+  { catalog: 'recovery_ladders', entryKey: 'rec-001' },
   { catalog: 'guardrail_packages', entryKey: 'grd-001' },
   { catalog: 'guardrail_packages', entryKey: 'grd-003' },
   { catalog: 'guardrail_packages', entryKey: 'grd-007' },
@@ -47,14 +63,6 @@ export const SEED_CATALOG_TARGETS = [
   { catalog: 'trend_lead_patterns', entryKey: 'lead-002' },
   { catalog: 'trend_lead_patterns', entryKey: 'lead-003' },
 ] as const;
-
-export type SeededCatalogEntry = {
-  catalog: string;
-  entryKey: string;
-  title: string;
-  tier: string | null;
-  payload?: unknown;
-};
 
 const SEED_CONCEPT_LINKS: ReadonlyArray<{
   fromTitle: string;
@@ -94,172 +102,6 @@ function parseLibraryConfig(raw: unknown): { topicScope: string; libraryClass: s
     topicScope: typeof cfg?.topicScope === 'string' ? cfg.topicScope : '',
     libraryClass: typeof cfg?.libraryClass === 'string' ? cfg.libraryClass : null,
   };
-}
-
-function assertLeakClean(body: string): void {
-  const lint = leakLint(body, []);
-  if (!lint.ok) {
-    throw new Error(
-      `bootstrap concept body failed leakLint: ${lint.leaks.map((l) => l.path).join(', ')}`,
-    );
-  }
-}
-
-function humanize(value: string): string {
-  return value.replace(/_/g, ' ').trim();
-}
-
-/** Drop strings that would fail leak lint (raw digits / clock patterns). */
-function isLeakSafeText(value: string): boolean {
-  return leakLint(value, []).ok;
-}
-
-/** Operator-facing label; strips digit runs when needed so bodies stay leak-clean. */
-function leakSafeLabel(value: string): string {
-  const human = humanize(value);
-  if (isLeakSafeText(human)) return human;
-  const stripped = human.replace(/\d+/g, ' ').replace(/\s+/g, ' ').trim();
-  return stripped.length > 0 ? stripped : 'catalog mechanism';
-}
-
-function asStringList(value: unknown, max = 8): string[] {
-  if (!Array.isArray(value)) return [];
-  const out: string[] = [];
-  for (const item of value) {
-    if (typeof item !== 'string') continue;
-    const text = leakSafeLabel(item);
-    if (!text || !isLeakSafeText(text)) continue;
-    out.push(text);
-    if (out.length >= max) break;
-  }
-  return out;
-}
-
-function pushSection(lines: string[], heading: string, items: string[]): void {
-  if (items.length === 0) return;
-  lines.push('', `## ${heading}`, ...items.map((item) => `- ${item}`));
-}
-
-/**
- * Build operator-readable concept body from vendored catalog payload fields.
- * Qualitative only — no raw financial numbers or clock literals (leak-lint clean).
- */
-export function buildSeededConceptBody(entry: SeededCatalogEntry): string {
-  const payload =
-    entry.payload && typeof entry.payload === 'object' && !Array.isArray(entry.payload)
-      ? (entry.payload as Record<string, unknown>)
-      : {};
-
-  const titleLabel = leakSafeLabel(entry.title);
-  const catalogLabel = leakSafeLabel(entry.catalog);
-  const lines: string[] = [`# ${titleLabel}`, '', `Seeded from the ${catalogLabel} catalog.`];
-
-  const summary = typeof payload.summary === 'string' ? payload.summary.trim() : '';
-  if (summary && isLeakSafeText(summary)) {
-    lines.push('', summary);
-  }
-
-  const mechanismClass =
-    typeof payload.class === 'string'
-      ? payload.class
-      : typeof payload.assetClass === 'string'
-        ? payload.assetClass
-        : null;
-  if (mechanismClass && isLeakSafeText(leakSafeLabel(mechanismClass))) {
-    lines.push('', `Mechanism class: ${leakSafeLabel(mechanismClass)}.`);
-  }
-
-  if (entry.tier && isLeakSafeText(leakSafeLabel(entry.tier))) {
-    lines.push(`Activation tier: ${leakSafeLabel(entry.tier)}.`);
-  }
-
-  const horizon = typeof payload.horizon === 'string' ? leakSafeLabel(payload.horizon) : '';
-  if (horizon && isLeakSafeText(horizon)) {
-    lines.push(`Horizon: ${horizon}.`);
-  }
-
-  pushSection(lines, 'Sessions', asStringList(payload.sessions));
-  pushSection(lines, 'Regime tags', asStringList(payload.regimeTags));
-  pushSection(lines, 'Primary triggers', asStringList(payload.primaryTriggers));
-  pushSection(lines, 'Failure codes', asStringList(payload.failureCodes));
-  pushSection(lines, 'Recovery ladder', asStringList(payload.recoveryLadder));
-  pushSection(lines, 'Bound strategies', asStringList(payload.boundStrategies));
-  pushSection(lines, 'Inputs', asStringList(payload.inputs));
-  pushSection(lines, 'Confirmation signals', asStringList(payload.confirmationSignals));
-  pushSection(lines, 'Suppress when', asStringList(payload.suppressWhen));
-  pushSection(lines, 'Preferred families', asStringList(payload.preferredFamilies));
-  pushSection(lines, 'Routing scope', asStringList(payload.routingScope));
-  pushSection(lines, 'Order workflows', asStringList(payload.orderWorkflowCompatibility));
-  pushSection(lines, 'Modes', asStringList(payload.modes));
-  pushSection(lines, 'Failure handling', asStringList(payload.failureHandling));
-  pushSection(lines, 'Platform guardrails', asStringList(payload.platformGuardrails));
-  pushSection(lines, 'Special rules', asStringList(payload.specialRules, 5));
-  pushSection(lines, 'Verification signals', asStringList(payload.verificationSignals));
-  pushSection(lines, 'Operator visibility', asStringList(payload.operatorVisibility));
-  pushSection(lines, 'Subsectors', asStringList(payload.subsectors));
-  pushSection(lines, 'Lead gathering patterns', asStringList(payload.leadGatheringPatterns));
-  pushSection(lines, 'Event drivers', asStringList(payload.eventDrivers));
-  pushSection(lines, 'Trend vectors', asStringList(payload.trendVectors));
-  pushSection(lines, 'Baseline knowledge', asStringList(payload.baselineKnowledge));
-
-  const strategyBias =
-    payload.strategyBias && typeof payload.strategyBias === 'object' && !Array.isArray(payload.strategyBias)
-      ? (payload.strategyBias as Record<string, unknown>)
-      : null;
-  if (strategyBias) {
-    pushSection(lines, 'Preferred strategies', asStringList(strategyBias.preferred ?? strategyBias.amplify));
-    pushSection(lines, 'Suppress strategies', asStringList(strategyBias.suppress ?? strategyBias.veto));
-  }
-
-  const liquidity =
-    typeof payload.liquidityClass === 'string' ? leakSafeLabel(payload.liquidityClass) : '';
-  if (liquidity && isLeakSafeText(liquidity)) {
-    lines.push('', `Liquidity class: ${liquidity}.`);
-  }
-
-  const macroSens =
-    typeof payload.macroSensitivity === 'string' ? leakSafeLabel(payload.macroSensitivity) : '';
-  if (macroSens && isLeakSafeText(macroSens)) {
-    lines.push(`Macro sensitivity: ${macroSens}.`);
-  }
-
-  const handoff =
-    payload.trendLeadBindings &&
-    typeof payload.trendLeadBindings === 'object' &&
-    !Array.isArray(payload.trendLeadBindings)
-      ? (payload.trendLeadBindings as Record<string, unknown>).handoffExpectation
-      : null;
-  if (typeof handoff === 'string' && isLeakSafeText(handoff)) {
-    lines.push('', '## Handoff expectation', handoff);
-  }
-
-  const outcome =
-    typeof payload.deterministicOutcome === 'string'
-      ? leakSafeLabel(payload.deterministicOutcome)
-      : '';
-  if (outcome && isLeakSafeText(outcome)) {
-    lines.push('', `Deterministic outcome: ${outcome}.`);
-  }
-
-  const body = lines.join('\n').trim();
-  assertLeakClean(body);
-  return body;
-}
-
-function buildTopicSynopsisMd(conceptTitles: string[]): string {
-  const lines = [
-    '## Seeded trading mechanisms',
-    '',
-    'Compile-time baseline of stock trading mechanisms from vendored catalogs.',
-    'Each member is a readable catalog concept (strategies, guardrails, sessions, broker policy, trend leads) admitted into the company knowledge graph.',
-    '',
-    '### Member concepts',
-    '',
-    ...conceptTitles.map((title) => `- [[${title}]]`),
-  ];
-  const synopsisMd = lines.join('\n');
-  assertLeakClean(synopsisMd);
-  return synopsisMd;
 }
 
 async function ensureLibraryForModule(
@@ -509,18 +351,19 @@ export async function bootstrapCompanyKnowledge(opts: {
     .where(inArray(catalogEntries.catalog, [...SEED_CATALOG_NAMES]))
     .orderBy(catalogEntries.catalog, catalogEntries.entryKey);
 
-  const seededTitles: string[] = [];
+  const seededMembers: Array<{ title: string; catalog: string }> = [];
   let conceptsUpserted = 0;
 
   for (const entry of catalogRows) {
-    const tags = [entry.catalog, entry.tier].filter((t): t is string => Boolean(t));
-    const body = buildSeededConceptBody({
+    const bodyEntry: SeededCatalogEntry = {
       catalog: entry.catalog,
       entryKey: entry.entryKey,
       title: entry.title,
       tier: entry.tier,
       payload: entry.payload,
-    });
+    };
+    const tags = collectSeededConceptTags(bodyEntry);
+    const body = buildSeededConceptBody(bodyEntry);
     const sourceRef = `${entry.catalog}/${entry.entryKey}`;
 
     await opts.db
@@ -549,11 +392,11 @@ export async function bootstrapCompanyKnowledge(opts: {
         },
       });
 
-    seededTitles.push(entry.title);
+    seededMembers.push({ title: entry.title, catalog: entry.catalog });
     conceptsUpserted += 1;
   }
 
-  if (seededTitles.length === 0) {
+  if (seededMembers.length === 0) {
     const sector = await ensureSectorKnowledge(opts.db, opts.companyId, now);
     return {
       librariesEnsured,
@@ -562,6 +405,7 @@ export async function bootstrapCompanyKnowledge(opts: {
     };
   }
 
+  const seededTitles = seededMembers.map((m) => m.title);
   const conceptRows = await opts.db
     .select({ id: concepts.id, title: concepts.title })
     .from(concepts)
@@ -621,7 +465,7 @@ export async function bootstrapCompanyKnowledge(opts: {
     };
   }
 
-  const synopsisMd = buildTopicSynopsisMd(seededTitles);
+  const synopsisMd = buildSeededTopicSynopsisMd(seededMembers);
 
   const [existingTopic] = await opts.db
     .select({ id: researchTopics.id })

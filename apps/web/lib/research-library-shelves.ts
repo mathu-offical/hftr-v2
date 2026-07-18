@@ -12,6 +12,16 @@ export const SEED_CATALOG_SHELVES = [
     label: 'Strategy families',
   },
   {
+    catalog: 'compound_strategies',
+    shelfId: 'baseline_compound_strategies',
+    label: 'Compound strategies',
+  },
+  {
+    catalog: 'recovery_ladders',
+    shelfId: 'baseline_recovery_ladders',
+    label: 'Recovery ladders',
+  },
+  {
     catalog: 'guardrail_packages',
     shelfId: 'baseline_guardrail_packages',
     label: 'Guardrails',

@@ -290,10 +290,11 @@ are suppressed in editable fields.
   **Live vs static (D-112):** one shared ~15s interval per company hits
   `GET …/market-hub/live` (equity + position marks/sparks only) and merges into the cached
   snapshot without replacing seals/reports/charts/sources/Model; Syncing… only on manual Sync.
-  Analyze pauses that live poll (shared across rail + overlay), runs POST drain, then one full
-  hub reload — UI cadence never enqueues or blocks posture jobs.
-  Visible surfaces: live equity/positions refresh on the live cadence; seals/reports/charts/
-  Model stay stable until Sync or Analyze.
+  Analyze pauses that live poll (shared across rail + overlay) only for the Analyze POST,
+  returns `runId`, and relies on synthesis poll + one full hub reload when the run is
+  terminal — UI cadence never enqueues or blocks posture jobs.
+  Visible surfaces: live equity/positions refresh on the live cadence; seals/reports/charts
+  stay stable until Sync or a terminal synthesis run; **Model** tracks synthesis stages live.
   **Provider surfaces (D-103):** movers compound gathers only credential-ready / public kinds
   from the operator's research keys + Alpaca paper broker (via `selectReadySourceKinds`).
   Overlay + rail list each movers-lane provider as ready / need key / contributed on last seal.
@@ -305,11 +306,13 @@ are suppressed in editable fields.
   readable without color. Overlay adds dynamic pies/bars for allocation, watchlist tiers,
   trend strength, mover directions, and provider ready/need-key. Sparks are labeled
   `synthetic_sim` (baseline algorithm), not broker history.
-  **Analyze vs Sync (D-111):** **Sync** forces full hub GET. **Analyze** runs master posture
-  pass — force-reseal `library.system_movers` (tactical LLM thresholds),
-  `library.system_sector_news`, and calendar-phase `library.system_daily_summaries`. Nested
-  **Model** category embeds a read-only React Flow of that baseline pipeline (DATA / LLM /
-  DET / OUT) — static, not live-polled.
+  **Analyze vs Sync (D-111 / D-120):** **Sync** forces full hub GET. **Analyze** creates a
+  synthesis run, force-reseals `library.system_movers` (tactical LLM thresholds),
+  `library.system_sector_news`, calendar-phase `library.system_daily_summaries`, then
+  `library.posture_narrative`. Nested **Model** category is the **live synthesis hub** —
+  React Flow nodes map to stageIds with queued/running/ok/fail text-first glyphs, selectable
+  stage inspector (summary + Justification), and a run strip (`Running · n/m stages`).
+  Overlay shows the same strip + Open Model while a run is active.
   **Watchlist tiers (D-092):** `suggested_search` → `suggested_verified` → `watching`
   (+ `triggered` / `archived`). Market posture rail **and overlay** + bottom Watch lists
   filter chips (default: watching + suggested_verified). **Confirm** PATCHes to `watching`

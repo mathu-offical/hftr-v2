@@ -61,14 +61,17 @@ test.describe('Live demo (watch)', () => {
     await page.goto(`/companies/${company.id}`, { waitUntil: 'domcontentloaded' });
     const liveBtn = page.getByRole('button', { name: 'Live trading (gated)' });
     await expect(liveBtn).toBeVisible({ timeout: 90_000 });
-    await page.waitForTimeout(800);
+    // Let bootstrap queue/canvas settle so shell remounts don't eat the popover.
+    await page.waitForTimeout(2500);
 
-    // Gate popover first (no modal overlays)
-    await liveBtn.click();
+    // Native click once — Playwright+slowMo can double-toggle this control closed.
+    await liveBtn.evaluate((el) => (el as HTMLButtonElement).click());
+    await expect(liveBtn).toHaveAttribute('aria-expanded', 'true', { timeout: 10_000 });
     await expect(page.getByText('Live trading is gated.')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(/Paper and live share the same engine/i)).toBeVisible();
     await page.waitForTimeout(1500);
-    await liveBtn.click(); // close
+    await liveBtn.evaluate((el) => (el as HTMLButtonElement).click());
+    await expect(liveBtn).toHaveAttribute('aria-expanded', 'false');
     await page.waitForTimeout(400);
 
     await page.getByRole('button', { name: 'Open modules store' }).click();

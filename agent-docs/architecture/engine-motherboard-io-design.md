@@ -1,7 +1,9 @@
 # Engine motherboard I/O design (D-091)
 
-**Status:** implemented (contracts, migration `0037`, chrome ports, clock bind + hydration,
-research terminal analyzer templates, analyzer.concat, library name sync, cadence rail layout)  
+**Status:** implemented (contracts, migration `0037`, chrome ports, clock/funds/data_out binds,
+member hydration, research terminal analyzer templates, analyzer.concat, library name sync,
+cadence rail layout, canvas engine↔engine utility edges, Time hub provision, Time activation
+gates)  
 **Decision:** D-091  
 **Related:** D-028/D-035/D-089 (ENGINE group chrome); D-088 (Master Clock + Time); D-041
 (module_links graph authority); D-042 (node families); DevSpecs `engine-philosophy.spec.md`
@@ -27,7 +29,7 @@ labeled handles on the ENGINE group chrome (utility rail). Contracts:
 |-----|------|------------------|------------------|
 | `data_in` | Qualitative ingest from another engine or external module | peer `data_out`, optional library/live feed descriptor | engine members (research/trend ingest) |
 | `data_out` | Qualitative export (policies, dumps, trend posture summaries) | terminal analyzer or trading/policy members | peer `data_in`, company libraries |
-| `clock` | Temporal authority bind (orientation refs, session phase) | company singleton `clock` module | engine members via motherboard (not direct clock→member edges) |
+| `clock` | Temporal authority bind (orientation refs, session phase) | company singleton `clock` module | engine members via motherboard Time hub |
 | `funds` | Capital envelope / fund-path topology signal | `holding_fund` + Math fund_route | execution members (trading, fund_router) |
 | `system_control` | Pause/resume, cadence arm, gate snapshots | company policy / operator | engine job orchestration |
 
@@ -47,26 +49,50 @@ Analyzer terminal config uses `AnalyzerModuleConfig.emitMode`:
 ## Auto-hydration
 
 On engine insert (company create, module-store insert, template duplicate), the provisioner
-**auto-hydrates** motherboard-attached seed nodes and utility binds:
+**auto-hydrates** motherboard-attached seed nodes and utility binds via
+`ensureEngineMotherboardUtilities`:
 
 1. **Member graph** — template modules stamped with `engine_instance_id` and layout positions
    (existing D-028 behavior).
 2. **Dedicated Math** — per D-033, one dedicated Math tool per Math-required owner inside the
    engine envelope (visually docked under owner, not a member row).
-3. **Clock utility bind** — `engine_utility_links` row: `bus=clock`, `from_module_id` → company
-   Master Clock singleton, `to_engine_id` → inserted engine. Replaces direct `clock → member`
-   edges for engines provisioned after D-091 (legacy graphs grandfathered until reflow).
-4. **Funds bind (execution only)** — `bus=funds` from seeded `holding_fund` fund_path through
-   shared/dedicated Math to `fund_router` / trading owner Math (D-038 topology).
-5. **Research terminal analyzer** — research ENGINE templates append an `analyzer` member as the
-   **last pipeline step** (rightmost verification column). Analyzer `emitMode` defaults to
-   `to_desk_stream` (or `to_library` for seed-keeper fabrics).
-6. **Library naming** — auto-created or template-seeded `library` modules derive display names from
+3. **Time hub** — one `time` member per engine with time-bearing members; `clock → time` and
+   `time →` each time-bearing member (`provisionEngineTimeHub`). Activation requires Time inbound
+   for `TIME_BEARING_MODULE_TYPES`.
+4. **Clock utility bind** — `engine_utility_links` row: `bus=clock`, `from_module_id` → company
+   Master Clock singleton, `to_engine_id` → inserted engine.
+5. **Funds bind (execution only)** — `bus=funds` from company `holding_fund` when the template
+   category exposes funds (idempotent; skips when no holding fund yet).
+6. **Research terminal analyzer + data_out stub** — research ENGINE templates append an `analyzer`
+   member; `ensureEngineAnalyzerDataOut` seeds a `data_out` utility row from that analyzer before
+   the first concat run.
+7. **Library naming** — auto-created or template-seeded `library` modules derive display names from
    topic/focus + inbound source combination via `deriveLibraryDisplayName` (synced on graph refresh
    when `nameCustomized` is false).
 
 Hydration is idempotent: re-run on PATCH reflow or `restoreEngineTopic` must not duplicate utility
 rows or members.
+
+## Canvas / UI
+
+- **Utility rail:** left target handles `engine-util-${bus}`; right source handles
+  `engine-util-${bus}-out` (unique ids — no shared in/out id).
+- **Engine↔engine edges:** operator can drag `data_out` → `data_in` (and Control out → Control in);
+  persisted via `POST /engine-utility-links`; rendered as dashed utility edges.
+- **Module→engine:** Clock → clock bus; Holding Fund/Math → funds; library/live/research → data_in.
+- **Header setup (D-089):** topic/capital/exit/template inputs remain **inline bounded fields in
+  the header**.
+
+## Phases
+
+| Phase | Deliverable | Status |
+|-------|-------------|--------|
+| P0 | Contracts: `EngineUtilityBus`, `EngineUtilityLink`, `engineUtilityBusesForCategory` | **done** |
+| P1 | DB migration `engine_utility_links` + API CRUD (GET/POST/DELETE) | **done** |
+| P2 | `EngineGroupNode` utility rail chrome + engine↔engine edges | **done** |
+| P3 | Insert-time auto-hydration (clock, funds, data_out, Time hub, terminal analyzer) | **done** |
+| P4 | Graph resolver: utility streams → member topic hydrate | **done** |
+| P5 | Deprecate direct `clock → member`; Time activation gates | **done** |
 
 ## Research terminal analyzer
 

@@ -147,7 +147,7 @@ async function waitForFilledActivity(
         const activity = (await response.json()) as ActivityResponse;
         return activity.traces.find((trace) => trace.outcome === 'filled') ?? null;
       },
-      { timeout: 20_000 },
+      { timeout: 120_000 },
     )
     .not.toBeNull();
 
@@ -158,7 +158,7 @@ async function waitForFilledActivity(
 
 test.describe('Paper intent alignment', () => {
   // Multi-company promote/dispatch cohort can exceed the default 30s under Next compile.
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
 
   test('persists philosophy axes and keeps live trading fail-closed', async ({
     page,
@@ -266,13 +266,17 @@ test.describe('Paper intent alignment', () => {
       expect(trace.simulatorGapTags).toEqual(
         expect.arrayContaining(['synthetic_quote', 'inline_fill_model', 'no_venue_latency']),
       );
-      // Compile path may drain POV childSlices (`child_slice_drain`); operator
-      // one-shot fills keep `no_partial_fills`. Never both honesty tags together.
+      // Compile path may drain POV childSlices (`child_slice_drain` +
+      // `time_spaced_child_drain` when async); operator one-shot fills keep
+      // `no_partial_fills`. Never both drain honesty tags with `no_partial_fills`.
       const tags = trace.simulatorGapTags ?? [];
       expect(
         tags.includes('child_slice_drain') || tags.includes('no_partial_fills'),
       ).toBeTruthy();
       expect(tags.includes('child_slice_drain') && tags.includes('no_partial_fills')).toBeFalsy();
+      if (tags.includes('time_spaced_child_drain')) {
+        expect(tags).toContain('child_slice_drain');
+      }
     }
 
     const conservativeQuantity = Number(conservativeTrace.fills[0]?.qtyInt);

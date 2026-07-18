@@ -1,17 +1,18 @@
 'use client';
 
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, FileText, FolderOpen } from 'lucide-react';
 import type { Library } from '@hftr/contracts';
 import { api } from '@/lib/client';
 import {
   classifyLibraryShelf,
+  findLibraryOverviewTopic,
   LIBRARY_SHELF_LABELS,
   LIBRARY_SHELF_ORDER,
   type LibraryShelfKind,
 } from '@/lib/research-library-shelves';
 
-type LibraryConceptRow = {
+type LibraryPageRow = {
   conceptId: string;
   title: string;
 };
@@ -19,19 +20,28 @@ type LibraryConceptRow = {
 export interface ResearchLibraryShelvesProps {
   companyId: string;
   libraries: Library[];
+  /** Company topics — used to attach an overview page to a library folder by title. */
+  topics?: Array<{ id: string; title: string }>;
   onSelectConcept: (conceptId: string) => void;
-  /** Primary click on a library row — opens inspector + galaxy nest (does not expand). */
+  /** Primary click when no matching overview topic — library inspector + nest. */
   onSelectLibrary?: (libraryId: string, libraryName: string) => void;
+  /** Open overview / index topic for a library folder (e.g. Seeded trading mechanisms). */
   onSelectTopic?: (topicId: string) => void;
 }
 
-function LibraryConceptLeaves(props: {
+function displayPageTitle(title: string): string {
+  return title.replace(/_/g, ' ');
+}
+
+function LibraryPageLeaves(props: {
   companyId: string;
   libraryId: string;
   open: boolean;
+  overviewTopicId: string | null;
   onSelectConcept: (conceptId: string) => void;
+  onSelectTopic?: (topicId: string) => void;
 }) {
-  const [concepts, setConcepts] = useState<LibraryConceptRow[] | null>(null);
+  const [pages, setPages] = useState<LibraryPageRow[] | null>(null);
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
@@ -40,66 +50,105 @@ function LibraryConceptLeaves(props: {
       const data = await api<{
         libraryConcepts: { conceptId: string; title: string }[];
       }>(`/api/companies/${props.companyId}/libraries/${props.libraryId}/concepts`);
-      setConcepts(
-        data.libraryConcepts.map((row) => ({
-          conceptId: row.conceptId,
-          title: row.title,
-        })),
+      setPages(
+        data.libraryConcepts
+          .map((row) => ({
+            conceptId: row.conceptId,
+            title: row.title,
+          }))
+          .sort((a, b) => a.title.localeCompare(b.title)),
       );
     } catch {
-      setConcepts([]);
+      setPages([]);
     } finally {
       setLoading(false);
     }
   }, [props.companyId, props.libraryId]);
 
   useEffect(() => {
-    if (!props.open || concepts !== null) return;
+    if (!props.open || pages !== null) return;
     void load();
-  }, [props.open, concepts, load]);
+  }, [props.open, pages, load]);
 
   if (!props.open) return null;
 
-  if (loading || concepts === null) {
-    return <p className="py-0.5 pl-5 text-[9px] text-[var(--color-ink-faint)]">Loading…</p>;
-  }
-
-  if (concepts.length === 0) {
-    return <p className="py-0.5 pl-5 text-[9px] text-[var(--color-ink-faint)]">No concepts.</p>;
+  if (loading || pages === null) {
+    return <p className="py-0.5 pl-5 text-[9px] text-[var(--color-ink-faint)]">Loading pages…</p>;
   }
 
   return (
-    <ul className="pl-5">
-      {concepts.map((c) => (
-        <li key={c.conceptId}>
+    <ul
+      className="max-h-48 space-y-0.5 overflow-y-auto overscroll-contain pl-5"
+      data-testid={`library-folder-pages-${props.libraryId}`}
+    >
+      {props.overviewTopicId && props.onSelectTopic && (
+        <li>
           <button
             type="button"
-            onClick={() => props.onSelectConcept(c.conceptId)}
-            className="w-full truncate rounded py-0.5 text-left text-[10px] text-[var(--color-ink)] hover:text-[var(--color-accent)]"
+            data-testid={`library-folder-overview-${props.libraryId}`}
+            onClick={() => props.onSelectTopic?.(props.overviewTopicId!)}
+            className="flex w-full items-center gap-1 truncate rounded py-0.5 text-left text-[10px] text-[var(--color-ink)] hover:text-[var(--color-accent)]"
           >
-            {c.title}
+            <FileText size={11} aria-hidden className="shrink-0 text-[var(--color-ink-faint)]" />
+            <span className="truncate">Overview</span>
           </button>
         </li>
-      ))}
+      )}
+      {pages.length === 0 ? (
+        <li>
+          <p className="py-0.5 text-[9px] text-[var(--color-ink-faint)]">No pages in this folder.</p>
+        </li>
+      ) : (
+        pages.map((p) => (
+          <li key={p.conceptId}>
+            <button
+              type="button"
+              data-testid={`library-folder-page-${p.conceptId}`}
+              aria-label={`Open page ${displayPageTitle(p.title)}`}
+              onClick={() => props.onSelectConcept(p.conceptId)}
+              className="flex w-full items-center gap-1 truncate rounded py-0.5 text-left text-[10px] text-[var(--color-ink)] hover:text-[var(--color-accent)]"
+            >
+              <FileText size={11} aria-hidden className="shrink-0 text-[var(--color-ink-faint)]" />
+              <span className="truncate">{displayPageTitle(p.title)}</span>
+            </button>
+          </li>
+        ))
+      )}
     </ul>
   );
 }
 
-function LibraryRow(props: {
+function LibraryFolderRow(props: {
   companyId: string;
   library: Library;
+  overviewTopicId: string | null;
   onSelectConcept: (conceptId: string) => void;
   onSelectLibrary?: (libraryId: string, libraryName: string) => void;
+  onSelectTopic?: (topicId: string) => void;
+  /** Baseline seeded folders start expanded so referenced pages are visible. */
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(props.defaultOpen ?? false);
+
+  const openFolder = () => {
+    if (props.overviewTopicId && props.onSelectTopic) {
+      props.onSelectTopic(props.overviewTopicId);
+      return;
+    }
+    props.onSelectLibrary?.(props.library.id, props.library.name);
+  };
 
   return (
-    <div className="group/library">
+    <div className="group/library" data-testid={`library-folder-${props.library.id}`}>
       <div className="flex items-center gap-0.5">
         <button
           type="button"
           aria-expanded={open}
-          aria-label={open ? `Collapse ${props.library.name}` : `Expand ${props.library.name}`}
+          aria-label={
+            open
+              ? `Collapse folder ${props.library.name}`
+              : `Expand folder ${props.library.name}`
+          }
           onClick={() => setOpen((v) => !v)}
           className="shrink-0 rounded p-0.5 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
         >
@@ -111,17 +160,21 @@ function LibraryRow(props: {
         </button>
         <button
           type="button"
-          onClick={() => props.onSelectLibrary?.(props.library.id, props.library.name)}
-          className="min-w-0 flex-1 truncate rounded py-0.5 text-left text-[10px] text-[var(--color-ink)] hover:text-[var(--color-accent)]"
+          onClick={openFolder}
+          aria-label={`Open folder ${props.library.name}`}
+          className="flex min-w-0 flex-1 items-center gap-1 truncate rounded py-0.5 text-left text-[10px] text-[var(--color-ink)] hover:text-[var(--color-accent)]"
         >
-          {props.library.name}
+          <FolderOpen size={11} aria-hidden className="shrink-0 text-[var(--color-ink-faint)]" />
+          <span className="truncate">{props.library.name}</span>
         </button>
       </div>
-      <LibraryConceptLeaves
+      <LibraryPageLeaves
         companyId={props.companyId}
         libraryId={props.library.id}
         open={open}
+        overviewTopicId={props.overviewTopicId}
         onSelectConcept={props.onSelectConcept}
+        {...(props.onSelectTopic ? { onSelectTopic: props.onSelectTopic } : {})}
       />
     </div>
   );
@@ -131,11 +184,18 @@ function ShelfSection(props: {
   kind: LibraryShelfKind;
   libraries: Library[];
   companyId: string;
+  topics: Array<{ id: string; title: string }>;
   onSelectConcept: (conceptId: string) => void;
   onSelectLibrary?: (libraryId: string, libraryName: string) => void;
+  onSelectTopic?: (topicId: string) => void;
 }) {
+  const defaultOpen = props.kind === 'baseline_seeded';
+
   return (
-    <details className="rounded border border-[var(--color-line)] px-2 py-1">
+    <details
+      className="rounded border border-[var(--color-line)] px-2 py-1"
+      open={defaultOpen ? true : undefined}
+    >
       <summary className="cursor-pointer text-[10px] uppercase tracking-wide text-[var(--color-ink-faint)] marker:content-none [&::-webkit-details-marker]:hidden">
         {LIBRARY_SHELF_LABELS[props.kind]}
       </summary>
@@ -143,15 +203,21 @@ function ShelfSection(props: {
         {props.libraries.length === 0 ? (
           <p className="text-[10px] text-[var(--color-ink-faint)]">None yet.</p>
         ) : (
-          props.libraries.map((lib) => (
-            <LibraryRow
-              key={lib.id}
-              companyId={props.companyId}
-              library={lib}
-              onSelectConcept={props.onSelectConcept}
-              {...(props.onSelectLibrary ? { onSelectLibrary: props.onSelectLibrary } : {})}
-            />
-          ))
+          props.libraries.map((lib) => {
+            const overview = findLibraryOverviewTopic(lib.name, props.topics);
+            return (
+              <LibraryFolderRow
+                key={lib.id}
+                companyId={props.companyId}
+                library={lib}
+                overviewTopicId={overview?.id ?? null}
+                onSelectConcept={props.onSelectConcept}
+                defaultOpen={defaultOpen}
+                {...(props.onSelectLibrary ? { onSelectLibrary: props.onSelectLibrary } : {})}
+                {...(props.onSelectTopic ? { onSelectTopic: props.onSelectTopic } : {})}
+              />
+            );
+          })
         )}
       </div>
     </details>
@@ -159,6 +225,8 @@ function ShelfSection(props: {
 }
 
 function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
+  const topics = props.topics ?? [];
+
   const shelves = useMemo(() => {
     const grouped: Record<LibraryShelfKind, Library[]> = {
       system_curated: [],
@@ -190,8 +258,10 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
             kind={kind}
             libraries={shelves[kind]}
             companyId={props.companyId}
+            topics={topics}
             onSelectConcept={props.onSelectConcept}
             {...(props.onSelectLibrary ? { onSelectLibrary: props.onSelectLibrary } : {})}
+            {...(props.onSelectTopic ? { onSelectTopic: props.onSelectTopic } : {})}
           />
         ))}
       </div>

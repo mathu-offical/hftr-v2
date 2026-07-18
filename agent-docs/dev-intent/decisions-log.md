@@ -556,17 +556,19 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 
 - **D-049 (research tab shelves + floating inspector, 2026-07-17):**
   Left Research tab reorders to: **Submit new topic** → entity search (Topics / Concepts /
-  Tags / Libraries) → three expandable library shelves (system curated runtime, user/engine
-  runtime, baseline seeded) as navigator trees → Pages (topics) list with linked-page
-  highlight → Archive → collapsed modules. Galaxy is the sole overlay surface; detail for
-  Page / Concept / Library / Tag opens in a **right floating inspector** (no Galaxy|Page tab
-  strip, no left/galaxy inline expand). Library caret expands children; library name click
-  inspects. Concept selection traces/highlights in the galaxy. Design:
-  `ui-ux/research-tab-shelves-inspector-design.md`.
+  Tags / Libraries) → three expandable library shelves as **folders of pages** (system
+  curated runtime, user/engine runtime, baseline seeded) → Pages (topics) list with
+  linked-page highlight → Archive → collapsed modules. Galaxy is the sole overlay surface;
+  detail for Page / Concept / Library / Tag opens in a **right floating inspector** (no
+  Galaxy|Page tab strip, no left/galaxy inline expand). Folder caret expands page leaves;
+  folder name opens matching overview topic when present (e.g. Seeded trading mechanisms),
+  else library inspect. Baseline seeded opens expanded so referenced mechanism pages are
+  individually viewable in-folder; the overview page also remains in Pages. Design:
+  `ui-ux/research-tab-shelves-inspector-design.md`. **Status: implemented.**
 
 - **D-050 (complete research provider connect + live_api Alpaca poll, 2026-07-17):**
   Finish remaining researched gather sources: GDELT DOC ArtList (one retry on 429;
-  smoke treats rate_limited as ok), Twelve Data + Marketstack qualitative bar/EOD
+  smoke treats rate_limited / ping_timeout as soft-ok), Twelve Data + Marketstack qualitative bar/EOD
   entitlement evidence (operator keys). Settings Research tab gains **Verify** for
   all `ResearchKeyProvider` values (`research-verify.ts`). `trend.scan` polls bound
   Alpaca paper quotes via `pollQuotes` when inbound `live_api` modules exist

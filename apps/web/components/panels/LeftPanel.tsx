@@ -228,8 +228,8 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
   }
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col border-r border-[var(--color-line)] bg-[var(--color-surface-1)]">
-      <div className="flex items-center justify-between border-b border-[var(--color-line)] px-3 py-2">
+    <aside className="flex h-full min-h-0 w-80 shrink-0 flex-col overflow-hidden border-r border-[var(--color-line)] bg-[var(--color-surface-1)]">
+      <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-line)] px-3 py-2">
         <div className="flex gap-1">
           {(
             [
@@ -260,7 +260,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 text-sm">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 text-sm">
         {tab === 'research' && (
           <>
             {topicOwnerModules.length > 0 ? (
@@ -305,10 +305,12 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
               <ResearchLibraryShelves
                 companyId={companyId}
                 libraries={libraries}
+                topics={topics.map((t) => ({ id: t.id, title: t.title }))}
                 onSelectConcept={(conceptId) => researchView.inspectConcept(conceptId)}
                 onSelectLibrary={(libraryId, libraryName) =>
                   researchView.inspectLibrary(libraryId, libraryName)
                 }
+                onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
               />
             </div>
 

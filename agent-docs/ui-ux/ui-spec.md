@@ -185,14 +185,19 @@ editable fields.
 - Tabs: **Research** | **Data sources** | (contextual third tab when opened from a trend module).
 - Research tab (**D-040**, **D-047**, **D-049**): **Submit new topic** at top; **entity
   search** with Topics / Concepts / Tags / Libraries toggles; three expandable **library
-  shelves** (caret expands; name click opens inspector — no inline article expand);
-  **Pages** list (topics) with linked-page highlight when the inspector is open;
-  **Archive** (D-047); collapsed Modules & tools. Opening Research opens the Galaxy overlay
-  only — detail lives in a right floating inspector over the galaxy (no Galaxy|Page tab strip).
+  shelves** as folders of pages (caret expands page leaves; folder name opens overview
+  topic when title matches, else library inspector); **Pages** list (topics) with
+  linked-page highlight when the inspector is open — overview pages such as Seeded trading
+  mechanisms may appear both in Pages and as the baseline-seeded folder; **Archive** (D-047);
+  collapsed Modules & tools. Opening Research opens the Galaxy overlay only — detail lives
+  in a right floating inspector over the galaxy (no Galaxy|Page tab strip).
   Design: `ui-ux/research-tab-shelves-inspector-design.md`.
 - Research overlay (main content, layered over canvas): **Galaxy** surface with optional
-  right **inspector** (Page / Concept / Library / Tag — D-049). Shared chrome: search, tag
-  chips, library scope, zoom, clear-focus.
+  right **inspector** (Page / Concept / Library / Tag — D-049). Overlay and inspector are
+  viewport-bounded (`overflow-hidden` / `min-h-0`) with scrollable inspector body and
+  horizontally scrollable library chips. Shared chrome: search, tag chips, library scope,
+  zoom, clear-focus. Nest hull labels and chips use short library names (head segment
+  before arrow chains). Default galaxy mode is **2D** with LOD labels + highlight rings.
 - Research module cards (D-039): **admission mode** select (auto-admit vs require approval),
   manual query / Curate now / company sweep, multi-poll **run status** (phase · evidence ·
   concepts · validation · admission applied), **validation gate scores** after a run, and an

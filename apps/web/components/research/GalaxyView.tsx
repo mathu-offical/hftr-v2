@@ -16,6 +16,10 @@ import type {
   ResearchGraphLink,
   ResearchGraphNode,
 } from '@hftr/contracts';
+import {
+  humanizeConceptTitle,
+  shortLibraryLabel,
+} from '@/lib/research-library-shelves';
 import styles from './galaxy-view.module.css';
 
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false });
@@ -86,16 +90,17 @@ function computeLibraryCenters(
         ];
 
   const count = Math.max(libIds.length, 1);
-  const ringRadius = Math.min(140, 50 + count * 22);
+  const ringRadius = Math.min(220, 70 + count * 36);
   const centers = new Map<string, LibraryCenter>();
 
   libIds.forEach((id, i) => {
     const angle = (2 * Math.PI * i) / count - Math.PI / 2;
     const meta = libMeta.get(id);
+    const conceptCount = meta?.conceptCount ?? 3;
     centers.set(id, {
       x: Math.cos(angle) * ringRadius,
       y: Math.sin(angle) * ringRadius,
-      radius: 36 + Math.min(24, (meta?.conceptCount ?? 3) * 2),
+      radius: 48 + Math.min(56, conceptCount * 1.6),
       name: meta?.name ?? 'Library',
     });
   });
@@ -192,7 +197,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     [props.selectedLibraryIds],
   );
 
-  const [mode3d, setMode3d] = useState(true);
+  const [mode3d, setMode3d] = useState(false);
   const [threeAvailable, setThreeAvailable] = useState<boolean | null>(null);
   const [ForceGraph3D, setForceGraph3D] = useState<ForceGraph3DComponent | null>(null);
   const [query, setQuery] = useState('');
@@ -423,15 +428,27 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       ctx.fill();
       ctx.globalAlpha = 1;
 
-      if (isHighlight || (isFocused && globalScale > 1.1)) {
-        const label = node.title ?? '';
+      if (isHighlight || (isFocused && globalScale > 1.35)) {
+        const raw = node.title ?? '';
+        const label = humanizeConceptTitle(raw);
         if (label) {
-          const fontSize = Math.max(9 / globalScale, 2.2);
+          const fontSize = Math.max(8 / globalScale, 2);
+          const maxChars = isHighlight ? 36 : 22;
           ctx.font = `${isHighlight ? 600 : 400} ${fontSize}px sans-serif`;
-          ctx.fillStyle = isHighlight ? '#e8ecf4' : 'rgba(200, 210, 230, 0.85)';
+          ctx.fillStyle = isHighlight ? '#e8ecf4' : 'rgba(200, 210, 230, 0.8)';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
-          ctx.fillText(label.slice(0, 42), x, y + r + 2 / globalScale);
+          const text =
+            label.length > maxChars ? `${label.slice(0, maxChars - 1)}…` : label;
+          // Soft backdrop so overlapping labels stay readable.
+          const metrics = ctx.measureText(text);
+          const pad = 2 / globalScale;
+          const tw = metrics.width + pad * 2;
+          const th = fontSize + pad * 2;
+          ctx.fillStyle = 'rgba(12, 16, 24, 0.72)';
+          ctx.fillRect(x - tw / 2, y + r + 1 / globalScale, tw, th);
+          ctx.fillStyle = isHighlight ? '#e8ecf4' : 'rgba(200, 210, 230, 0.9)';
+          ctx.fillText(text, x, y + r + pad + 1 / globalScale);
         }
       }
     },
@@ -496,7 +513,8 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     if (libraryCenters.size === 0) return [];
     return [...libraryCenters.entries()].map(([id, c]) => ({
       id,
-      name: c.name,
+      name: shortLibraryLabel(c.name, 24),
+      fullName: c.name,
       style: {
         left: `calc(50% + ${c.x}px)`,
         top: `calc(50% + ${c.y}px)`,
@@ -510,16 +528,16 @@ function GalaxyViewInner(props: GalaxyViewProps) {
 
   const rootClass =
     props.className ??
-    'flex min-h-[280px] flex-col rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-0)]';
+    'flex min-h-[280px] flex-col overflow-hidden rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-0)]';
 
   return (
     <div
       data-testid="galaxy-view"
       role="region"
-      className={rootClass}
+      className={`${rootClass} flex min-h-0 flex-col overflow-hidden`}
       aria-label="Research galaxy graph"
     >
-      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-line)] px-2 py-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--color-line)] px-2 py-2">
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -527,7 +545,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           aria-label="Search galaxy concepts"
           className="min-w-0 flex-1 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)]"
         />
-        <div className="flex gap-1">
+        <div className="flex shrink-0 gap-1">
           <button
             type="button"
             onClick={() => {
@@ -573,7 +591,10 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       </div>
 
       {(hasTopicFocus || statusText) && (
-        <p className="px-2 py-1 text-[10px] text-[var(--color-ink-faint)]" aria-live="polite">
+        <p
+          className="shrink-0 px-2 py-1 text-[10px] text-[var(--color-ink-faint)]"
+          aria-live="polite"
+        >
           {hasTopicFocus && `Focused ${focusSet!.size} concepts`}
           {hasTopicFocus && statusText ? ' · ' : null}
           {statusText}
@@ -585,26 +606,33 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           No concepts match the current filters.
         </p>
       ) : (
-        <div ref={graphBox.ref} className="relative min-h-[220px] flex-1">
+        <div ref={graphBox.ref} className="relative min-h-0 flex-1 overflow-hidden">
           {hullOverlays.map((hull) => (
             <div
               key={hull.id}
-              className="pointer-events-none absolute rounded-full border border-[var(--color-line)]/40 bg-[var(--color-surface-1)]/5"
+              className="pointer-events-none absolute rounded-full border border-[var(--color-line)]/35 bg-[var(--color-surface-1)]/5"
               style={hull.style}
               aria-hidden
+              title={hull.fullName}
             >
-              <span className="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap text-[8px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+              <span
+                className="absolute left-1/2 top-2 max-w-[85%] -translate-x-1/2 truncate rounded bg-[var(--color-surface-0)]/80 px-1.5 py-0.5 text-center text-[8px] uppercase tracking-wider text-[var(--color-ink-faint)]"
+                title={hull.fullName}
+              >
                 {hull.name}
               </span>
             </div>
           ))}
 
           {props.tags.length > 0 && (
-            <div className={styles.orbitRing} aria-label="Tag filter orbit">
+            <div
+              className={`${styles.orbitRing} overflow-hidden`}
+              aria-label="Tag filter orbit"
+            >
               {props.tags.map((t, i) => {
                 const count = props.tags.length;
                 const angle = (360 / count) * i;
-                const radius = reducedMotion ? 42 : 48;
+                const radius = reducedMotion ? 36 : 42;
                 return (
                   <button
                     key={t}
@@ -612,7 +640,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
                     onClick={() => setActiveTag(activeTag === t ? null : t)}
                     aria-pressed={activeTag === t}
                     aria-label={`Filter galaxy by tag ${t}`}
-                    className={`${styles.orbitChip} rounded-full border px-1.5 py-0.5 text-[9px] ${
+                    className={`${styles.orbitChip} max-w-[7rem] truncate rounded-full border px-1.5 py-0.5 text-[9px] ${
                       activeTag === t
                         ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
                         : 'border-[var(--color-line)] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
@@ -620,6 +648,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
                     style={{
                       transform: `rotate(${angle}deg) translateY(-${radius}px) rotate(-${angle}deg)`,
                     }}
+                    title={t}
                   >
                     {t}
                   </button>
@@ -632,6 +661,9 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             <ForceGraph3D
               ref={captureGraphRef as never}
               {...graphCommon}
+              nodeLabel={(n: { title?: string }) =>
+                humanizeConceptTitle(String(n.title ?? '')).slice(0, 28)
+              }
               width={graphBox.width}
               height={graphBox.height}
               showNavInfo={false}
@@ -652,7 +684,13 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               onEngineStop={onEngineStop}
               onEngineTick={onEngineTick}
               nodeCanvasObjectMode={() => 'replace'}
-              nodeCanvasObject={paintNode as (node: object, ctx: CanvasRenderingContext2D, globalScale: number) => void}
+              nodeCanvasObject={
+                paintNode as (
+                  node: object,
+                  ctx: CanvasRenderingContext2D,
+                  globalScale: number,
+                ) => void
+              }
               linkCanvasObjectMode={() => 'after'}
               linkCanvasObject={(link, ctx, globalScale) => {
                 const l = link as {

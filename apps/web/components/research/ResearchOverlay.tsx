@@ -4,6 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import type { ResearchGraphResponse, ResearchTopicDetail } from '@hftr/contracts';
 import { api } from '@/lib/client';
+import { shortLibraryLabel } from '@/lib/research-library-shelves';
 import { GalaxyView } from '@/components/research/GalaxyView';
 import { ResearchInspector } from '@/components/research/ResearchInspector';
 import { useResearchView } from '@/components/research/ResearchViewContext';
@@ -138,13 +139,13 @@ function ResearchOverlayInner() {
   return (
     <div
       data-testid="research-overlay"
-      className="absolute inset-0 z-20 flex flex-col border border-[var(--color-line)] bg-[var(--color-surface-0)]/95 shadow-lg backdrop-blur-sm"
+      className="absolute inset-0 z-20 flex min-h-0 flex-col overflow-hidden border border-[var(--color-line)] bg-[var(--color-surface-0)]/95 shadow-lg backdrop-blur-sm"
       role="dialog"
       aria-label="Research workspace"
     >
       <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--color-line)] px-3 py-2">
         <span className="text-xs font-medium text-[var(--color-ink)]">Galaxy</span>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
           {rv.focusConceptIds && rv.focusConceptIds.length > 0 && (
             <label className="flex cursor-pointer items-center gap-1.5 text-[10px] text-[var(--color-ink-dim)]">
               <input
@@ -189,32 +190,34 @@ function ResearchOverlayInner() {
 
       {(graph?.libraries?.length ?? 0) > 0 && (
         <div
-          className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-[var(--color-line)] px-3 py-1.5"
+          className="flex shrink-0 items-center gap-1.5 overflow-x-auto overscroll-contain border-b border-[var(--color-line)] px-3 py-1.5"
           role="toolbar"
           aria-label="Library nest filters"
         >
           {(graph?.libraries ?? []).map((lib) => {
             const selected = selectedLibraryIds.includes(lib.id);
+            const label = shortLibraryLabel(lib.name, 26);
             return (
               <button
                 key={lib.id}
                 type="button"
                 data-testid={`galaxy-library-chip-${lib.id}`}
+                title={lib.name}
                 onClick={() => {
                   toggleLibraryFilter(lib.id);
                   if (!selected) rv.inspectLibrary(lib.id, lib.name);
                 }}
                 aria-pressed={selected}
                 aria-label={`Filter galaxy by library ${lib.name}`}
-                className={`rounded-full border px-2 py-0.5 text-[10px] ${
+                className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] ${
                   selected
                     ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
                     : 'border-[var(--color-line)] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
                 }`}
               >
-                {lib.name}
+                {label}
                 {lib.conceptCount !== undefined && (
-                  <span className="ml-1 text-[9px] opacity-70">{lib.conceptCount}</span>
+                  <span className="ml-1 text-[9px] opacity-70"> {lib.conceptCount}</span>
                 )}
               </button>
             );
@@ -225,7 +228,7 @@ function ResearchOverlayInner() {
               data-testid="galaxy-clear-library-filters"
               onClick={clearLibraryFilters}
               aria-label="Clear library filters"
-              className="rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+              className="shrink-0 rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
             >
               Clear libraries
             </button>
@@ -246,7 +249,7 @@ function ResearchOverlayInner() {
           focusConceptIds={effectiveFocusConceptIds}
           highlightConceptId={rv.highlightConceptId}
           selectedLibraryIds={selectedLibraryIds.length > 0 ? selectedLibraryIds : null}
-          className="h-full min-h-0 border-0 rounded-none"
+          className="h-full min-h-0 overflow-hidden border-0 rounded-none"
           onInspectConcept={(id) => rv.inspectConcept(id)}
           onGraphInvalidated={() => void loadGraph({ bumpQueries: false })}
         />
@@ -254,7 +257,7 @@ function ResearchOverlayInner() {
         {rv.pageInspectorOpen && (
           <aside
             data-testid="research-page-inspector"
-            className="absolute bottom-2 right-2 top-2 z-30 flex w-[min(420px,42%)] flex-col overflow-hidden rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)]/95 shadow-xl backdrop-blur-sm"
+            className="absolute bottom-2 right-2 top-2 z-30 flex w-[min(420px,42%)] max-w-[calc(100%-1rem)] flex-col overflow-hidden rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)]/95 shadow-xl backdrop-blur-sm"
             aria-label={`${inspectorLabel} inspector`}
           >
             <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-line)] px-2.5 py-1.5">
@@ -270,7 +273,7 @@ function ResearchOverlayInner() {
                 <X size={14} aria-hidden />
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-hidden">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               <ResearchInspector
                 companyId={rv.companyId}
                 target={rv.inspectorTarget}

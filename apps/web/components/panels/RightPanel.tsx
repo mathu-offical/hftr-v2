@@ -214,7 +214,7 @@ export function RightPanel(props: { companyId: string }) {
   }
 
   return (
-    <aside className="flex w-96 shrink-0 flex-col border-l border-[var(--color-line)] bg-[var(--color-surface-1)]">
+    <aside className="flex h-full min-h-0 w-96 shrink-0 flex-col overflow-hidden border-l border-[var(--color-line)] bg-[var(--color-surface-1)]">
       <div className="flex items-center justify-between border-b border-[var(--color-line)] px-3 py-2">
         <div className="flex gap-0.5">
           {TABS.map((t) => (
@@ -246,7 +246,7 @@ export function RightPanel(props: { companyId: string }) {
         <div className="font-mono text-lg">{balance ? dollars(balance) : '—'}</div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 text-sm">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 text-sm">
         {tab === 'verification' && (
           <VerificationTab verifications={verifications} executions={executions} />
         )}

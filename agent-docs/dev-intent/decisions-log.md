@@ -583,6 +583,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   when bars available). Synthetic remains fallback. WebSocket streaming still
   researched-only. **Status: implemented.**
 
+- **D-052 (company-serial queue + flexible module/engine caps, 2026-07-17):**
+  Engines on a company run **sequentially** through one **company-wide** Postgres
+  job queue — not in parallel across engines. `claimJobs` skips companies with an
+  active lease and keeps ≤1 claimed job per `company_id` per batch (maintenance
+  null-company jobs remain parallel). Create/canvas soft caps raised for
+  multi-engine flexibility: `MAX_MODULES_PER_COMPANY=200`,
+  `MAX_ENGINES_PER_COMPANY=16` (shared contracts constant; create form preflights
+  projected slots). See `architecture/job-orchestration.md`. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

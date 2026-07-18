@@ -65,6 +65,10 @@ export type ClaimedJob = typeof jobs.$inferSelect;
 /**
  * Claim due jobs with FOR UPDATE SKIP LOCKED so concurrent drains never
  * double-claim. Also reclaims jobs whose lease expired (crashed worker).
+ *
+ * D-052: company-wide serial queue — skip companies with an active lease;
+ * within a claim batch keep ≤1 job per company_id (null-company maintenance
+ * stays parallel). Engines on one company therefore run sequentially.
  */
 /** Stamp budget_queued on pending LLM jobs when company budget is exhausted. */
 export async function deferBudgetQueuedJobs(db: Db, clock: Clock): Promise<number> {
@@ -196,6 +200,9 @@ export async function claimJobs(db: Db, clock: Clock, opts: ClaimOptions): Promi
 
   const now = new Date(clock.nowMs());
   const leaseUntil = new Date(clock.nowMs() + opts.leaseMs);
+  // Oversample then dedupe by company so one SKIP LOCKED claim still yields
+  // up to `limit` companies when many jobs share a company_id (D-052).
+  const fetchLimit = Math.max(opts.limit * 4, opts.limit);
   const rows = await db.execute(sql`
     UPDATE jobs SET
       status = 'active',
@@ -215,13 +222,72 @@ export async function claimJobs(db: Db, clock: Clock, opts: ClaimOptions): Promi
           OR (status = 'active' AND locked_until < ${now.toISOString()})
         )
         AND COALESCE(last_error, '') <> ${BUDGET_QUEUED_ERROR}
+        AND (
+          company_id IS NULL
+          OR NOT EXISTS (
+            SELECT 1 FROM jobs active_job
+            WHERE active_job.company_id = jobs.company_id
+              AND active_job.status = 'active'
+              AND active_job.locked_until >= ${now.toISOString()}
+          )
+        )
       ORDER BY priority DESC, run_after ASC
-      LIMIT ${opts.limit}
+      LIMIT ${fetchLimit}
       FOR UPDATE SKIP LOCKED
     )
     RETURNING *
   `);
-  return rows.rows as unknown as ClaimedJob[];
+  const claimed = rows.rows as unknown as ClaimedJob[];
+  return releaseExtraCompanyClaims(db, clock, claimed, opts.limit);
+}
+
+/**
+ * Keep ≤1 job per company_id in a claim batch; requeue extras as pending
+ * (attempts rolled back one) so sibling engine work waits on the company queue.
+ */
+export async function releaseExtraCompanyClaims(
+  db: Db,
+  clock: Clock,
+  claimed: ClaimedJob[],
+  limit: number,
+): Promise<ClaimedJob[]> {
+  const keep: ClaimedJob[] = [];
+  const release: ClaimedJob[] = [];
+  const seenCompanies = new Set<string>();
+
+  for (const job of claimed) {
+    if (keep.length >= limit) {
+      release.push(job);
+      continue;
+    }
+    if (!job.companyId) {
+      keep.push(job);
+      continue;
+    }
+    if (seenCompanies.has(job.companyId)) {
+      release.push(job);
+      continue;
+    }
+    seenCompanies.add(job.companyId);
+    keep.push(job);
+  }
+
+  if (release.length === 0) return keep;
+
+  const now = new Date(clock.nowMs());
+  for (const job of release) {
+    await db
+      .update(jobs)
+      .set({
+        status: 'pending',
+        lockedBy: null,
+        lockedUntil: null,
+        attempts: Math.max(0, job.attempts - 1),
+        updatedAt: now,
+      })
+      .where(eq(jobs.id, job.id));
+  }
+  return keep;
 }
 
 export async function completeJob(db: Db, clock: Clock, jobId: string): Promise<void> {

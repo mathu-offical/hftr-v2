@@ -49,7 +49,10 @@ Rules (from production-queue literature + v1 lessons):
 - **Queue classes carried from v1:** `RESEARCH | STRATEGIC | TACTICAL | COMPILE | DISPATCH |
   VERIFY | TRAINING` (+ `ASSISTANT`, `BILLING`, `MAINTENANCE` in v2). DISPATCH/VERIFY are
   drained with highest priority and shortest leases.
-- **Fairness** — claim batches are capped per company to prevent one company starving others.
+- **Fairness / company serial (D-052):** each company has one shared job queue. Claim
+  skips companies that already hold an active (non-expired) lease and keeps ≤1 job per
+  `company_id` in a claim batch (null-company maintenance jobs stay parallel). Engines on
+  the same company therefore run **sequentially**, not in parallel across workers.
 
 ## 3. Scheduling
 

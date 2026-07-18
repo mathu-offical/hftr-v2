@@ -24,6 +24,8 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   live_armed_at timestamptz nullable, live_gate_evidence_id uuid nullable FK →
   live_gate_evidence (D-029),
   auto_fund_policy jsonb (approval thresholds), archived_at.
+  Soft caps: `MAX_MODULES_PER_COMPANY` (200; hub + members + dedicated Math) and create-form
+  `MAX_ENGINES_PER_COMPANY` (16). Company jobs are company-serial (D-052).
 - **engine_instances** (D-028, migration `0014_engine_instances`) — company_id, template_id,
   label, master_topic_sectors text[], canvas_bounds jsonb `{x,y,width,height}` nullable.
   Member modules reference via `modules.engine_instance_id`; Math modules never join.

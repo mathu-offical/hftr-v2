@@ -1405,6 +1405,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   right-panel Positions (D-125). Docs: ui-spec §4, product-spec Market posture, contracts
   `MarketHubCapitalSource`. **Status: implemented.**
 
+- **D-138 (Posture funds amounts + stock/news day streams, 2026-07-18):** Left Posture rail
+  projects **resolved allocation amounts** (ValueRef → USD cents + pool share bps + optional
+  module ledger) for holding funds, trading desks, fund routers, and engine envelopes — never
+  LLM-emitted dollars. Day overlay shows **master equity**, dual **stock movers / sector news**
+  boards (lens toggle), and recommendations; Analyze already reseals movers compound + sector
+  news in parallel — UI and hub `news` board make both streams first-class. Docs: ui-spec §4,
+  data-model, contracts `MarketHubCapitalSource` / `MarketHubNews`. **Status: implemented.**
+
 - **D-132 (galaxy library clusters — separation + nest dominance, 2026-07-18):** Fibonacci
   volume packing (D-116) still allowed large nest hulls to overlap and cross-library springs
   to blend concepts into one cloud. Refine: (1) `separateLibraryCenters` after packing so

@@ -275,19 +275,14 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   librarian **Curate / Verify / Refresh** (D-127). Library research (`LIBRARY_RESEARCH`) is a
   separate queue from posture research (`POSTURE_RESEARCH`) and from execution/other LLM lanes
   (D-098).
-- **Market posture** tab (D-081 / D-085 / D-092 / D-101 / **D-131**): split inventory vs day
-  quant. **Left rail (D-131)** is holdings-only: open **positions** + **capital sources**
-  (holding funds / capital-bearing desks from hub `capitalSources`) with Sync + **Day view**.
-  Position row select highlights for right-panel Positions (D-125); it does **not** drive the
-  overlay. Opening the tab / Day view opens the **canvas overlay day dashboard** that
-  aggregates live streams into persistent human-readable views — **not** a holdings browser:
-  equity chart (company series; status · asOf · version; mark reference when present), sector
-  movers (title · corroboration · verified/expires · stale cue), multi-seal report buttons
-  (`movers_board`, `sector_bulletin`, `daily_summary_phase`, `posture_narrative`), **synthesis
-  Model + awareness dock** (D-120), recommendation grids (watchlists with tier filters /
-  Confirm, trends, plans), and charts (watch tiers / trend strength / mover directions /
-  provider surfaces — allocation-by-symbol is not the primary lens). Freshness strip + provider
-  honesty strip. Hover justification (D-083) where wired.
+- **Market posture** tab (D-081 / D-085 / D-092 / D-101 / **D-131** / **D-138**): split
+  inventory vs day quant. **Left rail (D-131/D-138)** lists **funds** (holding funds, desks,
+  fund routers, engine envelopes) with **resolved allocation amounts** (USD cents + pool share
+  bps + optional module ledger) and **open positions**; Sync + **Day view**. Position select
+  opens day overlay focus. Opening Day view opens the **canvas overlay** that aggregates live
+  streams: **master equity** chart, dual **stock movers / sector news** boards (lens: both /
+  stock / news), sealed reports, recommendation grids, synthesis Model. Analyze reseals stock
+  compound (bars+news) and sector news in parallel.
   Distinct from Research (async corpus).   Hub data uses client **SWR cache**
   (`market-hub-cache` + `useMarketHub`): memory + sessionStorage, 15s fresh / 10m stale for
   **full hub** cache policy (used on mount/Sync/after Analyze), inflight dedupe, shell

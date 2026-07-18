@@ -38,7 +38,13 @@ import {
   isTagSatelliteNode,
   type NestHullNode,
 } from '@/lib/galaxy-nest-hulls';
-import { createNestHullObject3d, paintNestHull2d } from '@/lib/galaxy-nest-mesh';
+import { resolveNestEmphasis, type NestEmphasisContext } from '@/lib/galaxy-nest-emphasis';
+import {
+  applyNestHullEmphasis,
+  createNestHullObject3d,
+  paintNestHull2d,
+  type NestEmphasis,
+} from '@/lib/galaxy-nest-mesh';
 import {
   conceptHoverLines,
   linkHoverLines,
@@ -47,6 +53,7 @@ import {
 } from '@/lib/galaxy-hover-labels';
 import { humanizeConceptTitle, shortLibraryLabel } from '@/lib/research-library-shelves';
 import styles from './galaxy-view.module.css';
+import type * as THREE from 'three';
 
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false });
 
@@ -65,6 +72,12 @@ type ForceGraphHandle = {
     lookAt?: { x: number; y: number; z: number },
     transitionMs?: number,
   ) => void;
+  graph2ScreenCoords?: (
+    x: number,
+    y: number,
+    z?: number,
+  ) => { x: number; y: number } | undefined;
+  scene?: () => { traverse: (cb: (obj: THREE.Object3D) => void) => void };
 };
 
 type ForceGraph3DComponent = ComponentType<Record<string, unknown>>;
@@ -169,11 +182,15 @@ function GalaxyViewInner(props: GalaxyViewProps) {
   const [reducedMotion, setReducedMotion] = useState(false);
   const [physicsReady, setPhysicsReady] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [hoveredHullId, setHoveredHullId] = useState<string | null>(null);
+  const [selectedHullId, setSelectedHullId] = useState<string | null>(null);
   const [hoveredLinkKey, setHoveredLinkKey] = useState<string | null>(null);
   const [hoverCard, setHoverCard] = useState<{
     lines: string[];
     x: number;
     y: number;
+    /** Graph node id used to re-project label onto the point while camera moves. */
+    anchorId: string | null;
   } | null>(null);
   const graphBox = useGraphDimensions();
   const graphHandleRef = useRef<ForceGraphHandle | null>(null);
@@ -401,9 +418,12 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         })),
     );
     const companyHull = buildCompanyHullNode(libraryCenters, libraryFilter);
-    const hullNodes: NestHullNode[] = companyHull
-      ? [companyHull, ...libraryHulls, ...folderHulls, ...articleHulls]
-      : [...libraryHulls, ...folderHulls, ...articleHulls];
+    const hullNodes: NestHullNode[] = [
+      companyHull,
+      ...libraryHulls,
+      ...folderHulls,
+      ...articleHulls,
+    ];
 
     const nodes = [...conceptNodes, ...tagSatellites, ...hullNodes];
     const nodeSet = new Set(conceptNodes.map((n) => n.id));
@@ -600,9 +620,197 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     return () => window.clearTimeout(t);
   }, [props.highlightConceptId, props.nodes, reducedMotion, physicsReady]);
 
+  const hoveredConceptMeta = useMemo(() => {
+    if (!hoveredNodeId) {
+      return {
+        libraryId: null as string | null,
+        folderKey: null as string | null,
+        articleId: null as string | null,
+      };
+    }
+    const node = nodeLookupById.get(hoveredNodeId);
+    const folderMembership = conceptFolderIndex.get(hoveredNodeId);
+    return {
+      libraryId: node?.primaryLibraryId ?? null,
+      folderKey: folderMembership?.folderKey ?? null,
+      articleId: conceptArticleIndex.get(hoveredNodeId) ?? null,
+    };
+  }, [hoveredNodeId, nodeLookupById, conceptFolderIndex, conceptArticleIndex]);
+
+  const highlightConceptMeta = useMemo(() => {
+    const id = props.highlightConceptId;
+    if (!id) {
+      return {
+        libraryId: null as string | null,
+        folderKey: null as string | null,
+        articleId: null as string | null,
+      };
+    }
+    const node = nodeLookupById.get(id);
+    const folderMembership = conceptFolderIndex.get(id);
+    return {
+      libraryId: node?.primaryLibraryId ?? null,
+      folderKey: folderMembership?.folderKey ?? null,
+      articleId: conceptArticleIndex.get(id) ?? null,
+    };
+  }, [props.highlightConceptId, nodeLookupById, conceptFolderIndex, conceptArticleIndex]);
+
+  const nestEmphasisCtx: NestEmphasisContext = useMemo(
+    () => ({
+      hoveredHullId,
+      selectedHullId,
+      hoveredConceptId: hoveredNodeId,
+      hoveredConceptLibraryId: hoveredConceptMeta.libraryId,
+      hoveredConceptFolderKey: hoveredConceptMeta.folderKey,
+      hoveredConceptArticleId: hoveredConceptMeta.articleId,
+      highlightConceptId: props.highlightConceptId ?? null,
+      highlightLibraryId: highlightConceptMeta.libraryId,
+      highlightFolderKey: highlightConceptMeta.folderKey,
+      highlightArticleId: highlightConceptMeta.articleId,
+    }),
+    [
+      hoveredHullId,
+      selectedHullId,
+      hoveredNodeId,
+      hoveredConceptMeta,
+      props.highlightConceptId,
+      highlightConceptMeta,
+    ],
+  );
+
+  const nestEmphasisCtxRef = useRef(nestEmphasisCtx);
+  nestEmphasisCtxRef.current = nestEmphasisCtx;
+
+  const projectNodeToLocal = useCallback(
+    (node: { x?: number; y?: number; z?: number }): { x: number; y: number } | null => {
+      const fg = graphHandleRef.current;
+      const surface = graphSurfaceRef.current;
+      if (!fg?.graph2ScreenCoords || !surface) return null;
+      const coords = use3dRenderer
+        ? fg.graph2ScreenCoords(node.x ?? 0, node.y ?? 0, node.z ?? 0)
+        : fg.graph2ScreenCoords(node.x ?? 0, node.y ?? 0);
+      if (!coords) return null;
+      const pad = 12;
+      const w = surface.clientWidth;
+      const h = surface.clientHeight;
+      return {
+        x: Math.min(Math.max(pad, coords.x), Math.max(pad, w - pad)),
+        y: Math.min(Math.max(pad, coords.y), Math.max(pad, h - pad)),
+      };
+    },
+    [use3dRenderer],
+  );
+
+  const findSimNode = useCallback((id: string) => {
+    const nodes = graphData.nodes as Array<{
+      id?: string | number;
+      x?: number;
+      y?: number;
+      z?: number;
+    }>;
+    return nodes.find((n) => String(n.id) === id) ?? null;
+  }, [graphData.nodes]);
+
+  const placeHoverCard = useCallback(
+    (lines: string[], anchorId: string | null) => {
+      if (lines.length === 0) {
+        setHoverCard(null);
+        return;
+      }
+      let x = 80;
+      let y = 80;
+      if (anchorId) {
+        const sim = findSimNode(anchorId);
+        const projected = sim ? projectNodeToLocal(sim) : null;
+        if (projected) {
+          // Card CSS anchors above this point (translate -50%, -100%).
+          x = projected.x;
+          y = projected.y;
+        } else {
+          const surface = graphSurfaceRef.current;
+          const rect = surface?.getBoundingClientRect();
+          if (rect) {
+            x = Math.min(Math.max(8, pointerRef.current.x - rect.left), rect.width - 8);
+            y = Math.min(Math.max(8, pointerRef.current.y - rect.top), rect.height - 8);
+          }
+        }
+      }
+      setHoverCard({ lines, x, y, anchorId });
+    },
+    [findSimNode, projectNodeToLocal],
+  );
+
+  const clearHover = useCallback(() => {
+    setHoveredNodeId(null);
+    setHoveredHullId(null);
+    setHoveredLinkKey(null);
+    setHoverCard(null);
+  }, []);
+
+  const clearPointerState = useCallback(() => {
+    clearHover();
+    setSelectedHullId(null);
+  }, [clearHover]);
+
+  // Keep label glued to the node while the camera / simulation moves.
+  useEffect(() => {
+    if (!hoverCard?.anchorId) return;
+    let raf = 0;
+    const tick = () => {
+      const id = hoverCard.anchorId;
+      if (!id) return;
+      const sim = findSimNode(id);
+      const projected = sim ? projectNodeToLocal(sim) : null;
+      if (projected) {
+        const nextX = projected.x;
+        const nextY = projected.y;
+        setHoverCard((prev) => {
+          if (!prev || prev.anchorId !== id) return prev;
+          if (Math.abs(prev.x - nextX) < 0.5 && Math.abs(prev.y - nextY) < 0.5) return prev;
+          return { ...prev, x: nextX, y: nextY };
+        });
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [hoverCard?.anchorId, findSimNode, projectNodeToLocal]);
+
+  const syncNestEmphasisMaterials = useCallback(() => {
+    const fg = graphHandleRef.current;
+    const scene = fg?.scene?.();
+    if (!scene) return;
+    const ctx = nestEmphasisCtxRef.current;
+    scene.traverse((obj) => {
+      const hullId = obj.userData?.nestHullId as string | undefined;
+      const hullKind = obj.userData?.nestHullKind as NestHullNode['__hullKind'] | undefined;
+      if (!hullId || !hullKind) return;
+      const emphasis = resolveNestEmphasis(
+        { id: hullId, __hullKind: hullKind, __libraryId: undefined },
+        ctx,
+      );
+      applyNestHullEmphasis(obj, hullKind, emphasis);
+    });
+  }, []);
+
+  useEffect(() => {
+    syncNestEmphasisMaterials();
+  }, [nestEmphasisCtx, syncNestEmphasisMaterials, physicsReady, use3dRenderer]);
+
   const onNodeClick = useCallback(
-    (node: { id?: string | number; __kind?: string; __parentConceptId?: string }) => {
-      if (node.id === undefined || isNestHullNode(node)) return;
+    (node: {
+      id?: string | number;
+      __kind?: string;
+      __hullKind?: string;
+      __parentConceptId?: string;
+      __libraryId?: string;
+    }) => {
+      if (node.id === undefined) return;
+      if (isNestHullNode(node)) {
+        const id = String(node.id);
+        setSelectedHullId((prev) => (prev === id ? null : id));
+        return;
+      }
       if (isTagSatelliteNode(node)) {
         const parentId = node.__parentConceptId;
         if (parentId) props.onInspectConcept?.(parentId);
@@ -612,24 +820,6 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     },
     [props],
   );
-
-  const placeHoverCard = useCallback((lines: string[]) => {
-    const surface = graphSurfaceRef.current;
-    if (!surface || lines.length === 0) {
-      setHoverCard(null);
-      return;
-    }
-    const rect = surface.getBoundingClientRect();
-    const localX = Math.min(Math.max(8, pointerRef.current.x - rect.left), rect.width - 8);
-    const localY = Math.min(Math.max(8, pointerRef.current.y - rect.top), rect.height - 8);
-    setHoverCard({ lines, x: localX, y: localY });
-  }, []);
-
-  const clearHover = useCallback(() => {
-    setHoveredNodeId(null);
-    setHoveredLinkKey(null);
-    setHoverCard(null);
-  }, []);
 
   /** Deterministic hover for Playwright / live QA (not production UI). */
   useEffect(() => {
@@ -650,11 +840,10 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             ? `${node.primaryLibraryId}::${primaryFolderKey}`
             : null;
         setHoveredNodeId(conceptId);
+        setHoveredHullId(null);
         setHoveredLinkKey(null);
-        const surface = graphSurfaceRef.current;
-        const rect = surface?.getBoundingClientRect();
-        setHoverCard({
-          lines: conceptHoverLines({
+        placeHoverCard(
+          conceptHoverLines({
             kind: 'concept',
             title: node.title,
             tags: node.tags,
@@ -671,9 +860,8 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               : null,
             degree: degreeById.get(conceptId) ?? 0,
           }),
-          x: rect ? Math.min(120, Math.max(8, rect.width * 0.35)) : 80,
-          y: rect ? Math.min(120, Math.max(8, rect.height * 0.25)) : 80,
-        });
+          conceptId,
+        );
         return true;
       },
       clear: () => clearHover(),
@@ -693,6 +881,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     folderLabelByKey,
     libraryNameById,
     nodeLookupById,
+    placeHoverCard,
   ]);
 
   const onNodeHover = useCallback(
@@ -712,6 +901,9 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         curationStatus?: string | null;
         queryCount?: number;
         referenceCount?: number;
+        x?: number;
+        y?: number;
+        z?: number;
       } | null,
     ) => {
       if (!node || node.id === undefined) {
@@ -719,8 +911,11 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         return;
       }
 
+      const id = String(node.id);
+
       if (isNestHullNode(node)) {
         setHoveredNodeId(null);
+        setHoveredHullId(id);
         setHoveredLinkKey(null);
         placeHoverCard(
           nestHoverLines({
@@ -728,6 +923,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             hullKind: node.__hullKind ?? null,
             label: String(node.__label ?? node.title ?? 'Nest'),
           }),
+          id,
         );
         return;
       }
@@ -735,6 +931,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       if (isTagSatelliteNode(node)) {
         const parentId = node.__parentConceptId ?? null;
         setHoveredNodeId(parentId);
+        setHoveredHullId(null);
         setHoveredLinkKey(null);
         const parent = parentId ? nodeLookupById.get(parentId) : null;
         placeHoverCard(
@@ -743,12 +940,13 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             title: String(node.title ?? ''),
             parentTitle: parent?.title ?? null,
           }),
+          id,
         );
         return;
       }
 
-      const id = String(node.id);
       setHoveredNodeId(id);
+      setHoveredHullId(null);
       setHoveredLinkKey(null);
       const folderKey =
         node.primaryLibraryId && node.primaryFolderKey
@@ -772,6 +970,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             : null,
           degree: degreeById.get(id) ?? 0,
         }),
+        id,
       );
     },
     [
@@ -792,8 +991,8 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         toConceptId?: string;
         relation?: string;
         weightBand?: string;
-        source?: string | { id?: string | number };
-        target?: string | { id?: string | number };
+        source?: string | { id?: string | number; x?: number; y?: number; z?: number };
+        target?: string | { id?: string | number; x?: number; y?: number; z?: number };
       } | null,
     ) => {
       if (!link) {
@@ -811,26 +1010,67 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         return;
       }
       setHoveredNodeId(null);
+      setHoveredHullId(null);
       setHoveredLinkKey(`${fromId}→${toId}`);
       const fromNode = nodeLookupById.get(fromId);
       const toNode = nodeLookupById.get(toId);
-      placeHoverCard(
-        linkHoverLines({
-          relation: String(link.relation ?? 'mentions'),
-          weightBand: String(link.weightBand ?? 'typical'),
-          similarityBand: similarityBandForLink(fromNode, toNode),
-          fromTitle: fromNode?.title ?? null,
-          toTitle: toNode?.title ?? null,
-        }),
-      );
+      // Anchor link card to the midpoint of the two endpoints when available.
+      const fromSim = findSimNode(fromId);
+      const toSim = findSimNode(toId);
+      const mid =
+        fromSim && toSim
+          ? {
+              x: ((fromSim.x ?? 0) + (toSim.x ?? 0)) / 2,
+              y: ((fromSim.y ?? 0) + (toSim.y ?? 0)) / 2,
+              z: ((fromSim.z ?? 0) + (toSim.z ?? 0)) / 2,
+            }
+          : null;
+      const lines = linkHoverLines({
+        relation: String(link.relation ?? 'mentions'),
+        weightBand: String(link.weightBand ?? 'typical'),
+        similarityBand: similarityBandForLink(fromNode, toNode),
+        fromTitle: fromNode?.title ?? null,
+        toTitle: toNode?.title ?? null,
+      });
+      if (mid) {
+        const projected = projectNodeToLocal(mid);
+        setHoverCard({
+          lines,
+          x: projected?.x ?? 80,
+          y: projected?.y ?? 80,
+          anchorId: null,
+        });
+      } else {
+        placeHoverCard(lines, fromId);
+      }
     },
-    [clearHover, nodeLookupById, placeHoverCard],
+    [clearHover, findSimNode, nodeLookupById, placeHoverCard, projectNodeToLocal],
   );
 
   const nodeThreeObject = useCallback((node: object) => {
     if (!isNestHullNode(node as NestHullNode)) return undefined;
-    return createNestHullObject3d(node as NestHullNode);
+    const hull = node as NestHullNode;
+    const emphasis = resolveNestEmphasis(
+      { id: hull.id, __hullKind: hull.__hullKind, __libraryId: hull.__libraryId },
+      nestEmphasisCtxRef.current,
+    );
+    return createNestHullObject3d(hull, emphasis);
   }, []);
+
+  const nestEmphasisFor = useCallback(
+    (node: { id?: string | number; __hullKind?: string; __libraryId?: string }): NestEmphasis => {
+      if (!node.id || !node.__hullKind) return 'idle';
+      return resolveNestEmphasis(
+        {
+          id: String(node.id),
+          __hullKind: node.__hullKind as NestHullNode['__hullKind'],
+          __libraryId: node.__libraryId,
+        },
+        nestEmphasisCtx,
+      );
+    },
+    [nestEmphasisCtx],
+  );
 
   const nodeColor = useCallback(
     (node: {
@@ -894,7 +1134,18 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       ctx: CanvasRenderingContext2D,
       globalScale: number,
     ) => {
-      if (paintNestHull2d(node, ctx, globalScale)) return;
+      if (
+        paintNestHull2d(
+          {
+            ...node,
+            __emphasis: isNestHullNode(node) ? nestEmphasisFor(node) : 'idle',
+          },
+          ctx,
+          globalScale,
+        )
+      ) {
+        return;
+      }
 
       const x = node.x ?? 0;
       const y = node.y ?? 0;
@@ -961,7 +1212,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         }
       }
     },
-    [hasTopicFocus, hoverNeighborIds, hoveredNodeId, nodeColor, props.highlightConceptId],
+    [hasTopicFocus, hoverNeighborIds, hoveredNodeId, nestEmphasisFor, nodeColor, props.highlightConceptId],
   );
 
   const linkColor = useCallback(
@@ -1129,7 +1380,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           aria-live="polite"
         >
           {use3dRenderer && !statusText
-            ? '3D physics · nest hierarchy · hover for refs / similarity'
+            ? '3D physics · company envelope always on · nest hover/select'
             : null}
           {use3dRenderer && (hasTopicFocus || statusText) ? ' · ' : null}
           {hasTopicFocus && `Focused ${focusSet!.size} concepts`}
@@ -1177,22 +1428,6 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           className="relative min-h-0 flex-1 overflow-hidden bg-[#070a10]"
           onMouseMove={(e) => {
             pointerRef.current = { x: e.clientX, y: e.clientY };
-            setHoverCard((prev) => {
-              if (!prev) return prev;
-              const surface = graphSurfaceRef.current;
-              if (!surface) return prev;
-              const rect = surface.getBoundingClientRect();
-              const localX = Math.min(
-                Math.max(8, pointerRef.current.x - rect.left),
-                rect.width - 8,
-              );
-              const localY = Math.min(
-                Math.max(8, pointerRef.current.y - rect.top),
-                rect.height - 8,
-              );
-              if (prev.x === localX && prev.y === localY) return prev;
-              return { ...prev, x: localX, y: localY };
-            });
           }}
           onMouseLeave={clearHover}
         >
@@ -1242,7 +1477,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               ))}
             </div>
           ) : (
-            <div className={styles.hoverHint}>Hover · inspect · click opens panel</div>
+            <div className={styles.hoverHint}>Hover node · click nest to pin · click opens panel</div>
           )}
 
           {!graphWidth || !graphHeight ? (
@@ -1288,7 +1523,8 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               onNodeClick={onNodeClick}
               onNodeHover={onNodeHover as (node: object | null) => void}
               onLinkHover={onLinkHover as (link: object | null) => void}
-              onBackgroundClick={clearHover}
+              onBackgroundClick={clearPointerState}
+              onEngineTick={syncNestEmphasisMaterials}
               onEngineStop={() => {
                 if (hasTopicFocus) fitFocusedNodes();
               }}
@@ -1315,7 +1551,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               onNodeClick={onNodeClick}
               onNodeHover={onNodeHover as (node: object | null) => void}
               onLinkHover={onLinkHover as (link: object | null) => void}
-              onBackgroundClick={clearHover}
+              onBackgroundClick={clearPointerState}
               nodeCanvasObjectMode={() => 'replace'}
               nodeCanvasObject={
                 paintNode2d as (

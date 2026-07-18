@@ -62,7 +62,7 @@ test.describe('Galaxy hover cards (D-100)', () => {
 
     await expect(page.getByTestId('galaxy-empty')).toHaveCount(0, { timeout: 90_000 });
     await expect(page.getByTestId('galaxy-loading')).toHaveCount(0, { timeout: 90_000 });
-    await expect(page.getByText('Hover · inspect · click opens panel')).toBeVisible({
+    await expect(page.getByText(/Hover node · click nest to pin/)).toBeVisible({
       timeout: 30_000,
     });
 
@@ -90,7 +90,7 @@ test.describe('Galaxy hover cards (D-100)', () => {
       ).__hftrGalaxyHoverTest?.clear();
     });
     await expect(card).toHaveCount(0);
-    await expect(page.getByText('Hover · inspect · click opens panel')).toBeVisible();
+    await expect(page.getByText(/Hover node · click nest to pin/)).toBeVisible();
 
     await archiveCompany(request, companyId);
     createdCompanyIds.length = 0;

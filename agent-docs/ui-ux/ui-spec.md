@@ -378,10 +378,12 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
   from UI selection state (session-stable positions preferred).
 - Click concept → floating inspector (body markdown, tags, libraries, provenance, usage);
   galaxy highlights / fly-to the node (no bottom drawer).
-- **Hover (D-100):** pointer over concept / tag / nest / link shows a text-first info card
-  (nest path, admission/source, queried/referenced counts, tags; links show relation · weight ·
-  similarity). Non-neighbors dim; 1-hop edges brighten. Tag orbit chips capped (24) so filters
-  do not bury the graph.
+- **Hover (D-100 / D-102):** info card **anchors to the graph point** (`graph2ScreenCoords`),
+  not the free cursor; re-projects while the camera moves. Payload: nest path, admission/source,
+  queried/referenced, tags; links show relation · weight · similarity. Non-neighbors dim; 1-hop
+  edges brighten. **Company envelope always on**; other nests stay visible with idle / dim /
+  hover / selected emphasis (halo on focus). Click nest to pin; background clears. Tag orbit
+  capped (16).
 - Time scrubber (concept creation over time) remains phase-gated.
 
 ### Floating inspector (D-049)

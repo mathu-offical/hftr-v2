@@ -65,7 +65,21 @@
   background: rgba(10, 14, 22, 0.94);
   padding: 8px 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-  transform: translate(12px, 12px);
+  /* Anchor at the projected node point (top-center of card sits above the point). */
+  transform: translate(-50%, calc(-100% - 10px));
+}
+
+.hoverCard::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 10px;
+  height: 10px;
+  border-right: 1px solid rgba(122, 162, 247, 0.35);
+  border-bottom: 1px solid rgba(122, 162, 247, 0.35);
+  background: rgba(10, 14, 22, 0.94);
+  transform: translateX(-50%) rotate(45deg);
 }
 
 .hoverCardTitle {

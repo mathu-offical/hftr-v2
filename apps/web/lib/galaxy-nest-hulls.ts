@@ -110,32 +110,49 @@ export function buildLibraryHullNodes(
   return nodes;
 }
 
-/** Outer company envelope that loosely bounds all visible library nests. */
+/** Outer company envelope — always present (default sphere when no nests yet). */
 export function buildCompanyHullNode(
   centers: Map<string, LibraryCenter3D>,
-  libraryFilter: Set<string> | null,
-): NestHullNode | null {
-  const visible: LibraryCenter3D[] = [];
-  for (const [id, center] of centers) {
-    if (libraryFilter && !libraryFilter.has(id)) continue;
-    visible.push(center);
+  _libraryFilter: Set<string> | null,
+): NestHullNode {
+  // Company envelope uses all library centers so filtering never removes it.
+  const all = [...centers.values()];
+  if (all.length === 0) {
+    return {
+      id: COMPANY_HULL_ID,
+      __kind: 'nest-hull',
+      __hullKind: 'company',
+      __radius: 120,
+      __label: 'Company',
+      __color: '#4a5568',
+      title: 'Company galaxy',
+      tags: [],
+      body: '',
+      val: 0.01,
+      x: 0,
+      y: 0,
+      z: 0,
+      fx: 0,
+      fy: 0,
+      fz: 0,
+      primaryLibraryId: null,
+    };
   }
-  if (visible.length === 0) return null;
 
   let cx = 0;
   let cy = 0;
   let cz = 0;
-  for (const c of visible) {
+  for (const c of all) {
     cx += c.x;
     cy += c.y;
     cz += c.z;
   }
-  cx /= visible.length;
-  cy /= visible.length;
-  cz /= visible.length;
+  cx /= all.length;
+  cy /= all.length;
+  cz /= all.length;
 
   let radius = 80;
-  for (const c of visible) {
+  for (const c of all) {
     const reach = Math.hypot(c.x - cx, c.y - cy, c.z - cz) + c.radius;
     if (reach > radius) radius = reach;
   }

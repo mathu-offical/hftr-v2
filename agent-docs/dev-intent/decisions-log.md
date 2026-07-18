@@ -1071,6 +1071,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   current-mark line (no fabricated history). Code comments that mislabeled posture overlay as
   D-082 corrected to D-085. Docs: ui-spec §4 left Market posture. **Status: implemented.**
 
+- **D-102 (galaxy point-anchored labels + nest emphasis, 2026-07-18):** Hover cards project to
+  the actual node via `graph2ScreenCoords` and track camera motion. Company envelope sphere is
+  always present. Library/folder/article nests remain visible with idle/dim/hover/selected
+  states (halo + opacity); click pins a nest, background clears. Concept hover lights its
+  ancestry hulls. Docs: research-galaxy-topic-view-design §4.3.1, ui-spec §6. **Status:
+  implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

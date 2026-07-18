@@ -32,8 +32,20 @@ describe('galaxy-nest-hulls', () => {
 
   it('builds company envelope enclosing nests', () => {
     const company = buildCompanyHullNode(centers, null);
-    expect(company?.id).toBe(COMPANY_HULL_ID);
-    expect(company?.__radius).toBeGreaterThan(140);
+    expect(company.id).toBe(COMPANY_HULL_ID);
+    expect(company.__radius).toBeGreaterThan(140);
+  });
+
+  it('always builds a company envelope even with no libraries', () => {
+    const company = buildCompanyHullNode(new Map(), null);
+    expect(company.id).toBe(COMPANY_HULL_ID);
+    expect(company.__radius).toBeGreaterThan(0);
+  });
+
+  it('keeps company envelope when library filter excludes all', () => {
+    const company = buildCompanyHullNode(centers, new Set(['missing']));
+    expect(company.id).toBe(COMPANY_HULL_ID);
+    expect(company.__radius).toBeGreaterThan(140);
   });
 
   it('builds topic focus hull from member positions', () => {

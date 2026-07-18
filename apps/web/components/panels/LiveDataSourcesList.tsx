@@ -135,13 +135,13 @@ export function LiveDataSourcesList(props: {
           No active sources. Add and verify API keys in Settings.
         </p>
       ) : (
-        <ul className="mt-3 space-y-2" role="listbox" aria-label="Active API sources">
+        <ul className="mt-2 space-y-1" role="listbox" aria-label="Active API sources">
           {sources.map((s) => {
             const selected = selectedKind === s.kind;
             return (
               <li
                 key={s.kind}
-                className={`rounded-lg border p-2.5 transition-colors ${
+                className={`flex items-center gap-1.5 rounded border px-2 py-1 transition-colors ${
                   selected
                     ? 'border-[var(--color-accent)] bg-[var(--color-surface-2)] ring-1 ring-[var(--color-accent)]'
                     : 'border-[var(--color-line)] bg-[var(--color-surface-1)]'
@@ -154,26 +154,23 @@ export function LiveDataSourcesList(props: {
                   data-testid={`live-data-source-${s.kind}`}
                   data-selected={selected ? 'true' : 'false'}
                   onClick={() => dataView.selectLiveSource(s.kind, s.label)}
-                  className="w-full text-left"
+                  className="min-w-0 flex-1 truncate text-left text-[11px] font-medium text-[var(--color-ink)]"
                 >
-                  <span className="block truncate text-xs font-medium text-[var(--color-ink)]">
-                    {s.label}
-                  </span>
-                  <span className="mt-0.5 block text-[10px] text-[var(--color-ink-faint)]">
-                    {s.domain}
+                  {s.label}
+                  <span className="font-normal text-[var(--color-ink-faint)]">
+                    {' '}
+                    · {s.domain}
                     {s.canvasModuleIds.length > 0 ? ' · on canvas' : ''}
                   </span>
                 </button>
-                <div className="mt-2">
-                  <button
-                    type="button"
-                    disabled={placingKind === s.kind}
-                    onClick={() => void placeOnCanvas(s)}
-                    className="rounded border border-[var(--color-line)] px-1.5 py-0.5 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-ink)] disabled:opacity-50"
-                  >
-                    {placingKind === s.kind ? 'Placing…' : 'Place on canvas'}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  disabled={placingKind === s.kind}
+                  onClick={() => void placeOnCanvas(s)}
+                  className="shrink-0 rounded border border-[var(--color-line)] px-1.5 py-0.5 text-[9px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-ink)] disabled:opacity-50"
+                >
+                  {placingKind === s.kind ? '…' : 'Place on canvas'}
+                </button>
               </li>
             );
           })}

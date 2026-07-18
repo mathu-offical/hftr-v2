@@ -1,8 +1,9 @@
 # Research galaxy + topic view design (D-040)
 
-**Status:** implemented (2026-07-17) — hard nest clamp, Article wikilinks, include-neighbors,
-synopsis leak lint; credentialed research soak still open for formal G2 sign-off.  
-**Decision:** D-040  
+**Status:** implemented (2026-07-18) — library/folder/article nest hierarchy (D-078), shared
+LLM-assist qualitative similarity springs, rich inspector markdown; credentialed research soak
+still open for formal G2 sign-off.  
+**Decision:** D-040 (base); D-078 (hierarchy + similarity)  
 **Owns:** research canvas overlay (galaxy + article tabs), left-panel topics list, library-nested layout, usage telemetry for concepts/topics  
 **Related:** `ui-spec.md` §4 LEFT + §6; `product/product-spec.md` § Research/Libraries; `architecture/data-model.md` Research & knowledge; TD-09; D-007; D-039; D-045; DevSpecs `research-library-philosophy.spec.md` (read-only intent)
 
@@ -28,8 +29,24 @@ Usage and reference counters on topics and concepts exist for **system optimizat
 | **Concept** | Atomic curated knowledge unit (body, tags, provenance) | Yes (primary node) |
 | **Tag** | Cross-cutting label on concepts | Yes (secondary nodes / color / filter chips) |
 | **Library** | Curated membership container; hard spatial nest in galaxy | Nest boundary (hull), not a node |
-| **Concept link** | Typed edge (`supports`, `contradicts`, …) | Yes (edge) |
+| **Folder star** | Catalog/runtime tag cluster inside a library (D-078) | Folder hull + nest force |
+| **Article orbit** | Topic membership orbit inside a folder (D-078) | Article hull; topics still not concept hubs |
+| **Concept link** | Typed edge (`supports`, `contradicts`, …) | Yes (edge; springs blend weight + similarity) |
 | **Topic membership** | Join: topic ↔ concept (ordered, role optional) | Defines topic trace subgraph |
+
+### Galaxy hierarchy layout (D-078)
+
+```
+Company hull
+ └─ Library hull (soft nest)
+     └─ Folder sphere (catalog tag / runtime; mass = amalgamated vocabulary)
+         └─ Article orbit (topic)
+             ├─ Concept nodes
+             └─ Tag satellites (capped; click → parent concept)
+```
+
+Semantic distance uses the **same** LLM-assist regex normalize + Jaccard band path as
+librarian relevance (`low|medium|high`) — see `architecture/research-relevance-graph.md`.
 
 ### Topic composition sources (provenance classes)
 

@@ -1,9 +1,11 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
+import { ResearchGraphResponse } from '@hftr/contracts';
 import { scoping } from '@hftr/db';
-import { conceptLinks, concepts, libraryConcepts } from '@hftr/db/schema';
+import { conceptLinks, concepts, libraryConcepts, researchTopics, topicConcepts } from '@hftr/db/schema';
 import { bootstrapCompanyKnowledge } from '@hftr/engine';
 import { withAuth } from '@/lib/api';
+import { buildArticleOrbits, buildFolderStars } from '@/lib/galaxy-graph-nesting';
 import { bumpConceptQueries, listLibraryNests } from '@/lib/research-topics';
 
 export const dynamic = 'force-dynamic';
@@ -132,11 +134,55 @@ export async function GET(req: Request, ctx: Ctx) {
 
     const libraryNests = await listLibraryNests(db, companyId);
 
-    return {
+    const nestingConcepts = nodes.map((node) => ({
+      id: node.id,
+      title: node.title,
+      body: node.body,
+      tags: node.tags,
+      primaryLibraryId: node.primaryLibraryId,
+    }));
+    const conceptsById = new Map(nestingConcepts.map((c) => [c.id, c]));
+    const folders = buildFolderStars(nestingConcepts, libraryNests);
+
+    const topicRows = await db
+      .select({
+        id: researchTopics.id,
+        title: researchTopics.title,
+      })
+      .from(researchTopics)
+      .where(
+        moduleId
+          ? and(
+              eq(researchTopics.companyId, companyId),
+              eq(researchTopics.status, 'active'),
+              eq(researchTopics.moduleId, moduleId),
+            )
+          : and(eq(researchTopics.companyId, companyId), eq(researchTopics.status, 'active')),
+      )
+      .limit(80);
+
+    const topicIds = topicRows.map((row) => row.id);
+    const membershipRows =
+      topicIds.length === 0
+        ? []
+        : await db
+            .select({
+              topicId: topicConcepts.topicId,
+              conceptId: topicConcepts.conceptId,
+            })
+            .from(topicConcepts)
+            .where(inArray(topicConcepts.topicId, topicIds))
+            .limit(2000);
+
+    const articles = buildArticleOrbits(topicRows, membershipRows, conceptsById);
+
+    return ResearchGraphResponse.parse({
       nodes,
       links,
       tags: [...tagSet].sort(),
       libraries: libraryNests,
-    };
+      folders,
+      articles,
+    });
   });
 }

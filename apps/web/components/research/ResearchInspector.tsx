@@ -9,6 +9,7 @@ import {
   parseWikilinkHref,
   preprocessSynopsisWikilinks,
 } from '@/lib/research-wikilinks';
+import { ResearchConceptPreview } from '@/components/research/ResearchConceptPreview';
 import { ResearchMarkdown } from '@/components/research/ResearchMarkdown';
 import {
   useResearchView,
@@ -24,21 +25,14 @@ function ConceptMembershipRow(props: {
   onOpenConcept: (conceptId: string) => void;
 }) {
   const m = props.membership;
-  const title = m.title ?? 'Untitled concept';
   return (
-    <button
-      type="button"
-      onClick={() => props.onOpenConcept(m.conceptId)}
-      className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-2 text-left hover:border-[var(--color-accent)]"
-    >
-      <span className="text-[11px] font-medium text-[var(--color-ink)]">{title}</span>
-      {m.role && (
-        <span className="ml-2 text-[9px] uppercase text-[var(--color-ink-faint)]">{m.role}</span>
-      )}
-      <p className="mt-0.5 line-clamp-2 text-[10px] text-[var(--color-ink-dim)]">
-        {m.body ? m.body.slice(0, 160) : 'No excerpt'}
-      </p>
-    </button>
+    <ResearchConceptPreview
+      title={m.title ?? 'Untitled concept'}
+      body={m.body}
+      role={m.role}
+      onOpen={() => props.onOpenConcept(m.conceptId)}
+      testId={`inspector-membership-${m.conceptId}`}
+    />
   );
 }
 
@@ -214,7 +208,6 @@ function TopicInspector(props: {
           <ResearchMarkdown
             markdown={renderedSynopsis}
             components={synopsisMarkdownComponents}
-            className="prose prose-invert max-w-none text-[12px] text-[var(--color-ink-dim)] prose-p:my-1.5 prose-headings:text-[var(--color-ink)]"
           />
         ) : (
           <p className="text-[11px] text-[var(--color-ink-faint)]">No synopsis yet.</p>
@@ -357,10 +350,7 @@ function ConceptInspector(props: {
         </p>
       )}
 
-      <ResearchMarkdown
-        markdown={local.body}
-        className="prose prose-invert max-w-none text-[11px] text-[var(--color-ink-dim)] prose-p:my-1 prose-headings:text-[var(--color-ink)]"
-      />
+      <ResearchMarkdown markdown={local.body} />
 
       <dl className="mt-3 space-y-0.5 text-[9px] text-[var(--color-ink-faint)]">
         <div>
@@ -396,16 +386,14 @@ function LibraryInspector(props: {
         <ul className="space-y-1.5">
           {props.memberConcepts.map((c) => (
             <li key={c.id}>
-              <button
-                type="button"
-                onClick={() => props.onOpenConcept(c.id)}
-                className="w-full rounded-md border border-[var(--color-line)] px-2.5 py-2 text-left hover:border-[var(--color-accent)]"
-              >
-                <span className="text-[11px] font-medium text-[var(--color-ink)]">{c.title}</span>
-                <p className="mt-0.5 line-clamp-2 text-[10px] text-[var(--color-ink-dim)]">
-                  {c.body.slice(0, 140)}
-                </p>
-              </button>
+              <ResearchConceptPreview
+                title={c.title}
+                body={c.body}
+                tags={c.tags}
+                meta={c.confidenceBand ? `Confidence ${c.confidenceBand}` : null}
+                onOpen={() => props.onOpenConcept(c.id)}
+                testId={`inspector-library-member-${c.id}`}
+              />
             </li>
           ))}
         </ul>
@@ -427,19 +415,24 @@ function TagInspector(props: {
           {props.memberConcepts.length} matching concepts
         </p>
       </header>
-      <ul className="space-y-1.5">
-        {props.memberConcepts.map((c) => (
-          <li key={c.id}>
-            <button
-              type="button"
-              onClick={() => props.onOpenConcept(c.id)}
-              className="w-full rounded-md border border-[var(--color-line)] px-2.5 py-2 text-left hover:border-[var(--color-accent)]"
-            >
-              <span className="text-[11px] font-medium text-[var(--color-ink)]">{c.title}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      {props.memberConcepts.length === 0 ? (
+        <p className="text-[11px] text-[var(--color-ink-faint)]">No concepts with this tag.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {props.memberConcepts.map((c) => (
+            <li key={c.id}>
+              <ResearchConceptPreview
+                title={c.title}
+                body={c.body}
+                tags={c.tags}
+                meta={c.sourceClass.replace(/_/g, ' ')}
+                onOpen={() => props.onOpenConcept(c.id)}
+                testId={`inspector-tag-member-${c.id}`}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -40,7 +40,7 @@ function ResearchOverlayInner() {
         );
         setGraph(data);
       } catch {
-        setGraph({ nodes: [], links: [], tags: [], libraries: [] });
+        setGraph({ nodes: [], links: [], tags: [], libraries: [], folders: [], articles: [] });
       } finally {
         setGraphLoading(false);
       }
@@ -248,6 +248,8 @@ function ResearchOverlayInner() {
           links={graph?.links ?? []}
           tags={graph?.tags ?? []}
           libraries={graph?.libraries ?? []}
+          folders={graph?.folders ?? []}
+          articles={graph?.articles ?? []}
           focusConceptIds={effectiveFocusConceptIds}
           highlightConceptId={rv.highlightConceptId}
           selectedLibraryIds={selectedLibraryIds.length > 0 ? selectedLibraryIds : null}

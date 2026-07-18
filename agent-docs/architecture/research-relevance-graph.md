@@ -15,6 +15,11 @@ pgvector / embedding store remains deferred (**REQ-RES-005**).
 ## Scoring today
 
 - Jaccard / token overlap on titles + summaries (`scoreRelevanceBand`) → `low|medium|high`
+- **Shared path (D-078):** text is LLM-assist-normalized first via
+  `qualitativeNormalizeForCompare` (same numeric/datetime regex as leak-lint /
+  `substituteInput`) in `packages/contracts` (`qualitative-normalize` +
+  `qualitative-relevance`). Engine research handlers and galaxy layout springs
+  both call this path — no forked client Jaccard.
 - Gate suite in `validateEvidencePackages` (relevance, duplicate, entitlement, leak, coherence, freshness)
 - Extended gates: `sector_scope`, `source_credibility`, `corroboration` (D-070)
 

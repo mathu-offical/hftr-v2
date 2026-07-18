@@ -7,9 +7,12 @@ import type { LibraryCenter3D } from './galaxy-physics';
 import { shortLibraryLabel } from './research-library-shelves';
 
 export const NEST_HULL_PREFIX = '__nest_hull:';
+export const FOLDER_HULL_PREFIX = '__folder_hull:';
+export const ARTICLE_HULL_PREFIX = '__article_hull:';
 export const COMPANY_HULL_ID = '__company_hull';
+export const TAG_SAT_PREFIX = '__tag_sat:';
 
-export type NestHullKind = 'library' | 'company' | 'topic';
+export type NestHullKind = 'library' | 'company' | 'topic' | 'folder' | 'article';
 
 export type NestHullNode = {
   id: string;
@@ -39,7 +42,30 @@ export function nestHullId(libraryId: string): string {
 }
 
 export function isNestHullNode(node: { id?: string | number; __kind?: string }): boolean {
-  return node.__kind === 'nest-hull' || String(node.id ?? '').startsWith(NEST_HULL_PREFIX);
+  const id = String(node.id ?? '');
+  return (
+    node.__kind === 'nest-hull' ||
+    id.startsWith(NEST_HULL_PREFIX) ||
+    id.startsWith(FOLDER_HULL_PREFIX) ||
+    id.startsWith(ARTICLE_HULL_PREFIX) ||
+    id === COMPANY_HULL_ID
+  );
+}
+
+export function isTagSatelliteNode(node: { id?: string | number; __kind?: string }): boolean {
+  return node.__kind === 'tag-sat' || String(node.id ?? '').startsWith(TAG_SAT_PREFIX);
+}
+
+export function folderHullId(libraryId: string, folderKey: string): string {
+  return `${FOLDER_HULL_PREFIX}${libraryId}::${folderKey}`;
+}
+
+export function articleHullId(topicId: string): string {
+  return `${ARTICLE_HULL_PREFIX}${topicId}`;
+}
+
+export function tagSatelliteId(conceptId: string, tag: string): string {
+  return `${TAG_SAT_PREFIX}${conceptId}:${tag}`;
 }
 
 export function hullColorForIndex(index: number): string {
@@ -179,4 +205,80 @@ export function buildTopicHullNode(
     fz: cz,
     primaryLibraryId: null,
   };
+}
+
+export type FolderHullInput = {
+  libraryId: string;
+  folderKey: string;
+  label: string;
+  x: number;
+  y: number;
+  z: number;
+  radius: number;
+  /** Amalgamation mass drives visual emphasis. */
+  mass: number;
+};
+
+/** Catalog / runtime folder spheres nested inside a library nest (D-077). */
+export function buildFolderHullNodes(folders: readonly FolderHullInput[]): NestHullNode[] {
+  return folders.map((f, i) => {
+    const color = hullColorForIndex(i + 3);
+    const label = shortLibraryLabel(f.label, 20);
+    return {
+      id: folderHullId(f.libraryId, f.folderKey),
+      __kind: 'nest-hull' as const,
+      __hullKind: 'folder' as const,
+      __libraryId: f.libraryId,
+      __radius: f.radius,
+      __label: label,
+      __color: color,
+      title: f.label,
+      tags: [f.folderKey],
+      body: '',
+      val: Math.max(0.5, Math.min(8, f.mass * 0.35)),
+      x: f.x,
+      y: f.y,
+      z: f.z,
+      fx: f.x,
+      fy: f.y,
+      fz: f.z,
+      primaryLibraryId: null,
+    };
+  });
+}
+
+export type ArticleHullInput = {
+  topicId: string;
+  title: string;
+  x: number;
+  y: number;
+  z: number;
+  radius: number;
+};
+
+/** Article (topic) orbit shells inside folder / library volumes (D-077). */
+export function buildArticleHullNodes(articles: readonly ArticleHullInput[]): NestHullNode[] {
+  return articles.map((a, i) => {
+    const color = hullColorForIndex(i + 5);
+    const label = shortLibraryLabel(a.title, 18);
+    return {
+      id: articleHullId(a.topicId),
+      __kind: 'nest-hull' as const,
+      __hullKind: 'article' as const,
+      __radius: a.radius,
+      __label: label,
+      __color: color,
+      title: a.title,
+      tags: [],
+      body: '',
+      val: 0.2,
+      x: a.x,
+      y: a.y,
+      z: a.z,
+      fx: a.x,
+      fy: a.y,
+      fz: a.z,
+      primaryLibraryId: null,
+    };
+  });
 }

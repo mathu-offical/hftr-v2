@@ -11,16 +11,18 @@ export function createNestHullObject3d(node: NestHullNode): THREE.Group {
   const color = new THREE.Color(node.__color);
   const isCompany = node.__hullKind === 'company';
   const isTopic = node.__hullKind === 'topic';
+  const isFolder = node.__hullKind === 'folder';
+  const isArticle = node.__hullKind === 'article';
 
-  const latSeg = isCompany ? 36 : isTopic ? 24 : 22;
-  const lonSeg = isCompany ? 24 : isTopic ? 16 : 14;
+  const latSeg = isCompany ? 36 : isTopic || isArticle ? 24 : isFolder ? 20 : 22;
+  const lonSeg = isCompany ? 24 : isTopic || isArticle ? 16 : isFolder ? 14 : 14;
 
   const shell = new THREE.Mesh(
     new THREE.SphereGeometry(radius, latSeg, lonSeg),
     new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: isCompany ? 0.03 : isTopic ? 0.08 : 0.055,
+      opacity: isCompany ? 0.03 : isArticle ? 0.1 : isTopic ? 0.08 : isFolder ? 0.07 : 0.055,
       depthWrite: false,
       side: THREE.DoubleSide,
     }),
@@ -33,7 +35,7 @@ export function createNestHullObject3d(node: NestHullNode): THREE.Group {
       color,
       wireframe: true,
       transparent: true,
-      opacity: isCompany ? 0.2 : isTopic ? 0.55 : 0.42,
+      opacity: isCompany ? 0.2 : isArticle ? 0.62 : isTopic ? 0.55 : isFolder ? 0.5 : 0.42,
       depthWrite: false,
     }),
   );
@@ -44,7 +46,7 @@ export function createNestHullObject3d(node: NestHullNode): THREE.Group {
     new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: isCompany ? 0.16 : isTopic ? 0.4 : 0.34,
+      opacity: isCompany ? 0.16 : isArticle ? 0.45 : isTopic ? 0.4 : isFolder ? 0.38 : 0.34,
       side: THREE.DoubleSide,
       depthWrite: false,
     }),
@@ -83,21 +85,25 @@ export function paintNestHull2d(
   const color = node.__color ?? '#7aa2f7';
   const isCompany = node.__hullKind === 'company';
   const isTopic = node.__hullKind === 'topic';
+  const isFolder = node.__hullKind === 'folder';
+  const isArticle = node.__hullKind === 'article';
 
   ctx.save();
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fillStyle = color;
-  ctx.globalAlpha = isCompany ? 0.04 : isTopic ? 0.08 : 0.06;
+  ctx.globalAlpha = isCompany ? 0.04 : isArticle ? 0.1 : isTopic ? 0.08 : isFolder ? 0.07 : 0.06;
   ctx.fill();
 
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.strokeStyle = color;
-  ctx.globalAlpha = isCompany ? 0.35 : isTopic ? 0.7 : 0.55;
-  ctx.lineWidth = (isCompany ? 1.1 : 1.7) / Math.max(globalScale * 0.5, 0.35);
-  if (isTopic) {
+  ctx.globalAlpha = isCompany ? 0.35 : isArticle ? 0.75 : isTopic ? 0.7 : isFolder ? 0.62 : 0.55;
+  ctx.lineWidth = (isCompany ? 1.1 : isArticle || isFolder ? 1.5 : 1.7) / Math.max(globalScale * 0.5, 0.35);
+  if (isTopic || isArticle) {
     ctx.setLineDash([8 / globalScale, 5 / globalScale]);
+  } else if (isFolder) {
+    ctx.setLineDash([4 / globalScale, 3 / globalScale]);
   } else {
     ctx.setLineDash([]);
   }

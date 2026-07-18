@@ -12,23 +12,38 @@ import {
 } from 'react';
 import { forceCollide, forceManyBody } from 'd3-force-3d';
 import type {
+  ResearchGraphArticleOrbit,
+  ResearchGraphFolderStar,
   ResearchGraphLibraryNest,
   ResearchGraphLink,
   ResearchGraphNode,
 } from '@hftr/contracts';
 import {
   chargeStrengthForGraphSize,
+  combineLinkLayout,
+  computeArticleOrbitCenters3D,
+  computeFolderCenters3D,
   computeLibraryCenters3D,
+  createArticleOrbitForce,
+  createFolderNestForce,
   createLibraryNestForce,
+  createTagSatelliteForce,
   hashSpread3D,
-  linkDistanceForWeight,
-  linkStrengthForWeight,
   type GalaxySimNode,
 } from '@/lib/galaxy-physics';
 import {
+  buildConceptArticleIndex,
+  buildConceptFolderIndex,
+  buildTagSatelliteNodes,
+  similarityBandForLink,
+} from '@/lib/galaxy-hierarchy';
+import {
+  buildArticleHullNodes,
   buildCompanyHullNode,
+  buildFolderHullNodes,
   buildLibraryHullNodes,
   isNestHullNode,
+  isTagSatelliteNode,
   type NestHullNode,
 } from '@/lib/galaxy-nest-hulls';
 import { createNestHullObject3d, paintNestHull2d } from '@/lib/galaxy-nest-mesh';
@@ -81,6 +96,8 @@ export interface GalaxyViewProps {
   links: ResearchGraphLink[];
   tags: string[];
   libraries?: ResearchGraphLibraryNest[];
+  folders?: ResearchGraphFolderStar[];
+  articles?: ResearchGraphArticleOrbit[];
   focusConceptIds?: string[] | null;
   highlightConceptId?: string | null;
   selectedLibraryIds?: string[] | null;
@@ -132,6 +149,8 @@ function useGraphDimensions() {
 
 function GalaxyViewInner(props: GalaxyViewProps) {
   const libraryNests = props.libraries ?? [];
+  const folderStars = props.folders ?? [];
+  const articleOrbits = props.articles ?? [];
   const focusSet = useMemo(
     () => (props.focusConceptIds ? new Set(props.focusConceptIds) : null),
     [props.focusConceptIds],
@@ -198,6 +217,52 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     [libraryNests, props.nodes],
   );
 
+  const conceptFolderIndex = useMemo(
+    () => buildConceptFolderIndex(folderStars),
+    [folderStars],
+  );
+
+  const conceptArticleIndex = useMemo(
+    () => buildConceptArticleIndex(articleOrbits),
+    [articleOrbits],
+  );
+
+  const folderCenters = useMemo(
+    () =>
+      computeFolderCenters3D({
+        libraryCenters,
+        folders: folderStars.map((folder) => ({
+          folderKey: folder.folderKey,
+          libraryId: folder.libraryId,
+          label: folder.label,
+          mass: folder.mass,
+          memberCount: folder.memberConceptIds.length,
+        })),
+      }),
+    [libraryCenters, folderStars],
+  );
+
+  const articleCenters = useMemo(
+    () =>
+      computeArticleOrbitCenters3D({
+        articles: articleOrbits.map((article) => ({
+          topicId: article.topicId,
+          title: article.title,
+          libraryId: article.libraryId,
+          folderKey: article.folderKey,
+          memberCount: article.memberConceptIds.length,
+        })),
+        libraryCenters,
+        folderCenters,
+      }),
+    [articleOrbits, libraryCenters, folderCenters],
+  );
+
+  const nodeLookupById = useMemo(
+    () => new Map(props.nodes.map((node) => [node.id, node])),
+    [props.nodes],
+  );
+
   const degreeById = useMemo(() => {
     const map = new Map<string, number>();
     for (const link of props.links) {
@@ -233,10 +298,19 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         const degree = degreeById.get(n.id) ?? 0;
         const refs = n.referenceCount ?? 0;
         const libId = n.primaryLibraryId;
-        const center = libId ? libraryCenters.get(libId) : null;
+        const folderMembership = conceptFolderIndex.get(n.id);
+        const primaryFolderKey = folderMembership?.folderKey ?? null;
+        const primaryArticleId = conceptArticleIndex.get(n.id) ?? null;
+        const articleCenter = primaryArticleId ? articleCenters.get(primaryArticleId) : null;
+        const folderCenter =
+          libId && primaryFolderKey ? folderCenters.get(`${libId}::${primaryFolderKey}`) : null;
+        const libCenter = libId ? libraryCenters.get(libId) : null;
+        const center = articleCenter ?? folderCenter ?? libCenter ?? null;
         const focused = !focusSet || focusSet.has(n.id);
         const base = {
           ...n,
+          primaryFolderKey,
+          primaryArticleId,
           val: Math.max(1.2, degree * 0.7 + refs * 0.4 + 1),
           __focused: focused,
         };
@@ -253,13 +327,43 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         return base;
       });
 
+    const tagSatellites = buildTagSatelliteNodes(conceptNodes);
+
     const libraryHulls = buildLibraryHullNodes(libraryCenters, libraryFilter);
+    const folderHulls = buildFolderHullNodes(
+      [...folderCenters.values()]
+        .filter((center) => !libraryFilter || libraryFilter.has(center.libraryId))
+        .map((center) => ({
+          libraryId: center.libraryId,
+          folderKey: center.folderKey,
+          label: center.name,
+          x: center.x,
+          y: center.y,
+          z: center.z,
+          radius: center.radius,
+          mass: center.mass,
+        })),
+    );
+    const articleHulls = buildArticleHullNodes(
+      [...articleCenters.values()]
+        .filter(
+          (center) => !center.libraryId || !libraryFilter || libraryFilter.has(center.libraryId),
+        )
+        .map((center) => ({
+          topicId: center.topicId,
+          title: center.title,
+          x: center.x,
+          y: center.y,
+          z: center.z,
+          radius: center.radius,
+        })),
+    );
     const companyHull = buildCompanyHullNode(libraryCenters, libraryFilter);
     const hullNodes: NestHullNode[] = companyHull
-      ? [companyHull, ...libraryHulls]
-      : libraryHulls;
+      ? [companyHull, ...libraryHulls, ...folderHulls, ...articleHulls]
+      : [...libraryHulls, ...folderHulls, ...articleHulls];
 
-    const nodes = [...conceptNodes, ...hullNodes];
+    const nodes = [...conceptNodes, ...tagSatellites, ...hullNodes];
     const nodeSet = new Set(conceptNodes.map((n) => n.id));
     const links = props.links
       .filter((l) => nodeSet.has(l.fromConceptId) && nodeSet.has(l.toConceptId))
@@ -268,14 +372,22 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           focusSet !== null && focusSet.has(l.fromConceptId) && focusSet.has(l.toConceptId);
         const eitherFocused =
           focusSet !== null && (focusSet.has(l.fromConceptId) || focusSet.has(l.toConceptId));
+        const layout = combineLinkLayout(
+          l.weightBand,
+          l.relation,
+          similarityBandForLink(
+            nodeLookupById.get(l.fromConceptId),
+            nodeLookupById.get(l.toConceptId),
+          ),
+        );
         return {
           ...l,
           source: l.fromConceptId,
           target: l.toConceptId,
           __bothFocused: bothFocused,
           __eitherFocused: eitherFocused,
-          __distance: linkDistanceForWeight(l.weightBand, l.relation),
-          __strength: linkStrengthForWeight(l.weightBand),
+          __distance: layout.distance,
+          __strength: layout.strength,
           __directed:
             l.relation === 'causes' ||
             l.relation === 'supports' ||
@@ -289,6 +401,11 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     filteredNodeIds,
     degreeById,
     libraryCenters,
+    folderCenters,
+    articleCenters,
+    conceptFolderIndex,
+    conceptArticleIndex,
+    nodeLookupById,
     libraryFilter,
     focusSet,
   ]);
@@ -322,15 +439,18 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         linkForce?.strength?.((l) => l.__strength ?? 0.5);
         linkForce?.iterations?.(2);
 
+        const baseCharge = chargeStrengthForGraphSize(
+          Math.max(1, graphData.nodes.length - graphData.hullCount),
+        );
+
         fg.d3Force(
           'charge',
           forceManyBody()
             .strength((node: unknown) => {
               const n = node as GalaxySimNode & { __kind?: string };
               if (n.__kind === 'nest-hull') return 0;
-              return chargeStrengthForGraphSize(
-                Math.max(1, graphData.nodes.length - graphData.hullCount),
-              );
+              if (n.__kind === 'tag-sat') return baseCharge * 0.3;
+              return baseCharge;
             })
             .distanceMax(420),
         );
@@ -342,12 +462,17 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           'collide',
           forceCollide((node: unknown) => {
             const n = node as GalaxySimNode & { __kind?: string };
-            return n.__kind === 'nest-hull' ? 0 : Math.cbrt(n.val ?? 1) * 4.2;
+            if (n.__kind === 'nest-hull') return 0;
+            if (n.__kind === 'tag-sat') return Math.cbrt(n.val ?? 0.35) * 2.2;
+            return Math.cbrt(n.val ?? 1) * 4.2;
           })
             .strength(0.85)
             .iterations(2),
         );
         fg.d3Force('nest', createLibraryNestForce(libraryCenters));
+        fg.d3Force('folderNest', createFolderNestForce(folderCenters));
+        fg.d3Force('articleOrbit', createArticleOrbitForce(articleCenters));
+        fg.d3Force('tagSat', createTagSatelliteForce());
 
         fg.d3ReheatSimulation?.();
         setPhysicsReady(true);
@@ -355,7 +480,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         setStatusText('Physics reheat deferred — layout still settling.');
       }
     },
-    [graphData.nodes.length, graphData.hullCount, libraryCenters],
+    [graphData.nodes.length, graphData.hullCount, libraryCenters, folderCenters, articleCenters],
   );
 
   // Stable imperative handle — avoid callback-ref identity churn (causes tick races).
@@ -367,7 +492,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
   useEffect(() => {
     const fg = graphHandleRef.current;
     if (!fg?.d3Force) return;
-    const sig = `${graphData.nodes.length}:${graphData.links.length}:${libraryCenters.size}:${use3dRenderer}`;
+    const sig = `${graphData.nodes.length}:${graphData.links.length}:${libraryCenters.size}:${folderCenters.size}:${articleCenters.size}:${use3dRenderer}`;
     if (physicsSignatureRef.current === sig && physicsReady) return;
     physicsSignatureRef.current = sig;
     const frame = requestAnimationFrame(() => {
@@ -379,6 +504,8 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     graphData.links.length,
     graphData.nodes.length,
     libraryCenters.size,
+    folderCenters.size,
+    articleCenters.size,
     physicsReady,
     use3dRenderer,
   ]);
@@ -400,7 +527,9 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     if (!fg?.zoomToFit) return;
     const durationMs = reducedMotion ? 0 : 500;
     fg.zoomToFit(durationMs, 56, (node) => {
-      if (node.id === undefined || isNestHullNode(node)) return false;
+      if (node.id === undefined || isNestHullNode(node) || isTagSatelliteNode(node)) {
+        return false;
+      }
       return focusSet.has(String(node.id));
     });
   }, [focusSet, reducedMotion]);
@@ -418,14 +547,24 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     if (!fg?.zoomToFit) return;
     const durationMs = reducedMotion ? 0 : 650;
     const t = window.setTimeout(() => {
-      fg.zoomToFit?.(durationMs, 72, (n) => String(n.id) === id);
+      fg.zoomToFit?.(
+        durationMs,
+        72,
+        (n) =>
+          String(n.id) === id && !isNestHullNode(n) && !isTagSatelliteNode(n),
+      );
     }, reducedMotion ? 0 : 120);
     return () => window.clearTimeout(t);
   }, [props.highlightConceptId, props.nodes, reducedMotion, physicsReady]);
 
   const onNodeClick = useCallback(
-    (node: { id?: string | number; __kind?: string }) => {
+    (node: { id?: string | number; __kind?: string; __parentConceptId?: string }) => {
       if (node.id === undefined || isNestHullNode(node)) return;
+      if (isTagSatelliteNode(node)) {
+        const parentId = node.__parentConceptId;
+        if (parentId) props.onInspectConcept?.(parentId);
+        return;
+      }
       props.onInspectConcept?.(String(node.id));
     },
     [props],
@@ -445,6 +584,10 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       __color?: string;
     }) => {
       if (isNestHullNode(node)) return node.__color ?? '#4a5568';
+      if (isTagSatelliteNode(node)) {
+        const tag = node.tags?.[0];
+        return tag ? tagColor(tag, props.tags) : '#7dcfff';
+      }
       const tag = node.tags?.[0];
       const base = tag ? tagColor(tag, props.tags) : '#9aa4b8';
       if (props.highlightConceptId && String(node.id) === props.highlightConceptId) {
@@ -472,6 +615,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         __radius?: number;
         __color?: string;
         __label?: string;
+        val?: number;
       },
       ctx: CanvasRenderingContext2D,
       globalScale: number,
@@ -480,21 +624,24 @@ function GalaxyViewInner(props: GalaxyViewProps) {
 
       const x = node.x ?? 0;
       const y = node.y ?? 0;
+      const isTagSat = isTagSatelliteNode(node);
       const isHighlight = Boolean(
         props.highlightConceptId && String(node.id) === props.highlightConceptId,
       );
       const isFocused = !hasTopicFocus || node.__focused !== false;
-      const r = (isHighlight ? 7 : isFocused ? 4.5 : 3) / Math.max(globalScale * 0.35, 0.5);
+      const r =
+        (isTagSat ? 2.2 : isHighlight ? 7 : isFocused ? 4.5 : 3) /
+        Math.max(globalScale * 0.35, 0.5);
       const fill = nodeColor(node);
 
       ctx.beginPath();
       ctx.arc(x, y, r, 0, 2 * Math.PI);
       ctx.fillStyle = isHighlight ? '#7aa2f7' : fill;
-      ctx.globalAlpha = hasTopicFocus && node.__focused === false ? 0.28 : 0.95;
+      ctx.globalAlpha = isTagSat ? 0.75 : hasTopicFocus && node.__focused === false ? 0.28 : 0.95;
       ctx.fill();
       ctx.globalAlpha = 1;
 
-      if (isHighlight || (isFocused && globalScale > 1.35)) {
+      if (!isTagSat && (isHighlight || (isFocused && globalScale > 1.35))) {
         const label = humanizeConceptTitle(node.title ?? '');
         if (label) {
           const fontSize = Math.max(8 / globalScale, 2);
@@ -717,7 +864,9 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               nodeLabel={(n: { title?: string; __kind?: string; __label?: string }) =>
                 isNestHullNode(n)
                   ? String(n.__label ?? n.title ?? '')
-                  : humanizeConceptTitle(String(n.title ?? '')).slice(0, 40)
+                  : isTagSatelliteNode(n)
+                    ? String(n.title ?? '')
+                    : humanizeConceptTitle(String(n.title ?? '')).slice(0, 40)
               }
               nodeVal="val"
               nodeRelSize={4.2}

@@ -24,6 +24,18 @@ export interface CanvasModule {
   topicSectorsOverridden: boolean;
 }
 
+/** Per-module canvas status projection from GET …/canvas (T1.4, REQ-LLM-007). */
+export interface ModuleCanvasStatusProjection {
+  moduleId: string;
+  pendingJobs: number;
+  budgetQueuedJobs: number;
+  activeJobs: number;
+  deadJobs: number;
+  lastTradeOutcome: string | null;
+  lastTrendSymbol: string | null;
+  statusText: string;
+}
+
 export interface CanvasEngineGroup {
   id: string;
   templateId: string;

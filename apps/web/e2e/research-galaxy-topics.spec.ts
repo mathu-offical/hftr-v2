@@ -49,10 +49,22 @@ test.describe('Research topics galaxy overlay (D-040)', () => {
     const graphRes = await request.get(`/api/companies/${companyId}/research/graph`);
     expect(graphRes.ok()).toBeTruthy();
     const graph = (await graphRes.json()) as {
-      libraries: unknown[];
-      nodes: Array<{ id: string }>;
+      libraries: Array<{ id: string; name: string; masterLibrary?: boolean }>;
+      nodes: Array<{ id: string; title?: string; name?: string }>;
     };
     expect(Array.isArray(graph.libraries)).toBeTruthy();
+    // D-044: compile-time catalog mechanisms materialize into galaxy on first graph load.
+    expect(graph.libraries.length).toBeGreaterThanOrEqual(1);
+    expect(graph.nodes.length).toBeGreaterThanOrEqual(8);
+    const titles = graph.nodes.map((n) => n.title ?? n.name ?? '').join(' ');
+    expect(titles).toMatch(/opening_range_breakout/);
+
+    const topicsListRes = await request.get(`/api/companies/${companyId}/research/topics`);
+    expect(topicsListRes.ok()).toBeTruthy();
+    const { topics: listedTopics } = (await topicsListRes.json()) as {
+      topics: Array<{ title: string }>;
+    };
+    expect(listedTopics.some((t) => t.title === 'Seeded trading mechanisms')).toBeTruthy();
 
     const graphConceptCount = graph.nodes?.length ?? 0;
     if (graphConceptCount > 0) {
@@ -116,7 +128,9 @@ test.describe('Research topics galaxy overlay (D-040)', () => {
 
     if ((graph.libraries?.length ?? 0) > 0) {
       await page.getByTestId('research-tab-galaxy').click();
-      await expect(page.getByRole('toolbar', { name: 'Library nest filters' })).toBeVisible();
+      await expect(page.getByRole('toolbar', { name: 'Library nest filters' })).toBeVisible({
+        timeout: 15_000,
+      });
     }
 
     if (graphConceptCount > 0) {

@@ -30,6 +30,8 @@ export type ModuleNodeData = {
   /** Server-composed text-first status projection line (T1.4). */
   statusText?: string;
   activeJobs?: number;
+  /** Pending jobs deferred by LLM budget admission (REQ-LLM-007). */
+  budgetQueuedJobs?: number;
   /** Optional config summary for inline status (e.g. display kind). */
   configSnippet?: string;
   companyId: string;
@@ -192,6 +194,7 @@ export const ModuleNode = memo(function ModuleNode({
     }
   }
 
+  const budgetHeld = (data.budgetQueuedJobs ?? 0) > 0;
   const statusLine =
     data.moduleType === 'display' && data.configSnippet
       ? data.configSnippet
@@ -379,7 +382,14 @@ export const ModuleNode = memo(function ModuleNode({
               style={{ background: visual.hue }}
             />
           )}
-          <span>{statusLine}</span>
+          {budgetHeld && (data.activeJobs ?? 0) === 0 && (
+            <span
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ background: 'var(--color-warn)' }}
+              aria-hidden
+            />
+          )}
+          <span className={budgetHeld ? 'text-[var(--color-warn)]' : undefined}>{statusLine}</span>
         </div>
 
         {requiredSetupFields.length > 0 && (

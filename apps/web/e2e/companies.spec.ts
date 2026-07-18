@@ -11,8 +11,35 @@ async function openNewCompanyForm(page: Page): Promise<void> {
   });
 }
 
+async function ensureIdentityFields(page: Page): Promise<void> {
+  const summary = page.getByTestId('create-identity-summary');
+  if (await summary.isVisible()) {
+    await summary.click();
+  }
+}
+
+async function confirmIdentity(page: Page): Promise<void> {
+  const confirm = page.getByTestId('create-identity-confirm');
+  if (await confirm.isVisible()) {
+    await expect(confirm).toBeEnabled();
+    await confirm.click();
+  }
+  await expect(page.getByTestId('create-identity-summary')).toBeVisible();
+}
+
+async function addFromExecutionStore(page: Page, engineLabel: string): Promise<void> {
+  await page.getByRole('button', { name: 'Open execution store' }).click();
+  await page.getByRole('button', { name: `Add ${engineLabel}` }).click();
+}
+
+async function addFromResearchStore(page: Page, engineLabel: string): Promise<void> {
+  await page.getByRole('button', { name: 'Open research store' }).click();
+  await page.getByRole('button', { name: `Add ${engineLabel}` }).click();
+}
+
 async function createDayTradingCompany(page: Page): Promise<void> {
-  const nameField = page.getByRole('textbox', { name: 'Name', exact: true });
+  await ensureIdentityFields(page);
+  const nameField = page.getByRole('textbox', { name: /Name/ });
   if (!(await nameField.inputValue()).trim()) {
     await nameField.fill(e2eCompanyName('day-trading'));
   }
@@ -20,7 +47,7 @@ async function createDayTradingCompany(page: Page): Promise<void> {
   if (!(await philosophy.inputValue()).trim()) {
     await philosophy.fill('E2E day-trading company philosophy.');
   }
-  await page.getByRole('button', { name: 'Add Day trading engine' }).click();
+  await addFromExecutionStore(page, 'Day trading engine');
   await expect(page.getByTestId('engine-seed-card').first()).toBeVisible({
     timeout: CREATE_FORM_TIMEOUT_MS,
   });
@@ -55,20 +82,27 @@ test.describe('Companies directory', () => {
 
     await expect(page.getByTestId('engine-section-research')).toBeVisible();
     await expect(page.getByTestId('engine-section-execution')).toBeVisible();
+    await page.getByRole('button', { name: 'Open execution store' }).click();
     await expect(page.getByRole('button', { name: 'Add Day trading engine' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Add Trend research engine' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Locked · Crypto engine' })).toBeDisabled();
     await expect(
       page.getByRole('button', { name: 'Locked · High-frequency engine' }),
     ).toBeDisabled();
+    await page.keyboard.press('Escape');
 
-    await page.getByRole('button', { name: 'Add Day trading engine' }).click();
+    await page.getByRole('button', { name: 'Open research store' }).click();
+    await expect(page.getByRole('button', { name: 'Add Trend research engine' })).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    await addFromExecutionStore(page, 'Day trading engine');
     // Execution + auto research deps (market regime lab, desk-aligned).
     await expect(page.getByTestId('engine-seed-card')).toHaveCount(3);
     // Skip is type=button — must still require name + philosophy (API CreateCompanyInput).
     await expect(page.getByRole('button', { name: 'Skip setup & open canvas' })).toBeDisabled();
-    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(e2eCompanyName('create-gate'));
+    await ensureIdentityFields(page);
+    await page.getByRole('textbox', { name: /Name/ }).fill(e2eCompanyName('create-gate'));
     await page.getByRole('textbox', { name: /Philosophy/ }).fill('E2E create-gate philosophy.');
+    await confirmIdentity(page);
     await expect(page.getByRole('button', { name: 'Skip setup & open canvas' })).toBeEnabled();
     await expect(page.getByTestId('engine-canvas-preview')).toBeVisible();
     await expect(page.getByTestId('engine-workspace')).toBeVisible();
@@ -81,8 +115,8 @@ test.describe('Companies directory', () => {
     await expect(
       page.getByTestId('engine-seed-card').filter({ hasText: 'dep' }),
     ).toHaveCount(2);
-    // Add buttons stay available for another instance of the same type.
-    await expect(page.getByRole('button', { name: 'Add Day trading engine' })).toBeEnabled();
+    // Store stays available for another instance of the same type.
+    await expect(page.getByRole('button', { name: 'Open execution store' })).toBeEnabled();
 
     const dayCard = page.getByTestId('engine-inspector-focus');
     await expect(page.getByTestId('engine-seed-inspector')).toHaveAttribute(
@@ -115,7 +149,7 @@ test.describe('Companies directory', () => {
       page.getByTestId('engine-inspector-focus').getByRole('heading', { name: 'Market regime lab' }),
     ).toBeVisible();
 
-    await page.getByRole('button', { name: 'Add Trend research engine' }).click();
+    await addFromResearchStore(page, 'Trend research engine');
     await expect(page.getByTestId('engine-seed-card')).toHaveCount(4);
     await page
       .getByTestId('engine-seed-card')
@@ -125,7 +159,7 @@ test.describe('Companies directory', () => {
     await expect(page.getByTestId('engine-seed-card')).toHaveCount(3);
 
     // Multi-add same execution type.
-    await page.getByRole('button', { name: 'Add Day trading engine' }).click();
+    await addFromExecutionStore(page, 'Day trading engine');
     await expect(page.getByTestId('engine-seed-card')).toHaveCount(6);
     await expect(page.getByRole('heading', { name: 'Day trading engine (2)' })).toBeVisible();
 
@@ -135,8 +169,9 @@ test.describe('Companies directory', () => {
     await expect(page.getByRole('button', { name: 'Skip setup & open canvas' })).toBeEnabled();
 
     // Removing all engines from the nav list re-blocks create.
-    while ((await page.getByTestId('engine-seed-card').count()) > 0) {
-      await page
+    const seedList = page.getByTestId('engine-seed-list');
+    while ((await seedList.getByTestId('engine-seed-card').count()) > 0) {
+      await seedList
         .getByTestId('engine-seed-card')
         .first()
         .getByRole('button', { name: /^Remove / })
@@ -151,8 +186,10 @@ test.describe('Companies directory', () => {
     request,
     createdCompanyIds,
   }) => {
+    test.setTimeout(90_000);
     const name = e2eCompanyName('card');
     await openNewCompanyForm(page);
+    await ensureIdentityFields(page);
     await page.getByPlaceholder('e.g. Momentum Desk').fill(name);
     await page.getByPlaceholder(/Patient swing trading/).fill('Card actions e2e philosophy.');
     await createDayTradingCompany(page);

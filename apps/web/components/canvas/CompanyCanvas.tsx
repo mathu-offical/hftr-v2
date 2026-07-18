@@ -974,7 +974,12 @@ export function CompanyCanvas(props: {
     async function poll() {
       try {
         const { modules: projections } = await api<{
-          modules: { moduleId: string; statusText: string; activeJobs: number }[];
+          modules: {
+            moduleId: string;
+            statusText: string;
+            activeJobs: number;
+            budgetQueuedJobs: number;
+          }[];
         }>(`/api/companies/${props.companyId}/canvas`);
         if (stopped) return;
         const byId = new Map(projections.map((p) => [p.moduleId, p]));
@@ -983,7 +988,15 @@ export function CompanyCanvas(props: {
             if (!isModuleNode(n)) return n;
             const p = byId.get(n.id);
             return p
-              ? { ...n, data: { ...n.data, statusText: p.statusText, activeJobs: p.activeJobs } }
+              ? {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    statusText: p.statusText,
+                    activeJobs: p.activeJobs,
+                    budgetQueuedJobs: p.budgetQueuedJobs,
+                  },
+                }
               : n;
           }),
         );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ENGINE_TEMPLATES,
@@ -191,6 +191,8 @@ export function CreateCompanyForm() {
   const [selectedEngineKey, setSelectedEngineKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Expanded until name + philosophy are confirmed; Edit re-opens. */
+  const [identityExpanded, setIdentityExpanded] = useState(true);
 
   const availableEngines = ENGINE_TEMPLATES.filter((engine) => engine.available);
   // Include gated templates so Research/Execution show locked add buttons with reasons.
@@ -407,6 +409,8 @@ export function CreateCompanyForm() {
   });
   const hasIdentity =
     name.trim().length >= 1 && philosophy.trim().length >= 1;
+  const showIdentityFields = identityExpanded || !hasIdentity;
+
   const canCreate = engines.length >= 1 && hasIdentity && !busy;
   const canSubmitSetup = canCreate && !hasBlockingMissing;
   // Skip may omit topic/capital/exit but still needs name, philosophy, and
@@ -454,6 +458,7 @@ export function CreateCompanyForm() {
           extraModules: modulesPayload.length > 0 ? modulesPayload : undefined,
         },
       });
+      setOpen(false);
       router.push(`/companies/${company.id}`);
       router.refresh();
     } catch (err) {
@@ -467,6 +472,8 @@ export function CreateCompanyForm() {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const onKeyDown = (event: KeyboardEvent) => {
+      // Store popovers handle Escape first (capture); skip dialog dismiss then.
+      if (event.defaultPrevented) return;
       if (event.key === 'Escape' && !busy) setOpen(false);
     };
     window.addEventListener('keydown', onKeyDown);
@@ -476,18 +483,17 @@ export function CreateCompanyForm() {
     };
   }, [open, busy]);
 
-  if (!open) {
-    return (
+  return (
+    <>
       <button
+        type="button"
         onClick={() => setOpen(true)}
         className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
       >
         New company
       </button>
-    );
-  }
 
-  return (
+      {open && (
     <div
       className="fixed inset-0 z-[90] flex items-stretch justify-center bg-black/60 p-3 sm:p-4 md:p-5"
       role="presentation"
@@ -499,6 +505,7 @@ export function CreateCompanyForm() {
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${formId}-create-title`}
+        noValidate
         onSubmit={(event) => {
           event.preventDefault();
           void createCompany(false);
@@ -516,54 +523,114 @@ export function CreateCompanyForm() {
         </header>
 
         {/* Viewport-bounded body: no outer page scroll; each region scrolls itself. */}
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:p-4">
-          <div className="shrink-0 space-y-2.5">
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-              <label className="block space-y-1">
-                <span className="text-xs text-[var(--color-ink-dim)]">Name</span>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  maxLength={80}
-                  placeholder="e.g. Momentum Desk"
-                  className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--color-accent)]"
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-xs text-[var(--color-ink-dim)]">Paper seed (USD)</span>
-                <input
-                  value={seedDollars}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setSeedDollars(next);
-                    refreshSeedDefaults(next);
-                  }}
-                  inputMode="numeric"
-                  className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 font-mono text-sm outline-none focus:border-[var(--color-accent)] sm:w-32"
-                />
-              </label>
-            </div>
-
-            <label className="block space-y-1">
-              <span className="text-xs text-[var(--color-ink-dim)]">
-                {philosophy.trim() ? 'Philosophy' : 'Required · Philosophy'}
-              </span>
-              <textarea
-                value={philosophy}
-                onChange={(e) => setPhilosophy(e.target.value)}
-                required
-                rows={2}
-                maxLength={4000}
-                placeholder="Patient swing trading on large-cap tech. Prefer strong evidence over speed; cut losers fast."
-                className="max-h-24 w-full resize-y rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--color-accent)]"
-              />
-            </label>
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-3 sm:p-4">
+          <div
+            className="shrink-0"
+            data-testid="create-identity"
+            data-identity-condensed={showIdentityFields ? 'false' : 'true'}
+          >
+            {showIdentityFields ? (
+              <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-[minmax(0,1fr)_9rem] sm:items-end">
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className="text-xs leading-4 text-[var(--color-ink-dim)]">
+                    {name.trim() ? 'Name' : 'Required · Name'}
+                  </span>
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    maxLength={80}
+                    placeholder="e.g. Momentum Desk"
+                    className="h-9 w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 text-sm outline-none focus:border-[var(--color-accent)]"
+                  />
+                </label>
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className="text-xs leading-4 text-[var(--color-ink-dim)]">
+                    Paper seed (USD)
+                  </span>
+                  <input
+                    value={seedDollars}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setSeedDollars(next);
+                      refreshSeedDefaults(next);
+                    }}
+                    inputMode="numeric"
+                    className="h-9 w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 font-mono text-sm outline-none focus:border-[var(--color-accent)]"
+                  />
+                </label>
+                <label className="flex min-w-0 flex-col gap-1 sm:col-span-2">
+                  <span className="text-xs leading-4 text-[var(--color-ink-dim)]">
+                    {philosophy.trim() ? 'Philosophy' : 'Required · Philosophy'}
+                  </span>
+                  <textarea
+                    value={philosophy}
+                    onChange={(e) => setPhilosophy(e.target.value)}
+                    required
+                    rows={2}
+                    maxLength={4000}
+                    placeholder="Patient swing trading on large-cap tech. Prefer strong evidence over speed; cut losers fast."
+                    className="min-h-[3.25rem] w-full resize-y rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--color-accent)]"
+                  />
+                </label>
+                <div className="flex justify-end sm:col-span-2">
+                  <button
+                    type="button"
+                    disabled={!hasIdentity}
+                    onClick={() => setIdentityExpanded(false)}
+                    aria-label="Confirm identity"
+                    data-testid="create-identity-confirm"
+                    className="h-8 shrink-0 rounded-md border border-[var(--color-accent)] px-3 text-xs font-medium text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIdentityExpanded(true)}
+                className="flex w-full items-center gap-2 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-left hover:border-[var(--color-accent)]/50"
+                aria-label="Edit company identity"
+                data-testid="create-identity-summary"
+              >
+                <span className="min-w-0 truncate text-sm font-medium text-[var(--color-ink)]">
+                  {name}
+                </span>
+                <span className="shrink-0 font-mono text-[10px] text-[var(--color-ink-dim)]">
+                  ${seedDollars || '0'}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--color-ink-faint)]">
+                  {philosophy}
+                </span>
+                <span className="shrink-0 text-[10px] text-[var(--color-accent)]">Edit</span>
+              </button>
+            )}
           </div>
 
           <section className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] p-2">
-            <div className="flex shrink-0 flex-wrap items-baseline justify-between gap-2">
-              <h3 className="text-xs font-medium text-[var(--color-ink)]">Engines</h3>
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <h3 className="text-xs font-medium text-[var(--color-ink)]">Engines</h3>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <EngineStoreMenu
+                    title="Research"
+                    description="Specialty packs"
+                    catalog={researchCatalog}
+                    addDisabled={atEngineLimit}
+                    onAdd={addResearchEngine}
+                    testId="engine-section-research"
+                  />
+                  <EngineStoreMenu
+                    title="Execution"
+                    description="Full-spine · cascades research deps"
+                    catalog={executionCatalog}
+                    addDisabled={atEngineLimit}
+                    onAdd={addExecutionEngine}
+                    testId="engine-section-execution"
+                  />
+                </div>
+              </div>
               {engines.length === 0 && (
                 <p className="text-[10px] text-[var(--color-warn)]" data-testid="engines-empty-hint">
                   Add at least one engine
@@ -571,31 +638,12 @@ export function CreateCompanyForm() {
               )}
             </div>
 
-            <div className="grid shrink-0 gap-2 overflow-y-auto overscroll-contain md:grid-cols-2 md:items-start max-h-[7.5rem] md:max-h-[8.5rem]">
-              <EngineSection
-                title="Research"
-                description="Specialty packs · click to add another"
-                catalog={researchCatalog}
-                addDisabled={atEngineLimit}
-                onAdd={addResearchEngine}
-                testId="engine-section-research"
-              />
-              <EngineSection
-                title="Execution"
-                description="Full-spine · each add cascades research deps"
-                catalog={executionCatalog}
-                addDisabled={atEngineLimit}
-                onAdd={addExecutionEngine}
-                testId="engine-section-execution"
-              />
-            </div>
-
             <div
-              className="grid min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] lg:grid-cols-[11rem_minmax(0,1fr)_18rem] lg:overflow-hidden"
+              className="grid min-h-0 flex-1 overflow-hidden rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] max-lg:grid-rows-[minmax(0,8.5rem)_minmax(0,1fr)_minmax(0,11rem)] lg:grid-cols-[11rem_minmax(0,1fr)_18rem]"
               data-testid="engine-workspace"
             >
               <aside
-                className="flex min-h-[9rem] max-h-[12rem] flex-col border-b border-[var(--color-line)] lg:min-h-0 lg:max-h-none lg:border-b-0 lg:border-r"
+                className="flex min-h-0 flex-col overflow-hidden border-b border-[var(--color-line)] lg:border-b-0 lg:border-r"
                 data-testid="engine-seed-list"
               >
                 <div className="shrink-0 border-b border-[var(--color-line)] px-2 py-1.5">
@@ -681,7 +729,7 @@ export function CreateCompanyForm() {
                 </ul>
               </aside>
 
-              <div className="min-h-[14rem] min-w-0 border-b border-[var(--color-line)] lg:min-h-0 lg:border-b-0 lg:border-r">
+              <div className="min-h-0 min-w-0 overflow-hidden border-b border-[var(--color-line)] lg:border-b-0 lg:border-r">
                 <EngineCanvasPreview
                   fill
                   engines={previewEngines}
@@ -691,7 +739,7 @@ export function CreateCompanyForm() {
               </div>
 
               <aside
-                className="flex min-h-[10rem] max-h-[16rem] flex-col lg:min-h-0 lg:max-h-none"
+                className="flex min-h-0 flex-col overflow-hidden"
                 data-testid="engine-inspector-panel"
               >
                 <div className="shrink-0 border-b border-[var(--color-line)] px-2 py-1.5">
@@ -723,15 +771,25 @@ export function CreateCompanyForm() {
             </div>
           </section>
 
-          <section className="flex max-h-[30%] min-h-0 shrink-0 flex-col overflow-hidden rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)]">
-            <div className="flex shrink-0 flex-wrap items-end justify-between gap-2 border-b border-[var(--color-line)] px-2.5 py-2">
-              <div>
+          <section
+            className={`flex shrink-0 flex-col overflow-hidden rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] ${
+              extraModules.length > 0 ? 'max-h-[28%] min-h-0' : ''
+            }`}
+          >
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-2.5 py-1.5">
+              <div className="min-w-0">
                 <h3 className="text-xs font-medium text-[var(--color-ink)]">
                   Standalone modules (optional)
                 </h3>
-                <p className="text-[10px] text-[var(--color-ink-faint)]">
-                  Extra nodes outside engines.
-                </p>
+                {extraModules.length === 0 ? (
+                  <p className="text-[10px] text-[var(--color-ink-faint)]">
+                    Extra nodes outside engines — none added.
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-[var(--color-ink-faint)]">
+                    Extra nodes outside engines.
+                  </p>
+                )}
               </div>
               <label className="text-xs text-[var(--color-ink-dim)]">
                 <span className="sr-only">Add module</span>
@@ -755,50 +813,50 @@ export function CreateCompanyForm() {
               </label>
             </div>
 
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-2.5">
-              {extraModules.length === 0 && (
-                <p className="text-[11px] text-[var(--color-ink-faint)]">No standalone modules.</p>
-              )}
-
-              {extraModules.map((item) => {
-                const required = requiredModuleSetupFields(item.type) as ModuleSetupField[];
-                const missing = missingFieldsFromDraft(required, item.draft);
-                return (
-                  <article
-                    key={item.key}
-                    className="space-y-2 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] p-3"
-                    data-testid="extra-seed-module"
-                  >
-                    <header className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <input
-                          value={item.name}
-                          onChange={(event) => updateModule(item.key, { name: event.target.value })}
-                          aria-label="Extra module name"
-                          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)]"
-                        />
-                        <span className="text-[10px] uppercase tracking-wide text-[var(--color-ink-faint)]">
-                          {item.type}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeModule(item.key)}
-                        className="rounded border border-[var(--color-line)] px-2 py-1 text-[11px] text-[var(--color-ink-dim)] hover:border-[var(--color-block)] hover:text-[var(--color-block)]"
-                      >
-                        Remove
-                      </button>
-                    </header>
-                    <ModuleSetupFields
-                      requiredFields={required}
-                      missingFields={missing}
-                      draft={item.draft}
-                      onChange={(next) => updateModule(item.key, { draft: next })}
-                    />
-                  </article>
-                );
-              })}
-            </div>
+            {extraModules.length > 0 && (
+              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain border-t border-[var(--color-line)] p-2.5">
+                {extraModules.map((item) => {
+                  const required = requiredModuleSetupFields(item.type) as ModuleSetupField[];
+                  const missing = missingFieldsFromDraft(required, item.draft);
+                  return (
+                    <article
+                      key={item.key}
+                      className="space-y-2 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] p-3"
+                      data-testid="extra-seed-module"
+                    >
+                      <header className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <input
+                            value={item.name}
+                            onChange={(event) =>
+                              updateModule(item.key, { name: event.target.value })
+                            }
+                            aria-label="Extra module name"
+                            className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)]"
+                          />
+                          <span className="text-[10px] uppercase tracking-wide text-[var(--color-ink-faint)]">
+                            {item.type}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeModule(item.key)}
+                          className="rounded border border-[var(--color-line)] px-2 py-1 text-[11px] text-[var(--color-ink-dim)] hover:border-[var(--color-block)] hover:text-[var(--color-block)]"
+                        >
+                          Remove
+                        </button>
+                      </header>
+                      <ModuleSetupFields
+                        requiredFields={required}
+                        missingFields={missing}
+                        draft={item.draft}
+                        onChange={(next) => updateModule(item.key, { draft: next })}
+                      />
+                    </article>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           {error && (
@@ -832,6 +890,8 @@ export function CreateCompanyForm() {
         </div>
       </form>
     </div>
+      )}
+    </>
   );
 }
 
@@ -911,7 +971,8 @@ function EngineNavRow(props: {
   );
 }
 
-function EngineSection(props: {
+/** Compact store trigger; full catalog opens in a popover. */
+function EngineStoreMenu(props: {
   title: string;
   description: string;
   catalog: EngineTemplate[];
@@ -919,48 +980,99 @@ function EngineSection(props: {
   onAdd: (templateId: string) => void;
   testId: string;
 }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const availableCount = props.catalog.filter((engine) => engine.available).length;
+  const openLabel = `Open ${props.title.toLowerCase()} store`;
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(event: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        setOpen(false);
+      }
+    }
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey, true);
+    };
+  }, [open]);
+
   return (
-    <div
-      className="min-w-0 space-y-1.5 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2"
-      data-testid={props.testId}
-    >
-      <div>
-        <h4 className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-ink-dim)]">
-          {props.title}
-        </h4>
-        <p className="text-[10px] leading-snug text-[var(--color-ink-faint)]">{props.description}</p>
-      </div>
-      <div className="flex flex-wrap gap-1">
-        {props.catalog.map((engine) => {
-          const locked = !engine.available;
-          const disabled = locked || props.addDisabled;
-          const label = locked ? `Locked · ${engine.label}` : `+ ${engine.label}`;
-          const aria = locked ? `Locked · ${engine.label}` : `Add ${engine.label}`;
-          return (
-            <button
-              key={engine.id}
-              type="button"
-              disabled={disabled}
-              title={
-                locked
-                  ? (engine.unavailableReason ?? engine.description)
-                  : props.addDisabled
-                    ? 'Engine limit reached'
-                    : engine.description
-              }
-              aria-label={aria}
-              onClick={() => props.onAdd(engine.id)}
-              className={
-                locked
-                  ? 'rounded border border-dashed border-[var(--color-line)] px-1.5 py-0.5 text-left text-[10px] text-[var(--color-ink-faint)]'
-                  : 'rounded border border-[var(--color-accent)] px-1.5 py-0.5 text-left text-[10px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:cursor-not-allowed disabled:opacity-50'
-              }
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
+    <div ref={rootRef} className="relative" data-testid={props.testId}>
+      <button
+        type="button"
+        aria-haspopup="true"
+        aria-expanded={open}
+        aria-label={openLabel}
+        title={props.description}
+        onClick={() => setOpen((value) => !value)}
+        className="inline-flex items-center gap-1 rounded border border-[var(--color-accent)] px-2 py-1 text-[10px] font-medium text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10"
+      >
+        <span>+ {props.title}</span>
+        <span className="text-[9px] text-[var(--color-ink-faint)]">{availableCount}</span>
+        <span className="text-[8px] text-[var(--color-ink-faint)]" aria-hidden>
+          ▾
+        </span>
+      </button>
+      {open && (
+        <div
+          aria-label={`${props.title} engines`}
+          className="absolute left-0 top-full z-50 mt-1 w-[min(20rem,calc(100vw-2rem))] rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2 shadow-xl"
+        >
+          <p className="mb-1.5 px-0.5 text-[10px] text-[var(--color-ink-faint)]">
+            {props.description}
+          </p>
+          <div className="flex max-h-56 flex-col gap-1 overflow-y-auto overscroll-contain">
+            {props.catalog.map((engine) => {
+              const locked = !engine.available;
+              const disabled = locked || props.addDisabled;
+              const label = locked ? `Locked · ${engine.label}` : `+ ${engine.label}`;
+              const aria = locked ? `Locked · ${engine.label}` : `Add ${engine.label}`;
+              return (
+                <button
+                  key={engine.id}
+                  type="button"
+                  disabled={disabled}
+                  title={
+                    locked
+                      ? (engine.unavailableReason ?? engine.description)
+                      : props.addDisabled
+                        ? 'Engine limit reached'
+                        : engine.description
+                  }
+                  aria-label={aria}
+                  onClick={() => {
+                    props.onAdd(engine.id);
+                    if (!locked) setOpen(false);
+                  }}
+                  className={
+                    locked
+                      ? 'rounded border border-dashed border-[var(--color-line)] px-2 py-1.5 text-left text-[11px] text-[var(--color-ink-faint)]'
+                      : 'rounded border border-[var(--color-line)] px-2 py-1.5 text-left text-[11px] text-[var(--color-ink)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:cursor-not-allowed disabled:opacity-50'
+                  }
+                >
+                  <span className="block font-medium">{label}</span>
+                  <span className="mt-0.5 block text-[9px] leading-snug text-[var(--color-ink-faint)]">
+                    {locked
+                      ? (engine.unavailableReason ?? 'Unavailable this milestone')
+                      : engine.description}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

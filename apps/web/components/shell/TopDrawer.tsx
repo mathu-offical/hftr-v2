@@ -276,6 +276,14 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
     allLeakClean: boolean;
     allSchemaValid: boolean;
   } | null>(null);
+  const [leakAudit, setLeakAudit] = useState<{
+    ok: boolean;
+    sampleSize: number;
+    leakCleanCount: number;
+    leakFailCount: number;
+    scanMode: string;
+    note?: string;
+  } | null>(null);
   const [brokers, setBrokers] = useState<BrokerConnectionSummary[]>([]);
   const [brokerStatus, setBrokerStatus] = useState<CompanyBrokerStatus | null>(null);
   const [policyMessage, setPolicyMessage] = useState<string | null>(null);
@@ -285,7 +293,7 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
   const loadExtras = useCallback(async () => {
     const base = `/api/companies/${props.companyId}`;
     try {
-      const [policyRes, callsRes, brokersRes, brokerRes] = await Promise.all([
+      const [policyRes, callsRes, auditRes, brokersRes, brokerRes] = await Promise.all([
         api<LlmPolicyResponse>(`${base}/llm-policy`),
         api<{
           calls: LlmCallRow[];
@@ -297,12 +305,22 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
             allSchemaValid: boolean;
           };
         }>(`${base}/llm-calls?limit=20`),
+        api<{
+          ok: boolean;
+          sampleSize: number;
+          leakCleanCount: number;
+          leakFailCount: number;
+          schemaValidCount: number;
+          scanMode: string;
+          note?: string;
+        }>(`${base}/llm-calls/audit?limit=50`),
         api<{ connections: BrokerConnectionSummary[] }>('/api/settings/brokers'),
         api<CompanyBrokerStatus>(`${base}/broker`),
       ]);
       setPolicyData(policyRes);
       setCalls(callsRes.calls);
       setLlmEvidence(callsRes.evidence ?? null);
+      setLeakAudit(auditRes);
       setBrokers(brokersRes.connections);
       setBrokerStatus(brokerRes);
     } catch {
@@ -573,6 +591,30 @@ function OperatingTab(props: { companyId: string; budgets: LlmBudgetSummary[] })
                 : `${Math.round(llmEvidence.leakPassRate * 100)}%`}
               {llmEvidence.allLeakClean ? ' · all leak-clean' : ''}
               {llmEvidence.allSchemaValid ? ' · all schema-valid' : ''}
+            </p>
+          )}
+          {leakAudit && (
+            <p
+              className={`mt-1 text-[10px] ${
+                leakAudit.sampleSize === 0
+                  ? 'text-[var(--color-ink-faint)]'
+                  : leakAudit.ok
+                    ? 'text-[var(--color-ok)]'
+                    : 'text-[var(--color-block)]'
+              }`}
+              data-testid="llm-leak-audit"
+              aria-label="LLM leak audit aggregate"
+              title={leakAudit.note}
+            >
+              leak audit:{' '}
+              {leakAudit.sampleSize === 0
+                ? 'no samples'
+                : leakAudit.ok
+                  ? `clean · ${leakAudit.sampleSize}`
+                  : `FAIL · ${leakAudit.sampleSize}`}
+              {leakAudit.sampleSize > 0 && leakAudit.scanMode !== 'artifacts'
+                ? ` · ${leakAudit.scanMode}`
+                : ''}
             </p>
           )}
         </div>

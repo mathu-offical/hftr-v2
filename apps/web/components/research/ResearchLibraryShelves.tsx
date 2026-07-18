@@ -296,7 +296,7 @@ function BaselineSeededShelfSection(props: {
                     directiveTopicId={directive?.id ?? null}
                     onOpenChange={(next) => props.onToggleCatalogFolder(group.shelfId, next)}
                     onSelectConcept={props.onSelectConcept}
-                    onSelectTopic={props.onSelectTopic}
+                    {...(props.onSelectTopic ? { onSelectTopic: props.onSelectTopic } : {})}
                   />
                 );
               })

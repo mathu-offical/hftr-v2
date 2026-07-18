@@ -86,15 +86,15 @@ export default async function CompaniesPage() {
                         status: c.equityStatus,
                         asOfIso: c.equityAsOf?.toISOString() ?? null,
                       }}
-                      serviceCoverage={
-                        coverage
-                          ? {
+                      {...(coverage
+                        ? {
+                            serviceCoverage: {
                               modulesWithRequiredGaps: coverage.modulesWithRequiredGaps,
                               missingRequiredCapabilities: coverage.missingRequiredCapabilities,
                               boundCapabilityCount: coverage.boundCapabilityCount,
-                            }
-                          : undefined
-                      }
+                            },
+                          }
+                        : {})}
                     />
                   </li>
                 );

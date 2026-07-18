@@ -1,7 +1,15 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import type { Db } from '@hftr/db';
-import { engineInstances, engineUtilityLinks, modules } from '@hftr/db/schema';
-import type { EngineUtilityBus } from '@hftr/contracts';
+import {
+  engineInstances,
+  engineUtilityLinks,
+  modules,
+} from '@hftr/db/schema';
+import {
+  engineCategoryExposesFunds,
+  getEngineTemplateById,
+  type EngineUtilityBus,
+} from '@hftr/contracts';
 
 /**
  * D-091: auto-bind company Master Clock to an engine's clock utility bus.
@@ -50,6 +58,120 @@ export async function ensureEngineClockUtilityBind(
 }
 
 /**
+ * D-091: bind company holding_fund to an execution engine's funds utility bus.
+ * Idempotent — skips research engines and when already bound.
+ */
+export async function ensureEngineFundsUtilityBind(
+  db: Db,
+  companyId: string,
+  engineId: string,
+  now = new Date(),
+): Promise<{ bound: boolean; linkId?: string }> {
+  const [engine] = await db
+    .select({ id: engineInstances.id, templateId: engineInstances.templateId })
+    .from(engineInstances)
+    .where(and(eq(engineInstances.id, engineId), eq(engineInstances.companyId, companyId)))
+    .limit(1);
+  if (!engine) return { bound: false };
+
+  const template = getEngineTemplateById(engine.templateId);
+  if (!template || !engineCategoryExposesFunds(template.category)) {
+    return { bound: false };
+  }
+
+  const [existing] = await db
+    .select({ id: engineUtilityLinks.id })
+    .from(engineUtilityLinks)
+    .where(
+      and(
+        eq(engineUtilityLinks.companyId, companyId),
+        eq(engineUtilityLinks.toEngineId, engineId),
+        eq(engineUtilityLinks.bus, 'funds'),
+      ),
+    )
+    .limit(1);
+  if (existing) return { bound: false, linkId: existing.id };
+
+  const [holdingFund] = await db
+    .select({ id: modules.id })
+    .from(modules)
+    .where(and(eq(modules.companyId, companyId), eq(modules.type, 'holding_fund')))
+    .limit(1);
+  if (!holdingFund) return { bound: false };
+
+  const [row] = await db
+    .insert(engineUtilityLinks)
+    .values({
+      companyId,
+      toEngineId: engineId,
+      bus: 'funds',
+      fromModuleId: holdingFund.id,
+      fromEngineId: null,
+      streamDescriptor: 'Holding fund capital envelope',
+      updatedAt: now,
+    })
+    .onConflictDoNothing()
+    .returning({ id: engineUtilityLinks.id });
+
+  return { bound: Boolean(row), ...(row?.id ? { linkId: row.id } : {}) };
+}
+
+/**
+ * D-091: seed data_out utility from the engine's terminal analyzer (research path).
+ * Creates a stub stream so chrome shows an outbound port before first concat run.
+ */
+export async function ensureEngineAnalyzerDataOut(
+  db: Db,
+  companyId: string,
+  engineId: string,
+  now = new Date(),
+): Promise<{ bound: boolean; linkId?: string }> {
+  const [existing] = await db
+    .select({ id: engineUtilityLinks.id })
+    .from(engineUtilityLinks)
+    .where(
+      and(
+        eq(engineUtilityLinks.companyId, companyId),
+        eq(engineUtilityLinks.toEngineId, engineId),
+        eq(engineUtilityLinks.bus, 'data_out'),
+      ),
+    )
+    .limit(1);
+  if (existing) return { bound: false, linkId: existing.id };
+
+  const [analyzer] = await db
+    .select({ id: modules.id, config: modules.config })
+    .from(modules)
+    .where(
+      and(
+        eq(modules.companyId, companyId),
+        eq(modules.engineInstanceId, engineId),
+        eq(modules.type, 'analyzer'),
+      ),
+    )
+    .limit(1);
+  if (!analyzer) return { bound: false };
+
+  const streamId = `eng_stream_${analyzer.id.replace(/-/g, '').slice(0, 16)}`;
+  const [row] = await db
+    .insert(engineUtilityLinks)
+    .values({
+      companyId,
+      toEngineId: engineId,
+      bus: 'data_out',
+      fromModuleId: analyzer.id,
+      fromEngineId: null,
+      streamId,
+      streamDescriptor: 'Research concat · pending',
+      updatedAt: now,
+    })
+    .onConflictDoNothing()
+    .returning({ id: engineUtilityLinks.id });
+
+  return { bound: Boolean(row), ...(row?.id ? { linkId: row.id } : {}) };
+}
+
+/**
  * Bind all unbound engines in a company to Master Clock.
  */
 export async function ensureAllEngineClockBinds(
@@ -69,6 +191,34 @@ export async function ensureAllEngineClockBinds(
   return bound;
 }
 
+/**
+ * Full motherboard bind pass: clock + funds (when applicable) + analyzer data_out + hydrate.
+ */
+export async function ensureEngineMotherboardUtilities(
+  db: Db,
+  companyId: string,
+  engineId: string,
+  now = new Date(),
+): Promise<{
+  clockBound: boolean;
+  fundsBound: boolean;
+  dataOutBound: boolean;
+  topicProjected: number;
+  focusProjected: number;
+}> {
+  const clock = await ensureEngineClockUtilityBind(db, companyId, engineId, now);
+  const funds = await ensureEngineFundsUtilityBind(db, companyId, engineId, now);
+  const dataOut = await ensureEngineAnalyzerDataOut(db, companyId, engineId, now);
+  const hydrate = await hydrateEngineMembersFromUtilities(db, companyId, engineId, now);
+  return {
+    clockBound: clock.bound,
+    fundsBound: funds.bound,
+    dataOutBound: dataOut.bound,
+    topicProjected: hydrate.topicProjected,
+    focusProjected: hydrate.focusProjected,
+  };
+}
+
 export type HydrateEngineResult = {
   engineId: string;
   topicProjected: number;
@@ -78,7 +228,7 @@ export type HydrateEngineResult = {
 /**
  * Project engine utility inputs into member modules that have not overridden scope.
  * data_in from upstream engine: copy masterTopicSectors into non-overridden members.
- * clock bind: no module field write (Time hydration deferred); records presence only.
+ * clock bind: no module field write (Time hub provisioned separately); records presence only.
  */
 export async function hydrateEngineMembersFromUtilities(
   db: Db,
@@ -106,7 +256,9 @@ export async function hydrateEngineMembersFromUtilities(
   const dataIn = links.find((l) => l.bus === 'data_in');
   if (dataIn?.fromEngineId) {
     const [upstream] = await db
-      .select({ masterTopicSectors: engineInstances.masterTopicSectors })
+      .select({
+        masterTopicSectors: engineInstances.masterTopicSectors,
+      })
       .from(engineInstances)
       .where(eq(engineInstances.id, dataIn.fromEngineId))
       .limit(1);
@@ -208,7 +360,35 @@ export type CreateUtilityLinkArgs = {
   streamDescriptor?: string | null;
 };
 
-export async function createEngineUtilityLink(db: Db, args: CreateUtilityLinkArgs, now = new Date()) {
+export async function createEngineUtilityLink(
+  db: Db,
+  args: CreateUtilityLinkArgs,
+  now = new Date(),
+) {
+  // When wiring data_in from an upstream engine, copy stream metadata from its data_out.
+  let streamId = args.streamId ?? null;
+  let streamDescriptor = args.streamDescriptor ?? null;
+  if (args.bus === 'data_in' && args.fromEngineId && !streamId) {
+    const [upstreamOut] = await db
+      .select({
+        streamId: engineUtilityLinks.streamId,
+        streamDescriptor: engineUtilityLinks.streamDescriptor,
+      })
+      .from(engineUtilityLinks)
+      .where(
+        and(
+          eq(engineUtilityLinks.companyId, args.companyId),
+          eq(engineUtilityLinks.toEngineId, args.fromEngineId),
+          eq(engineUtilityLinks.bus, 'data_out'),
+        ),
+      )
+      .limit(1);
+    if (upstreamOut) {
+      streamId = upstreamOut.streamId;
+      streamDescriptor = upstreamOut.streamDescriptor ?? streamDescriptor;
+    }
+  }
+
   const [row] = await db
     .insert(engineUtilityLinks)
     .values({
@@ -217,15 +397,27 @@ export async function createEngineUtilityLink(db: Db, args: CreateUtilityLinkArg
       bus: args.bus,
       fromEngineId: args.fromEngineId ?? null,
       fromModuleId: args.fromModuleId ?? null,
-      streamId: args.streamId ?? null,
-      streamDescriptor: args.streamDescriptor ?? null,
+      streamId,
+      streamDescriptor,
       updatedAt: now,
     })
     .returning();
-  if (args.bus === 'data_in' || args.bus === 'clock') {
+  if (args.bus === 'data_in' || args.bus === 'clock' || args.bus === 'funds') {
     await hydrateEngineMembersFromUtilities(db, args.companyId, args.toEngineId, now);
   }
   return row;
+}
+
+export async function deleteEngineUtilityLink(
+  db: Db,
+  companyId: string,
+  linkId: string,
+): Promise<boolean> {
+  const deleted = await db
+    .delete(engineUtilityLinks)
+    .where(and(eq(engineUtilityLinks.id, linkId), eq(engineUtilityLinks.companyId, companyId)))
+    .returning({ id: engineUtilityLinks.id });
+  return deleted.length > 0;
 }
 
 /** Clear unused import warning helper for isNull if needed by callers. */

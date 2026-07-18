@@ -1,4 +1,5 @@
 import type { LinkKind, ModuleType } from '@hftr/contracts';
+import { TIME_BEARING_MODULE_TYPES } from '@hftr/contracts';
 
 export interface ActivationGraphModule {
   id: string;
@@ -58,6 +59,17 @@ function outboundDataFeedToTypes(
   });
 }
 
+function timeBearingBlocker(
+  module: ActivationGraphModule,
+  links: readonly ActivationGraphLink[],
+  peerTypes: Map<string, ModuleType>,
+): string | null {
+  if (!TIME_BEARING_MODULE_TYPES.has(module.type)) return null;
+  const hasTime = inboundDataFeedFromTypes(module.id, links, peerTypes, ['time']);
+  if (hasTime) return null;
+  return `${module.type} module requires an inbound Time data feed (engine Time hub or Time tool) before it can run.`;
+}
+
 /**
  * Human-readable activation blockers from canvas link topology.
  * Used when promoting or keeping a module in `active` status (ARCH-005).
@@ -72,17 +84,25 @@ export function activationGraphBlockers(
   peers: readonly ActivationGraphModule[] = [],
 ): readonly string[] {
   const peerTypes = peersById(peers);
+  const timeBlocker = timeBearingBlocker(module, links, peerTypes);
 
   switch (module.type) {
     case 'trading': {
-      if (inboundLinksOfKind(module.id, links, 'data_feed').length === 0) {
-        return [
+      const blockers: string[] = [];
+      const hasOperationalFeed = inboundLinksOfKind(module.id, links, 'data_feed').some((link) => {
+        const sourceType = peerTypes.get(link.fromModuleId);
+        return sourceType !== undefined && sourceType !== 'time' && sourceType !== 'clock';
+      });
+      if (!hasOperationalFeed) {
+        blockers.push(
           'Trading module requires at least one inbound data feed link (for example from live API or math) before it can run.',
-        ];
+        );
       }
-      return [];
+      if (timeBlocker) blockers.push(timeBlocker);
+      return blockers;
     }
     case 'research': {
+      const blockers: string[] = [];
       // D-041: research admits into libraries; when a library peer exists on the
       // canvas, activation requires an outbound data_feed to at least one of them.
       // With no library peer, fall back to any legal outbound data_feed consumer.
@@ -93,23 +113,27 @@ export function activationGraphBlockers(
 
       if (!outboundDataFeedToTypes(module.id, links, peerTypes, requiredTargets)) {
         if (hasLibraryPeer) {
-          return [
+          blockers.push(
             'Research module requires at least one outbound data feed link to a library module before it can run.',
-          ];
+          );
+        } else {
+          blockers.push(
+            'Research module requires at least one outbound data feed link to a library, librarian, or math module before it can run.',
+          );
         }
-        return [
-          'Research module requires at least one outbound data feed link to a library, librarian, or math module before it can run.',
-        ];
       }
-      return [];
+      if (timeBlocker) blockers.push(timeBlocker);
+      return blockers;
     }
     case 'trend': {
+      const blockers: string[] = [];
       if (!inboundDataFeedFromTypes(module.id, links, peerTypes, ['library', 'live_api'])) {
-        return [
+        blockers.push(
           'Trend module requires at least one inbound data feed link from a library or live API module before it can run.',
-        ];
+        );
       }
-      return [];
+      if (timeBlocker) blockers.push(timeBlocker);
+      return blockers;
     }
     case 'library': {
       if (!inboundDataFeedFromTypes(module.id, links, peerTypes, ['research', 'librarian'])) {
@@ -120,18 +144,22 @@ export function activationGraphBlockers(
       return [];
     }
     case 'librarian': {
+      const blockers: string[] = [];
       if (!inboundDataFeedFromTypes(module.id, links, peerTypes, ['library', 'research'])) {
-        return [
+        blockers.push(
           'Librarian module requires at least one inbound data feed link from a library or research module before it can run.',
-        ];
+        );
       }
-      return [];
+      if (timeBlocker) blockers.push(timeBlocker);
+      return blockers;
+    }
+    case 'policy':
+    case 'analyzer': {
+      return timeBlocker ? [timeBlocker] : [];
     }
     case 'live_api':
-    case 'policy':
     case 'generator':
     case 'simulator':
-    case 'analyzer':
     case 'holding_fund':
     case 'fund_router':
     case 'math':

@@ -46,6 +46,27 @@ export {
 export { attachConceptsToLibraries } from './libraries/attach';
 export { attachConceptsToTopic } from './libraries/topic-attach';
 export {
+  archiveAllRuntimeResearch,
+  bumpConceptConfidence,
+  bumpTopicConfidence,
+  clearArchive,
+  listArchive,
+  nextConfidenceBand,
+  restoreConcept,
+  restoreLibrary,
+  restoreTopic,
+  SEEDED_LIBRARY_NAME,
+  SEEDED_TOPIC_TITLE,
+  softArchiveConcept,
+  softArchiveLibrary,
+  softArchiveTopic,
+  verifyResearchObject,
+  type ArchiveCounts,
+  type ArchiveListResult,
+  type ConfidenceBand,
+  type ConfidenceDirection,
+} from './libraries/archive';
+export {
   bootstrapCompanyKnowledge,
   buildSeededConceptBody,
   SEED_CATALOG_NAMES,

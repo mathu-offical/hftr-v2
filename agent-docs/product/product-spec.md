@@ -218,15 +218,18 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   `config.mathType`; dedicated tools provision with the type matching the owner. See
   `architecture/number-handling.md` and `architecture/engine-node-family-design.md`.
 
-### Market posture hub (baseline awareness, D-081–D-112)
+### Market posture hub (baseline awareness, D-081–D-131)
 
-Operator-facing **Market posture** left tab + canvas overlay is the live desk for open
-positions, watchlists, trends, and pipeline plans — distinct from Research + Libraries
+Operator-facing **Market posture** splits inventory vs day quant (**D-131**): the left tab
+lists company **holdings** (positions + capital sources); the canvas overlay aggregates live
+streams into persistent human-readable day views (equity, movers, seals/reports, watch /
+trend / plan recommendations, synthesis Model) — distinct from Research + Libraries
 (async corpus). Baseline market awareness (movers compound, synthetic marks, SymbolTicker)
-runs **without requiring engine modules**. **Analyze** (D-111) is the master LLM-backed
-pass (force reseal + tactical thresholds); **Sync** reloads full hub projection; automatic
-**live poll** (D-112) updates only equity/marks on a shared ~15s interval so seals and the
-Model algorithm canvas stay stable and Analyze is never blocked by UI refresh.
+runs **without requiring engine modules**. **Analyze** (D-111 / D-120, overlay) is the master
+LLM-backed pass (force reseal + tactical thresholds + narrative); **Sync** reloads full hub
+projection; automatic **live poll** (D-112) updates only equity/marks on a shared ~15s
+interval so seals and the Model algorithm canvas stay stable and Analyze is never blocked by
+UI refresh.
 
 ## 4. Funds model
 
@@ -240,7 +243,8 @@ Model algorithm canvas stay stable and Analyze is never blocked by UI refresh.
 - Module fund requests + inter-module borrowing → approval inbox (or auto policy within caps).
 - Ledger (right panel) is canonical: every trade, fee, transfer, simulation result.
 - Positions (right panel, D-125) list open holdings with stability, recovery, and agent-action
-  inspection; Market posture keeps a Positions navigator for the overlay dashboard.
+  inspection; Market posture left rail lists the same inventory for quick select (D-131) —
+  day quant lives on the overlay, not as a position-centric dashboard.
 
 ## 5. Built-in assistant
 

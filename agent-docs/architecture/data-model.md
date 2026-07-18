@@ -142,14 +142,15 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   multi-source seals (`kind` movers_board|sector_bulletin|daily_summary_phase, subject_key,
   seal_id, bundle jsonb `VerifiedNormalizedBundle`, expires_at, report_concept_id). Consumers
   skip re-verify while seal valid; dual-persist always writes a readable report concept.
-  **Market posture projection (D-081–D-112 / D-120):** read APIs assemble seals + positions +
-  watch/trend/pipeline into `MarketHubResponse` (`GET …/market-hub`). Lightweight
+  **Market posture projection (D-081–D-131 / D-120):** read APIs assemble seals + positions +
+  capitalSources + watch/trend/pipeline into `MarketHubResponse` (`GET …/market-hub`). Lightweight
   `GET …/market-hub/live` returns equity + position marks/sparks only (`MarketHubLiveResponse`)
   for silent UI merge — never reseals. `POST …/market-hub/analyze` creates a synthesis run,
   enqueues force-reseal jobs + narrative (POSTURE_RESEARCH), returns `runId`; UI polls
   `GET …/market-hub/synthesis/*` for stages and must not block the job path. Hub GET also
   projects optional `synthesis` snapshot + `posture_narrative` report link and sector/daily
-  expiry on `freshness`.
+  expiry on `freshness`. Left rail consumes positions + capitalSources; overlay consumes day
+  quant + recommendations + Model.
 - **market_hub_synthesis_runs / market_hub_synthesis_stages** — **D-120** (migration `0042`):
   company-scoped Analyze run status + ordered stage rows (`stage_id` unique per run) for the
   live Model canvas. Stage summaries are operator text/bands only.

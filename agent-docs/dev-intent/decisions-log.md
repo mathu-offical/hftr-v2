@@ -1376,6 +1376,36 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   activity, archive, and Modules & tools removed from the Research column (module create stays
   on canvas). Docs: ui-spec §4, research-tab-shelves-inspector-design. **Status: implemented.**
 
+- **D-131 (Posture rail holdings vs day overlay, 2026-07-18):** Market posture left tab is
+  **holdings inventory only** — open positions + capital sources (holding funds / capital-bearing
+  modules via hub `capitalSources`). Watchlists, trends, plans, Model, and Analyze move off the
+  left rail onto the **canvas day overlay**, which aggregates live streams into persistent
+  human-readable views (equity, movers, seals/reports, recommendation grids, synthesis Model /
+  awareness dock) and is **not** position-centric. Position row select still highlights for
+  right-panel Positions (D-125). Docs: ui-spec §4, product-spec Market posture, contracts
+  `MarketHubCapitalSource`. **Status: implemented.**
+
+- **D-132 (galaxy library clusters — separation + nest dominance, 2026-07-18):** Fibonacci
+  volume packing (D-116) still allowed large nest hulls to overlap and cross-library springs
+  to blend concepts into one cloud. Refine: (1) `separateLibraryCenters` after packing so
+  hulls stay ≥1.38×(r₁+r₂) apart with capped radii; (2) stronger library nest restore +
+  foreign keep-out + `createLibraryCohereForce`; (3) cross-library link distance↑ / strength↓;
+  (4) tighter nest seed jitter; (5) higher library hull shell/wire opacity; (6) remount
+  force-graph on packing signature so seeds apply; (7) show multiple folder shells inside
+  large libraries (catalog folders are the real clusters when one lib owns ~90% of concepts)
+  with stronger folder nest/cohere. DEV `layoutStats` reports `clusterSeparation` +
+  `nestMembership`. Docs: `research/galaxy-3d-volume-layout.md`. **Status: implemented.**
+
+- **D-133 (DATA company libraries + shell-persistent inspector, 2026-07-18):** DATA tab
+  lists **company canvas `library` modules** (engine-created or manual) below active live
+  API hydrators. Library/concept/page reading uses the Galaxy-style **floating inspector**
+  mounted at **shell** level (`ShellInspectorLayer`, z above overlays) so it persists across
+  Research / Market posture / Data. Opening inspect targets does **not** force a tab or
+  primary-overlay switch — background stays the last navigated left-tab view. Live API
+  browse remains Data Explorer. Spec:
+  `docs/superpowers/specs/2026-07-18-data-company-libraries-shell-inspector-design.md`.
+  Docs: ui-spec §4. Extends D-049 / D-121. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

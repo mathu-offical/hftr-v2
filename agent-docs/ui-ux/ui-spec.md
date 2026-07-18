@@ -271,17 +271,19 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   librarian **Curate / Verify / Refresh** (D-127). Library research (`LIBRARY_RESEARCH`) is a
   separate queue from posture research (`POSTURE_RESEARCH`) and from execution/other LLM lanes
   (D-098).
-- **Market posture** tab (D-081 / D-085 / D-092 / D-101): live operating hub. Left rail lists
-  company-wide persisted categories (positions, watchlists, trends, plans) with rich row
-  metrics (uPnL/rPnL, strengthBand/engines, lead+tree status) and **row → overlay focus**.
-  Opening the tab opens a **canvas overlay dashboard** with: equity chart (company series;
-  status · asOf · version; accent uses `series[].positionMarkCents` when present, otherwise a
-  dashed **mark (synthetic)** reference — never invents mark history), sector movers
-  (title · corroboration · verified/expires · stale cue), report buttons from multi-seal
-  targets (`movers_board`, `sector_bulletin`, `daily_summary_phase`) showing **kind + seal
-  expiry**, holdings with realized PnL + pipeline/recovery stubs, and bottom grids at rail
-  parity (tier filters including `triggered`, Confirm, Justification). Freshness strip shows
-  hub `fetchedAt` + movers expiry. Hover justification (D-083) where wired.
+- **Market posture** tab (D-081 / D-085 / D-092 / D-101 / **D-131**): split inventory vs day
+  quant. **Left rail (D-131)** is holdings-only: open **positions** + **capital sources**
+  (holding funds / capital-bearing desks from hub `capitalSources`) with Sync + **Day view**.
+  Position row select highlights for right-panel Positions (D-125); it does **not** drive the
+  overlay. Opening the tab / Day view opens the **canvas overlay day dashboard** that
+  aggregates live streams into persistent human-readable views — **not** a holdings browser:
+  equity chart (company series; status · asOf · version; mark reference when present), sector
+  movers (title · corroboration · verified/expires · stale cue), multi-seal report buttons
+  (`movers_board`, `sector_bulletin`, `daily_summary_phase`, `posture_narrative`), **synthesis
+  Model + awareness dock** (D-120), recommendation grids (watchlists with tier filters /
+  Confirm, trends, plans), and charts (watch tiers / trend strength / mover directions /
+  provider surfaces — allocation-by-symbol is not the primary lens). Freshness strip + provider
+  honesty strip. Hover justification (D-083) where wired.
   Distinct from Research (async corpus).   Hub data uses client **SWR cache**
   (`market-hub-cache` + `useMarketHub`): memory + sessionStorage, 15s fresh / 10m stale for
   **full hub** cache policy (used on mount/Sync/after Analyze), inflight dedupe, shell
@@ -292,29 +294,29 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   Analyze pauses that live poll (shared across rail + overlay) only for the Analyze POST,
   returns `runId`, and relies on synthesis poll + one full hub reload when the run is
   terminal — UI cadence never enqueues or blocks posture jobs.
-  Visible surfaces: live equity/positions refresh on the live cadence; seals/reports/charts
-  stay stable until Sync or a terminal synthesis run; **Model** tracks synthesis stages live.
+  Visible surfaces: live equity/marks refresh on the live cadence; seals/reports/charts
+  stay stable until Sync or a terminal synthesis run; **Model** tracks synthesis stages live
+  on the overlay.
   **Provider surfaces (D-103):** movers compound gathers only credential-ready / public kinds
   from the operator's research keys + Alpaca paper broker (via `selectReadySourceKinds`).
-  Overlay + rail list each movers-lane provider as ready / need key / contributed on last seal.
+  Overlay lists each movers-lane provider as ready / need key / contributed on last seal.
   Position marks remain synthetic until live broker marks.
-  **SymbolTicker + charts (D-109):** Every symbol row (positions, movers, watchlists, trends)
-  uses shared `SymbolTicker` — synthetic spark, direction glyph, strength ticks + band word,
-  mark/held/uPnL text. Held vs cost **ok/block spark + PnL tone always wins** when cost basis
-  exists; non-held may tint strength ticks orange→lime by relevance while glyphs/ticks remain
-  readable without color. Overlay adds dynamic pies/bars for allocation, watchlist tiers,
-  trend strength, mover directions, and provider ready/need-key. Sparks are labeled
-  `synthetic_sim` (baseline algorithm), not broker history.
-  **Analyze vs Sync (D-111 / D-120):** **Sync** forces full hub GET. **Analyze** creates a
+  **SymbolTicker + charts (D-109):** Symbol rows on overlay recommendations + left position
+  inventory use shared `SymbolTicker` — synthetic spark, direction glyph, strength ticks + band
+  word, mark/held/uPnL text. Held vs cost **ok/block spark + PnL tone always wins** when cost
+  basis exists; non-held may tint strength ticks orange→lime by relevance while glyphs/ticks
+  remain readable without color. Overlay pies/bars emphasize day quant / provider honesty.
+  Sparks are labeled `synthetic_sim` (baseline algorithm), not broker history.
+  **Analyze vs Sync (D-111 / D-120):** **Sync** forces full hub GET. **Analyze** (overlay) creates a
   synthesis run, force-reseals `library.system_movers` (tactical LLM thresholds),
   `library.system_sector_news`, calendar-phase `library.system_daily_summaries` in parallel,
   then `library.posture_narrative` (waits for seal stages; book↔tape deterministic rollup).
-  Nested **Model** category is the **live synthesis hub** — React Flow stage glyphs +
+  Overlay **Model** section is the **live synthesis hub** — React Flow stage glyphs +
   inspector, plus an **awareness dock** (movers status, multi-seal freshness, report /
   narrative open). Overlay shows a mini run strip + Open Model while a run is active.
-  Hub GET projects `synthesis` + `posture_narrative` report link.
+  Hub GET projects `synthesis` + `posture_narrative` report link + `capitalSources`.
   **Watchlist tiers (D-092):** `suggested_search` → `suggested_verified` → `watching`
-  (+ `triggered` / `archived`). Market posture rail **and overlay** + bottom Watch lists
+  (+ `triggered` / `archived`). Overlay recommendation watch grid + bottom Watch lists
   filter chips (default: watching + suggested_verified). **Confirm** PATCHes to `watching`
   and invalidates market-hub cache.
 - Research concept inspector titles and TraceTimeline stage rows also use Justification hover
@@ -322,26 +324,24 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
 - Research overlay (main content, layered over canvas): **Galaxy** surface with optional
   right **inspector** (Page / Concept / Library / Tag — D-049). Overlay and inspector are
   viewport-bounded (`overflow-hidden` / `min-h-0`) with scrollable inspector body and
-  horizontally scrollable library chips. Shared chrome: search, tag chips, library scope,
-  zoom, clear-focus. Nest hull labels and chips use short library names (head segment
-  before arrow chains). Default galaxy mode is **3D physics** (TD-09); 2D is WebGL/toggle
-  fallback with the same spring physics in plane.
-- Research module cards (D-039): **admission mode** select (auto-admit vs require approval),
-  manual query / Curate now / company sweep, multi-poll **run status** (phase · evidence ·
-  concepts · validation · admission applied), **validation gate scores** after a run, and an
-  evidence list. On terminal run phase, evidence + concepts + galaxy reload.
+  horizontally scrollable library chips. Shared chrome: **entity search** (D-130; Topics /
+  Concepts / Tags / Libraries), tag chips, library scope, zoom, clear-focus. Nest hull labels
+  and chips use short library names (head segment before arrow chains). Default galaxy mode is
+  **3D physics** (TD-09); 2D is WebGL/toggle fallback with the same spring physics in plane.
+- Research module run controls (admission / query / curate) live on **canvas module cards**
+  (D-039), not the left Research column (D-130).
 - Libraries: curation filters (all / proposed / accepted / …) plus **Approve all proposed** /
   **Reject all proposed** bulk actions when any concepts are proposed.
 - Galaxy: click concept → floating inspector (not a bottom drawer). Highlighted node gets
   ring + fly-to; focus dims non-members. Inspector shows text-first **library admission**,
   **evidence ref**, **research run** provenance, **usage**, **confidence**, Verify / Delete.
   Bodies render via `ResearchMarkdown` with optional `[[sys:…]]` chips (D-047).
-- Data tab (D-121): **LIVE DATA SOURCES** lists only **active** hydrators (`ready` with
-  verified credentials, or `public` no-auth) from `GET …/live-data-sources` (client SWR
-  metadata cache — live payloads not cached). Missing-key / stub / researched stay out of
-  the tab. Select → **Data Explorer** **Search** / **Browse current** via
-  `POST …/live-data-sources/[kind]/query`. Canvas `live_api` uses `config.sourceKind`.
-  Overlays mutually exclusive with Galaxy and Market posture.
+- Data tab (D-121 / D-133): **LIVE DATA SOURCES** lists only **active** hydrators (`ready` /
+  `public`) from `GET …/live-data-sources`. **Company libraries** lists canvas `library`
+  modules (engine-created or manual); select opens the **shell floating inspector**. Missing-key /
+  stub / researched stay out of the live list. Live API select → **Data Explorer** Search /
+  Browse via `POST …/live-data-sources/[kind]/query`. Canvas `live_api` uses
+  `config.sourceKind`. Overlays mutually exclusive for backgrounds; inspector persists (D-133).
 
 ### MIDDLE BOTTOM — Exploration + Analysis + Choice (the main control panel)
 - **Persistent ribbon (D-097 / D-113 / D-114 / D-118):** collapsed view keeps tab buttons +
@@ -389,7 +389,8 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   `GET …/positions`), lead/tree status, and recent agent executions (open `TraceTimeline`).
   Operator lifecycle: `POST …/positions/exits` runs model-free exit scan + drain.
   Executions expose `simulatorGapTags` (`child_slice_drain` vs `no_partial_fills`).
-  Market posture Positions category remains the overlay navigator — not removed.
+  Market posture left rail also lists open holdings for quick select (D-131); day quant
+  lives on the canvas overlay, not as a position-centric navigator.
 - Ledger of all trades/results/responses: filterable table (module, venue, mode, outcome),
   immutable trace rows → trace inspector modal (full ActionTrace lineage: lead → tree →
   instruction → task → fills → verification, rendered as a vertical timeline). Ledger is
@@ -467,10 +468,12 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
   capped (16).
 - Time scrubber (concept creation over time) remains phase-gated.
 
-### Floating inspector (D-049)
-- Right panel over the galaxy for the selected target: **Page** (agent synopsis + member
-  concepts as open-in-inspector buttons), **Concept**, **Library**, or **Tag**. Left panel
-  and galaxy never expand article/concept bodies inline — they navigate only.
+### Floating inspector (D-049 / D-133)
+- Shell-mounted layer over canvas overlays (`ShellInspectorLayer`): **Page** (topic synopsis +
+  member concepts), **Concept**, **Library**, or **Tag**. Persists across Research / Market
+  posture / Data — opening inspect does **not** switch the left-tab background. Dock shelves,
+  DATA company libraries, Articles, and Galaxy entity search open the same inspector.
+- Left panel and galaxy never expand article/concept bodies inline — they navigate only.
 - **Rich formatting (D-078 / D-080):** Page synopsis and Concept body use full
   `ResearchMarkdown` with **remark-gfm** (tables, strikethrough, task lists). Concept
   inspector omits the body's leading `#` title when chrome already shows it. Membership /

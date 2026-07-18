@@ -56,7 +56,8 @@ function ResearchOverlayInner() {
 
   const clearLibraryFilters = useCallback(() => {
     setSelectedLibraryIds([]);
-  }, []);
+    rv.clearLibrarySelection();
+  }, [rv.clearLibrarySelection]);
 
   useEffect(() => {
     if (!rv.overlayOpen) {
@@ -73,6 +74,8 @@ function ResearchOverlayInner() {
   useEffect(() => {
     if (rv.selectedLibraryId) {
       setSelectedLibraryIds([rv.selectedLibraryId]);
+    } else {
+      setSelectedLibraryIds([]);
     }
   }, [rv.selectedLibraryId]);
 
@@ -206,8 +209,9 @@ function ResearchOverlayInner() {
                 data-testid={`galaxy-library-chip-${lib.id}`}
                 title={lib.name}
                 onClick={() => {
+                  // Nest filter only — do not open library inspector (keeps full-galaxy
+                  // readable; shelves/inspector remain the inspect entry points).
                   toggleLibraryFilter(lib.id);
-                  if (!selected) rv.inspectLibrary(lib.id, lib.name);
                 }}
                 aria-pressed={selected}
                 aria-label={`Filter galaxy by library ${lib.name}`}
@@ -253,6 +257,7 @@ function ResearchOverlayInner() {
           focusConceptIds={effectiveFocusConceptIds}
           highlightConceptId={rv.highlightConceptId}
           selectedLibraryIds={selectedLibraryIds.length > 0 ? selectedLibraryIds : null}
+          loading={graphLoading && !graph}
           className="h-full min-h-0 overflow-hidden border-0 rounded-none"
           onInspectConcept={(id) => rv.inspectConcept(id)}
           onGraphInvalidated={() => void loadGraph({ bumpQueries: false })}

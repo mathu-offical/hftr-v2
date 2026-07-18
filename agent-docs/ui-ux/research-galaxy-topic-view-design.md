@@ -176,7 +176,10 @@ Clearing topic focus restores full brightness; nest layout stays.
   paints a ring + label on hover even when zoomed out.
 - Nest physics: stronger folder/article restore than library soft-pull so hierarchy reads as
   nested spheres; slightly stronger charge + collide to reduce stacked blobs.
-- Tag orbit: max 24 chips; quieter chip chrome; pointer-events only on chips.
+- Tag orbit: max 16 chips; quieter chip chrome; pointer-events only on chips.
+- Library nest chips filter only (do not auto-open the library inspector); Clear
+  libraries resets nest filter + selection. Empty vs loading copy distinguished
+  (`galaxy-loading` / `galaxy-empty`).
 
 ### 4.4 Performance (TD-09)
 

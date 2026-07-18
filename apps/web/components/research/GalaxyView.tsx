@@ -96,6 +96,8 @@ export interface GalaxyViewProps {
   focusConceptIds?: string[] | null;
   highlightConceptId?: string | null;
   selectedLibraryIds?: string[] | null;
+  /** When true, show loading copy instead of “no matches”. */
+  loading?: boolean;
   className?: string;
   onInspectConcept?: (conceptId: string) => void;
   onGraphInvalidated?: () => void;
@@ -629,6 +631,70 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     setHoverCard(null);
   }, []);
 
+  /** Deterministic hover for Playwright / live QA (not production UI). */
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') return;
+    type GalaxyHoverTestApi = {
+      showConcept: (conceptId: string) => boolean;
+      clear: () => void;
+    };
+    const api: GalaxyHoverTestApi = {
+      showConcept: (conceptId: string) => {
+        const node = nodeLookupById.get(conceptId);
+        if (!node) return false;
+        const folderMembership = conceptFolderIndex.get(conceptId);
+        const primaryFolderKey = folderMembership?.folderKey ?? null;
+        const primaryArticleId = conceptArticleIndex.get(conceptId) ?? null;
+        const folderKey =
+          node.primaryLibraryId && primaryFolderKey
+            ? `${node.primaryLibraryId}::${primaryFolderKey}`
+            : null;
+        setHoveredNodeId(conceptId);
+        setHoveredLinkKey(null);
+        const surface = graphSurfaceRef.current;
+        const rect = surface?.getBoundingClientRect();
+        setHoverCard({
+          lines: conceptHoverLines({
+            kind: 'concept',
+            title: node.title,
+            tags: node.tags,
+            sourceClass: node.sourceClass ?? null,
+            curationStatus: node.curationStatus ?? null,
+            queryCount: node.queryCount ?? null,
+            referenceCount: node.referenceCount ?? null,
+            libraryName: node.primaryLibraryId
+              ? (libraryNameById.get(node.primaryLibraryId) ?? null)
+              : null,
+            folderLabel: folderKey ? (folderLabelByKey.get(folderKey) ?? null) : null,
+            articleTitle: primaryArticleId
+              ? (articleTitleById.get(primaryArticleId) ?? null)
+              : null,
+            degree: degreeById.get(conceptId) ?? 0,
+          }),
+          x: rect ? Math.min(120, Math.max(8, rect.width * 0.35)) : 80,
+          y: rect ? Math.min(120, Math.max(8, rect.height * 0.25)) : 80,
+        });
+        return true;
+      },
+      clear: () => clearHover(),
+    };
+    (window as Window & { __hftrGalaxyHoverTest?: GalaxyHoverTestApi }).__hftrGalaxyHoverTest =
+      api;
+    return () => {
+      delete (window as Window & { __hftrGalaxyHoverTest?: GalaxyHoverTestApi })
+        .__hftrGalaxyHoverTest;
+    };
+  }, [
+    articleTitleById,
+    clearHover,
+    conceptArticleIndex,
+    conceptFolderIndex,
+    degreeById,
+    folderLabelByKey,
+    libraryNameById,
+    nodeLookupById,
+  ]);
+
   const onNodeHover = useCallback(
     (
       node: {
@@ -1086,9 +1152,21 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         </div>
       )}
 
-      {graphData.nodes.length === 0 ? (
-        <p className="flex flex-1 items-center justify-center p-4 text-center text-[11px] text-[var(--color-ink-faint)]">
-          No concepts match the current filters.
+      {props.loading && props.nodes.length === 0 ? (
+        <p
+          className="flex flex-1 items-center justify-center p-4 text-center text-[11px] text-[var(--color-ink-faint)]"
+          data-testid="galaxy-loading"
+        >
+          Loading galaxy graph…
+        </p>
+      ) : graphData.nodes.length === 0 ? (
+        <p
+          className="flex flex-1 items-center justify-center p-4 text-center text-[11px] text-[var(--color-ink-faint)]"
+          data-testid="galaxy-empty"
+        >
+          {props.nodes.length > 0
+            ? 'No concepts match the current filters.'
+            : 'No concepts in this company galaxy yet.'}
         </p>
       ) : (
         <div
@@ -1120,10 +1198,10 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         >
           {props.tags.length > 0 && (
             <div className={`${styles.orbitRing} overflow-hidden`} aria-label="Tag filter orbit">
-              {props.tags.slice(0, 24).map((t, i) => {
-                const count = Math.min(props.tags.length, 24);
+              {props.tags.slice(0, 16).map((t, i) => {
+                const count = Math.min(props.tags.length, 16);
                 const angle = (360 / count) * i;
-                const radius = reducedMotion ? 34 : Math.min(48, 28 + count * 0.7);
+                const radius = reducedMotion ? 32 : Math.min(44, 26 + count * 0.85);
                 return (
                   <button
                     key={t}

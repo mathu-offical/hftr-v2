@@ -55,19 +55,6 @@
   }
 }
 
-/* Force-graph injects .graph-tooltip / .scene-tooltip for HTML labels. */
-:global(.graph-tooltip),
-:global(.scene-tooltip) {
-  z-index: 40 !important;
-  padding: 8px 10px !important;
-  border-radius: 6px !important;
-  border: 1px solid rgba(122, 162, 247, 0.35) !important;
-  background: rgba(10, 14, 22, 0.94) !important;
-  color: #c8d0e0 !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
-  pointer-events: none !important;
-}
-
 .hoverCard {
   position: absolute;
   z-index: 30;

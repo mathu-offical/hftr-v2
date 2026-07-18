@@ -62,6 +62,8 @@ export interface ResearchViewContextValue {
   inspectConcept: (conceptId: string) => void;
   /** Open library in inspector + filter galaxy nest. */
   inspectLibrary: (libraryId: string, libraryName: string) => void;
+  /** Clear library inspector + nest filter selection. */
+  clearLibrarySelection: () => void;
   /** Open tag in inspector + focus tagged concepts. */
   inspectTag: (tag: string, conceptIds: string[]) => void;
   clearTopicFocus: () => void;
@@ -198,6 +200,11 @@ export function ResearchViewProvider(props: { companyId: string; children: React
     setFocusConceptIds(null);
   }, []);
 
+  const clearLibrarySelection = useCallback(() => {
+    setSelectedLibraryId(null);
+    setInspectorTarget((prev) => (prev?.kind === 'library' ? null : prev));
+  }, []);
+
   const inspectTag = useCallback((tag: string, conceptIds: string[]) => {
     setOverlayOpen(true);
     setActiveTab('galaxy');
@@ -280,6 +287,7 @@ export function ResearchViewProvider(props: { companyId: string; children: React
       selectTopic,
       inspectConcept,
       inspectLibrary,
+      clearLibrarySelection,
       inspectTag,
       clearTopicFocus,
       focusConcept,
@@ -311,6 +319,7 @@ export function ResearchViewProvider(props: { companyId: string; children: React
       selectTopic,
       inspectConcept,
       inspectLibrary,
+      clearLibrarySelection,
       inspectTag,
       clearTopicFocus,
       focusConcept,

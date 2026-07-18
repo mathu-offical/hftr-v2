@@ -1630,6 +1630,7 @@ describe('live data sources contracts', () => {
     ).toBe('missing_key');
     expect(defaultBrowseQueryForDomain('filings')).toBe('10-K');
     expect(LiveDataSourceQueryRequest.parse({}).mode).toBe('search');
+    expect(LiveDataSourceQueryRequest.parse({}).maxResults).toBe(12);
   });
 
   it('isActiveLiveDataSource keeps ready/public only', async () => {
@@ -1639,6 +1640,32 @@ describe('live data sources contracts', () => {
     expect(isActiveLiveDataSource({ status: 'missing_key' })).toBe(false);
     expect(isActiveLiveDataSource({ status: 'stub' })).toBe(false);
     expect(isActiveLiveDataSource({ status: 'researched' })).toBe(false);
+  });
+
+  it('provider UI presets and widget mapping', async () => {
+    const {
+      liveDataSourcePresetsForDomain,
+      liveDataSourceFormForDomain,
+      evidenceToLiveDataSourceWidget,
+      widgetKindForDomain,
+    } = await import('./live-data-sources');
+    expect(liveDataSourcePresetsForDomain('filings').some((p) => p.id === '10k')).toBe(true);
+    expect(liveDataSourceFormForDomain('equity_bars').fieldLabel).toBe('Symbol');
+    expect(widgetKindForDomain('news')).toBe('headline');
+    const w = evidenceToLiveDataSourceWidget(
+      {
+        digest: 'abcdefghijklmnop',
+        title: 'Sample',
+        summary: 'Summary text',
+        feedClass: 'brave_search',
+        authorityClass: 'web',
+        externalRef: 'https://example.com',
+        expiresAt: null,
+      },
+      { domain: 'web_search', index: 0, query: 'markets' },
+    );
+    expect(w.widgetKind).toBe('headline');
+    expect(w.fields.some((f) => f.label === 'Query')).toBe(true);
   });
 });
 

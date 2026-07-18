@@ -37,6 +37,10 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   company create. GET `/api/companies/:id/service-coverage`. Migration `0036`.
   **realized_pnl_events** append-only fill-time PnL for session daily-loss limits
   (cash ledger stays cash-only).
+  **D-093:** `user_research_key_id` on bindings + source_kind `user_research_key`;
+  research gather keys bind `research_provider` (and bars for market-data providers).
+  `companies.auto_fund_policy` shape: `{ mode: off|propose_on_equity_refresh, amountBps }`
+  — equity.refresh may propose inbox transfers only.
 - **engine_instances** (D-028, migration `0014_engine_instances`) — company_id, template_id,
   label, master_topic_sectors text[], canvas_bounds jsonb `{x,y,width,height}` nullable.
   Member modules reference via `modules.engine_instance_id`; Math modules never join.
@@ -191,9 +195,12 @@ UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
   library membership on company create and idempotent research/library ensure paths; concept
   `body` is leak-lint-clean markdown suitable for inspector + Obsidian `.md` export.
 - **watchlist_items** — (module_id, symbol) unique; bias `long|short|neutral`, note,
-  source_class `operator|trend_promotion`, status `watching|triggered|archived`. Owned by
-  trading/trend modules only (API 422s otherwise); surfaces in the bottom panel's
-  Watch lists tab and the module inspector. Migration `0003_bitter_piledriver`. D-017.
+  source_class `operator|trend_promotion|movers_rank|library_relevance`, status
+  `suggested_search|suggested_verified|watching|triggered|archived` (D-092 compound
+  suggestion tiers). Automation must never clobber `source_class=operator`. Owned by
+  trading/trend modules only (API 422s otherwise); surfaces in Market posture + bottom
+  panel Watch lists with tier filters. Migrations `0003_bitter_piledriver`,
+  `0038_watchlist_suggestion_tiers`. D-017, D-092.
 - **concepts** — research-module curated knowledge rows (title, body, tags jsonb,
   source_class `catalog_seed|deterministic_placeholder|model_generated|operator`, optional
   `research_run_id`, status `active|archived`, `archived_at`, qualitative `confidence_band`

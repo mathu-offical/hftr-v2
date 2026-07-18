@@ -265,7 +265,7 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
     async (itemId: string) => {
       await api(`/api/companies/${props.companyId}/watchlists/${itemId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: 'watching' }),
+        body: { status: 'watching' },
       });
       invalidateMarketHub({ companyId: props.companyId });
       await load();
@@ -346,48 +346,72 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
         )}
 
         {tab === 'watchlists' && (
-          <Table
-            head={['Symbol', 'Bias', 'Status', 'Module', 'Note', 'Updated']}
-            rows={byModule(watchlists).map((w) => [
-              <span key="s" className="font-mono">
-                {w.symbol}
-              </span>,
-              <Justification
-                key="b"
-                sourceClass={w.sourceClass || 'operator'}
-                lines={[
-                  `Bias "${w.bias}" on ${w.symbol}.`,
-                  w.sourceClass === 'deterministic_scan'
-                    ? 'Suggested by deterministic scan or suggestion tier — operator may accept or override.'
-                    : w.sourceClass === 'operator'
-                      ? 'Operator-set watch bias — not model-generated.'
-                      : `Recorded with source class ${w.sourceClass || 'operator'}.`,
-                  w.note ? `Note: ${w.note}` : 'No operator note attached.',
-                ]}
-              >
-                <span
-                  className="capitalize"
-                  style={{
-                    color:
-                      w.bias === 'long'
-                        ? 'var(--color-ok)'
-                        : w.bias === 'short'
-                          ? 'var(--color-block)'
-                          : 'var(--color-ink-dim)',
-                  }}
-                >
-                  {w.bias}
-                </span>
-              </Justification>,
-              w.status,
-              w.moduleName,
-              <span key="n" className="block max-w-56 truncate">
-                {w.note || '—'}
-              </span>,
-              new Date(w.updatedAt).toLocaleTimeString(),
-            ])}
-            empty="No watched symbols. Add them from a trading or trend module inspector."
-          />
+          <div className="space-y-2">
+            <WatchlistTierFilterChips
+              value={watchlistTierFilter}
+              onChange={setWatchlistTierFilter}
+            />
+            <Table
+              head={['Symbol', 'Bias', 'Status', 'Module', 'Note', 'Updated', '']}
+              rows={byModule(watchlists)
+                .filter((w) => watchlistMatchesTierFilter(w.status, watchlistTierFilter))
+                .map((w) => [
+                  <span key="s" className="font-mono">
+                    {w.symbol}
+                  </span>,
+                  <Justification
+                    key="b"
+                    sourceClass={w.sourceClass || 'operator'}
+                    lines={[
+                      `Bias "${w.bias}" on ${w.symbol}.`,
+                      w.sourceClass === 'movers_rank'
+                        ? 'Suggested by compound movers rank — Confirm promotes to watching.'
+                        : w.sourceClass === 'operator'
+                          ? 'Operator-set watch bias — not model-generated.'
+                          : `Recorded with source class ${w.sourceClass || 'operator'}.`,
+                      w.note ? `Note: ${w.note}` : 'No operator note attached.',
+                    ]}
+                  >
+                    <span
+                      className="capitalize"
+                      style={{
+                        color:
+                          w.bias === 'long'
+                            ? 'var(--color-ok)'
+                            : w.bias === 'short'
+                              ? 'var(--color-block)'
+                              : 'var(--color-ink-dim)',
+                      }}
+                    >
+                      {w.bias}
+                    </span>
+                  </Justification>,
+                  <span key="st" className="font-mono text-[10px]">
+                    {w.status}
+                  </span>,
+                  w.moduleName,
+                  <span key="n" className="block max-w-56 truncate">
+                    {w.note || '—'}
+                  </span>,
+                  new Date(w.updatedAt).toLocaleTimeString(),
+                  w.status === 'suggested_search' || w.status === 'suggested_verified' ? (
+                    <button
+                      key="c"
+                      type="button"
+                      className="text-[10px] uppercase tracking-wider text-[var(--color-accent)] hover:underline"
+                      onClick={() => void confirmWatchlist(w.id)}
+                    >
+                      Confirm
+                    </button>
+                  ) : (
+                    <span key="c" className="text-[var(--color-ink-faint)]">
+                      —
+                    </span>
+                  ),
+                ])}
+              empty="No watched symbols for this tier filter."
+            />
+          </div>
         )}
 
         {tab === 'lineage' && (

@@ -969,6 +969,37 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   ui-spec §3, product-spec, plans, requirements-matrix. Migration `0037`.
   **Status: implemented.**
 
+- **D-092 (compound movers / watchlist suggestion algorithm, 2026-07-18):** Master
+  `library.system_movers` path hydrates entitled research lanes + libraries, optionally
+  invokes orchestration-tier LLM for envelope-bound `SuggestionThresholdProfile` presets
+  (fail-closed → typical catalog anchors 20/60-class), then deterministic
+  `resolveSuggestionThresholds` + multi-lane compound rank. Emits sealed `movers_board`
+  with real `symbolOrSector`, upserts `suggested_search` (`source_class=movers_rank`,
+  never clobber operator), promotes `suggested_verified` via subset gates
+  (symbol_universe_fit ∧ evidence_fit ∧ regime_fit-when-numeric ∧ corroboration floor).
+  Operator Confirm → `watching`. UI tier filters on Market posture + BottomPanel.
+  Contracts: `packages/contracts/src/watchlist-suggestions.ts`. Migration `0038`.
+  Docs: ui-spec Market posture, data-model watchlist_items.
+  **Status: implemented.**
+
+- **D-093 (research-key bindings + bars regime + fund auto-propose + Justification, 2026-07-18):**
+  (a) `user_research_keys` → `research_provider` (+ `historical_bars` for polygon/
+  alpha_vantage/twelve_data/marketstack); Alpaca connected also grants
+  `historical_bars`; LLM BYOK keys dropped from service sources. Migration `0039`
+  adds `user_research_key_id`. Re-resolve on research key PUT/DELETE.
+  (b) promote uses Alpaca `fetchBars` → `buildRegimeFromBars` when connected,
+  else synthetic. (c) `AutoFundPolicy` (`off` | `propose_on_equity_refresh`) —
+  equity.refresh may insert `requested` fund_transfers (never auto-settle).
+  (d) Justification on RightPanel Values/Verify, BottomPanel watchlists/lineage,
+  MarketPosture position rows. Docs: data-model, ui-spec. **Status: implemented.**
+
+- **D-094 (research topics section placement + display, 2026-07-18):** Left Research tab
+  places a dedicated **Research topics** section between Entity search and Library shelves
+  (replacing the bottom Pages list). Nested seeded titles use shortened display labels under
+  parents; rows show concept count and Program/Group/Directive kind; groups collapse by default
+  with the Seeded trading mechanisms program expanded. Docs: research-tab-shelves-inspector-design,
+  ui-spec. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

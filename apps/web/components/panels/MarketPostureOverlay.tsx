@@ -328,13 +328,18 @@ export function MarketPostureOverlay() {
               <CategoryBlock
                 title="Watchlists"
                 empty="No watchlist symbols"
-                count={hub.watchlists.length}
+                count={hub.watchlists.filter(
+                  (w) => w.status === 'watching' || w.status === 'suggested_verified',
+                ).length}
               >
-                {hub.watchlists.slice(0, 12).map((w) => (
+                {hub.watchlists
+                  .filter((w) => w.status === 'watching' || w.status === 'suggested_verified')
+                  .slice(0, 12)
+                  .map((w) => (
                   <li key={w.id} className="text-xs">
                     <span className="font-medium">{w.symbol}</span>
                     <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
-                      {w.bias} · {w.moduleName}
+                      {w.bias} · {w.status} · {w.moduleName}
                     </span>
                     <div className="mt-0.5">
                       <EngineChips engines={w.engines} />

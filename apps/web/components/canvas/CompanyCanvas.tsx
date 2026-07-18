@@ -1693,10 +1693,10 @@ export function CompanyCanvas(props: {
   }, []);
 
   return (
-    <div className="relative flex min-h-0 flex-1">
+    <div className="absolute inset-0 flex min-h-0">
       <Palette onAdd={addModule} onInsertEngine={insertEngine} />
 
-      <div className="min-w-0 flex-1">
+      <div className="h-full min-h-0 min-w-0 flex-1">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -1730,7 +1730,7 @@ export function CompanyCanvas(props: {
           fitViewOptions={{ maxZoom: 1 }}
           proOptions={{ hideAttribution: true }}
           colorMode="dark"
-          style={{ background: 'var(--color-surface-0)' }}
+          style={{ width: '100%', height: '100%', background: 'var(--color-surface-0)' }}
         >
           <Background gap={24} color="var(--color-line)" />
           <Controls showInteractive={false} />

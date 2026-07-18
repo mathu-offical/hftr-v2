@@ -176,6 +176,27 @@
       "when": 1784332000000,
       "tag": "0024_company_sector_focuses",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1784333000000,
+      "tag": "0025_alpaca_news_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1784333500000,
+      "tag": "0026_finnhub_polygon_research",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1784334000000,
+      "tag": "0028_fred_alpha_vantage_research",
+      "breakpoints": true
     }
   ]
 }

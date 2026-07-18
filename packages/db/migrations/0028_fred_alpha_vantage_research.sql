@@ -1,0 +1,4 @@
+-- research_evidence.source_kind: fred_macro, frankfurter_fx, coingecko_crypto, alpha_vantage_news,
+-- gdelt_news, world_bank_indicator, twelve_data, marketstack for expanded gather registry.
+-- user_research_keys.provider: fred, alpha_vantage operator API keys.
+-- Columns are unconstrained text; validation lives in @hftr/contracts ResearchSourceKind / ResearchKeyProvider.

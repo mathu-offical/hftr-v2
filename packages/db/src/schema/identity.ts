@@ -97,7 +97,7 @@ export const userResearchKeys = pgTable(
       .default(sql`gen_random_uuid()`),
     clerkUserId: text('clerk_user_id').notNull(),
     provider: text('provider', {
-      enum: ['brave', 'market_news', 'finnhub', 'polygon'],
+      enum: ['brave', 'market_news', 'finnhub', 'polygon', 'fred', 'alpha_vantage'],
     }).notNull(),
     ciphertext: text('ciphertext').notNull(),
     keyHint: text('key_hint').notNull(),

@@ -104,6 +104,11 @@ export interface BrokerAdapter {
   verifyConnection(): Promise<ConnectionStatus>;
   getBalances(): Promise<BalanceSnapshot>;
   getQuote(symbol: string): Promise<QuoteSnapshot>;
+  /**
+   * Optional historical quote near `atIso` (ISO-8601). Used by trend lookback
+   * when live_api is bound to a venue that supports bars (Alpaca paper).
+   */
+  getQuoteAt?(symbol: string, atIso: string): Promise<QuoteSnapshot>;
   submitOrder(task: DeterministicActionTask): Promise<SubmitResult>;
   cancelOrder(venueOrderId: string): Promise<SubmitResult>;
   getFills(sinceIso: string): Promise<FillRecord[]>;

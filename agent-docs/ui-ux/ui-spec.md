@@ -282,6 +282,13 @@ suppressed in editable fields.
   from the operator's research keys + Alpaca paper broker (via `selectReadySourceKinds`).
   Overlay + rail list each movers-lane provider as ready / need key / contributed on last seal.
   Position marks remain synthetic until live broker marks.
+  **SymbolTicker + charts (D-109):** Every symbol row (positions, movers, watchlists, trends)
+  uses shared `SymbolTicker` — synthetic spark, direction glyph, strength ticks + band word,
+  mark/held/uPnL text. Held vs cost **ok/block spark + PnL tone always wins** when cost basis
+  exists; non-held may tint strength ticks orange→lime by relevance while glyphs/ticks remain
+  readable without color. Overlay adds dynamic pies/bars for allocation, watchlist tiers,
+  trend strength, mover directions, and provider ready/need-key. Sparks are labeled
+  `synthetic_sim` (baseline algorithm), not broker history.
   **Watchlist tiers (D-092):** `suggested_search` → `suggested_verified` → `watching`
   (+ `triggered` / `archived`). Market posture rail **and overlay** + bottom Watch lists
   filter chips (default: watching + suggested_verified). **Confirm** PATCHes to `watching`

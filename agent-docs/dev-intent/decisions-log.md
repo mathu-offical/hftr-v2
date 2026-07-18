@@ -1132,6 +1132,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `docs/superpowers/specs/2026-07-18-canvas-connection-point-audit-design.md`.
   **Status: implemented.**
 
+- **D-109 (SymbolTicker + posture charts, 2026-07-18):** Universal `SymbolTicker` (spark +
+  glyph/ticks/metrics) seeded by baseline market hub algorithm (synthetic quote walk +
+  qualitative bands) without requiring engines. **Held P&L color wins** over watchlist
+  relevance orange→lime; every cue also has non-color encoding. Hub projects
+  `MarketHubSymbolViz` / `charts` (allocation pie, tiers, strength, mover dirs, sources).
+  Spec: `docs/superpowers/specs/2026-07-18-symbol-ticker-posture-viz-design.md`. Docs:
+  ui-spec §4. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

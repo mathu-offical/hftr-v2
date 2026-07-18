@@ -309,6 +309,13 @@
       "when": 1784440000000,
       "tag": "0044_deterministic_task_drain_state",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1784450000000,
+      "tag": "0045_book_deltas",
+      "breakpoints": true
     }
   ]
 }

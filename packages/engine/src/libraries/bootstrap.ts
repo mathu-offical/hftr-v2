@@ -11,6 +11,7 @@ import {
   topicConcepts,
 } from '@hftr/db/schema';
 import { leakLint } from '../calc/leak-lint';
+import { ensureSystemMoversLibrary } from './system-movers';
 
 const MECHANISMS_LIBRARY_NAME = 'Seeded trading mechanisms';
 const SEEDED_TOPIC_TITLE = 'Seeded trading mechanisms';
@@ -364,6 +365,8 @@ export async function bootstrapCompanyKnowledge(opts: {
   skipIfSeeded?: boolean;
 }): Promise<{ librariesEnsured: number; conceptsUpserted: number; topicId: string | null }> {
   const now = opts.now ?? new Date();
+
+  await ensureSystemMoversLibrary(opts.db, opts.companyId, now);
 
   if (opts.skipIfSeeded !== false) {
     const [existingSeed] = await opts.db

@@ -7,15 +7,14 @@ Living design for the left Research tab layout and floating in-galaxy inspector.
 1. **Submit new topic** — primary control at top; creates a research topic (module picker when multiple research modules exist).
 2. **Entity search** — single search field; entity-type buttons switch the corpus:
    - `Topics` · `Concepts` · `Tags` · `Libraries`
-3. **Library shelves** — three expandable groups; each library is a **folder of pages**:
+3. **Library shelves** — expandable groups; each library (or seeded category) is a **folder of pages**:
    - Caret expands the folder to list pages (catalog / admitted concepts as readable page leaves).
    - **Folder name click** opens the matching **overview topic page** when one exists (same title as the library, e.g. Seeded trading mechanisms); otherwise opens the library inspector + galaxy nest.
    - **Page leaf click** opens that page in the floating inspector and traces it in the galaxy.
-   - Expanded folders may include an **Overview** row that opens the index topic (same page also listed under Pages).
    - Shelves:
-     - **System curated (runtime)** — cadence libraries (movers/trends/policy). Empty until those ship; shelf still visible.
+     - **System curated (runtime)** — cadence libraries (`system:movers` ships as **Daily movers watch** with three qualitative placeholder pages at bootstrap; trends/policy remain future slices). Shelf visible even when a slice is empty.
      - **Runtime (user / engine)** — operator-created and engine-admitted libraries (not baseline seed).
-     - **Baseline seeded** — compile-time catalog nest; opens expanded by default. **Seeded trading mechanisms** is the folder of mechanism pages; the overview page remains in the Pages list and is also reachable via folder name / Overview.
+     - **Baseline seeded** — one shelf (same bordered section chrome as system/runtime). Inside: **Overview · Seeded trading mechanisms**, then **inline catalog folders** (Strategy families, Guardrails, Session constraints, Broker policy, Trend lead patterns) partitioned by seed catalog tags. Folders use the same caret/folder-row pattern as runtime libraries. Within a folder, distinct `tier_*` tags nest as tier subfolders; single-bucket catalogs stay flat.
 4. **Pages** — company topics as a compact list (including folder overview topics such as Seeded trading mechanisms). Selection opens the Page inspector. Linked topic IDs from the open page’s synopsis/`[[wikilink]]`s are text-highlighted in this list.
 5. **Archive** (D-047) — soft-deleted research; Restore / Clear archive.
 6. **Modules & tools** (collapsed) — research module actions, company sweep, Obsidian export.
@@ -35,14 +34,15 @@ Living design for the left Research tab layout and floating in-galaxy inspector.
 | Select tag | Focus tagged concepts; highlight first | Tag member list | Navigator only |
 | Select library folder (no overview topic) | Filter nest chip | Library member list | Caret expands page leaves separately |
 | Select library folder (with overview topic) | Focus topic membership | Overview page article | Folder + Pages list selection |
+| Select baseline Overview | Focus topic membership | Overview page article | Overview control at top of Baseline seeded shelf |
 | Wikilink in synopsis | Same as concept/topic select | Opens target in inspector | — |
 
 ## Classification rules (libraries)
 
 | Shelf | Rule |
 |-------|------|
-| Baseline seeded | `name === "Seeded trading mechanisms"` OR `topicScope === "compile_time_mechanisms"` |
-| System curated | `topicScope` starts with `system:` (reserved; empty until cadence libraries ship) |
+| Baseline seeded | Active library is baseline (`name === "Seeded trading mechanisms"` OR `topicScope === "compile_time_mechanisms"`); pages shown as inline catalog folders by bootstrap catalog tags; optional `tier_*` subfolders inside those folders |
+| System curated | `topicScope` starts with `system:` — **`system:movers`** → Daily movers watch (bootstrap + `library.system_movers` handler); other `system:*` scopes ship incrementally |
 | Runtime | All other active libraries |
 
 ## Related

@@ -74,6 +74,13 @@ export {
   type SeededCatalogEntry,
 } from './libraries/bootstrap';
 export {
+  ensureSystemMoversLibrary,
+  MOVERS_LIBRARY_NAME,
+  MOVERS_PLACEHOLDER_SEEDS,
+  MOVERS_TOPIC_SCOPE,
+  type EnsureSystemMoversLibraryOpts,
+} from './libraries/system-movers';
+export {
   loadCompanyLinkGraph,
   neighborIds,
   resolveDirectiveTradingTarget,
@@ -119,6 +126,7 @@ import './handlers/research-company-sweep';
 import './handlers/reconcile';
 import './handlers/simulation';
 import './handlers/analyzer';
+import './handlers/library-system-movers';
 
 // Dispatch
 export {
@@ -137,7 +145,7 @@ export {
   type ResolvedInstruction,
   type InstructionFinalizeErrorCode,
 } from './dispatch/instruction-finalizer';
-export { getCompanyBalanceCents } from './dispatch/balances';
+export { getCompanyBalanceCents, getModuleBalanceCents } from './dispatch/balances';
 export {
   resolveExecutionContext,
   type ResolvedExecutionContext,
@@ -290,11 +298,16 @@ export {
   transferDescription,
   isTerminalTransferStatus,
   fundTransferRowsFromProposals,
+  isModuleToModuleTransfer,
+  moduleTransferLedgerEntries,
   type TransferDecision,
   type FundTransferStatus,
   type FundTransferRequestedBy,
   type FundTransferInsertFromProposal,
+  type ModuleTransferLedgerEntry,
+  type ModuleTransferLedgerBalances,
 } from './fund-transfers/transfer';
+export { resolveCapitalAllocationUsdCents } from './fund-transfers/resolve-amount';
 export {
   proposeFundRouteTransfers,
   type FundRouteHop,

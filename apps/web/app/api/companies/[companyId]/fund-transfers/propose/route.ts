@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   fundTransferRowsFromProposals,
   proposeFundRouteTransfers,
+  resolveCapitalAllocationUsdCents,
   type ProposeFundRouteTransfersResult,
 } from '@hftr/engine';
 import { scoping } from '@hftr/db';
@@ -15,7 +16,7 @@ const Params = z.object({ companyId: z.string().uuid() });
 type Ctx = { params: Promise<{ companyId: string }> };
 
 const ProposeInput = z.object({
-  amountCents: z.union([z.string().regex(/^\d+$/), z.number().int().positive()]),
+  amountCents: z.union([z.string().regex(/^\d+$/), z.number().int().positive()]).optional(),
   sourceModuleId: z.string().uuid().optional(),
   /** When true, insert fund_transfers rows (status requested) for each hop. Default false. */
   commit: z.boolean().optional().default(false),
@@ -67,7 +68,24 @@ export async function POST(req: Request, ctx: Ctx) {
     const { companyId } = Params.parse(await ctx.params);
     await scoping.getOwnedCompany(db, clerkUserId, companyId);
     const input = await parseBody(req, ProposeInput);
-    const amountCents = parseAmountCents(input.amountCents);
+
+    let amountCents: bigint;
+    if (input.amountCents !== undefined) {
+      amountCents = parseAmountCents(input.amountCents);
+    } else if (input.commit && input.sourceModuleId) {
+      const sourceRows = await db
+        .select({ capitalAllocationRef: modules.capitalAllocationRef })
+        .from(modules)
+        .where(eq(modules.id, input.sourceModuleId))
+        .limit(1);
+      const source = sourceRows[0];
+      if (!source) throw new ApiError(422, 'source_not_found');
+      const resolved = await resolveCapitalAllocationUsdCents(db, source.capitalAllocationRef);
+      if (resolved === null) throw new ApiError(422, 'allocation_ref_unresolved');
+      amountCents = resolved;
+    } else {
+      throw new ApiError(422, 'invalid_amount');
+    }
 
     const [moduleRows, linkRows] = await Promise.all([
       db

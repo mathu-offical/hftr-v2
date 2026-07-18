@@ -47,9 +47,70 @@ export function validateTransferDecision(
   return { ok: true };
 }
 
+export interface ModuleTransferLedgerEntry {
+  moduleId: string;
+  description: string;
+  amountCents: bigint;
+  balanceAfterCents: bigint;
+}
+
+export interface ModuleTransferLedgerBalances {
+  fromModuleBalanceCents: bigint;
+  toModuleBalanceCents: bigint;
+}
+
+export function isModuleToModuleTransfer(
+  transfer: Pick<FundTransferRow, 'fromKind' | 'toKind'>,
+): boolean {
+  return transfer.fromKind === 'module' && transfer.toKind === 'module';
+}
+
+/**
+ * Paired module ledger rows for module↔module hops. Amounts sum to zero; company pool unchanged
+ * (`transferLedgerDeltaCents` is 0). `companyBalanceCents` is the caller's current company pool
+ * balance (unchanged by these rows). Caller writes both rows on approve.
+ */
+export function moduleTransferLedgerEntries(
+  transfer: Pick<
+    FundTransferRow,
+    'fromKind' | 'fromModuleId' | 'toKind' | 'toModuleId' | 'amountCents'
+  >,
+  companyBalanceCents: bigint,
+  moduleBalances: ModuleTransferLedgerBalances,
+): ModuleTransferLedgerEntry[] {
+  if (!isModuleToModuleTransfer(transfer)) return [];
+  const fromId = transfer.fromModuleId;
+  const toId = transfer.toModuleId;
+  if (!fromId || !toId) return [];
+  const amount = transfer.amountCents;
+  if (amount <= 0n) return [];
+
+  void companyBalanceCents;
+
+  const base = transferDescription(transfer);
+  return [
+    {
+      moduleId: fromId,
+      description: `${base} (debit)`,
+      amountCents: -amount,
+      balanceAfterCents: moduleBalances.fromModuleBalanceCents - amount,
+    },
+    {
+      moduleId: toId,
+      description: `${base} (credit)`,
+      amountCents: amount,
+      balanceAfterCents: moduleBalances.toModuleBalanceCents + amount,
+    },
+  ];
+}
+
 /**
  * Net company-pool ledger delta when a transfer is approved.
- * Module↔module moves are bookkeeping-only in this stub (zero company delta).
+ * Module↔module moves are bookkeeping-only (zero company delta); use
+ * `moduleTransferLedgerEntries` for paired module rows.
+ *
+ * Approve path: write ledger (company delta and/or paired module entries), set `approvedAt`,
+ * then status **`settled`** (not `approved` alone).
  */
 export function transferLedgerDeltaCents(
   transfer: Pick<FundTransferRow, 'fromKind' | 'toKind' | 'amountCents'>,

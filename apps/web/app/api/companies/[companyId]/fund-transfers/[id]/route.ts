@@ -2,6 +2,8 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   getCompanyBalanceCents,
+  getModuleBalanceCents,
+  moduleTransferLedgerEntries,
   transferDescription,
   transferLedgerDeltaCents,
   validateTransferDecision,
@@ -49,32 +51,66 @@ export async function POST(req: Request, ctx: Ctx) {
       return { transfer: { ...row, amountCents: row.amountCents.toString() } };
     }
 
+    const companyBalanceCents = await getCompanyBalanceCents(db, companyId);
     const delta = transferLedgerDeltaCents(transfer);
-    const balanceAfter =
-      delta !== 0n ? (await getCompanyBalanceCents(db, companyId)) + delta : null;
+    const companyBalanceAfter = delta !== 0n ? companyBalanceCents + delta : companyBalanceCents;
+
+    const moduleEntries =
+      transfer.fromKind === 'module' &&
+      transfer.toKind === 'module' &&
+      transfer.fromModuleId &&
+      transfer.toModuleId
+        ? moduleTransferLedgerEntries(
+            transfer,
+            companyBalanceCents,
+            {
+              fromModuleBalanceCents: await getModuleBalanceCents(
+                db,
+                companyId,
+                transfer.fromModuleId,
+              ),
+              toModuleBalanceCents: await getModuleBalanceCents(db, companyId, transfer.toModuleId),
+            },
+          )
+        : [];
 
     const updated = await db
       .update(fundTransfers)
-      .set({ status: 'approved', approvedAt: new Date(), updatedAt: new Date() })
+      .set({ status: 'settled', approvedAt: new Date(), updatedAt: new Date() })
       .where(eq(fundTransfers.id, id))
       .returning();
 
-    if (delta !== 0n && balanceAfter !== null) {
+    if (delta !== 0n) {
       await db.insert(ledgerEntries).values({
         companyId,
         moduleId: transfer.toModuleId ?? transfer.fromModuleId ?? null,
         kind: 'transfer',
         amountCents: delta,
-        balanceAfterCents: balanceAfter,
+        balanceAfterCents: companyBalanceAfter,
         traceId: null,
         description: transferDescription(transfer),
       });
+    }
+
+    if (moduleEntries.length > 0) {
+      await db.insert(ledgerEntries).values(
+        moduleEntries.map((entry) => ({
+          companyId,
+          moduleId: entry.moduleId,
+          kind: 'transfer' as const,
+          amountCents: entry.amountCents,
+          balanceAfterCents: entry.balanceAfterCents,
+          traceId: null,
+          description: entry.description,
+        })),
+      );
     }
 
     const row = updated[0]!;
     return {
       transfer: { ...row, amountCents: row.amountCents.toString() },
       ledgerDeltaCents: delta.toString(),
+      moduleLedgerEntryCount: moduleEntries.length,
     };
   });
 }

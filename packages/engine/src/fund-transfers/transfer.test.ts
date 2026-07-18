@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   canDecideTransfer,
   fundTransferRowsFromProposals,
+  moduleTransferLedgerEntries,
   transferDescription,
   transferLedgerDeltaCents,
   validateTransferDecision,
@@ -58,5 +59,46 @@ describe('fund transfer decisions', () => {
       },
     ]);
     expect(fundTransferRowsFromProposals(proposals, 'policy')[0]!.requestedBy).toBe('policy');
+  });
+
+  it('moduleTransferLedgerEntries conserves company pool and module amounts', () => {
+    const transfer = {
+      fromKind: 'module' as const,
+      fromModuleId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      toKind: 'module' as const,
+      toModuleId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+      amountCents: 25_000n,
+    };
+    const companyBalanceCents = 1_000_000n;
+    const entries = moduleTransferLedgerEntries(transfer, companyBalanceCents, {
+      fromModuleBalanceCents: 100_000n,
+      toModuleBalanceCents: 50_000n,
+    });
+
+    expect(entries).toHaveLength(2);
+    expect(transferLedgerDeltaCents(transfer)).toBe(0n);
+    expect(entries.reduce((sum, e) => sum + e.amountCents, 0n)).toBe(0n);
+    expect(entries[0]!.amountCents).toBe(-25_000n);
+    expect(entries[0]!.balanceAfterCents).toBe(75_000n);
+    expect(entries[1]!.amountCents).toBe(25_000n);
+    expect(entries[1]!.balanceAfterCents).toBe(75_000n);
+    expect(entries[0]!.moduleId).toBe(transfer.fromModuleId);
+    expect(entries[1]!.moduleId).toBe(transfer.toModuleId);
+  });
+
+  it('moduleTransferLedgerEntries returns empty for pool hops', () => {
+    expect(
+      moduleTransferLedgerEntries(
+        {
+          fromKind: 'company_pool',
+          fromModuleId: null,
+          toKind: 'module',
+          toModuleId: '11111111-1111-1111-1111-111111111111',
+          amountCents: 10_000n,
+        },
+        500_000n,
+        { fromModuleBalanceCents: 0n, toModuleBalanceCents: 0n },
+      ),
+    ).toEqual([]);
   });
 });

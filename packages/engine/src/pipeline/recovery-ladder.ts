@@ -1,9 +1,8 @@
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import seededStrategyCatalog from '../../../db/src/seed/catalogs/seeded-strategy-catalog.json';
 
 /**
  * Recovery ladder template lookup (v1 parity, catalog-backed).
+ * Bundled via static import (Vercel serverless safe — no filesystem reads).
  */
 
 export interface RecoveryLadderTemplate {
@@ -13,15 +12,11 @@ export interface RecoveryLadderTemplate {
   appliesTo: readonly string[];
 }
 
-const CATALOG_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../../db/src/seed/catalogs');
-
 let cachedTemplates: ReadonlyMap<string, RecoveryLadderTemplate> | null = null;
 
 export function loadRecoveryLadderTemplates(): ReadonlyMap<string, RecoveryLadderTemplate> {
   if (cachedTemplates) return cachedTemplates;
-  const source = JSON.parse(
-    readFileSync(join(CATALOG_DIR, 'seeded-strategy-catalog.json'), 'utf8'),
-  ) as {
+  const source = seededStrategyCatalog as {
     recoveryLadderTemplates?: Array<{
       id: string;
       name: string;

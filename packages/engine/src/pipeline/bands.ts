@@ -1,11 +1,10 @@
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { PhilosophyBandPosition } from '@hftr/contracts';
+import seededStrategyCatalog from '../../../db/src/seed/catalogs/seeded-strategy-catalog.json';
 
 /**
  * Catalog-backed bounded-range bands (v1 parity).
- * Values consumed from packages/db seed catalogs — not rewritten here.
+ * Values consumed from packages/db seed catalogs — bundled via static import
+ * (no filesystem reads; Vercel serverless safe).
  */
 
 export interface NumericBand {
@@ -14,8 +13,6 @@ export interface NumericBand {
   max: number;
   unit?: string;
 }
-
-const CATALOG_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../../db/src/seed/catalogs');
 
 let cachedBands: ReadonlyMap<string, NumericBand> | null = null;
 
@@ -48,14 +45,18 @@ function readNestedProfile(
   return isNumericBandEntry(nested) ? nested : undefined;
 }
 
+function strategyCatalogSource(): {
+  runtimeControlSurface?: { boundedRangeFamilyDefinitions?: Record<string, unknown> };
+} {
+  return seededStrategyCatalog as {
+    runtimeControlSurface?: { boundedRangeFamilyDefinitions?: Record<string, unknown> };
+  };
+}
+
 /** Load min/typical/max bands from seeded-strategy-catalog.json. */
 export function loadBoundedRangeBands(): ReadonlyMap<string, NumericBand> {
   if (cachedBands) return cachedBands;
-  const source = JSON.parse(
-    readFileSync(join(CATALOG_DIR, 'seeded-strategy-catalog.json'), 'utf8'),
-  ) as {
-    runtimeControlSurface?: { boundedRangeFamilyDefinitions?: Record<string, unknown> };
-  };
+  const source = strategyCatalogSource();
   const defs = source.runtimeControlSurface?.boundedRangeFamilyDefinitions ?? {};
   const entries: [string, NumericBand][] = [];
   for (const [bandId, raw] of Object.entries(defs)) {
@@ -73,11 +74,7 @@ export function getBoundedRangeBand(bandId: string, profileKey?: string): Numeri
   const flat = loadBoundedRangeBands().get(bandId);
   if (flat) return flat;
 
-  const source = JSON.parse(
-    readFileSync(join(CATALOG_DIR, 'seeded-strategy-catalog.json'), 'utf8'),
-  ) as {
-    runtimeControlSurface?: { boundedRangeFamilyDefinitions?: Record<string, unknown> };
-  };
+  const source = strategyCatalogSource();
   const raw = source.runtimeControlSurface?.boundedRangeFamilyDefinitions?.[bandId];
   if (raw == null || typeof raw !== 'object') return undefined;
   const key = profileKey ?? NESTED_BAND_PROFILES[bandId];

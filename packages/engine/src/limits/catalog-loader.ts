@@ -1,11 +1,18 @@
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+/**
+ * Catalog loaders for runtime gates/limits.
+ *
+ * JSON is imported statically so Next/Vercel serverless bundles include the
+ * catalogs. Do NOT readFileSync from packages/db — those paths are absent from
+ * the Vercel function filesystem (ENOENT on POST /api/companies).
+ */
+
+import guardrailCatalog from '../../../db/src/seed/catalogs/guardrail-recovery-package-catalog.json';
+import brokerCatalog from '../../../db/src/seed/catalogs/broker-policy-envelope-catalog.json';
+import sessionCatalog from '../../../db/src/seed/catalogs/session-constraint-catalog.json';
+import liveGateBandsJson from '../../../db/src/seed/catalogs/live_gate_threshold_bands.json';
 
 export const CATALOG_VERSION = 'v1_snapshot_2026_07_16';
 export const LIVE_GATE_BANDS_VERSION = 'testing_baseline_v1_not_live_signoff';
-
-const CATALOG_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../../db/src/seed/catalogs');
 
 export interface NumericBand {
   min: number;
@@ -65,10 +72,6 @@ export interface LiveGateThresholdBands {
   boundedRangeFamilies: Record<string, NumericBand>;
 }
 
-function readJson<T>(fileName: string): T {
-  return JSON.parse(readFileSync(join(CATALOG_DIR, fileName), 'utf8')) as T;
-}
-
 function freezeMap<K extends string, V>(entries: [K, V][]): ReadonlyMap<K, V> {
   return Object.freeze(new Map(entries)) as ReadonlyMap<K, V>;
 }
@@ -80,16 +83,14 @@ let liveGateBands: LiveGateThresholdBands | null = null;
 
 export function loadGuardrailPackages(): ReadonlyMap<string, GuardrailPackageEntry> {
   if (guardrailPackages) return guardrailPackages;
-  const source = readJson<{ packages: GuardrailPackageEntry[] }>(
-    'guardrail-recovery-package-catalog.json',
-  );
+  const source = guardrailCatalog as { packages: GuardrailPackageEntry[] };
   guardrailPackages = freezeMap(source.packages.map((p) => [p.id, Object.freeze({ ...p })]));
   return guardrailPackages;
 }
 
 export function loadBrokerEnvelopes(): ReadonlyMap<string, BrokerEnvelopeEntry> {
   if (brokerEnvelopes) return brokerEnvelopes;
-  const source = readJson<BrokerCatalogSource>('broker-policy-envelope-catalog.json');
+  const source = brokerCatalog as BrokerCatalogSource;
   brokerEnvelopes = freezeMap(
     source.envelopes.map((e) => {
       const budget = resolveTradeBudget(e, source.testingBaselineDefaults);
@@ -104,16 +105,14 @@ export function loadBrokerEnvelopes(): ReadonlyMap<string, BrokerEnvelopeEntry> 
 
 export function loadSessionConstraints(): ReadonlyMap<string, SessionConstraintEntry> {
   if (sessionConstraints) return sessionConstraints;
-  const source = readJson<{ sessions: SessionConstraintEntry[] }>(
-    'session-constraint-catalog.json',
-  );
+  const source = sessionCatalog as { sessions: SessionConstraintEntry[] };
   sessionConstraints = freezeMap(source.sessions.map((s) => [s.id, Object.freeze({ ...s })]));
   return sessionConstraints;
 }
 
 export function loadLiveGateThresholdBands(): LiveGateThresholdBands {
   if (liveGateBands) return liveGateBands;
-  const source = readJson<LiveGateThresholdBands>('live_gate_threshold_bands.json');
+  const source = liveGateBandsJson as LiveGateThresholdBands;
   liveGateBands = Object.freeze({
     ...source,
     boundedRangeFamilies: Object.freeze({ ...source.boundedRangeFamilies }),

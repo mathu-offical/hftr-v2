@@ -73,6 +73,21 @@ disabled until evidence passes; confirmation input placeholder is `ARM LIVE TRAD
 
 Engine: `resolveExecutionContext` + `resolveBrokerAdapter` throw `live_gate_blocked` without arming.
 
+## Incident: company create 500 on Vercel (catalog ENOENT)
+
+**Symptom:** `POST /api/companies` → 500 with
+`ENOENT .../packages/db/src/seed/catalogs/session-constraint-catalog.json`.
+
+**Cause:** Engine catalog loaders used `readFileSync` against workspace-relative paths.
+Those JSON files are not present on the Vercel serverless filesystem.
+
+**Fix:** Static-import seed catalogs in `@hftr/engine` (`catalog-loader`, `bands`,
+`recovery-ladder`) so Next bundles them; `apps/web/next.config.ts` also traces
+`packages/db/src/seed/catalogs/**` for residual readers.
+
+**Verify after deploy:** create a paper company from `/companies`; production logs must
+not show catalog ENOENT on `POST /api/companies`.
+
 ## Dead-letter jobs
 
 - List: `GET /api/companies/:companyId/jobs/dead`

@@ -78,6 +78,8 @@ export const deterministicTasks = pgTable(
       .notNull()
       .default('pending'),
     venueOrderId: text('venue_order_id'),
+    /** POV time-spaced child-slice drain progress (slices, fills, filledThroughIndex). */
+    drainState: jsonb('drain_state'),
     ...timestamps,
   },
   (t) => [uniqueIndex('deterministic_tasks_idempotency_unique').on(t.idempotencyKey)],

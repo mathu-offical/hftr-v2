@@ -76,7 +76,11 @@ registerHandler('tactical.expand', async ({ db, clock, job, modelGateway }) => {
 
   const quote = getSyntheticQuote(trend.symbol, clock);
   const deterministic = buildDecisionTree(
-    { symbol: trend.symbol, direction: trend.direction },
+    {
+      symbol: trend.symbol,
+      direction: trend.direction,
+      strategyFamily,
+    },
     quote,
   );
 

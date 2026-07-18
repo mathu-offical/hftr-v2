@@ -141,9 +141,10 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   full internal verification loop. **Detail modal (D-042)** exposes tree/compile/dispatch/
   loop_refine as observe + bounded-tune layers (not separate canvas nodes).
 - **Position lifecycle (paper):** `maintenance.position_exits` applies model-free exits —
-  targetExit deadline, spread-buffered breakeven (minimize-loss), and a 60m time_stop stub —
-  through the same `dispatch.paper_trade` gauntlet as operator sells. Catalog ATR/RR scale-outs
-  remain follow-on work.
+  targetExit deadline, catalog ATR stop (synthetic ATR proxy × `atr_stop_multiplier_band`),
+  RR ladder scale-outs (`rr_target_ladder` tp1/tp2/tp3), spread-buffered breakeven, and
+  `time_stop_band.typical_min` — through `dispatch.paper_trade`. Live `atr_stream` remains
+  follow-on work.
 - Presets tune default strategy families, bands, cadences, venues:
   - **Crypto** — 24/7 sessions, Alpaca crypto (then Coinbase), cross-cap trend watching.
   - **Prediction markets** — Kalshi/Polymarket adapters, probability-edge families, niche data

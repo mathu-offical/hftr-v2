@@ -1,4 +1,5 @@
 import type { BranchNode, QuoteSnapshot } from '@hftr/contracts';
+import { getRecoveryLadderTemplate, recoveryTemplateForFamily } from './recovery-ladder';
 
 /**
  * Deterministic tactical decomposition (v1 decision_trees stage). Builds the
@@ -12,6 +13,8 @@ import type { BranchNode, QuoteSnapshot } from '@hftr/contracts';
 export interface TreeLeadInput {
   symbol: string;
   direction: 'up' | 'down' | 'flat';
+  /** When set, recovery ladder phases come from catalog template for the family. */
+  strategyFamily?: string | null;
 }
 
 export interface BuiltDecisionTree {
@@ -23,6 +26,15 @@ export interface BuiltDecisionTree {
 
 /** Invalidation band: quote drift beyond this many bps voids the entry thesis. */
 export const INVALIDATION_BAND_BPS = 150;
+
+const FALLBACK_RECOVERY_LADDER = Object.freeze(['defer', 'cancel', 'escalate']);
+
+export function resolveRecoveryLadderPhases(strategyFamily?: string | null): string[] {
+  if (!strategyFamily) return [...FALLBACK_RECOVERY_LADDER];
+  const tpl = getRecoveryLadderTemplate(recoveryTemplateForFamily(strategyFamily));
+  if (tpl && tpl.phases.length > 0) return [...tpl.phases];
+  return [...FALLBACK_RECOVERY_LADDER];
+}
 
 export function buildDecisionTree(lead: TreeLeadInput, quote: QuoteSnapshot): BuiltDecisionTree {
   const entry: BranchNode =
@@ -54,7 +66,7 @@ export function buildDecisionTree(lead: TreeLeadInput, quote: QuoteSnapshot): Bu
   return {
     symbol: quote.symbol,
     branches: [entry, invalidation],
-    recoveryLadder: ['defer', 'cancel', 'escalate'],
+    recoveryLadder: resolveRecoveryLadderPhases(lead.strategyFamily),
     sourceClass: 'deterministic_placeholder',
   };
 }

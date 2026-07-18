@@ -269,8 +269,11 @@ UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
   Inline promote drain claims only `RESEARCH|TACTICAL|COMPILE|DISPATCH|VERIFY` (no
   maintenance kick) so posture/library side-jobs cannot starve paper fill.
   `maintenance.position_exits` (via `maintenance.sweep`) scans open paper positions for
-  model-free exits: targetExit deadline, spread-buffered breakeven, 60m time_stop stub →
-  sell `actionInstructions` + `dispatch.paper_trade` (gauntlet intact).
+  model-free exits: targetExit deadline, ATR stop (synthetic ATR × catalog multiplier),
+  RR tp1/tp2 scale-out + tp3 exit, spread-buffered breakeven, catalog time_stop →
+  sell `actionInstructions` + `dispatch.paper_trade` (gauntlet intact). Recovery phase
+  labels are attached on exit envelopes; tactical trees bind catalog recovery ladder
+  phases when `strategyFamily` is known.
 - **job_schedules** — cron-like recurring definitions per module cadence.
 - **llm_calls** — provider, model, tier, module_id, tokens in/out, cost_cents, latency_ms,
   schema_valid, leak_lint_passed, rate_limit_remaining, request_id, retention_class, failure,

@@ -117,8 +117,10 @@ Scoring: `intent-alignment-scoring.md`
    Coinbase cohorts still require milestone adapters and credentials.
 6. **Done (2026-07-18):** Bootstrap mirrors `auto_admitted` catalog seeds into trend-linked
    Strategy Evidence Library shelves so day_trading `evidence_fit` can pass (D-090 preserved).
-7. **Done (2026-07-18):** Model-free `maintenance.position_exits` — breakeven (spread-buffered),
-   `targetExitRef` deadline, and 60m time_stop stub → sell via `dispatch.paper_trade`.
+7. **Done (2026-07-18):** Model-free `maintenance.position_exits` — catalog ATR stop
+   (synthetic ATR proxy), RR tp1/tp2 scale-out + tp3, breakeven (spread-buffered),
+   `time_stop_band.typical_min`, recovery phase labels on envelopes; tactical trees bind
+   catalog recovery ladder phases when `strategyFamily` is set.
 
 ---
 

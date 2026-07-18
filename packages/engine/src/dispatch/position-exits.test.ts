@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import { getRrTargetLadder, getTimeStopTypicalMinutes } from '../pipeline/bands';
 import {
+  recoveryPhaseForExit,
   resolvePositionExitReason,
+  riskDistanceCents,
+  scaleOutQty,
+  shouldExitAtrStop,
   shouldExitBreakeven,
   shouldExitTargetDeadline,
   shouldExitTimeStop,
+  shouldHitRrMultiple,
+  syntheticAtrCents,
 } from './position-exits';
 
 describe('shouldExitBreakeven', () => {
@@ -30,13 +37,14 @@ describe('shouldExitBreakeven', () => {
 
 describe('shouldExitTimeStop', () => {
   const openedAtMs = 1_750_000_000_000;
+  const typical = getTimeStopTypicalMinutes();
 
-  it('returns false before the typical hold horizon', () => {
-    expect(shouldExitTimeStop(openedAtMs, openedAtMs + 59 * 60_000)).toBe(false);
+  it('returns false before the catalog typical hold horizon', () => {
+    expect(shouldExitTimeStop(openedAtMs, openedAtMs + (typical - 1) * 60_000)).toBe(false);
   });
 
-  it('returns true at the 60-minute typical horizon', () => {
-    expect(shouldExitTimeStop(openedAtMs, openedAtMs + 60 * 60_000)).toBe(true);
+  it('returns true at the catalog typical horizon', () => {
+    expect(shouldExitTimeStop(openedAtMs, openedAtMs + typical * 60_000)).toBe(true);
   });
 
   it('respects a custom holdMinutesTypical', () => {
@@ -55,13 +63,55 @@ describe('shouldExitTargetDeadline', () => {
   });
 });
 
+describe('ATR / RR helpers', () => {
+  it('syntheticAtrCents is 50 bps of mark floored at 1', () => {
+    expect(syntheticAtrCents(10_000)).toBe(50);
+    expect(syntheticAtrCents(1)).toBe(1);
+  });
+
+  it('shouldExitAtrStop fires at or below entry − R', () => {
+    expect(shouldExitAtrStop(10_000, 9_880, 120)).toBe(true);
+    expect(shouldExitAtrStop(10_000, 9_881, 120)).toBe(false);
+  });
+
+  it('shouldHitRrMultiple fires at entry + R×multiple', () => {
+    expect(shouldHitRrMultiple(10_000, 10_120, 120, 1)).toBe(true);
+    expect(shouldHitRrMultiple(10_000, 10_119, 120, 1)).toBe(false);
+    expect(shouldHitRrMultiple(10_000, 10_240, 120, 2)).toBe(true);
+  });
+
+  it('scaleOutQty leaves a remainder when qty > 1', () => {
+    expect(scaleOutQty(10n, 50)).toBe(5n);
+    expect(scaleOutQty(1n, 50)).toBe(1n);
+  });
+
+  it('riskDistanceCents uses atr × multiplier', () => {
+    expect(riskDistanceCents(50, 2.25)).toBe(112);
+  });
+});
+
+describe('catalog band loaders', () => {
+  it('loads rr_target_ladder from seeded catalog', () => {
+    const ladder = getRrTargetLadder();
+    expect(ladder.tp1R).toBe(1);
+    expect(ladder.tp1ScalePct).toBe(50);
+    expect(ladder.tp2R).toBe(2);
+    expect(ladder.breakevenOnTp1).toBe(true);
+  });
+
+  it('loads time_stop typical minutes from catalog', () => {
+    expect(getTimeStopTypicalMinutes()).toBe(60);
+  });
+});
+
 describe('resolvePositionExitReason', () => {
   const base = {
     avgCostCents: 10_000,
-    markCents: 10_500,
+    markCents: 10_000,
     targetExitMs: null as number | null,
     openedAtMs: 1_750_000_000_000,
     nowMs: 1_750_000_000_000,
+    catalogExitsEnabled: false,
   };
 
   it('prefers target_exit_deadline over breakeven', () => {
@@ -104,5 +154,58 @@ describe('resolvePositionExitReason', () => {
 
   it('returns null when quote mark is missing', () => {
     expect(resolvePositionExitReason({ ...base, markCents: null })).toBeNull();
+  });
+
+  it('prefers atr_stop over breakeven when catalog exits enabled', () => {
+    // atr~50, mult 2.25 → R=112; stop at 9888
+    expect(
+      resolvePositionExitReason({
+        ...base,
+        catalogExitsEnabled: true,
+        markCents: 9_800,
+        atrMultiplier: 2.25,
+      }),
+    ).toBe('atr_stop');
+  });
+
+  it('returns rr_tp1_scale_out at +1R', () => {
+    expect(
+      resolvePositionExitReason({
+        ...base,
+        catalogExitsEnabled: true,
+        markCents: 10_120,
+        atrMultiplier: 2.25,
+      }),
+    ).toBe('rr_tp1_scale_out');
+  });
+
+  it('returns rr_tp2_scale_out at +2R', () => {
+    expect(
+      resolvePositionExitReason({
+        ...base,
+        catalogExitsEnabled: true,
+        markCents: 10_240,
+        atrMultiplier: 2.25,
+      }),
+    ).toBe('rr_tp2_scale_out');
+  });
+
+  it('returns rr_tp3_exit at +3R', () => {
+    expect(
+      resolvePositionExitReason({
+        ...base,
+        catalogExitsEnabled: true,
+        markCents: 10_360,
+        atrMultiplier: 2.25,
+      }),
+    ).toBe('rr_tp3_exit');
+  });
+});
+
+describe('recoveryPhaseForExit', () => {
+  it('maps stop/scale reasons to recovery ladder verbs', () => {
+    expect(recoveryPhaseForExit('atr_stop')).toBe('escalate_or_abort');
+    expect(recoveryPhaseForExit('rr_tp1_scale_out')).toBe('constrain');
+    expect(recoveryPhaseForExit('time_stop')).toBe('observe');
   });
 });

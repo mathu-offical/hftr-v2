@@ -97,6 +97,19 @@ describe('decision tree building', () => {
     expect(tree.recoveryLadder).toEqual(['defer', 'cancel', 'escalate']);
   });
 
+  it('uses catalog recovery phases when strategyFamily is set', () => {
+    const tree = buildDecisionTree(
+      { symbol: 'AAPL', direction: 'up', strategyFamily: 'vwap_reversion' },
+      quote,
+    );
+    expect(tree.recoveryLadder).toEqual([
+      'entry',
+      'scale_out_to_value',
+      'trend_strength_recheck',
+      'trend_day_abort',
+    ]);
+  });
+
   it('marks the entry blocked for down leads (no shorting in paper v1)', () => {
     const tree = buildDecisionTree({ symbol: 'AAPL', direction: 'down' }, quote);
     expect(tree.branches[0]!.emits).toBe('blocked');

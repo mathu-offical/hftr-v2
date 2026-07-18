@@ -125,6 +125,75 @@ export function bandValueAtPosition(b: NumericBand, position: PhilosophyBandPosi
   }
 }
 
+/** Catalog `rr_target_ladder` (composite — not a NumericBand). */
+export interface RrTargetLadder {
+  tp1R: number;
+  tp1ScalePct: number;
+  tp2R: number;
+  tp2ScalePct: number;
+  tp3R: number;
+  breakevenOnTp1: boolean;
+}
+
+const DEFAULT_RR_LADDER: RrTargetLadder = Object.freeze({
+  tp1R: 1.0,
+  tp1ScalePct: 50,
+  tp2R: 2.0,
+  tp2ScalePct: 25,
+  tp3R: 3.0,
+  breakevenOnTp1: true,
+});
+
+function readRrTargetLadder(raw: unknown): RrTargetLadder | undefined {
+  if (raw == null || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  const tp1R = o.tp1_r;
+  const tp1ScalePct = o.tp1_scale_pct;
+  const tp2R = o.tp2_r;
+  const tp2ScalePct = o.tp2_scale_pct;
+  const tp3R = o.tp3_r;
+  if (
+    typeof tp1R !== 'number' ||
+    typeof tp1ScalePct !== 'number' ||
+    typeof tp2R !== 'number' ||
+    typeof tp2ScalePct !== 'number' ||
+    typeof tp3R !== 'number'
+  ) {
+    return undefined;
+  }
+  return Object.freeze({
+    tp1R,
+    tp1ScalePct,
+    tp2R,
+    tp2ScalePct,
+    tp3R,
+    breakevenOnTp1: o.breakeven_on_tp1 === true,
+  });
+}
+
+/** Load RR ladder from seeded-strategy-catalog; falls back to catalog defaults. */
+export function getRrTargetLadder(): RrTargetLadder {
+  const source = strategyCatalogSource();
+  const raw = source.runtimeControlSurface?.boundedRangeFamilyDefinitions?.rr_target_ladder;
+  return readRrTargetLadder(raw) ?? DEFAULT_RR_LADDER;
+}
+
+/**
+ * Catalog `time_stop_band.typical_min` (minutes). Composite shape — not NumericBand.
+ * Falls back to 60 when absent.
+ */
+export function getTimeStopTypicalMinutes(): number {
+  const source = strategyCatalogSource();
+  const raw = source.runtimeControlSurface?.boundedRangeFamilyDefinitions?.time_stop_band;
+  if (raw != null && typeof raw === 'object') {
+    const typical = (raw as Record<string, unknown>).typical_min;
+    if (typeof typical === 'number' && Number.isFinite(typical) && typical > 0) {
+      return typical;
+    }
+  }
+  return 60;
+}
+
 /** Reset catalog cache (tests only). */
 export function resetBoundedRangeBandCache(): void {
   cachedBands = null;

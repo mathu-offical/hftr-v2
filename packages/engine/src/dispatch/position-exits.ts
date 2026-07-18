@@ -5,16 +5,28 @@ import type { Db } from '@hftr/db';
 import { actionInstructions, engineInstances, modules, positions } from '@hftr/db/schema';
 import type { Clock } from '../clock';
 import { isExpired, load, record } from '../calc/store';
+import {
+  getBoundedRangeBand,
+  getRrTargetLadder,
+  getTimeStopTypicalMinutes,
+} from '../pipeline/bands';
 import { enqueue } from '../queue/queue';
 import { getSyntheticQuote } from './quotes';
 
 /**
  * Model-free position lifecycle exits (maintenance.position_exits).
- * Breakeven/minimize-loss when mark is at or below average cost; deadline
- * when targetExitRef has passed; optional time_stop horizon stub.
+ * Catalog bands: atr_stop_multiplier, rr_target_ladder, scale_out_fraction,
+ * time_stop.synthetic ATR proxy when live atr_stream is unavailable.
  */
 
-export type PositionExitReason = 'breakeven' | 'target_exit_deadline' | 'time_stop';
+export type PositionExitReason =
+  | 'breakeven'
+  | 'target_exit_deadline'
+  | 'time_stop'
+  | 'atr_stop'
+  | 'rr_tp1_scale_out'
+  | 'rr_tp2_scale_out'
+  | 'rr_tp3_exit';
 
 export interface PositionExitSignal {
   companyId: string;
@@ -28,9 +40,13 @@ export interface PositionExitSignal {
 
 const VERIFICATION_SCHEMA_VERSION = 'trade_verify_v1';
 const QUOTE_TTL_MS = 90_000;
-const DEFAULT_TIME_STOP_MINUTES = 60;
 /** Ignore pure bid/ask round-trip gap so breakeven does not fire on the entry fill alone. */
 const DEFAULT_BREAKEVEN_BUFFER_BPS = 15;
+/**
+ * Paper synthetic ATR proxy: 50 bps of mark (floor 1¢). Not live atr_stream —
+ * documented as synthetic until OHLC ATR ValueRefs ship.
+ */
+const SYNTHETIC_ATR_BPS = 50;
 
 /**
  * Long position: exit when mark is below average cost by more than the buffer
@@ -46,11 +62,11 @@ export function shouldExitBreakeven(
   return markCents <= floor;
 }
 
-/** Optional time_stop stub: exit when held longer than the typical horizon. */
+/** Optional time_stop: exit when held longer than the catalog typical horizon. */
 export function shouldExitTimeStop(
   openedAtMs: number,
   nowMs: number,
-  holdMinutesTypical = DEFAULT_TIME_STOP_MINUTES,
+  holdMinutesTypical = getTimeStopTypicalMinutes(),
 ): boolean {
   return nowMs >= openedAtMs + holdMinutesTypical * 60_000;
 }
@@ -59,8 +75,56 @@ export function shouldExitTargetDeadline(targetExitMs: number, nowMs: number): b
   return nowMs >= targetExitMs;
 }
 
+/** Deterministic synthetic ATR in cents from mark (paper loop). */
+export function syntheticAtrCents(markCents: number, atrBps = SYNTHETIC_ATR_BPS): number {
+  if (markCents <= 0) return 1;
+  return Math.max(1, Math.floor((markCents * atrBps) / 10_000));
+}
+
+/** Initial risk distance R in cents = atr_mult × ATR. */
+export function riskDistanceCents(atrCents: number, atrMult: number): number {
+  if (atrCents <= 0 || atrMult <= 0) return 0;
+  return Math.max(1, Math.floor(atrCents * atrMult));
+}
+
+export function shouldExitAtrStop(
+  avgCostCents: number,
+  markCents: number,
+  riskCents: number,
+): boolean {
+  if (avgCostCents <= 0 || markCents <= 0 || riskCents <= 0) return false;
+  return markCents <= avgCostCents - riskCents;
+}
+
+export function shouldHitRrMultiple(
+  avgCostCents: number,
+  markCents: number,
+  riskCents: number,
+  rMultiple: number,
+): boolean {
+  if (avgCostCents <= 0 || markCents <= 0 || riskCents <= 0 || rMultiple <= 0) return false;
+  const target = avgCostCents + Math.floor(riskCents * rMultiple);
+  return markCents >= target;
+}
+
+/** Scale-out qty from catalog pct; qty=1 takes full exit (cannot tranche). */
+export function scaleOutQty(qty: bigint, scalePct: number): bigint {
+  const n = Number(qty);
+  if (!Number.isFinite(n) || n <= 0) return 0n;
+  if (n === 1) return 1n;
+  const pct = Math.min(100, Math.max(1, scalePct));
+  const out = Math.floor((n * pct) / 100);
+  if (out <= 0) return 1n;
+  if (out >= n) return BigInt(n - 1);
+  return BigInt(out);
+}
+
 function minuteBucket(nowMs: number): string {
   return new Date(nowMs).toISOString().slice(0, 16);
+}
+
+function dayBucket(nowMs: number): string {
+  return new Date(nowMs).toISOString().slice(0, 10);
 }
 
 function resolveMarkCents(quote: ReturnType<typeof getSyntheticQuote>): number | null {
@@ -83,6 +147,11 @@ async function resolveTargetExitMs(
   }
 }
 
+function defaultAtrMultiplier(): number {
+  const band = getBoundedRangeBand('atr_stop_multiplier_band');
+  return band?.typical ?? 2.25;
+}
+
 export function resolvePositionExitReason(args: {
   avgCostCents: number;
   markCents: number | null;
@@ -91,12 +160,36 @@ export function resolvePositionExitReason(args: {
   nowMs: number;
   /** When false, skip the time_stop stub. */
   timeStopEnabled?: boolean;
+  /** When false, skip ATR / RR ladder (tests). */
+  catalogExitsEnabled?: boolean;
+  atrMultiplier?: number;
 }): PositionExitReason | null {
   if (args.markCents === null) return null;
 
   if (args.targetExitMs !== null && shouldExitTargetDeadline(args.targetExitMs, args.nowMs)) {
     return 'target_exit_deadline';
   }
+
+  if (args.catalogExitsEnabled !== false) {
+    const atrMult = args.atrMultiplier ?? defaultAtrMultiplier();
+    const atr = syntheticAtrCents(args.avgCostCents);
+    const risk = riskDistanceCents(atr, atrMult);
+    const ladder = getRrTargetLadder();
+
+    if (shouldExitAtrStop(args.avgCostCents, args.markCents, risk)) {
+      return 'atr_stop';
+    }
+    if (shouldHitRrMultiple(args.avgCostCents, args.markCents, risk, ladder.tp3R)) {
+      return 'rr_tp3_exit';
+    }
+    if (shouldHitRrMultiple(args.avgCostCents, args.markCents, risk, ladder.tp2R)) {
+      return 'rr_tp2_scale_out';
+    }
+    if (shouldHitRrMultiple(args.avgCostCents, args.markCents, risk, ladder.tp1R)) {
+      return 'rr_tp1_scale_out';
+    }
+  }
+
   if (shouldExitBreakeven(args.avgCostCents, args.markCents)) {
     return 'breakeven';
   }
@@ -116,7 +209,79 @@ export function exitReasonLabel(reason: PositionExitReason): string {
     case 'target_exit_deadline':
       return 'target_exit_deadline';
     case 'time_stop':
-      return 'time_stop_stub';
+      return 'time_stop_catalog';
+    case 'atr_stop':
+      return 'atr_stop_catalog';
+    case 'rr_tp1_scale_out':
+      return 'rr_tp1_scale_out';
+    case 'rr_tp2_scale_out':
+      return 'rr_tp2_scale_out';
+    case 'rr_tp3_exit':
+      return 'rr_tp3_exit';
+    default: {
+      const _exhaustive: never = reason;
+      return _exhaustive;
+    }
+  }
+}
+
+/** Recovery-ladder phase labels for operator lineage (catalog-aligned verbs). */
+export function recoveryPhaseForExit(reason: PositionExitReason): string {
+  switch (reason) {
+    case 'atr_stop':
+    case 'breakeven':
+      return 'escalate_or_abort';
+    case 'rr_tp1_scale_out':
+    case 'rr_tp2_scale_out':
+      return 'constrain';
+    case 'rr_tp3_exit':
+    case 'target_exit_deadline':
+    case 'time_stop':
+      return 'observe';
+    default: {
+      const _exhaustive: never = reason;
+      return _exhaustive;
+    }
+  }
+}
+
+function resolveExitQty(qty: bigint, reason: PositionExitReason): bigint {
+  const ladder = getRrTargetLadder();
+  switch (reason) {
+    case 'rr_tp1_scale_out':
+      return scaleOutQty(qty, ladder.tp1ScalePct);
+    case 'rr_tp2_scale_out':
+      return scaleOutQty(qty, ladder.tp2ScalePct);
+    case 'rr_tp3_exit':
+    case 'atr_stop':
+    case 'breakeven':
+    case 'target_exit_deadline':
+    case 'time_stop':
+      return qty;
+    default: {
+      const _exhaustive: never = reason;
+      return _exhaustive;
+    }
+  }
+}
+
+function exitIdempotencyKey(
+  moduleId: string,
+  symbol: string,
+  reason: PositionExitReason,
+  nowMs: number,
+): string {
+  switch (reason) {
+    case 'rr_tp1_scale_out':
+    case 'rr_tp2_scale_out':
+    case 'rr_tp3_exit':
+      // Once per day per stage so maintenance ticks do not re-scale every minute.
+      return `position-exit-${moduleId}-${symbol}-${reason}-${dayBucket(nowMs)}`;
+    case 'atr_stop':
+    case 'breakeven':
+    case 'target_exit_deadline':
+    case 'time_stop':
+      return `position-exit-${moduleId}-${symbol}-${reason}-${minuteBucket(nowMs)}`;
     default: {
       const _exhaustive: never = reason;
       return _exhaustive;
@@ -129,7 +294,7 @@ export async function scanPositionExitSignals(
   db: Db,
   clock: Clock,
   companyId: string,
-  opts?: { timeStopEnabled?: boolean },
+  opts?: { timeStopEnabled?: boolean; catalogExitsEnabled?: boolean },
 ): Promise<PositionExitSignal[]> {
   const nowMs = clock.nowMs();
   const rows = await db
@@ -168,14 +333,20 @@ export async function scanPositionExitSignals(
       ...(opts?.timeStopEnabled !== undefined
         ? { timeStopEnabled: opts.timeStopEnabled }
         : {}),
+      ...(opts?.catalogExitsEnabled !== undefined
+        ? { catalogExitsEnabled: opts.catalogExitsEnabled }
+        : {}),
     });
     if (!reason) continue;
+
+    const exitQty = resolveExitQty(row.qty, reason);
+    if (exitQty <= 0n) continue;
 
     signals.push({
       companyId,
       moduleId: row.moduleId,
       symbol: row.symbol,
-      qty: row.qty,
+      qty: exitQty,
       avgCostCents: row.avgCostCents,
       markCents,
       reason,
@@ -194,7 +365,13 @@ export async function enqueuePositionExit(
   const qty = Number(signal.qty);
   if (!Number.isFinite(qty) || qty <= 0) return null;
 
-  const idempotencyKey = `position-exit-${signal.moduleId}-${signal.symbol}-${minuteBucket(clock.nowMs())}`;
+  const nowMs = clock.nowMs();
+  const idempotencyKey = exitIdempotencyKey(
+    signal.moduleId,
+    signal.symbol,
+    signal.reason,
+    nowMs,
+  );
 
   const quantityRef = await record(db, clock, {
     kind: 'quantity',
@@ -202,7 +379,7 @@ export async function enqueuePositionExit(
     scale: 0,
     valueInt: BigInt(qty),
     sourceClass: 'derived',
-    sourceId: `position_exit:${signal.moduleId}:${signal.symbol}:qty`,
+    sourceId: `position_exit:${signal.moduleId}:${signal.symbol}:${signal.reason}:qty`,
     ttlMs: 10 * 60_000,
     sanity: { minInt: '1', maxInt: '100000', maxAgeMs: null, mustBePositive: true },
     companyId: signal.companyId,
@@ -245,7 +422,7 @@ export async function enqueuePositionExit(
     idempotencyKey,
     replayHash: null,
     controlSnapshotRef: null,
-    causationRefs: [exitReasonLabel(signal.reason)],
+    causationRefs: [exitReasonLabel(signal.reason), recoveryPhaseForExit(signal.reason)],
     expiresAt: null,
   };
 

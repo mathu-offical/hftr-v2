@@ -133,4 +133,11 @@ describe('v1-parity bands', () => {
     expect(getBoundedRangeBand('rr_target_ladder')).toBeUndefined();
     expect(getBoundedRangeBand('not_in_catalog')).toBeUndefined();
   });
+
+  it('getRrTargetLadder loads composite catalog ladder', async () => {
+    const { getRrTargetLadder, getTimeStopTypicalMinutes } = await import('../bands');
+    const ladder = getRrTargetLadder();
+    expect(ladder.tp1ScalePct).toBe(50);
+    expect(getTimeStopTypicalMinutes()).toBe(60);
+  });
 });

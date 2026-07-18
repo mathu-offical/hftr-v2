@@ -5,12 +5,13 @@ import type { Db } from '@hftr/db';
 import { actionInstructions, engineInstances, modules, positions } from '@hftr/db/schema';
 import type { Clock } from '../clock';
 import { getSession, sessionPhase, venueDate } from '../calendar/calendar';
-import { isExpired, load, record } from '../calc/store';
+import { isExpired, load, loadLatestBySourceId, record } from '../calc/store';
 import {
   getBoundedRangeBand,
   getRrTargetLadder,
   getTimeStopTypicalMinutes,
 } from '../pipeline/bands';
+import { resolveTrailMultiplier } from '../pipeline/lever-resolver';
 import { enqueue } from '../queue/queue';
 import { getSyntheticQuote } from './quotes';
 
@@ -26,6 +27,7 @@ export type PositionExitReason =
   | 'time_stop'
   | 'session_close'
   | 'atr_stop'
+  | 'trail_stop'
   | 'measurable_gain_take'
   | 'rr_tp1_scale_out'
   | 'rr_tp2_scale_out'
@@ -52,10 +54,15 @@ const DEFAULT_BREAKEVEN_BUFFER_BPS = 15;
 const SYNTHETIC_ATR_BPS = 50;
 /**
  * Net measurable-gain floor (bps of avg cost) after covering synthetic round-trip
- * spread (~4 bps each way). Take-profit exits require clearing this floor so
- * auto-exits fire on intention-aligned gains, not noise.
+ * spread (~4 bps) + optional paper retail fee proxy. Take-profit exits require
+ * clearing this floor so auto-exits fire on intention-aligned gains, not noise.
+ * HFT-oriented micro-trades use a higher net edge (turnover tax).
  */
 const MEASURABLE_GAIN_NET_BPS = 25;
+/** Extra net edge for high-frequency-oriented / short-horizon takes. */
+const HFT_MEASURABLE_GAIN_NET_BPS = 40;
+/** Synthetic paper round-trip fee proxy (commission+fees), bps of notional. */
+const PAPER_ROUND_TRIP_FEE_BPS = 5;
 /** Half-spread proxy matching getSyntheticQuote (2 bps of mid, min 1¢). */
 const SYNTHETIC_HALF_SPREAD_BPS = 2;
 
@@ -120,17 +127,21 @@ export function shouldExitSessionClose(
 
 /**
  * Minimum mark above avg cost (cents) that counts as a measurable long gain:
- * synthetic round-trip spread + net gain bps.
+ * synthetic round-trip spread + optional fee bps + net gain bps.
  */
 export function measurableGainFloorCents(
   avgCostCents: number,
   netGainBps = MEASURABLE_GAIN_NET_BPS,
+  opts?: { roundTripFeeBps?: number; halfSpreadBps?: number },
 ): number {
   if (avgCostCents <= 0) return 1;
-  const halfSpread = Math.max(1, Math.round((avgCostCents * SYNTHETIC_HALF_SPREAD_BPS) / 10_000));
+  const halfSpreadBps = opts?.halfSpreadBps ?? SYNTHETIC_HALF_SPREAD_BPS;
+  const halfSpread = Math.max(1, Math.round((avgCostCents * halfSpreadBps) / 10_000));
   const roundTrip = halfSpread * 2;
+  const feeBps = opts?.roundTripFeeBps ?? PAPER_ROUND_TRIP_FEE_BPS;
+  const feeCents = Math.max(0, Math.floor((avgCostCents * feeBps) / 10_000));
   const netGain = Math.max(1, Math.floor((avgCostCents * netGainBps) / 10_000));
-  return roundTrip + netGain;
+  return roundTrip + feeCents + netGain;
 }
 
 /** Long: take profit when mark clears the measurable-gain floor above avg cost. */
@@ -138,9 +149,19 @@ export function shouldExitMeasurableGain(
   avgCostCents: number,
   markCents: number,
   netGainBps = MEASURABLE_GAIN_NET_BPS,
+  opts?: { roundTripFeeBps?: number; halfSpreadBps?: number },
 ): boolean {
   if (avgCostCents <= 0 || markCents <= 0) return false;
-  return markCents >= avgCostCents + measurableGainFloorCents(avgCostCents, netGainBps);
+  return markCents >= avgCostCents + measurableGainFloorCents(avgCostCents, netGainBps, opts);
+}
+
+/** HFT-oriented net edge (higher turnover tax). */
+export function hftMeasurableGainNetBps(): number {
+  return HFT_MEASURABLE_GAIN_NET_BPS;
+}
+
+export function paperRoundTripFeeBps(): number {
+  return PAPER_ROUND_TRIP_FEE_BPS;
 }
 
 /** Deterministic synthetic ATR in cents from mark (paper loop). */
@@ -195,6 +216,44 @@ export function shouldExitProtectiveStop(
   if (avgCostCents <= 0 || markCents <= 0 || riskCents <= 0) return false;
   const floor = protectiveStopFloorCents(avgCostCents, markCents, riskCents, opts);
   return markCents <= floor;
+}
+
+/**
+ * Chandelier trail floor: peak − k×ATR (long). Requires persisted peak mark.
+ */
+export function chandelierTrailFloorCents(
+  peakMarkCents: number,
+  atrCents: number,
+  trailMultiplier: number,
+): number {
+  if (peakMarkCents <= 0 || atrCents <= 0 || trailMultiplier <= 0) return 0;
+  return Math.max(1, peakMarkCents - Math.floor(atrCents * trailMultiplier));
+}
+
+export function shouldExitTrailStop(
+  markCents: number,
+  peakMarkCents: number,
+  atrCents: number,
+  trailMultiplier: number,
+): boolean {
+  if (markCents <= 0 || peakMarkCents <= 0) return false;
+  const floor = chandelierTrailFloorCents(peakMarkCents, atrCents, trailMultiplier);
+  return floor > 0 && markCents <= floor;
+}
+
+export function positionPeakSourceId(moduleId: string, symbol: string): string {
+  return `position_peak:${moduleId}:${symbol}`;
+}
+
+/** Advance peak mark: max(prior, mark, avgCost). */
+export function nextPeakMarkCents(
+  priorPeakCents: number | null,
+  markCents: number,
+  avgCostCents: number,
+): number {
+  const base = Math.max(avgCostCents, markCents);
+  if (priorPeakCents == null || priorPeakCents <= 0) return base;
+  return Math.max(priorPeakCents, base);
 }
 
 export function shouldHitRrMultiple(
@@ -271,6 +330,12 @@ export function resolvePositionExitReason(args: {
    * already closed — weekend/overnight paper). Default true when omitted.
    */
   openedDuringOpenSession?: boolean;
+  /** Persisted peak mark for chandelier trail (post-tp1). */
+  peakMarkCents?: number | null;
+  /** Catalog trail_multiplier (× ATR). */
+  trailMultiplier?: number;
+  /** When true, use higher net edge (HFT-oriented turnover tax). */
+  hftOriented?: boolean;
 }): PositionExitReason | null {
   if (args.markCents === null) return null;
 
@@ -283,8 +348,9 @@ export function resolvePositionExitReason(args: {
     const atr = syntheticAtrCents(args.avgCostCents);
     const risk = riskDistanceCents(atr, atrMult);
     const ladder = getRrTargetLadder();
+    const netBps = args.hftOriented ? HFT_MEASURABLE_GAIN_NET_BPS : MEASURABLE_GAIN_NET_BPS;
 
-    // Prefer measurable / RR gains before protective stop / flat-by-close.
+    // Prefer RR scale-outs at structured R multiples.
     if (shouldHitRrMultiple(args.avgCostCents, args.markCents, risk, ladder.tp3R)) {
       return 'rr_tp3_exit';
     }
@@ -294,7 +360,26 @@ export function resolvePositionExitReason(args: {
     if (shouldHitRrMultiple(args.avgCostCents, args.markCents, risk, ladder.tp1R)) {
       return 'rr_tp1_scale_out';
     }
-    if (shouldExitMeasurableGain(args.avgCostCents, args.markCents)) {
+
+    // Chandelier trail on remainder once peak clears tp1 R (before fee-aware skim).
+    const trailMult = args.trailMultiplier;
+    const peak = args.peakMarkCents;
+    if (
+      trailMult != null &&
+      trailMult > 0 &&
+      peak != null &&
+      peak > 0 &&
+      shouldHitRrMultiple(args.avgCostCents, peak, risk, ladder.tp1R) &&
+      shouldExitTrailStop(args.markCents, peak, atr, trailMult)
+    ) {
+      return 'trail_stop';
+    }
+
+    if (
+      shouldExitMeasurableGain(args.avgCostCents, args.markCents, netBps, {
+        roundTripFeeBps: PAPER_ROUND_TRIP_FEE_BPS,
+      })
+    ) {
       return 'measurable_gain_take';
     }
 
@@ -349,6 +434,8 @@ export function exitReasonLabel(reason: PositionExitReason): string {
       return 'session_close_flat';
     case 'atr_stop':
       return 'atr_stop_catalog';
+    case 'trail_stop':
+      return 'trail_stop_chandelier';
     case 'measurable_gain_take':
       return 'measurable_gain_take';
     case 'rr_tp1_scale_out':
@@ -368,6 +455,7 @@ export function exitReasonLabel(reason: PositionExitReason): string {
 export function recoveryPhaseForExit(reason: PositionExitReason): string {
   switch (reason) {
     case 'atr_stop':
+    case 'trail_stop':
     case 'breakeven':
       return 'escalate_or_abort';
     case 'measurable_gain_take':
@@ -398,6 +486,7 @@ function resolveExitQty(qty: bigint, reason: PositionExitReason): bigint {
       return scaleOutQty(qty, ladder.tp1ScalePct);
     case 'rr_tp3_exit':
     case 'atr_stop':
+    case 'trail_stop':
     case 'breakeven':
     case 'target_exit_deadline':
     case 'time_stop':
@@ -424,6 +513,7 @@ function exitIdempotencyKey(
       // Once per day per stage so maintenance ticks do not re-scale every minute.
       return `position-exit-${moduleId}-${symbol}-${reason}-${dayBucket(nowMs)}`;
     case 'atr_stop':
+    case 'trail_stop':
     case 'breakeven':
     case 'target_exit_deadline':
     case 'time_stop':
@@ -441,11 +531,19 @@ export async function scanPositionExitSignals(
   db: Db,
   clock: Clock,
   companyId: string,
-  opts?: { timeStopEnabled?: boolean; catalogExitsEnabled?: boolean },
+  opts?: {
+    timeStopEnabled?: boolean;
+    catalogExitsEnabled?: boolean;
+    hftOriented?: boolean;
+    trailMultiplier?: number;
+  },
 ): Promise<PositionExitSignal[]> {
   const nowMs = clock.nowMs();
   const session = await getSession(db, 'XNYS', venueDate(nowMs, 'America/New_York'));
   const phase = sessionPhase(session, nowMs);
+  const trailMultiplier = opts?.trailMultiplier ?? resolveTrailMultiplier(null);
+  const hftOriented =
+    opts?.hftOriented === true || getTimeStopTypicalMinutes() <= 15;
   const rows = await db
     .select({
       moduleId: positions.moduleId,
@@ -482,6 +580,27 @@ export async function scanPositionExitSignals(
     const openedPhase = sessionPhase(openSession, openedAtMs);
     const openedDuringOpenSession = !isCashSessionClosed(openedPhase);
 
+    const peakSourceId = positionPeakSourceId(row.moduleId, row.symbol);
+    const priorPeakRow = await loadLatestBySourceId(db, peakSourceId);
+    const priorPeak =
+      priorPeakRow && !isExpired(priorPeakRow, clock)
+        ? Number(priorPeakRow.valueInt)
+        : null;
+    const peakMarkCents = nextPeakMarkCents(priorPeak, markCents, row.avgCostCents);
+    if (priorPeak == null || peakMarkCents > priorPeak) {
+      await record(db, clock, {
+        kind: 'price',
+        unit: 'USD_cents',
+        scale: 0,
+        valueInt: BigInt(peakMarkCents),
+        sourceClass: 'derived',
+        sourceId: peakSourceId,
+        ttlMs: 24 * 60 * 60_000,
+        companyId,
+        moduleId: row.moduleId,
+      });
+    }
+
     const reason = resolvePositionExitReason({
       avgCostCents: row.avgCostCents,
       markCents,
@@ -490,6 +609,9 @@ export async function scanPositionExitSignals(
       nowMs,
       sessionPhase: phase,
       openedDuringOpenSession,
+      peakMarkCents,
+      trailMultiplier,
+      hftOriented,
       ...(opts?.timeStopEnabled !== undefined
         ? { timeStopEnabled: opts.timeStopEnabled }
         : {}),

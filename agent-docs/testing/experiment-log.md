@@ -118,10 +118,11 @@ Scoring: `intent-alignment-scoring.md`
 6. **Done (2026-07-18):** Bootstrap mirrors `auto_admitted` catalog seeds into trend-linked
    Strategy Evidence Library shelves so day_trading `evidence_fit` can pass (D-090 preserved).
 7. **Done (2026-07-18):** Model-free `maintenance.position_exits` — catalog ATR stop
-   (synthetic ATR proxy), RR tp1/tp2 scale-out + tp3, **measurable_gain_take** (net gain
-   floor before session flatten), breakeven (spread-buffered), `time_stop_band.typical_min`,
-   session_close only when opened during open cash hours (weekend paper holds until gain/
-   time_stop); recovery phase labels on envelopes; tactical trees bind catalog recovery
+   (synthetic ATR proxy), RR tp1/tp2 scale-out + tp3, **measurable_gain_take** (fee-aware
+   floor), **trail_stop** (chandelier peak ValueRef), breakeven (spread-buffered),
+   `time_stop_band.typical_min`, session_close only when opened during open cash hours;
+   **D-124** polarization×ATR-risk compile sizing; **D-125** portfolio_heat gate + weighted
+   valves. Recovery phase labels on envelopes; tactical trees bind catalog recovery
    ladder phases when `strategyFamily` is set.
 
 ---

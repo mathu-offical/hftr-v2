@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import type { LeverState } from '@hftr/contracts';
 import { philosophyProfileToLeverState, DEFAULT_PHILOSOPHY_PROFILE } from '@hftr/contracts';
-import { resolveAtrStopMultiplier, resolveBandPosition, resolveLeverSetting, resolveRiskPerTradePct, resolveSizingBasisBps } from './lever-resolver';
+import {
+  resolveAtrStopMultiplier,
+  resolveBandPosition,
+  resolveLeverSetting,
+  resolvePortfolioHeatCapPct,
+  resolvePortfolioHeatPct,
+  resolveRiskPerTradePct,
+  resolveSizingBasisBps,
+  resolveTrailMultiplier,
+} from './lever-resolver';
 
 describe('lever-resolver', () => {
   const typicalState = philosophyProfileToLeverState(DEFAULT_PHILOSOPHY_PROFILE);
@@ -47,5 +56,11 @@ describe('lever-resolver', () => {
     expect(resolveAtrStopMultiplier(typicalState)).toBe(2.25);
     expect(resolveRiskPerTradePct(null)).toBe(0.75);
     expect(resolveAtrStopMultiplier(null)).toBe(2.25);
+  });
+
+  it('resolves portfolio heat and trail multipliers from catalog', () => {
+    expect(resolvePortfolioHeatPct(typicalState)).toBe(4);
+    expect(resolvePortfolioHeatCapPct(typicalState)).toBe(8);
+    expect(resolveTrailMultiplier(typicalState)).toBe(2.5);
   });
 });

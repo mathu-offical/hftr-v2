@@ -16,20 +16,27 @@ import {
   trendCandidates,
 } from '@hftr/db/schema';
 import { record } from '../calc/store';
-import { resolveCompileSizingBudget } from '../dispatch/balances';
+import { resolveCompileSizingBudget, resolveEquityCentsForLimits } from '../dispatch/balances';
 import { syntheticAtrCents } from '../dispatch/position-exits';
 import { getSyntheticQuote } from '../dispatch/quotes';
 import { compileInstruction, resolveEntryQuantity } from '../pipeline/compile';
 import { mergeCompileSelection, modelBlockReasonToCompile } from '../pipeline/compile-selection';
 import {
   resolveAtrStopMultiplier,
+  resolvePortfolioHeatCapPct,
   resolveRiskPerTradePct,
 } from '../pipeline/lever-resolver';
+import {
+  loadCompanyOpenPositionRisks,
+  projectHeatAfterEntry,
+  sumOpenRiskCents,
+} from '../pipeline/portfolio-heat';
 import {
   applyPolarizationToSizingBps,
   resolveComplexSignalPolarization,
   type TrendStrengthBand,
 } from '../pipeline/signal-polarization';
+import { resolveUrgencyValve } from '../pipeline/weighted-valves';
 import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
 
@@ -284,6 +291,52 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
     atrCents,
     atrMultiplier,
   });
+
+  const openRows = await loadCompanyOpenPositionRisks(db, payload.companyId);
+  const existingOpenRiskCents = sumOpenRiskCents(openRows, atrMultiplier);
+  const { equityCents } = await resolveEquityCentsForLimits(db, payload.companyId, budgetCents);
+  const heatCapPct = resolvePortfolioHeatCapPct(leverState);
+  const heatProjection = projectHeatAfterEntry({
+    existingOpenRiskCents,
+    entryQty: quantity,
+    entryPriceCents: priceCents,
+    atrMultiplier,
+    equityCents,
+    heatCapPct,
+  });
+  if (heatProjection.exceeds) {
+    await db.insert(compileEvents).values({
+      companyId: payload.companyId,
+      treeId: payload.treeId,
+      result: 'blocked',
+      blockReason: 'portfolio_heat_exceeded',
+      instructionId: null,
+      lineage: {
+        leadId: payload.leadId,
+        treeId: payload.treeId,
+        stage: 'execution_agent_compile',
+        provider: compileProvider,
+        projectedHeatPct: heatProjection.projectedHeatPct,
+        heatCapPct,
+        existingOpenRiskCents,
+      },
+    });
+    await db
+      .update(decisionTrees)
+      .set({ status: 'compile_blocked', updatedAt: now })
+      .where(eq(decisionTrees.id, payload.treeId));
+    await db
+      .update(leadPackages)
+      .set({ status: 'decomposed', updatedAt: now })
+      .where(eq(leadPackages.id, payload.leadId));
+    return;
+  }
+
+  const urgency = resolveUrgencyValve({
+    polarizationScore: polarization.score,
+    recoveryPressure: heatProjection.projectedHeatPct / Math.max(heatCapPct, 1e-9),
+  });
+
   const instruction = { ...merged.instruction, quantity };
   const provider =
     merged.provider === 'model' || compileProvider === 'model'
@@ -296,7 +349,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
     scale: 0,
     valueInt: BigInt(instruction.quantity),
     sourceClass: 'derived',
-    sourceId: `compile:sizing:${payload.leadId}:bps_${merged.adjustedSizingBasisBps}:pol_${polarization.score.toFixed(2)}:atr_risk:${sizingBudgetSource}`,
+    sourceId: `compile:sizing:${payload.leadId}:bps_${merged.adjustedSizingBasisBps}:pol_${polarization.score.toFixed(2)}:atr_risk:heat_${heatProjection.projectedHeatPct.toFixed(2)}:urg_${urgency.value.toFixed(2)}:${sizingBudgetSource}`,
     ttlMs: 10 * 60_000,
     sanity: { minInt: '1', maxInt: '100', maxAgeMs: null, mustBePositive: true },
     companyId: payload.companyId,

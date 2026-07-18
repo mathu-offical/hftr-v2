@@ -1238,18 +1238,19 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 
 - **D-121 (shared Libraries dock + DATA live sources + Data Explorer, 2026-07-18):** Libraries
   dock is **first-class left-panel chrome** — visible under Research, Market posture, and Data
-  (not Research-owned). DATA tab primary list is **LIVE DATA SOURCES** (full
-  `RESEARCH_SOURCE_REGISTRY` inventory with readiness via `GET …/live-data-sources`).
-  Company canvas `library` modules appear under dock **Company**. Center **Data Explorer**
-  overlay browses live hydrators and library contents (markdown / JSON). Live-source
-  **inventory** is client SWR-cached (metadata only); **Search / Browse current** lazy-loads
-  service widgets via `POST …/live-data-sources/[kind]/query`. Canvas `live_api`
-  identity uses optional `sourceKind` hydrator (legacy venue map). Galaxy stays Research-owned
-  for topic/connection **trace**; Explorer is content **read**. Spec:
+  (not Research-owned). DATA tab primary list is **LIVE DATA SOURCES** — **active only**
+  (`ready` / `public` via `isActiveLiveDataSource`; missing-key / stub / researched hidden)
+  from `GET …/live-data-sources`. Company canvas `library` modules appear under dock
+  **Company**. Center **Data Explorer** browses live hydrators and library contents
+  (markdown / JSON). Live-source **inventory** is client SWR-cached (metadata only);
+  **Search / Browse current** lazy-loads service widgets via
+  `POST …/live-data-sources/[kind]/query`. Canvas `live_api` identity uses optional
+  `sourceKind` hydrator (legacy venue map). Galaxy stays Research-owned for topic/connection
+  **trace**; Explorer is content **read**. Spec:
   `docs/superpowers/specs/2026-07-18-data-tab-libraries-dock-explorer-design.md`.
   Docs: ui-spec §4, research-tab-shelves-inspector-design, product-spec §Data modules.
-  **Status: implemented** (elevated Libraries sheet; inventory cache + query widgets; contracts
-  + web typecheck verified).
+  **Status: implemented** (active-only DATA list; elevated Libraries sheet; inventory cache +
+  query widgets).
 
 - **D-122 (dual paper books + engine→service binding + delta training, 2026-07-18):**
   Paper execution uses **explicit dual books** with linked delta resolution, plus a
@@ -1269,6 +1270,16 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   on top of internal paper functions; operators may bind/unbind without abandoning the
   learning loop. Full design pending brainstorm. Related: D-002, D-014, D-025, D-027;
   OQ-13. **Status: decided (design pending).**
+
+- **D-125 (post-fill heat + trail + weighted valves, 2026-07-18):** Compile admits
+  entries only when projected portfolio heat (sum open ATR-risk / equity) stays under
+  `portfolio_heat_pct_band.max`. Post-fill exits add chandelier `trail_stop` from peak
+  mark ValueRefs after tp1 R; measurable-gain floors include a **paper fee proxy** and
+  higher net edge for HFT-oriented short horizons. Multi-way **weighted valves**
+  (participation, urgency, heat, trail, polarization) are continuous modulators inside
+  catalog envelopes — learning adjusts in-band positions via `proposeValvePositionDelta`,
+  not hard switches. Architecture: `post-fill-deterministic-lifecycle.md`. **Status:
+  implemented** (paper; POV child-slice + training_feedback table still follow-on).
 
 - **D-124 (complex-signal polarization → capital leverage, 2026-07-18):** No v1 term
   `polarization`; v2 defines it as agreement strength of a complex signal (trend
@@ -1308,11 +1319,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 
 - **D-127 (research articles list + librarian actions, 2026-07-18):** Research **articles**
   are library-backed concepts stamped with `hftr:article` (1–3 display tags; system tags
-  like `catalog` hidden from chips). Left Research tab shows an Articles list; concepts
-  GET supports `?kind=article`. Library shelves expose curate/verify/refresh via
+  like `catalog` hidden from chips). Topics remain work directives; research runs + operator
+  submit produce articles that **must** save into a library (`libraryId` required) but remain
+  flexibly listed in the Research **Articles** group. Concepts GET supports `?kind=article`.
+  Custom **runtime** library shelves expose librarian **Curate / Verify / Refresh** via
   `POST …/libraries/[libraryId]/actions`. Distinct from research **topics** (D-126) and
-  catalog seed knowledge. Docs: ui-spec §4, research-tab-shelves-inspector-design.
-  **Status: implemented.**
+  catalog seed knowledge. Docs: ui-spec §4/§6, research-tab-shelves-inspector-design,
+  contracts `research-articles.ts`. **Status: implemented.**
 
 ## Open questions
 

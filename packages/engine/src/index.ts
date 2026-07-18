@@ -319,7 +319,9 @@ export {
   shouldExitSessionClose,
   shouldExitAtrStop,
   shouldExitProtectiveStop,
+  shouldExitTrailStop,
   protectiveStopFloorCents,
+  chandelierTrailFloorCents,
   type PositionExitReason,
   type PositionExitSignal,
 } from './dispatch/position-exits';
@@ -508,7 +510,27 @@ export {
   resolveSizingBasisBps,
   resolveRiskPerTradePct,
   resolveAtrStopMultiplier,
+  resolvePortfolioHeatPct,
+  resolvePortfolioHeatCapPct,
+  resolveTrailMultiplier,
 } from './pipeline/lever-resolver';
+export {
+  computePositionOpenRiskCents,
+  sumOpenRiskCents,
+  portfolioHeatPct,
+  projectHeatAfterEntry,
+  loadCompanyOpenPositionRisks,
+} from './pipeline/portfolio-heat';
+export {
+  blendValveDrivers,
+  weightToBandPosition,
+  resolveParticipationValve,
+  resolveUrgencyValve,
+  proposeValvePositionDelta,
+  type ValveId,
+  type ValveReading,
+} from './pipeline/weighted-valves';
+export { loadLatestBySourceId } from './calc/store';
 export {
   walkValueLineage,
   MAX_LINEAGE_DEPTH,

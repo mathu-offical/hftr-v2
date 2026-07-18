@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { getRrTargetLadder, getTimeStopTypicalMinutes } from '../pipeline/bands';
 import {
+  chandelierTrailFloorCents,
   measurableGainFloorCents,
+  nextPeakMarkCents,
   protectiveStopFloorCents,
   recoveryPhaseForExit,
   resolvePositionExitReason,
@@ -14,6 +16,7 @@ import {
   shouldExitSessionClose,
   shouldExitTargetDeadline,
   shouldExitTimeStop,
+  shouldExitTrailStop,
   shouldHitRrMultiple,
   syntheticAtrCents,
 } from './position-exits';
@@ -69,14 +72,14 @@ describe('shouldExitTargetDeadline', () => {
 });
 
 describe('measurable gain', () => {
-  it('floor covers synthetic round-trip plus net gain bps', () => {
-    // halfSpread=2, roundTrip=4, net 25bps=25 → 29
-    expect(measurableGainFloorCents(10_000)).toBe(29);
+  it('floor covers synthetic round-trip, paper fee proxy, plus net gain bps', () => {
+    // halfSpread=2, roundTrip=4, fee 5bps=5, net 25bps=25 → 34
+    expect(measurableGainFloorCents(10_000)).toBe(34);
   });
 
   it('shouldExitMeasurableGain requires clearing the floor', () => {
-    expect(shouldExitMeasurableGain(10_000, 10_028)).toBe(false);
-    expect(shouldExitMeasurableGain(10_000, 10_029)).toBe(true);
+    expect(shouldExitMeasurableGain(10_000, 10_033)).toBe(false);
+    expect(shouldExitMeasurableGain(10_000, 10_034)).toBe(true);
   });
 });
 
@@ -209,12 +212,30 @@ describe('resolvePositionExitReason', () => {
     expect(shouldExitProtectiveStop(10_000, 9_800, 112, { breakevenOnTp1: true })).toBe(true);
   });
 
+  it('fires trail_stop when mark gives back through chandelier from peak past tp1', () => {
+    // atr=50, trail 2.5 → 125; peak 10200 → floor 10075; mark at floor → trail
+    expect(chandelierTrailFloorCents(10_200, 50, 2.5)).toBe(10_075);
+    expect(shouldExitTrailStop(10_075, 10_200, 50, 2.5)).toBe(true);
+    expect(nextPeakMarkCents(10_000, 10_200, 10_000)).toBe(10_200);
+    expect(
+      resolvePositionExitReason({
+        ...base,
+        catalogExitsEnabled: true,
+        avgCostCents: 10_000,
+        markCents: 10_075,
+        atrMultiplier: 2.25,
+        peakMarkCents: 10_200,
+        trailMultiplier: 2.5,
+      }),
+    ).toBe('trail_stop');
+  });
+
   it('returns measurable_gain_take before session_close when gain clears floor', () => {
     expect(
       resolvePositionExitReason({
         ...base,
         catalogExitsEnabled: true,
-        markCents: 10_029,
+        markCents: 10_034,
         atrMultiplier: 2.25,
         sessionPhase: 'overnight',
         openedDuringOpenSession: true,

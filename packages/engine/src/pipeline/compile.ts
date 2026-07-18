@@ -14,7 +14,8 @@ export type CompileBlockReason =
   | 'missing_recovery_ladder'
   | 'price_precision_mismatch'
   | 'policy_mismatch'
-  | 'missing_context';
+  | 'missing_context'
+  | 'portfolio_heat_exceeded';
 
 export interface CompileTreeInput {
   symbol: string;

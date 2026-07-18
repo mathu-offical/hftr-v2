@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import type { Db } from '@hftr/db';
 import { numericValues } from '@hftr/db/schema';
 import { NumericKind, SanityEnvelope, TEMPORAL_KINDS, ValueSourceClass } from '@hftr/contracts';
@@ -92,6 +92,23 @@ export async function loadMany(db: Db, refs: string[]): Promise<Map<string, Stor
     out.set(ref, await load(db, ref)); // fine at current fan-in; batch later if hot
   }
   return out;
+}
+
+/**
+ * Latest append-only ValueRef for a sourceId (peak marks, etc.).
+ * Returns null when none recorded yet.
+ */
+export async function loadLatestBySourceId(
+  db: Db,
+  sourceId: string,
+): Promise<StoredRow | null> {
+  const rows = await db
+    .select()
+    .from(numericValues)
+    .where(eq(numericValues.sourceId, sourceId))
+    .orderBy(desc(numericValues.capturedAt))
+    .limit(1);
+  return rows[0] ?? null;
 }
 
 export function isExpired(row: StoredRow, clock: Clock): boolean {

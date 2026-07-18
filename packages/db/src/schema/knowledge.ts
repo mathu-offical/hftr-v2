@@ -207,6 +207,7 @@ export const compileEvents = pgTable(
         'price_precision_mismatch',
         'policy_mismatch',
         'missing_context',
+        'portfolio_heat_exceeded',
       ],
     }),
     instructionId: uuid('instruction_id').references(() => actionInstructions.id),

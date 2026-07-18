@@ -28,6 +28,7 @@ implementation proceeds.
 | `architecture/llm-pipeline.md` | Three-tier Claude/Mistral/Groq pipeline, schemas, rate-limit strategy |
 | `architecture/job-orchestration.md` | Custom Postgres queue + scheduler design (no vendor lock-in) |
 | `architecture/number-handling.md` | Numeric + temporal reference architecture: ValueRef store, calculator, clock/calendar authority, leak linting, Math module |
+| `architecture/post-fill-deterministic-lifecycle.md` | D-125: model-free exits, heat gate, fee-aware gains, trail, weighted valves |
 | `architecture/broker-integration.md` | Broker adapter layer: Alpaca, Kalshi, Polymarket, crypto; funding UX |
 | `architecture/research-document-shapes.md` | SystemDocKind rigid shapes + librarian score bands (D-069) |
 | `architecture/research-relevance-graph.md` | Typed relevance graph (“basic vector”); pgvector deferred |

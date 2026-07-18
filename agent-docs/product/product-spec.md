@@ -150,16 +150,19 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   loop_refine as observe + bounded-tune layers (not separate canvas nodes).
 - **Position lifecycle (paper):** `maintenance.position_exits` applies model-free exits —
   targetExit deadline, RR ladder scale-outs (`rr_target_ladder` tp1/tp2/tp3),
-  **measurable_gain_take** (net gain after synthetic round-trip + 25 bps floor), then
-  protective ATR stop (synthetic ATR × `atr_stop_multiplier_band`) with catalog
-  **breakeven_on_tp1** half-R lock to average cost, spread-buffered breakeven,
-  `time_stop_band.typical_min`, and **session_close** flatten when XNYS is closed/overnight
-  **only if the position opened during an open cash session**. Exits enqueue through
-  `dispatch.paper_trade`. Live `atr_stream` remains follow-on work.
+  **trail_stop** (chandelier: peak − `trail_multiplier`×ATR after tp1 peak),
+  **measurable_gain_take** (spread + paper fee proxy + net edge; higher net for
+  HFT-oriented short horizons), protective ATR stop with catalog **breakeven_on_tp1**
+  half-R lock, spread-buffered breakeven, `time_stop_band.typical_min`, and
+  **session_close** flatten when XNYS is closed/overnight **only if the position opened
+  during an open cash session**. Exits enqueue through `dispatch.paper_trade`. Live
+  `atr_stream` remains follow-on work. See `architecture/post-fill-deterministic-lifecycle.md`.
 - **Entry sizing (compile):** philosophy `sizingBasisBps` × **complex-signal polarization**
   (D-124: `strengthBand` + six-gate agreement + regime direction align → 0.5–1.5×), then
   **min(budget qty, ATR-risk qty)** using catalog `risk_per_trade_pct_band` and
-  `atr_stop_multiplier_band` (fixed-fractional; Kelly deferred oq-036).
+  `atr_stop_multiplier_band`, then **portfolio heat gate** (D-125: projected open risk ≤
+  `portfolio_heat_pct_band.max`). Fixed-fractional; Kelly deferred oq-036. Urgency /
+  participation valves read at compile for lineage; child-slice POV is follow-on.
 - Presets tune default strategy families, bands, cadences, venues:
   - **Crypto** — 24/7 sessions, Alpaca crypto (then Coinbase), cross-cap trend watching.
   - **Prediction markets** — Kalshi/Polymarket adapters, probability-edge families, niche data

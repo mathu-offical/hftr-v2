@@ -75,7 +75,14 @@ export async function POST(_req: Request, ctx: Ctx) {
       }),
     );
 
-    const moduleInserts = sourceModules.map((module) =>
+    // Neon HTTP batch runs each insert as its own statement. Dedicated Math
+    // rows FK to tool_owner_module_id, so owners must insert before dependents.
+    const modulesInFkOrder = [...sourceModules].sort((a, b) => {
+      const aOwned = a.toolOwnerModuleId ? 1 : 0;
+      const bOwned = b.toolOwnerModuleId ? 1 : 0;
+      return aOwned - bOwned;
+    });
+    const moduleInserts = modulesInFkOrder.map((module) =>
       db.insert(modules).values({
         id: requireMappedId(moduleIdMap, module.id, 'module_duplicate_unresolved'),
         companyId: createdCompanyId,

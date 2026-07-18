@@ -50,6 +50,11 @@ Visible label next to each handle (text-first; color reinforces). Default kind l
 colored rail on the node edge groups inbound/outbound kinds as separate visual buses.
 Math: top data bus + horizontal fund bus.
 
+**D-057:** in addition to one free **bus** handle per kind, each existing peer dependency
+gets its own **stream** handle (`{kind}-{dir}__{peerId}`) labeled with the peer Fn
+(`← Library`, `→ DayTrade`). Edges persist on stream pins so overlapping data_feed links
+no longer share a single connection point.
+
 Only ports the type can actually use are rendered (empty side = no handles on that side).
 
 ### Connection validation

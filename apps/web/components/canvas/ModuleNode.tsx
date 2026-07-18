@@ -5,7 +5,6 @@ import { Layers } from 'lucide-react';
 import { type NodeProps, type Node } from '@xyflow/react';
 import {
   missingModuleSetupFields,
-  moduleLinkPorts,
   requiredModuleSetupFields,
   splitCompactModuleName,
   type ModuleSetupField,
@@ -21,6 +20,7 @@ import {
 } from './ModuleSetupFields';
 import { FAMILY_LABELS, MODULE_VISUALS } from './canvas-visuals';
 import { MathPortBuses, NodePortBuses } from './NodePortBuses';
+import { useModuleStreamPorts } from './use-module-stream-ports';
 
 export type ModuleNodeData = {
   name: string;
@@ -50,7 +50,7 @@ export type ModuleNodeData = {
 
 export type ModuleFlowNode = Node<ModuleNodeData, 'module'>;
 
-const CARD_WIDTH_PX = 280;
+const CARD_WIDTH_PX = 220;
 
 
 /**
@@ -63,7 +63,7 @@ export const ModuleNode = memo(function ModuleNode({
   selected,
 }: NodeProps<ModuleFlowNode>) {
   const visual = MODULE_VISUALS[data.moduleType];
-  const ports = moduleLinkPorts(data.moduleType);
+  const streamPorts = useModuleStreamPorts(id, data.moduleType);
   const requiredSetupFields = requiredModuleSetupFields(data.moduleType);
   const [setupDraft, setSetupDraft] = useState<ModuleSetupDraft>({
     ...EMPTY_MODULE_SETUP_DRAFT,
@@ -205,17 +205,17 @@ export const ModuleNode = memo(function ModuleNode({
   return (
     <div className="relative" style={{ width: CARD_WIDTH_PX }}>
       {data.moduleType === 'math' ? (
-        <MathPortBuses />
+        <MathPortBuses inbound={streamPorts.inbound} outbound={streamPorts.outbound} />
       ) : (
         <NodePortBuses
           moduleType={data.moduleType}
-          inbound={ports.inbound}
-          outbound={ports.outbound}
+          inbound={streamPorts.inbound}
+          outbound={streamPorts.outbound}
         />
       )}
 
       <div
-        className={`relative ${visual.radiusClass} border bg-[var(--color-surface-1)] px-3.5 py-2.5 shadow-lg transition-colors`}
+        className={`relative ${visual.radiusClass} border bg-[var(--color-surface-1)] px-2.5 py-1.5 shadow-lg transition-colors`}
         style={{
           width: CARD_WIDTH_PX,
           borderStyle: visual.borderStyle,
@@ -253,7 +253,7 @@ export const ModuleNode = memo(function ModuleNode({
           />
         )}
 
-        <div className="mb-1 flex items-center justify-between gap-2">
+        <div className="mb-0.5 flex items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <span
               className="shrink-0 rounded px-1 py-0.5 text-[8px] uppercase tracking-wider"
@@ -279,7 +279,7 @@ export const ModuleNode = memo(function ModuleNode({
           </div>
           <button
             type="button"
-            className="nodrag shrink-0 rounded border border-[var(--color-line)] px-1.5 py-0.5 text-[9px] text-[var(--color-ink-faint)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+            className="nodrag shrink-0 rounded border border-[var(--color-line)] px-1 py-0.5 text-[8px] text-[var(--color-ink-faint)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
             onClick={() => {
               window.dispatchEvent(
                 new CustomEvent('hftr:open-process-modal', {
@@ -301,7 +301,7 @@ export const ModuleNode = memo(function ModuleNode({
             return (
               <>
                 <div
-                  className="text-sm font-medium leading-snug text-[var(--color-ink)]"
+                  className="text-xs font-medium leading-snug text-[var(--color-ink)]"
                   title={data.name}
                 >
                   {primary}
@@ -319,7 +319,7 @@ export const ModuleNode = memo(function ModuleNode({
           })()}
         </div>
 
-        <div className="mt-1 flex items-center gap-1.5 text-[10px] text-[var(--color-ink-dim)]">
+        <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-[var(--color-ink-dim)]">
           {(data.activeJobs ?? 0) > 0 && (
             <span
               className="h-1.5 w-1.5 animate-pulse rounded-full"
@@ -337,7 +337,7 @@ export const ModuleNode = memo(function ModuleNode({
         </div>
 
         {requiredSetupFields.length > 0 && (
-          <div className="nodrag nowheel mt-2 border-t border-[var(--color-line)] pt-2">
+          <div className="nodrag nowheel mt-1.5 border-t border-[var(--color-line)] pt-1.5">
             {data.engineInstanceId && topicOverridden && (
               <button
                 type="button"
@@ -375,7 +375,7 @@ export const ModuleNode = memo(function ModuleNode({
           {data.attachedMathTools!.map((tool) => (
             <div
               key={tool.id}
-              className="flex items-center gap-2 rounded-md border border-dashed border-[#bb9af7]/50 bg-[var(--color-surface-0)]/80 px-2.5 py-1.5"
+              className="flex items-center gap-2 rounded-md border border-dashed border-[#bb9af7]/50 bg-[var(--color-surface-0)]/80 px-2.5 py-1"
               style={{ width: CARD_WIDTH_PX }}
             >
               <span

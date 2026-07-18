@@ -70,7 +70,7 @@ export function moduleSetupInputFromDraft(
 
 function FieldStatusChip(props: { field: ModuleSetupField }) {
   return (
-    <span className="shrink-0 rounded-full border border-[var(--color-warn)] px-1.5 py-0.5 text-[9px] text-[var(--color-warn)]">
+    <span className="shrink-0 rounded-full border border-[var(--color-warn)] px-1 py-0.5 text-[8px] text-[var(--color-warn)]">
       Required · {SETUP_FIELD_LABELS[props.field]}
     </span>
   );
@@ -97,7 +97,7 @@ function fieldBorderClass(
 ): string {
   const width = options?.width === 'auto' ? 'w-auto shrink-0' : 'w-full';
   const base = compact
-    ? `${width} rounded border bg-[var(--color-surface-0)] px-1.5 py-1 text-[10px] outline-none`
+    ? `${width} rounded border bg-[var(--color-surface-0)] px-1 py-0.5 text-[9px] outline-none`
     : `${width} rounded-md border bg-[var(--color-surface-0)] px-2 py-1.5 text-xs outline-none`;
   const state = missing
     ? 'border-[var(--color-warn)] focus:border-[var(--color-warn)]'
@@ -115,7 +115,7 @@ function FieldLabel(props: {
   }
   return (
     <span
-      className="mb-0.5 block truncate text-[10px] font-medium text-[var(--color-ink-dim)]"
+      className="mb-0 block truncate text-[9px] font-medium text-[var(--color-ink-dim)]"
       title={label}
     >
       {label}
@@ -172,7 +172,7 @@ export function ModuleSetupFields(props: {
   const targetExitMissing = missing.has('target_exit');
 
   return (
-    <div className={props.compact ? 'space-y-1.5' : 'space-y-3'}>
+    <div className={props.compact ? 'space-y-1' : 'space-y-3'}>
       {required.has('topic_sector') && (
         <div
           className="space-y-0.5"

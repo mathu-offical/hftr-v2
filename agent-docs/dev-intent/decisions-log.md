@@ -556,14 +556,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 
 - **D-049 (research tab shelves + floating inspector, 2026-07-17):**
   Left Research tab reorders to: **Submit new topic** → entity search (Topics / Concepts /
-  Tags / Libraries) → three expandable library shelves as **folders of pages** (system
-  curated runtime, user/engine runtime, baseline seeded) → Pages (topics) list with
-  linked-page highlight → Archive → collapsed modules. Galaxy is the sole overlay surface;
-  detail for Page / Concept / Library / Tag opens in a **right floating inspector** (no
-  Galaxy|Page tab strip, no left/galaxy inline expand). Folder caret expands page leaves;
-  folder name opens matching overview topic when present (e.g. Seeded trading mechanisms),
-  else library inspect. Baseline seeded opens expanded so referenced mechanism pages are
-  individually viewable in-folder; the overview page also remains in Pages. Design:
+  Tags / Libraries) → expandable library shelves as **folders of pages** (system curated,
+  runtime, plus **multiple Baseline · {catalog}** shelves partitioned by bootstrap seed
+  tags — strategy / guardrails / session / broker / trend leads — with optional **tier
+  subfolders**) → Pages (topics) list with linked-page highlight → Archive → collapsed
+  modules. Galaxy is the sole overlay surface; detail for Page / Concept / Library / Tag
+  opens in a **right floating inspector** (no Galaxy|Page tab strip, no left/galaxy inline
+  expand). Folder caret expands page leaves; Overview on the first baseline shelf opens
+  Seeded trading mechanisms when present. Design:
   `ui-ux/research-tab-shelves-inspector-design.md`. **Status: implemented.**
 
 - **D-050 (complete research provider connect + live_api Alpaca poll, 2026-07-17):**
@@ -644,6 +644,17 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   contract but show **role-specific labels** + edge bus rails; edges use kind dash patterns.
   Implementation: `apps/web/components/canvas/canvas-visuals.ts`, `NodePortBuses.tsx`.
   Docs: `ui-ux/ui-spec.md` §3, `canvas-node-dashboard-design.md`. **Status: implemented.**
+
+- **D-057 (tight canvas density + per-stream dependency ports, 2026-07-17):** Operator asked
+  for smaller min zoom, tighter nodes/engines/layout, and **individual stream dependency
+  connection points** on every node. Layout floors: `CANVAS_LAYOUT` module 220×240, gutters
+  120/100, Math tool 180×40; `ENGINE_GROUP_PADDING` 72/72/140/100. React Flow `minZoom=0.15`.
+  Ports: each allowed `LinkKind` exposes a free **bus** handle plus one **stream** handle per
+  existing peer (`{kind}-{dir}__{peerId}`); edges attach to stream pins; labels show `← Peer`
+  / `→ Peer`. Helpers: `moduleStreamPorts`, `handleIdForStream`, `parseStreamHandle`. UI:
+  `use-module-stream-ports.ts`, tightened Module/Engine/Math chrome. Docs: ui-spec §3,
+  canvas-node-dashboard-design, canvas-layout-and-dedicated-math-design.
+  **Status: implemented.**
 
 ## Open questions
 

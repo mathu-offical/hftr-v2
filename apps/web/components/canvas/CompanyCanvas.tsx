@@ -21,7 +21,7 @@ import {
   computeEngineBoundsFromPositions,
   engineCanvasOffsetForOrigin,
   ENGINE_GROUP_PADDING,
-  handleIdForLink,
+  handleIdForStream,
   isMathToolAttachment,
   layoutCanvas,
   missingModuleSetupFields,
@@ -204,11 +204,17 @@ function isInteractiveNodeTarget(target: EventTarget | null): boolean {
 
 /** Default placement under an owner (reflow / first provision only). */
 function defaultMathOffset(owner: Pick<ModuleFlowNode, 'measured'>): { x: number; y: number } {
-  const ownerWidth = Math.max(owner.measured?.width ?? 280, 280);
-  const ownerHeight = Math.max(owner.measured?.height ?? 220, 220);
+  const ownerWidth = Math.max(
+    owner.measured?.width ?? CANVAS_LAYOUT.moduleWidth,
+    CANVAS_LAYOUT.moduleWidth,
+  );
+  const ownerHeight = Math.max(
+    owner.measured?.height ?? CANVAS_LAYOUT.moduleHeight,
+    CANVAS_LAYOUT.moduleHeight,
+  );
   return {
-    x: (ownerWidth - 220) / 2,
-    y: ownerHeight + 24,
+    x: (ownerWidth - CANVAS_LAYOUT.mathToolWidth) / 2,
+    y: ownerHeight + CANVAS_LAYOUT.mathAttachmentGap,
   };
 }
 
@@ -554,15 +560,16 @@ function toEdge(l: CanvasLink): Edge {
     source: l.fromModuleId,
     target: l.toModuleId,
     type: 'smoothstep',
-    sourceHandle: handleIdForLink(l.linkKind, 'out'),
-    targetHandle: handleIdForLink(l.linkKind, 'in'),
+    // Per-peer stream handles so each dependency lands on its own pin (D-057).
+    sourceHandle: handleIdForStream(l.linkKind, 'out', l.toModuleId),
+    targetHandle: handleIdForStream(l.linkKind, 'in', l.fromModuleId),
     label: l.linkKind.replace('_', ' '),
     style: {
       stroke: LINK_COLORS[l.linkKind],
       strokeWidth: l.linkKind === 'fund_route' ? 2 : 1.5,
       ...(dash ? { strokeDasharray: dash } : {}),
     },
-    labelStyle: { fill: 'var(--color-ink-faint)', fontSize: 10 },
+    labelStyle: { fill: 'var(--color-ink-faint)', fontSize: 9 },
     labelBgStyle: { fill: 'var(--color-surface-0)' },
     animated: false,
     className: `hftr-edge hftr-edge-${l.linkKind}`,
@@ -865,7 +872,7 @@ export function CompanyCanvas(props: {
           },
         });
         requestAnimationFrame(() => {
-          rfInstanceRef.current?.fitView({ padding: 0.15, maxZoom: 1 });
+          rfInstanceRef.current?.fitView({ padding: 0.15, maxZoom: 1, minZoom: 0.15 });
         });
       } catch {
         flash('Could not save engine reflow.');
@@ -918,7 +925,7 @@ export function CompanyCanvas(props: {
         },
       });
       requestAnimationFrame(() => {
-        rfInstanceRef.current?.fitView({ padding: 0.15, maxZoom: 1 });
+        rfInstanceRef.current?.fitView({ padding: 0.15, maxZoom: 1, minZoom: 0.15 });
       });
     } catch {
       flash('Could not save canvas reflow.');
@@ -1788,13 +1795,15 @@ export function CompanyCanvas(props: {
             setSelectedId(node.id);
           }}
           onPaneClick={() => setSelectedId(null)}
+          minZoom={0.15}
+          maxZoom={1.5}
           fitView
-          fitViewOptions={{ maxZoom: 1 }}
+          fitViewOptions={{ maxZoom: 1, minZoom: 0.15, padding: 0.12 }}
           proOptions={{ hideAttribution: true }}
           colorMode="dark"
           style={{ width: '100%', height: '100%', background: 'var(--color-surface-0)' }}
         >
-          <Background gap={24} color="var(--color-line)" />
+          <Background gap={18} color="var(--color-line)" />
           <Controls showInteractive={false} />
           <Panel position="top-right">
             <CanvasSettingsMenu

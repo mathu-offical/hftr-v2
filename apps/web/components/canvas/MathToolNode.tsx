@@ -4,6 +4,7 @@ import { memo } from 'react';
 import { type Node, type NodeProps } from '@xyflow/react';
 import { splitCompactModuleName } from '@hftr/contracts';
 import { MathPortBuses } from './NodePortBuses';
+import { useModuleStreamPorts } from './use-module-stream-ports';
 
 export type MathToolNodeData = {
   name: string;
@@ -20,19 +21,21 @@ export type MathToolFlowNode = Node<MathToolNodeData, 'mathTool'>;
 
 /**
  * Compact deterministic tool lane.
- * - Data to/from owner modules: top bus
- * - Funds: left in → right out (never into LLM nodes)
+ * - Data streams on top (bus + per-peer)
+ * - Fund streams left → right
  */
 export const MathToolNode = memo(function MathToolNode({
+  id,
   data,
   selected,
 }: NodeProps<MathToolFlowNode>) {
   const { primary } = splitCompactModuleName(data.name);
+  const streamPorts = useModuleStreamPorts(id, 'math');
   return (
     <div
       role="group"
       aria-label={`Dedicated Math tool for ${data.ownerName}`}
-      className="relative flex h-12 w-[220px] items-center gap-2 rounded-md border px-3 shadow-lg"
+      className="relative flex h-10 w-[180px] items-center gap-2 rounded-md border px-2 shadow-lg"
       style={{
         borderColor: selected ? '#bb9af7' : 'rgba(187,154,247,0.55)',
         backgroundImage:
@@ -40,7 +43,7 @@ export const MathToolNode = memo(function MathToolNode({
       }}
       title={`Dedicated deterministic Math tool for ${data.ownerName}`}
     >
-      <MathPortBuses />
+      <MathPortBuses inbound={streamPorts.inbound} outbound={streamPorts.outbound} />
       <span
         className="shrink-0 rounded px-1 py-0.5 text-[8px] uppercase tracking-wider text-[#bb9af7]"
         style={{ border: '1px solid rgba(187,154,247,0.45)', background: 'rgba(187,154,247,0.12)' }}

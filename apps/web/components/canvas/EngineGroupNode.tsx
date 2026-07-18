@@ -196,7 +196,7 @@ export const EngineGroupNode = memo(function EngineGroupNode({
         style={{ background: engineVisual.hue, opacity: 0.7 }}
         aria-hidden
       />
-      <div className="engine-group-drag flex items-start justify-between gap-2 border-b border-[var(--color-line)]/60 px-3 py-1.5 pl-4">
+      <div className="engine-group-drag flex items-start justify-between gap-2 border-b border-[var(--color-line)]/60 px-2 py-1 pl-3">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
             <span
@@ -229,7 +229,7 @@ export const EngineGroupNode = memo(function EngineGroupNode({
           </button>
         </div>
       </div>
-      <div className="nodrag nowheel space-y-1.5 px-3 py-2">
+      <div className="nodrag nowheel space-y-1 px-2 py-1.5">
         <ModuleSetupFields
           requiredFields={ENGINE_SETUP_FIELDS}
           missingFields={missingFields}
@@ -283,7 +283,7 @@ export const EngineGroupNode = memo(function EngineGroupNode({
             type="button"
             disabled={saving}
             onClick={() => void saveSetup()}
-            className="rounded border border-[var(--color-accent)] px-2 py-1 text-[10px] text-[var(--color-accent)] disabled:opacity-50"
+            className="rounded border border-[var(--color-accent)] px-1.5 py-0.5 text-[9px] text-[var(--color-accent)] disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save setup'}
           </button>

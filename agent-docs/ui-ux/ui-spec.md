@@ -96,17 +96,17 @@
   on blur/Enter. Activity / status line remains text-first. Clicking card chrome opens the
   floating inspector (full / secondary settings); interacting with inline fields does not open
   the inspector or change card geometry.
-- **Labeled ports + visual buses (per accepted `LinkKind`, D-056):** separate left (inbound) /
-  right (outbound) handles for each link kind the module type can use (`data_feed`, `directive`,
-  `verification`, `fund_route`), each with a **role-specific** text label (e.g. Corpus out,
-  Market feed, Trade directive, Capital out) and a colored edge bus rail. Math keeps **top
-  data bus** + **side fund bus**. Edges use kind color plus dash pattern (solid data, dashed
-  directive, dotted verification, long-dash fund). Connections still require matching kind +
-  `LINK_RULES`.
+- **Labeled ports + stream pins (D-056 / D-057):** each allowed `LinkKind` exposes a free
+  **bus** handle (new links) plus one **stream** handle per existing peer dependency
+  (`{kind}-{in|out}__{peerId}`), labeled `← Peer` / `→ Peer` with role context (Corpus,
+  Market feed, Trade directive, …). Math: top data streams + side fund streams. Edges attach
+  to stream pins; kind color + dash pattern. Validation remains `LinkKind` + `LINK_RULES`.
 - **Node families (D-056):** cards distinguish **Data source** (`library`, `live_api` — dashed
   border, stripe/rail accent), **Agent** (solid + left bar), **Fund** (double border + rail),
   **Tool** (Math), **Control** (policy). Subtype chips show library class, venue, trading
   subtype, etc. Engine groups use **category-colored** washes/stripes from template category.
+- **Density (D-057):** module cards ~220×240 layout floor; Math tools 180×40; tighter engine
+  padding and gutters; React Flow `minZoom=0.15` so full engines fit in view.
 - **Names (compact Fn · Focus):** auto-derived as `{moduleFunctionLabel} · {focusToken}` plus
   muted connection refs (`←`/`→` neighbor Fn codes, capped) until the operator customizes;
   inspector offers **Restore generated name**. Focus prefers topic/sector; unset shows `—`.
@@ -194,13 +194,13 @@ editable fields.
 ### LEFT — Research + Data + Trends
 - Tabs: **Research** | **Data sources** | (contextual third tab when opened from a trend module).
 - Research tab (**D-040**, **D-047**, **D-049**): **Submit new topic** at top; **entity
-  search** with Topics / Concepts / Tags / Libraries toggles; three expandable **library
-  shelves** as folders of pages (caret expands page leaves; folder name opens overview
-  topic when title matches, else library inspector); **Pages** list (topics) with
-  linked-page highlight when the inspector is open — overview pages such as Seeded trading
-  mechanisms may appear both in Pages and as the baseline-seeded folder; **Archive** (D-047);
-  collapsed Modules & tools. Opening Research opens the Galaxy overlay only — detail lives
-  in a right floating inspector over the galaxy (no Galaxy|Page tab strip).
+  search** with Topics / Concepts / Tags / Libraries toggles; expandable **library shelves**
+  as folders of pages — runtime/system shelves plus **multiple Baseline · {catalog}**
+  shelves (strategy / guardrails / session / broker / trend leads) with optional **tier
+  subfolders** for seeded pages; caret expands page leaves; Overview on the first baseline
+  shelf opens Seeded trading mechanisms; **Pages** list (topics) with linked-page highlight;
+  **Archive** (D-047); collapsed Modules & tools. Opening Research opens the Galaxy overlay
+  only — detail lives in a right floating inspector over the galaxy (no Galaxy|Page tab strip).
   Design: `ui-ux/research-tab-shelves-inspector-design.md`.
 - Research overlay (main content, layered over canvas): **Galaxy** surface with optional
   right **inspector** (Page / Concept / Library / Tag — D-049). Overlay and inspector are

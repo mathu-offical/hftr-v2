@@ -79,7 +79,7 @@
 - [x] **Step 2: Awareness adapters project posture hub + current awareness**
 - [x] **Step 3: Wire `scanPositionExitSignals` to MarketModel (adapter live quote when entitled)**
 - [x] **Step 4: Tests + typecheck PASS**
-- [ ] **Step 5: Commit Phase 2**
+- [x] **Step 5: Commit Phase 2** (`26b1f25`)
 
 ---
 

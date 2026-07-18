@@ -9,6 +9,7 @@ import { ResearchArchiveSection } from '@/components/research/ResearchArchiveSec
 import { ResearchEntitySearch } from '@/components/research/ResearchEntitySearch';
 import { ResearchLibraryShelves } from '@/components/research/ResearchLibraryShelves';
 import { ResearchNewTopicButton } from '@/components/research/ResearchNewTopicButton';
+import { ResearchSubmitArticle } from '@/components/research/ResearchSubmitArticle';
 import { ResearchPagesList } from '@/components/research/ResearchPagesList';
 import {
   ResearchRunStatus,
@@ -342,14 +343,28 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
         {tab === 'research' && (
           <>
             {topicOwnerModules.length > 0 ? (
-              <ResearchNewTopicButton
-                companyId={companyId}
-                modules={topicOwnerModules.map((m) => ({ id: m.id, name: m.name }))}
-                onCreated={() => {
-                  invalidateAfterResearchMutation(companyId, 'topics');
-                  void loadTopics(true);
-                }}
-              />
+              <>
+                <ResearchNewTopicButton
+                  companyId={companyId}
+                  modules={topicOwnerModules.map((m) => ({ id: m.id, name: m.name }))}
+                  onCreated={() => {
+                    invalidateAfterResearchMutation(companyId, 'topics');
+                    void loadTopics(true);
+                  }}
+                />
+                <ResearchSubmitArticle
+                  companyId={companyId}
+                  modules={topicOwnerModules.map((m) => ({ id: m.id, name: m.name }))}
+                  libraries={libraries.map((l) => ({ id: l.id, name: l.name }))}
+                  onCreated={(conceptId) => {
+                    invalidateAfterResearchMutation(companyId, 'concepts');
+                    invalidateAfterResearchMutation(companyId, 'libraryPages');
+                    void loadConcepts(true);
+                    void loadLibraries(true);
+                    researchView.inspectConcept(conceptId);
+                  }}
+                />
+              </>
             ) : (
               <p className="px-1 text-xs text-[var(--color-ink-faint)]">
                 No research modules yet. Add one below or from the canvas palette to create topics.

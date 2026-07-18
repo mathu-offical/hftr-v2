@@ -135,6 +135,10 @@ export {
 } from './research/reject-repair';
 export { validateEvidencePackages, type ValidateEvidencePackagesInput } from './research/validation';
 export {
+  submitOperatorResearchArticle,
+  type SubmitOperatorResearchArticleOpts,
+} from './research/operator-submit';
+export {
   resolveResearchGatherCredentials,
   type ResearchGatherCredentials,
 } from './research/gather-credentials';

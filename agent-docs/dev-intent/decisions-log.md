@@ -806,6 +806,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Distinct from System curated `system:sector_news` cadence (D-069). Docs:
   research-tab-shelves-inspector-design. **Status: implemented.**
 
+- **D-079 (operator research article submit, 2026-07-18):** Users can submit research
+  articles as **link** (URL + optional notes) or **raw text** via Research tab control.
+  Model-free path: `SubmitResearchArticleInput` → `submitOperatorResearchArticle` →
+  concept with `sourceClass: operator`, research_request/evidence bus rows, optional
+  library/topic attach. No URL scrape yet (store URL in `externalRef`; OQ for SSRF-safe
+  fetch). Philosophy directives deferred. **Status: implemented.**
+
 - **D-077 (canvas card type context + trend item ports, 2026-07-18):** On-card enrichment is
   type-relevant and interactive — `ModuleContextPanel` for `library` / `research` / `live_api` /
   `trend` (class + linked library, research topics + target libs, venue/instruments/feed/poll,
@@ -817,6 +824,18 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   edges are UI topology (compile/dispatch per bound engine is follow-up). Canvas GET returns
   `typeContext` projections. Live API inspector form added. Docs: ui-spec §3,
   canvas-node-dashboard-design. **Status: implemented.**
+
+- **D-078 (galaxy hierarchy + shared qualitative similarity, 2026-07-18):** Research
+  galaxy nests **folder stars** (catalog/runtime tags) inside library hulls and
+  **article orbits** (topics) inside folders; concepts + capped tag satellites sit
+  in article orbits. Folder **mass** amalgamates member concept vocabulary
+  (`amalgamationMassFromTexts`). Link spring distance blends qualitative
+  `weightBand` with pairwise **RelevanceBand** (`low|medium|high`) from the same
+  LLM-assist-normalized Jaccard path as librarian `scoreRelevanceBand` (contracts
+  `qualitative-relevance`; layout springs in `galaxy-similarity`). Inspector lists
+  (topic memberships, library nest, tag matches) render rich markdown excerpts via
+  `ResearchConceptPreview` / `ResearchMarkdown`. Docs: research-relevance-graph,
+  research-galaxy-topic-view-design, ui-spec § Research. **Status: implemented.**
 
 ## Open questions
 

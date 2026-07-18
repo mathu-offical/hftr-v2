@@ -5,9 +5,10 @@ Living design for the left Research tab layout and floating in-galaxy inspector.
 ## Left Research tab (top → bottom)
 
 1. **Submit new topic** — primary control at top; creates a research topic (module picker when multiple research modules exist).
-2. **Entity search** — single search field; entity-type buttons switch the corpus:
+2. **Submit research article** (D-079) — link URL (+ optional notes) or raw text/markdown; model-free; lands as `sourceClass: operator` concept on Runtime shelf (optional library picker).
+3. **Entity search** — single search field; entity-type buttons switch the corpus:
    - `Topics` · `Concepts` · `Tags` · `Libraries`
-3. **Library shelves** — expandable groups; each library (or seeded category) is a **folder of pages**:
+4. **Library shelves** — expandable groups; each library (or seeded category) is a **folder of pages**:
    - Caret expands the folder to list pages (catalog / admitted concepts as readable page leaves).
    - **Folder name click** opens the matching **overview topic page** when one exists (same title as the library, e.g. Seeded trading mechanisms); otherwise opens the library inspector + galaxy nest.
    - **Page leaf click** opens that page in the floating inspector and traces it in the galaxy.
@@ -15,9 +16,9 @@ Living design for the left Research tab layout and floating in-galaxy inspector.
      - **System curated (runtime)** — cadence libraries for all `system:*` scopes (D-069): movers, execution logs, daily summaries, runtime policies, trend lists, sector news. Movers/sector/daily jobs seal verified-normalized views + readable reports (D-070/D-072); other folders bootstrap with shaped placeholders. Shelf visible even when a slice is empty.
      - **Runtime (user / engine)** — operator-created and engine-admitted libraries (not baseline seed).
      - **Baseline seeded** — one shelf (same bordered section chrome as system/runtime). Inside: **Overview · Seeded trading mechanisms**, then **inline catalog folders** (Strategy families, Guardrails, Session constraints, Broker policy, Trend lead patterns, **Sector knowledge**) partitioned by seed catalog tags. Folders use the same caret/folder-row pattern as runtime libraries. Within a folder, distinct `tier_*` tags nest as tier subfolders; single-bucket catalogs stay flat. **Sector knowledge** materializes vendored `sector_seeds` for the company’s `sectorFocuses` (create + PATCH); multiple coarse sectors nest as `sector_*` subfolders (D-076).
-4. **Pages** — company topics as a compact list (including folder overview topics such as Seeded trading mechanisms). Selection opens the Page inspector. Linked topic IDs from the open page’s synopsis/`[[wikilink]]`s are text-highlighted in this list.
-5. **Archive** (D-047) — soft-deleted research; Restore / Clear archive.
-6. **Modules & tools** (collapsed) — research module actions, company sweep, Obsidian export.
+5. **Pages** — company topics as a compact list (including folder overview topics such as Seeded trading mechanisms). Selection opens the Page inspector. Linked topic IDs from the open page’s synopsis/`[[wikilink]]`s are text-highlighted in this list.
+6. **Archive** (D-047) — soft-deleted research; Restore / Clear archive.
+7. **Modules & tools** (collapsed) — research module actions, company sweep, Obsidian export.
 
 ## Main workspace
 

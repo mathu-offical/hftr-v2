@@ -189,6 +189,53 @@ export const CreateResearchQueryInput = z.object({
 });
 export type CreateResearchQueryInput = z.infer<typeof CreateResearchQueryInput>;
 
+/**
+ * Operator article ingest (D-079) — link URL and/or raw text.
+ * Model-free; concepts get sourceClass `operator`. Link fetch deferred (OQ).
+ */
+export const SubmitResearchArticleInput = z
+  .object({
+    moduleId: z.string().uuid(),
+    kind: z.enum(['link', 'text']),
+    /** URL when kind=link; article markdown/text when kind=text. */
+    content: z.string().min(1).max(50_000),
+    title: z.string().min(1).max(200).optional(),
+    /** Optional notes when kind=link (stored as concept body prefix). */
+    notes: z.string().max(20_000).optional(),
+    libraryId: z.string().uuid().optional(),
+    topicId: z.string().uuid().optional(),
+    tags: z.array(z.string().min(1).max(64)).max(16).optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.kind === 'link') {
+      try {
+        const u = new URL(val.content.trim());
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'link_must_be_http_https',
+            path: ['content'],
+          });
+        }
+      } catch {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'invalid_url',
+          path: ['content'],
+        });
+      }
+    }
+  });
+export type SubmitResearchArticleInput = z.infer<typeof SubmitResearchArticleInput>;
+
+export const SubmitResearchArticleResult = z.object({
+  requestId: z.string().uuid(),
+  conceptId: z.string().uuid(),
+  libraryId: z.string().uuid().nullable(),
+  topicId: z.string().uuid().nullable(),
+});
+export type SubmitResearchArticleResult = z.infer<typeof SubmitResearchArticleResult>;
+
 export const RESEARCH_SOURCE_FEED_CLASS: Record<ResearchSourceKind, string> = {
   brave_search: 'brave_search',
   sec_edgar: 'sec_edgar_free',

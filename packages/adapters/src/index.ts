@@ -123,6 +123,11 @@ export {
   type LibraryConceptEvidenceInput,
 } from './research/library-concepts';
 export {
+  normalizeOperatorArticleEvidence,
+  deriveOperatorArticleTitle,
+  type OperatorArticleEvidenceInput,
+} from './research/operator-evidence';
+export {
   gatherEvidencePackages,
   resolveDefaultSourceKinds,
   type GatherEvidencePackagesOptions,

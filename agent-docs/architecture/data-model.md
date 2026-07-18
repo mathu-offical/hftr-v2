@@ -110,6 +110,8 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   when denormalized counters are insufficient under contention.
 - **evidence_packages** — v1 contract: class, symbols/sectors, digest, findings jsonb, expiry,
   legal_use_class `ALLOWED|RESTRICTED|REVIEW_REQUIRED`.
+  **D-079:** operator article submit writes `research_evidence` with `source_kind: operator`
+  + concept `source_class: operator` via `POST .../research/submit` (sync, model-free).
 
 UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
 

@@ -165,19 +165,19 @@ export function liveDataSourceFormForDomain(domain: string): LiveDataSourceFormH
       return {
         fieldLabel: 'Symbol',
         placeholder: 'SPY, AAPL…',
-        helper: 'Feed entitlement check (OHLC stays on ValueRef path).',
+        helper: 'Live OHLC sample for operators (not sent to LLM gather).',
       };
     case 'fx':
       return {
         fieldLabel: 'Base currency',
         placeholder: 'USD, EUR…',
-        helper: 'ECB reference pair availability for the base.',
+        helper: 'Live ECB reference rates for the base currency.',
       };
     case 'crypto':
       return {
         fieldLabel: 'Asset filter',
         placeholder: 'bitcoin, ethereum…',
-        helper: 'Market-cap ranked listings (levels redacted in evidence text).',
+        helper: 'Live market-cap ranked listings with price fields.',
       };
     case 'macro':
       return {

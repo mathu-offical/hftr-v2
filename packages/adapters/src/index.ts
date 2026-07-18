@@ -126,6 +126,10 @@ export {
   type GatherEvidenceError,
   type GatherCredentials,
 } from './research/gather';
+export {
+  buildOperatorLivePreviewWidgets,
+  type OperatorLivePreviewCredentials,
+} from './research/operator-live-preview';
 export { extractTickerSymbols } from './research/symbol-resolve';
 export { mapSectorToQueryPhrases } from './research/sector-synonyms';
 export {

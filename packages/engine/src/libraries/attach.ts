@@ -3,6 +3,7 @@ import { ResearchModuleConfig } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { concepts, libraries, libraryConcepts, modules } from '@hftr/db/schema';
 import { loadCompanyLinkGraph, resolveOutboundLibraryModules } from '../graph/module-links';
+import { bumpConceptConfidence } from './archive';
 
 /**
  * Attach newly persisted concepts to target libraries.
@@ -72,6 +73,12 @@ export async function attachConceptsToLibraries(opts: {
         isNull(concepts.primaryLibraryId),
       ),
     );
+
+  if (opts.curationStatus === 'auto_admitted') {
+    for (const conceptId of opts.conceptIds) {
+      await bumpConceptConfidence(opts.db, conceptId, 'verify', opts.now);
+    }
+  }
 
   return targetLibraryIds;
 }

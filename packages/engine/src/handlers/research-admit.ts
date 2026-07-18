@@ -2,6 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { ResearchModuleConfig } from '@hftr/contracts';
 import { libraryConcepts, modules, researchRequests } from '@hftr/db/schema';
+import { bumpConceptConfidence } from '../libraries/archive';
 import { resolveAdmissionStatus } from '../research/admission';
 import { loadResearchRequest, upsertResearchResult, upsertResearchRun } from '../research/run-state';
 import { registerHandler } from './registry';
@@ -50,6 +51,12 @@ registerHandler('research.admit', async ({ db, clock, job }) => {
           eq(libraryConcepts.curationStatus, 'proposed'),
         ),
       );
+
+    if (admissionStatus === 'auto_admitted') {
+      for (const conceptId of conceptIds) {
+        await bumpConceptConfidence(db, conceptId, 'verify', now);
+      }
+    }
   }
 
   await upsertResearchRun(db, {

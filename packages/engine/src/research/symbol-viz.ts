@@ -104,6 +104,7 @@ export function buildSymbolViz(opts: {
     opts.held != null
       ? heldVsCostFromMarks(opts.held.markCents, opts.held.avgCostCents)
       : null;
+  const lastSpark = Number(spark.points[spark.points.length - 1]?.valueCents);
   return {
     symbol: opts.symbol.toUpperCase(),
     spark,
@@ -112,7 +113,7 @@ export function buildSymbolViz(opts: {
     strengthTicks: strengthTicksFromBand(opts.strengthBand),
     relevanceBand: opts.relevanceBand,
     heldVsCost,
-    markCents: opts.held?.markCents ?? Number(spark.points[spark.points.length - 1]?.valueCents) || null,
+    markCents: opts.held?.markCents ?? (Number.isFinite(lastSpark) ? lastSpark : null),
     avgCostCents: opts.held?.avgCostCents ?? null,
     unrealizedPnlCents: opts.held?.unrealizedPnlCents ?? null,
   };

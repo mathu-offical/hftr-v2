@@ -32,8 +32,10 @@ Evidence is leak-linted — never raw OHLC/FX/quote digits in model-facing text.
 `POST /api/settings/research-keys/{provider}/verify` via `apps/web/lib/research-verify.ts`.
 Providers: brave, market_news, finnhub, polygon, fred, alpha_vantage, twelve_data, marketstack.
 Saved key or draft (≥8 chars). Returns `{ ok, failure }` — no plaintext.
-Settings modal **auto-probes** saved keys on open (D-055). Gather key load
+Settings modal **auto-probes** saved keys on open (D-055). Gather credentials
+resolve at handler time via `resolveResearchGatherCredentials` (D-074) —
 soft-skips decrypt failures so one drifted ciphertext cannot block the fan-out.
+Job payloads never carry plaintext keys.
 
 ## live_api → trend quotes (D-050 / D-051)
 

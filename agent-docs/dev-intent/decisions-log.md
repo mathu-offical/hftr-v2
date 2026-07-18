@@ -752,6 +752,17 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `fund-route-links.ts`, `MathPortBuses`. Docs: ui-spec §3, canvas-node-dashboard-design.
   **Status: implemented.**
 
+- **D-074 (no secrets in job payloads, 2026-07-18):** Operator BYOK research keys and
+  paper Alpaca secrets must never be serialized into `jobs.payload` jsonb. Manual
+  curate/query previously decrypted keys at enqueue and spread them into queue rows
+  (visible to DB admins/backups for up to 7 days of completed-job retention). Fix:
+  `resolveResearchGatherCredentials(db, companyId)` decrypts at `research.gather`
+  handler time only (mirrors LLM `withUserApiKey`); curate/gather Zod payloads are
+  identity + intent; `enqueue()` fails closed via `assertNoSecretsInJobPayload`;
+  `maintenance.sweep` scrubs legacy payload rows; dead-letter retry uses
+  `stripSecretsFromJobPayload`. LLM keys were already header-only and never in
+  prompts. Scheduled research now gets the same credential path as manual runs.
+  **Status: implemented.**
 
 - **D-075 (Math dock on parent bottom, 2026-07-18):** Operator asked for Math tools to
   attach to connection points on the **bottom** of parent nodes. Owner cards render
@@ -760,6 +771,7 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `StreamPortSpec.peerType` + `isMathDockStreamPort`. Docs: ui-spec §3,
   canvas-layout-and-dedicated-math-design, canvas-node-dashboard-design.
   **Status: implemented.**
+
 
 ## Open questions
 

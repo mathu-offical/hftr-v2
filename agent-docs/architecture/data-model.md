@@ -208,7 +208,8 @@ UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
 
 - **jobs** — queue_class, priority, run_after, locked_until, locked_by, attempts, max_attempts,
   idempotency_key unique, payload jsonb, status `pending|active|completed|failed|dead`,
-  company_id, module_id, cost_estimate jsonb.
+  company_id, module_id, cost_estimate jsonb. Payload is identity + intent only — never
+  operator API keys or broker secrets (D-074; `assertNoSecretsInJobPayload` at enqueue).
 - **job_schedules** — cron-like recurring definitions per module cadence.
 - **llm_calls** — provider, model, tier, module_id, tokens in/out, cost_cents, latency_ms,
   schema_valid, leak_lint_passed, rate_limit_remaining, request_id, retention_class, failure,

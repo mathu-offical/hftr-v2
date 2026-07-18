@@ -46,6 +46,9 @@ Rules (from production-queue literature + v1 lessons):
 - **Idempotent handlers** — at-least-once delivery; every handler checks `idempotency_key`
   results before re-doing side effects (LLM calls return cached artifacts; dispatch dedupes on
   `deterministic_tasks.idempotency_key`).
+- **No secrets in payload (D-074):** `jobs.payload` is identity + intent only. Operator BYOK
+  and broker secrets resolve at handler time (`resolveResearchGatherCredentials`,
+  `withUserApiKey`, `resolveExecutionContext`). `enqueue()` rejects known secret field names.
 - **Queue classes carried from v1:** `RESEARCH | STRATEGIC | TACTICAL | COMPILE | DISPATCH |
   VERIFY | TRAINING` (+ `ASSISTANT`, `BILLING`, `MAINTENANCE` in v2). DISPATCH/VERIFY are
   drained with highest priority and shortest leases.

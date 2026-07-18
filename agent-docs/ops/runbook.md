@@ -13,7 +13,8 @@ retention audit, and rollback. Billing (Stripe) is **deferred** — see D-032.
 ## API keys and broker credentials
 
 - LLM keys: user-owned via settings; env keys do not authorize runtime calls (D-027).
-- Research keys (Brave, market news): user-owned via settings (`user_research_keys`); env for smoke only (D-039).
+- Research keys: user-owned via settings (`user_research_keys`); env for smoke only (D-039).
+  Resolved at gather-handler time only — never stored in `jobs.payload` (D-074).
 - Broker credentials: AES-GCM in `broker_connections`; never log plaintext.
 - Rotate keys in settings → re-verify connection → re-run live-gate review if live-bound.
 

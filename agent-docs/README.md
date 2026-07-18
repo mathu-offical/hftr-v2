@@ -46,6 +46,8 @@ implementation proceeds.
 | `research/paper-experimentation-protocol.md` | Paper-only cohort protocol: preflight, provenance, baselines, gates |
 | `research/trading-philosophy-guidance.md` | Multi-objective philosophy guidance (axes, prompts, experiment learnings) |
 | `research/tech-decisions.md` | Justified technology choices with alternatives considered |
+| `ops/security-audit.md` | Pre-release secrets / ownership / live-gate checklist (D-027, D-074) |
+| `ops/runbook.md` | Queue drain, credentials, live arming, dead letters |
 | `dev-intent/decisions-log.md` | Dated log of user decisions and clarifications |
 
 ## Implementation status
@@ -75,6 +77,8 @@ the layout. Current progress + remaining G0 items: `plans/m0-sprint-spec.md` §S
      per-step sanity checks; timestamps allowed as read-only context only
      (`architecture/number-handling.md`).
    - Never enable live-trading behavior in docs or code without explicit gate criteria.
+   - Operator API keys / broker secrets never in `jobs.payload`, LLM prompts, or public GET
+     APIs — handler-time resolve only (`ops/security-audit.md`, D-027, D-074).
 5. **Open questions** get logged in `dev-intent/decisions-log.md` under "Open", with an ID, and
    are resolved (not deleted) when answered.
 
@@ -91,10 +95,15 @@ They extend — do not replace — this directory and `AGENTS.md`.
 | `/commit-session` | Chunked per-file Conventional Commits |
 | `/end-run` | Full end-of-run: verify → curate → commit |
 | `/paper-experiment` | Paper-only experimentation cohort workflow |
+| `/secrets-audit` | Secrets hygiene audit (no keys in jobs/prompts/APIs) |
 
 **End-of-run sequence:** verify → curate → **invoke `commit-message` skill** (per-file
 bodies, chunked) → report (D-018, D-020). Push only when user asks.
 
 Key skills: `session-start`, `agent-docs-curate`, `v1-reference`, `implement-milestone`,
 `verify-change`, `pipeline-engine`, `parallel-orchestration`, `paper-experiment`,
-`intent-alignment-audit`, `commit-message` (under `.cursor/skills/`).
+`intent-alignment-audit`, `external-integrations`, `secrets-hygiene`, `commit-message`
+(under `.cursor/skills/`).
+
+Always-on secrets rule: `.cursor/rules/secrets-hygiene.mdc` (D-027, D-074).
+Ops checklist: `ops/security-audit.md`.

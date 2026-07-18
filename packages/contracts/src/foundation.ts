@@ -69,6 +69,8 @@ export const FailureCode = z.enum([
   'broker_policy_block',
   'market_structure_block',
   'capital_limit_block',
+  /** D-122: engine cannot spend another engine’s allocated capital without explicit share. */
+  'capital_isolation_block',
   'verification_schema_block',
   'recovery_exhausted_escalation',
   'numeric_sanity_block',

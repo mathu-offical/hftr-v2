@@ -1676,6 +1676,38 @@ describe('paper engine binding (D-122)', () => {
     });
     expect(parsed.executionBinding?.routingMode).toBe('execute_on_service');
   });
+
+  it('computeEngineSpendCapCents isolates engine envelopes', async () => {
+    const { computeEngineSpendCapCents } = await import('./paper-engine');
+    expect(
+      computeEngineSpendCapCents({
+        companyPoolCents: 1_000_000n,
+        engineLedgerCents: 0n,
+        allocationCapCents: 250_000n,
+        engineScoped: true,
+      }),
+    ).toEqual({
+      spendCapCents: 250_000n,
+      source: 'engine_allocation',
+      isolationActive: true,
+    });
+    expect(
+      computeEngineSpendCapCents({
+        companyPoolCents: 1_000_000n,
+        engineLedgerCents: 80_000n,
+        allocationCapCents: 250_000n,
+        engineScoped: true,
+      }).spendCapCents,
+    ).toBe(80_000n);
+    expect(
+      computeEngineSpendCapCents({
+        companyPoolCents: 1_000_000n,
+        engineLedgerCents: 0n,
+        allocationCapCents: null,
+        engineScoped: false,
+      }).isolationActive,
+    ).toBe(false);
+  });
 });
 
 describe('research source registry', () => {

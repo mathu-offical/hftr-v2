@@ -85,3 +85,85 @@ export function shouldSubmitToProvider(routingMode: PaperRoutingMode): boolean {
     }
   }
 }
+
+export const EngineSpendSource = z.enum([
+  'company_pool',
+  'engine_allocation',
+  'engine_ledger',
+  'module_unscoped',
+]);
+export type EngineSpendSource = z.infer<typeof EngineSpendSource>;
+
+/**
+ * Dispatch spend authority (D-122 Phase 3).
+ * Engine-scoped modules cannot spend beyond their envelope / book while company
+ * pool may still have cash allocated to other engines.
+ */
+export const EngineSpendAuthority = z.object({
+  spendCapCents: z.string(), // bigint as decimal string for JSON
+  companyPoolCents: z.string(),
+  engineLedgerCents: z.string(),
+  allocationCapCents: z.string().nullable(),
+  engineInstanceId: z.string().uuid().nullable(),
+  source: EngineSpendSource,
+  isolationActive: z.boolean(),
+});
+export type EngineSpendAuthority = z.infer<typeof EngineSpendAuthority>;
+
+/**
+ * Pure spend-cap math for engine capital isolation (unit-testable).
+ *
+ * - Unscoped (no engine): company pool (legacy).
+ * - Engine-scoped with ledger credits (>0): min(pool, ledger, envelope?).
+ * - Engine-scoped with allocation envelope: min(pool, envelope).
+ * - Engine-scoped with neither: company pool legacy fallback (migration-safe).
+ */
+export function computeEngineSpendCapCents(args: {
+  companyPoolCents: bigint;
+  engineLedgerCents: bigint;
+  allocationCapCents: bigint | null;
+  engineScoped: boolean;
+}): {
+  spendCapCents: bigint;
+  source: EngineSpendSource;
+  isolationActive: boolean;
+} {
+  const { companyPoolCents, engineLedgerCents, allocationCapCents, engineScoped } = args;
+  const pool = companyPoolCents < 0n ? 0n : companyPoolCents;
+
+  if (!engineScoped) {
+    return {
+      spendCapCents: pool,
+      source: 'company_pool',
+      isolationActive: false,
+    };
+  }
+
+  const ledger = engineLedgerCents;
+  const envelope = allocationCapCents;
+
+  if (ledger > 0n) {
+    const capped = envelope != null ? (ledger < envelope ? ledger : envelope) : ledger;
+    const spend = capped < pool ? capped : pool;
+    return {
+      spendCapCents: spend < 0n ? 0n : spend,
+      source: 'engine_ledger',
+      isolationActive: envelope != null || spend < pool,
+    };
+  }
+
+  if (envelope != null) {
+    const spend = envelope < pool ? envelope : pool;
+    return {
+      spendCapCents: spend < 0n ? 0n : spend,
+      source: 'engine_allocation',
+      isolationActive: spend < pool,
+    };
+  }
+
+  return {
+    spendCapCents: pool,
+    source: 'company_pool',
+    isolationActive: false,
+  };
+}

@@ -165,6 +165,8 @@ Constraints:
 - Unique on (`to_engine_id`, `bus`, `from_module_id`) where module bind (one clock bind per engine).
 
 API: `GET/POST/DELETE /api/companies/:companyId/engine-utility-links`.
+Operator concat: `POST /api/companies/:companyId/modules/:moduleId/concat` enqueues
+`analyzer.concat` (VERIFY queue, model-free).
 
 ## Canvas / UI
 

@@ -213,7 +213,8 @@
 
 Implemented today as docked collapsible panels (`components/panels/`): `LeftPanel`
 (Research + Libraries | Market posture | Data sources), `BottomPanel` (Trends | Scenario engine | Watch lists |
-Decisions + traces, with an all/per-module selector), `RightPanel` (Verify | Executions |
+Decisions + traces | Lineage | Approvals | Dead letters — persistent ribbon tabs +
+execution-engine scope, D-097), `RightPanel` (Verify | Executions |
 Ledger — with open positions — | Sims | Values). Full slide-over behavior with deep-link
 routes remains the target below.
 
@@ -222,18 +223,20 @@ accent underline on the active tab (financial-terminal, not pill chips). Short r
 labels use `aria-label` / `title` for full product names (e.g. Research → Research +
 Libraries). Nested category strips (Market posture) use `density="compact"`.
 
-**Keyboard + persistence (shipped 2026-07-17, D-022):** `[` toggles left, `]` toggles right,
+**Keyboard + persistence (shipped 2026-07-17, D-022; engine scope D-097):** `[` toggles left, `]` toggles right,
 `` ` `` toggles bottom; `Esc` collapses the active panel (bottom defers when `TraceTimeline`
 is open). Per-company `localStorage` keys `hftr:{companyId}:panel:{left|bottom|right}` restore
-open state, active tab, and bottom module filter on return visits. Shortcuts are suppressed in
-editable fields.
+open state, active tab, and bottom **execution-engine** filter (`engineFilter`: `all` or
+`engine_instances.id`) on return visits. Legacy `moduleFilter` keys are ignored. Shortcuts are
+suppressed in editable fields.
 
 ### LEFT — Research + Libraries + Market posture + Data
 - Tabs: **Research + Libraries** | **Market posture** | **Data sources** (D-081).
 - Research + Libraries tab (**D-040**, **D-047**, **D-049**, **D-094**, **D-095**): scroll column —
   **Submit new topic** at top; **entity search** with Topics / Concepts / Tags / Libraries
   toggles; dedicated **Research topics** (collapsible directive tree — shortened nested labels,
-  Program/Group/Directive kinds, concept counts); **Agent activity** under topics (per
+  Program/Group/Directive kinds, concept counts; per-topic **Research** + **Research all**
+  enqueue on the library research lane — D-098); **Agent activity** under topics (per
   research-module run / evidence / admission); **Archive** (D-047); collapsed Modules & tools
   (inventory + sweep). **Libraries** live in a **bottom-anchored dock** (show/hide into a
   Libraries card; persisted with left panel state) with expandable shelves as folders of
@@ -245,7 +248,8 @@ editable fields.
   inspector over the galaxy (no Galaxy|Page tab strip). Library shell lists use client SWR
   cache (D-063) so shelf chrome returns from memory/session while page indexes lazy-load.
   Design: `ui-ux/research-tab-shelves-inspector-design.md`.
-- **Market posture** tab (D-081 / D-085 / D-092): live operating hub. Left rail lists company-wide
+  Library research (`LIBRARY_RESEARCH`) is a separate queue from posture research
+  (`POSTURE_RESEARCH`) and from execution/other LLM lanes (D-098).- **Market posture** tab (D-081 / D-085 / D-092): live operating hub. Left rail lists company-wide
   persisted categories (positions, watchlists, trends, plans). Opening the tab opens a
   **galaxy-style canvas overlay dashboard** with: equity chart (company series; accent path
   follows selected holding mark), sector top movers, report navigation buttons (open sealed
@@ -284,13 +288,22 @@ editable fields.
   flow, library list with curation status.
 
 ### MIDDLE BOTTOM — Exploration + Analysis + Choice (the main control panel)
-- Slides up from bottom; ~70% height default, expandable to full.
+- **Persistent ribbon (D-097):** always-visible tab buttons (Trends · Scenarios · Watch ·
+  Decisions · Lineage · Approvals · Dead) plus an **Execution engine** dropdown and
+  expand/collapse chevron. Clicking a tab opens the panel on that section; `` ` `` / Esc /
+  chevron still toggle open height. Content (~256px) sits above the ribbon when expanded.
+- **Engine scope (D-097):** dropdown selects `All engines` or one `engine_instances` row.
+  Every tab filters durable API projections to modules whose `engine_instance_id` matches
+  (trends, leads/trees, watchlists, executions/decisions, lineage columns, approvals that
+  touch member modules, dead letters with a member `moduleId`). Company-scoped rows with no
+  module binding appear only under **All engines**.
 - Shows the trend→policy→decision translation dynamically: columns Trends → Directives/Policies
   → Candidate decisions → Queued instructions, with lineage lines between selected items
   (click a trade to highlight its full ancestry).
-- Data structures & watchlists browser, **scoped by creation node** with a scope switcher;
-  shared-structure indicators: avatar-chips of other modules currently reading/analyzing/editing
-  each structure (from `watchlist_access` + active job projections).
+- Data structures & watchlists browser, **scoped by execution engine** (creation-node membership
+  via `modules.engine_instance_id`); shared-structure indicators: avatar-chips of other modules
+  currently reading/analyzing/editing each structure (from `watchlist_access` + active job
+  projections) remain roadmap.
 - Approval inbox (fund requests, live-gate confirmations, assistant edits pending).
 
 ### RIGHT — Execution + Verification + Simulation results
@@ -322,11 +335,12 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
 ### Objects
 - **Topics** — research-**module** directives / work programs (agent-created or seeded). They
   organize focus and can spawn multiple articles or libraries; they are **not** galaxy nodes
-  and are distinct from library-side concepts/tags/trends/functions. **D-045** / **D-086**
-  seed program topic **Seeded trading mechanisms** plus catalog/tier child directives (when a
-  research module exists) so Pages lists high-granularity module-side work programs; concepts
-  stay in the mechanisms library (and other seeded nests) so galaxy/Article have baseline
-  catalog content without a research run.
+  and are distinct from library-side concepts/tags/trends/functions. **D-045** / **D-086** /
+  **D-096** seed **separate top-level** catalog directives (Strategy families, Guardrails,
+  Session constraints, Broker policy, Trend leads, Compliance, Events, Macro, Sector knowledge,
+  …) plus an overview **Seeded trading mechanisms** index; company `sectorFocuses` add
+  **Desk focus · {label}** combination topics. Concepts stay in the mechanisms library (and
+  other seeded nests) so galaxy/Article have baseline catalog content without a research run.
 - **Galaxy nodes** — concepts (primary) and tags (secondary / color / filter). Typed
   `concept_links` remain edges. **D-045** materializes compile-time catalog targets into
   company concepts + library nests on create/ensure so galaxy is never empty of baseline

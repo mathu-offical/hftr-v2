@@ -102,8 +102,10 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   `synopsis_md` (hybrid article agent synopsis), usage counters
   (`query_count`, `last_queried_at`, `reference_count`, `last_referenced_at`). Topics are
   **module-side directives** (work programs that may spawn articles/libraries) — not galaxy
-  nodes and not library entities.   **D-086:** seeded tree under **Seeded trading mechanisms**
-  (program → catalog groups → class/tier/sector leaves via `parent_topic_id`);
+  nodes and not library entities.   **D-086 / D-096:** seeded forest of **separate top-level
+  catalog roots** (Strategy families, Guardrails, …, Sector knowledge) plus overview
+  **Seeded trading mechanisms**; company sector focuses add **Desk focus** combination topics;
+  class/tier/sector leaves nest under their catalog group via `parent_topic_id`;
   membership via `topic_concepts` is organizational focus, while concepts remain
   library-side.
 - **topic_concepts** — **D-040 (specified):** join `(topic_id, concept_id, sort_order, role?)`

@@ -88,9 +88,11 @@ created, invalid link 422, math delete 422, noop job enqueued → drained → co
   open). Shortcuts are suppressed while focus is in an editable field.
 - **Per-company persistence (shipped):** `localStorage` keys
   `hftr:{companyId}:panel:{left|bottom|right}` store open state, active tab, and (bottom only)
-  module filter; restored on next visit to that company.
+  execution-engine filter (`engineFilter`, D-097; replaces legacy module filter);
+  restored on next visit to that company.
 - M1 content: left = Research/Data sources + create forms + concepts browser; bottom =
-  Trends/Scenario engine/Watch lists/Decisions+traces; right = Verify/Executions/Ledger/Sims/
+  persistent ribbon tabs (Trends/Scenario/Watch/Decisions/Lineage/Approvals/Dead) scoped by
+  execution engine; right = Verify/Executions/Ledger/Sims/
   Values projections.
 
 ## T1.6 — Assistant shell (read-only, deterministic)
@@ -215,9 +217,10 @@ production build).
   ticker tape, gated paper/live master switch, top drawer (Ledger/PnL, Trading profile,
   Settings, Philosophy — both editable fields PATCH the company API).
 - **Panel geometry now matches the spec:** left Research/Data sources; bottom Trends /
-  Scenario engine / Watch lists / Decisions + traces with a per-module selector; right
-  Verify / Executions / Ledger (with open positions) / Sims / Values. All collapse to slim
-  strips. `ActivityPanel` retired.
+  Scenario engine / Watch lists / Decisions + traces with an **execution-engine** selector
+  (D-097; was per-module); right
+  Verify / Executions / Ledger (with open positions) / Sims / Values. Ribbon tab buttons stay
+  visible when collapsed. `ActivityPanel` retired.
 - **Typed node handles:** data-in (left), data-out (right), control-in (top), tools-out
   (bottom), colored by type; link kind derived from the handle pair on connect; edges
   animate only while touching modules have active jobs.
@@ -250,7 +253,8 @@ production build).
   `GET/POST /api/companies/:companyId/assistant` + `AssistantDock`. Six regex-routed lookup
   intents; no Mistral/Groq calls; honest "no model calls" chrome. History survives reload.
 - **Panel keyboard + persistence shipped:** `[` / `]` / `` ` `` toggles and Esc collapse on all
-  three panels; per-company `localStorage` for open state, tab, and bottom module filter.
+  three panels; per-company `localStorage` for open state, tab, and bottom execution-engine
+  filter (D-097).
 - **Playwright infrastructure:** `@playwright/test` in `apps/web`, `playwright.config.ts` (port
   3001, `DEV_AUTH_BYPASS=1`, Clerk keys cleared), `e2e/fixtures.ts` (company archive on
   teardown), `companies.spec.ts`, `company-workspace.spec.ts`. Vitest excludes `e2e/**`.
@@ -276,11 +280,12 @@ production build).
   (ELK/pathfinding deferred per DevSpecs intent).
 - **Module store engines tab:** `ENGINE_TEMPLATES` with sector/philosophy inputs for available
   engines; crypto/prediction/HFT listed unavailable with honest reasons.
-- **D-091 motherboard I/O (implementing, post-M1):** `engine_utility_links` migration + API;
+- **D-091 motherboard I/O (implemented, post-M1):** `engine_utility_links` migration + API;
   `EngineGroupNode` utility rail (`data_in`, `data_out`, `clock`, `funds`, `system_control`);
-  insert-time auto-hydration (clock bind, terminal research analyzer, source-derived library names);
-  inter-engine `data_out→data_in` streams; deprecate direct `clock→member` on reflow. Contracts P0:
-  `packages/contracts/src/engines.ts`. Design: `architecture/engine-motherboard-io-design.md`.
+  insert-time auto-hydration (clock/funds/data_out, Time hub, terminal research analyzer,
+  source-derived library names); canvas inter-engine `data_out→data_in` edges;
+  `analyzer.concat` via module concat route. Contracts: `packages/contracts/src/engines.ts`.
+  Design: `architecture/engine-motherboard-io-design.md`.
 - **Assistant hardening:** `packages/contracts/src/assistant.ts` (summary-only `tool_results`,
   `capabilities` tool, normalization helpers); route rate limit 20 user msgs/min/company; failed
   lookup cards + `console.error` logging; atomic two-row `INSERT`; migration `0007_left_firestar`

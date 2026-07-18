@@ -49,13 +49,17 @@ Rules (from production-queue literature + v1 lessons):
 - **No secrets in payload (D-074):** `jobs.payload` is identity + intent only. Operator BYOK
   and broker secrets resolve at handler time (`resolveResearchGatherCredentials`,
   `withUserApiKey`, `resolveExecutionContext`). `enqueue()` rejects known secret field names.
-- **Queue classes carried from v1:** `RESEARCH | STRATEGIC | TACTICAL | COMPILE | DISPATCH |
-  VERIFY | TRAINING` (+ `ASSISTANT`, `BILLING`, `MAINTENANCE` in v2). DISPATCH/VERIFY are
-  drained with highest priority and shortest leases.
-- **Fairness / company serial (D-052):** each company has one shared job queue. Claim
-  skips companies that already hold an active (non-expired) lease and keeps ≤1 job per
-  `company_id` in a claim batch (null-company maintenance jobs stay parallel). Engines on
-  the same company therefore run **sequentially**, not in parallel across workers.
+- **Queue classes carried from v1:** `RESEARCH | LIBRARY_RESEARCH | POSTURE_RESEARCH |
+  STRATEGIC | TACTICAL | COMPILE | DISPATCH | VERIFY | TRAINING` (+ `ASSISTANT`, `BILLING`,
+  `MAINTENANCE` in v2). **D-098:** library topic/module research uses `LIBRARY_RESEARCH`;
+  market-posture system libraries use `POSTURE_RESEARCH`; both stay off execution and
+  assistant/strategic engine lanes. Legacy `RESEARCH` remains for in-flight jobs.
+  DISPATCH/VERIFY are drained with highest priority and shortest leases.
+- **Fairness / company serial (D-052 / D-098):** claim skips companies that already hold an
+  active (non-expired) lease **on the same `queue_class`**, and keeps ≤1 job per
+  `(company_id, queue_class)` in a claim batch (null-company maintenance jobs stay parallel).
+  Engines on the same company therefore run **sequentially within a lane**, while library
+  research and posture research may proceed alongside execution.
 
 ## 3. Scheduling
 

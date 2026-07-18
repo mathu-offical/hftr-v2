@@ -54,10 +54,11 @@ Topics may link concepts whose provenance spans:
 
 1. **Company space** — prior research runs, admitted library concepts, module outputs  
 2. **Seeded knowledgebase** — compile-time / catalog seed libraries (**D-045** /
-   **D-081** / **D-086** `bootstrapCompanyKnowledge` materializes `SEED_CATALOG_NAMES`
-   into `catalog_seed` concepts in the **Seeded trading mechanisms** library, plus a
-   **program topic**, mid-level catalog groups, and class/tier/sector child directives
-   on the research module)  
+   **D-081** / **D-086** / **D-096** `bootstrapCompanyKnowledge` materializes `SEED_CATALOG_NAMES`
+   into `catalog_seed` concepts in the **Seeded trading mechanisms** library, plus
+   **separate top-level** catalog directive topics, optional **Desk focus** combination
+   topics from company `sectorFocuses`, and class/tier/sector child directives on the
+   research module)  
 3. **External gather** — Brave / SEC / market-news evidence → validated → synthesized concepts (D-039)
 
 Librarian agents score relevance across resources; research agents create/update topics and

@@ -1012,6 +1012,17 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   keeps module inventory/sweep only (no duplicate run actions or libraries section). Docs:
   research-tab-shelves-inspector-design, ui-spec. **Status: implemented.**
 
+- **D-096 (separate catalog + desk-focus research topics, 2026-07-18):** New-company bootstrap
+  seeds research topics as **separate top-level roots** (Strategy families, Guardrails,
+  Session constraints, Broker policy, Trend leads, Compliance, Events, Macro, Sector
+  knowledge, plus catalog leaves) — not nested solely under **Seeded trading mechanisms**
+  (that title remains an overview index + library nest name). Company `sectorFocuses` add
+  **Desk focus · {label}** topics with combination children (Strategies / Trend leads /
+  Guardrails / Events) whose membership ORs sector_seeds with the matching catalog.
+  Topic sync attaches to any research module even when catalog concepts are librarian-owned.
+  Archive protects desk-focus titles. Docs: ui-spec, data-model, research-galaxy-topic-view-design.
+  **Status: implemented.**
+
 - **D-097 (bottom ribbon tabs + execution-engine scope, 2026-07-18):** Bottom control panel
   keeps **persistent ribbon tab buttons** (Trends · Scenarios · Watch · Decisions · Lineage ·
   Approvals · Dead) for quick navigation when collapsed or expanded; chevron / `` ` `` / Esc
@@ -1023,6 +1034,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   module binding show only under All engines. Persist `engineFilter` in
   `hftr:{companyId}:panel:bottom` (legacy `moduleFilter` ignored). Docs: ui-spec §4 middle-bottom,
   m1-sprint-spec T1.5. **Status: implemented.**
+
+- **D-098 (library vs posture research queues + topic initiate, 2026-07-18):** Split research
+  work into dedicated queue classes: **LIBRARY_RESEARCH** (topic/module curation pipeline) and
+  **POSTURE_RESEARCH** (system movers / sector news / market-hub refresh). Both are separate from
+  execution lanes (DISPATCH/COMPILE/VERIFY/…) and other LLM queues (STRATEGIC/TACTICAL/ASSISTANT).
+  Company serial fairness is per `(company_id, queue_class)` so library research can run while
+  execution work proceeds. Research topics UI: per-topic **Research** + section **Research all**
+  enqueue `research.curate` jobs on LIBRARY_RESEARCH (`POST …/research/topics/research`). Docs:
+  job-orchestration, ui-spec. **Status: implemented.**
 
 ## Open questions
 

@@ -71,7 +71,10 @@ export function resolveTradingExecutionBinding(
   return EngineExecutionBinding.parse(config?.executionBinding ?? {});
 }
 
-/** Whether dispatch should submit orders to the bound provider venue. */
+/**
+ * Whether dispatch should submit orders to the bound provider venue
+ * (primary book or shadow verify).
+ */
 export function shouldSubmitToProvider(routingMode: PaperRoutingMode): boolean {
   switch (routingMode) {
     case 'funds_only':
@@ -84,6 +87,64 @@ export function shouldSubmitToProvider(routingMode: PaperRoutingMode): boolean {
       return _exhaustive;
     }
   }
+}
+
+/**
+ * Provider venue is the HFTR book of record (apply provider fills to ledger).
+ * `both_verify` is false — internal fill is authoritative; provider is shadow.
+ */
+export function usesProviderAsPrimaryBook(routingMode: PaperRoutingMode): boolean {
+  switch (routingMode) {
+    case 'execute_on_service':
+      return true;
+    case 'funds_only':
+    case 'both_verify':
+      return false;
+    default: {
+      const _exhaustive: never = routingMode;
+      return _exhaustive;
+    }
+  }
+}
+
+/** Internal fill + provider submit for linked BookDelta (does not replace HFTR book). */
+export function shouldShadowVerifyOnProvider(routingMode: PaperRoutingMode): boolean {
+  switch (routingMode) {
+    case 'both_verify':
+      return true;
+    case 'funds_only':
+    case 'execute_on_service':
+      return false;
+    default: {
+      const _exhaustive: never = routingMode;
+      return _exhaustive;
+    }
+  }
+}
+
+/**
+ * Fill-price divergence in bps of internal vs reference (provider) price.
+ * Positive when reference is worse for a buy (higher) / better for a sell (higher).
+ */
+export function fillPriceDeltaBps(args: {
+  internalPriceCents: number;
+  referencePriceCents: number;
+}): number {
+  const base = Math.max(1, args.internalPriceCents);
+  return Math.round(((args.referencePriceCents - args.internalPriceCents) * 10_000) / base);
+}
+
+/** Build a fill_price_bps BookDeltaDimension from internal vs provider fills. */
+export function buildFillPriceBookDeltaDimension(args: {
+  internalPriceCents: number;
+  referencePriceCents: number;
+}): BookDeltaDimension {
+  return {
+    kind: 'fill_price_bps',
+    internalValue: args.internalPriceCents,
+    referenceValue: args.referencePriceCents,
+    unit: 'cents',
+  };
 }
 
 export const EngineSpendSource = z.enum([

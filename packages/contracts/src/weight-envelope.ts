@@ -41,5 +41,14 @@ export const TrainingFeedbackDelta = z.discriminatedUnion('mutationClass', [
     fromWeight: z.number().finite(),
     toWeight: z.number().finite(),
   }),
+  /**
+   * Observation-only link from both_verify BookDelta (D-122 Phase 4).
+   * Not applied by applyControlSnapshotDelta — trains valves via separate jobs.
+   */
+  z.object({
+    mutationClass: z.literal('book_delta'),
+    bookDeltaId: z.string().uuid(),
+    fillPriceDeltaBps: z.number().finite().optional(),
+  }),
 ]);
 export type TrainingFeedbackDelta = z.infer<typeof TrainingFeedbackDelta>;

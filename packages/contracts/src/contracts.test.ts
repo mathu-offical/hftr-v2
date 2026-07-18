@@ -1644,8 +1644,13 @@ describe('live data sources contracts', () => {
 
 describe('paper engine binding (D-122)', () => {
   it('defaults routing to funds_only', async () => {
-    const { EngineExecutionBinding, resolveTradingExecutionBinding, shouldSubmitToProvider } =
-      await import('./paper-engine');
+    const {
+      EngineExecutionBinding,
+      resolveTradingExecutionBinding,
+      shouldSubmitToProvider,
+      shouldShadowVerifyOnProvider,
+      usesProviderAsPrimaryBook,
+    } = await import('./paper-engine');
     const b = EngineExecutionBinding.parse({});
     expect(b.routingMode).toBe('funds_only');
     expect(b.useProviderLedgerAsFundsSource).toBe(true);
@@ -1653,6 +1658,19 @@ describe('paper engine binding (D-122)', () => {
     expect(shouldSubmitToProvider('funds_only')).toBe(false);
     expect(shouldSubmitToProvider('execute_on_service')).toBe(true);
     expect(shouldSubmitToProvider('both_verify')).toBe(true);
+    expect(usesProviderAsPrimaryBook('execute_on_service')).toBe(true);
+    expect(usesProviderAsPrimaryBook('both_verify')).toBe(false);
+    expect(shouldShadowVerifyOnProvider('both_verify')).toBe(true);
+    expect(shouldShadowVerifyOnProvider('funds_only')).toBe(false);
+  });
+
+  it('computes fill price delta bps', async () => {
+    const { fillPriceDeltaBps, buildFillPriceBookDeltaDimension } = await import('./paper-engine');
+    expect(fillPriceDeltaBps({ internalPriceCents: 10_000, referencePriceCents: 10_050 })).toBe(50);
+    expect(buildFillPriceBookDeltaDimension({
+      internalPriceCents: 100,
+      referencePriceCents: 101,
+    }).kind).toBe('fill_price_bps');
   });
 
   it('parses BookDelta with dimensions', async () => {

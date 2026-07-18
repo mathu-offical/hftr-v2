@@ -1,12 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { processLayersForModule, type ModuleType } from '@hftr/contracts';
 import { api } from '@/lib/client';
+import {
+  composeLayerQueueStatusText,
+  firstQueueErrorSnippet,
+  partitionJobsByLayer,
+  type ModuleJobSummaryRow,
+} from './module-process-job-status';
+import type { ModuleCanvasStatusProjection } from './types';
 import { MODULE_VISUALS } from './types';
 
 const MANUAL_CONTROL_TYPES = new Set<ModuleType>(['research', 'librarian', 'trend', 'trading']);
+const STATUS_POLL_MS = 8000;
 
 export function ModuleProcessDetailModal(props: {
   companyId: string;
@@ -23,6 +31,14 @@ export function ModuleProcessDetailModal(props: {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [moduleStatus, setModuleStatus] = useState<ModuleCanvasStatusProjection | null>(null);
+  const [moduleJobs, setModuleJobs] = useState<ModuleJobSummaryRow[]>([]);
+
+  const { byLayer, unmapped } = useMemo(
+    () => partitionJobsByLayer(moduleJobs, layers),
+    [moduleJobs, layers],
+  );
+  const queueError = firstQueueErrorSnippet(unmapped.length > 0 ? unmapped : moduleJobs);
 
   useEffect(() => {
     let stopped = false;
@@ -43,6 +59,37 @@ export function ModuleProcessDetailModal(props: {
     void load();
     return () => {
       stopped = true;
+    };
+  }, [props.companyId, props.moduleId]);
+
+  useEffect(() => {
+    let stopped = false;
+
+    async function pollStatus() {
+      try {
+        const [canvas, summary] = await Promise.all([
+          api<{ modules: ModuleCanvasStatusProjection[] }>(
+            `/api/companies/${props.companyId}/canvas`,
+          ),
+          api<{ jobs: ModuleJobSummaryRow[] }>(
+            `/api/companies/${props.companyId}/modules/${props.moduleId}/jobs/summary`,
+          ),
+        ]);
+        if (stopped) return;
+        const projection =
+          canvas.modules.find((row) => row.moduleId === props.moduleId) ?? null;
+        setModuleStatus(projection);
+        setModuleJobs(summary.jobs);
+      } catch {
+        // transient; next poll retries
+      }
+    }
+
+    void pollStatus();
+    const interval = setInterval(pollStatus, STATUS_POLL_MS);
+    return () => {
+      stopped = true;
+      clearInterval(interval);
     };
   }, [props.companyId, props.moduleId]);
 
@@ -75,6 +122,9 @@ export function ModuleProcessDetailModal(props: {
   }
 
   const manualControl = Boolean(config?.manualControl);
+  const headerStatus = moduleStatus?.statusText ?? 'idle';
+  const showQueueStrip =
+    unmapped.length > 0 || (moduleJobs.length > 0 && byLayer.size === 0);
 
   return (
     <div
@@ -104,6 +154,13 @@ export function ModuleProcessDetailModal(props: {
             >
               {props.moduleName}
             </h2>
+            <p
+              className="mt-1 text-[11px] text-[var(--color-ink-dim)]"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {headerStatus}
+            </p>
           </div>
           <button
             type="button"
@@ -116,40 +173,72 @@ export function ModuleProcessDetailModal(props: {
           </button>
         </div>
 
+        {showQueueStrip && (
+          <div className="border-b border-[var(--color-line)] px-4 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-[var(--color-ink-faint)]">
+              Queue
+            </p>
+            <p className="mt-0.5 text-[11px] text-[var(--color-ink-dim)]">
+              {unmapped.length > 0
+                ? unmapped.map((job) => `${job.kind} · ${job.status}`).join(' · ')
+                : moduleJobs.map((job) => `${job.kind} · ${job.status}`).join(' · ')}
+            </p>
+            {queueError && (
+              <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-ink-dim)]">
+                Last error: {queueError}
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
           {loading ? (
             <p className="text-xs text-[var(--color-ink-faint)]">Loading process layers…</p>
           ) : (
             <ul className="space-y-3">
-              {layers.map((layer) => (
-                <li
-                  key={layer.id}
-                  className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-0)] p-3"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-xs font-medium text-[var(--color-ink)]">
-                      {layer.label}
-                    </span>
-                    <span
-                      className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wide ${
-                        layer.tunable
-                          ? 'border border-[var(--color-accent)]/50 text-[var(--color-accent)]'
-                          : 'border border-[var(--color-line)] text-[var(--color-ink-faint)]'
-                      }`}
-                    >
-                      {layer.tunable ? 'Tunable' : 'Observe only'}
-                    </span>
-                  </div>
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--color-ink-dim)]">
-                    {layer.description}
-                  </p>
-                  {layer.v1Refs.length > 0 && (
-                    <p className="mt-2 text-[10px] text-[var(--color-ink-faint)]">
-                      v1 refs: {layer.v1Refs.join(' · ')}
+              {layers.map((layer) => {
+                const layerJobs = byLayer.get(layer.id) ?? [];
+                const layerStatus = composeLayerQueueStatusText(layerJobs);
+                return (
+                  <li
+                    key={layer.id}
+                    className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-0)] p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-xs font-medium text-[var(--color-ink)]">
+                        {layer.label}
+                      </span>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span className="text-[10px] text-[var(--color-ink-dim)]">
+                          {layerStatus}
+                        </span>
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wide ${
+                            layer.tunable
+                              ? 'border border-[var(--color-accent)]/50 text-[var(--color-accent)]'
+                              : 'border border-[var(--color-line)] text-[var(--color-ink-faint)]'
+                          }`}
+                        >
+                          {layer.tunable ? 'Tunable' : 'Observe only'}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--color-ink-dim)]">
+                      {layer.description}
                     </p>
-                  )}
-                </li>
-              ))}
+                    {layerJobs.length > 0 && (
+                      <p className="mt-2 text-[10px] text-[var(--color-ink-faint)]">
+                        Jobs: {layerJobs.map((job) => job.kind).join(' · ')}
+                      </p>
+                    )}
+                    {layer.v1Refs.length > 0 && (
+                      <p className="mt-2 text-[10px] text-[var(--color-ink-faint)]">
+                        v1 refs: {layer.v1Refs.join(' · ')}
+                      </p>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

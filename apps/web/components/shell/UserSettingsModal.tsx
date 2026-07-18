@@ -1,13 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { BrokerConnectionSummary, LlmProvider } from '@hftr/contracts';
+import type { BrokerConnectionSummary, LlmProvider, ResearchKeyProvider } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import { notifyLlmCredentialsChanged } from '@/components/shell/LlmConnectionStatus';
 
 type RetentionAttested = 'none' | 'org_zdr';
 type SettingsTab = 'llm' | 'research' | 'brokers';
-type ResearchKeyProvider = 'brave' | 'market_news';
 
 function formatSaveError(err: unknown): string {
   if (!(err instanceof RequestError)) return 'Save failed.';
@@ -30,7 +29,9 @@ function formatSaveError(err: unknown): string {
 }
 const RESEARCH_KEY_PROVIDERS: { id: ResearchKeyProvider; label: string; hint: string }[] = [
   { id: 'brave', label: 'Brave Search', hint: 'Web search for research gather' },
-  { id: 'market_news', label: 'Market news', hint: 'Public market news feeds' },
+  { id: 'market_news', label: 'Market news', hint: 'Marketaux public market news' },
+  { id: 'finnhub', label: 'Finnhub', hint: 'Company and general market news (free tier available)' },
+  { id: 'polygon', label: 'Polygon.io', hint: 'Reference news feed (API key required)' },
 ];
 
 const PROVIDERS: { id: LlmProvider; label: string; tier: string }[] = [
@@ -97,6 +98,8 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
   const [researchDrafts, setResearchDrafts] = useState<Record<ResearchKeyProvider, string>>({
     brave: '',
     market_news: '',
+    finnhub: '',
+    polygon: '',
   });
   const [messages, setMessages] = useState<
     Partial<Record<LlmProvider | ResearchKeyProvider | 'brokers', string>>
@@ -433,8 +436,9 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
               <div>
                 <p className="text-xs font-medium text-[var(--color-ink)]">Research gather keys</p>
                 <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">
-                  Optional keys for external research sources (Brave, market news). SEC filings
-                  gather without a user key.
+                  Optional keys for external research sources (Brave, Marketaux, Finnhub,
+                  Polygon). Alpaca news uses paper broker credentials. SEC filings gather
+                  without a user key.
                 </p>
               </div>
               <ul className="space-y-4">

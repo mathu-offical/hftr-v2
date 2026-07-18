@@ -127,9 +127,15 @@ Order of integration (per-adapter detail in `architecture/broker-integration.md`
 
 ## TD-11 — Market data
 
-- MVP: Alpaca Market Data API (IEX free tier) for stocks/crypto quotes + bars; Kalshi WS for
-  prediction books. Entitlement truthfulness rules carried from v1 compliance baseline (free/IEX
-  vs SIP feeds must be labeled; paper realism tags mandatory).
+- **Quotes / bars (broker path):** Alpaca Market Data API (IEX free tier) for stocks/crypto
+  quotes + bars at dispatch; Kalshi WS for prediction books (M3). Entitlement truthfulness
+  from v1 compliance baseline (free/IEX vs SIP labeled; paper realism tags mandatory).
+- **Research news / qualitative bars (D-046):** gather sources `alpaca_news` (Alpaca
+  `/v1beta1/news`), `alpaca_bars` (qualitative IEX bar evidence), `finnhub_news`
+  (company-news / general), `polygon_news` (`/v2/reference/news`), plus existing Brave /
+  Marketaux / SEC. Feed classes must stay honest; evidence titles/summaries are leak-linted
+  — never raw OHLC/quote digits into model-facing packages.
+- Matrix: `research/integrations-matrix.md`.
 
 ## TD-12 — Testing & verification
 

@@ -13,8 +13,20 @@ retention audit, and rollback. Billing (Stripe) is **deferred** — see D-032.
 ## API keys and broker credentials
 
 - LLM keys: user-owned via settings; env keys do not authorize runtime calls (D-027).
+- Research keys (Brave, market news): user-owned via settings (`user_research_keys`); env for smoke only (D-039).
 - Broker credentials: AES-GCM in `broker_connections`; never log plaintext.
 - Rotate keys in settings → re-verify connection → re-run live-gate review if live-bound.
+
+### CLI connectivity smoke (opt-in)
+
+| Command | Gate | Checks |
+|---------|------|--------|
+| `pnpm smoke:llm` | `HFTR_LLM_SMOKE=1` | Present `*_API_KEY` → models-list (Anthropic format-only) |
+| `pnpm smoke:research` | `HFTR_RESEARCH_SMOKE=1` | Brave, Marketaux, Alpaca news, Finnhub, Polygon when keys set |
+| `pnpm smoke:alpaca-paper` | `ALPACA_PAPER_SMOKE=1` | Alpaca paper adapter vitest smoke |
+
+All scripts exit 0 with `skip:` when the gate or keys are unset. Never log secret values.
+Matrix: `agent-docs/research/integrations-matrix.md`. Playbook: `.cursor/workflows/credentialed-integrations.md`.
 
 ## Alpaca paper smoke
 

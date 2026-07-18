@@ -1,0 +1,44 @@
+---
+description: Credentialed external integrations — Alpaca, LLM providers, Brave, Marketaux, Finnhub, Polygon; smoke vs runtime auth
+globs: packages/adapters/**,packages/llm/**,apps/web/app/api/settings/**,scripts/smoke-*.mjs
+alwaysApply: false
+---
+
+# External integrations
+
+Canonical skill: `.cursor/skills/external-integrations/SKILL.md`
+Matrix: `agent-docs/research/integrations-matrix.md`
+
+## Runtime auth (mandatory)
+
+- **LLM calls:** user-saved keys from `user_api_keys` only (D-027). Never `process.env.ANTHROPIC_API_KEY` (or siblings) to authorize inference.
+- **Research gather:** `user_research_keys` for Brave / market_news / finnhub / polygon (D-039, D-046). Alpaca news/bars reuse paper broker creds. SEC EDGAR is public — no key.
+- **Broker dispatch:** decrypted `broker_connections` for bound company only. Deterministic core is the only order submitter.
+
+## Encryption
+
+- LLM keys: `SETTINGS_ENCRYPTION_KEY` (AES-GCM)
+- Broker creds: `CREDENTIALS_ENCRYPTION_KEY` (separate envelope)
+- Never log plaintext keys; UI shows last-four only after save
+
+## Smoke scripts (CI / operator only)
+
+- Opt-in gates: `HFTR_LLM_SMOKE`, `HFTR_RESEARCH_SMOKE`, `ALPACA_PAPER_SMOKE`
+- Scripts print `ok` / `fail` / `skip` — never secret values
+- Exit non-zero only when a **present** key fails auth
+
+## Safety
+
+- **Leak lint** evidence on all LLM outputs (`leakLint` in contracts)
+- **Live fail-closed** until live gate checklist + `ARM LIVE TRADING` (D-031)
+- **Paper/live parity:** same adapter class; mode selects credentials and policy envelope
+- **Model boundary:** no LLM below Groq compile; gather/validate/admit stay model-free
+- **Retention:** honor `admitsRetention` and `privacyMode` before provider calls
+
+## Adding a provider
+
+1. Contract in `packages/contracts` (provider enum, capability row if LLM)
+2. Adapter or `packages/llm` transport — caller-supplied `apiKey` param
+3. Settings verify route + UI card
+4. Smoke script entry + `.env.example` + `ENVIRONMENT_REQUIREMENTS`
+5. Row in `integrations-matrix.md`

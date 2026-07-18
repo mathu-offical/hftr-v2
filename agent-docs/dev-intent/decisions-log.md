@@ -474,7 +474,7 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Company **duplicate** batches Math tool rows after owners (Neon HTTP FK order).
   **Status: implemented** (contracts + POST `/api/companies` + `CreateCompanyForm` + e2e/docs).
 
-- **D-045 (company sector focus presets, 2026-07-17):**
+- **D-044 (company sector focus presets, 2026-07-17):**
   Company create exposes optional multi-select **sector focuses** from a wide predefined
   catalog (`SECTOR_FOCUS_PRESETS` in contracts — tech, finance, healthcare, energy, consumer,
   industrial, macro, alt). UI: searchable combobox beside philosophy (type to filter, Enter
@@ -482,6 +482,16 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `0024`). Selecting focuses pre-seeds engine and topic-scoped module drafts and, on create,
   fills `masterTopicSectors` when engine setup omits topics. Operators can still edit per-engine
   topic text. **Status: implemented.**
+
+- **D-046 (direct market/news research sources, 2026-07-17):**
+  Research gather adds first-class `alpaca_news` / `alpaca_bars` (paper broker creds),
+  `finnhub_news`, and `polygon_news` beside Brave / Marketaux / SEC. Operator keys for
+  Finnhub and Polygon live in `user_research_keys`; Alpaca news/bars reuse paper
+  `broker_connections`. Evidence is leak-linted qualitative only (no OHLC/quote digits).
+  CLI smokes: `pnpm smoke:llm`, `pnpm smoke:research`, `pnpm smoke:alpaca-paper`.
+  Cursor skill/rule/workflow: `external-integrations`. Matrix:
+  `research/integrations-matrix.md`. **Status: implemented** (adapters + migrations
+  `0025`/`0026` + settings UI + smoke scripts).
 
 - **D-036 (auto-disarm + drain latency, 2026-07-17):**
   `autoDisarmCompany` clears `live_armed_at` and `live_gate_evidence_id` on broker verify

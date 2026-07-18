@@ -44,6 +44,7 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `typescript-standards.mdc` | `**/*.{ts,tsx}` |
 | `ui-ux-standards.mdc` | `**/*.{tsx,css}` |
 | `number-handling.mdc` | `packages/{engine,llm,contracts}/**` |
+| `external-integrations.mdc` | `packages/adapters/**`, `packages/llm/**`, settings API, `scripts/smoke-*.mjs` |
 | `ironbee-devtools-use.mdc` | Always apply — browser verification via IronBee DevTools |
 
 ## Cursor skills
@@ -60,6 +61,7 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `commit-message` | **MANDATORY end-of-run** — inventory files, chunk, per-file commit bodies |
 | `paper-experiment` | Paper-only cohort runs with preflight, provenance, intent audits |
 | `intent-alignment-audit` | Score declared vs observed vectors; hard fail on cap violations |
+| `external-integrations` | Wire Alpaca/LLM/Brave/Marketaux; smoke scripts; settings verify |
 
 ## Cursor workflows
 
@@ -72,6 +74,7 @@ Full index: `.cursor/rules/agent-sources.mdc`
 | `end-of-run.md` | **Mandatory** close: verify + chunked per-file commits |
 | `commit-session.md` | Alias of end-of-run commit phase |
 | `paper-experiment-run.md` | Paper cohort: session-start → paper-experiment → end-of-run |
+| `credentialed-integrations.md` | Settings UI + CLI smoke for Alpaca/LLM/research keys |
 
 ## Slash commands
 

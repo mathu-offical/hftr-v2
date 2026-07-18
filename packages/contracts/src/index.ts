@@ -20,6 +20,7 @@ export * from './research-source-registry';
 export * from './system-libraries';
 export * from './verified-normalize';
 export * from './market-hub';
+export * from './market-hub-synthesis';
 export * from './watchlist-suggestions';
 export * from './libraries';
 export * from './env';

@@ -271,11 +271,14 @@ export const MarketHubAnalyzeJobKind = z.enum([
   'library.system_movers',
   'library.system_sector_news',
   'library.system_daily_summaries',
+  'library.posture_narrative',
 ]);
 export type MarketHubAnalyzeJobKind = z.infer<typeof MarketHubAnalyzeJobKind>;
 
 export const MarketHubAnalyzeResponse = z.object({
   enqueued: z.boolean(),
+  /** Durable synthesis run for live Model canvas (D-120). */
+  runId: z.string().uuid(),
   jobs: z
     .array(
       z.object({

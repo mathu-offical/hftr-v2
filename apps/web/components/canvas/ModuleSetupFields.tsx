@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import type { ModuleSetupField, ModuleSetupInput } from '@hftr/contracts';
 
 export interface ModuleSetupDraft {
@@ -104,15 +105,59 @@ function fieldBorderClass(
   return `${base} ${state}`;
 }
 
+function FieldLabel(props: {
+  field: ModuleSetupField;
+  showLabels?: boolean;
+}) {
+  const label = SETUP_FIELD_LABELS[props.field];
+  if (!props.showLabels) {
+    return <span className="sr-only">{label}</span>;
+  }
+  return (
+    <span
+      className="mb-0.5 block truncate text-[10px] font-medium text-[var(--color-ink-dim)]"
+      title={label}
+    >
+      {label}
+    </span>
+  );
+}
+
 export function ModuleSetupFields(props: {
   requiredFields: readonly ModuleSetupField[];
   missingFields: readonly ModuleSetupField[];
   draft: ModuleSetupDraft;
   onChange: (draft: ModuleSetupDraft) => void;
   compact?: boolean;
+  /** Visible human-readable labels (engine group chrome). */
+  showLabels?: boolean;
+  /** Hide capital helper copy (engine group uses a short strip). */
+  hideHints?: boolean;
+  /** Focus this field when set (tap-to-edit from group chrome). */
+  focusField?: ModuleSetupField | null;
+  onFocusField?: (field: ModuleSetupField) => void;
 }) {
   const required = new Set(props.requiredFields);
   const missing = new Set(props.missingFields);
+  const topicRef = useRef<HTMLInputElement>(null);
+  const allocationRef = useRef<HTMLInputElement>(null);
+  const exitRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!props.focusField) return;
+    const target =
+      props.focusField === 'topic_sector'
+        ? topicRef.current
+        : props.focusField === 'capital_allocation'
+          ? allocationRef.current
+          : props.focusField === 'target_exit'
+            ? exitRef.current
+            : null;
+    target?.focus();
+    if (target && 'select' in target && typeof target.select === 'function') {
+      target.select();
+    }
+  }, [props.focusField]);
 
   if (props.requiredFields.length === 0) {
     return (
@@ -127,25 +172,30 @@ export function ModuleSetupFields(props: {
   const targetExitMissing = missing.has('target_exit');
 
   return (
-    <div className={props.compact ? 'space-y-2' : 'space-y-3'}>
+    <div className={props.compact ? 'space-y-1.5' : 'space-y-3'}>
       {required.has('topic_sector') && (
-        <div className="space-y-1">
+        <div
+          className="space-y-0.5"
+          onPointerDown={() => props.onFocusField?.('topic_sector')}
+        >
           {topicMissing && (
             <div className="flex flex-wrap items-center gap-1">
               <FieldStatusChip field="topic_sector" />
             </div>
           )}
           <label className="block">
-            <span className="sr-only">Topic / sector</span>
+            <FieldLabel field="topic_sector" showLabels={props.showLabels} />
             <div className="relative">
               <input
+                ref={topicRef}
                 value={props.draft.topicSectors}
                 onChange={(event) =>
                   props.onChange({ ...props.draft, topicSectors: event.target.value })
                 }
+                onFocus={() => props.onFocusField?.('topic_sector')}
                 placeholder="Semiconductors, energy, macro"
                 aria-label="Topic / sector"
-                className={`${fieldBorderClass(topicMissing, props.compact)}${topicMissing ? '' : ' pr-8'}`}
+                className={`${fieldBorderClass(topicMissing, props.compact)} truncate${topicMissing ? '' : ' pr-8'}`}
               />
               {!topicMissing && <ConfirmedFieldCheck field="topic_sector" />}
             </div>
@@ -154,14 +204,17 @@ export function ModuleSetupFields(props: {
       )}
 
       {required.has('capital_allocation') && (
-        <div className="space-y-1">
+        <div
+          className="space-y-0.5"
+          onPointerDown={() => props.onFocusField?.('capital_allocation')}
+        >
           {allocationMissing && (
             <div className="flex flex-wrap items-center gap-1">
               <FieldStatusChip field="capital_allocation" />
             </div>
           )}
-          <label className="block space-y-1">
-            <span className="sr-only">Capital allocation</span>
+          <label className="block space-y-0.5">
+            <FieldLabel field="capital_allocation" showLabels={props.showLabels} />
             <div className="flex items-stretch gap-1">
               <select
                 value={props.draft.allocationMode}
@@ -177,43 +230,52 @@ export function ModuleSetupFields(props: {
                 <option value="amount">USD</option>
                 <option value="percentage">Percent</option>
               </select>
-              <div className="relative min-w-[8rem] flex-1">
+              <div className="relative min-w-0 flex-1">
                 <input
+                  ref={allocationRef}
                   inputMode="decimal"
                   value={props.draft.allocationValue}
                   onChange={(event) =>
                     props.onChange({ ...props.draft, allocationValue: event.target.value })
                   }
+                  onFocus={() => props.onFocusField?.('capital_allocation')}
                   placeholder={props.draft.allocationMode === 'amount' ? '2500.00' : '25'}
                   aria-label="Capital allocation value"
-                  className={`${fieldBorderClass(allocationMissing, props.compact)}${allocationMissing ? '' : ' pr-8'}`}
+                  className={`${fieldBorderClass(allocationMissing, props.compact)} truncate${allocationMissing ? '' : ' pr-8'}`}
                 />
                 {!allocationMissing && <ConfirmedFieldCheck field="capital_allocation" />}
               </div>
             </div>
-            <span className="block text-[9px] text-[var(--color-ink-faint)]">
-              Trading capital only. Provider and LLM budgets are tracked separately.
-            </span>
+            {!props.hideHints && (
+              <span className="block text-[9px] text-[var(--color-ink-faint)]">
+                Trading capital only. Provider and LLM budgets are tracked separately.
+              </span>
+            )}
           </label>
         </div>
       )}
 
       {required.has('target_exit') && (
-        <div className="space-y-1">
+        <div
+          className="space-y-0.5"
+          onPointerDown={() => props.onFocusField?.('target_exit')}
+        >
           {targetExitMissing && (
             <div className="flex flex-wrap items-center gap-1">
               <FieldStatusChip field="target_exit" />
             </div>
           )}
           <label className="block">
-            <span className="sr-only">Target exit date / time</span>
+            <FieldLabel field="target_exit" showLabels={props.showLabels} />
             <div className="relative">
               <input
+                ref={exitRef}
                 type="datetime-local"
                 value={props.draft.targetExitLocal}
                 onChange={(event) =>
                   props.onChange({ ...props.draft, targetExitLocal: event.target.value })
                 }
+                onFocus={() => props.onFocusField?.('target_exit')}
                 aria-label="Target exit date / time"
                 className={`${fieldBorderClass(targetExitMissing, props.compact)}${targetExitMissing ? '' : ' pr-14'}`}
               />

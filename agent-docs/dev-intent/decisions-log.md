@@ -1206,6 +1206,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   ribbon (hide/toggle last pane, chevron/` blocked until a tab is open). Docs: ui-spec §4.
   **Status: implemented.**
 
+- **D-118 (persistent panel edge toggles, 2026-07-18):** Left, right, and bottom docked
+  panels keep their **expand/collapse control on the window edge** in both states so the
+  same screen area always shows/hides the panel. Left/right: vertical edge rail stays
+  outside the panel body (`w-80` / `w-96` inset); header `×` removed. Bottom: tab + engine
+  ribbon stays on **top** when expanded (D-113); a slim **bottom-edge** strip holds only
+  the hide/show chevron; content height is reduced to account for the strip. Keyboard
+  shortcuts unchanged (`[` / `]` / `` ` `` / Esc). Docs: ui-spec §4. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

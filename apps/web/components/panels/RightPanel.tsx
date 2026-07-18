@@ -182,7 +182,7 @@ export function RightPanel(props: { companyId: string }) {
   const load = useCallback(async () => {
     const base = `/api/companies/${props.companyId}`;
     const results = await Promise.allSettled([
-      api<{ balanceCents: string; ledger: LedgerRow[] }>(`${base}/activity`),
+      api<{ balanceCents: string; ledger: LedgerRow[] }>(`${base}/activity?view=ledger`),
       api<{ executions: ExecutionRow[] }>(`${base}/executions`),
       api<{ verifications: VerificationRow[] }>(`${base}/verifications`),
       api<{ positions: PositionRow[] }>(`${base}/positions`),
@@ -215,55 +215,36 @@ export function RightPanel(props: { companyId: string }) {
     };
   }, [load]);
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        aria-label="Expand info panel (keyboard shortcut ])"
-        title="Expand info panel (])"
-        className="border-l border-[var(--color-line)] bg-[var(--color-surface-1)] px-1.5 text-[10px] tracking-widest text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-        style={{ writingMode: 'vertical-rl' }}
-      >
-        INFO · ]
-      </button>
-    );
-  }
-
+  // D-118: edge expand/collapse rail stays at the right window edge in both states.
   return (
-    <aside className="flex h-full min-h-0 w-96 shrink-0 flex-col overflow-hidden border-l border-[var(--color-line)] bg-[var(--color-surface-1)]">
-      <div className="flex items-stretch justify-between gap-1 border-b border-[var(--color-line)]">
-        <PanelTabs
-          aria-label="Info panel sections"
-          className="min-w-0 flex-1"
-          value={tab}
-          onChange={setTab}
-          tabs={TABS.map((t) => {
-            const count =
-              t.id === 'verification'
-                ? verifications.length
-                : t.id === 'executions'
-                  ? executions.length
-                  : t.id === 'ledger'
-                    ? ledger.length + positions.filter((p) => String(p.qty) !== '0').length
-                    : t.id === 'simulation'
-                      ? simulations.length
-                      : values.length;
-            return {
-              id: t.id,
-              label: t.label,
-              meta: count > 0 ? String(count) : undefined,
-            };
-          })}
-        />
-        <button
-          onClick={() => setOpen(false)}
-          className="shrink-0 px-2 font-mono text-[11px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-          aria-label="Collapse info panel (keyboard shortcut ] or Escape)"
-          title="Collapse (] or Esc)"
-        >
-          ×
-        </button>
-      </div>
+    <div className="flex h-full min-h-0 shrink-0">
+      {open ? (
+        <aside className="flex h-full min-h-0 w-96 shrink-0 flex-col overflow-hidden border-l border-[var(--color-line)] bg-[var(--color-surface-1)]">
+          <div className="flex items-stretch border-b border-[var(--color-line)]">
+            <PanelTabs
+              aria-label="Info panel sections"
+              className="min-w-0 flex-1"
+              value={tab}
+              onChange={setTab}
+              tabs={TABS.map((t) => {
+                const count =
+                  t.id === 'verification'
+                    ? verifications.length
+                    : t.id === 'executions'
+                      ? executions.length
+                      : t.id === 'ledger'
+                        ? ledger.length + positions.filter((p) => String(p.qty) !== '0').length
+                        : t.id === 'simulation'
+                          ? simulations.length
+                          : values.length;
+                return {
+                  id: t.id,
+                  label: t.label,
+                  meta: count > 0 ? String(count) : undefined,
+                };
+              })}
+            />
+          </div>
 
       <div className="border-b border-[var(--color-line)] px-4 py-2.5">
         <div className="text-xs text-[var(--color-ink-dim)]">Paper balance</div>
@@ -288,7 +269,25 @@ export function RightPanel(props: { companyId: string }) {
           />
         )}
       </div>
-    </aside>
+        </aside>
+      ) : null}
+
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={
+          open
+            ? 'Collapse info panel (keyboard shortcut ] or Escape)'
+            : 'Expand info panel (keyboard shortcut ])'
+        }
+        title={open ? 'Collapse (] or Esc)' : 'Expand info panel (])'}
+        className="shrink-0 border-l border-[var(--color-line)] bg-[var(--color-surface-1)] px-1.5 text-[10px] tracking-widest text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+        style={{ writingMode: 'vertical-rl' }}
+      >
+        INFO · ]
+      </button>
+    </div>
   );
 }
 

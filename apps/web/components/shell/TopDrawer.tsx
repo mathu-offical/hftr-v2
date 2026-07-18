@@ -237,7 +237,7 @@ function DeskPnLTab(props: {
               api<{ positions: PositionRow[] }>(`${base}/positions`, {
                 signal: AbortSignal.timeout(12_000),
               }),
-              api<{ balanceCents: string; ledger: LedgerRow[] }>(`${base}/activity`, {
+              api<{ balanceCents: string; ledger: LedgerRow[] }>(`${base}/activity?view=ledger`, {
                 signal: AbortSignal.timeout(12_000),
               }),
             ]);

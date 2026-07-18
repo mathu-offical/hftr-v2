@@ -3,6 +3,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronRight, FileText, FolderOpen, RefreshCw } from 'lucide-react';
 import type { Library } from '@hftr/contracts';
+import { api } from '@/lib/client';
 import {
   BASELINE_SEEDED_LIBRARY_NAME,
   classifyLibraryShelf,
@@ -39,6 +40,9 @@ export interface ResearchLibraryShelvesProps {
   onSelectLibrary?: (libraryId: string, libraryName: string) => void;
   /** Open overview / index topic for a library folder (e.g. Seeded trading mechanisms). */
   onSelectTopic?: (topicId: string) => void;
+  /** Research module for librarian Curate on custom (runtime) libraries (D-127). */
+  researchModuleId?: string | null;
+  onLibraryActionComplete?: () => void;
 }
 
 function PageLeafButton(props: {
@@ -413,8 +417,15 @@ function LibraryFolderRow(props: {
   onSelectConcept: (conceptId: string) => void;
   onSelectLibrary?: (libraryId: string, libraryName: string) => void;
   onSelectTopic?: (topicId: string) => void;
+  /** When set, show librarian Curate / Verify / Refresh on custom libraries (D-127). */
+  librarianActions?: {
+    researchModuleId: string | null;
+    onAfterAction?: () => void;
+  };
 }) {
   const open = props.open;
+  const [actionBusy, setActionBusy] = useState<'curate' | 'verify' | 'refresh' | null>(null);
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
 
   const openFolder = () => {
     if (props.overviewTopicId && props.onSelectTopic) {
@@ -422,6 +433,42 @@ function LibraryFolderRow(props: {
       return;
     }
     props.onSelectLibrary?.(props.library.id, props.library.name);
+  };
+
+  const runLibrarianAction = async (action: 'curate' | 'verify' | 'refresh') => {
+    setActionBusy(action);
+    setActionMsg(null);
+    try {
+      const result = await api<{
+        action: string;
+        verifiedCount?: number;
+        queued?: boolean;
+      }>(`/api/companies/${props.companyId}/libraries/${props.library.id}/actions`, {
+        method: 'POST',
+        body: {
+          action,
+          ...(props.librarianActions?.researchModuleId
+            ? { moduleId: props.librarianActions.researchModuleId }
+            : {}),
+        },
+      });
+      if (action === 'verify') {
+        setActionMsg(
+          typeof result.verifiedCount === 'number'
+            ? `Verified ${result.verifiedCount}`
+            : 'Verified',
+        );
+      } else if (action === 'curate') {
+        setActionMsg(result.queued ? 'Curate queued' : 'Curate sent');
+      } else {
+        setActionMsg('Refreshed');
+      }
+      props.librarianActions?.onAfterAction?.();
+    } catch {
+      setActionMsg('Action failed');
+    } finally {
+      setActionBusy(null);
+    }
   };
 
   return (
@@ -452,6 +499,34 @@ function LibraryFolderRow(props: {
           <span className="truncate">{props.library.name}</span>
         </button>
       </div>
+      {props.librarianActions ? (
+        <div
+          className="mb-0.5 ml-5 flex flex-wrap items-center gap-1"
+          data-testid={`library-librarian-actions-${props.library.id}`}
+        >
+          {(
+            [
+              ['curate', 'Curate'],
+              ['verify', 'Verify'],
+              ['refresh', 'Refresh'],
+            ] as const
+          ).map(([action, label]) => (
+            <button
+              key={action}
+              type="button"
+              disabled={actionBusy !== null}
+              onClick={() => void runLibrarianAction(action)}
+              aria-label={`${label} library ${props.library.name}`}
+              className="rounded border border-[var(--color-line)] px-1 py-0 text-[8px] uppercase tracking-wide text-[var(--color-ink-faint)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50"
+            >
+              {actionBusy === action ? '…' : label}
+            </button>
+          ))}
+          {actionMsg ? (
+            <span className="text-[8px] text-[var(--color-ink-faint)]">{actionMsg}</span>
+          ) : null}
+        </div>
+      ) : null}
       <LibraryPageLeaves
         companyId={props.companyId}
         libraryId={props.library.id}
@@ -474,6 +549,10 @@ function RuntimeShelfSection(props: {
   onSelectConcept: (conceptId: string) => void;
   onSelectLibrary?: (libraryId: string, libraryName: string) => void;
   onSelectTopic?: (topicId: string) => void;
+  librarianActions?: {
+    researchModuleId: string | null;
+    onAfterAction?: () => void;
+  };
 }) {
   const openSet = useMemo(() => new Set(props.openLibraryIds), [props.openLibraryIds]);
 
@@ -499,6 +578,9 @@ function RuntimeShelfSection(props: {
                 onSelectConcept={props.onSelectConcept}
                 {...(props.onSelectLibrary ? { onSelectLibrary: props.onSelectLibrary } : {})}
                 {...(props.onSelectTopic ? { onSelectTopic: props.onSelectTopic } : {})}
+                {...(props.kind === 'runtime' && props.librarianActions
+                  ? { librarianActions: props.librarianActions }
+                  : {})}
               />
             );
           })
@@ -703,6 +785,12 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
           onSelectConcept={props.onSelectConcept}
           {...(props.onSelectLibrary ? { onSelectLibrary: props.onSelectLibrary } : {})}
           {...(props.onSelectTopic ? { onSelectTopic: props.onSelectTopic } : {})}
+          librarianActions={{
+            researchModuleId: props.researchModuleId ?? null,
+            ...(props.onLibraryActionComplete
+              ? { onAfterAction: props.onLibraryActionComplete }
+              : {}),
+          }}
         />
 
         <BaselineSeededShelfSection

@@ -206,6 +206,63 @@ export function nestPackingSignature(centers: Map<string, LibraryCenter3D>): str
   return parts.join('|');
 }
 
+/** Company envelope centroid + radius (matches `buildCompanyHullNode` sizing). */
+export function computeCompanyEnvelopeBounds(centers: Map<string, LibraryCenter3D>): {
+  x: number;
+  y: number;
+  z: number;
+  radius: number;
+} {
+  const all = [...centers.values()];
+  if (all.length === 0) {
+    return { x: 0, y: 0, z: 0, radius: 120 };
+  }
+  let cx = 0;
+  let cy = 0;
+  let cz = 0;
+  for (const c of all) {
+    cx += c.x;
+    cy += c.y;
+    cz += c.z;
+  }
+  cx /= all.length;
+  cy /= all.length;
+  cz /= all.length;
+
+  let radius = 80;
+  for (const c of all) {
+    const reach = Math.hypot(c.x - cx, c.y - cy, c.z - cz) + c.radius;
+    if (reach > radius) radius = reach;
+  }
+  return { x: cx, y: cy, z: cz, radius: radius * 1.22 };
+}
+
+/**
+ * Deterministic orbit pose so the Fibonacci shell + company envelope fill the
+ * viewport without landing the camera inside a nest (D-116 camera refine).
+ * Elevation ~22°, azimuth ~38° from +Z — volume reads immediately on first paint.
+ */
+export function computeVolumeCameraPose(centers: Map<string, LibraryCenter3D>): {
+  position: { x: number; y: number; z: number };
+  lookAt: { x: number; y: number; z: number };
+  envelopeRadius: number;
+} {
+  const envelope = computeCompanyEnvelopeBounds(centers);
+  const dist = Math.max(280, envelope.radius * 2.55);
+  const elev = (22 * Math.PI) / 180;
+  const azim = (38 * Math.PI) / 180;
+  const cosE = Math.cos(elev);
+  return {
+    lookAt: { x: envelope.x, y: envelope.y, z: envelope.z },
+    position: {
+      x: envelope.x + dist * cosE * Math.sin(azim),
+      y: envelope.y + dist * Math.sin(elev),
+      z: envelope.z + dist * cosE * Math.cos(azim),
+    },
+    envelopeRadius: envelope.radius,
+  };
+}
+
 /** Deterministic 3D jitter so nodes do not start coincident — isotropic volume seed. */
 export function hashSpread3D(id: string): { dx: number; dy: number; dz: number } {
   let h = 0;
@@ -441,6 +498,13 @@ export function createFolderNestForce(centers: Map<string, FolderCenter3D>) {
  * Pushes concepts toward a hashed target radius so members fill the ball volume
  * instead of collapsing to the nest core / midplane (D-116 P2).
  */
+function hashedRadialBand(id: string, minBand: number, maxBand: number): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  const t = (Math.abs(h) % 100) / 100;
+  return minBand + t * (maxBand - minBand);
+}
+
 export function createNestShellRadialForce(centers: Map<string, LibraryCenter3D>) {
   let nodes: GalaxySimNode[] = [];
 
@@ -455,11 +519,46 @@ export function createNestShellRadialForce(centers: Map<string, LibraryCenter3D>
       const center = centers.get(libId);
       if (!center) continue;
 
-      const id = String(node.id ?? '');
-      let h = 0;
-      for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
-      const band = 0.22 + (Math.abs(h) % 100) / 100 * 0.5; // 0.22–0.72 of nest radius
-      const targetR = center.radius * band;
+      const targetR = center.radius * hashedRadialBand(String(node.id ?? ''), 0.22, 0.72);
+
+      const dx = (node.x ?? 0) - center.x;
+      const dy = (node.y ?? 0) - center.y;
+      const dz = (node.z ?? 0) - center.z;
+      const dist = Math.hypot(dx, dy, dz) || 1e-6;
+      const delta = (dist - targetR) / dist;
+      node.vx = (node.vx ?? 0) - dx * delta * strength;
+      node.vy = (node.vy ?? 0) - dy * delta * strength;
+      node.vz = (node.vz ?? 0) - dz * delta * strength;
+    }
+  }
+
+  force.initialize = (initNodes: GalaxySimNode[]) => {
+    nodes = initNodes;
+  };
+
+  return force;
+}
+
+/**
+ * Soft radial shell inside each folder nest so folder members fill the folder ball
+ * instead of collapsing to the folder core (D-116 folder volume refine).
+ */
+export function createFolderShellRadialForce(centers: Map<string, FolderCenter3D>) {
+  let nodes: GalaxySimNode[] = [];
+
+  function force(alpha: number) {
+    const strength = alpha * 0.14;
+    for (const node of nodes) {
+      if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
+      // Article orbits own local structure when present.
+      if (node.primaryArticleId) continue;
+      const libId = node.primaryLibraryId;
+      const folderKey = node.primaryFolderKey;
+      if (!libId || !folderKey) continue;
+      const center = centers.get(`${libId}::${folderKey}`);
+      if (!center) continue;
+
+      const targetR = center.radius * hashedRadialBand(String(node.id ?? ''), 0.28, 0.78);
 
       const dx = (node.x ?? 0) - center.x;
       const dy = (node.y ?? 0) - center.y;

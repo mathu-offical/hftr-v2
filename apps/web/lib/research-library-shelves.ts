@@ -112,7 +112,9 @@ export function findLibraryOverviewTopic(
   return match ?? null;
 }
 
-/** Map baseline catalog shelf → mid-level seeded directive group (D-086). */
+/** @deprecated D-126: catalog shelves no longer have matching research topics.
+ * Kept so callers keep resolving null safely; library knowledge ≠ research points.
+ */
 export const SEED_CATALOG_DIRECTIVE_TOPIC: Record<string, string> = {
   strategy_families: 'Strategy families',
   compound_strategies: 'Compound strategies',

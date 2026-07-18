@@ -69,7 +69,7 @@ export function ResearchArchiveSection(props: Props) {
     }
     if (action === 'archive_runtime') {
       const ok = window.confirm(
-        'Archive all runtime research? Seeded catalog concepts and Seeded trading mechanisms stay live.',
+        'Archive all runtime research? Seeded catalog library concepts and Current awareness / Sector research points stay live.',
       );
       if (!ok) return;
     }

@@ -16,9 +16,11 @@ import {
   computeArticleOrbitCenters3D,
   computeFolderCenters3D,
   computeLibraryCenters3D,
+  computeVolumeCameraPose,
   createArticleOrbitForce,
   createFolderCohereForce,
   createFolderNestForce,
+  createFolderShellRadialForce,
   createForeignLibraryRepelForce,
   createLibraryNestForce,
   createNestShellRadialForce,
@@ -76,6 +78,11 @@ type ForceGraphHandle = {
     lookAt?: { x: number; y: number; z: number },
     transitionMs?: number,
   ) => { x: number; y: number; z: number } | void;
+  controls?: () => {
+    autoRotate?: boolean;
+    autoRotateSpeed?: number;
+    enableDamping?: boolean;
+  } | null;
   graph2ScreenCoords?: (
     x: number,
     y: number,
@@ -566,6 +573,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         fg.d3Force('nest', createLibraryNestForce(libraryCenters));
         fg.d3Force('nestShell', createNestShellRadialForce(libraryCenters));
         fg.d3Force('folderNest', createFolderNestForce(folderCenters));
+        fg.d3Force('folderShell', createFolderShellRadialForce(folderCenters));
         fg.d3Force('folderCohere', createFolderCohereForce());
         fg.d3Force('foreignRepel', createForeignLibraryRepelForce(libraryCenters));
         fg.d3Force('articleOrbit', createArticleOrbitForce(articleCenters));
@@ -632,6 +640,21 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     });
   }, [focusSet, reducedMotion]);
 
+  /** Frame the Fibonacci shell + company envelope with a stable elevated orbit pose. */
+  const fitVolumeCamera = useCallback(
+    (opts?: { force?: boolean; durationMs?: number }) => {
+      if (!use3dRenderer) return;
+      if (!opts?.force && volumeFitDoneRef.current) return;
+      const fg = graphHandleRef.current;
+      if (!fg?.cameraPosition) return;
+      const durationMs = opts?.durationMs ?? (reducedMotion ? 0 : 900);
+      const pose = computeVolumeCameraPose(libraryCenters);
+      fg.cameraPosition(pose.position, pose.lookAt, durationMs);
+      volumeFitDoneRef.current = true;
+    },
+    [libraryCenters, reducedMotion, use3dRenderer],
+  );
+
   useEffect(() => {
     if (!hasTopicFocus || !physicsReady) return;
     const frame = requestAnimationFrame(() => fitFocusedNodes());
@@ -641,24 +664,48 @@ function GalaxyViewInner(props: GalaxyViewProps) {
   useEffect(() => {
     if (!physicsReady || !use3dRenderer || hasTopicFocus) return;
     if (volumeFitDoneRef.current) return;
-    const fg = graphHandleRef.current;
-    if (!fg?.zoomToFit) return;
-    const durationMs = reducedMotion ? 0 : 800;
-    const t = window.setTimeout(() => {
-      // Wide padding so the Fibonacci shell fills the viewport volume (D-116).
-      fg.zoomToFit?.(durationMs, 140, (n) => !isTagSatelliteNode(n));
-      // Slight elevated camera so Z depth reads immediately (not head-on pancake).
-      if (fg.cameraPosition && !reducedMotion) {
-        const cam = fg.cameraPosition() as { x: number; y: number; z: number } | void;
-        if (cam && typeof cam.x === 'number') {
-          const elev = Math.hypot(cam.x, cam.z) * 0.28;
-          fg.cameraPosition({ x: cam.x, y: cam.y + elev, z: cam.z }, undefined, durationMs);
-        }
-      }
-      volumeFitDoneRef.current = true;
-    }, reducedMotion ? 0 : 400);
+    const t = window.setTimeout(
+      () => fitVolumeCamera({ force: true }),
+      reducedMotion ? 0 : 450,
+    );
     return () => window.clearTimeout(t);
-  }, [physicsReady, use3dRenderer, hasTopicFocus, graphData.hullCount, packingSig, reducedMotion]);
+  }, [
+    physicsReady,
+    use3dRenderer,
+    hasTopicFocus,
+    graphData.hullCount,
+    packingSig,
+    reducedMotion,
+    fitVolumeCamera,
+  ]);
+
+  // Gentle idle orbit so Z depth keeps reading after settle (paused while pointer is down).
+  useEffect(() => {
+    if (!physicsReady || !use3dRenderer || reducedMotion || hasTopicFocus) return;
+    const fg = graphHandleRef.current;
+    const controls = fg?.controls?.();
+    if (!controls) return;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.28;
+    controls.enableDamping = true;
+
+    const surface = graphSurfaceRef.current;
+    const pause = () => {
+      controls.autoRotate = false;
+    };
+    const resume = () => {
+      controls.autoRotate = true;
+    };
+    surface?.addEventListener('pointerdown', pause);
+    surface?.addEventListener('pointerup', resume);
+    surface?.addEventListener('pointerleave', resume);
+    return () => {
+      controls.autoRotate = false;
+      surface?.removeEventListener('pointerdown', pause);
+      surface?.removeEventListener('pointerup', resume);
+      surface?.removeEventListener('pointerleave', resume);
+    };
+  }, [physicsReady, use3dRenderer, reducedMotion, hasTopicFocus, packingSig]);
 
   useEffect(() => {
     const id = props.highlightConceptId;
@@ -890,7 +937,17 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         packingSig: string;
         conceptCount: number;
         libraryCount: number;
-        aabb: { xSpan: number; ySpan: number; zSpan: number; zOverX: number } | null;
+        aabb: {
+          xSpan: number;
+          ySpan: number;
+          zSpan: number;
+          zOverX: number;
+        } | null;
+        camera: {
+          position: { x: number; y: number; z: number };
+          lookAt: { x: number; y: number; z: number };
+          envelopeRadius: number;
+        } | null;
       };
     };
     const api: GalaxyHoverTestApi = {
@@ -932,12 +989,14 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       clear: () => clearHover(),
       layoutStats: () => {
         const pts = [...libraryCenters.values()];
+        const camera = computeVolumeCameraPose(libraryCenters);
         if (pts.length === 0) {
           return {
             packingSig,
             conceptCount: props.nodes.length,
             libraryCount: 0,
             aabb: null,
+            camera,
           };
         }
         const xs = pts.map((p) => p.x);
@@ -957,6 +1016,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             zSpan,
             zOverX: xSpan > 0 ? zSpan / xSpan : 0,
           },
+          camera,
         };
       },
     };
@@ -1468,6 +1528,19 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           >
             2D
           </button>
+          {use3dRenderer ? (
+            <button
+              type="button"
+              onClick={() => {
+                fitVolumeCamera({ force: true, durationMs: reducedMotion ? 0 : 700 });
+                setStatusText('Framed Fibonacci volume · company envelope');
+              }}
+              aria-label="Fit camera to galaxy volume"
+              className="rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+            >
+              Fit
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -1477,7 +1550,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           aria-live="polite"
         >
           {use3dRenderer && !statusText
-            ? '3D physics · company envelope always on · nest hover/select'
+            ? '3D volume · Fibonacci nests · Fit frames envelope · idle orbit'
             : null}
           {use3dRenderer && (hasTopicFocus || statusText) ? ' · ' : null}
           {hasTopicFocus && `Focused ${focusSet!.size} concepts`}
@@ -1624,6 +1697,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               onEngineTick={syncNestEmphasisMaterials}
               onEngineStop={() => {
                 if (hasTopicFocus) fitFocusedNodes();
+                else fitVolumeCamera({ force: false });
               }}
             />
           ) : threeAvailable === false || !mode3d ? (

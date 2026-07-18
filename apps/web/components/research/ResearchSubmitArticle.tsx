@@ -1,6 +1,7 @@
 'use client';
 
 import { memo, useEffect, useState } from 'react';
+import { ARTICLE_DISPLAY_TAG_MAX } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import type { ResearchModuleOption } from '@/components/research/ResearchNewTopicButton';
 
@@ -11,14 +12,32 @@ export interface ResearchSubmitArticleProps {
   onCreated?: (conceptId: string) => void;
 }
 
+function parseTagInput(raw: string): string[] {
+  const parts = raw
+    .split(/[,]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const tag of parts) {
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(tag.slice(0, 64));
+    if (out.length >= ARTICLE_DISPLAY_TAG_MAX) break;
+  }
+  return out;
+}
+
 function ResearchSubmitArticleInner(props: ResearchSubmitArticleProps) {
   const [expanded, setExpanded] = useState(false);
   const [kind, setKind] = useState<'link' | 'text'>('text');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [notes, setNotes] = useState('');
+  const [tagsRaw, setTagsRaw] = useState('');
   const [moduleId, setModuleId] = useState(props.modules[0]?.id ?? '');
-  const [libraryId, setLibraryId] = useState('');
+  const [libraryId, setLibraryId] = useState(props.libraries?.[0]?.id ?? '');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -28,12 +47,19 @@ function ResearchSubmitArticleInner(props: ResearchSubmitArticleProps) {
     }
   }, [props.modules, moduleId]);
 
+  useEffect(() => {
+    if (!libraryId && props.libraries?.[0]?.id) {
+      setLibraryId(props.libraries[0].id);
+    }
+  }, [props.libraries, libraryId]);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = content.trim();
-    if (!trimmed || !moduleId) return;
+    if (!trimmed || !moduleId || !libraryId) return;
     setBusy(true);
     setMessage(null);
+    const tags = parseTagInput(tagsRaw);
     try {
       const result = await api<{ conceptId: string }>(
         `/api/companies/${props.companyId}/research/submit`,
@@ -43,22 +69,24 @@ function ResearchSubmitArticleInner(props: ResearchSubmitArticleProps) {
             moduleId,
             kind,
             content: trimmed,
+            libraryId,
             ...(title.trim() ? { title: title.trim() } : {}),
             ...(kind === 'link' && notes.trim() ? { notes: notes.trim() } : {}),
-            ...(libraryId ? { libraryId } : {}),
+            ...(tags.length > 0 ? { tags } : {}),
           },
         },
       );
       setContent('');
       setNotes('');
       setTitle('');
-      setMessage('Article submitted.');
+      setTagsRaw('');
+      setMessage('Article saved to library.');
       props.onCreated?.(result.conceptId);
     } catch (err) {
       setMessage(
         err instanceof RequestError
           ? err.status === 422
-            ? 'Could not submit — check module and URL.'
+            ? 'Could not submit — check module, library, and URL.'
             : 'Could not submit article.'
           : 'Could not submit article.',
       );
@@ -66,6 +94,8 @@ function ResearchSubmitArticleInner(props: ResearchSubmitArticleProps) {
       setBusy(false);
     }
   }
+
+  const noLibraries = (props.libraries?.length ?? 0) === 0;
 
   return (
     <div
@@ -76,7 +106,8 @@ function ResearchSubmitArticleInner(props: ResearchSubmitArticleProps) {
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="w-full rounded-md border border-[var(--color-line)] px-2 py-1 text-[10px] text-[var(--color-ink)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+          disabled={noLibraries}
+          className="w-full rounded-md border border-[var(--color-line)] px-2 py-1 text-[10px] text-[var(--color-ink)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50"
         >
           Submit research article
         </button>
@@ -162,25 +193,33 @@ function ResearchSubmitArticleInner(props: ResearchSubmitArticleProps) {
               ))}
             </select>
           )}
-          {(props.libraries?.length ?? 0) > 0 && (
-            <select
-              value={libraryId}
-              onChange={(e) => setLibraryId(e.target.value)}
-              aria-label="Target library"
-              className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)]"
-            >
-              <option value="">Default library attachment</option>
-              {props.libraries!.map((lib) => (
-                <option key={lib.id} value={lib.id}>
-                  {lib.name}
-                </option>
-              ))}
-            </select>
-          )}
+          <select
+            value={libraryId}
+            onChange={(e) => setLibraryId(e.target.value)}
+            aria-label="Save to library"
+            required
+            className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)]"
+          >
+            <option value="" disabled>
+              Save to library…
+            </option>
+            {(props.libraries ?? []).map((lib) => (
+              <option key={lib.id} value={lib.id}>
+                {lib.name}
+              </option>
+            ))}
+          </select>
+          <input
+            value={tagsRaw}
+            onChange={(e) => setTagsRaw(e.target.value)}
+            placeholder="Tags (1–3, comma-separated)"
+            aria-label="Article tags"
+            className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)]"
+          />
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="submit"
-              disabled={busy || !content.trim() || !moduleId}
+              disabled={busy || !content.trim() || !moduleId || !libraryId}
               className="rounded-md border border-[var(--color-accent)] px-2 py-0.5 text-[10px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
             >
               {busy ? 'Submitting…' : 'Submit'}
@@ -201,6 +240,11 @@ function ResearchSubmitArticleInner(props: ResearchSubmitArticleProps) {
           </div>
         </form>
       )}
+      {noLibraries && !expanded ? (
+        <p className="mt-1 text-[9px] text-[var(--color-ink-faint)]">
+          Create a library first — articles must save into a library.
+        </p>
+      ) : null}
     </div>
   );
 }

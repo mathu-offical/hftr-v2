@@ -3,7 +3,7 @@
  * Hull markers are pinned graph nodes rendered as wireframe shells — not concept nodes.
  */
 
-import type { LibraryCenter3D } from './galaxy-physics';
+import { computeCompanyEnvelopeBounds, type LibraryCenter3D } from './galaxy-physics';
 import { shortLibraryLabel } from './research-library-shelves';
 
 export const NEST_HULL_PREFIX = '__nest_hull:';
@@ -116,65 +116,25 @@ export function buildCompanyHullNode(
   _libraryFilter: Set<string> | null,
 ): NestHullNode {
   // Company envelope uses all library centers so filtering never removes it.
-  const all = [...centers.values()];
-  if (all.length === 0) {
-    return {
-      id: COMPANY_HULL_ID,
-      __kind: 'nest-hull',
-      __hullKind: 'company',
-      __radius: 120,
-      __label: 'Company',
-      __color: '#4a5568',
-      title: 'Company galaxy',
-      tags: [],
-      body: '',
-      val: 0.01,
-      x: 0,
-      y: 0,
-      z: 0,
-      fx: 0,
-      fy: 0,
-      fz: 0,
-      primaryLibraryId: null,
-    };
-  }
-
-  let cx = 0;
-  let cy = 0;
-  let cz = 0;
-  for (const c of all) {
-    cx += c.x;
-    cy += c.y;
-    cz += c.z;
-  }
-  cx /= all.length;
-  cy /= all.length;
-  cz /= all.length;
-
-  let radius = 80;
-  for (const c of all) {
-    const reach = Math.hypot(c.x - cx, c.y - cy, c.z - cz) + c.radius;
-    if (reach > radius) radius = reach;
-  }
-  radius *= 1.22;
+  const envelope = computeCompanyEnvelopeBounds(centers);
 
   return {
     id: COMPANY_HULL_ID,
     __kind: 'nest-hull',
     __hullKind: 'company',
-    __radius: radius,
+    __radius: envelope.radius,
     __label: 'Company',
     __color: '#4a5568',
     title: 'Company galaxy',
     tags: [],
     body: '',
     val: 0.01,
-    x: cx,
-    y: cy,
-    z: cz,
-    fx: cx,
-    fy: cy,
-    fz: cz,
+    x: envelope.x,
+    y: envelope.y,
+    z: envelope.z,
+    fx: envelope.x,
+    fy: envelope.y,
+    fz: envelope.z,
     primaryLibraryId: null,
   };
 }

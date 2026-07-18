@@ -9,6 +9,7 @@ import { ResearchArchiveSection } from '@/components/research/ResearchArchiveSec
 import { ResearchEntitySearch } from '@/components/research/ResearchEntitySearch';
 import { ResearchLibraryShelves } from '@/components/research/ResearchLibraryShelves';
 import { ResearchNewTopicButton } from '@/components/research/ResearchNewTopicButton';
+import { ResearchArticlesList } from '@/components/research/ResearchArticlesList';
 import { ResearchSubmitArticle } from '@/components/research/ResearchSubmitArticle';
 import { ResearchPagesList } from '@/components/research/ResearchPagesList';
 import { ResearchRunStatus, type ResearchRunSnapshot } from '@/components/panels/ResearchRunStatus';
@@ -118,6 +119,9 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
       ? peekResearchResource<ResearchTopic[]>({ kind: 'topics', companyId }) !== null
       : false,
   );
+  const [conceptsLoaded, setConceptsLoaded] = useState(() =>
+    companyId ? peekResearchResource<ConceptRow[]>({ kind: 'concepts', companyId }) !== null : false,
+  );
   const [shellRefreshing, setShellRefreshing] = useState(false);
   const researchView = useResearchView();
   const marketPostureView = useMarketPostureView();
@@ -169,8 +173,12 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
       try {
         const next = await fetchCompanyConcepts(companyId, { force });
         setConcepts(next);
+        setConceptsLoaded(true);
       } catch {
         // Route may not be deployed yet; keep whatever we have.
+        if (peekResearchResource<ConceptRow[]>({ kind: 'concepts', companyId }) === null) {
+          setConceptsLoaded(true);
+        }
       }
     },
     [companyId],
@@ -518,6 +526,22 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                       onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
                     />
                   )}
+                </div>
+
+                <div className="mt-3">
+                  <ResearchArticlesList
+                    articles={concepts.map((c) => ({
+                      id: c.id,
+                      title: c.title,
+                      tags: Array.isArray(c.tags) ? (c.tags as string[]) : [],
+                      primaryLibraryId: c.primaryLibraryId ?? null,
+                      sourceClass: c.sourceClass ?? null,
+                    }))}
+                    libraries={libraries.map((l) => ({ id: l.id, name: l.name }))}
+                    selectedConceptId={researchView.selectedConceptId}
+                    onSelectArticle={(conceptId) => researchView.inspectConcept(conceptId)}
+                    loading={!conceptsLoaded}
+                  />
                 </div>
 
                 <div

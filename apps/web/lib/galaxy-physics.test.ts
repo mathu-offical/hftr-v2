@@ -3,11 +3,14 @@ import {
   chargeStrengthForGraphSize,
   combineLinkLayout,
   computeArticleOrbitCenters3D,
+  computeCompanyEnvelopeBounds,
   computeFolderCenters3D,
   computeLibraryCenters3D,
+  computeVolumeCameraPose,
   createArticleOrbitForce,
   createFolderCohereForce,
   createFolderNestForce,
+  createFolderShellRadialForce,
   createForeignLibraryRepelForce,
   createLibraryNestForce,
   createNestShellRadialForce,
@@ -285,6 +288,71 @@ describe('galaxy-physics', () => {
     force(1);
     // Near core → push outward (positive vx along +x).
     expect(node.vx).toBeGreaterThan(0);
+  });
+
+  it('folder shell radial force fills folder ball volume', () => {
+    const centers = new Map([
+      [
+        'lib::f',
+        {
+          x: 0,
+          y: 0,
+          z: 0,
+          radius: 40,
+          name: 'Folder',
+          folderKey: 'f',
+          libraryId: 'lib',
+          mass: 3,
+        },
+      ],
+    ]);
+    const force = createFolderShellRadialForce(centers);
+    const node = {
+      id: 'c2',
+      primaryLibraryId: 'lib',
+      primaryFolderKey: 'f',
+      x: 1,
+      y: 0,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+    };
+    force.initialize([node]);
+    force(1);
+    expect(node.vx).toBeGreaterThan(0);
+  });
+
+  it('volume camera pose sits outside the company envelope', () => {
+    const centers = computeLibraryCenters3D(
+      [
+        {
+          id: '11111111-1111-1111-1111-111111111111',
+          name: 'A',
+          masterLibrary: false,
+          topicScope: '',
+          conceptCount: 20,
+        },
+        {
+          id: '22222222-2222-2222-2222-222222222222',
+          name: 'B',
+          masterLibrary: false,
+          topicScope: '',
+          conceptCount: 8,
+        },
+      ],
+      [],
+    );
+    const envelope = computeCompanyEnvelopeBounds(centers);
+    const pose = computeVolumeCameraPose(centers);
+    const dist = Math.hypot(
+      pose.position.x - pose.lookAt.x,
+      pose.position.y - pose.lookAt.y,
+      pose.position.z - pose.lookAt.z,
+    );
+    expect(dist).toBeGreaterThan(envelope.radius * 1.5);
+    expect(pose.position.y).toBeGreaterThan(pose.lookAt.y);
+    expect(pose.envelopeRadius).toBe(envelope.radius);
   });
 
   it('folder cohere pulls members toward live centroid', () => {

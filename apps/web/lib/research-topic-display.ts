@@ -1,9 +1,11 @@
 /**
- * Operator-facing labels for research topics (module-side directives).
+ * Operator-facing labels for research topics (module-side research points).
  * Storage titles stay stable for archive/seed matching; UI may shorten nested leaves.
  */
 
-/** Matches engine `DESK_FOCUS_TOPIC_PREFIX` (D-096). */
+/** Matches engine `SECTOR_RESEARCH_TOPIC_PREFIX` (D-126). */
+const SECTOR_RESEARCH_TOPIC_PREFIX = 'Sector · ';
+/** Legacy D-096 desk-focus prefix (still shortened in UI if present). */
 const DESK_FOCUS_TOPIC_PREFIX = 'Desk focus · ';
 
 const NESTED_TITLE_PREFIXES = [
@@ -27,6 +29,9 @@ export function researchTopicDisplayLabel(title: string, depth = 0): string {
       return trimmed.slice(prefix.length).trim() || trimmed;
     }
   }
+  if (trimmed.startsWith(SECTOR_RESEARCH_TOPIC_PREFIX) && depth > 0) {
+    return trimmed.slice(SECTOR_RESEARCH_TOPIC_PREFIX.length).trim() || trimmed;
+  }
   // Desk focus · Label · Combination → show combination suffix under the focus parent.
   if (trimmed.startsWith(DESK_FOCUS_TOPIC_PREFIX)) {
     const afterPrefix = trimmed.slice(DESK_FOCUS_TOPIC_PREFIX.length);
@@ -43,7 +48,9 @@ export function researchTopicDisplayKind(opts: {
 }): ResearchTopicDisplayKind {
   if (opts.childCount > 0) {
     if (
+      opts.title === 'Current awareness' ||
       opts.title === 'Seeded trading mechanisms' ||
+      opts.title.startsWith(SECTOR_RESEARCH_TOPIC_PREFIX) ||
       opts.title.startsWith(DESK_FOCUS_TOPIC_PREFIX)
     ) {
       return 'program';
@@ -60,7 +67,7 @@ export function researchTopicKindLabel(kind: ResearchTopicDisplayKind): string {
     case 'group':
       return 'Group';
     case 'leaf':
-      return 'Directive';
+      return 'Research point';
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;

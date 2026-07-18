@@ -65,17 +65,14 @@ test.describe('Research topics galaxy overlay (D-040)', () => {
       topics: Array<{ title: string }>;
     };
     expect(listedTopics.some((t) => t.title === 'Seeded trading mechanisms')).toBeTruthy();
-    expect(listedTopics.some((t) => t.title === 'Strategy families')).toBeTruthy();
-    expect(listedTopics.some((t) => t.title === 'Strategy families — Tier A')).toBeTruthy();
-    expect(
-      listedTopics.some((t) => t.title === 'Strategy class — Opening auction and opening range'),
-    ).toBeTruthy();
-    expect(listedTopics.some((t) => t.title === 'Guardrails')).toBeTruthy();
-    expect(listedTopics.some((t) => t.title === 'Sector — Technology')).toBeTruthy();
-    expect(listedTopics.filter((t) => t.title.startsWith('Strategy')).length).toBeGreaterThanOrEqual(
-      10,
-    );
-    expect(listedTopics.length).toBeGreaterThanOrEqual(50);
+    expect(listedTopics.some((t) => t.title === 'Current awareness')).toBeTruthy();
+    expect(listedTopics.some((t) => t.title === 'Market regime and breadth')).toBeTruthy();
+    expect(listedTopics.some((t) => t.title === 'Macro and policy watch')).toBeTruthy();
+    expect(listedTopics.some((t) => t.title === 'News and event readthrough')).toBeTruthy();
+    // D-126: catalog class mirrors are library-side only — not research topics.
+    expect(listedTopics.some((t) => t.title === 'Strategy families')).toBeFalsy();
+    expect(listedTopics.some((t) => t.title.startsWith('Guardrail —'))).toBeFalsy();
+    expect(listedTopics.length).toBeLessThan(20);
 
     const graphConceptCount = graph.nodes?.length ?? 0;
     if (graphConceptCount > 0) {

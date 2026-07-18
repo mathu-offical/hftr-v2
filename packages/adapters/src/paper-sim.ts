@@ -8,11 +8,13 @@ import type {
   QuoteSnapshot,
   SubmitResult,
 } from '@hftr/contracts';
+import { computeInternalPaperFill } from '@hftr/contracts';
 
 /**
  * Deterministic paper simulator adapter. Fills orders against an injected
  * quote source with a seeded slippage model, so simulation runs replay
  * identically. Used by the M1-M3 paper loop and by engine tests.
+ * Fill price math is InternalPaperCore (`computeInternalPaperFill`, D-122 Phase 5).
  */
 
 export interface PaperSimOptions {
@@ -28,23 +30,8 @@ export interface PaperSimOptions {
 export function createPaperSimAdapter(opts: PaperSimOptions): BrokerAdapter {
   let cashCents = opts.startingCashCents;
   const fills: FillRecord[] = [];
-  const slippageBps = opts.slippageBps ?? 2;
+  const slippageBps = opts.slippageBps;
   let orderSeq = 0;
-
-  function fillPriceCents(task: DeterministicActionTask, quote: QuoteSnapshot): number | null {
-    const isBuy = task.actionVerb === 'buy';
-    const side = isBuy ? quote.askCents : quote.bidCents;
-    const reference = side ?? quote.lastCents;
-    if (reference === null) return null;
-    const slip = Math.round((reference * slippageBps) / 10_000);
-    const raw = isBuy ? reference + slip : reference - slip;
-    if (task.orderType === 'limit' && task.limitPriceCents !== null) {
-      // Limit respected: buys never above limit, sells never below.
-      if (isBuy && raw > task.limitPriceCents) return null;
-      if (!isBuy && raw < task.limitPriceCents) return null;
-    }
-    return raw;
-  }
 
   return {
     venue: 'paper_sim',
@@ -107,10 +94,17 @@ export function createPaperSimAdapter(opts: PaperSimOptions): BrokerAdapter {
       if (!quote) {
         return { accepted: false, venueOrderId: null, rejectReason: 'no_quote' };
       }
-      const priceCents = fillPriceCents(task, quote);
-      if (priceCents === null) {
-        return { accepted: false, venueOrderId: null, rejectReason: 'unmarketable' };
+      const fill = computeInternalPaperFill({
+        actionVerb: task.actionVerb,
+        orderType: task.orderType === 'limit' ? 'limit' : 'market',
+        limitPriceCents: task.limitPriceCents,
+        quote,
+        ...(slippageBps !== undefined ? { slippageBps } : {}),
+      });
+      if (!fill.ok) {
+        return { accepted: false, venueOrderId: null, rejectReason: fill.reason };
       }
+      const priceCents = fill.priceCents;
 
       const qty = BigInt(task.quantityInt);
       const scaleFactor = 10n ** BigInt(task.quantityScale);

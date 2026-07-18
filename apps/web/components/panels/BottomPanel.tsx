@@ -534,13 +534,16 @@ export function BottomPanel(props: {
                     modules={scopedModules()}
                     engines={props.engines}
                     onRefetch={load}
+                    condensed
                   />
                 ) : null}
                 {id === 'scenarios' ? (
-                  <CondensedScenarioList
+                  <ScenarioView
                     leads={byEngine(leads)}
                     trees={byEngine(trees)}
+                    executions={byEngine(executions)}
                     moduleName={moduleName}
+                    condensed
                   />
                 ) : null}
                 {id === 'watchlists' ? (
@@ -573,6 +576,7 @@ export function BottomPanel(props: {
                     moduleName={moduleName}
                     selectedKey={selectedLineageKey}
                     onSelectKey={setSelectedLineageKey}
+                    condensed
                   />
                 ) : null}
                 {id === 'decisions' ? (
@@ -591,6 +595,7 @@ export function BottomPanel(props: {
                     liveGate={liveGate}
                     moduleName={moduleName}
                     onRefetch={load}
+                    condensed
                   />
                 ) : null}
                 {id === 'dead' ? (
@@ -599,6 +604,7 @@ export function BottomPanel(props: {
                     jobs={byEngineOptionalModule(deadJobs)}
                     moduleName={moduleName}
                     onRefetch={load}
+                    condensed
                   />
                 ) : null}
               </PaneShell>
@@ -747,7 +753,9 @@ function CondensedPoliciesList(props: { modules: ModuleOption[] }) {
         <CondensedRow
           key={m.id}
           primary={m.name}
-          secondary={m.policyEnvelopeRef ?? 'No envelope ref'}
+          secondary={
+            [m.policyEnvelopeRef, m.policyNotes].filter(Boolean).join(' · ') || 'No envelope ref'
+          }
           meta={m.status ?? '—'}
         />
       ))}
@@ -786,37 +794,6 @@ function CondensedWatchlistList(props: {
             </button>
           ) : null}
         </div>
-      ))}
-    </div>
-  );
-}
-
-function CondensedScenarioList(props: {
-  leads: LeadRow[];
-  trees: TreeRow[];
-  moduleName: (id: string) => string;
-}) {
-  const rows = [
-    ...props.leads.map((l) => ({
-      key: `lead-${l.id}`,
-      primary: `${l.symbol} · ${l.status}`,
-      secondary: `Lead · ${l.strategyFamily} · ${props.moduleName(l.moduleId)}`,
-      meta: new Date(l.createdAt).toLocaleTimeString(),
-    })),
-    ...props.trees.map((t) => ({
-      key: `tree-${t.id}`,
-      primary: `${t.symbol} · ${t.status}`,
-      secondary: `Tree · ${props.moduleName(t.moduleId)}`,
-      meta: new Date(t.createdAt).toLocaleTimeString(),
-    })),
-  ];
-  if (rows.length === 0) {
-    return <CondensedEmpty>No scenario leads or trees in scope.</CondensedEmpty>;
-  }
-  return (
-    <div>
-      {rows.map((r) => (
-        <CondensedRow key={r.key} primary={r.primary} secondary={r.secondary} meta={r.meta} />
       ))}
     </div>
   );
@@ -1272,6 +1249,7 @@ function ScenarioView(props: {
   trees: TreeRow[];
   executions: ExecutionRow[];
   moduleName: (id: string) => string;
+  condensed?: boolean;
 }) {
   const [expandedGate, setExpandedGate] = useState<string | null>(null);
 
@@ -1287,6 +1265,24 @@ function ScenarioView(props: {
   const sorted = [...props.leads].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
+
+  if (props.condensed) {
+    return (
+      <div>
+        {sorted.map((lead) => {
+          const tree = props.trees.find((t) => t.leadId === lead.id);
+          return (
+            <CondensedRow
+              key={lead.id}
+              primary={`${lead.symbol} · ${lead.status}`}
+              secondary={`Lead · ${lead.strategyFamily} · ${props.moduleName(lead.moduleId)}${tree ? ` · tree ${tree.status}` : ''}`}
+              meta={new Date(lead.createdAt).toLocaleTimeString()}
+            />
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <ul className="space-y-2.5">
@@ -2294,6 +2290,7 @@ function DeadLettersView(props: {
   jobs: DeadJobRow[];
   moduleName: (id: string) => string;
   onRefetch: () => Promise<void>;
+  condensed?: boolean;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -2352,6 +2349,31 @@ function DeadLettersView(props: {
       <p className="py-3 text-xs text-[var(--color-ink-faint)]">
         No dead-letter jobs for this company.
       </p>
+    );
+  }
+
+  if (props.condensed) {
+    return (
+      <div>
+        {message ? <p className="mb-1 text-[10px] text-[var(--color-ink-faint)]">{message}</p> : null}
+        {props.jobs.map((j) => (
+          <div key={j.id} className="border-b border-[var(--color-line)] py-1.5 last:border-b-0">
+            <CondensedRow
+              primary={j.kind}
+              secondary={`${j.moduleId ? props.moduleName(j.moduleId) : '—'} · ${j.lastError ?? 'no error text'}`}
+              meta={`${j.attempts}×`}
+            />
+            <button
+              type="button"
+              disabled={busyId !== null || bulkBusy}
+              onClick={() => void retry(j.id)}
+              className="mt-1 text-[10px] uppercase tracking-wider text-[var(--color-accent)] hover:underline disabled:opacity-50"
+            >
+              {busyId === j.id ? '…' : 'Retry'}
+            </button>
+          </div>
+        ))}
+      </div>
     );
   }
 

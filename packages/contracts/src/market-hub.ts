@@ -185,7 +185,13 @@ export type MarketHubEquity = z.infer<typeof MarketHubEquity>;
 export const MarketHubReportLink = z.object({
   id: z.string().uuid(),
   title: z.string().max(200),
-  kind: z.enum(['movers_report', 'sector_bulletin', 'daily_summary', 'other']),
+  kind: z.enum([
+    'movers_report',
+    'sector_bulletin',
+    'daily_summary',
+    'posture_narrative',
+    'other',
+  ]),
   /** Seal expiry when known — orientation only. */
   expiresAt: z.string().datetime().nullable().optional(),
 });
@@ -193,9 +199,24 @@ export type MarketHubReportLink = z.infer<typeof MarketHubReportLink>;
 
 export const MarketHubFreshness = z.object({
   moversExpiresAt: z.string().datetime().nullable(),
+  sectorExpiresAt: z.string().datetime().nullable().optional(),
+  dailyExpiresAt: z.string().datetime().nullable().optional(),
   fetchedAt: z.string().datetime(),
 });
 export type MarketHubFreshness = z.infer<typeof MarketHubFreshness>;
+
+/** Latest synthesis run snapshot for Model / overlay awareness (D-120). */
+export const MarketHubSynthesisSnapshot = z.object({
+  runId: z.string().uuid().nullable(),
+  status: z
+    .enum(['pending', 'running', 'succeeded', 'failed', 'partial'])
+    .nullable(),
+  narrativeConceptId: z.string().uuid().nullable(),
+  stagesDone: z.number().int().nonnegative().default(0),
+  stagesTotal: z.number().int().nonnegative().default(0),
+  errorCode: z.string().max(80).nullable().optional(),
+});
+export type MarketHubSynthesisSnapshot = z.infer<typeof MarketHubSynthesisSnapshot>;
 
 /** Operator-visible provider surfaces for Market posture / movers compound (D-103). */
 export const MarketHubSourceRow = z.object({
@@ -232,6 +253,8 @@ export const MarketHubResponse = z.object({
   positions: z.array(MarketHubPosition).max(100),
   pipeline: z.array(MarketHubPipelineBySymbol).max(100),
   freshness: MarketHubFreshness,
+  /** Latest Analyze synthesis run for Model awareness dock (D-120). */
+  synthesis: MarketHubSynthesisSnapshot.optional(),
   sources: MarketHubSources.default({
     lanes: [],
     contributedKinds: [],

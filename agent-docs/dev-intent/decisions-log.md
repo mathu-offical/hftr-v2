@@ -477,7 +477,8 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 - **D-045 (company sector focus presets, 2026-07-17):**
   Company create exposes optional multi-select **sector focuses** from a wide predefined
   catalog (`SECTOR_FOCUS_PRESETS` in contracts — tech, finance, healthcare, energy, consumer,
-  industrial, macro, alt). Max 12 labels; persisted as `companies.sector_focuses` (migration
+  industrial, macro, alt). UI: searchable combobox beside philosophy (type to filter, Enter
+  to add). Max 12 labels; persisted as `companies.sector_focuses` (migration
   `0024`). Selecting focuses pre-seeds engine and topic-scoped module drafts and, on create,
   fills `masterTopicSectors` when engine setup omits topics. Operators can still edit per-engine
   topic text. **Status: implemented.**
@@ -509,7 +510,7 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   library filter chips; query bump-once; topic membership + usage. Playwright
   `research-galaxy-topics` pass. Remaining for G2 sign-off: credentialed provider soak.
 
-- **D-044 (compile-time catalog → company libraries/galaxy bootstrap, 2026-07-17):**
+- **D-045 (compile-time catalog → company libraries/galaxy bootstrap, 2026-07-17):**
   Vendored `catalog_entries` alone are not operator-visible. `bootstrapCompanyKnowledge`
   (`packages/engine/src/libraries/bootstrap.ts`) idempotently: (1) ensures `libraries` rows for
   every `library` module plus a dedicated **Seeded trading mechanisms** nest, (2) upserts all
@@ -521,6 +522,7 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   (and refresh former placeholder bodies once into `catalog_seed`). Deterministic curate uses
   the same body builder. Daily system-curated libraries (movers/trends/policy) remain deferred.
   Aligns with DevSpecs research-library philosophy (compile-time seeded mechanisms).
+  **Note:** D-044 remains company sector focus presets; this bootstrap decision is D-045.
 
 ## Open questions
 

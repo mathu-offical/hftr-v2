@@ -118,9 +118,13 @@
   empty; Escape / backdrop dismisses the confirm while not busy.
 - **Company create (D-043):** viewport-bounded dialog (`fixed` overlay, `h-full` within
   padded inset, body scroll locked). Sticky header + footer actions; middle column is
-  `min-h-0 flex-1` with **no outer page scroll**. Identity row (name / seed aligned, philosophy
+  `min-h-0 flex-1` with **no outer page scroll**.   Identity row (name / seed aligned, philosophy
   full-width) stays expanded until the operator clicks **Confirm**; then it **condenses to a
-  one-line summary** (Edit re-expands). **Engines** uses compact **+ Research** / **+ Execution**
+  one-line summary** (Edit re-expands). **Sector focus** sits on the same row as philosophy as a
+  searchable combobox (`SECTOR_FOCUS_PRESETS`, max 12; type to filter, Enter / click to add)
+  and **pre-seeds** engine / topic-scoped module `topicSectors` (also persisted on
+  `companies.sector_focuses` and applied server-side when engine setup omits topics).
+  **Engines** uses compact **+ Research** / **+ Execution**
   store buttons that open scrollable option popovers (locked templates listed inside; Escape
   closes the store without dismissing the dialog).
   Three-pane workspace: **left** nested engine list, **center** React Flow preview
@@ -236,10 +240,10 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
 ### Objects
 - **Topics** — agent-created organizations (research + librarian curation). They group many
   concepts from company DBs, seeded knowledge, and external gather. **Not** galaxy nodes.
-  **D-044** seeds topic **Seeded trading mechanisms** (when a research module exists) so Page
+  **D-045** seeds topic **Seeded trading mechanisms** (when a research module exists) so Page
   tab has baseline catalog mechanisms without a research run.
 - **Galaxy nodes** — concepts (primary) and tags (secondary / color / filter). Typed
-  `concept_links` remain edges. **D-044** materializes compile-time catalog targets into
+  `concept_links` remain edges. **D-045** materializes compile-time catalog targets into
   company concepts + library nests on create/ensure so galaxy is never empty of baseline
   mechanisms.
 - **Libraries** — hard nested sub-circles inside the company galaxy (stable when scope shrinks).

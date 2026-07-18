@@ -136,7 +136,7 @@ Additional drift (not in JSON flag list):
 | REQ-PAN-005 | Per-company panel localStorage persistence | agent-docs/ui-ux/ui-spec.md §4 | **implemented** | hftr:{companyId}:panel:{left|bottom|right} keys | return visit state restore | paper_sim | operator_transparency | informational |
 | REQ-PAN-006 | Trace timeline inspector modal | apps/web/app/api/companies/[companyId]/traces/[traceId]/timeline/route.ts | **implemented** | timeline/route.ts; TraceTimeline component | trace row click | paper_sim | execution_quality, compliance_posture | compliance |
 | REQ-PAN-007 | Watchlists CRUD in bottom panel | apps/web/app/api/companies/[companyId]/watchlists/ | **implemented** | watchlists/route.ts; watchlist_items schema | watchlist API tests | paper_sim | strategy_outcome | operational |
-| REQ-PAN-008 | Middle-bottom lineage columns (Trends→Decisions) | agent-docs/ui-ux/ui-spec.md §4 | **deferred** | master-build-plan M3 §5 | M3 control panel v1 | paper_sim | operator_transparency, strategy_outcome | operational |
+| REQ-PAN-008 | Middle-bottom lineage columns (Trends→Decisions) | agent-docs/ui-ux/ui-spec.md §4 | **partial** | BottomPanel.tsx Lineage tab; data-testid=bottom-lineage-columns | lineage click-highlight | paper_sim | operator_transparency, strategy_outcome | operational |
 
 ## API routes (15)
 

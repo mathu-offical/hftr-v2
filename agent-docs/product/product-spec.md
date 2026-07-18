@@ -112,7 +112,7 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   library graph). Curation statuses include `proposed`, `accepted`, `auto_admitted`, `rejected`,
   `archived`. Views: browse/tag/search, **hard-nested galaxy nests** (D-040), markdown preview /
   hybrid topic articles.
-  **Bootstrap (D-044):** company create and research graph/topics/libraries ensure paths call
+  **Bootstrap (D-045):** company create and research graph/topics/libraries ensure paths call
   `bootstrapCompanyKnowledge` so compile-time catalog mechanisms appear as readable
   `catalog_seed` galaxy concepts (payload-derived bodies, not placeholders) and an operator
   Page topic without waiting for a research run.

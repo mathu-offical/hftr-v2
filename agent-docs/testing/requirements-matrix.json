@@ -686,9 +686,12 @@
       "id": "REQ-PAN-008",
       "title": "Middle-bottom lineage columns (Trends\u2192Decisions)",
       "source": "agent-docs/ui-ux/ui-spec.md \u00a74",
-      "status": "deferred",
-      "evidence": ["master-build-plan M3 \u00a75"],
-      "scenarios": ["M3 control panel v1"],
+      "status": "partial",
+      "evidence": [
+        "BottomPanel.tsx Lineage tab",
+        "data-testid=bottom-lineage-columns"
+      ],
+      "scenarios": ["lineage click-highlight"],
       "venues": ["paper_sim"],
       "philosophyAxes": ["operator_transparency", "strategy_outcome"],
       "safetyClass": "operational"

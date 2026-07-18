@@ -86,7 +86,7 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   **library_concepts** join (library_id, concept_id, curation_status
   `proposed|accepted|auto_admitted|rejected|archived`). **D-040:** primary library membership
   drives hard nested galaxy nests; secondary memberships are badges, not duplicate nodes.
-  **D-044:** `bootstrapCompanyKnowledge` ensures library rows for every `library` module,
+  **D-045:** `bootstrapCompanyKnowledge` ensures library rows for every `library` module,
   creates a dedicated **Seeded trading mechanisms** library, and seeds full vendored
   catalog families (`strategy_families`, `guardrail_packages`, `session_constraints`,
   `broker_policy_envelopes`, `trend_lead_patterns`) as `catalog_seed` concepts with
@@ -136,17 +136,17 @@ UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
 - **catalog_entries** — generic seeded-catalog store: (catalog, entry_key) unique,
   catalog_version, title, tier, payload jsonb. Seeded from
   `packages/db/src/seed/catalogs/*.json` via `seed-catalogs.ts` (97 entries at
-  `v1_snapshot_2026_07_16`). D-016. **D-044:** a fixed subset (`SEED_CATALOG_TARGETS` in
-  `packages/engine/src/libraries/bootstrap.ts`) is materialized into company `concepts` +
+  `v1_snapshot_2026_07_16`). D-016. **D-045:** full families in `SEED_CATALOG_NAMES` (plus
+  representative `SEED_CATALOG_TARGETS` for tests/links) are materialized into company `concepts` +
   library membership on company create and idempotent research/library ensure paths.
 - **watchlist_items** — (module_id, symbol) unique; bias `long|short|neutral`, note,
   source_class `operator|trend_promotion`, status `watching|triggered|archived`. Owned by
   trading/trend modules only (API 422s otherwise); surfaces in the bottom panel's
   Watch lists tab and the module inspector. Migration `0003_bitter_piledriver`. D-017.
 - **concepts** — research-module curated knowledge rows (title, body, tags jsonb,
-  source_class `deterministic_placeholder|model_generated|operator`, optional
-  `research_run_id`). Written by the D-039 synthesize/admit path (orchestrated by
-  `research.curate`). Migration `0004_petite_hellfire_club`; research bus `0019`.
+  source_class `catalog_seed|deterministic_placeholder|model_generated|operator`, optional
+  `research_run_id`). Written by D-045 catalog bootstrap and the D-039 synthesize/admit path
+  (orchestrated by `research.curate`). Migration `0004_petite_hellfire_club`; research bus `0019`.
 - **research_requests / research_evidence / research_results / research_runs** — typed research
   bus (D-039): request envelope + mode, append-only evidence packages, validation/admission
   projection, operator-visible run phase. Migrations `0019_research_bus`, `0020_research_keys`.

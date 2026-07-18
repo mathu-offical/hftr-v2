@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TradingMode } from './foundation';
+import { ResearchSourceKind, type ResearchSourceKind as ResearchSourceKindType } from './research-bus';
 import { CompanySectorFocuses, CompanyUniverseExcludes } from './sector-focus';
 import {
   CLOCK_IN_MODULE_TYPES,
@@ -1034,12 +1035,44 @@ export const LibraryModuleConfig = z.object({
   libraryClass: LibraryClass.default('topic_runtime'),
 });
 
+export const LiveApiVenue = z.enum(['alpaca', 'kalshi', 'polymarket', 'coinbase', 'paper_sim']);
+export type LiveApiVenue = z.infer<typeof LiveApiVenue>;
+
+/** Legacy venue → hydrator kind when `sourceKind` is unset on canvas live_api modules. */
+export const LEGACY_LIVE_API_VENUE_SOURCE_KIND: Partial<
+  Record<LiveApiVenue, ResearchSourceKindType>
+> = {
+  alpaca: 'alpaca_bars',
+};
+
 export const LiveApiModuleConfig = z.object({
-  venue: z.enum(['alpaca', 'kalshi', 'polymarket', 'coinbase', 'paper_sim']),
+  sourceKind: ResearchSourceKind.optional(),
+  venue: LiveApiVenue,
   instruments: z.array(z.string().min(1)).max(50),
   feedClass: z.string().default('iex_free'),
   pollSeconds: z.number().int().min(5).max(3600).default(60),
 });
+
+/** PascalCase hydrator label for canvas identity (e.g. alpaca_bars → AlpacaBars). */
+export function humanizeResearchSourceKind(kind: ResearchSourceKindType): string {
+  return kind
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join('');
+}
+
+/** Resolve bound hydrator kind from live_api config (explicit sourceKind or legacy venue map). */
+export function resolveLiveApiSourceKind(config: unknown): ResearchSourceKindType | null {
+  const cfg =
+    config && typeof config === 'object' && !Array.isArray(config)
+      ? (config as Record<string, unknown>)
+      : {};
+  const explicit = ResearchSourceKind.safeParse(cfg.sourceKind);
+  if (explicit.success) return explicit.data;
+  const venue = LiveApiVenue.safeParse(cfg.venue);
+  if (!venue.success) return null;
+  return LEGACY_LIVE_API_VENUE_SOURCE_KIND[venue.data] ?? null;
+}
 
 export const TrendPosture = z.enum([
   'session_intraday',
@@ -1164,7 +1197,11 @@ export function moduleFunctionLabel(type: ModuleType, config?: unknown): string 
       }
     }
     case 'live_api': {
-      const venue = LiveApiModuleConfig.shape.venue.safeParse(cfg.venue);
+      const sourceKind = ResearchSourceKind.safeParse(cfg.sourceKind);
+      if (sourceKind.success) {
+        return humanizeResearchSourceKind(sourceKind.data);
+      }
+      const venue = LiveApiVenue.safeParse(cfg.venue);
       if (!venue.success) return 'LiveAPI';
       switch (venue.data) {
         case 'paper_sim':

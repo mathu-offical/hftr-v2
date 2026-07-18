@@ -52,6 +52,9 @@ import {
   requiredModuleSetupFields,
   UpdateModuleInput,
   allowedLinkKinds,
+  humanizeResearchSourceKind,
+  LiveApiModuleConfig,
+  resolveLiveApiSourceKind,
 } from './modules';
 import {
   CLOCK_IN_MODULE_TYPES,
@@ -703,6 +706,43 @@ describe('generated module names', () => {
     expect(moduleFunctionLabel('analyzer', { emitMode: 'verify_loopback' })).toBe('ExecMon');
     expect(moduleFunctionLabel('time', { transform: 'elapsed' })).toBe('Elapsed');
     expect(moduleFunctionLabel('time', { transform: 'session_window' })).toBe('Session');
+  });
+
+  it('LiveApiModuleConfig accepts optional sourceKind and legacy venue-only configs', () => {
+    expect(
+      LiveApiModuleConfig.parse({
+        venue: 'alpaca',
+        instruments: ['SPY'],
+      }),
+    ).toMatchObject({ venue: 'alpaca', instruments: ['SPY'] });
+
+    expect(
+      LiveApiModuleConfig.parse({
+        sourceKind: 'alpaca_bars',
+        venue: 'alpaca',
+        instruments: ['SPY'],
+      }),
+    ).toMatchObject({ sourceKind: 'alpaca_bars', venue: 'alpaca' });
+  });
+
+  it('moduleFunctionLabel prefers hydrator sourceKind over venue for live_api', () => {
+    expect(
+      moduleFunctionLabel('live_api', {
+        sourceKind: 'alpaca_bars',
+        venue: 'kalshi',
+        instruments: ['SPY'],
+      }),
+    ).toBe('AlpacaBars');
+    expect(moduleFunctionLabel('live_api', { venue: 'alpaca', instruments: ['SPY'] })).toBe(
+      'AlpacaFeed',
+    );
+    expect(humanizeResearchSourceKind('frankfurter_fx')).toBe('FrankfurterFx');
+    expect(
+      resolveLiveApiSourceKind({ venue: 'alpaca', instruments: ['SPY'] }),
+    ).toBe('alpaca_bars');
+    expect(
+      resolveLiveApiSourceKind({ sourceKind: 'twelve_data', venue: 'alpaca', instruments: ['SPY'] }),
+    ).toBe('twelve_data');
   });
 
   it('moduleFocusToken prefers topic then capital display', () => {
@@ -1555,6 +1595,23 @@ describe('Research bus (D-039)', () => {
         topicScope: 'chips',
       }).admissionMode,
     ).toBe('auto_admit_validated');
+  });
+});
+
+describe('live data sources contracts', () => {
+  it('resolveLiveDataSourceStatus maps implementation and readiness', async () => {
+    const { resolveLiveDataSourceStatus } = await import('./live-data-sources');
+    const { RESEARCH_SOURCE_REGISTRY } = await import('./research-source-registry');
+
+    expect(
+      resolveLiveDataSourceStatus(RESEARCH_SOURCE_REGISTRY.sec_edgar, true),
+    ).toBe('public');
+    expect(
+      resolveLiveDataSourceStatus(RESEARCH_SOURCE_REGISTRY.fred_macro, true),
+    ).toBe('ready');
+    expect(
+      resolveLiveDataSourceStatus(RESEARCH_SOURCE_REGISTRY.fred_macro, false),
+    ).toBe('missing_key');
   });
 });
 

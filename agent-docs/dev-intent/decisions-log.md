@@ -1272,14 +1272,22 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
      - **`both_verify`** — internal + provider paths for **tight verification**; linked
        books produce **deltas** used to train / weight the internal sim (fill, latency,
        partials, marks, reject codes). Preferred when the operator wants realism feedback.
-  5. **Safest default** when a real service is newly bound: **`funds_only`** (no provider
-     order traffic until the operator elevates). Elevating to `execute_on_service` or
-     `both_verify` is explicit. (Confirm if “safest” should instead mean provider-paper
-     execute-by-default — see OQ-13.)
-  6. The **hybrid combination** of bindings + routing modes **hydrates the company’s
+  5. **Safest default** when a real service is newly bound: **`funds_only`** (confirmed) —
+     no provider order traffic until the operator elevates to `execute_on_service` or
+     `both_verify`.
+  6. **Realism / weight teacher in `funds_only`:** **live market model only** — fuse
+     entitled live data sources into marks, fill realism, and holdings simulation; deltas
+     are sim vs live tape/marks. Provider fills teach only in **`both_verify`**.
+  7. The live market model **integrates with baseline company analysis for current
+     awareness** via a **shared, extensible awareness substrate** — at minimum **Market
+     posture hub / synthesis (D-120)** and **seeded Current awareness research topics /
+     seals (D-126)**, with room to attach further Analyze / library / live-source consumers
+     without a paper-only fork. Prefer **flexible adapters** over a single hard-wired path.
+  8. The **hybrid combination** of bindings + routing modes **hydrates the company’s
      main book**.
 
-  Related: D-002, D-014, D-025, D-027; OQ-13. **Status: decided (design pending).**
+  Related: D-002, D-014, D-025, D-027, D-120, D-126; OQ-13.
+  **Status: decided (design pending).**
 
 - **D-126 (POV plan + training_feedback + atr_stream + fee ledger, 2026-07-18):**
   Compile records participation/urgency valves and a deterministic **POV child-slice
@@ -1342,9 +1350,11 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   submit produce articles that **must** save into a library (`libraryId` required) but remain
   flexibly listed in the Research **Articles** group. Concepts GET supports `?kind=article`.
   Custom **runtime** library shelves expose librarian **Curate / Verify / Refresh** via
-  `POST …/libraries/[libraryId]/actions`. Distinct from research **topics** (D-126) and
-  catalog seed knowledge. Docs: ui-spec §4/§6, research-tab-shelves-inspector-design,
-  contracts `research-articles.ts`. **Status: implemented.**
+  `POST …/libraries/[libraryId]/actions`. Operator submit accepts `draft` or `active`
+  research modules so articles can land before full module activation. Distinct from
+  research **topics** (D-126) and catalog seed knowledge. Docs: ui-spec §4/§6,
+  research-tab-shelves-inspector-design, contracts `research-articles.ts`.
+  **Status: implemented.**
 
 - **D-128 (Libraries full-height left rail action, 2026-07-18):** Left edge rail gains a
   bottom **LIB** symbol (above the collapse chevron). Clicking it always opens the panel and
@@ -1387,9 +1397,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   bottom) — v2 resolves via the three-panel model; confirm no separate diagnostics slide needed.
 - **OQ-13 (open, D-122):** Dual paper books + engine→service binding. **Resolved so far:**
   per-engine bind; unbound → paper functions; bound → provider ledger as **funds source**;
-  order routing **switchable** (`funds_only` | `execute_on_service` | `both_verify`);
-  provisional safest default = `funds_only`; `both_verify` for tight verification + delta
-  training. Hybrid hydrates company **main book**.
-  **Still open:** confirm safest default (`funds_only` vs provider-paper execute); primary
-  delta teacher when not in `both_verify` (live market marks alone?); multi-engine cash
-  pool / symbol conflict rules in one main book.
+  order routing switchable (`funds_only` | `execute_on_service` | `both_verify`);
+  safest default = **`funds_only`**; `both_verify` for provider-fill deltas; **`funds_only`
+  teacher = live market model only**; awareness = **shared flexible substrate** (posture
+  hub D-120 + current-awareness topics D-126 + extensible consumers). Hybrid hydrates
+  company **main book**.
+  **Still open:** multi-engine cash pool / symbol conflict rules in one main book.

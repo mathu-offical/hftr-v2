@@ -246,7 +246,10 @@ UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
 - **simulation_runs** — simulator_module_id, target_trading_module_id, params jsonb, seed,
   status, parallel_group_id; **simulation_results** — run_id, pnl, drawdown, slippage stats,
   divergence tags, feed_target jsonb (which trend/research module receives results).
-- **training_feedback** — bounded band/weight deltas only (mutation_class enforced), source run,
+- **training_feedback** — append-only bounded band/weight deltas only
+  (`mutation_class`: `band_position` | `weight_delta`), source run/trace refs,
+  optional `applied_control_snapshot_id`. Applied via `applyControlSnapshotDelta`
+  (D-126). Never stores secrets or prompts.
   applied_control_snapshot ref.
 - **control_snapshots** — company/module scope, philosophy profile + lever state + envelope
   versions + content hash (D-029 `ControlSnapshot` contract).

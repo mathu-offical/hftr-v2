@@ -1261,18 +1261,34 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
      not an automatic company-wide override of every engine.
   2. **If no real service is bound** for that engine, dispatch uses **internal paper
      functions** (hftr paper engine / `paper_sim` realism layer) for that engine’s activity.
-  3. **When bound to a real service:** do **not** run a parallel internal fill twin.
-     Take that service’s **ledger amount as an added funds source** into the company main
-     book (capital / cash hydration from the provider ledger — not dual-path order
-     shadowing).
-  4. The **hybrid combination** (unbound engines → paper functions; bound engines →
-     provider ledger as funds source + whatever execution policy the design locks next)
-     **hydrates the company’s main book**.
+  3. **When bound to a real service:** the service’s **ledger amount is an added funds
+     source** into the company main book (capital hydration). Binding alone does **not**
+     imply always-on parallel fill shadowing.
+  4. **Order routing is switchable** per engine (or company policy), with modes:
+     - **`funds_only`** — provider ledger hydrates capital; orders execute on the
+       **internal paper engine** (against that capital + live market model).
+     - **`execute_on_service`** — orders submit/reconcile on the bound provider; ledger
+       still hydrates the main book.
+     - **`both_verify`** — internal + provider paths for **tight verification**; linked
+       books produce **deltas** used to train / weight the internal sim (fill, latency,
+       partials, marks, reject codes). Preferred when the operator wants realism feedback.
+  5. **Safest default** when a real service is newly bound: **`funds_only`** (no provider
+     order traffic until the operator elevates). Elevating to `execute_on_service` or
+     `both_verify` is explicit. (Confirm if “safest” should instead mean provider-paper
+     execute-by-default — see OQ-13.)
+  6. The **hybrid combination** of bindings + routing modes **hydrates the company’s
+     main book**.
 
-  Dual-book **deltas** (for train / weight) remain in scope but are **not** “always mirror
-  every bound fill on internal paper.” Exact delta teacher (live market marks vs provider
-  fills vs both) still open under OQ-13. Related: D-002, D-014, D-025, D-027.
-  **Status: decided (design pending).**
+  Related: D-002, D-014, D-025, D-027; OQ-13. **Status: decided (design pending).**
+
+- **D-126 (POV plan + training_feedback + atr_stream + fee ledger, 2026-07-18):**
+  Compile records participation/urgency valves and a deterministic **POV child-slice
+  plan** (`planChildSlices` + `child_slice_band`) in lineage (full partial-fill drain
+  still follow-on). `WeightEnvelope` contract + `training_feedback` table (migration
+  **0043**) + `applyControlSnapshotDelta` (fail-closed). Paper fills write ledger
+  `fee` rows (5 bps proxy). `resolveAtrCents` prefers `atr_stream` ValueRef / OHLC
+  ATR, else synthetic. Docs: post-fill-deterministic-lifecycle.md. **Status:
+  implemented (paper partial).**
 
 - **D-125 (post-fill heat + trail + weighted valves, 2026-07-18):** Compile admits
   entries only when projected portfolio heat (sum open ATR-risk / equity) stays under
@@ -1330,6 +1346,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   catalog seed knowledge. Docs: ui-spec §4/§6, research-tab-shelves-inspector-design,
   contracts `research-articles.ts`. **Status: implemented.**
 
+- **D-128 (Libraries full-height left rail action, 2026-07-18):** Left edge rail gains a
+  bottom **LIB** symbol (above the collapse chevron). Clicking it always opens the panel and
+  expands Libraries to **full left-panel height** (`librariesFull`, persisted). Selecting any
+  other left tab (rail or header tabs) restores the compact dock size. Hide collapses to the
+  Libraries card. Docs: ui-spec §4. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;
@@ -1364,9 +1386,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 - **OQ-6 (open):** Dashboard/diagnostics slide direction conflict from v1 DevSpecs (top vs
   bottom) — v2 resolves via the three-panel model; confirm no separate diagnostics slide needed.
 - **OQ-13 (open, D-122):** Dual paper books + engine→service binding. **Resolved so far:**
-  per-engine bind; unbound → paper functions; bound → provider **ledger as added funds
-  source** (no parallel internal fill twin); hybrid hydrates company **main book**.
-  **Still open:** when bound, do **orders** also route to the real service, or does the
-  service only contribute funds while orders stay on the internal paper engine? What is
-  the delta teacher for weighting (live market marks vs provider fills vs both)? How do
-  multi-engine cash pools / symbol conflicts resolve in one main book?
+  per-engine bind; unbound → paper functions; bound → provider ledger as **funds source**;
+  order routing **switchable** (`funds_only` | `execute_on_service` | `both_verify`);
+  provisional safest default = `funds_only`; `both_verify` for tight verification + delta
+  training. Hybrid hydrates company **main book**.
+  **Still open:** confirm safest default (`funds_only` vs provider-paper execute); primary
+  delta teacher when not in `both_verify` (live market marks alone?); multi-engine cash
+  pool / symbol conflict rules in one main book.

@@ -15,4 +15,5 @@ export * from './watchlists';
 export * from './assistant';
 export * from './simulations';
 export * from './safety';
+export * from './training';
 export * from './service-bindings';

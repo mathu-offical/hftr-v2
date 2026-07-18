@@ -3,6 +3,7 @@
 **Status:** implemented (paper) · **Owner:** engine/dispatch · **Freeze:** model-free below compile
 
 Linked: D-124 (polarization sizing), D-125 (heat + trail + weighted valves),
+D-126 (POV plan + training_feedback + atr_stream resolver + fee ledger),
 `product-spec.md` §Trading modules, `data-model.md` jobs, `seeded-strategy-catalog.json`
 bands, `academic-quant-tool-catalog.md`.
 
@@ -17,9 +18,10 @@ gets placed.
 |----------|--------------|
 | Exits, scale-outs, protective/trail stops | LLM re-entry after exit |
 | Portfolio heat at compile | Colocated / microsecond HFT claims |
-| Fee-aware measurable-gain floors | Guaranteed returns language |
-| Weighted valves (participation, urgency, heat, trail) | Kelly auto-sizing (oq-036 deferred) |
-| Peak mark ValueRefs for chandelier | Live `atr_stream` (synthetic ATR until wired) |
+| Fee-aware measurable-gain floors + ledger `fee` rows | Guaranteed returns language |
+| Weighted valves + POV child-slice **plan** | Kelly auto-sizing (oq-036 deferred) |
+| Peak mark + atr_stream ValueRefs | Full multi-fill POV drain (partial fills still gap) |
+| `training_feedback` + `applyControlSnapshotDelta` | Live broker commission adapters |
 
 **HFT framing:** “high-frequency-oriented” within **retail API latency** — micro-trade
 swarms, strict throttles, higher turnover cost awareness. Not colocated HFT.
@@ -38,12 +40,12 @@ effective = clamp(band_base × driver₁ × driver₂ × …, band.min, band.max
 | Portfolio heat | open ATR-risk / equity | `portfolio_heat_pct_band` | compile block + training delta |
 | Participation | urgency × schedule × vol | `participation_rate_band` | `proposeValvePositionDelta` |
 | Urgency (IS λ) | polarization × recovery pressure | `is_urgency_scalar_band` | same |
+| Child slice | max % of parent | `child_slice_band` | POV plan lineage |
 | Trail | peak mark × ATR | `trail_multiplier_band` | peak ValueRef |
 
 Learning systems adjust **driver weights and band positions inside envelopes**
-(`proposeValvePositionDelta`) — they never invent new axes or bypass
-`enforceScopeStrict`. Full `WeightEnvelope` + `training_feedback` table remain
-follow-on (v1 carryover); the valve helpers are the write surface.
+via `applyControlSnapshotDelta` → append `training_feedback` + optional
+`WeightEnvelope` updates. Fail-closed on unknown bands / out-of-band weights.
 
 ## 3. Compile admission (pre-place)
 
@@ -51,9 +53,10 @@ follow-on (v1 carryover); the valve helpers are the write surface.
 philosophy BPS
   × polarization (D-124)
   → budget qty
-  ∩ ATR-risk qty
+  ∩ ATR-risk qty (atr_stream ValueRef when present, else synthetic)
   → portfolio_heat gate (projected open risk ≤ band.max %)
-  → urgency valve reading (lineage only until child-slice POV ships)
+  → urgency + participation valves
+  → planChildSlices (lineage; dispatch still one instruction until partial fills)
 ```
 
 Block reason: `portfolio_heat_exceeded`.
@@ -65,51 +68,51 @@ Block reason: `portfolio_heat_exceeded`.
 1. `target_exit_deadline`
 2. RR ladder: tp3 → tp2 → tp1
 3. `trail_stop` (chandelier: peak − k×ATR) once peak cleared tp1 R
-4. `measurable_gain_take` (spread + **paper fee proxy 5 bps** + net 25 bps; **40 bps** when HFT-oriented / short `time_stop`)
+4. `measurable_gain_take` (spread + fee bps + net edge; higher net for HFT-oriented)
 5. `atr_stop` / half-R breakeven lock (`breakeven_on_tp1`)
 6. `session_close` (only if opened during open cash session)
 7. spread-buffered `breakeven`
 8. catalog `time_stop`
 
-Peak marks persist as append-only ValueRefs: `position_peak:{moduleId}:{symbol}`.
+Peak marks: `position_peak:{moduleId}:{symbol}`. ATR: `atr_stream:{SYMBOL}`.
 
 ## 5. Fee awareness
 
-Round-trip cost floor =
+Paper fills write `ledger_entries.kind = 'fee'` at **5 bps one-way** of notional
+(`feeCentsFromNotional`). Measurable-gain floor uses round-trip fee proxy + net edge.
+Live broker commissions should replace the proxy when adapters emit fee amounts.
 
-```
-2 × half_spread + paper_fee_bps + net_edge_bps
-```
+## 6. POV child-slice plan
 
-HFT-oriented paths raise `net_edge_bps` so micro-trade churn cannot “win” on noise
-after fees. Live broker commissions should replace the 5 bps proxy via ledger
-`fee` rows when available.
+`planChildSlices` produces a qty schedule from participation % × urgency ×
+`child_slice_band`. Compile records `childSlices` in `compile_events.lineage`.
+**Dispatch still fills the parent as one market order** until partial-fill
+semantics ship (gap tag `no_partial_fills`).
 
-## 6. Recovery binding
+## 7. Recovery binding
 
 Exit reasons map to recovery phases (`constrain` / `observe` / `escalate_or_abort`)
 on handoff envelopes for operator lineage and future IS trajectory realignment
 (`rec-006`).
 
-## 7. Paper vs live honesty
+## 8. Paper vs live honesty
 
 | Proxy | Live follow-on |
 |-------|----------------|
-| Synthetic ATR (50 bps) | `atr_stream` OHLC ValueRef |
+| Synthetic ATR (50 bps) | `atr_stream` from OHLC bars (`resolveAtrCents`) |
 | Synthetic half-spread 2 bps | Quote feed half-spread |
-| Paper fee 5 bps | Ledger commission + fees |
-| Immediate market fill | POV / child-slice under participation valve |
+| Paper fee 5 bps ledger row | Broker commission + fees |
+| Immediate market fill | POV drain of child plan under participation valve |
 
-## 8. Verification
+## 9. Verification
 
-- Unit: `portfolio-heat.test.ts`, `weighted-valves.test.ts`, `position-exits.test.ts`,
-  `lever-resolver.test.ts`, `signal-polarization.test.ts`
-- Intention alignment: gains must clear fee floor; heat blocks over-leverage;
-  trail recovers automatically after tp1 peak without LLM
+- Unit: atr, fees, child-order-scheduler, apply-control-snapshot-delta,
+  portfolio-heat, weighted-valves, position-exits, WeightEnvelope contracts
+- Intention alignment: gains clear fee floor; heat blocks over-leverage;
+  training deltas stay in-band
 
-## 9. Open follow-ons
+## 10. Open follow-ons
 
-- Wire participation valve into child-order scheduler (M5)
-- `training_feedback` + `WeightEnvelope` persistence
-- Live `atr_stream` + real fee ledger into measurable floor
-- Peak trail session legality (regular-session trailing election)
+- Drain `childSlices` as sequential partial fills
+- Persist `control_snapshots` rows on every promote/compile
+- Alpaca bars → atr_stream at maintenance tick cadence

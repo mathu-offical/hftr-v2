@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { LeverState } from './pipeline';
 import { PhilosophyProfile } from './philosophy';
+import { WeightEnvelope } from './weight-envelope';
 
 /**
  * Replayable control-plane snapshot: philosophy axes, lever state, and
@@ -13,6 +14,8 @@ export const ControlSnapshot = z.object({
   moduleId: z.string().uuid().nullable(),
   philosophyProfile: PhilosophyProfile,
   leverState: LeverState,
+  /** Optional ranking/sizing weight envelopes (D-126). */
+  weightEnvelopes: z.array(WeightEnvelope).optional(),
   envelopeVersions: z.object({
     policyEnvelopeVersion: z.string().min(1),
     brokerEnvelopeVersion: z.string().min(1),

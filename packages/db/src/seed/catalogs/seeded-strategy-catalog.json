@@ -241,6 +241,13 @@
           "gt_5pct_adv": "pov_5_10"
         }
       },
+      "child_slice_band": {
+        "min": 10,
+        "typical": 60,
+        "max": 100,
+        "unit": "pct_of_parent_order",
+        "note": "Max child size as pct of parent; pairs with participation_rate POV"
+      },
       "limit_offset_bps_band": {
         "aggressive": { "min": 0, "typical": 2, "max": 8 },
         "passive": { "min": -2, "typical": -5, "max": -15 },

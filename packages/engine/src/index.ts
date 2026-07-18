@@ -530,6 +530,11 @@ export {
   type ValveId,
   type ValveReading,
 } from './pipeline/weighted-valves';
+export { computeAtrCents, trueRangeCents, atrStreamSourceId, type OhlcBarCents } from './calc/atr';
+export { resolveAtrCents } from './calc/resolve-atr';
+export { planChildSlices, normalizeChildSliceFraction } from './dispatch/child-order-scheduler';
+export { feeCentsFromNotional, roundTripFeeBpsFromAmounts } from './dispatch/fees';
+export { applyControlSnapshotDelta } from './training/apply-control-snapshot-delta';
 export { loadLatestBySourceId } from './calc/store';
 export {
   walkValueLineage,

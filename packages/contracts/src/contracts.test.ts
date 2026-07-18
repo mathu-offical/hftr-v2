@@ -1364,6 +1364,18 @@ describe('dynamic safety contracts (D-028)', () => {
       contentHash: 'abc123',
     });
   });
+
+  it('parses WeightEnvelope and clamps into band', async () => {
+    const { WeightEnvelope, clampWeightEnvelope } = await import('./weight-envelope');
+    const env = WeightEnvelope.parse({
+      profileId: 'strat-a',
+      scope: 'strategy',
+      baselineWeight: 0.4,
+      runtimeWeightBand: [0.1, 0.9],
+      currentWeight: 1.2,
+    });
+    expect(clampWeightEnvelope(env).currentWeight).toBe(0.9);
+  });
 });
 
 describe('Libraries and research graph (M2)', () => {

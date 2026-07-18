@@ -32,6 +32,7 @@ import {
   resolveEquityCentsForLimits,
 } from './balances';
 import { resolveExecutionContext } from './execution-context';
+import { feeCentsFromNotional } from './fees';
 import { preDispatchGauntlet } from './pre-dispatch';
 import { applyFill, getPosition } from './positions';
 import { getSyntheticQuote } from './quotes';
@@ -928,6 +929,21 @@ async function applyVenueFillFinalization(
         ? `sell ${quantity} ${symbol} @ ${venue} fill`
         : `buy ${quantity} ${symbol} @ ${venue} fill`,
   });
+
+  // Deterministic paper fee proxy (one-way). Live brokers replace via adapter later.
+  const feeCents = feeCentsFromNotional(actualNotional, 5);
+  if (feeCents > 0) {
+    const balanceAfterFee = balanceAfter - BigInt(feeCents);
+    await db.insert(ledgerEntries).values({
+      companyId,
+      moduleId,
+      kind: 'fee',
+      amountCents: -BigInt(feeCents),
+      balanceAfterCents: balanceAfterFee,
+      traceId,
+      description: `fee ${feeCents}¢ on ${actionVerb} ${symbol} (paper_proxy_5bps)`,
+    });
+  }
 
   return { traceId, verifyPass, actualNotional, balanceAfter };
 }

@@ -156,13 +156,12 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   half-R lock, spread-buffered breakeven, `time_stop_band.typical_min`, and
   **session_close** flatten when XNYS is closed/overnight **only if the position opened
   during an open cash session**. Exits enqueue through `dispatch.paper_trade`. Live
-  `atr_stream` remains follow-on work. See `architecture/post-fill-deterministic-lifecycle.md`.
+  Live `atr_stream` via `resolveAtrCents` (ValueRef/bars, else synthetic). See
+  `architecture/post-fill-deterministic-lifecycle.md`.
 - **Entry sizing (compile):** philosophy `sizingBasisBps` × **complex-signal polarization**
-  (D-124: `strengthBand` + six-gate agreement + regime direction align → 0.5–1.5×), then
-  **min(budget qty, ATR-risk qty)** using catalog `risk_per_trade_pct_band` and
-  `atr_stop_multiplier_band`, then **portfolio heat gate** (D-125: projected open risk ≤
-  `portfolio_heat_pct_band.max`). Fixed-fractional; Kelly deferred oq-036. Urgency /
-  participation valves read at compile for lineage; child-slice POV is follow-on.
+  (D-124), **min(budget qty, ATR-risk qty)**, **portfolio heat gate** (D-125), then
+  participation/urgency valves + **POV child-slice plan** in lineage (D-126; partial-fill
+  drain follow-on). Fixed-fractional; Kelly deferred oq-036.
 - Presets tune default strategy families, bands, cadences, venues:
   - **Crypto** — 24/7 sessions, Alpaca crypto (then Coinbase), cross-cap trend watching.
   - **Prediction markets** — Kalshi/Polymarket adapters, probability-edge families, niche data

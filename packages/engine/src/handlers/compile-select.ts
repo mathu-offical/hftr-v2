@@ -16,9 +16,11 @@ import {
   trendCandidates,
 } from '@hftr/db/schema';
 import { record } from '../calc/store';
+import { resolveAtrCents } from '../calc/resolve-atr';
 import { resolveCompileSizingBudget, resolveEquityCentsForLimits } from '../dispatch/balances';
-import { syntheticAtrCents } from '../dispatch/position-exits';
+import { planChildSlices, normalizeChildSliceFraction } from '../dispatch/child-order-scheduler';
 import { getSyntheticQuote } from '../dispatch/quotes';
+import { getBoundedRangeBand } from '../pipeline/bands';
 import { compileInstruction, resolveEntryQuantity } from '../pipeline/compile';
 import { mergeCompileSelection, modelBlockReasonToCompile } from '../pipeline/compile-selection';
 import {
@@ -36,7 +38,10 @@ import {
   resolveComplexSignalPolarization,
   type TrendStrengthBand,
 } from '../pipeline/signal-polarization';
-import { resolveUrgencyValve } from '../pipeline/weighted-valves';
+import {
+  resolveParticipationValve,
+  resolveUrgencyValve,
+} from '../pipeline/weighted-valves';
 import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
 
@@ -282,7 +287,14 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
   }
 
   const merged = mergeCompileSelection(baseOutcome.instruction, modelSelection, sizingBasisBps);
-  const atrCents = syntheticAtrCents(priceCents);
+  const { atrCents, source: atrSource } = await resolveAtrCents({
+    db,
+    clock,
+    symbol: tree.symbol,
+    markCents: priceCents,
+    companyId: payload.companyId,
+    moduleId: dispatchModuleId,
+  });
   const quantity = resolveEntryQuantity({
     balanceCents: budgetCents,
     priceCents,
@@ -336,6 +348,19 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
     polarizationScore: polarization.score,
     recoveryPressure: heatProjection.projectedHeatPct / Math.max(heatCapPct, 1e-9),
   });
+  const participation = resolveParticipationValve({
+    urgencyWeight: urgency.value,
+  });
+  const childSliceBand = getBoundedRangeBand('child_slice_band');
+  const childSliceFraction = normalizeChildSliceFraction(
+    childSliceBand?.typical ?? 60,
+  );
+  const childPlan = planChildSlices({
+    parentQty: quantity,
+    participationPct: participation.value,
+    urgencyScalar: urgency.value,
+    childSliceFraction,
+  });
 
   const instruction = { ...merged.instruction, quantity };
   const provider =
@@ -349,7 +374,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
     scale: 0,
     valueInt: BigInt(instruction.quantity),
     sourceClass: 'derived',
-    sourceId: `compile:sizing:${payload.leadId}:bps_${merged.adjustedSizingBasisBps}:pol_${polarization.score.toFixed(2)}:atr_risk:heat_${heatProjection.projectedHeatPct.toFixed(2)}:urg_${urgency.value.toFixed(2)}:${sizingBudgetSource}`,
+    sourceId: `compile:sizing:${payload.leadId}:bps_${merged.adjustedSizingBasisBps}:pol_${polarization.score.toFixed(2)}:atr_risk:heat_${heatProjection.projectedHeatPct.toFixed(2)}:urg_${urgency.value.toFixed(2)}:pov_${participation.value.toFixed(1)}:slices_${childPlan.sliceCount}:${sizingBudgetSource}`,
     ttlMs: 10 * 60_000,
     sanity: { minInt: '1', maxInt: '100', maxAgeMs: null, mustBePositive: true },
     companyId: payload.companyId,
@@ -434,6 +459,12 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
       sizingBudgetSource,
       allocationCapCents: allocationCapCents?.toString() ?? null,
       capitalAllocationRef,
+      participationPct: participation.value,
+      urgencyScalar: urgency.value,
+      childSlices: childPlan.slices,
+      childSliceCount: childPlan.sliceCount,
+      projectedHeatPct: heatProjection.projectedHeatPct,
+      atrSource,
     },
   });
 

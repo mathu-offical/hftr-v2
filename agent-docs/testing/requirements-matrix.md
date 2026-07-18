@@ -322,7 +322,7 @@ Additional drift (not in JSON flag list):
 | REQ-DEF-002 | Simulator parallel paper runs + comparison UI | agent-docs/product/product-spec.md §3 Simulator | **deferred** | simulation_runs schema; M4 gate | M4 simulator module | paper_sim | strategy_outcome | operational |
 | REQ-DEF-003 | Analyzer emit modes + research terminal (D-091) | architecture/engine-motherboard-io-design.md; product-spec §3 Analyzer | **implemented** | packages/contracts/src/modules.ts AnalyzerModuleConfig; analyzer-concat handler; ENGINE templates | to_desk_stream/to_library on research ENGINE; verify_loopback loopback | paper_sim | execution_quality, research_quality | operational |
 | REQ-DEF-004 | Module generator conversational create | agent-docs/product/product-spec.md §3 | **deferred** | generator module type | M4+ assistant tools | platform | operator_transparency | operational |
-| REQ-DEF-005 | Training feedback bounded band retunes | agent-docs/architecture/system-architecture.md §4 | **deferred** | training_feedback schema | M3+ training loop | paper_sim | strategy_outcome, risk_controls | safety_critical |
+| REQ-DEF-005 | Training feedback bounded band retunes | agent-docs/architecture/system-architecture.md §4 | **partial** | training_feedback schema + applyControlSnapshotDelta (D-126); control_snapshots persist follow-on | M3+ training loop + snapshot writes | paper_sim | strategy_outcome, risk_controls | safety_critical |
 | REQ-DEF-006 | Dedicated queue worker (OQ-2 escalation) | agent-docs/architecture/job-orchestration.md §4 | **deferred** | OQ-2 open question | M5 latency measurement | platform | execution_quality | operational |
 
 ## Notes column (⚠ rows)

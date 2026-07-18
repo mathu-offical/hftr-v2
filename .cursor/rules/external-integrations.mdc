@@ -33,7 +33,7 @@ Matrix: `agent-docs/research/integrations-matrix.md`
 - Opt-in gates: `HFTR_LLM_SMOKE`, `HFTR_RESEARCH_SMOKE`, `ALPACA_PAPER_SMOKE`
 - Scripts print `ok` / `fail` / `skip` — never secret values
 - Exit non-zero only when a **present** key fails auth
-- GDELT: treat `rate_limited` as ok in smoke
+- GDELT: treat `rate_limited` and `ping_timeout` as soft-ok in smoke (flaky public DOC)
 
 ## Safety
 

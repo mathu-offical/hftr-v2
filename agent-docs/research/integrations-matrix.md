@@ -61,7 +61,7 @@ Alpaca / Finnhub / Polygon WebSockets — researched only. Research gather stays
 | Flag | Script |
 |------|--------|
 | `HFTR_LLM_SMOKE=1` | `pnpm smoke:llm` |
-| `HFTR_RESEARCH_SMOKE=1` | `pnpm smoke:research` (public + keyed; GDELT rate_limited = ok) |
+| `HFTR_RESEARCH_SMOKE=1` | `pnpm smoke:research` (public + keyed; GDELT rate_limited / ping_timeout = soft ok) |
 | `ALPACA_PAPER_SMOKE=1` | `pnpm smoke:alpaca-paper` |
 
 ## Pointers

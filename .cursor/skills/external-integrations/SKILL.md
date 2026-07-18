@@ -54,8 +54,10 @@ Full matrix: `agent-docs/research/integrations-matrix.md`.
    twelve_data, marketstack. **Verify** drafts or saved keys via
    `POST /api/settings/research-keys/[provider]/verify` (`withDecryptedSecret`).
 4. Never authorize runtime from `process.env.*_API_KEY` (D-027).
-5. If Verify returns `decrypt_failed`, operator encryption key likely drifted —
-   re-save keys after aligning `SETTINGS_ENCRYPTION_KEY`.
+- **Saved-key Verify `decrypt_failed`:** usually `SETTINGS_ENCRYPTION_KEY` drift vs
+  ciphertext written under a prior key. Draft Verify still works. Operator fix:
+  align `.env.local` `SETTINGS_ENCRYPTION_KEY` with the key used at save time, or
+  Delete + re-Save research/LLM keys.
 
 ### CI / smoke (env only)
 
@@ -93,7 +95,7 @@ fallback when bars missing.
 | world_bank_indicator | `GET api.worldbank.org/v2/indicator?format=json&per_page=1` |
 | fred_macro | FRED series search + `FRED_API_KEY` |
 | alpha_vantage_news | NEWS_SENTIMENT + `ALPHA_VANTAGE_API_KEY` |
-| gdelt_news | DOC ArtList (treat `rate_limited` as ok in smoke) |
+| gdelt_news | DOC ArtList (treat `rate_limited` / `ping_timeout` as soft-ok in smoke) |
 | twelve_data / marketstack | entitlement ping + operator key |
 | alpaca_news | `data.alpaca.markets/v1beta1/news` + APCA headers |
 

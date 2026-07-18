@@ -24,6 +24,7 @@ function stubHub(partial?: Partial<MarketHubResponse>): MarketHubResponse {
       sealId: null,
       corroborationBand: null,
       items: [],
+      itemViz: [],
       verifiedAt: null,
       expiresAt: null,
       reportConceptId: null,

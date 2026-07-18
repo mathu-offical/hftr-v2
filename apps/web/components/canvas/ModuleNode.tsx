@@ -233,7 +233,7 @@ export const ModuleNode = memo(function ModuleNode({
           moduleType={data.moduleType}
           inbound={streamPorts.inbound}
           outbound={streamPorts.outbound}
-          config={data.config}
+          config={data.config ?? null}
         />
       )}
 

@@ -4,7 +4,6 @@ import { z } from 'zod';
 import {
   MarketHubResponse,
   MarketHubRefreshResponse,
-  VerifiedNormalizedBundle,
   type MarketHubEngineChip,
   type MarketHubPipelineBySymbol,
   type MarketHubReportLink,
@@ -28,11 +27,12 @@ import {
   enqueue,
   getSyntheticQuote,
   loadLatestValidSeal,
+  parseVerifiedSealBundle,
 } from '@hftr/engine';
 import { withAuth } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 30;
+export const maxDuration = 90;
 
 const Params = z.object({ companyId: z.string().uuid() });
 type Ctx = { params: Promise<{ companyId: string }> };
@@ -159,17 +159,17 @@ export async function GET(_req: Request, ctx: Ctx) {
           )
           .orderBy(desc(systemNormalizedViews.expiresAt))
           .limit(1);
-        const parsed = stale ? VerifiedNormalizedBundle.safeParse(stale.bundle) : null;
-        if (parsed?.success && stale && stale.expiresAt.getTime() <= nowMs) {
+        const parsed = stale ? parseVerifiedSealBundle(stale.bundle) : null;
+        if (parsed && stale && stale.expiresAt.getTime() <= nowMs) {
           expiredMovers = {
             status: 'expired',
-            title: parsed.data.view.title,
-            sealId: parsed.data.sealId,
-            corroborationBand: parsed.data.corroborationBand,
-            items: parsed.data.view.items,
-            verifiedAt: parsed.data.verifiedAt,
-            expiresAt: parsed.data.expiresAt,
-            reportConceptId: parsed.data.reportConceptId ?? null,
+            title: parsed.view.title,
+            sealId: parsed.sealId,
+            corroborationBand: parsed.corroborationBand,
+            items: parsed.view.items,
+            verifiedAt: parsed.verifiedAt,
+            expiresAt: parsed.expiresAt,
+            reportConceptId: parsed.reportConceptId ?? null,
           };
         }
       } catch {
@@ -510,6 +510,7 @@ export async function GET(_req: Request, ctx: Ctx) {
 
 /**
  * Operator refresh: enqueue library.system_movers (idempotent — skips when seal valid).
+ * Drain budget is long enough for gather + compound rank + seal persist (D-101).
  */
 export async function POST(_req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
@@ -527,8 +528,9 @@ export async function POST(_req: Request, ctx: Ctx) {
     try {
       await drainQueues(db, clock, {
         workerId: `inline:${clerkUserId.slice(0, 12)}`,
-        budgetMs: 12_000,
-        batchSize: 2,
+        budgetMs: 60_000,
+        batchSize: 4,
+        queueClasses: ['POSTURE_RESEARCH'],
       });
     } catch {
       // Enqueued; drain may fail if seal table/handler prerequisites missing.

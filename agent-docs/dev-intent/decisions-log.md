@@ -1069,7 +1069,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `triggered` with Confirm + Justification on both surfaces; rail rows focus overlay selection.
   Equity accent prefers `positionMarkCents` series when present; otherwise a dashed synthetic
   current-mark line (no fabricated history). Code comments that mislabeled posture overlay as
-  D-082 corrected to D-085. Docs: ui-spec §4 left Market posture. **Status: implemented.**
+  D-082 corrected to D-085. **Follow-up (same decision):** applied missing `system_normalized_views`
+  migration; capped seal `sourceDigests` at 24 on write + trim-on-load so oversized seals still
+  parse; market-hub Refresh drain budget raised (POSTURE_RESEARCH, 60s); ticker extract rejects
+  1-letter / English noise tokens. Docs: ui-spec §4 left Market posture. **Status: implemented.**
 
 - **D-102 (galaxy point-anchored labels + nest emphasis, 2026-07-18):** Hover cards project to
   the actual node via `graph2ScreenCoords` and track camera motion. Company envelope sphere is

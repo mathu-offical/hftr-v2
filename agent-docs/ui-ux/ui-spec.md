@@ -312,11 +312,12 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   `synthetic_sim` (baseline algorithm), not broker history.
   **Analyze vs Sync (D-111 / D-120):** **Sync** forces full hub GET. **Analyze** creates a
   synthesis run, force-reseals `library.system_movers` (tactical LLM thresholds),
-  `library.system_sector_news`, calendar-phase `library.system_daily_summaries`, then
-  `library.posture_narrative`. Nested **Model** category is the **live synthesis hub** —
-  React Flow nodes map to stageIds with queued/running/ok/fail text-first glyphs, selectable
-  stage inspector (summary + Justification), and a run strip (`Running · n/m stages`).
-  Overlay shows the same strip + Open Model while a run is active.
+  `library.system_sector_news`, calendar-phase `library.system_daily_summaries` in parallel,
+  then `library.posture_narrative` (waits for seal stages; book↔tape deterministic rollup).
+  Nested **Model** category is the **live synthesis hub** — React Flow stage glyphs +
+  inspector, plus an **awareness dock** (movers status, multi-seal freshness, report /
+  narrative open). Overlay shows a mini run strip + Open Model while a run is active.
+  Hub GET projects `synthesis` + `posture_narrative` report link.
   **Watchlist tiers (D-092):** `suggested_search` → `suggested_verified` → `watching`
   (+ `triggered` / `archived`). Market posture rail **and overlay** + bottom Watch lists
   filter chips (default: watching + suggested_verified). **Confirm** PATCHes to `watching`

@@ -1226,12 +1226,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 
 - **D-120 (market posture synthesis hub + live Model stages, 2026-07-18):** Operator
   **Analyze** creates a durable `market_hub_synthesis_runs` row and stage rows
-  (`providers`…`hub_ready`), enqueues force-reseal movers/sector/daily with `synthesisRunId`,
-  plus `library.posture_narrative`, and returns `{ runId }` after a short drain. Model tab
-  is a **live** React Flow hub (status glyphs text-first, stage inspector + Justification);
-  overlay shows a mini run strip with Open Model. Synthesis polls ~1.5s separately from
-  equity live poll (D-112). Narrative stage is seal-grounded deterministic rollup (LLM
-  narrative deferred). Spec:
+  (`providers`…`hub_ready`), enqueues force-reseal movers/sector/daily with `synthesisRunId`
+  in parallel, plus `library.posture_narrative` (handler **waits** for seal stages), and
+  returns `{ runId }` after a short drain. Model tab is a **live** React Flow hub plus an
+  **awareness dock** (movers status, multi-seal freshness, report/narrative open). Narrative
+  is a deterministic book↔tape rollup (held/watch/pipeline vs movers); upserts
+  `posture_synthesis_narrative` and projects into hub `synthesis` + `posture_narrative`
+  report. Overlay shows a mini run strip with Open Model. Synthesis polls ~1.5s separately
+  from equity live poll (D-112). LLM narrative deferred. Spec:
   `docs/superpowers/specs/2026-07-18-market-posture-synthesis-hub-design.md`. Docs:
   ui-spec §4 Market posture Model, research-live-system-cadence, data-model.
   **Status: implemented.**

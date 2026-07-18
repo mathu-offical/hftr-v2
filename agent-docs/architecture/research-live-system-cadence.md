@@ -24,8 +24,10 @@ the three reseal jobs.
 |--------|-----------|---------|-----|
 | **Live poll** | `GET …/market-hub/live` ~15s | Equity + position marks only | Silent merge; no Syncing…; **one interval per company** (rail+overlay share) |
 | **Sync** | `GET …/market-hub` force | Full projection | Syncing… |
-| **Analyze** | `POST …/market-hub/analyze` | Create synthesis run; enqueue movers+sector+daily (`forceReseal` + `synthesisRunId`) + narrative; short drain; return `runId` | Analyzing… during POST; live poll paused only for POST |
+| **Analyze** | `POST …/market-hub/analyze` | Create synthesis run; enqueue movers+sector+daily (`forceReseal` + `synthesisRunId`) in parallel + narrative (handler waits for seal stages); short drain; return `runId` | Analyzing… during POST; live poll paused only for POST |
 | **Synthesis poll** | `GET …/market-hub/synthesis/{runId\|latest}` ~1.5s | Run + ordered stages | Model hub live status; overlay mini strip; full hub refresh on terminal |
+
+Narrative upserts `posture_synthesis_narrative` (book↔tape rollup) and hub GET projects `synthesis` + `posture_narrative` report. Model tab includes an awareness dock (movers / freshness / report buttons).
 
 UI refresh never enqueues posture jobs. Live poll is orthogonal to the job queue — Analyze
 drain proceeds whether or not the overlay interval is armed. Synthesis poll does not replace

@@ -147,7 +147,9 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   `GET …/market-hub/live` returns equity + position marks/sparks only (`MarketHubLiveResponse`)
   for silent UI merge — never reseals. `POST …/market-hub/analyze` creates a synthesis run,
   enqueues force-reseal jobs + narrative (POSTURE_RESEARCH), returns `runId`; UI polls
-  `GET …/market-hub/synthesis/*` for stages and must not block the job path.
+  `GET …/market-hub/synthesis/*` for stages and must not block the job path. Hub GET also
+  projects optional `synthesis` snapshot + `posture_narrative` report link and sector/daily
+  expiry on `freshness`.
 - **market_hub_synthesis_runs / market_hub_synthesis_stages** — **D-120** (migration `0042`):
   company-scoped Analyze run status + ordered stage rows (`stage_id` unique per run) for the
   live Model canvas. Stage summaries are operator text/bands only.

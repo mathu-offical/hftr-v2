@@ -14,7 +14,7 @@ import {
   resolveInboundLibraryModules,
   resolvePolicyModuleForTrading,
 } from '../graph/module-links';
-import { DEFAULT_FRESHNESS_WINDOW_MS, evaluateGates, gatesPass } from '../pipeline/gates';
+import { DEFAULT_FRESHNESS_WINDOW_MS, countGateAgreement, evaluateGates, gatesPass } from '../pipeline/gates';
 import { resolvePhilosophyControl } from '../pipeline/philosophy-control';
 import { resolvePromoteRegime } from '../pipeline/resolve-promote-regime';
 import { enqueue } from '../queue/queue';
@@ -171,6 +171,12 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     ...(evidenceFitRefs !== undefined ? { admittedArtifactRefs: evidenceFitRefs } : {}),
   });
   const admitted = gatesPass(gates);
+  const { gatePassCount, gateTotal } = countGateAgreement(gates);
+  const directionAligned =
+    typeof regime.trendUp === 'number' &&
+    ((trend.direction === 'up' && regime.trendUp >= 0.45) ||
+      (trend.direction === 'down' && regime.trendUp <= 0.55) ||
+      trend.direction === 'flat');
 
   const controlSnapshot = {
     policyEnvelopeVersion: control.policyEnvelopeVersion,
@@ -183,6 +189,9 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     philosophyPromptPresent: company.philosophyPrompt.length > 0,
     sourceClass: control.sourceClass,
     artifactRefs: admittedArtifactRefs,
+    gatePassCount,
+    gateTotal,
+    directionAligned,
   };
 
   const leadRows = await db

@@ -226,3 +226,14 @@ export function evaluateGates(input: GateInput): GateEvidence[] {
 export function gatesPass(gates: GateEvidence[]): boolean {
   return gates.every((g) => g.result !== 'fail');
 }
+
+/** Count pass/suppressed vs total for polarization (fails excluded from pass count). */
+export function countGateAgreement(gates: GateEvidence[]): {
+  gatePassCount: number;
+  gateTotal: number;
+} {
+  const gateTotal = gates.length;
+  const gatePassCount = gates.filter((g) => g.result === 'pass' || g.result === 'suppressed')
+    .length;
+  return { gatePassCount, gateTotal };
+}

@@ -59,6 +59,56 @@ export function computeQuantity(
   return Math.min(MAX_QTY, Math.max(MIN_QTY, raw));
 }
 
+/**
+ * ATR risk-geometry size (v1 identity):
+ * qty = floor((equity × risk_per_trade_pct / 100) / (atr × atr_mult))
+ * when risk distance is in $ terms per share (= atrCents × atrMult).
+ * Returns 0 when inputs cannot size (caller falls back to budget qty).
+ */
+export function computeAtrRiskQuantity(
+  balanceCents: bigint,
+  riskPerTradePct: number,
+  atrCents: number,
+  atrMultiplier: number,
+): number {
+  if (balanceCents <= 0n) return 0;
+  if (!Number.isFinite(riskPerTradePct) || riskPerTradePct <= 0) return 0;
+  if (!Number.isFinite(atrCents) || atrCents <= 0) return 0;
+  if (!Number.isFinite(atrMultiplier) || atrMultiplier <= 0) return 0;
+  const riskBudgetCents = (Number(balanceCents) * riskPerTradePct) / 100;
+  const riskPerShareCents = Math.max(1, Math.floor(atrCents * atrMultiplier));
+  const raw = Math.floor(riskBudgetCents / riskPerShareCents);
+  if (raw <= 0) return 0;
+  return Math.min(MAX_QTY, Math.max(MIN_QTY, raw));
+}
+
+/**
+ * Entry qty = min(budget-BPS qty, ATR-risk qty) when ATR risk resolves;
+ * otherwise budget-BPS. Polarization already folded into sizingBasisBps.
+ */
+export function resolveEntryQuantity(args: {
+  balanceCents: bigint;
+  priceCents: number;
+  sizingBasisBps: number;
+  riskPerTradePct: number;
+  atrCents: number;
+  atrMultiplier: number;
+}): number {
+  const budgetQty = computeQuantity(
+    args.balanceCents,
+    args.priceCents,
+    args.sizingBasisBps,
+  );
+  const atrQty = computeAtrRiskQuantity(
+    args.balanceCents,
+    args.riskPerTradePct,
+    args.atrCents,
+    args.atrMultiplier,
+  );
+  if (atrQty <= 0) return budgetQty;
+  return Math.min(budgetQty, atrQty);
+}
+
 export function compileInstruction(tree: CompileTreeInput, ctx: CompileContext): CompileOutcome {
   const hasEntry = tree.branches.some((b) => b.id === 'entry');
   const hasInvalidation = tree.branches.some((b) => b.id === 'invalidation');

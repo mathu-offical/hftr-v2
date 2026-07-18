@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LeverState } from '@hftr/contracts';
 import { philosophyProfileToLeverState, DEFAULT_PHILOSOPHY_PROFILE } from '@hftr/contracts';
-import { resolveBandPosition, resolveLeverSetting, resolveSizingBasisBps } from './lever-resolver';
+import { resolveAtrStopMultiplier, resolveBandPosition, resolveLeverSetting, resolveRiskPerTradePct, resolveSizingBasisBps } from './lever-resolver';
 
 describe('lever-resolver', () => {
   const typicalState = philosophyProfileToLeverState(DEFAULT_PHILOSOPHY_PROFILE);
@@ -40,5 +40,12 @@ describe('lever-resolver', () => {
     };
     expect(resolveSizingBasisBps(minState)).toBe(25);
     expect(resolveSizingBasisBps(maxState)).toBe(200);
+  });
+
+  it('resolves catalog risk_per_trade_pct and atr_stop_multiplier anchors', () => {
+    expect(resolveRiskPerTradePct(typicalState)).toBe(0.75);
+    expect(resolveAtrStopMultiplier(typicalState)).toBe(2.25);
+    expect(resolveRiskPerTradePct(null)).toBe(0.75);
+    expect(resolveAtrStopMultiplier(null)).toBe(2.25);
   });
 });

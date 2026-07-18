@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { getRrTargetLadder, getTimeStopTypicalMinutes } from '../pipeline/bands';
 import {
   measurableGainFloorCents,
+  protectiveStopFloorCents,
   recoveryPhaseForExit,
   resolvePositionExitReason,
   riskDistanceCents,
@@ -9,6 +10,7 @@ import {
   shouldExitAtrStop,
   shouldExitBreakeven,
   shouldExitMeasurableGain,
+  shouldExitProtectiveStop,
   shouldExitSessionClose,
   shouldExitTargetDeadline,
   shouldExitTimeStop,
@@ -196,6 +198,15 @@ describe('resolvePositionExitReason', () => {
         atrMultiplier: 2.25,
       }),
     ).toBe('atr_stop');
+  });
+
+  it('locks protective stop at avg cost after half-R when breakeven_on_tp1', () => {
+    // R≈112; half-R touch at 10056 → floor = avgCost (won’t sell while still above BE)
+    expect(protectiveStopFloorCents(10_000, 10_056, 112, { breakevenOnTp1: true })).toBe(10_000);
+    expect(shouldExitProtectiveStop(10_000, 10_056, 112, { breakevenOnTp1: true })).toBe(false);
+    // Deep loss still uses full ATR floor when never in half-R zone
+    expect(protectiveStopFloorCents(10_000, 9_800, 112, { breakevenOnTp1: true })).toBe(9_888);
+    expect(shouldExitProtectiveStop(10_000, 9_800, 112, { breakevenOnTp1: true })).toBe(true);
   });
 
   it('returns measurable_gain_take before session_close when gain clears floor', () => {

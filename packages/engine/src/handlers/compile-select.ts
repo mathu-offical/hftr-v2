@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import type { BranchNode, CompileSelectionOutput, HandoffEnvelope } from '@hftr/contracts';
+import type {
+  BranchNode,
+  CompileSelectionOutput,
+  HandoffEnvelope,
+  LeverState,
+} from '@hftr/contracts';
 import {
   actionInstructions,
   compileEvents,
@@ -12,9 +17,19 @@ import {
 } from '@hftr/db/schema';
 import { record } from '../calc/store';
 import { resolveCompileSizingBudget } from '../dispatch/balances';
+import { syntheticAtrCents } from '../dispatch/position-exits';
 import { getSyntheticQuote } from '../dispatch/quotes';
-import { compileInstruction, computeQuantity } from '../pipeline/compile';
+import { compileInstruction, resolveEntryQuantity } from '../pipeline/compile';
 import { mergeCompileSelection, modelBlockReasonToCompile } from '../pipeline/compile-selection';
+import {
+  resolveAtrStopMultiplier,
+  resolveRiskPerTradePct,
+} from '../pipeline/lever-resolver';
+import {
+  applyPolarizationToSizingBps,
+  resolveComplexSignalPolarization,
+  type TrendStrengthBand,
+} from '../pipeline/signal-polarization';
 import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
 
@@ -34,7 +49,8 @@ const QUOTE_TTL_MS = 90_000;
 
 /**
  * COMPILE queue (last model-bearing stage): execution-tier selection for
- * orderShape/tif/sizingBand; quantity always from deterministic computeQuantity.
+ * orderShape/tif/sizingBand; quantity always from deterministic resolveEntryQuantity
+ * (polarization × BPS budget, capped by ATR risk geometry).
  */
 registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
   const payload = SelectPayload.parse(job.payload);
@@ -76,11 +92,33 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
     sizingBasis?: string;
     sizingBasisBps?: number;
     strategyFamily?: string;
+    leverState?: LeverState;
+    directionAligned?: boolean;
+    gatePassCount?: number;
+    gateTotal?: number;
   };
-  const sizingBasisBps =
+  const baseSizingBasisBps =
     typeof snapshot.sizingBasisBps === 'number' && snapshot.sizingBasisBps > 0
       ? snapshot.sizingBasisBps
       : 100;
+  const strengthBand: TrendStrengthBand =
+    trend.strengthBand === 'weak' ||
+    trend.strengthBand === 'moderate' ||
+    trend.strengthBand === 'strong'
+      ? trend.strengthBand
+      : 'moderate';
+  const polarization = resolveComplexSignalPolarization({
+    strengthBand,
+    ...(typeof snapshot.gatePassCount === 'number' ? { gatePassCount: snapshot.gatePassCount } : {}),
+    ...(typeof snapshot.gateTotal === 'number' ? { gateTotal: snapshot.gateTotal } : {}),
+    ...(typeof snapshot.directionAligned === 'boolean'
+      ? { directionAligned: snapshot.directionAligned }
+      : {}),
+  });
+  const sizingBasisBps = applyPolarizationToSizingBps(
+    baseSizingBasisBps,
+    polarization.sizingMultiplier,
+  );
   const sizingBasis =
     typeof snapshot.sizingBasis === 'string' && snapshot.sizingBasis.length > 0
       ? snapshot.sizingBasis
@@ -90,6 +128,9 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
       ? snapshot.strategyFamily
       : lead.strategyFamily;
   const dispatchModuleId = payload.targetModuleId ?? payload.moduleId;
+  const leverState = snapshot.leverState ?? null;
+  const riskPerTradePct = resolveRiskPerTradePct(leverState);
+  const atrMultiplier = resolveAtrStopMultiplier(leverState);
 
   const branchLabels = (tree.branches as Array<{ id?: string; condition?: string }>).map(
     (b) => b.id ?? b.condition ?? 'branch',
@@ -234,7 +275,15 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
   }
 
   const merged = mergeCompileSelection(baseOutcome.instruction, modelSelection, sizingBasisBps);
-  const quantity = computeQuantity(budgetCents, priceCents, merged.adjustedSizingBasisBps);
+  const atrCents = syntheticAtrCents(priceCents);
+  const quantity = resolveEntryQuantity({
+    balanceCents: budgetCents,
+    priceCents,
+    sizingBasisBps: merged.adjustedSizingBasisBps,
+    riskPerTradePct,
+    atrCents,
+    atrMultiplier,
+  });
   const instruction = { ...merged.instruction, quantity };
   const provider =
     merged.provider === 'model' || compileProvider === 'model'
@@ -247,7 +296,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
     scale: 0,
     valueInt: BigInt(instruction.quantity),
     sourceClass: 'derived',
-    sourceId: `compile:sizing:${payload.leadId}:bps_${merged.adjustedSizingBasisBps}:${sizingBudgetSource}`,
+    sourceId: `compile:sizing:${payload.leadId}:bps_${merged.adjustedSizingBasisBps}:pol_${polarization.score.toFixed(2)}:atr_risk:${sizingBudgetSource}`,
     ttlMs: 10 * 60_000,
     sanity: { minInt: '1', maxInt: '100', maxAgeMs: null, mustBePositive: true },
     companyId: payload.companyId,

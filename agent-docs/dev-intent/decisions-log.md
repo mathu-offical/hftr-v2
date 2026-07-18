@@ -1195,7 +1195,11 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   under-used Z (pancake / necklace). Surveyed d3-force-3d clustering, dagMode, hyperbolic
   trees; kept TD-09 stack. Nest centers move to **Fibonacci-sphere** packing on concentric
   shells; folders/articles pack on spheres inside parents; weaken global `center`; longer
-  springs + charge reach; `zoomToFit` padding so volume fills the viewport. Research:
+  springs + charge reach. Nest + **folder shell radials** fill ball volume. Camera uses
+  packing-derived **`computeVolumeCameraPose`** (elevated orbit outside company envelope)
+  plus **Fit** control and gentle idle auto-rotate (paused on pointer) — replaces
+  `zoomToFit`+elev hacks that could frame from inside the envelope. DEV `layoutStats`
+  reports AABB + camera pose. Live: `zOverX≈0.88` on 8-library company. Research:
   `research/galaxy-3d-volume-layout.md`. Docs: research-galaxy-topic-view-design §4.1,
   TD-09 amendment. **Status: implemented.**
 
@@ -1253,6 +1257,16 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   on top of the internal engine; operators may toggle real/provider accounts without
   abandoning the internal book. Full design pending brainstorm (architecture doc + plan to
   follow). Related: D-002, D-014, D-025, D-027; OQ-13. **Status: decided (design pending).**
+
+- **D-124 (complex-signal polarization → capital leverage, 2026-07-18):** No v1 term
+  `polarization`; v2 defines it as agreement strength of a complex signal (trend
+  `strengthBand` + six-gate pass rate + regime direction align). Compile applies a
+  fixed-fractional sizing multiplier in **[0.5, 1.5]** to philosophy `sizingBasisBps`, then
+  caps qty with ATR risk geometry
+  `min(budgetBpsQty, equity×risk_per_trade_pct/(atr×atr_mult))`. Not Kelly (oq-036 deferred).
+  Exits: RR/measurable gains before protective stop; catalog `breakeven_on_tp1` locks stop
+  floor to avg cost once mark clears half of tp1 R. Docs: product-spec trading modules,
+  data-model jobs. **Status: implemented.**
 
 - **D-123 (side panel symbol edge rails, 2026-07-18):** Left/right persistent edge rails
   (D-118) are wider (`w-10`) and show **Lucide symbol buttons for each tab** in both open and

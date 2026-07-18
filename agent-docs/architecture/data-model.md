@@ -283,13 +283,12 @@ UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
   Inline promote drain claims only `RESEARCH|TACTICAL|COMPILE|DISPATCH|VERIFY` (no
   maintenance kick) so posture/library side-jobs cannot starve paper fill.
   `maintenance.position_exits` (via `maintenance.sweep`) scans open paper positions for
-  model-free exits: targetExit deadline, ATR stop (synthetic ATR × catalog multiplier),
-  RR tp1/tp2 scale-out + tp3 exit, **measurable_gain_take** (net gain floor before
-  session flatten), spread-buffered breakeven, catalog time_stop, and session_close
-  (only when the position opened during an open cash session) → sell
-  `actionInstructions` + `dispatch.paper_trade` (gauntlet intact). Recovery phase
-  labels are attached on exit envelopes; tactical trees bind catalog recovery ladder
-  phases when `strategyFamily` is known.
+  model-free exits: targetExit deadline, RR tp1/tp2 scale-out + tp3 exit,
+  **measurable_gain_take**, protective ATR stop with half-R breakeven lock
+  (`breakeven_on_tp1`), catalog time_stop, and session_close (only when opened during open
+  cash session) → sell `actionInstructions` + `dispatch.paper_trade`. Compile sizing:
+  polarization (D-124) × BPS then ATR-risk cap. Recovery phase labels on exit envelopes;
+  tactical trees bind catalog recovery ladder phases when `strategyFamily` is known.
 - **job_schedules** — cron-like recurring definitions per module cadence.
 - **llm_calls** — provider, model, tier, module_id, tokens in/out, cost_cents, latency_ms,
   schema_valid, leak_lint_passed, rate_limit_remaining, request_id, retention_class, failure,

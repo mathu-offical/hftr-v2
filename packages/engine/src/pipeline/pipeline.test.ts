@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createFixedClock } from '../clock';
 import { getSyntheticQuote } from '../dispatch/quotes';
-import { compileInstruction, computeQuantity, type CompileTreeInput } from './compile';
+import { compileInstruction, computeQuantity, computeAtrRiskQuantity, resolveEntryQuantity, type CompileTreeInput } from './compile';
 import { DEFAULT_FRESHNESS_WINDOW_MS, evaluateGates, gatesPass, type GateInput } from './gates';
 import { buildDecisionTree } from './tree';
 
@@ -171,5 +171,22 @@ describe('compile placeholder', () => {
     expect(computeQuantity(1_000_000n, 2_000)).toBe(5);
     // Tiny balance clamps up to 1 (dispatch capital gate is the real stop)
     expect(computeQuantity(100n, 5_000)).toBe(1);
+  });
+
+  it('caps entry qty by ATR risk geometry when tighter than budget BPS', () => {
+    // Budget 200 bps on $10k / $20 → 10 shares; wide ATR makes risk geometry tighter
+    const atrQty = computeAtrRiskQuantity(1_000_000n, 0.75, 500, 2.25);
+    expect(atrQty).toBeGreaterThan(0);
+    expect(atrQty).toBeLessThan(10);
+    expect(
+      resolveEntryQuantity({
+        balanceCents: 1_000_000n,
+        priceCents: 2_000,
+        sizingBasisBps: 200,
+        riskPerTradePct: 0.75,
+        atrCents: 500,
+        atrMultiplier: 2.25,
+      }),
+    ).toBe(atrQty);
   });
 });

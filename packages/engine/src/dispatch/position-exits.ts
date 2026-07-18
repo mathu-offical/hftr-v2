@@ -164,6 +164,39 @@ export function shouldExitAtrStop(
   return markCents <= avgCostCents - riskCents;
 }
 
+/**
+ * Protective stop floor (cents). Catalog `breakeven_on_tp1`: once mark has
+ * cleared half of tp1 R, lock the stop at average cost so giveback through BE
+ * cuts the loss path earlier (active loss stoppage without position stage DB).
+ */
+export function protectiveStopFloorCents(
+  avgCostCents: number,
+  markCents: number,
+  riskCents: number,
+  opts?: { breakevenOnTp1?: boolean; lockAtRMultiple?: number },
+): number {
+  const lockAt = opts?.lockAtRMultiple ?? 0.5;
+  if (
+    opts?.breakevenOnTp1 &&
+    riskCents > 0 &&
+    shouldHitRrMultiple(avgCostCents, markCents, riskCents, lockAt)
+  ) {
+    return avgCostCents;
+  }
+  return avgCostCents - riskCents;
+}
+
+export function shouldExitProtectiveStop(
+  avgCostCents: number,
+  markCents: number,
+  riskCents: number,
+  opts?: { breakevenOnTp1?: boolean; lockAtRMultiple?: number },
+): boolean {
+  if (avgCostCents <= 0 || markCents <= 0 || riskCents <= 0) return false;
+  const floor = protectiveStopFloorCents(avgCostCents, markCents, riskCents, opts);
+  return markCents <= floor;
+}
+
 export function shouldHitRrMultiple(
   avgCostCents: number,
   markCents: number,
@@ -251,12 +284,7 @@ export function resolvePositionExitReason(args: {
     const risk = riskDistanceCents(atr, atrMult);
     const ladder = getRrTargetLadder();
 
-    // Protect capital first.
-    if (shouldExitAtrStop(args.avgCostCents, args.markCents, risk)) {
-      return 'atr_stop';
-    }
-
-    // Prefer measurable / RR gains before flat-by-close.
+    // Prefer measurable / RR gains before protective stop / flat-by-close.
     if (shouldHitRrMultiple(args.avgCostCents, args.markCents, risk, ladder.tp3R)) {
       return 'rr_tp3_exit';
     }
@@ -268,6 +296,16 @@ export function resolvePositionExitReason(args: {
     }
     if (shouldExitMeasurableGain(args.avgCostCents, args.markCents)) {
       return 'measurable_gain_take';
+    }
+
+    // Loss stoppage: ATR stop, with catalog breakeven lock after half-R.
+    if (
+      shouldExitProtectiveStop(args.avgCostCents, args.markCents, risk, {
+        breakevenOnTp1: ladder.breakevenOnTp1,
+        lockAtRMultiple: 0.5,
+      })
+    ) {
+      return 'atr_stop';
     }
 
     if (

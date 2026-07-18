@@ -312,6 +312,8 @@ export {
   shouldExitBreakeven,
   shouldExitSessionClose,
   shouldExitAtrStop,
+  shouldExitProtectiveStop,
+  protectiveStopFloorCents,
   type PositionExitReason,
   type PositionExitSignal,
 } from './dispatch/position-exits';
@@ -396,6 +398,7 @@ export {
 export {
   evaluateGates,
   gatesPass,
+  countGateAgreement,
   DEFAULT_FRESHNESS_WINDOW_MS,
   type GateEvidence,
   type GateInput,
@@ -405,6 +408,8 @@ export { buildDecisionTree, type BuiltDecisionTree, type TreeLeadInput } from '.
 export {
   compileInstruction,
   computeQuantity,
+  computeAtrRiskQuantity,
+  resolveEntryQuantity,
   type CompileBlockReason,
   type CompileContext,
   type CompileOutcome,
@@ -424,7 +429,15 @@ export {
   type PhilosophyControlSnapshot,
   type ResolvePhilosophyControlInput,
 } from './pipeline/philosophy-control';
-
+export {
+  resolveComplexSignalPolarization,
+  applyPolarizationToSizingBps,
+  strengthPolarizationMultiplier,
+  STRENGTH_POLARIZATION_MULTIPLIER,
+  type TrendStrengthBand,
+  type ComplexSignalPolarization,
+  type ComplexSignalPolarizationInput,
+} from './pipeline/signal-polarization';
 // Calendar
 export {
   getSession,
@@ -487,6 +500,8 @@ export {
   resolveLeverSetting,
   resolveBandPosition,
   resolveSizingBasisBps,
+  resolveRiskPerTradePct,
+  resolveAtrStopMultiplier,
 } from './pipeline/lever-resolver';
 export {
   walkValueLineage,

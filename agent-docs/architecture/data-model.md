@@ -144,6 +144,11 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   multi-source seals (`kind` movers_board|sector_bulletin|daily_summary_phase, subject_key,
   seal_id, bundle jsonb `VerifiedNormalizedBundle`, expires_at, report_concept_id). Consumers
   skip re-verify while seal valid; dual-persist always writes a readable report concept.
+  **Market posture projection (D-081–D-112):** read APIs assemble seals + positions +
+  watch/trend/pipeline into `MarketHubResponse` (`GET …/market-hub`). Lightweight
+  `GET …/market-hub/live` returns equity + position marks/sparks only (`MarketHubLiveResponse`)
+  for silent UI merge — never reseals. `POST …/market-hub/analyze` enqueues force-reseal
+  jobs (POSTURE_RESEARCH); UI poll must not block that path.
 - **curation_score_events** — **D-071** (migration `0033`): append-only librarian prior
   telemetry (gate_id, score_band low|medium|high, passed, reason, raw_meta). Models see
   bands + repairHints only — never raw ratios from raw_meta.

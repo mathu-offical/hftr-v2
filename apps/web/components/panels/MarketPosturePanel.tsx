@@ -108,7 +108,7 @@ export function MarketPosturePanel(props: { companyId: string }) {
             onClick={() => void refresh(true)}
             disabled={refreshing || analyzing}
             className="border border-[var(--color-line)] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)] disabled:opacity-50"
-            title="Sync live hub data"
+            title="Full hub reload (seals, reports, charts). Live equity/marks poll separately."
           >
             Sync
           </button>

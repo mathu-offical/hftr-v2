@@ -120,6 +120,11 @@ export function invalidateMarketHub(key: MarketHubCacheKey): void {
   notify(keyStr);
 }
 
+/** Write a merged snapshot (e.g. after live slice) without refetch. */
+export function putMarketHubSnapshot(key: MarketHubCacheKey, data: MarketHubResponse): void {
+  putEntry(key, data);
+}
+
 export type LoadMarketHubResult = {
   data: MarketHubResponse;
   fromCache: boolean;
@@ -188,3 +193,6 @@ export function marketHubAgeMs(key: MarketHubCacheKey): number | null {
 }
 
 export const MARKET_HUB_POLL_MS = POLICY.freshMs;
+
+/** Silent live-slice poll cadence (equity / marks). Full hub is not polled. */
+export const MARKET_HUB_LIVE_POLL_MS = POLICY.freshMs;

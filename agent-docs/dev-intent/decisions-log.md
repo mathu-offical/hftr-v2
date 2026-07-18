@@ -1162,11 +1162,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   position marks / uPnL / held SymbolTicker sparks, freshness `fetchedAt`. **Static until
   Sync or Analyze:** movers seal + reports, charts aggregates, provider lane inventory,
   watchlist/trend/pipeline row identity, Model algorithm canvas, sector focuses. Live poll
-  never sets Syncing…, never replaces static slices, and **pauses while Analyze runs** so
+  never sets Syncing…, never replaces static slices, uses a **ref-counted shared interval per
+  company** (panel + overlay), and **pauses while Analyze runs** (shared busy flag) so
   backend drain is not contended by UI refresh. Manual Sync = full hub; Analyze = POST then
   one full hub reload. User intent: regular updates only where efficient; backend Analyze
-  remains unblocked by UI cadence. Docs: ui-spec §4, research-live-system-cadence.md.
-  **Status: implemented.**
+  remains unblocked by UI cadence. Docs: ui-spec §4, research-live-system-cadence.md,
+  data-model.md (hub projection APIs). **Status: implemented.**
 
 - **D-113 (bottom panel tabs top-when-expanded, 2026-07-18):** Expanded middle-bottom panel
   places the tab strip + engine dropdown + collapse control at the **top** of the window;

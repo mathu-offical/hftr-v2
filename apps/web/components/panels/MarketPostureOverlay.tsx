@@ -163,7 +163,7 @@ export function MarketPostureOverlay() {
               type="button"
               onClick={() => void refresh(true)}
               disabled={refreshing || analyzing}
-              title="Reload live hub projection (marks, seals, positions). Automatic while open."
+              title="Full hub reload (seals, reports, charts). Live equity/marks poll separately."
               className="border border-[var(--color-line)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--color-ink-dim)] hover:border-[var(--color-ink-faint)] hover:text-[var(--color-ink)] disabled:opacity-50"
             >
               Sync

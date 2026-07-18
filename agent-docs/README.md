@@ -31,7 +31,7 @@ implementation proceeds.
 | `architecture/broker-integration.md` | Broker adapter layer: Alpaca, Kalshi, Polymarket, crypto; funding UX |
 | `architecture/research-document-shapes.md` | SystemDocKind rigid shapes + librarian score bands (D-069) |
 | `architecture/research-relevance-graph.md` | Typed relevance graph (“basic vector”); pgvector deferred |
-| `architecture/research-live-system-cadence.md` | System folder schedules, query plan, live movers/news (D-070) |
+| `architecture/research-live-system-cadence.md` | System folder schedules, Analyze vs Sync vs live poll (D-070 / D-111 / D-112) |
 | `architecture/research-curation-priors.md` | Weak-supervision LFs / reject-repair priors (D-071) |
 | `architecture/research-verified-normalize.md` | Multi-source seal + dual view/report persist (D-072) |
 | `product/product-spec.md` | Companies, modules, funds, policies, assistant — full product behavior |

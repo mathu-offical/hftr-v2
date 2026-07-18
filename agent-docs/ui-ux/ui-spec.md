@@ -279,11 +279,13 @@ suppressed in editable fields.
   hub `fetchedAt` + movers expiry. Hover justification (D-083) where wired.
   Distinct from Research + Libraries (async corpus).   Hub data uses client **SWR cache**
   (`market-hub-cache` + `useMarketHub`): memory + sessionStorage, 15s fresh / 10m stale for
-  full hub, inflight dedupe, shell warm-prefetch so tab/overlay navigation stays seamless.
-  **Live vs static (D-112):** automatic poll hits lightweight `GET …/market-hub/live`
-  (equity + position marks/sparks only) and merges without remounting static slices; Syncing…
-  only on manual Sync (full hub). Analyze pauses live poll, runs POST drain, then one full
-  reload — UI cadence never blocks backend jobs.
+  **full hub** cache policy (used on mount/Sync/after Analyze), inflight dedupe, shell
+  warm-prefetch. Automatic refresh is **not** a full-hub poll.
+  **Live vs static (D-112):** one shared ~15s interval per company hits
+  `GET …/market-hub/live` (equity + position marks/sparks only) and merges into the cached
+  snapshot without replacing seals/reports/charts/sources/Model; Syncing… only on manual Sync.
+  Analyze pauses that live poll (shared across rail + overlay), runs POST drain, then one full
+  hub reload — UI cadence never enqueues or blocks posture jobs.
   Visible surfaces: live equity/positions refresh on the live cadence; seals/reports/charts/
   Model stay stable until Sync or Analyze.
   **Provider surfaces (D-103):** movers compound gathers only credential-ready / public kinds

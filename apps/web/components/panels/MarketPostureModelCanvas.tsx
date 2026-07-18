@@ -127,9 +127,11 @@ function InnerCanvas() {
 
 /**
  * Read-only canvas of baseline Market posture processing (D-111).
- * Not an execution engine — documents system_movers compound path.
+ * Static UI — never driven by live hub poll (D-112).
  */
-export function MarketPostureModelCanvas(props: { className?: string }) {
+export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(props: {
+  className?: string;
+}) {
   return (
     <div
       data-testid="market-posture-model-canvas"
@@ -142,4 +144,5 @@ export function MarketPostureModelCanvas(props: { className?: string }) {
       </ReactFlowProvider>
     </div>
   );
-}
+});
+

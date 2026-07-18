@@ -6,42 +6,43 @@ import { api, RequestError } from '@/lib/client';
 import {
   invalidateMarketHub,
   loadMarketHub,
-  MARKET_HUB_POLL_MS,
   marketHubKeyString,
   peekMarketHub,
   subscribeMarketHubCache,
   type MarketHubCacheKey,
 } from '@/lib/market-hub-cache';
+import {
+  acquireMarketHubLivePoll,
+  beginMarketHubAnalyze,
+  endMarketHubAnalyze,
+  isMarketHubAnalyzeBusy,
+  subscribeMarketHubAnalyze,
+} from '@/lib/market-hub-live-runtime';
 
 export type UseMarketHubResult = {
   data: MarketHubResponse | null;
-  /** True when no usable data is available yet. */
   loading: boolean;
-  /** True when cached data is shown while a GET revalidate is in flight. */
+  /** Manual Sync (full hub) in flight — not set by silent live poll. */
   refreshing: boolean;
-  /** True while master Analyze (LLM posture pass) is draining. */
+  /** Master Analyze (POST) in flight — live poll paused (shared across panel/overlay). */
   analyzing: boolean;
   error: string | null;
-  /** GET-only live hub sync (automatic poll also uses this). */
+  /** Full hub GET (mount / manual Sync). */
   refresh: (force?: boolean) => Promise<void>;
-  /**
-   * @deprecated Prefer refresh() for live sync and analyze() for LLM pass.
-   * Kept as alias to analyze() for older callers.
-   */
+  /** @deprecated Alias of analyze(). */
   refreshMovers: () => Promise<void>;
-  /** Master Analyze — force reseal movers + sector + daily; tactical LLM thresholds. */
   analyze: () => Promise<void>;
 };
 
 /**
- * Shared Market posture hub subscription (stale-while-revalidate + poll).
- * Sync = GET projection. Analyze = POST …/analyze (LLM + seals).
+ * Market posture hub subscription (D-111 / D-112).
+ * - Full hub: mount + Sync + after Analyze
+ * - Live slice poll: shared per company, equity/marks only, silent, never blocks Analyze
  */
 export function useMarketHub(
   companyId: string | null,
   opts?: {
     enabled?: boolean;
-    /** Background poll while enabled. Default true. */
     poll?: boolean;
   },
 ): UseMarketHubResult {
@@ -58,7 +59,9 @@ export function useMarketHub(
     return peekMarketHub(key) === null;
   });
   const [refreshing, setRefreshing] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzing, setAnalyzing] = useState(() =>
+    companyId ? isMarketHubAnalyzeBusy(companyId) : false,
+  );
   const [error, setError] = useState<string | null>(null);
   const analyzeBusy = useRef(false);
 
@@ -72,7 +75,7 @@ export function useMarketHub(
       if (!key || !enabled) return;
       const had = peekMarketHub(key) !== null;
       if (!had) setLoading(true);
-      else setRefreshing(true);
+      else if (force) setRefreshing(true);
       try {
         const result = await loadMarketHub(key, fetcher, {
           force,
@@ -95,7 +98,7 @@ export function useMarketHub(
   const analyze = useCallback(async () => {
     if (!companyId || !key || analyzeBusy.current) return;
     analyzeBusy.current = true;
-    setAnalyzing(true);
+    beginMarketHubAnalyze(companyId);
     try {
       await api<MarketHubAnalyzeResponse>(`/api/companies/${companyId}/market-hub/analyze`, {
         method: 'POST',
@@ -105,12 +108,21 @@ export function useMarketHub(
     } catch (err) {
       setError(err instanceof RequestError ? err.message : 'Analyze failed');
     } finally {
+      endMarketHubAnalyze(companyId);
       analyzeBusy.current = false;
-      setAnalyzing(false);
     }
   }, [companyId, key, refresh]);
 
   const refreshMovers = analyze;
+
+  useEffect(() => {
+    if (!companyId) return;
+    setAnalyzing(isMarketHubAnalyzeBusy(companyId));
+    return subscribeMarketHubAnalyze((id, busy) => {
+      if (id !== companyId) return;
+      setAnalyzing(busy);
+    });
+  }, [companyId]);
 
   useEffect(() => {
     if (!key || !keyStr || !enabled) return;
@@ -128,10 +140,9 @@ export function useMarketHub(
   }, [keyStr, enabled, key, refresh]);
 
   useEffect(() => {
-    if (!key || !enabled || !poll) return;
-    const interval = setInterval(() => void refresh(false), MARKET_HUB_POLL_MS);
-    return () => clearInterval(interval);
-  }, [key, enabled, poll, refresh]);
+    if (!companyId || !enabled || !poll) return;
+    return acquireMarketHubLivePoll(companyId);
+  }, [companyId, enabled, poll]);
 
   return { data, loading, refreshing, analyzing, error, refresh, refreshMovers, analyze };
 }

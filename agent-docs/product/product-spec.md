@@ -199,6 +199,16 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   `config.mathType`; dedicated tools provision with the type matching the owner. See
   `architecture/number-handling.md` and `architecture/engine-node-family-design.md`.
 
+### Market posture hub (baseline awareness, D-081–D-112)
+
+Operator-facing **Market posture** left tab + canvas overlay is the live desk for open
+positions, watchlists, trends, and pipeline plans — distinct from Research + Libraries
+(async corpus). Baseline market awareness (movers compound, synthetic marks, SymbolTicker)
+runs **without requiring engine modules**. **Analyze** (D-111) is the master LLM-backed
+pass (force reseal + tactical thresholds); **Sync** reloads full hub projection; automatic
+**live poll** (D-112) updates only equity/marks on a shared ~15s interval so seals and the
+Model algorithm canvas stay stable and Analyze is never blocked by UI refresh.
+
 ## 4. Funds model
 
 - Paper companies: seeded from platform credits (Stripe one-click purchases). Simulated capital

@@ -17,7 +17,9 @@ import {
   computeFolderCenters3D,
   computeLibraryCenters3D,
   createArticleOrbitForce,
+  createFolderCohereForce,
   createFolderNestForce,
+  createForeignLibraryRepelForce,
   createLibraryNestForce,
   createTagSatelliteForce,
   hashSpread3D,
@@ -389,34 +391,51 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     const tagSatellites = buildTagSatelliteNodes(conceptNodes);
 
     const libraryHulls = buildLibraryHullNodes(libraryCenters, libraryFilter);
+    // Folder shells only when a library is scoped, or the heaviest folder per library —
+    // otherwise 17+ folder spheres flatten the hierarchy into a uniform cloud.
+    const folderInputs = [...folderCenters.values()]
+      .filter((center) => !libraryFilter || libraryFilter.has(center.libraryId))
+      .map((center) => ({
+        libraryId: center.libraryId,
+        folderKey: center.folderKey,
+        label: center.name,
+        x: center.x,
+        y: center.y,
+        z: center.z,
+        radius: center.radius,
+        mass: center.mass,
+      }));
     const folderHulls = buildFolderHullNodes(
-      [...folderCenters.values()]
-        .filter((center) => !libraryFilter || libraryFilter.has(center.libraryId))
-        .map((center) => ({
-          libraryId: center.libraryId,
-          folderKey: center.folderKey,
-          label: center.name,
-          x: center.x,
-          y: center.y,
-          z: center.z,
-          radius: center.radius,
-          mass: center.mass,
-        })),
+      libraryFilter
+        ? folderInputs
+        : (() => {
+            const bestByLib = new Map<string, (typeof folderInputs)[number]>();
+            for (const folder of folderInputs) {
+              const prev = bestByLib.get(folder.libraryId);
+              if (!prev || folder.mass > prev.mass) bestByLib.set(folder.libraryId, folder);
+            }
+            return [...bestByLib.values()];
+          })(),
     );
-    const articleHulls = buildArticleHullNodes(
-      [...articleCenters.values()]
-        .filter(
-          (center) => !center.libraryId || !libraryFilter || libraryFilter.has(center.libraryId),
-        )
-        .map((center) => ({
-          topicId: center.topicId,
-          title: center.title,
-          x: center.x,
-          y: center.y,
-          z: center.z,
-          radius: center.radius,
-        })),
-    );
+    // Article shells only under topic focus — dozens of article hulls read as uniform noise.
+    const articleHulls =
+      focusSet && focusSet.size > 0
+        ? buildArticleHullNodes(
+            [...articleCenters.values()]
+              .filter(
+                (center) =>
+                  !center.libraryId || !libraryFilter || libraryFilter.has(center.libraryId),
+              )
+              .map((center) => ({
+                topicId: center.topicId,
+                title: center.title,
+                x: center.x,
+                y: center.y,
+                z: center.z,
+                radius: center.radius,
+              })),
+          )
+        : [];
     const companyHull = buildCompanyHullNode(libraryCenters, libraryFilter);
     const hullNodes: NestHullNode[] = [
       companyHull,
@@ -512,26 +531,28 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               if (n.__kind === 'tag-sat') return baseCharge * 0.28;
               return baseCharge;
             })
-            .distanceMax(380),
+            .distanceMax(260),
         );
 
         const center = fg.d3Force('center') as { strength?: (n: number) => unknown } | undefined;
         // Soft global centering — nest forces own local structure.
-        center?.strength?.(0.028);
+        center?.strength?.(0.012);
 
         fg.d3Force(
           'collide',
           forceCollide((node: unknown) => {
             const n = node as GalaxySimNode & { __kind?: string };
             if (n.__kind === 'nest-hull') return 0;
-            if (n.__kind === 'tag-sat') return Math.cbrt(n.val ?? 0.35) * 2.6;
-            return Math.cbrt(n.val ?? 1) * 4.8;
+            if (n.__kind === 'tag-sat') return Math.cbrt(n.val ?? 0.35) * 2.2;
+            return Math.cbrt(n.val ?? 1) * 3.6;
           })
-            .strength(0.92)
-            .iterations(3),
+            .strength(0.75)
+            .iterations(2),
         );
         fg.d3Force('nest', createLibraryNestForce(libraryCenters));
         fg.d3Force('folderNest', createFolderNestForce(folderCenters));
+        fg.d3Force('folderCohere', createFolderCohereForce());
+        fg.d3Force('foreignRepel', createForeignLibraryRepelForce(libraryCenters));
         fg.d3Force('articleOrbit', createArticleOrbitForce(articleCenters));
         fg.d3Force('tagSat', createTagSatelliteForce());
 
@@ -1501,8 +1522,8 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               nodeLabel={() => ''}
               linkLabel={() => ''}
               nodeVal="val"
-              nodeRelSize={4.2}
-              nodeOpacity={hasTopicFocus || hoverNeighborIds ? 0.96 : 0.9}
+              nodeRelSize={5.2}
+              nodeOpacity={hasTopicFocus || hoverNeighborIds ? 0.96 : 0.88}
               nodeColor={nodeColor as (node: object) => string}
               nodeThreeObject={nodeThreeObject as (node: object) => object | undefined}
               nodeThreeObjectExtend={false}

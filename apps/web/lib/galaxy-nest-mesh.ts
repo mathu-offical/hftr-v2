@@ -1,6 +1,7 @@
 /**
  * Three.js meshes for galaxy organizational hull spheres (client-only).
  * Emphasis: idle / dim / hover / selected — company never drops below idle floor.
+ * Kind-differentiated shells + always-on library/folder sprite labels (D-107).
  */
 
 import * as THREE from 'three';
@@ -13,15 +14,15 @@ type OpacitySet = { shell: number; wire: number; ring: number; meridian: number 
 function baseOpacities(hullKind: NestHullKind): OpacitySet {
   switch (hullKind) {
     case 'company':
-      return { shell: 0.03, wire: 0.2, ring: 0.16, meridian: 0.12 };
+      return { shell: 0.02, wire: 0.14, ring: 0.1, meridian: 0.08 };
     case 'library':
-      return { shell: 0.055, wire: 0.42, ring: 0.34, meridian: 0.22 };
+      return { shell: 0.07, wire: 0.52, ring: 0.42, meridian: 0.28 };
     case 'folder':
-      return { shell: 0.04, wire: 0.28, ring: 0.22, meridian: 0.12 };
+      return { shell: 0.045, wire: 0.34, ring: 0.3, meridian: 0.14 };
     case 'article':
-      return { shell: 0.055, wire: 0.38, ring: 0.28, meridian: 0.14 };
+      return { shell: 0.035, wire: 0.28, ring: 0.22, meridian: 0.1 };
     case 'topic':
-      return { shell: 0.08, wire: 0.55, ring: 0.4, meridian: 0.22 };
+      return { shell: 0.09, wire: 0.6, ring: 0.45, meridian: 0.26 };
     default: {
       const _exhaustive: never = hullKind;
       return _exhaustive;
@@ -94,6 +95,72 @@ function scaleOpacities(base: OpacitySet, emphasis: NestEmphasis, hullKind: Nest
   }
 }
 
+/** Canvas sprite label above nest — always on for library/folder; hover for article. */
+function createNestLabelSprite(
+  label: string,
+  color: string,
+  hullKind: NestHullKind,
+  emphasis: NestEmphasis,
+): THREE.Sprite | null {
+  const trimmed = label.trim();
+  if (!trimmed) return null;
+
+  const alwaysOn = hullKind === 'library' || hullKind === 'folder' || hullKind === 'topic';
+  if (!alwaysOn && emphasis !== 'hover' && emphasis !== 'selected') return null;
+  if (hullKind === 'company' && emphasis === 'idle') return null;
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  const fontSize = hullKind === 'library' ? 42 : hullKind === 'folder' ? 34 : 28;
+  const padX = 18;
+  const padY = 10;
+  ctx.font = `${hullKind === 'library' ? 700 : 600} ${fontSize}px ui-sans-serif, system-ui, sans-serif`;
+  const metrics = ctx.measureText(trimmed);
+  const w = Math.ceil(metrics.width + padX * 2);
+  const h = Math.ceil(fontSize + padY * 2);
+  canvas.width = w;
+  canvas.height = h;
+
+  ctx.font = `${hullKind === 'library' ? 700 : 600} ${fontSize}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.fillStyle = 'rgba(8, 12, 20, 0.82)';
+  ctx.beginPath();
+  const r = 8;
+  ctx.moveTo(r, 0);
+  ctx.arcTo(w, 0, w, h, r);
+  ctx.arcTo(w, h, 0, h, r);
+  ctx.arcTo(0, h, 0, 0, r);
+  ctx.arcTo(0, 0, w, 0, r);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle =
+    emphasis === 'selected' ? 'rgba(192, 202, 245, 0.7)' : `${color}99`;
+  ctx.lineWidth = hullKind === 'library' ? 2.5 : 1.5;
+  ctx.stroke();
+
+  ctx.fillStyle = emphasis === 'selected' ? '#e8ecf4' : color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(trimmed, w / 2, h / 2 + 1);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,
+    opacity: emphasis === 'dim' ? 0.35 : hullKind === 'library' ? 0.95 : 0.88,
+  });
+  const sprite = new THREE.Sprite(material);
+  const scale = hullKind === 'library' ? 28 : hullKind === 'folder' ? 22 : 18;
+  sprite.scale.set((w / h) * scale, scale, 1);
+  sprite.userData.nestPart = 'label';
+  return sprite;
+}
+
 export function createNestHullObject3d(
   node: NestHullNode,
   emphasis: NestEmphasis = 'idle',
@@ -104,12 +171,14 @@ export function createNestHullObject3d(
   const hullKind = node.__hullKind;
   const isCompany = hullKind === 'company';
   const isTopic = hullKind === 'topic';
+  const isLibrary = hullKind === 'library';
   const isFolder = hullKind === 'folder';
   const isArticle = hullKind === 'article';
   const opacities = scaleOpacities(baseOpacities(hullKind), emphasis, hullKind);
 
-  const latSeg = isCompany ? 36 : isTopic || isArticle ? 24 : isFolder ? 20 : 22;
-  const lonSeg = isCompany ? 24 : isTopic || isArticle ? 16 : isFolder ? 14 : 14;
+  // Kind-differentiated tessellation: library dense, folder mid, article sparse.
+  const latSeg = isCompany ? 28 : isLibrary ? 28 : isTopic ? 24 : isFolder ? 16 : isArticle ? 12 : 20;
+  const lonSeg = isCompany ? 18 : isLibrary ? 20 : isTopic ? 16 : isFolder ? 12 : isArticle ? 10 : 14;
 
   const shell = new THREE.Mesh(
     new THREE.SphereGeometry(radius, latSeg, lonSeg),
@@ -137,8 +206,13 @@ export function createNestHullObject3d(
   wire.userData.nestPart = 'wire';
   group.add(wire);
 
+  // Library: thick dual equator. Folder: single thin. Article: sparse dashed-feel ring.
+  const ringInner = isLibrary ? radius * 0.97 : isFolder ? radius * 0.99 : radius * 0.985;
+  const ringOuter = isLibrary ? radius * 1.04 : isFolder ? radius * 1.012 : radius * 1.02;
+  const ringSegs = isArticle ? 32 : 64;
+
   const ring = new THREE.Mesh(
-    new THREE.RingGeometry(radius * 0.985, radius * 1.015, 64),
+    new THREE.RingGeometry(ringInner, ringOuter, ringSegs),
     new THREE.MeshBasicMaterial({
       color,
       transparent: true,
@@ -151,7 +225,23 @@ export function createNestHullObject3d(
   ring.userData.nestPart = 'ring';
   group.add(ring);
 
-  if (!isFolder) {
+  if (isLibrary) {
+    const ring2 = new THREE.Mesh(
+      new THREE.RingGeometry(radius * 0.78, radius * 0.8, 48),
+      new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: opacities.ring * 0.65,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    );
+    ring2.rotation.x = Math.PI / 2;
+    ring2.userData.nestPart = 'ringInner';
+    group.add(ring2);
+  }
+
+  if (!isFolder && !isArticle) {
     const meridian = ring.clone();
     meridian.rotation.x = 0;
     meridian.rotation.y = Math.PI / 2;
@@ -159,6 +249,22 @@ export function createNestHullObject3d(
     (meridian.material as THREE.MeshBasicMaterial).opacity = opacities.meridian;
     meridian.userData.nestPart = 'meridian';
     group.add(meridian);
+  }
+
+  if (isFolder) {
+    // Octahedron wire cue — folders read as angular clusters inside smooth library shells.
+    const octa = new THREE.Mesh(
+      new THREE.OctahedronGeometry(radius * 0.92, 0),
+      new THREE.MeshBasicMaterial({
+        color,
+        wireframe: true,
+        transparent: true,
+        opacity: opacities.wire * 0.55,
+        depthWrite: false,
+      }),
+    );
+    octa.userData.nestPart = 'octa';
+    group.add(octa);
   }
 
   // Outer halo — always present; visibility toggled by emphasis (avoids mesh rebuild).
@@ -176,6 +282,12 @@ export function createNestHullObject3d(
   halo.userData.nestPart = 'halo';
   halo.visible = emphasis === 'hover' || emphasis === 'selected';
   group.add(halo);
+
+  const labelSprite = createNestLabelSprite(node.__label, node.__color, hullKind, emphasis);
+  if (labelSprite) {
+    labelSprite.position.set(0, radius + (isLibrary ? 14 : 10), 0);
+    group.add(labelSprite);
+  }
 
   const scale = emphasis === 'selected' ? 1.035 : 1;
   group.scale.set(scale, scale, scale);
@@ -198,7 +310,18 @@ export function applyNestHullEmphasis(
   group.userData.nestEmphasis = emphasis;
 
   group.traverse((child) => {
-    if (!(child instanceof THREE.Mesh)) return;
+    if (!(child instanceof THREE.Mesh) && !(child instanceof THREE.Sprite)) return;
+
+    if (child instanceof THREE.Sprite) {
+      const mat = child.material as THREE.SpriteMaterial;
+      if (mat) {
+        mat.opacity = emphasis === 'dim' ? 0.35 : hullKind === 'library' ? 0.95 : 0.88;
+        mat.needsUpdate = true;
+      }
+      child.visible = emphasis !== 'dim' || hullKind === 'company' || hullKind === 'library';
+      return;
+    }
+
     const mat = child.material as THREE.MeshBasicMaterial;
     if (!mat || !('opacity' in mat)) return;
     const part = child.userData.nestPart as string | undefined;
@@ -207,10 +330,12 @@ export function applyNestHullEmphasis(
         mat.opacity = opacities.shell;
         break;
       case 'wire':
-        mat.opacity = opacities.wire;
+      case 'octa':
+        mat.opacity = part === 'octa' ? opacities.wire * 0.55 : opacities.wire;
         break;
       case 'ring':
-        mat.opacity = opacities.ring;
+      case 'ringInner':
+        mat.opacity = part === 'ringInner' ? opacities.ring * 0.65 : opacities.ring;
         break;
       case 'meridian':
         mat.opacity = opacities.meridian;
@@ -253,12 +378,13 @@ export function paintNestHull2d(
   const color = node.__color ?? '#7aa2f7';
   const isCompany = node.__hullKind === 'company';
   const isTopic = node.__hullKind === 'topic';
+  const isLibrary = node.__hullKind === 'library';
   const isFolder = node.__hullKind === 'folder';
   const isArticle = node.__hullKind === 'article';
   const emphasis: NestEmphasis = node.__emphasis ?? 'idle';
 
-  let fillA = isCompany ? 0.035 : isArticle ? 0.06 : isTopic ? 0.08 : isFolder ? 0.04 : 0.06;
-  let strokeA = isCompany ? 0.3 : isArticle ? 0.5 : isTopic ? 0.7 : isFolder ? 0.38 : 0.55;
+  let fillA = isCompany ? 0.03 : isLibrary ? 0.08 : isArticle ? 0.05 : isTopic ? 0.09 : isFolder ? 0.05 : 0.06;
+  let strokeA = isCompany ? 0.28 : isLibrary ? 0.7 : isArticle ? 0.45 : isTopic ? 0.75 : isFolder ? 0.5 : 0.55;
   if (emphasis === 'dim') {
     fillA *= isCompany ? 0.85 : 0.35;
     strokeA *= isCompany ? 0.75 : 0.3;
@@ -282,7 +408,7 @@ export function paintNestHull2d(
   ctx.strokeStyle = color;
   ctx.globalAlpha = strokeA;
   ctx.lineWidth =
-    ((isCompany ? 1.1 : isArticle || isFolder ? 1.2 : 1.7) *
+    ((isCompany ? 1.1 : isLibrary ? 2.2 : isArticle || isFolder ? 1.3 : 1.7) *
       (emphasis === 'selected' ? 1.5 : emphasis === 'hover' ? 1.25 : 1)) /
     Math.max(globalScale * 0.5, 0.35);
   if (isTopic || isArticle) {
@@ -295,6 +421,15 @@ export function paintNestHull2d(
   ctx.stroke();
   ctx.setLineDash([]);
 
+  if (isLibrary) {
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.78, 0, Math.PI * 2);
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = strokeA * 0.55;
+    ctx.lineWidth = 1.1 / Math.max(globalScale * 0.5, 0.35);
+    ctx.stroke();
+  }
+
   if (emphasis === 'hover' || emphasis === 'selected') {
     ctx.beginPath();
     ctx.arc(x, y, r * (emphasis === 'selected' ? 1.08 : 1.045), 0, Math.PI * 2);
@@ -305,14 +440,29 @@ export function paintNestHull2d(
   }
 
   const label = node.__label ?? '';
-  const labelZoom = isFolder ? 1.15 : isArticle ? 0.9 : 0.55;
-  const forceLabel = emphasis === 'hover' || emphasis === 'selected';
+  // Library/folder labels prefer earlier zoom; articles only when close or focused.
+  const labelZoom = isLibrary ? 0.35 : isFolder ? 0.55 : isArticle ? 1.05 : 0.7;
+  const forceLabel =
+    emphasis === 'hover' ||
+    emphasis === 'selected' ||
+    isLibrary ||
+    (isFolder && globalScale > 0.4);
   if (label && (forceLabel || globalScale > labelZoom)) {
-    const fontSize = Math.max(9 / globalScale, 2.2);
-    ctx.font = `${forceLabel ? 600 : 500} ${fontSize}px sans-serif`;
+    const fontSize = Math.max((isLibrary ? 11 : 9) / globalScale, 2.2);
+    ctx.font = `${forceLabel || isLibrary ? 600 : 500} ${fontSize}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.globalAlpha = forceLabel ? 0.95 : isFolder ? 0.7 : 0.85;
+    const metrics = ctx.measureText(label);
+    const pad = 3 / globalScale;
+    ctx.globalAlpha = 0.82;
+    ctx.fillStyle = 'rgba(8, 12, 20, 0.85)';
+    ctx.fillRect(
+      x - (metrics.width + pad * 2) / 2,
+      y - r - fontSize - 8 / globalScale,
+      metrics.width + pad * 2,
+      fontSize + pad * 2,
+    );
+    ctx.globalAlpha = forceLabel ? 0.95 : isFolder ? 0.78 : 0.9;
     ctx.fillStyle = forceLabel && emphasis === 'selected' ? '#e8ecf4' : color;
     ctx.fillText(label, x, y - r - 6 / globalScale);
   }

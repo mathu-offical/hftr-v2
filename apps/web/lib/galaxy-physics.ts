@@ -94,14 +94,18 @@ export function linkStrengthForWeight(weightBand: ResearchGraphLink['weightBand'
 }
 
 export function chargeStrengthForGraphSize(nodeCount: number): number {
-  // Slightly stronger repulsion so nests read as clouds rather than stacked blobs.
-  if (nodeCount > 400) return -52;
-  if (nodeCount > 200) return -78;
-  if (nodeCount > 80) return -105;
-  return -132;
+  // Softer global charge so nest attractors dominate (avoids uniform cloud).
+  if (nodeCount > 400) return -28;
+  if (nodeCount > 200) return -42;
+  if (nodeCount > 80) return -58;
+  return -72;
 }
 
-/** Place library nests on a 3D ring with slight vertical stagger. */
+/**
+ * Place library nests on a size-ranked golden spiral (not an equal ring).
+ * Large libraries sit farther out with larger hull radii so clusters read as
+ * distinct masses instead of a uniform necklace.
+ */
 export function computeLibraryCenters3D(
   nests: ResearchGraphLibraryNest[],
   nodes: Array<{ primaryLibraryId?: string | null }>,
@@ -116,20 +120,29 @@ export function computeLibraryCenters3D(
           ),
         ];
 
-  const count = Math.max(libIds.length, 1);
-  const ringRadius = Math.min(280, 90 + count * 42);
-  const centers = new Map<string, LibraryCenter3D>();
+  const ranked = [...libIds].sort((a, b) => {
+    const ca = libMeta.get(a)?.conceptCount ?? 0;
+    const cb = libMeta.get(b)?.conceptCount ?? 0;
+    if (cb !== ca) return cb - ca;
+    return a.localeCompare(b);
+  });
 
-  libIds.forEach((id, i) => {
-    const angle = (2 * Math.PI * i) / count - Math.PI / 2;
+  const centers = new Map<string, LibraryCenter3D>();
+  const golden = Math.PI * (3 - Math.sqrt(5));
+
+  ranked.forEach((id, i) => {
     const meta = libMeta.get(id);
     const conceptCount = meta?.conceptCount ?? 3;
-    const z = ((i % 3) - 1) * (28 + count * 4);
+    const sizeBoost = Math.min(140, conceptCount * 3.2);
+    // Strong radius steps so nests don't read as an equal necklace.
+    const spiralR = 55 + i * 38 + Math.sqrt(i + 1) * 28 + sizeBoost * 0.55;
+    const angle = i * golden - Math.PI / 2;
+    const z = ((i % 5) - 2) * (22 + Math.min(18, conceptCount * 0.45));
     centers.set(id, {
-      x: Math.cos(angle) * ringRadius,
-      y: Math.sin(angle) * ringRadius,
+      x: Math.cos(angle) * spiralR,
+      y: Math.sin(angle) * spiralR,
       z,
-      radius: 55 + Math.min(70, conceptCount * 1.8),
+      radius: 36 + Math.min(120, conceptCount * 3.1 + sizeBoost * 0.35),
       name: meta?.name ?? 'Library',
     });
   });
@@ -153,14 +166,12 @@ export function hashSpread3D(id: string): { dx: number; dy: number; dz: number }
 
 /**
  * Soft spherical nest force: mild attract to library center + restore when outside hull.
- * Compatible with d3-force-3d custom force interface.
+ * When a folder key is present, library pull weakens so folder spheres own local structure.
  */
 export function createLibraryNestForce(centers: Map<string, LibraryCenter3D>) {
   let nodes: GalaxySimNode[] = [];
 
   function force(alpha: number) {
-    const pull = alpha * 0.055;
-    const restore = alpha * 0.52;
     for (const node of nodes) {
       if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
       const libId = node.primaryLibraryId;
@@ -168,11 +179,15 @@ export function createLibraryNestForce(centers: Map<string, LibraryCenter3D>) {
       const center = centers.get(libId);
       if (!center) continue;
 
+      const hasFolder = Boolean(node.primaryFolderKey);
+      const pull = alpha * (hasFolder ? 0.018 : 0.05);
+      const restore = alpha * (hasFolder ? 0.28 : 0.62);
+
       const dx = (node.x ?? 0) - center.x;
       const dy = (node.y ?? 0) - center.y;
       const dz = (node.z ?? 0) - center.z;
       const dist = Math.hypot(dx, dy, dz) || 1e-6;
-      const maxR = center.radius * 0.86;
+      const maxR = center.radius * (hasFolder ? 0.92 : 0.82);
 
       if (dist > maxR) {
         const k = ((dist - maxR) / dist) * restore;
@@ -227,16 +242,18 @@ export function computeFolderCenters3D(opts: {
     if (!parent) continue;
 
     const count = Math.max(libFolders.length, 1);
-    const ringRadius = parent.radius * 0.42;
+    // Mass-weighted ring — denser folders sit closer to library core.
+    const sorted = [...libFolders].sort((a, b) => b.mass - a.mass || b.memberCount - a.memberCount);
 
-    libFolders.forEach((folder, i) => {
-      const angle = (2 * Math.PI * i) / count - Math.PI / 2;
+    sorted.forEach((folder, i) => {
+      const angle = (2 * Math.PI * i) / count - Math.PI / 2 + i * 0.17;
+      const ringRadius = parent.radius * (0.28 + (i / Math.max(count, 1)) * 0.38);
       const key = `${libraryId}::${folder.folderKey}`;
       centers.set(key, {
         x: parent.x + Math.cos(angle) * ringRadius,
         y: parent.y + Math.sin(angle) * ringRadius,
-        z: parent.z + ((i % 3) - 1) * 8,
-        radius: 22 + Math.min(40, folder.mass * 1.6 + folder.memberCount * 0.8),
+        z: parent.z + ((i % 4) - 1.5) * (10 + folder.mass * 0.4),
+        radius: 18 + Math.min(48, folder.mass * 2.1 + folder.memberCount * 1.1),
         name: folder.label,
         folderKey: folder.folderKey,
         libraryId: folder.libraryId,
@@ -297,15 +314,19 @@ export function computeArticleOrbitCenters3D(opts: {
     const parentRadius = parent?.radius ?? 55;
 
     const count = Math.max(group.length, 1);
-    const ringRadius = parentRadius * 0.35;
+    const golden = Math.PI * (3 - Math.sqrt(5));
 
-    group.forEach((article, i) => {
-      const angle = (2 * Math.PI * i) / count - Math.PI / 2;
+    // Size-ranked spiral inside parent — avoids equal-ring “necklace” of articles.
+    const ranked = [...group].sort((a, b) => b.memberCount - a.memberCount || a.topicId.localeCompare(b.topicId));
+
+    ranked.forEach((article, i) => {
+      const angle = i * golden - Math.PI / 2;
+      const spiralR = parentRadius * (0.18 + Math.sqrt(i + 1) / Math.sqrt(count + 1) * 0.42);
       centers.set(article.topicId, {
-        x: parentX + Math.cos(angle) * ringRadius,
-        y: parentY + Math.sin(angle) * ringRadius,
-        z: parentZ + ((i % 3) - 1) * 5,
-        radius: 14 + Math.min(28, article.memberCount * 2.2),
+        x: parentX + Math.cos(angle) * spiralR,
+        y: parentY + Math.sin(angle) * spiralR,
+        z: parentZ + ((i % 4) - 1.5) * (4 + article.memberCount * 0.35),
+        radius: 12 + Math.min(32, article.memberCount * 2.4),
         topicId: article.topicId,
         title: article.title,
         libraryId: article.libraryId,
@@ -322,9 +343,8 @@ export function createFolderNestForce(centers: Map<string, FolderCenter3D>) {
   let nodes: GalaxySimNode[] = [];
 
   function force(alpha: number) {
-    // Folders win over library soft-pull so catalog spheres stay coherent.
-    const pull = alpha * 0.07;
-    const restore = alpha * 0.58;
+    const pull = alpha * 0.11;
+    const restore = alpha * 0.78;
     for (const node of nodes) {
       if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
       const libId = node.primaryLibraryId;
@@ -337,7 +357,7 @@ export function createFolderNestForce(centers: Map<string, FolderCenter3D>) {
       const dy = (node.y ?? 0) - center.y;
       const dz = (node.z ?? 0) - center.z;
       const dist = Math.hypot(dx, dy, dz) || 1e-6;
-      const maxR = center.radius * 0.84;
+      const maxR = center.radius * 0.78;
 
       if (dist > maxR) {
         const k = ((dist - maxR) / dist) * restore;
@@ -348,6 +368,88 @@ export function createFolderNestForce(centers: Map<string, FolderCenter3D>) {
         node.vx = (node.vx ?? 0) - dx * pull;
         node.vy = (node.vy ?? 0) - dy * pull;
         node.vz = (node.vz ?? 0) - dz * pull;
+      }
+    }
+  }
+
+  force.initialize = (initNodes: GalaxySimNode[]) => {
+    nodes = initNodes;
+  };
+
+  return force;
+}
+
+/**
+ * Cohesion inside each folder: pull members toward the live centroid of the folder
+ * so sparse graphs (few concept_links) still form readable local blobs.
+ */
+export function createFolderCohereForce() {
+  let nodes: GalaxySimNode[] = [];
+
+  function force(alpha: number) {
+    const groups = new Map<string, GalaxySimNode[]>();
+    for (const node of nodes) {
+      if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
+      if (!node.primaryLibraryId || !node.primaryFolderKey) continue;
+      const key = `${node.primaryLibraryId}::${node.primaryFolderKey}`;
+      const list = groups.get(key) ?? [];
+      list.push(node);
+      groups.set(key, list);
+    }
+
+    const strength = alpha * 0.085;
+    for (const members of groups.values()) {
+      if (members.length < 2) continue;
+      let cx = 0;
+      let cy = 0;
+      let cz = 0;
+      for (const m of members) {
+        cx += m.x ?? 0;
+        cy += m.y ?? 0;
+        cz += m.z ?? 0;
+      }
+      cx /= members.length;
+      cy /= members.length;
+      cz /= members.length;
+      for (const m of members) {
+        m.vx = (m.vx ?? 0) + (cx - (m.x ?? 0)) * strength;
+        m.vy = (m.vy ?? 0) + (cy - (m.y ?? 0)) * strength;
+        m.vz = (m.vz ?? 0) + (cz - (m.z ?? 0)) * strength;
+      }
+    }
+  }
+
+  force.initialize = (initNodes: GalaxySimNode[]) => {
+    nodes = initNodes;
+  };
+
+  return force;
+}
+
+/**
+ * Push concepts out of foreign library hulls so nests stay spatially separate.
+ */
+export function createForeignLibraryRepelForce(centers: Map<string, LibraryCenter3D>) {
+  let nodes: GalaxySimNode[] = [];
+
+  function force(alpha: number) {
+    const strength = alpha * 0.55;
+    for (const node of nodes) {
+      if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
+      const home = node.primaryLibraryId;
+      if (!home) continue;
+      for (const [libId, center] of centers) {
+        if (libId === home) continue;
+        const dx = (node.x ?? 0) - center.x;
+        const dy = (node.y ?? 0) - center.y;
+        const dz = (node.z ?? 0) - center.z;
+        const dist = Math.hypot(dx, dy, dz) || 1e-6;
+        const keepOut = center.radius * 1.05;
+        if (dist >= keepOut) continue;
+        const k = ((keepOut - dist) / dist) * strength;
+        node.vx = (node.vx ?? 0) + dx * k;
+        node.vy = (node.vy ?? 0) + dy * k;
+        node.vz = (node.vz ?? 0) + dz * k;
       }
     }
   }

@@ -180,6 +180,12 @@ Clearing topic focus restores full brightness; nest layout stays.
   Click a nest to pin selection; background click clears.
 - Nest physics: stronger folder/article restore than library soft-pull so hierarchy reads as
   nested spheres; slightly stronger charge + collide to reduce stacked blobs.
+- **D-107 nest clarity:** libraries sit on a **size-ranked golden spiral** (not equal ring);
+  folder cohesion + foreign-library repel keep clusters distinct; article orbits spiral inside
+  parents. **Always-on 3D sprite labels** for library/folder hulls; folder octahedron wire cue;
+  library dual-ring shells. Default LOD: library hulls always, one heaviest folder hull per
+  library (all folders when library-filtered), article hulls only under topic focus. Slightly
+  larger concept spheres so clusters read against wireframes.
 - Tag orbit: max 16 chips; quieter chip chrome; pointer-events only on chips.
 - Library nest chips filter only (do not auto-open the library inspector); Clear
   libraries resets nest filter + selection. Empty vs loading copy distinguished

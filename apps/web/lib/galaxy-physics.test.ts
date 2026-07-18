@@ -4,8 +4,11 @@ import {
   combineLinkLayout,
   computeArticleOrbitCenters3D,
   computeFolderCenters3D,
+  computeLibraryCenters3D,
   createArticleOrbitForce,
+  createFolderCohereForce,
   createFolderNestForce,
+  createForeignLibraryRepelForce,
   createLibraryNestForce,
   createTagSatelliteForce,
   linkDistanceForWeight,
@@ -203,5 +206,90 @@ describe('galaxy-physics', () => {
     expect(blended.distance).toBeCloseTo(0.55 * weightOnly + 0.45 * simOnly);
     expect(blended.strength).toBeGreaterThan(0);
     expect(blended.strength).toBeLessThanOrEqual(1);
+  });
+
+  it('places libraries on a size-ranked spiral (not equal ring)', () => {
+    const centers = computeLibraryCenters3D(
+      [
+        {
+          id: '11111111-1111-1111-1111-111111111111',
+          name: 'Big',
+          masterLibrary: false,
+          topicScope: '',
+          conceptCount: 40,
+        },
+        {
+          id: '22222222-2222-2222-2222-222222222222',
+          name: 'Small',
+          masterLibrary: false,
+          topicScope: '',
+          conceptCount: 3,
+        },
+        {
+          id: '33333333-3333-3333-3333-333333333333',
+          name: 'Mid',
+          masterLibrary: false,
+          topicScope: '',
+          conceptCount: 12,
+        },
+      ],
+      [],
+    );
+    const big = centers.get('11111111-1111-1111-1111-111111111111')!;
+    const small = centers.get('22222222-2222-2222-2222-222222222222')!;
+    const mid = centers.get('33333333-3333-3333-3333-333333333333')!;
+    expect(big.radius).toBeGreaterThan(small.radius);
+    const radii = [Math.round(Math.hypot(big.x, big.y)), Math.round(Math.hypot(mid.x, mid.y)), Math.round(Math.hypot(small.x, small.y))];
+    expect(new Set(radii).size).toBeGreaterThan(1);
+  });
+
+  it('folder cohere pulls members toward live centroid', () => {
+    const a = {
+      primaryLibraryId: 'lib',
+      primaryFolderKey: 'f',
+      x: -40,
+      y: 0,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+    };
+    const b = {
+      primaryLibraryId: 'lib',
+      primaryFolderKey: 'f',
+      x: 40,
+      y: 0,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+    };
+    const force = createFolderCohereForce();
+    force.initialize([a, b]);
+    force(1);
+    expect(a.vx).toBeGreaterThan(0);
+    expect(b.vx).toBeLessThan(0);
+  });
+
+  it('foreign library repel pushes nodes out of other nests', () => {
+    const centers = new Map([
+      ['home', { x: 0, y: 0, z: 0, radius: 40, name: 'Home' }],
+      ['other', { x: 100, y: 0, z: 0, radius: 40, name: 'Other' }],
+    ]);
+    const node = {
+      primaryLibraryId: 'home',
+      // Inside foreign hull, offset from exact center so direction is defined.
+      x: 90,
+      y: 0,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+    };
+    const force = createForeignLibraryRepelForce(centers);
+    force.initialize([node]);
+    force(1);
+    // Push further away from foreign center (x=100) → negative vx.
+    expect(node.vx).toBeLessThan(0);
   });
 });

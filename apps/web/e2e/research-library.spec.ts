@@ -55,16 +55,22 @@ test.describe('Research library surfaces (M2)', () => {
 
     await expect(page.getByTestId('research-new-topic')).toBeVisible();
     await expect(page.getByTestId('research-entity-search')).toBeVisible();
-    await expect(page.getByTestId('research-library-shelves')).toBeVisible();
     await expect(page.getByTestId('research-pages-list')).toBeVisible();
+    await expect(page.getByTestId('research-agent-activity')).toBeVisible();
+    await expect(page.getByTestId('research-libraries-dock')).toBeVisible();
+    await expect(page.getByTestId('research-library-shelves')).toBeVisible();
 
-    await page.getByText('Modules & tools').click();
     await expect(page.getByRole('region', { name: 'Libraries' })).toBeVisible();
     await expect(page.getByText('E2E Export Library')).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Export E2E Export Library to Obsidian zip' }),
     ).toBeVisible();
 
+    await page.getByTestId('research-libraries-dock-hide').click();
+    await expect(page.getByTestId('research-libraries-dock-card')).toBeVisible();
+    await page.getByTestId('research-libraries-dock-card').click();
+    await expect(page.getByTestId('research-libraries-dock')).toBeVisible();
+    await expect(page.getByTestId('research-library-shelves')).toBeVisible();
     await expect(page.getByTestId('research-overlay')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('galaxy-view')).toBeVisible();
 

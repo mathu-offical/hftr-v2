@@ -19,7 +19,6 @@ type Tab =
   | 'trends'
   | 'scenarios'
   | 'watchlists'
-  | 'positions'
   | 'policies'
   | 'decisions'
   | 'lineage'
@@ -29,7 +28,6 @@ const TABS: { id: Tab; label: string; rail: string }[] = [
   { id: 'trends', label: 'Trends', rail: 'Trends' },
   { id: 'scenarios', label: 'Scenario engine', rail: 'Scenarios' },
   { id: 'watchlists', label: 'Watch lists', rail: 'Watch' },
-  { id: 'positions', label: 'Open positions', rail: 'Positions' },
   { id: 'policies', label: 'Policies', rail: 'Policies' },
   { id: 'decisions', label: 'Decisions + traces', rail: 'Decisions' },
   { id: 'lineage', label: 'Lineage', rail: 'Lineage' },
@@ -115,18 +113,6 @@ interface TrendRow {
   sourceClass: string;
   status: string;
   scannedAt: string;
-}
-
-interface PositionRow {
-  id: string;
-  moduleId: string;
-  symbol: string;
-  qty: string;
-  avgCostCents: number;
-  markCents: number;
-  unrealizedPnlCents: string;
-  realizedPnlCents: string;
-  updatedAt: string;
 }
 
 interface ExecutionRow {
@@ -261,7 +247,6 @@ export function BottomPanel(props: {
   const [engineFilter, setEngineFilter] = useState<string>('all');
   const [persistReady, setPersistReady] = useState(false);
   const [trends, setTrends] = useState<TrendRow[]>([]);
-  const [positions, setPositions] = useState<PositionRow[]>([]);
   const [executions, setExecutions] = useState<ExecutionRow[]>([]);
   const [verifications, setVerifications] = useState<VerificationRow[]>([]);
   const [watchlists, setWatchlists] = useState<WatchlistRow[]>([]);
@@ -351,7 +336,6 @@ export function BottomPanel(props: {
       api<{ jobs: PendingJobRow[] }>(`${base}/jobs/pending`),
       api<{ proposals: AssistantProposalRow[] }>(`${base}/assistant/proposals`),
       api<LiveGateStatusRow>(`${base}/live-gates/status`),
-      api<{ positions: PositionRow[] }>(`${base}/positions`),
     ]);
     if (results[0].status === 'fulfilled') setTrends(results[0].value.trends);
     if (results[1].status === 'fulfilled') setExecutions(results[1].value.executions);
@@ -364,7 +348,6 @@ export function BottomPanel(props: {
     if (results[8].status === 'fulfilled') setPendingJobs(results[8].value.jobs);
     if (results[9].status === 'fulfilled') setProposals(results[9].value.proposals);
     if (results[10].status === 'fulfilled') setLiveGate(results[10].value);
-    if (results[11].status === 'fulfilled') setPositions(results[11].value.positions);
   }, [props.companyId]);
 
   useEffect(() => {
@@ -458,11 +441,6 @@ export function BottomPanel(props: {
     setCollapsedPanes((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
   }, []);
 
-  const openPositions = byEngine(positions).filter((p) => {
-    const q = String(p.qty);
-    return q !== '0' && q !== '';
-  });
-
   const policyModules = scopedModules()
     .filter((m) => m.type === 'policy')
     .slice()
@@ -496,8 +474,6 @@ export function BottomPanel(props: {
         return scopedLeads.length;
       case 'watchlists':
         return scopedWatchlists.length;
-      case 'positions':
-        return openPositions.length;
       case 'policies':
         return policyModules.length;
       case 'decisions':
@@ -647,9 +623,6 @@ export function BottomPanel(props: {
                     onConfirm={(itemId) => void confirmWatchlist(itemId)}
                   />
                 </div>
-              ) : null}
-              {id === 'positions' ? (
-                <CondensedPositionsList rows={openPositions} moduleName={moduleName} />
               ) : null}
               {id === 'policies' ? <CondensedPoliciesList modules={policyModules} /> : null}
               {id === 'lineage' ? (
@@ -844,40 +817,6 @@ function CondensedRow(props: {
 
 function CondensedEmpty(props: { children: string }) {
   return <p className="py-2 text-[10px] text-[var(--color-ink-faint)]">{props.children}</p>;
-}
-
-function CondensedPositionsList(props: {
-  rows: PositionRow[];
-  moduleName: (id: string) => string;
-}) {
-  if (props.rows.length === 0) {
-    return <CondensedEmpty>No open positions in this engine scope.</CondensedEmpty>;
-  }
-  const { shown, total } = takeCondensed(props.rows);
-  return (
-    <div>
-      {shown.map((p) => {
-        const pnl = Number(p.unrealizedPnlCents);
-        return (
-          <CondensedRow
-            key={p.id}
-            primary={
-              <span className="font-mono">
-                {p.symbol} · {String(p.qty)}
-              </span>
-            }
-            secondary={`${props.moduleName(p.moduleId)} · mark ${dollars(String(p.markCents))}`}
-            meta={
-              <span style={{ color: pnl >= 0 ? 'var(--color-ok)' : 'var(--color-block)' }}>
-                {dollars(String(p.unrealizedPnlCents))}
-              </span>
-            }
-          />
-        );
-      })}
-      <CondensedMore shown={shown.length} total={total} />
-    </div>
-  );
 }
 
 function CondensedPoliciesList(props: { modules: ModuleOption[] }) {

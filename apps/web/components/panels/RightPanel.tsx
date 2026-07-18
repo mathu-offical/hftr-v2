@@ -8,12 +8,14 @@ import { dollars, scaled, toneFor } from './format';
 import { Justification } from './Justification';
 import { PanelTabs } from './PanelTabs';
 import { PanelEdgeRail } from './PanelEdgeRail';
-import { FlaskConical, Hash, ListOrdered, ShieldCheck, Wallet } from 'lucide-react';
+import { PositionsTab } from './PositionsTab';
+import { Briefcase, FlaskConical, Hash, ListOrdered, ShieldCheck, Wallet } from 'lucide-react';
 
-type Tab = 'verification' | 'executions' | 'ledger' | 'simulation' | 'values';
+type Tab = 'verification' | 'executions' | 'positions' | 'ledger' | 'simulation' | 'values';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'verification', label: 'Verify' },
   { id: 'executions', label: 'Executions' },
+  { id: 'positions', label: 'Positions' },
   { id: 'ledger', label: 'Ledger' },
   { id: 'simulation', label: 'Sims' },
   { id: 'values', label: 'Values' },
@@ -72,6 +74,8 @@ interface ExecutionRow {
   amountCents: string | null;
   description: string | null;
   createdAt: string;
+  leadId?: string | null;
+  treeId?: string | null;
 }
 
 interface VerificationRow {
@@ -116,9 +120,9 @@ interface SimulationRow {
 }
 
 /**
- * Right panel (ui-ux spec): Verification, Executions, Ledger (with open
- * positions), Simulation, and the Math value-store audit. Read-only
- * projections over append-only sources.
+ * Right panel (ui-ux spec): Verification, Executions, Positions (stability /
+ * recovery / agent actions), Ledger, Simulation, and the Math value-store
+ * audit. Read-only projections over append-only sources.
  */
 export function RightPanel(props: { companyId: string }) {
   const storageKey = props.companyId ? `hftr:${props.companyId}:panel:right` : null;
@@ -217,17 +221,21 @@ export function RightPanel(props: { companyId: string }) {
     };
   }, [load]);
 
+  const openPositionCount = positions.filter((p) => String(p.qty) !== '0').length;
+
   const rightRailMeta = (id: Tab): string | undefined => {
     const count =
       id === 'verification'
         ? verifications.length
         : id === 'executions'
           ? executions.length
-          : id === 'ledger'
-            ? ledger.length + positions.filter((p) => String(p.qty) !== '0').length
-            : id === 'simulation'
-              ? simulations.length
-              : values.length;
+          : id === 'positions'
+            ? openPositionCount
+            : id === 'ledger'
+              ? ledger.length
+              : id === 'simulation'
+                ? simulations.length
+                : values.length;
     return count > 0 ? String(count) : undefined;
   };
 
@@ -260,7 +268,10 @@ export function RightPanel(props: { companyId: string }) {
               <VerificationTab verifications={verifications} executions={executions} />
             )}
             {tab === 'executions' && <ExecutionsTab executions={executions} />}
-            {tab === 'ledger' && <LedgerTab ledger={ledger} positions={positions} />}
+            {tab === 'positions' && (
+              <PositionsTab companyId={props.companyId} executions={executions} />
+            )}
+            {tab === 'ledger' && <LedgerTab ledger={ledger} />}
             {tab === 'simulation' && (
               <SimulationTab runs={simulations} comparisonSummary={simComparison} />
             )}
@@ -300,6 +311,12 @@ export function RightPanel(props: { companyId: string }) {
             label: 'Executions',
             icon: ListOrdered,
             meta: rightRailMeta('executions'),
+          },
+          {
+            id: 'positions',
+            label: 'Positions',
+            icon: Briefcase,
+            meta: rightRailMeta('positions'),
           },
           {
             id: 'ledger',
@@ -398,64 +415,24 @@ function ExecutionsTab(props: { executions: ExecutionRow[] }) {
   );
 }
 
-function LedgerTab(props: { ledger: LedgerRow[]; positions: PositionRow[] }) {
-  const held = props.positions.filter((p) => BigInt(p.qty) !== 0n);
+function LedgerTab(props: { ledger: LedgerRow[] }) {
+  if (props.ledger.length === 0) return <Empty text="No ledger entries yet." />;
   return (
-    <div className="space-y-4">
-      {held.length > 0 && (
-        <div>
-          <div className="mb-1.5 px-1 text-[11px] uppercase tracking-wide text-[var(--color-ink-faint)]">
-            Open positions
+    <ul className="space-y-1.5">
+      {props.ledger.map((l) => (
+        <li key={l.id} className="rounded-md border border-[var(--color-line)] px-2.5 py-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-mono">{dollars(l.amountCents)}</span>
+            <span className="text-[10px] text-[var(--color-ink-faint)]">
+              bal {dollars(l.balanceAfterCents)}
+            </span>
           </div>
-          <ul className="space-y-1.5">
-            {held.map((p) => {
-              const unrealized = BigInt(p.unrealizedPnlCents);
-              return (
-                <li
-                  key={p.id}
-                  className="flex items-center justify-between rounded-md border border-[var(--color-line)] px-2.5 py-1.5 text-xs"
-                >
-                  <span className="font-mono font-medium">{p.symbol}</span>
-                  <span className="text-[var(--color-ink-dim)]">
-                    {p.qty} sh · avg {dollars(p.avgCostCents)}
-                  </span>
-                  <span
-                    className="font-mono"
-                    style={{ color: unrealized >= 0n ? 'var(--color-ok)' : 'var(--color-block)' }}
-                  >
-                    {dollars(p.unrealizedPnlCents)}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-      <div>
-        <div className="mb-1.5 px-1 text-[11px] uppercase tracking-wide text-[var(--color-ink-faint)]">
-          Entries
-        </div>
-        {props.ledger.length === 0 ? (
-          <Empty text="No ledger entries yet." />
-        ) : (
-          <ul className="space-y-1.5">
-            {props.ledger.map((l) => (
-              <li key={l.id} className="rounded-md border border-[var(--color-line)] px-2.5 py-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-mono">{dollars(l.amountCents)}</span>
-                  <span className="text-[10px] text-[var(--color-ink-faint)]">
-                    bal {dollars(l.balanceAfterCents)}
-                  </span>
-                </div>
-                <div className="mt-0.5 truncate text-[11px] text-[var(--color-ink-dim)]">
-                  {l.description}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
+          <div className="mt-0.5 truncate text-[11px] text-[var(--color-ink-dim)]">
+            {l.description}
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 

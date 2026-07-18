@@ -95,6 +95,16 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   catalog families (`strategy_families`, `guardrail_packages`, `session_constraints`,
   `broker_policy_envelopes`, `trend_lead_patterns`) as `catalog_seed` concepts with
   operator-readable bodies from catalog payloads (not placeholder stubs).
+  **D-069:** system-curated folders use `system:*` topic scopes (`movers`, `execution_logs`,
+  `daily_summaries`, `runtime_policies`, `trend_lists`, `sector_news`) via
+  `SYSTEM_LIBRARY_REGISTRY` + rigid `SystemDocKind` shapes.
+- **system_normalized_views** — **D-072** (migration `0033`): company-scoped verified
+  multi-source seals (`kind` movers_board|sector_bulletin|daily_summary_phase, subject_key,
+  seal_id, bundle jsonb `VerifiedNormalizedBundle`, expires_at, report_concept_id). Consumers
+  skip re-verify while seal valid; dual-persist always writes a readable report concept.
+- **curation_score_events** — **D-071** (migration `0033`): append-only librarian prior
+  telemetry (gate_id, score_band low|medium|high, passed, reason, raw_meta). Models see
+  bands + repairHints only — never raw ratios from raw_meta.
 - **knowledge_access_events** — **D-040 (optional/specified):** append-only access log
   `(company_id, entity_kind topic|concept, entity_id, access_kind query|reference, actor, created_at)`
   when denormalized counters are insufficient under contention.

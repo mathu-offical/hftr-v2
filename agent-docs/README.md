@@ -28,6 +28,11 @@ implementation proceeds.
 | `architecture/job-orchestration.md` | Custom Postgres queue + scheduler design (no vendor lock-in) |
 | `architecture/number-handling.md` | Numeric + temporal reference architecture: ValueRef store, calculator, clock/calendar authority, leak linting, Math module |
 | `architecture/broker-integration.md` | Broker adapter layer: Alpaca, Kalshi, Polymarket, crypto; funding UX |
+| `architecture/research-document-shapes.md` | SystemDocKind rigid shapes + librarian score bands (D-069) |
+| `architecture/research-relevance-graph.md` | Typed relevance graph (“basic vector”); pgvector deferred |
+| `architecture/research-live-system-cadence.md` | System folder schedules, query plan, live movers/news (D-070) |
+| `architecture/research-curation-priors.md` | Weak-supervision LFs / reject-repair priors (D-071) |
+| `architecture/research-verified-normalize.md` | Multi-source seal + dual view/report persist (D-072) |
 | `product/product-spec.md` | Companies, modules, funds, policies, assistant — full product behavior |
 | `ui-ux/ui-spec.md` | Canvas, panels, galaxy + article research view, design system, visual standards |
 | `ui-ux/research-galaxy-topic-view-design.md` | D-040 topics, nested library galaxy, hybrid wiki articles, usage telemetry |

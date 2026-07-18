@@ -739,6 +739,28 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Agents unchanged. Implementation: `FamilyShapeChrome.tsx`, `MODULE_VISUALS.shape`.
   Docs: ui-spec §3, canvas-node-dashboard-design. **Status: implemented.**
 
+- **D-069 (system library registry + document shapes + librarian scores, 2026-07-18):**
+  Seed all system-curated folders (`system:movers`, `execution_logs`, `daily_summaries`,
+  `runtime_policies`, `trend_lists`, `sector_news`) via `SYSTEM_LIBRARY_REGISTRY` with rigid
+  `SystemDocKind` shapes (`validateDocumentShape` + `scoreDocumentCuration` bands). Specs:
+  `architecture/research-document-shapes.md`, `research-relevance-graph.md`. **Status: implemented.**
+
+- **D-070 (live movers/news query plan + evidence-grounded synthesize, 2026-07-18):**
+  Deterministic `ResearchQueryPlan` for gather; deeper gates (`sector_scope`,
+  `source_credibility`, `corroboration`); synthesize must cite `evidence:{digest}` or
+  `seal:{sealId}`. Cadence: `architecture/research-live-system-cadence.md`. Multi-phase
+  daily summary schedules (`pre_open`/`midday`/`close`/`post_analysis`) plus calendar-phase
+  fallback when payload omits phase. **Status: implemented.**
+
+- **D-071 (curation priors / weak-supervision LFs, 2026-07-18):** Gate + shape validators are
+  labeling functions; raw ratios in append-only telemetry; models see bands + repairHints only.
+  Spec: `architecture/research-curation-priors.md`. **Status: implemented.**
+
+- **D-072 (verified normalize seal + dual persist reports, 2026-07-18):** Multi-source
+  corroboration seals `VerifiedNormalizedBundle` / `SystemNormalizedView`; consumers skip
+  re-verify while seal valid; always dual-persist normalized view + readable curated report.
+  `research.synthesize` loads seal summaries via `loadSealSummariesForSynthesize`. Spec:
+  `architecture/research-verified-normalize.md`. **Status: implemented.**
 
 - **D-073 (soft vault chrome + Math connection order, 2026-07-18):** Operator asked to
   (1) reduce contrast on vault/library/live-feed background structure so silhouettes read
@@ -756,13 +778,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   paper Alpaca secrets must never be serialized into `jobs.payload` jsonb. Manual
   curate/query previously decrypted keys at enqueue and spread them into queue rows
   (visible to DB admins/backups for up to 7 days of completed-job retention). Fix:
-  `resolveResearchGatherCredentials(db, companyId)` decrypts at `research.gather`
-  handler time only (mirrors LLM `withUserApiKey`); curate/gather Zod payloads are
-  identity + intent; `enqueue()` fails closed via `assertNoSecretsInJobPayload`;
-  `maintenance.sweep` scrubs legacy payload rows; dead-letter retry uses
-  `stripSecretsFromJobPayload`. LLM keys were already header-only and never in
-  prompts. Scheduled research now gets the same credential path as manual runs.
-  **Status: implemented.**
+  `resolveResearchGatherCredentials(db, companyId)` decrypts at `research.gather` /
+  `library.system_sector_news` handler time only (mirrors LLM `withUserApiKey`);
+  curate/gather Zod payloads are identity + intent; `enqueue()` fails closed via
+  `assertNoSecretsInJobPayload`; `maintenance.sweep` scrubs legacy payload rows.
+  LLM keys were already header-only and never in prompts. Scheduled research now
+  gets the same credential path as manual runs. **Status: implemented.**
 
 - **D-075 (Math dock on parent bottom, 2026-07-18):** Operator asked for Math tools to
   attach to connection points on the **bottom** of parent nodes. Owner cards render
@@ -772,6 +793,30 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   canvas-layout-and-dedicated-math-design, canvas-node-dashboard-design.
   **Status: implemented.**
 
+- **D-076 (company sector-focus → baseline Sector knowledge, 2026-07-18):** Company
+  `sectorFocuses` (create wizard labels; optional PATCH) materialize vendored
+  `sector_seeds` catalog pages into the single baseline library
+  (`Seeded trading mechanisms`), shown as Baseline → **Sector knowledge** with
+  per-sector subfolders (`sector_technology`, …). Mapping: contracts
+  `sector-focus-seed-map.ts` (preset → coarse sector + optional subsector).
+  `ensureSectorKnowledge` runs from `bootstrapCompanyKnowledge` (including
+  skip-if-seeded short-circuit) so existing companies pick up focuses on next
+  libraries/topics GET; company PATCH re-bootstraps when focuses change.
+  Additive upsert — adding focuses seeds more pages; does not wipe prior sectors.
+  Distinct from System curated `system:sector_news` cadence (D-069). Docs:
+  research-tab-shelves-inspector-design. **Status: implemented.**
+
+- **D-077 (canvas card type context + trend item ports, 2026-07-18):** On-card enrichment is
+  type-relevant and interactive — `ModuleContextPanel` for `library` / `research` / `live_api` /
+  `trend` (class + linked library, research topics + target libs, venue/instruments/feed/poll,
+  posture + cadence). Engine master-topic cascade still seeds `topicSectors` but is demoted to
+  secondary Scope / Focus seed on those cards. Trend cards grow `TrendListChrome` from
+  `trend_candidates`; each row has `directive-out__trend:{candidateId}`
+  (`handleIdForTrendCandidate` / `parseTrendCandidateHandle`). Connecting to trading persists
+  nullable `engine_instance_id` + `trading_module_id` on the candidate (migration 0034); binding
+  edges are UI topology (compile/dispatch per bound engine is follow-up). Canvas GET returns
+  `typeContext` projections. Live API inspector form added. Docs: ui-spec §3,
+  canvas-node-dashboard-design. **Status: implemented.**
 
 ## Open questions
 

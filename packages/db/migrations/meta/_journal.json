@@ -197,6 +197,13 @@
       "when": 1784334000000,
       "tag": "0028_fred_alpha_vantage_research",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1784335000000,
+      "tag": "0029_twelve_data_marketstack_research",
+      "breakpoints": true
     }
   ]
 }

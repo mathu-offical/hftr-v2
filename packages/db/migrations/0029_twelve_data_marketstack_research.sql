@@ -1,0 +1,2 @@
+-- user_research_keys.provider: twelve_data, marketstack operator API keys.
+-- Columns are unconstrained text; validation lives in @hftr/contracts ResearchSourceKind / ResearchKeyProvider.

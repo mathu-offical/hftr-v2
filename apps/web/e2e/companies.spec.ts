@@ -12,9 +12,12 @@ async function openNewCompanyForm(page: Page): Promise<void> {
 }
 
 async function createDayTradingCompany(page: Page): Promise<void> {
-  await page.getByRole('button', { name: /Day trading starter/ }).click();
+  await page.getByRole('button', { name: /Quick add · Day trading/ }).click();
+  await expect(page.getByTestId('engine-seed-card').first()).toBeVisible({
+    timeout: CREATE_FORM_TIMEOUT_MS,
+  });
   const skip = page.getByRole('button', { name: 'Skip setup & open canvas' });
-  await expect(skip).toBeVisible({ timeout: CREATE_FORM_TIMEOUT_MS });
+  await expect(skip).toBeEnabled({ timeout: CREATE_FORM_TIMEOUT_MS });
   await skip.click();
   await page.waitForURL(/\/companies\/[0-9a-f-]{36}$/, {
     timeout: CREATE_FORM_TIMEOUT_MS,
@@ -35,17 +38,21 @@ test.describe('Companies directory', () => {
     await page.getByRole('button', { name: 'Close settings' }).click();
   });
 
-  test('loads and exposes template choices in the create form', async ({ page }) => {
+  test('engine-centric create: quick-add, remove, ≥1 gate, and inline definition', async ({
+    page,
+  }) => {
     await openNewCompanyForm(page);
-    await expect(page.getByText('Start from')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Engines' })).toBeVisible();
+    await expect(page.getByTestId('engines-empty-hint')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create (paper mode)' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Skip setup & open canvas' })).toBeDisabled();
 
-    await expect(page.getByRole('button', { name: /Blank/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Day trading starter/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Trend research lab/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Quick add · Day trading/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Quick add · Trend research/ })).toBeVisible();
 
-    await page.getByRole('button', { name: /Day trading starter/ }).click();
-    await expect(page.getByRole('heading', { name: 'Template setup' })).toBeVisible();
-    await expect(page.getByTestId('template-module-setup-0')).toBeVisible();
+    await page.getByRole('button', { name: /Quick add · Day trading/ }).click();
+    const engineCard = page.getByTestId('engine-seed-card').first();
+    await expect(engineCard).toBeVisible();
     // Topic stays operator-required; capital/exit are prefilled defaults (D-035).
     await expect(page.getByText(/Required · Topic \/ sector/).first()).toBeVisible();
     await expect(page.getByLabel('Confirmed: Capital allocation').first()).toBeVisible();
@@ -54,8 +61,8 @@ test.describe('Companies directory', () => {
     const allocationValue = page.getByLabel('Capital allocation value').first();
     await expect(allocationMode).toBeVisible();
     await expect(allocationValue).toBeVisible();
-    // Default equal split of $10,000 seed across 3 capital-bearing nodes.
-    await expect(allocationValue).toHaveValue('3333.34');
+    // Full seed envelope on the engine card (cascade splits on create).
+    await expect(allocationValue).toHaveValue('10000.00');
     const modeBox = await allocationMode.boundingBox();
     const valueBox = await allocationValue.boundingBox();
     expect(modeBox).toBeTruthy();
@@ -65,15 +72,24 @@ test.describe('Companies directory', () => {
     await allocationValue.fill('2500.00');
     await expect(allocationValue).toHaveValue('2500.00');
 
+    await page.getByRole('button', { name: /Quick add · Trend research/ }).click();
+    await expect(page.getByTestId('engine-seed-card')).toHaveCount(2);
+    await page
+      .getByTestId('engine-seed-card')
+      .nth(1)
+      .getByRole('button', { name: 'Remove' })
+      .click();
+    await expect(page.getByTestId('engine-seed-card')).toHaveCount(1);
+
     await page.getByLabel('Add module').selectOption('research');
     await expect(page.getByTestId('extra-seed-module')).toBeVisible();
-    await page.getByLabel('Add engine').selectOption('engine_day_trading');
-    await expect(page.getByTestId('extra-seed-engine')).toBeVisible();
-    await expect(
-      page.getByTestId('extra-seed-engine').getByLabel('Capital allocation value'),
-    ).toHaveValue('10000.00');
 
-    await expect(page.getByRole('button', { name: 'Skip setup & open canvas' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Skip setup & open canvas' })).toBeEnabled();
+
+    // Removing the last engine re-blocks create.
+    await page.getByTestId('engine-seed-card').getByRole('button', { name: 'Remove' }).click();
+    await expect(page.getByTestId('engines-empty-hint')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create (paper mode)' })).toBeDisabled();
   });
 
   test('company card shows mode, engines, and supports navigate / rename / duplicate / delete', async ({

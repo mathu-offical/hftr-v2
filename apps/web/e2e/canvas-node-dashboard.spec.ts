@@ -14,7 +14,7 @@ test.describe('Canvas node dashboard (D-026)', () => {
     await page
       .getByLabel(/Philosophy/)
       .fill('E2E paper desk for focused canvas dashboard verification.');
-    await page.getByRole('button', { name: /Day trading starter/ }).click();
+    await page.getByRole('button', { name: /Quick add · Day trading/ }).click();
     await page.getByRole('button', { name: 'Skip setup & open canvas' }).click();
 
     await page.waitForURL(/\/companies\/[0-9a-f-]{36}$/);

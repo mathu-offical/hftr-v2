@@ -1,15 +1,12 @@
 'use client';
 
-import { useId, useMemo, useState } from 'react';
+import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  COMPANY_TEMPLATES,
   ENGINE_TEMPLATES,
   defaultEngineCapitalEnvelope,
-  defaultMemberSetupDrafts,
   defaultTargetExitLocal,
   requiredModuleSetupFields,
-  type CompanyTemplateId,
   type ModuleSetupField,
   type ModuleType,
 } from '@hftr/contracts';
@@ -24,20 +21,6 @@ import { api, RequestError } from '@/lib/client';
 
 function seedCentsFromDollars(seedDollars: string): number {
   return Math.max(0, Math.round(Number(seedDollars) || 0) * 100);
-}
-
-function draftsFromDefaults(
-  moduleTypes: readonly ModuleType[],
-  seedCreditsCents: number,
-): Record<number, ModuleSetupDraft> {
-  const defaults = defaultMemberSetupDrafts(moduleTypes, seedCreditsCents);
-  const out: Record<number, ModuleSetupDraft> = {};
-  defaults.forEach((draft, index) => {
-    const required = requiredModuleSetupFields(moduleTypes[index]!);
-    if (required.length === 0) return;
-    out[index] = { ...EMPTY_MODULE_SETUP_DRAFT, ...draft };
-  });
-  return out;
 }
 
 function defaultEngineDraft(seedCreditsCents: number): ModuleSetupDraft {
@@ -65,21 +48,42 @@ function defaultStandaloneModuleDraft(
   };
 }
 
-type ExtraSeed =
-  | {
-      key: string;
-      kind: 'module';
-      type: ModuleType;
-      name: string;
-      draft: ModuleSetupDraft;
-    }
-  | {
-      key: string;
-      kind: 'engine';
-      templateId: string;
-      label: string;
-      draft: ModuleSetupDraft;
-    };
+function requiredSetupForEngine(templateId: string): ModuleSetupField[] {
+  return [
+    ...new Set(
+      ENGINE_TEMPLATES.find((engine) => engine.id === templateId)?.modules.flatMap((module) =>
+        requiredModuleSetupFields(module.type),
+      ) ?? [],
+    ),
+  ] as ModuleSetupField[];
+}
+
+function defaultEngineInputs(templateId: string): Record<string, string> {
+  const engine = ENGINE_TEMPLATES.find((item) => item.id === templateId);
+  if (!engine) return {};
+  return Object.fromEntries(engine.inputs.map((input) => [input.key, input.options?.[0] ?? '']));
+}
+
+type EngineSeed = {
+  key: string;
+  templateId: string;
+  label: string;
+  description: string;
+  inputs: Record<string, string>;
+  draft: ModuleSetupDraft;
+};
+
+type ModuleSeed = {
+  key: string;
+  type: ModuleType;
+  name: string;
+  draft: ModuleSetupDraft;
+};
+
+const QUICK_ADD_ENGINES: Array<{ templateId: string; buttonLabel: string }> = [
+  { templateId: 'engine_day_trading', buttonLabel: 'Day trading' },
+  { templateId: 'engine_trend_research', buttonLabel: 'Trend research' },
+];
 
 const ADDABLE_MODULES: Array<{
   type: ModuleType;
@@ -165,9 +169,9 @@ const ADDABLE_MODULES: Array<{
 ];
 
 /**
- * Company creation flow (product-spec §onboarding): name + philosophy prompt,
- * paper mode with seed credits, template graph, and per-module inline setup
- * with optional extra modules/engines.
+ * Company creation (D-043): name + philosophy + paper seed, then compose ≥1 ENGINE
+ * cards with inline definition (template inputs + shared setup). Optional standalone
+ * modules. Company templates are quick-add buttons only.
  */
 export function CreateCompanyForm() {
   const router = useRouter();
@@ -176,68 +180,47 @@ export function CreateCompanyForm() {
   const [name, setName] = useState('');
   const [philosophy, setPhilosophy] = useState('');
   const [seedDollars, setSeedDollars] = useState('10000');
-  const [template, setTemplate] = useState<CompanyTemplateId>('blank');
-  const [templateDrafts, setTemplateDrafts] = useState<Record<number, ModuleSetupDraft>>({});
-  const [extras, setExtras] = useState<ExtraSeed[]>([]);
+  const [engines, setEngines] = useState<EngineSeed[]>([]);
+  const [extraModules, setExtraModules] = useState<ModuleSeed[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const templateModules = COMPANY_TEMPLATES[template].modules;
-  const setupModules = useMemo(
-    () =>
-      templateModules
-        .map((module, index) => ({
-          index,
-          module,
-          required: requiredModuleSetupFields(module.type) as ModuleSetupField[],
-        }))
-        .filter((entry) => entry.required.length > 0),
-    [templateModules],
-  );
-
   const availableEngines = ENGINE_TEMPLATES.filter((engine) => engine.available);
 
-  function draftForTemplate(index: number): ModuleSetupDraft {
-    return templateDrafts[index] ?? EMPTY_MODULE_SETUP_DRAFT;
+  function makeEngineSeed(templateId: string, seedCreditsCents: number): EngineSeed | null {
+    const engine = availableEngines.find((item) => item.id === templateId);
+    if (!engine) return null;
+    return {
+      key: `${formId}-eng-${crypto.randomUUID()}`,
+      templateId: engine.id,
+      label: engine.label,
+      description: engine.description,
+      inputs: defaultEngineInputs(engine.id),
+      draft: defaultEngineDraft(seedCreditsCents),
+    };
   }
 
-  function setDraftForTemplate(index: number, draft: ModuleSetupDraft) {
-    setTemplateDrafts((prev) => ({ ...prev, [index]: draft }));
+  function addEngine(templateId: string) {
+    const seed = makeEngineSeed(templateId, seedCentsFromDollars(seedDollars));
+    if (!seed) return;
+    setEngines((prev) => [...prev, seed]);
   }
 
-  function applyTemplateDefaults(nextTemplate: CompanyTemplateId, nextSeedDollars: string) {
-    const modules = COMPANY_TEMPLATES[nextTemplate].modules;
-    setTemplateDrafts((prev) => {
-      const defaults = draftsFromDefaults(
-        modules.map((module) => module.type),
-        seedCentsFromDollars(nextSeedDollars),
-      );
-      const out: Record<number, ModuleSetupDraft> = {};
-      for (const [key, draft] of Object.entries(defaults)) {
-        const index = Number(key);
-        out[index] = {
-          ...draft,
-          // Preserve operator topic edits when seed/template capital defaults refresh.
-          topicSectors: prev[index]?.topicSectors ?? draft.topicSectors,
-        };
-      }
-      return out;
-    });
+  function removeEngine(key: string) {
+    setEngines((prev) => prev.filter((item) => item.key !== key));
   }
 
-  function selectTemplate(next: CompanyTemplateId) {
-    setTemplate(next);
-    applyTemplateDefaults(next, seedDollars);
+  function updateEngine(key: string, patch: Partial<EngineSeed>) {
+    setEngines((prev) => prev.map((item) => (item.key === key ? { ...item, ...patch } : item)));
   }
 
   function addModule(type: ModuleType) {
     const entry = ADDABLE_MODULES.find((item) => item.type === type);
     if (!entry) return;
-    setExtras((prev) => [
+    setExtraModules((prev) => [
       ...prev,
       {
         key: `${formId}-mod-${crypto.randomUUID()}`,
-        kind: 'module',
         type: entry.type,
         name: entry.defaultName,
         draft: defaultStandaloneModuleDraft(entry.type, seedCentsFromDollars(seedDollars)),
@@ -245,106 +228,101 @@ export function CreateCompanyForm() {
     ]);
   }
 
-  function addEngine(templateId: string) {
-    const engine = availableEngines.find((item) => item.id === templateId);
-    if (!engine) return;
-    setExtras((prev) => [
-      ...prev,
-      {
-        key: `${formId}-eng-${crypto.randomUUID()}`,
-        kind: 'engine',
-        templateId: engine.id,
-        label: engine.label,
-        draft: defaultEngineDraft(seedCentsFromDollars(seedDollars)),
-      },
-    ]);
+  function removeModule(key: string) {
+    setExtraModules((prev) => prev.filter((item) => item.key !== key));
   }
 
-  function updateExtra(key: string, patch: Partial<ExtraSeed>) {
-    setExtras((prev) =>
-      prev.map((item) => (item.key === key ? ({ ...item, ...patch } as ExtraSeed) : item)),
+  function updateModule(key: string, patch: Partial<ModuleSeed>) {
+    setExtraModules((prev) =>
+      prev.map((item) => (item.key === key ? { ...item, ...patch } : item)),
     );
   }
 
-  function removeExtra(key: string) {
-    setExtras((prev) => prev.filter((item) => item.key !== key));
+  function refreshSeedDefaults(nextSeedDollars: string) {
+    const cents = seedCentsFromDollars(nextSeedDollars);
+    setEngines((prev) =>
+      prev.map((item) => ({
+        ...item,
+        draft: {
+          ...defaultEngineDraft(cents),
+          topicSectors: item.draft.topicSectors,
+        },
+      })),
+    );
+    setExtraModules((prev) =>
+      prev.map((item) => {
+        const refreshed = defaultStandaloneModuleDraft(item.type, cents);
+        return {
+          ...item,
+          draft: {
+            ...refreshed,
+            topicSectors: item.draft.topicSectors,
+          },
+        };
+      }),
+    );
   }
 
-  const templateMissing = setupModules.flatMap((entry) =>
-    missingFieldsFromDraft(entry.required, draftForTemplate(entry.index)).map(
-      (field) => `${entry.index}:${field}`,
-    ),
-  );
-  const extrasMissing = extras.flatMap((item) => {
-    const required =
-      item.kind === 'module'
-        ? (requiredModuleSetupFields(item.type) as ModuleSetupField[])
-        : ([
-            ...new Set(
-              ENGINE_TEMPLATES.find((engine) => engine.id === item.templateId)?.modules.flatMap(
-                (module) => requiredModuleSetupFields(module.type),
-              ) ?? [],
-            ),
-          ] as ModuleSetupField[]);
+  const enginesMissing = engines.flatMap((item) => {
+    const required = requiredSetupForEngine(item.templateId);
+    const setupMissing = missingFieldsFromDraft(required, item.draft).map(
+      (field) => `${item.key}:${field}`,
+    );
+    const engine = ENGINE_TEMPLATES.find((entry) => entry.id === item.templateId);
+    const inputMissing =
+      engine?.inputs
+        .filter((input) => input.key !== 'focus' && input.key !== 'topicScope')
+        .filter((input) => !item.inputs[input.key]?.trim())
+        .map((input) => `${item.key}:input:${input.key}`) ?? [];
+    return [...setupMissing, ...inputMissing];
+  });
+  const modulesMissing = extraModules.flatMap((item) => {
+    const required = requiredModuleSetupFields(item.type) as ModuleSetupField[];
     return missingFieldsFromDraft(required, item.draft).map((field) => `${item.key}:${field}`);
   });
-  const hasBlockingMissing = templateMissing.length + extrasMissing.length > 0;
-  const hasAnySetup =
-    setupModules.length > 0 ||
-    extras.some((item) => {
-      const required =
-        item.kind === 'module'
-          ? requiredModuleSetupFields(item.type)
-          : ([
-              ...new Set(
-                ENGINE_TEMPLATES.find((engine) => engine.id === item.templateId)?.modules.flatMap(
-                  (module) => requiredModuleSetupFields(module.type),
-                ) ?? [],
-              ),
-            ] as ModuleSetupField[]);
-      return required.length > 0;
-    });
+  const hasBlockingMissing = enginesMissing.length + modulesMissing.length > 0;
+  const engineInputsMissing = engines.flatMap((item) => {
+    const engine = ENGINE_TEMPLATES.find((entry) => entry.id === item.templateId);
+    return (
+      engine?.inputs
+        .filter((input) => input.key !== 'focus' && input.key !== 'topicScope')
+        .filter((input) => !item.inputs[input.key]?.trim())
+        .map((input) => `${item.key}:input:${input.key}`) ?? []
+    );
+  });
+  const canCreate = engines.length >= 1 && !busy;
+  const canSubmitSetup = canCreate && !hasBlockingMissing;
+  // Skip may omit topic/capital/exit but still needs template inputs (module-store parity).
+  const canSkip = canCreate && engineInputsMissing.length === 0;
 
   async function createCompany(skipSetup: boolean) {
+    if (engines.length < 1) {
+      setError('Add at least one engine to create this company.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      const seed = Math.max(0, Math.round(Number(seedDollars) || 0)) * 100;
-      const templateModuleSetups = skipSetup
-        ? undefined
-        : setupModules.map((entry) => ({
-            moduleIndex: entry.index,
-            setup: moduleSetupInputFromDraft(draftForTemplate(entry.index), entry.required),
-          }));
+      const seed = seedCentsFromDollars(seedDollars);
+      const enginesPayload = engines.map((item) => {
+        const required = requiredSetupForEngine(item.templateId);
+        return {
+          templateId: item.templateId,
+          inputs: item.inputs,
+          setup: skipSetup ? undefined : moduleSetupInputFromDraft(item.draft, required),
+        };
+      });
 
-      const extraModules = extras
-        .filter((item): item is Extract<ExtraSeed, { kind: 'module' }> => item.kind === 'module')
-        .map((item) => {
-          const catalog = ADDABLE_MODULES.find((entry) => entry.type === item.type);
-          const required = requiredModuleSetupFields(item.type) as ModuleSetupField[];
-          return {
-            type: item.type,
-            name: item.name,
-            config: catalog?.defaultConfig ?? {},
-            setup: skipSetup ? undefined : moduleSetupInputFromDraft(item.draft, required),
-          };
-        });
-
-      const extraEngines = extras
-        .filter((item): item is Extract<ExtraSeed, { kind: 'engine' }> => item.kind === 'engine')
-        .map((item) => {
-          const engine = ENGINE_TEMPLATES.find((entry) => entry.id === item.templateId);
-          const required = [
-            ...new Set(
-              engine?.modules.flatMap((module) => requiredModuleSetupFields(module.type)) ?? [],
-            ),
-          ] as ModuleSetupField[];
-          return {
-            templateId: item.templateId,
-            inputs: {},
-            setup: skipSetup ? undefined : moduleSetupInputFromDraft(item.draft, required),
-          };
-        });
+      const modulesPayload = extraModules.map((item) => {
+        const catalog = ADDABLE_MODULES.find((entry) => entry.type === item.type);
+        const required = requiredModuleSetupFields(item.type) as ModuleSetupField[];
+        return {
+          type: item.type,
+          name: item.name,
+          config: catalog?.defaultConfig ?? {},
+          setup: skipSetup ? undefined : moduleSetupInputFromDraft(item.draft, required),
+        };
+      });
 
       const { company } = await api<{ company: { id: string } }>('/api/companies', {
         method: 'POST',
@@ -353,10 +331,8 @@ export function CreateCompanyForm() {
           philosophyPrompt: philosophy,
           mode: 'paper',
           seedCreditsCents: seed,
-          template,
-          templateModuleSetups,
-          extraModules: extraModules.length > 0 ? extraModules : undefined,
-          extraEngines: extraEngines.length > 0 ? extraEngines : undefined,
+          engines: enginesPayload,
+          extraModules: modulesPayload.length > 0 ? modulesPayload : undefined,
         },
       });
       router.push(`/companies/${company.id}`);
@@ -384,158 +360,205 @@ export function CreateCompanyForm() {
         event.preventDefault();
         void createCompany(false);
       }}
-      className="w-full max-w-3xl space-y-4 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] p-6"
+      className="flex max-h-[min(42rem,90vh)] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)]"
     >
-      <h2 className="text-lg font-medium">New company</h2>
+      <header className="shrink-0 border-b border-[var(--color-line)] px-6 py-4">
+        <h2 className="text-lg font-medium">New company</h2>
+        <p className="mt-0.5 text-[11px] text-[var(--color-ink-faint)]">
+          Add at least one engine. Each engine card holds its definition; remove freely until
+          create.
+        </p>
+      </header>
 
-      <label className="block space-y-1.5">
-        <span className="text-sm text-[var(--color-ink-dim)]">Name</span>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          maxLength={80}
-          placeholder="e.g. Momentum Desk"
-          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
-        />
-      </label>
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-6">
+        <label className="block space-y-1.5">
+          <span className="text-sm text-[var(--color-ink-dim)]">Name</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            maxLength={80}
+            placeholder="e.g. Momentum Desk"
+            className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+          />
+        </label>
 
-      <label className="block space-y-1.5">
-        <span className="text-sm text-[var(--color-ink-dim)]">
-          Philosophy — how should this company think?
-        </span>
-        <textarea
-          value={philosophy}
-          onChange={(e) => setPhilosophy(e.target.value)}
-          required
-          rows={4}
-          maxLength={4000}
-          placeholder="Patient swing trading on large-cap tech. Prefer strong evidence over speed; cut losers fast."
-          className="w-full resize-none rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
-        />
-      </label>
+        <label className="block space-y-1.5">
+          <span className="text-sm text-[var(--color-ink-dim)]">
+            Philosophy — how should this company think?
+          </span>
+          <textarea
+            value={philosophy}
+            onChange={(e) => setPhilosophy(e.target.value)}
+            required
+            rows={4}
+            maxLength={4000}
+            placeholder="Patient swing trading on large-cap tech. Prefer strong evidence over speed; cut losers fast."
+            className="w-full resize-none rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+          />
+        </label>
 
-      <label className="block space-y-1.5">
-        <span className="text-sm text-[var(--color-ink-dim)]">Paper seed credits (USD)</span>
-        <input
-          value={seedDollars}
-          onChange={(e) => {
-            const next = e.target.value;
-            setSeedDollars(next);
-            applyTemplateDefaults(template, next);
-            setExtras((prev) =>
-              prev.map((item) => {
-                if (item.kind === 'engine') {
-                  return {
-                    ...item,
-                    draft: {
-                      ...defaultEngineDraft(seedCentsFromDollars(next)),
-                      topicSectors: item.draft.topicSectors,
-                    },
-                  };
-                }
-                if (item.kind === 'module') {
-                  const refreshed = defaultStandaloneModuleDraft(
-                    item.type,
-                    seedCentsFromDollars(next),
-                  );
-                  return {
-                    ...item,
-                    draft: {
-                      ...refreshed,
-                      topicSectors: item.draft.topicSectors,
-                    },
-                  };
-                }
-                return item;
-              }),
-            );
-          }}
-          inputMode="numeric"
-          className="w-40 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-3 py-2 font-mono text-sm outline-none focus:border-[var(--color-accent)]"
-        />
-      </label>
+        <label className="block space-y-1.5">
+          <span className="text-sm text-[var(--color-ink-dim)]">Paper seed credits (USD)</span>
+          <input
+            value={seedDollars}
+            onChange={(e) => {
+              const next = e.target.value;
+              setSeedDollars(next);
+              refreshSeedDefaults(next);
+            }}
+            inputMode="numeric"
+            className="w-40 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-3 py-2 font-mono text-sm outline-none focus:border-[var(--color-accent)]"
+          />
+        </label>
 
-      <div className="space-y-1.5">
-        <span className="text-sm text-[var(--color-ink-dim)]">Start from</span>
-        <div className="grid grid-cols-1 gap-2">
-          {Object.values(COMPANY_TEMPLATES).map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => selectTemplate(t.id)}
-              className={`rounded-md border px-3 py-2 text-left text-sm ${
-                template === t.id
-                  ? 'border-[var(--color-accent)]'
-                  : 'border-[var(--color-line)] hover:border-[var(--color-ink-faint)]'
-              }`}
-            >
-              <span className="font-medium">{t.label}</span>
-              <span className="block text-xs text-[var(--color-ink-faint)]">{t.description}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {(setupModules.length > 0 || templateModules.length > 0) && (
         <section className="space-y-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-0)] p-3">
-          <div>
-            <h3 className="text-sm font-medium text-[var(--color-ink)]">Template setup</h3>
-            <p className="text-[11px] text-[var(--color-ink-faint)]">
-              Inline fields per seeded module. Capital defaults to an equal split of paper seed
-              across capital-bearing nodes; exit defaults to one week ahead. Topic stays required.
-            </p>
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-medium text-[var(--color-ink)]">Engines</h3>
+              <p className="text-[11px] text-[var(--color-ink-faint)]">
+                Required · at least one. Inline definition matches module-store insert (inputs +
+                shared topic/capital/exit).
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {QUICK_ADD_ENGINES.map((preset) => (
+                <button
+                  key={preset.templateId}
+                  type="button"
+                  onClick={() => addEngine(preset.templateId)}
+                  className="rounded-md border border-[var(--color-accent)] px-2 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10"
+                >
+                  Quick add · {preset.buttonLabel}
+                </button>
+              ))}
+              <label className="text-xs text-[var(--color-ink-dim)]">
+                <span className="sr-only">Add engine</span>
+                <select
+                  aria-label="Add engine"
+                  defaultValue=""
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (value) addEngine(value);
+                    event.target.value = '';
+                  }}
+                  className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
+                >
+                  <option value="">Add engine…</option>
+                  {availableEngines.map((engine) => (
+                    <option key={engine.id} value={engine.id}>
+                      {engine.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
 
-          {templateModules
-            .filter((module) => requiredModuleSetupFields(module.type).length === 0)
-            .map((module) => (
-              <div
-                key={`plain-${module.name}`}
-                className="rounded-md border border-dashed border-[var(--color-line)] px-3 py-2 text-xs text-[var(--color-ink-faint)]"
-              >
-                Included · {module.name} ({module.type}) — no setup required
-              </div>
-            ))}
+          {engines.length === 0 && (
+            <p
+              className="rounded-md border border-dashed border-[var(--color-warn)] px-3 py-2 text-[11px] text-[var(--color-warn)]"
+              data-testid="engines-empty-hint"
+            >
+              Add at least one engine to create this company.
+            </p>
+          )}
 
-          {setupModules.map((entry) => {
-            const draft = draftForTemplate(entry.index);
-            const missing = missingFieldsFromDraft(entry.required, draft);
+          {engines.map((item) => {
+            const engine = ENGINE_TEMPLATES.find((entry) => entry.id === item.templateId);
+            const engineInputs =
+              engine?.inputs.filter(
+                (input) => input.key !== 'focus' && input.key !== 'topicScope',
+              ) ?? [];
+            const required = requiredSetupForEngine(item.templateId);
+            const missing = missingFieldsFromDraft(required, item.draft);
             return (
               <article
-                key={`setup-${entry.index}`}
+                key={item.key}
                 className="space-y-2 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] p-3"
-                data-testid={`template-module-setup-${entry.index}`}
+                data-testid="engine-seed-card"
               >
-                <header className="flex items-baseline justify-between gap-2">
-                  <h4 className="text-sm font-medium text-[var(--color-ink)]">
-                    {entry.module.name}
-                  </h4>
-                  <span className="text-[10px] uppercase tracking-wide text-[var(--color-ink-faint)]">
-                    {entry.module.type}
-                  </span>
+                <header className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-sm font-medium text-[var(--color-ink)]">{item.label}</h4>
+                    <p className="mt-0.5 text-[10px] leading-snug text-[var(--color-ink-faint)]">
+                      {item.description}
+                    </p>
+                    <span className="mt-1 inline-block text-[10px] uppercase tracking-wide text-[var(--color-ink-faint)]">
+                      engine · {item.templateId}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeEngine(item.key)}
+                    className="rounded border border-[var(--color-line)] px-2 py-1 text-[11px] text-[var(--color-ink-dim)] hover:border-[var(--color-block)] hover:text-[var(--color-block)]"
+                  >
+                    Remove
+                  </button>
                 </header>
+
+                {engineInputs.map((input) => (
+                  <label key={input.key} className="block space-y-1">
+                    <span className="text-[11px] text-[var(--color-ink-dim)]">{input.label}</span>
+                    {input.kind === 'select' ? (
+                      <select
+                        value={item.inputs[input.key] ?? ''}
+                        onChange={(e) =>
+                          updateEngine(item.key, {
+                            inputs: { ...item.inputs, [input.key]: e.target.value },
+                          })
+                        }
+                        aria-label={input.label}
+                        className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-xs outline-none"
+                      >
+                        {input.options?.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        value={item.inputs[input.key] ?? ''}
+                        onChange={(e) =>
+                          updateEngine(item.key, {
+                            inputs: { ...item.inputs, [input.key]: e.target.value },
+                          })
+                        }
+                        placeholder={input.placeholder}
+                        aria-label={input.label}
+                        className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
+                      />
+                    )}
+                  </label>
+                ))}
+
+                <p className="text-[10px] leading-snug text-[var(--color-ink-faint)]">
+                  Master topic/sector cascades to engine nodes (overridable). Capital defaults to an
+                  equal split of paper seed across capital-bearing members; exit defaults to one
+                  week ahead.
+                </p>
                 <ModuleSetupFields
-                  requiredFields={entry.required}
+                  requiredFields={required}
                   missingFields={missing}
-                  draft={draft}
-                  onChange={(next) => setDraftForTemplate(entry.index, next)}
+                  draft={item.draft}
+                  onChange={(next) => updateEngine(item.key, { draft: next })}
                 />
               </article>
             );
           })}
         </section>
-      )}
 
-      <section className="space-y-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-0)] p-3">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h3 className="text-sm font-medium text-[var(--color-ink)]">Add modules & engines</h3>
-            <p className="text-[11px] text-[var(--color-ink-faint)]">
-              Stack additional nodes or full engines on top of the template seed.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
+        <section className="space-y-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-0)] p-3">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-medium text-[var(--color-ink)]">
+                Standalone modules (optional)
+              </h3>
+              <p className="text-[11px] text-[var(--color-ink-faint)]">
+                Extra nodes outside engines. Not required for create.
+              </p>
+            </div>
             <label className="text-xs text-[var(--color-ink-dim)]">
               <span className="sr-only">Add module</span>
               <select
@@ -556,106 +579,71 @@ export function CreateCompanyForm() {
                 ))}
               </select>
             </label>
-            <label className="text-xs text-[var(--color-ink-dim)]">
-              <span className="sr-only">Add engine</span>
-              <select
-                aria-label="Add engine"
-                defaultValue=""
-                onChange={(event) => {
-                  const value = event.target.value;
-                  if (value) addEngine(value);
-                  event.target.value = '';
-                }}
-                className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
-              >
-                <option value="">Add engine…</option>
-                {availableEngines.map((engine) => (
-                  <option key={engine.id} value={engine.id}>
-                    {engine.label}
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
-        </div>
 
-        {extras.length === 0 && (
-          <p className="text-[11px] text-[var(--color-ink-faint)]">No extras yet.</p>
-        )}
+          {extraModules.length === 0 && (
+            <p className="text-[11px] text-[var(--color-ink-faint)]">No standalone modules.</p>
+          )}
 
-        {extras.map((item) => {
-          const required =
-            item.kind === 'module'
-              ? (requiredModuleSetupFields(item.type) as ModuleSetupField[])
-              : ([
-                  ...new Set(
-                    ENGINE_TEMPLATES.find(
-                      (engine) => engine.id === item.templateId,
-                    )?.modules.flatMap((module) => requiredModuleSetupFields(module.type)) ?? [],
-                  ),
-                ] as ModuleSetupField[]);
-          const missing = missingFieldsFromDraft(required, item.draft);
-          return (
-            <article
-              key={item.key}
-              className="space-y-2 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] p-3"
-              data-testid={`extra-seed-${item.kind}`}
-            >
-              <header className="flex flex-wrap items-center justify-between gap-2">
-                <div className="min-w-0 flex-1 space-y-1">
-                  {item.kind === 'module' ? (
+          {extraModules.map((item) => {
+            const required = requiredModuleSetupFields(item.type) as ModuleSetupField[];
+            const missing = missingFieldsFromDraft(required, item.draft);
+            return (
+              <article
+                key={item.key}
+                className="space-y-2 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] p-3"
+                data-testid="extra-seed-module"
+              >
+                <header className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1 space-y-1">
                     <input
                       value={item.name}
-                      onChange={(event) => updateExtra(item.key, { name: event.target.value })}
+                      onChange={(event) => updateModule(item.key, { name: event.target.value })}
                       aria-label="Extra module name"
                       className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)]"
                     />
-                  ) : (
-                    <h4 className="text-sm font-medium text-[var(--color-ink)]">{item.label}</h4>
-                  )}
-                  <span className="text-[10px] uppercase tracking-wide text-[var(--color-ink-faint)]">
-                    {item.kind === 'module' ? item.type : `engine · ${item.templateId}`}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeExtra(item.key)}
-                  className="rounded border border-[var(--color-line)] px-2 py-1 text-[11px] text-[var(--color-ink-dim)] hover:border-[var(--color-block)] hover:text-[var(--color-block)]"
-                >
-                  Remove
-                </button>
-              </header>
-              <ModuleSetupFields
-                requiredFields={required}
-                missingFields={missing}
-                draft={item.draft}
-                onChange={(next) => updateExtra(item.key, { draft: next })}
-              />
-            </article>
-          );
-        })}
-      </section>
+                    <span className="text-[10px] uppercase tracking-wide text-[var(--color-ink-faint)]">
+                      {item.type}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeModule(item.key)}
+                    className="rounded border border-[var(--color-line)] px-2 py-1 text-[11px] text-[var(--color-ink-dim)] hover:border-[var(--color-block)] hover:text-[var(--color-block)]"
+                  >
+                    Remove
+                  </button>
+                </header>
+                <ModuleSetupFields
+                  requiredFields={required}
+                  missingFields={missing}
+                  draft={item.draft}
+                  onChange={(next) => updateModule(item.key, { draft: next })}
+                />
+              </article>
+            );
+          })}
+        </section>
 
-      {error && <p className="text-sm text-[var(--color-block)]">{error}</p>}
+        {error && <p className="text-sm text-[var(--color-block)]">{error}</p>}
+      </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex shrink-0 flex-wrap gap-3 border-t border-[var(--color-line)] px-6 py-4">
         <button
           type="submit"
-          disabled={busy || hasBlockingMissing}
+          disabled={!canSubmitSetup}
           className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
         >
           {busy ? 'Creating…' : 'Create (paper mode)'}
         </button>
-        {hasAnySetup && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void createCompany(true)}
-            className="rounded-lg border border-[var(--color-warn)] px-4 py-2 text-sm text-[var(--color-warn)] hover:bg-[var(--color-warn)]/10 disabled:opacity-50"
-          >
-            Skip setup & open canvas
-          </button>
-        )}
+        <button
+          type="button"
+          disabled={!canSkip}
+          onClick={() => void createCompany(true)}
+          className="rounded-lg border border-[var(--color-warn)] px-4 py-2 text-sm text-[var(--color-warn)] hover:bg-[var(--color-warn)]/10 disabled:opacity-50"
+        >
+          Skip setup & open canvas
+        </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
@@ -676,6 +664,10 @@ function humanize(err: RequestError): string {
       return 'Too many modules for one company.';
     case 'invalid_input':
       return err.issues?.map((i) => `${i.path}: ${i.message}`).join('; ') ?? 'Invalid input.';
+    case 'engine_template_not_found':
+      return 'One of the selected engines is no longer available.';
+    case 'engine_template_unavailable':
+      return 'One of the selected engines is gated for this milestone.';
     default:
       return `Request failed (${err.code}).`;
   }

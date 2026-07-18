@@ -116,14 +116,19 @@
   (connection-safe layout) and **Clear canvas…** (confirm modal → cascade-delete every engine
   group and delete every remaining module/Math tool/link). Clear is disabled when the graph is
   empty; Escape / backdrop dismisses the confirm while not busy.
-- **Inline setup validation (D-024, refined D-026):** company and engine template forms render
-  topic/sector, trading-capital allocation (USD or percentage), and target-exit controls **per
-  module**. Company create lists one setup card per seeded template module and lets operators add
-  multiple extra modules/engines with the same inline fields. The USD/percent mode control is
-  compact beside a usable amount input (not full-width). Missing fields have inline **Required**
-  chips and warn borders; confirmed fields return to neutral borders with subtle green checks
-  inside their trailing edges. Skip opens the draft graph. On the canvas, required controls are
-  **always visible** on the fixed node body; the inspector is not suppressed for incomplete nodes.
+- **Company create (D-043):** bounded scrollable form; **Engines** section requires ≥1 card.
+  Quick-add Day trading / Trend research; Add engine… for other available templates; Remove
+  freely (Create/Skip disabled at zero). Each engine card: template inputs + shared
+  topic/capital/exit (module-store parity). Optional standalone modules below. User settings
+  modal chrome is **fixed height** (`min(36rem, 90vh)`) with a scrollable tab panel only.
+- **Inline setup validation (D-024, refined D-026):** company and engine forms render
+  topic/sector, trading-capital allocation (USD or percentage), and target-exit. Engine cards
+  use shared envelope fields (cascade to members); canvas nodes keep per-module controls. The
+  USD/percent mode control is compact beside a usable amount input (not full-width). Missing
+  fields have inline **Required** chips and warn borders; confirmed fields return to neutral
+  borders with subtle green checks inside their trailing edges. Skip opens the draft graph. On
+  the canvas, required controls are **always visible** on the fixed node body; the inspector is
+  not suppressed for incomplete nodes.
 - **D-026 + D-034 verified (2026-07-17):** migration `0011_canvas_node_generated_names`
   (`generated_name_base`, `name_customized`); focused Playwright `canvas-node-dashboard.spec.ts`
   (1 test: missing Required chips, confirmed in-field checks with neutral borders, labeled ports,
@@ -265,7 +270,7 @@ teardown.
 
 | Spec | What it exercises |
 |---|---|
-| `companies.spec.ts` | Companies directory; template choices; day-template Required chips and Skip action; card mode/engines + navigate/rename/duplicate/archive |
+| `companies.spec.ts` | Companies directory; engine-centric create (≥1 gate, quick-add, remove); Required chips and Skip; card mode/engines + navigate/rename/duplicate/archive |
 | `company-workspace.spec.ts` | skipped `day_trading_starter` setup → missing node chips → collapse info panel → complete trading setup inline through ValueRef route (type-scoped node under generated titles) → separate LLM/operating view → full seeded names + **10** `smoothstep` edges → panels/shortcuts/store → assistant persistence → archive cleanup |
 | `canvas-node-dashboard.spec.ts` | **D-026/D-034:** skip setup → always-visible trading fields + missing Required chips → confirmed in-field checks with neutral borders → labeled LinkKind handles → chrome-click inspector without geometry change → explicit **Save setup** → rename + restore generated name |
 | `service-settings.spec.ts` | user settings (six LLM providers + Brokers/Alpaca fields + verify affordance) → company operating tab (capital caps, provider health, LLM policy, broker bind, recent calls) → broker GET shape without real keys |

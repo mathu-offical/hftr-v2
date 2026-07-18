@@ -18,23 +18,25 @@ export async function openNewCompanyForm(page: Page): Promise<void> {
 }
 
 /**
- * Selects a template and opens the canvas. Blank has no setup fields — uses Create only.
- * Seeded templates with required setup expose Skip setup & open canvas.
+ * Quick-adds a day-trading engine (D-043) and opens the canvas.
+ * Prefer skipSetup (default) so topic can be completed on-canvas.
  */
 export async function createCompanyFromTemplate(
   page: Page,
-  templateButton: RegExp | string,
+  _templateButton?: RegExp | string,
   options?: { skipSetup?: boolean },
 ): Promise<void> {
-  await page.getByRole('button', { name: templateButton }).click();
+  await page.getByRole('button', { name: /Quick add · Day trading/ }).click();
+  await expect(page.getByTestId('engine-seed-card').first()).toBeVisible({
+    timeout: CREATE_FORM_TIMEOUT_MS,
+  });
   const skip = page.getByRole('button', { name: 'Skip setup & open canvas' });
   const create = page.getByRole('button', { name: 'Create (paper mode)' });
-  // Both buttons can be in the DOM (Create may be disabled) — never assert .or() without .first().
   if (options?.skipSetup === false) {
-    await expect(create).toBeVisible({ timeout: CREATE_FORM_TIMEOUT_MS });
+    await expect(create).toBeEnabled({ timeout: CREATE_FORM_TIMEOUT_MS });
     await create.click();
   } else {
-    await expect(skip).toBeVisible({ timeout: CREATE_FORM_TIMEOUT_MS });
+    await expect(skip).toBeEnabled({ timeout: CREATE_FORM_TIMEOUT_MS });
     await skip.click();
   }
   await page.waitForURL(/\/companies\/[0-9a-f-]{36}$/, { timeout: CREATE_FORM_TIMEOUT_MS });

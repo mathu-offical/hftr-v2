@@ -458,6 +458,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   librarian module + typed Math + process detail modal + inspector forms); browser E2E for new
   research ENGINE insert pending follow-up.**
 
+- **D-043 (engine-centric company create, 2026-07-17):**
+  Company create requires **≥1 engine**. Operators compose engines as cards (add/remove freely);
+  each card holds template inputs + shared topic/capital/exit (module-store parity). API
+  `CreateCompanyInput.engines` is `min(1)`; graph seed is Math hub + engines (+ optional
+  standalone `extraModules`). Former company templates (`day_trading_starter`,
+  `trend_research_lab`) are client **Quick add** presets only — they no longer POST a separate
+  template module graph. User settings modal stays fixed-height with scrollable tab panel.
+  **Status: implemented** (contracts + POST `/api/companies` + `CreateCompanyForm` + e2e/docs).
+
 - **D-036 (auto-disarm + drain latency, 2026-07-17):**
   `autoDisarmCompany` clears `live_armed_at` and `live_gate_evidence_id` on broker verify
   failure, stale evidence while armed (`live-gates/status`), and `resolveExecutionContext` block.

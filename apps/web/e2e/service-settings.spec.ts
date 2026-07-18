@@ -19,7 +19,7 @@ test.describe('Service settings & operating observability', () => {
     await openNewCompanyForm(page);
     await companyNameField(page).fill(e2eCompanyName('settings-ops'));
     await page.getByLabel(/Philosophy/).fill('E2E settings and operating observability check.');
-    await createCompanyFromTemplate(page, /Blank/, { skipSetup: false });
+    await createCompanyFromTemplate(page);
     const companyId = page.url().split('/').pop()!;
     createdCompanyIds.push(companyId);
 

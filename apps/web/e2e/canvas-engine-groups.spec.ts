@@ -13,7 +13,7 @@ test.describe('Canvas ENGINE groups (D-028)', () => {
     await page
       .getByLabel(/Philosophy/)
       .fill('E2E paper desk for ENGINE group visualization verification.');
-    await page.getByRole('button', { name: /Day trading starter/ }).click();
+    await page.getByRole('button', { name: /Quick add · Day trading/ }).click();
     await page.getByRole('button', { name: 'Skip setup & open canvas' }).click();
 
     await page.waitForURL(/\/companies\/[0-9a-f-]{36}$/);

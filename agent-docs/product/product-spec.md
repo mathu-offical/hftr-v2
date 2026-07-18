@@ -30,25 +30,22 @@ watches, steers, and approves through the canvas + three panels + the assistant.
   disables company `job_schedules`, and pauses active modules. Scoped company APIs and
   `resolveExecutionContext` treat archived companies as not found; schedule materialization skips
   archived company schedules.
-- **Company creation (implemented D-024):** offers discrete seed modules/engines and an inline
-  setup section. Capital-bearing nodes (`holding_fund`, `fund_router`, `trading`) require a fixed
-  or percentage capital allocation plus target exit; research/data/signal/trading analysis nodes
-  require topic/sector. Template setup renders **one card per seeded module** with its own fields
-  (not a single shared form). Engine seeds **default** capital as an equal split of the paper seed
-  envelope (or 100% when seed is zero) across capital-bearing members and default overall exit to
-  one week ahead (D-035 cascade). Operators can **add multiple extra modules and engines** during
-  create, each with inline setup. Missing fields validate in place with per-field **Required ·
-  label** chips and warning borders; confirmed fields use neutral borders and subtle in-field
-  green checks. **Skip setup & open canvas** still applies default capital envelope equal-splits
-  and overall exit to capital-bearing members; topic/sector stays operator-required and shows
-  missing-field chips with inline node controls until filled.
-- The create form picks one of three company templates (`blank`,
-  `day_trading_starter`, `trend_research_lab`). The module store additionally exposes insertable
-  end-to-end `ENGINE_TEMPLATES` (day-trading and trend-research available; crypto/prediction/HFT
-  listed with honest gating reasons). Templates seed no topic, sector, or instrument universe:
-  scope fields use `pending_operator_scope` and instruments start empty until operator setup.
-  Company creation and later engine insertion use the same setup contract. Allocation and exit
-  resolve through ValueRefs and temporal refs per `architecture/number-handling.md`.
+- **Company creation (D-024 + D-043):** engine-centric. Create requires **≥1 ENGINE**; operators
+  add/remove engines freely (Create/Skip blocked at zero). Each engine is its own card with
+  inline **basic definition** (template inputs + shared topic/capital/exit — same contract as
+  module-store insert). Capital defaults cascade as an equal split of paper seed across
+  capital-bearing members; overall exit defaults to one week ahead (D-035). Optional standalone
+  modules may be added outside engines. Missing fields validate in place with per-field
+  **Required · label** chips and warning borders; confirmed fields use neutral borders and
+  subtle in-field green checks. **Skip setup & open canvas** still applies default capital/
+  exit cascades; topic/sector stays operator-required on-canvas until filled.
+- Day trading / trend research appear as **Quick add** buttons that insert the matching
+  `ENGINE_TEMPLATES` card (not a separate company-template graph seed). The API seeds solely
+  from `engines` (+ optional `extraModules`) after provisioning the company Math hub.
+  Module store remains the path for insertable engines after create (crypto/prediction/HFT
+  listed with honest gating reasons). Scope fields use `pending_operator_scope` until operator
+  setup. Allocation and exit resolve through ValueRefs and temporal refs per
+  `architecture/number-handling.md`.
 - **ENGINE groups (D-028):** each inserted engine persists as an `engine_instances` row with
   `master_topic_sectors` that cascade to member modules (`engine_instance_id`) unless a member
   overrides (`topic_sectors_overridden`). React Flow renders a structural parent group chrome

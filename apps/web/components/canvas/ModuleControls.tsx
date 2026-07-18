@@ -1468,6 +1468,7 @@ export function TrendConfigForm(props: { companyId: string; moduleId: string }) 
 }
 
 interface LiveApiConfig {
+  sourceKind: string;
   venue: string;
   instruments: string[];
   feedClass: string;
@@ -1475,6 +1476,7 @@ interface LiveApiConfig {
 }
 
 const DEFAULT_LIVE_API_CONFIG: LiveApiConfig = {
+  sourceKind: '',
   venue: 'paper_sim',
   instruments: [],
   feedClass: 'iex_free',
@@ -1487,6 +1489,22 @@ const LIVE_VENUE_OPTIONS = [
   { value: 'polymarket', label: 'Polymarket' },
   { value: 'coinbase', label: 'Coinbase' },
   { value: 'paper_sim', label: 'Paper sim' },
+] as const;
+
+/** Common hydrators for canvas live_api nodes (D-120). Full inventory is on DATA tab. */
+const LIVE_SOURCE_KIND_OPTIONS = [
+  { value: '', label: 'Select hydrator…' },
+  { value: 'alpaca_bars', label: 'alpaca_bars' },
+  { value: 'alpaca_news', label: 'alpaca_news' },
+  { value: 'twelve_data', label: 'twelve_data' },
+  { value: 'marketstack', label: 'marketstack' },
+  { value: 'market_news', label: 'market_news' },
+  { value: 'finnhub_news', label: 'finnhub_news' },
+  { value: 'polygon_news', label: 'polygon_news' },
+  { value: 'brave_search', label: 'brave_search' },
+  { value: 'sec_edgar', label: 'sec_edgar' },
+  { value: 'fred', label: 'fred' },
+  { value: 'coingecko', label: 'coingecko' },
 ] as const;
 
 /** D-077: Live API inspector form (venue, instruments, feed, poll). */
@@ -1552,6 +1570,26 @@ export function LiveApiConfigForm(props: { companyId: string; moduleId: string }
   return (
     <div className="space-y-2.5 border-t border-[var(--color-line)] pt-4">
       <span className="text-xs text-[var(--color-ink-dim)]">Live API settings</span>
+      {!config.sourceKind ? (
+        <p className="text-[11px] text-[var(--color-ink-faint)]">
+          Incomplete — pick a hydrator (source kind). Canvas identity is defined by the hydrator.
+        </p>
+      ) : null}
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Hydrator (source kind)</span>
+        <select
+          value={config.sourceKind}
+          disabled={saving}
+          onChange={(e) => void saveConfig({ ...config, sourceKind: e.target.value })}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          {LIVE_SOURCE_KIND_OPTIONS.map((opt) => (
+            <option key={opt.value || 'empty'} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </label>
       <label className="block space-y-1">
         <span className="text-[11px] text-[var(--color-ink-dim)]">Venue</span>
         <select

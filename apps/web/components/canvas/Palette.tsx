@@ -56,12 +56,13 @@ const ADDABLE: Array<{
   {
     type: 'live_api',
     defaultConfig: {
-      venue: 'paper_sim',
+      sourceKind: 'alpaca_bars',
+      venue: 'alpaca',
       instruments: ['SPY'],
-      feedClass: 'synthetic_sim',
+      feedClass: 'iex_free',
       pollSeconds: 60,
     },
-    hint: 'Paper market / runtime feed',
+    hint: 'Hydrator-bound live feed (sourceKind)',
   },
   {
     type: 'trend',

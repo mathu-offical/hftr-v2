@@ -347,6 +347,10 @@ export function moduleSubtypeChip(
       break;
     }
     case 'live_api': {
+      const sourceKind = cfg.sourceKind;
+      if (typeof sourceKind === 'string' && sourceKind.trim()) {
+        return humanizeToken(sourceKind);
+      }
       const venue = cfg.venue;
       if (typeof venue === 'string' && venue.trim()) {
         return humanizeToken(venue);

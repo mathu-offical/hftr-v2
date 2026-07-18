@@ -26,7 +26,11 @@ import { peekResearchResource } from '@/lib/research-resource-cache';
 import { isBaselineSeededLibrary } from '@/lib/research-library-shelves';
 import { MarketPosturePanel } from '@/components/panels/MarketPosturePanel';
 import { useMarketPostureView } from '@/components/panels/MarketPostureViewContext';
+import { useDataView } from '@/components/panels/DataViewContext';
+import { LiveDataSourcesList } from '@/components/panels/LiveDataSourcesList';
 import { PanelTabs } from '@/components/panels/PanelTabs';
+import { PanelEdgeRail } from '@/components/panels/PanelEdgeRail';
+import { Activity, Database, Orbit } from 'lucide-react';
 
 type Tab = 'research' | 'market_posture' | 'data';
 const LEFT_TABS: Tab[] = ['research', 'market_posture', 'data'];
@@ -80,10 +84,9 @@ interface LinkRow {
 type ConceptRow = ResearchConceptRow;
 
 /**
- * Left panel (ui-ux spec): Research + Libraries, Market posture, and Data sources.
- * Research tab (D-040 / D-049 / D-094 / D-095): topics + agent activity in the scroll
- * column; library shelves live in a bottom-anchored show/hide Libraries dock.
- * Market posture (D-081): movers / watchlists / positions hub. Data sources: live APIs.
+ * Left panel (ui-ux spec / D-120): Research, Market posture, Data sources.
+ * Libraries dock is first-class left-panel chrome (all tabs). DATA lists live hydrators;
+ * company library modules live under the dock Company section. Galaxy stays Research-owned.
  */
 export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) {
   // page.tsx does not pass companyId; the panel only renders under
@@ -118,6 +121,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
   const [shellRefreshing, setShellRefreshing] = useState(false);
   const researchView = useResearchView();
   const marketPostureView = useMarketPostureView();
+  const dataView = useDataView();
 
   useEffect(() => {
     if (!storageKey) {
@@ -280,15 +284,34 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
   }, [marketPostureView.registerLeftPanelBridge]);
 
   useEffect(() => {
+    dataView.registerLeftPanelBridge({
+      ensureDataOpen: () => {
+        setOpen(true);
+        setTab('data');
+      },
+      collapse: () => setOpen(false),
+    });
+    return () => dataView.registerLeftPanelBridge(null);
+  }, [dataView.registerLeftPanelBridge]);
+
+  // Mutual exclusion: Galaxy | Market posture | Data Explorer (D-120).
+  useEffect(() => {
     if (open && tab === 'research') {
       researchView.openOverlay();
       marketPostureView.closeOverlay();
+      dataView.closeOverlay();
     } else if (open && tab === 'market_posture') {
       marketPostureView.openOverlay();
       researchView.closeOverlay();
+      dataView.closeOverlay();
+    } else if (open && tab === 'data') {
+      dataView.openOverlay();
+      researchView.closeOverlay();
+      marketPostureView.closeOverlay();
     } else {
       researchView.closeOverlay();
       marketPostureView.closeOverlay();
+      dataView.closeOverlay();
     }
   }, [
     open,
@@ -297,6 +320,8 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
     researchView.closeOverlay,
     marketPostureView.openOverlay,
     marketPostureView.closeOverlay,
+    dataView.openOverlay,
+    dataView.closeOverlay,
   ]);
 
   const research = props.modules.filter(
@@ -317,27 +342,63 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
         : 'auto_admit_validated');
     return mode === 'require_operator_approval';
   });
-  const sources = props.modules.filter((m) => m.type === 'live_api' || m.type === 'library');
+  const companyLibraryModules = props.modules.filter((m) => m.type === 'library');
+  const liveApiModules = props.modules.filter((m) => m.type === 'live_api');
   const nameOf = (id: string) => props.modules.find((m) => m.id === id)?.name ?? 'unknown';
 
-  // D-118: edge expand/collapse rail stays at the left window edge in both states.
+  function browseLibrary(libraryId: string, libraryName: string) {
+    setTab('data');
+    dataView.selectLibrary(libraryId, libraryName);
+  }
+
+  function browseConcept(conceptId: string, title?: string) {
+    setTab('data');
+    dataView.selectConcept(conceptId, title);
+  }
+
+  function browseCompanyModule(moduleId: string, moduleName: string) {
+    setTab('data');
+    dataView.selectCompanyModule(moduleId, moduleName);
+  }
+
+  // D-118 / D-123: wider edge rail with per-tab symbol buttons.
   return (
     <div className="flex h-full min-h-0 shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-label={
-          open
-            ? 'Collapse left panel (keyboard shortcut [ or Escape)'
-            : 'Expand left panel (keyboard shortcut [)'
-        }
-        title={open ? 'Collapse ([ or Esc)' : 'Expand left panel ([)'}
-        className="shrink-0 border-r border-[var(--color-line)] bg-[var(--color-surface-1)] px-1.5 text-[10px] tracking-widest text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-        style={{ writingMode: 'vertical-rl' }}
-      >
-        RESEARCH · POSTURE · DATA · [
-      </button>
+      <PanelEdgeRail
+        side="left"
+        open={open}
+        activeTab={tab}
+        aria-label="Left panel sections"
+        collapseLabel="Collapse left panel (keyboard shortcut [ or Escape)"
+        expandLabel="Expand left panel (keyboard shortcut [)"
+        onToggleOpen={() => setOpen((v) => !v)}
+        onSelectTab={(id) => {
+          setTab(id);
+          setOpen(true);
+        }}
+        items={[
+          {
+            id: 'research',
+            label: 'Research',
+            icon: Orbit,
+            meta:
+              concepts.length + topics.length > 0
+                ? String(concepts.length + topics.length)
+                : undefined,
+          },
+          {
+            id: 'market_posture',
+            label: 'Market posture',
+            icon: Activity,
+          },
+          {
+            id: 'data',
+            label: 'Live data sources',
+            icon: Database,
+            meta: liveApiModules.length > 0 ? String(liveApiModules.length) : undefined,
+          },
+        ]}
+      />
 
       {open ? (
         <aside className="flex h-full min-h-0 w-80 shrink-0 flex-col overflow-hidden border-r border-[var(--color-line)] bg-[var(--color-surface-1)]">
@@ -351,7 +412,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                 {
                   id: 'research',
                   label: 'Research',
-                  title: 'Research + Libraries',
+                  title: 'Research',
                   meta:
                     concepts.length + topics.length > 0
                       ? String(concepts.length + topics.length)
@@ -365,229 +426,292 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                 {
                   id: 'data',
                   label: 'Data',
-                  title: 'Data sources',
-                  meta: sources.length > 0 ? String(sources.length) : undefined,
+                  title: 'Live data sources',
+                  meta: liveApiModules.length > 0 ? String(liveApiModules.length) : undefined,
                 },
               ]}
             />
           </div>
 
-      {tab === 'research' ? (
-        <>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 text-sm">
-            {topicOwnerModules.length > 0 ? (
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4 pt-3 text-sm">
+            {tab === 'research' && (
               <>
-                <ResearchNewTopicButton
+                {topicOwnerModules.length > 0 ? (
+                  <>
+                    <ResearchNewTopicButton
+                      companyId={companyId}
+                      modules={topicOwnerModules.map((m) => ({ id: m.id, name: m.name }))}
+                      onCreated={() => {
+                        invalidateAfterResearchMutation(companyId, 'topics');
+                        void loadTopics(true);
+                      }}
+                    />
+                    <ResearchSubmitArticle
+                      companyId={companyId}
+                      modules={topicOwnerModules.map((m) => ({ id: m.id, name: m.name }))}
+                      libraries={libraries.map((l) => ({ id: l.id, name: l.name }))}
+                      onCreated={(conceptId) => {
+                        invalidateAfterResearchMutation(companyId, 'concepts');
+                        invalidateAfterResearchMutation(companyId, 'libraryPages');
+                        void loadConcepts(true);
+                        void loadLibraries(true);
+                        researchView.inspectConcept(conceptId);
+                      }}
+                    />
+                  </>
+                ) : (
+                  <p className="px-1 text-xs text-[var(--color-ink-faint)]">
+                    No research modules yet. Add one below or from the canvas palette to create
+                    topics.
+                  </p>
+                )}
+
+                <div className="mt-3">
+                  <ResearchEntitySearch
+                    companyId={companyId}
+                    concepts={concepts.map((c) => ({
+                      id: c.id,
+                      title: c.title,
+                      tags: c.tags,
+                      body: c.body,
+                      sourceClass: c.sourceClass,
+                    }))}
+                    topics={topics.map((t) => ({ id: t.id, title: t.title }))}
+                    libraries={libraries.map((l) => ({ id: l.id, name: l.name }))}
+                    highlightedTopicIds={researchView.linkedTopicIds}
+                    onSelectConcept={(conceptId) => researchView.inspectConcept(conceptId)}
+                    onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
+                    onSelectTag={(tag) => {
+                      const ids = concepts.filter((c) => c.tags.includes(tag)).map((c) => c.id);
+                      researchView.inspectTag(tag, ids);
+                    }}
+                    onSelectLibrary={(libraryId) => {
+                      const lib = libraries.find((l) => l.id === libraryId);
+                      researchView.inspectLibrary(libraryId, lib?.name ?? 'Library');
+                    }}
+                  />
+                </div>
+
+                <div className="mt-3">
+                  {!topicsLoaded ? (
+                    <p className="text-[10px] text-[var(--color-ink-faint)]">
+                      Loading research topics…
+                    </p>
+                  ) : (
+                    <ResearchPagesList
+                      companyId={companyId}
+                      topics={topics.map((t) => ({
+                        id: t.id,
+                        title: t.title,
+                        moduleId: t.moduleId,
+                        parentTopicId: t.parentTopicId ?? null,
+                        ...(typeof t.conceptCount === 'number'
+                          ? { conceptCount: t.conceptCount }
+                          : {}),
+                        status: t.status,
+                        priority: t.priority,
+                        provenance: t.provenance ?? null,
+                      }))}
+                      selectedTopicId={researchView.selectedTopicId}
+                      linkedTopicIds={researchView.linkedTopicIds}
+                      linkedTopicTitles={researchView.linkedTopicTitles}
+                      onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
+                    />
+                  )}
+                </div>
+
+                <div
+                  data-testid="research-agent-activity"
+                  className="mt-3 rounded-lg border border-[var(--color-line)] p-2.5"
+                >
+                  <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-ink-faint)]">
+                    Agent activity
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">
+                    Research module runs · evidence · admission
+                  </p>
+                  {topicOwnerModules.length === 0 ? (
+                    <p className="mt-2 text-[11px] text-[var(--color-ink-faint)]">
+                      No research modules yet. Add one under Modules & tools.
+                    </p>
+                  ) : (
+                    <ul className="mt-2 space-y-2">
+                      {topicOwnerModules.map((m) => (
+                        <li key={m.id} className="rounded-md border border-[var(--color-line)] p-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate text-xs font-medium">{m.name}</span>
+                            <span className="shrink-0 text-[10px] text-[var(--color-ink-faint)]">
+                              {m.status}
+                            </span>
+                          </div>
+                          <ResearchActions
+                            companyId={companyId}
+                            moduleId={m.id}
+                            topicScope={String(m.config.topicScope ?? m.config.focus ?? '')}
+                            moduleConfig={m.config}
+                            admissionMode={
+                              admissionOverrides[m.id] ??
+                              (m.config.admissionMode === 'require_operator_approval'
+                                ? 'require_operator_approval'
+                                : 'auto_admit_validated')
+                            }
+                            onAdmissionChange={(mode) =>
+                              setAdmissionOverrides((prev) => ({ ...prev, [m.id]: mode }))
+                            }
+                            onDone={() => {
+                              invalidateAfterResearchMutation(companyId, 'all');
+                              void refreshShell(true);
+                            }}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <ResearchArchiveSection
                   companyId={companyId}
-                  modules={topicOwnerModules.map((m) => ({ id: m.id, name: m.name }))}
-                  onCreated={() => {
-                    invalidateAfterResearchMutation(companyId, 'topics');
-                    void loadTopics(true);
+                  onChanged={() => {
+                    invalidateAfterResearchMutation(companyId, 'all');
+                    void refreshShell(true);
                   }}
                 />
-                <ResearchSubmitArticle
-                  companyId={companyId}
-                  modules={topicOwnerModules.map((m) => ({ id: m.id, name: m.name }))}
-                  libraries={libraries.map((l) => ({ id: l.id, name: l.name }))}
-                  onCreated={(conceptId) => {
-                    invalidateAfterResearchMutation(companyId, 'concepts');
-                    invalidateAfterResearchMutation(companyId, 'libraryPages');
-                    void loadConcepts(true);
-                    void loadLibraries(true);
-                    researchView.inspectConcept(conceptId);
-                  }}
-                />
+
+                <details className="mt-3 rounded-lg border border-[var(--color-line)] p-2.5">
+                  <summary className="cursor-pointer text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+                    Modules & tools
+                  </summary>
+                  <div className="mt-2">
+                    <NewResearchModuleForm companyId={companyId} />
+                  </div>
+                  {researchModules.length > 0 && (
+                    <CompanySweepAction
+                      companyId={companyId}
+                      onDone={() => {
+                        invalidateAfterResearchMutation(companyId, 'concepts');
+                        void loadConcepts(true);
+                      }}
+                    />
+                  )}
+                  {research.length === 0 ? (
+                    <p className="mt-3 px-1 text-xs text-[var(--color-ink-faint)]">
+                      No research or trend modules yet. Create one above or add from the canvas
+                      palette.
+                    </p>
+                  ) : (
+                    <ul className="mt-3 space-y-3">
+                      {research.map((m) => (
+                        <li key={m.id} className="rounded-lg border border-[var(--color-line)] p-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium">{m.name}</span>
+                            <span className="text-[10px] uppercase text-[var(--color-ink-faint)]">
+                              {m.type}
+                            </span>
+                          </div>
+                          <div className="mt-1 text-[11px] text-[var(--color-ink-dim)]">
+                            {String(
+                              m.config.topicScope ?? m.config.focus ?? 'scope not configured yet',
+                            )}
+                          </div>
+                          <div className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
+                            {m.status}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </details>
               </>
-            ) : (
-              <p className="px-1 text-xs text-[var(--color-ink-faint)]">
-                No research modules yet. Add one below or from the canvas palette to create topics.
-              </p>
             )}
 
-            <div className="mt-3">
-              <ResearchEntitySearch
-                companyId={companyId}
-                concepts={concepts.map((c) => ({
-                  id: c.id,
-                  title: c.title,
-                  tags: c.tags,
-                  body: c.body,
-                  sourceClass: c.sourceClass,
-                }))}
-                topics={topics.map((t) => ({ id: t.id, title: t.title }))}
-                libraries={libraries.map((l) => ({ id: l.id, name: l.name }))}
-                highlightedTopicIds={researchView.linkedTopicIds}
-                onSelectConcept={(conceptId) => researchView.inspectConcept(conceptId)}
-                onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
-                onSelectTag={(tag) => {
-                  const ids = concepts.filter((c) => c.tags.includes(tag)).map((c) => c.id);
-                  researchView.inspectTag(tag, ids);
-                }}
-                onSelectLibrary={(libraryId) => {
-                  const lib = libraries.find((l) => l.id === libraryId);
-                  researchView.inspectLibrary(libraryId, lib?.name ?? 'Library');
-                }}
-              />
-            </div>
+            {tab === 'market_posture' && <MarketPosturePanel companyId={companyId} />}
 
-            <div className="mt-3">
-              {!topicsLoaded ? (
-                <p className="text-[10px] text-[var(--color-ink-faint)]">
-                  Loading research topics…
-                </p>
-              ) : (
-                <ResearchPagesList
-                  companyId={companyId}
-                  topics={topics.map((t) => ({
-                    id: t.id,
-                    title: t.title,
-                    moduleId: t.moduleId,
-                    parentTopicId: t.parentTopicId ?? null,
-                    ...(typeof t.conceptCount === 'number' ? { conceptCount: t.conceptCount } : {}),
-                    status: t.status,
-                    priority: t.priority,
-                    provenance: t.provenance ?? null,
-                  }))}
-                  selectedTopicId={researchView.selectedTopicId}
-                  linkedTopicIds={researchView.linkedTopicIds}
-                  linkedTopicTitles={researchView.linkedTopicTitles}
-                  onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
-                />
-              )}
-            </div>
-
-            <div
-              data-testid="research-agent-activity"
-              className="mt-3 rounded-lg border border-[var(--color-line)] p-2.5"
-            >
-              <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-ink-faint)]">
-                Agent activity
-              </p>
-              <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">
-                Research module runs · evidence · admission
-              </p>
-              {topicOwnerModules.length === 0 ? (
-                <p className="mt-2 text-[11px] text-[var(--color-ink-faint)]">
-                  No research modules yet. Add one under Modules & tools.
-                </p>
-              ) : (
-                <ul className="mt-2 space-y-2">
-                  {topicOwnerModules.map((m) => (
-                    <li key={m.id} className="rounded-md border border-[var(--color-line)] p-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-xs font-medium">{m.name}</span>
-                        <span className="shrink-0 text-[10px] text-[var(--color-ink-faint)]">
-                          {m.status}
-                        </span>
-                      </div>
-                      <ResearchActions
-                        companyId={companyId}
-                        moduleId={m.id}
-                        topicScope={String(m.config.topicScope ?? m.config.focus ?? '')}
-                        moduleConfig={m.config}
-                        admissionMode={
-                          admissionOverrides[m.id] ??
-                          (m.config.admissionMode === 'require_operator_approval'
-                            ? 'require_operator_approval'
-                            : 'auto_admit_validated')
-                        }
-                        onAdmissionChange={(mode) =>
-                          setAdmissionOverrides((prev) => ({ ...prev, [m.id]: mode }))
-                        }
-                        onDone={() => {
-                          invalidateAfterResearchMutation(companyId, 'all');
-                          void refreshShell(true);
-                        }}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <ResearchArchiveSection
-              companyId={companyId}
-              onChanged={() => {
-                invalidateAfterResearchMutation(companyId, 'all');
-                void refreshShell(true);
-              }}
-            />
-
-            <details className="mt-3 rounded-lg border border-[var(--color-line)] p-2.5">
-              <summary className="cursor-pointer text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                Modules & tools
-              </summary>
-              <div className="mt-2">
-                <NewResearchModuleForm companyId={companyId} />
-              </div>
-              {researchModules.length > 0 && (
-                <CompanySweepAction
-                  companyId={companyId}
-                  onDone={() => {
-                    invalidateAfterResearchMutation(companyId, 'concepts');
-                    void loadConcepts(true);
-                  }}
-                />
-              )}
-              {research.length === 0 ? (
-                <p className="mt-3 px-1 text-xs text-[var(--color-ink-faint)]">
-                  No research or trend modules yet. Create one above or add from the canvas palette.
-                </p>
-              ) : (
-                <ul className="mt-3 space-y-3">
-                  {research.map((m) => (
-                    <li key={m.id} className="rounded-lg border border-[var(--color-line)] p-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium">{m.name}</span>
-                        <span className="text-[10px] uppercase text-[var(--color-ink-faint)]">
-                          {m.type}
-                        </span>
-                      </div>
-                      <div className="mt-1 text-[11px] text-[var(--color-ink-dim)]">
-                        {String(
-                          m.config.topicScope ?? m.config.focus ?? 'scope not configured yet',
-                        )}
-                      </div>
-                      <div className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
-                        {m.status}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </details>
+            {tab === 'data' && (
+              <LiveDataSourcesList companyId={companyId} liveApiModules={liveApiModules} />
+            )}
           </div>
 
+          {/* D-121: Libraries dock — elevated sheet over tab scroll (all tabs). */}
           {librariesDockOpen ? (
             <div
               data-testid="research-libraries-dock"
-              className="flex max-h-[42vh] shrink-0 flex-col border-t border-[var(--color-line)] bg-[var(--color-surface-1)]"
+              className="relative z-10 mx-1.5 mb-1.5 mt-0 flex max-h-[min(42vh,20rem)] shrink-0 flex-col overflow-hidden rounded-t-xl border border-[var(--color-line)] border-b-[var(--color-line)] bg-[var(--color-surface-0)] shadow-[0_-8px_24px_rgba(0,0,0,0.45)] ring-1 ring-[var(--color-line)]"
             >
-              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--color-line)] px-3 py-1.5">
-                <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-ink-faint)]">
-                  Libraries
-                </p>
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-ink)]">
+                    Libraries
+                  </p>
+                  <p className="text-[9px] text-[var(--color-ink-faint)]">
+                    Shared · all tabs · browse in Data Explorer
+                  </p>
+                </div>
                 <button
                   type="button"
                   data-testid="research-libraries-dock-hide"
                   onClick={() => setLibrariesDockOpen(false)}
-                  className="rounded border border-[var(--color-line)] px-1.5 py-0.5 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-ink)]"
+                  className="rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-1.5 py-0.5 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-ink)]"
                 >
                   Hide
                 </button>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2 text-sm">
+                <section
+                  data-testid="company-libraries-section"
+                  className="mb-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2.5"
+                  aria-label="Company libraries"
+                >
+                  <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-ink-faint)]">
+                    Company
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">
+                    Canvas library modules for this company
+                  </p>
+                  {companyLibraryModules.length === 0 ? (
+                    <p className="mt-2 text-[11px] text-[var(--color-ink-faint)]">
+                      No company library modules yet. Create one below.
+                    </p>
+                  ) : (
+                    <ul className="mt-2 space-y-1.5">
+                      {companyLibraryModules.map((m) => {
+                        const hydrates = props.links
+                          .filter((l) => l.fromModuleId === m.id && l.linkKind === 'data_feed')
+                          .map((l) => nameOf(l.toModuleId));
+                        return (
+                          <li key={m.id}>
+                            <button
+                              type="button"
+                              data-testid={`company-library-module-${m.id}`}
+                              onClick={() => browseCompanyModule(m.id, m.name)}
+                              className="flex w-full flex-col rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-left hover:border-[var(--color-accent)]"
+                            >
+                              <span className="truncate text-xs font-medium">{m.name}</span>
+                              <span className="text-[10px] text-[var(--color-ink-faint)]">
+                                {String(m.config.topicScope ?? 'library')}
+                                {hydrates.length > 0 ? ` · feeds ${hydrates.join(', ')}` : ''}
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </section>
+
                 <ResearchLibraryShelves
                   companyId={companyId}
                   libraries={libraries}
                   topics={topics.map((t) => ({ id: t.id, title: t.title }))}
                   shellRefreshing={shellRefreshing}
                   onRefreshShell={() => void refreshShell(true)}
-                  onSelectConcept={(conceptId) => researchView.inspectConcept(conceptId)}
+                  onSelectConcept={(conceptId) => browseConcept(conceptId)}
                   onSelectLibrary={(libraryId, libraryName) =>
-                    researchView.inspectLibrary(libraryId, libraryName)
+                    browseLibrary(libraryId, libraryName)
                   }
-                  onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
+                  onSelectTopic={(topicId) => {
+                    setTab('research');
+                    void researchView.selectTopic(topicId);
+                  }}
                 />
                 <LibrariesSection
                   companyId={companyId}
@@ -603,17 +727,22 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
               </div>
             </div>
           ) : (
-            <div className="shrink-0 border-t border-[var(--color-line)] px-3 py-2">
+            <div className="relative z-10 mx-1.5 mb-1.5 shrink-0">
               <button
                 type="button"
                 data-testid="research-libraries-dock-card"
                 onClick={() => setLibrariesDockOpen(true)}
-                className="flex w-full items-center justify-between gap-2 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-2 text-left hover:border-[var(--color-accent)]"
+                className="flex w-full items-center justify-between gap-2 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-2.5 text-left shadow-[0_-4px_16px_rgba(0,0,0,0.35)] ring-1 ring-[var(--color-line)] hover:border-[var(--color-accent)]"
               >
-                <span className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-ink-faint)]">
-                  Libraries
+                <span className="min-w-0">
+                  <span className="block text-[10px] font-medium uppercase tracking-widest text-[var(--color-ink)]">
+                    Libraries
+                  </span>
+                  <span className="block text-[9px] text-[var(--color-ink-faint)]">
+                    Shared across Research · Posture · Data
+                  </span>
                 </span>
-                <span className="text-[10px] text-[var(--color-ink-dim)]">
+                <span className="shrink-0 text-[10px] text-[var(--color-ink-dim)]">
                   {librariesLoaded
                     ? `${libraries.length} librar${libraries.length === 1 ? 'y' : 'ies'} · Show`
                     : 'Show'}
@@ -621,54 +750,6 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
               </button>
             </div>
           )}
-        </>
-      ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 text-sm">
-          {tab === 'market_posture' && <MarketPosturePanel companyId={companyId} />}
-
-          {tab === 'data' && (
-            <>
-              <NewDataSourceForm companyId={companyId} />
-              {sources.length === 0 ? (
-                <p className="mt-3 px-1 text-xs text-[var(--color-ink-faint)]">
-                  No data sources yet. Add one above or from the canvas palette.
-                </p>
-              ) : (
-                <ul className="mt-3 space-y-2">
-                  {sources.map((m) => {
-                    const hydrates = props.links
-                      .filter((l) => l.fromModuleId === m.id && l.linkKind === 'data_feed')
-                      .map((l) => nameOf(l.toModuleId));
-                    return (
-                      <li key={m.id} className="rounded-lg border border-[var(--color-line)] p-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium">{m.name}</span>
-                          <span className="text-[10px] uppercase text-[var(--color-ink-faint)]">
-                            {m.type === 'live_api' ? 'live api' : 'library'}
-                          </span>
-                        </div>
-                        {m.type === 'live_api' && (
-                          <div className="mt-1 text-[11px] text-[var(--color-ink-dim)]">
-                            venue {String(m.config.venue ?? '—')} ·{' '}
-                            {Array.isArray(m.config.instruments)
-                              ? `${m.config.instruments.length} instruments`
-                              : 'no instruments'}
-                          </div>
-                        )}
-                        <div className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
-                          {hydrates.length > 0
-                            ? `hydrates: ${hydrates.join(', ')}`
-                            : 'not feeding any node yet'}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </>
-          )}
-        </div>
-      )}
         </aside>
       ) : null}
     </div>
@@ -885,123 +966,6 @@ function NewResearchModuleForm(props: { companyId: string }) {
           type="submit"
           disabled={busy || !name.trim() || !topicScope.trim()}
           aria-label="Create research module"
-          className="rounded-md border border-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
-        >
-          {busy ? 'Creating…' : 'Create'}
-        </button>
-        {message && <span className="text-[10px] text-[var(--color-ink-faint)]">{message}</span>}
-      </div>
-    </form>
-  );
-}
-
-/** Compact form to add a live API or library data source module. */
-function NewDataSourceForm(props: { companyId: string }) {
-  const [kind, setKind] = useState<'live_api' | 'library'>('live_api');
-  const [name, setName] = useState('');
-  const [instruments, setInstruments] = useState('SPY');
-  const [topicScope, setTopicScope] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-
-  async function create() {
-    const trimmedName = name.trim();
-    if (!trimmedName || !props.companyId) return;
-    if (kind === 'library' && !topicScope.trim()) return;
-    if (kind === 'live_api' && !instruments.trim()) return;
-
-    const config =
-      kind === 'live_api'
-        ? {
-            venue: 'paper_sim' as const,
-            instruments: instruments
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean),
-          }
-        : { topicScope: topicScope.trim() };
-
-    setBusy(true);
-    setMessage(null);
-    try {
-      await api(`/api/companies/${props.companyId}/modules`, {
-        method: 'POST',
-        body: {
-          type: kind,
-          name: trimmedName,
-          config,
-          canvasPosition: {
-            x: kind === 'live_api' ? 80 : 200,
-            y: 120 + Math.random() * 40,
-          },
-        },
-      });
-      setMessage('Created — reloading canvas…');
-      setTimeout(() => window.location.reload(), 800);
-    } catch (err) {
-      setMessage(err instanceof RequestError ? `Create failed (${err.status}).` : 'Create failed.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const canSubmit = name.trim() && (kind === 'live_api' ? instruments.trim() : topicScope.trim());
-
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        void create();
-      }}
-      className="rounded-lg border border-[var(--color-line)] p-2.5"
-      aria-label="Add data source module"
-    >
-      <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-        Add data source
-      </p>
-      <div className="mt-2 space-y-1.5">
-        <select
-          value={kind}
-          onChange={(e) => setKind(e.target.value as 'live_api' | 'library')}
-          aria-label="Data source kind"
-          className={compactInput}
-        >
-          <option value="live_api">Live API</option>
-          <option value="library">Library</option>
-        </select>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Module name"
-          aria-label="Data source module name"
-          className={compactInput}
-        />
-        {kind === 'live_api' ? (
-          <input
-            value={instruments}
-            onChange={(e) => setInstruments(e.target.value)}
-            placeholder="Instruments (comma-separated)"
-            aria-label="Live API instruments"
-            className={compactInput}
-          />
-        ) : (
-          <input
-            value={topicScope}
-            onChange={(e) => setTopicScope(e.target.value)}
-            placeholder="Topic scope"
-            aria-label="Library topic scope"
-            className={compactInput}
-          />
-        )}
-        {kind === 'live_api' && (
-          <p className="text-[10px] text-[var(--color-ink-faint)]">venue: paper_sim</p>
-        )}
-      </div>
-      <div className="mt-2 flex items-center gap-2">
-        <button
-          type="submit"
-          disabled={busy || !canSubmit}
-          aria-label="Create data source module"
           className="rounded-md border border-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
         >
           {busy ? 'Creating…' : 'Create'}

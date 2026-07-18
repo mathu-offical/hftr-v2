@@ -15,6 +15,7 @@ import { LeftPanel } from '@/components/panels/LeftPanel';
 import { RightPanel } from '@/components/panels/RightPanel';
 import { CompanyResearchShell } from '@/components/research/CompanyResearchShell';
 import { ResearchOverlay } from '@/components/research/ResearchOverlay';
+import { DataExplorerOverlay } from '@/components/panels/DataExplorerOverlay';
 import { MarketPostureOverlay } from '@/components/panels/MarketPostureOverlay';
 import { QueueStatsChip } from '@/components/QueueStatsChip';
 import { CompanySwitcher } from '@/components/shell/CompanySwitcher';
@@ -200,6 +201,7 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
                 />
                 <ResearchOverlay />
                 <MarketPostureOverlay />
+                <DataExplorerOverlay />
               </div>
               <BottomPanel
                 companyId={companyId}

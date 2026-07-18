@@ -25,7 +25,7 @@ export interface MarketPostureViewContextValue {
   category: MarketPostureCategory;
   openOverlay: () => void;
   closeOverlay: () => void;
-  /** Collapse left panel + hide overlay (× control). */
+  /** Collapse left panel + hide overlay (edge rail / Esc). */
   closeWorkspace: () => void;
   registerLeftPanelBridge: (
     bridge: { ensurePostureOpen: () => void; collapse: () => void } | null,

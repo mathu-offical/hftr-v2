@@ -7,6 +7,8 @@ import { VALUE_LINEAGE_FOCUS_EVENT, type ValueLineageFocusDetail } from '@/lib/v
 import { dollars, scaled, toneFor } from './format';
 import { Justification } from './Justification';
 import { PanelTabs } from './PanelTabs';
+import { PanelEdgeRail } from './PanelEdgeRail';
+import { FlaskConical, Hash, ListOrdered, ShieldCheck, Wallet } from 'lucide-react';
 
 type Tab = 'verification' | 'executions' | 'ledger' | 'simulation' | 'values';
 const TABS: { id: Tab; label: string }[] = [
@@ -215,7 +217,21 @@ export function RightPanel(props: { companyId: string }) {
     };
   }, [load]);
 
-  // D-118: edge expand/collapse rail stays at the right window edge in both states.
+  const rightRailMeta = (id: Tab): string | undefined => {
+    const count =
+      id === 'verification'
+        ? verifications.length
+        : id === 'executions'
+          ? executions.length
+          : id === 'ledger'
+            ? ledger.length + positions.filter((p) => String(p.qty) !== '0').length
+            : id === 'simulation'
+              ? simulations.length
+              : values.length;
+    return count > 0 ? String(count) : undefined;
+  };
+
+  // D-118 / D-123: wider edge rail with per-tab symbol buttons.
   return (
     <div className="flex h-full min-h-0 shrink-0">
       {open ? (
@@ -226,67 +242,85 @@ export function RightPanel(props: { companyId: string }) {
               className="min-w-0 flex-1"
               value={tab}
               onChange={setTab}
-              tabs={TABS.map((t) => {
-                const count =
-                  t.id === 'verification'
-                    ? verifications.length
-                    : t.id === 'executions'
-                      ? executions.length
-                      : t.id === 'ledger'
-                        ? ledger.length + positions.filter((p) => String(p.qty) !== '0').length
-                        : t.id === 'simulation'
-                          ? simulations.length
-                          : values.length;
-                return {
-                  id: t.id,
-                  label: t.label,
-                  meta: count > 0 ? String(count) : undefined,
-                };
-              })}
+              tabs={TABS.map((t) => ({
+                id: t.id,
+                label: t.label,
+                meta: rightRailMeta(t.id),
+              }))}
             />
           </div>
 
-      <div className="border-b border-[var(--color-line)] px-4 py-2.5">
-        <div className="text-xs text-[var(--color-ink-dim)]">Paper balance</div>
-        <div className="font-mono text-lg">{balance ? dollars(balance) : '—'}</div>
-      </div>
+          <div className="border-b border-[var(--color-line)] px-4 py-2.5">
+            <div className="text-xs text-[var(--color-ink-dim)]">Paper balance</div>
+            <div className="font-mono text-lg">{balance ? dollars(balance) : '—'}</div>
+          </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 text-sm">
-        {tab === 'verification' && (
-          <VerificationTab verifications={verifications} executions={executions} />
-        )}
-        {tab === 'executions' && <ExecutionsTab executions={executions} />}
-        {tab === 'ledger' && <LedgerTab ledger={ledger} positions={positions} />}
-        {tab === 'simulation' && (
-          <SimulationTab runs={simulations} comparisonSummary={simComparison} />
-        )}
-        {tab === 'values' && (
-          <ValuesTab
-            companyId={props.companyId}
-            values={values}
-            focusedRef={focusedValueRef}
-            onFocusedRefConsumed={() => setFocusedValueRef(null)}
-          />
-        )}
-      </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 text-sm">
+            {tab === 'verification' && (
+              <VerificationTab verifications={verifications} executions={executions} />
+            )}
+            {tab === 'executions' && <ExecutionsTab executions={executions} />}
+            {tab === 'ledger' && <LedgerTab ledger={ledger} positions={positions} />}
+            {tab === 'simulation' && (
+              <SimulationTab runs={simulations} comparisonSummary={simComparison} />
+            )}
+            {tab === 'values' && (
+              <ValuesTab
+                companyId={props.companyId}
+                values={values}
+                focusedRef={focusedValueRef}
+                onFocusedRefConsumed={() => setFocusedValueRef(null)}
+              />
+            )}
+          </div>
         </aside>
       ) : null}
 
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-label={
-          open
-            ? 'Collapse info panel (keyboard shortcut ] or Escape)'
-            : 'Expand info panel (keyboard shortcut ])'
-        }
-        title={open ? 'Collapse (] or Esc)' : 'Expand info panel (])'}
-        className="shrink-0 border-l border-[var(--color-line)] bg-[var(--color-surface-1)] px-1.5 text-[10px] tracking-widest text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-        style={{ writingMode: 'vertical-rl' }}
-      >
-        INFO · ]
-      </button>
+      <PanelEdgeRail
+        side="right"
+        open={open}
+        activeTab={tab}
+        aria-label="Info panel sections"
+        collapseLabel="Collapse info panel (keyboard shortcut ] or Escape)"
+        expandLabel="Expand info panel (keyboard shortcut ])"
+        onToggleOpen={() => setOpen((v) => !v)}
+        onSelectTab={(id) => {
+          setTab(id);
+          setOpen(true);
+        }}
+        items={[
+          {
+            id: 'verification',
+            label: 'Verify',
+            icon: ShieldCheck,
+            meta: rightRailMeta('verification'),
+          },
+          {
+            id: 'executions',
+            label: 'Executions',
+            icon: ListOrdered,
+            meta: rightRailMeta('executions'),
+          },
+          {
+            id: 'ledger',
+            label: 'Ledger',
+            icon: Wallet,
+            meta: rightRailMeta('ledger'),
+          },
+          {
+            id: 'simulation',
+            label: 'Sims',
+            icon: FlaskConical,
+            meta: rightRailMeta('simulation'),
+          },
+          {
+            id: 'values',
+            label: 'Values',
+            icon: Hash,
+            meta: rightRailMeta('values'),
+          },
+        ]}
+      />
     </div>
   );
 }

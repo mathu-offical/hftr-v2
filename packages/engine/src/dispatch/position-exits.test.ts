@@ -200,6 +200,26 @@ describe('resolvePositionExitReason', () => {
       }),
     ).toBe('rr_tp3_exit');
   });
+
+  it('returns session_close when cash session is closed', () => {
+    expect(
+      resolvePositionExitReason({
+        ...base,
+        catalogExitsEnabled: true,
+        sessionPhase: 'overnight',
+      }),
+    ).toBe('session_close');
+  });
+
+  it('does not session_close during open cash hours', () => {
+    expect(
+      resolvePositionExitReason({
+        ...base,
+        catalogExitsEnabled: true,
+        sessionPhase: 'midday',
+      }),
+    ).toBeNull();
+  });
 });
 
 describe('recoveryPhaseForExit', () => {

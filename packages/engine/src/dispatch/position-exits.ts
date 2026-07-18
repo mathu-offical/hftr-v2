@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, gt } from 'drizzle-orm';
-import type { HandoffEnvelope } from '@hftr/contracts';
+import type { HandoffEnvelope, SessionPhase } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { actionInstructions, engineInstances, modules, positions } from '@hftr/db/schema';
 import type { Clock } from '../clock';
+import { getSession, sessionPhase, venueDate } from '../calendar/calendar';
 import { isExpired, load, record } from '../calc/store';
 import {
   getBoundedRangeBand,
@@ -23,6 +24,7 @@ export type PositionExitReason =
   | 'breakeven'
   | 'target_exit_deadline'
   | 'time_stop'
+  | 'session_close'
   | 'atr_stop'
   | 'rr_tp1_scale_out'
   | 'rr_tp2_scale_out'
@@ -73,6 +75,24 @@ export function shouldExitTimeStop(
 
 export function shouldExitTargetDeadline(targetExitMs: number, nowMs: number): boolean {
   return nowMs >= targetExitMs;
+}
+
+/** Catalog time_stop_band max = session_close — flatten after the cash session. */
+export function shouldExitSessionClose(phase: SessionPhase): boolean {
+  switch (phase) {
+    case 'closed':
+    case 'overnight':
+      return true;
+    case 'pre_market':
+    case 'open':
+    case 'midday':
+    case 'power_hour':
+      return false;
+    default: {
+      const _exhaustive: never = phase;
+      return _exhaustive;
+    }
+  }
 }
 
 /** Deterministic synthetic ATR in cents from mark (paper loop). */
@@ -163,6 +183,8 @@ export function resolvePositionExitReason(args: {
   /** When false, skip ATR / RR ladder (tests). */
   catalogExitsEnabled?: boolean;
   atrMultiplier?: number;
+  /** XNYS (or venue) session phase for flat-by-close. */
+  sessionPhase?: SessionPhase | null;
 }): PositionExitReason | null {
   if (args.markCents === null) return null;
 
@@ -179,6 +201,9 @@ export function resolvePositionExitReason(args: {
     if (shouldExitAtrStop(args.avgCostCents, args.markCents, risk)) {
       return 'atr_stop';
     }
+    if (args.sessionPhase && shouldExitSessionClose(args.sessionPhase)) {
+      return 'session_close';
+    }
     if (shouldHitRrMultiple(args.avgCostCents, args.markCents, risk, ladder.tp3R)) {
       return 'rr_tp3_exit';
     }
@@ -188,6 +213,8 @@ export function resolvePositionExitReason(args: {
     if (shouldHitRrMultiple(args.avgCostCents, args.markCents, risk, ladder.tp1R)) {
       return 'rr_tp1_scale_out';
     }
+  } else if (args.sessionPhase && shouldExitSessionClose(args.sessionPhase)) {
+    return 'session_close';
   }
 
   if (shouldExitBreakeven(args.avgCostCents, args.markCents)) {
@@ -210,6 +237,8 @@ export function exitReasonLabel(reason: PositionExitReason): string {
       return 'target_exit_deadline';
     case 'time_stop':
       return 'time_stop_catalog';
+    case 'session_close':
+      return 'session_close_flat';
     case 'atr_stop':
       return 'atr_stop_catalog';
     case 'rr_tp1_scale_out':
@@ -237,6 +266,7 @@ export function recoveryPhaseForExit(reason: PositionExitReason): string {
     case 'rr_tp3_exit':
     case 'target_exit_deadline':
     case 'time_stop':
+    case 'session_close':
       return 'observe';
     default: {
       const _exhaustive: never = reason;
@@ -257,6 +287,7 @@ function resolveExitQty(qty: bigint, reason: PositionExitReason): bigint {
     case 'breakeven':
     case 'target_exit_deadline':
     case 'time_stop':
+    case 'session_close':
       return qty;
     default: {
       const _exhaustive: never = reason;
@@ -281,6 +312,7 @@ function exitIdempotencyKey(
     case 'breakeven':
     case 'target_exit_deadline':
     case 'time_stop':
+    case 'session_close':
       return `position-exit-${moduleId}-${symbol}-${reason}-${minuteBucket(nowMs)}`;
     default: {
       const _exhaustive: never = reason;
@@ -297,6 +329,8 @@ export async function scanPositionExitSignals(
   opts?: { timeStopEnabled?: boolean; catalogExitsEnabled?: boolean },
 ): Promise<PositionExitSignal[]> {
   const nowMs = clock.nowMs();
+  const session = await getSession(db, 'XNYS', venueDate(nowMs, 'America/New_York'));
+  const phase = sessionPhase(session, nowMs);
   const rows = await db
     .select({
       moduleId: positions.moduleId,
@@ -330,6 +364,7 @@ export async function scanPositionExitSignals(
       targetExitMs,
       openedAtMs: row.openedAt.getTime(),
       nowMs,
+      sessionPhase: phase,
       ...(opts?.timeStopEnabled !== undefined
         ? { timeStopEnabled: opts.timeStopEnabled }
         : {}),

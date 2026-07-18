@@ -277,6 +277,21 @@ export {
 } from './dispatch/execution-context';
 export { getSyntheticQuote } from './dispatch/quotes';
 export {
+  resolvePositionExitReason,
+  shouldExitBreakeven,
+  shouldExitSessionClose,
+  shouldExitAtrStop,
+  type PositionExitReason,
+  type PositionExitSignal,
+} from './dispatch/position-exits';
+export {
+  getRrTargetLadder,
+  getTimeStopTypicalMinutes,
+  getBoundedRangeBand,
+  type RrTargetLadder,
+  type NumericBand,
+} from './pipeline/bands';
+export {
   pollQuotes,
   type PollQuotesResult,
   type PollQuotesOptions,

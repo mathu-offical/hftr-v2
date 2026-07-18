@@ -14,8 +14,8 @@ sprint specs are written when the prior gate passes, incorporating learnings).
 |------|--------|---------|-----------|
 | **G0** Foundation | **Passed** | Monorepo, Clerk, Drizzle migrations, Vercel skeleton, CI typecheck/lint/vitest | — |
 | **G1** Canvas + queue spine | **Passed (local)** | Company wizard, canvas CRUD, queue drain, panels, deterministic assistant, Playwright M1 flows | Remote CI e2e first green run |
-| **G2** Research stack | **Partial** | Libraries/topics, galaxy + D-040 overlay, Obsidian zip, research bus D-039, **system:movers** shelf (D-058), ARCH-005, D-042/D-043 | Credentialed provider soak; llm_calls ledger soak; live movers replace placeholders |
-| **G3** Paper trading loop | **Partial** | ValueRef finalizer on promote (D-057); fund approve→**settled** + module ledger (D-059); **trace→Values lineage deep links** (D-060); Alpaca bars→regime; Playwright 3+7 | Remote CI e2e; credentialed Alpaca paper fill; pct fund resolve |
+| **G2** Research stack | **Partial** | Libraries/topics, galaxy + D-040 overlay, Obsidian zip, research bus D-039, **system:movers** shelf + daily schedule (D-058/D-062), ARCH-005, D-042/D-043 | Credentialed provider soak; llm_calls ledger soak; live movers replace placeholders |
+| **G3** Paper trading loop | **Partial** | ValueRef finalizer on promote (D-057); fund approve→**settled** + module ledger (D-059); **pct + fixed** allocation resolve (D-061); **trace→Values lineage deep links** (D-060); Alpaca bars→regime; Playwright 3+7 | Remote CI e2e; credentialed Alpaca paper fill |
 | **G4** Brokers + billing | **Partial (non-billing)** | Full §7 assistant write tools + Mistral schema; deterministic sims + Analyzer stub; Alpaca/Kalshi settings UX | **Billing deferred (D-032)**; Stripe; operator-key Alpaca paper round-trip |
 | **G5** Multi-venue + live | **Partial** | Live-gate arming UI; real Kalshi demo HTTP client + settings/verify; crypto/prediction templates; Palette via `/api/engine-templates` | **Live Alpaca unverified**; live Kalshi blocked; OQ-2 dedicated-worker evidence |
 | **G6** Polish + ops | **Partial** | Dead-letter bulk-retry; archive-first retention `0017`; auto-disarm; drain `lastDrain`; security-audit checklist; CI `workflow_dispatch` smoke skeleton | Full a11y/perf pass; Polymarket (OQ-5); remote credentialed smoke green |
@@ -90,10 +90,10 @@ libraries / library_concepts / research_topics (migration `0012`); graph + Obsid
 galaxy MVP (`react-force-graph-3d` + 2D fallback); schedule materializer + budget-queued claim
 semantics; Playwright `research-library.spec.ts` (galaxy + API/UI Obsidian zip export).
 **D-058 movers slice:** `system:movers` library (**Daily movers watch**) seeds at bootstrap with
-three qualitative placeholders; `library.system_movers` handler reserved for daily refresh until
-live movers inputs ship. Remaining for formal G2 sign-off: live provider/Alpaca smoke with
-operator keys, autonomous cadence soak on a real topic, and default model-profile promotion
-after paper scenario suite.
+three qualitative placeholders; `library.system_movers` handler + **daily `every:1440`
+schedule** (D-062) for placeholder refresh until live movers inputs ship. Remaining for formal
+G2 sign-off: live provider/Alpaca smoke with operator keys, autonomous cadence soak on a real
+topic, and default model-profile promotion after paper scenario suite.
 
 ## M2 — Research stack (Claude+Mistral) + libraries + galaxy MVP + numeric core
 

@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   fundTransferRowsFromProposals,
+  getCompanyBalanceCents,
   proposeFundRouteTransfers,
   resolveCapitalAllocationUsdCents,
   type ProposeFundRouteTransfersResult,
@@ -80,7 +81,10 @@ export async function POST(req: Request, ctx: Ctx) {
         .limit(1);
       const source = sourceRows[0];
       if (!source) throw new ApiError(422, 'source_not_found');
-      const resolved = await resolveCapitalAllocationUsdCents(db, source.capitalAllocationRef);
+      const baseBalanceCents = await getCompanyBalanceCents(db, companyId);
+      const resolved = await resolveCapitalAllocationUsdCents(db, source.capitalAllocationRef, {
+        baseBalanceCents,
+      });
       if (resolved === null) throw new ApiError(422, 'allocation_ref_unresolved');
       amountCents = resolved;
     } else {

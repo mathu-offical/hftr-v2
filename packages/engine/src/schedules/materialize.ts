@@ -158,3 +158,55 @@ export async function ensureResearchCadenceSchedule(
     enabled: true,
   });
 }
+
+/** Daily cadence for system:movers placeholder refresh (`library.system_movers`). */
+export const SYSTEM_MOVERS_CADENCE_MINUTES = 1440;
+
+function systemMoversScheduleName(companyId: string): string {
+  return `system-movers-${companyId}`;
+}
+
+/** Upsert company-scoped daily schedule for `library.system_movers` (D-062). */
+export async function ensureSystemMoversSchedule(
+  db: Db,
+  clock: Clock,
+  opts: { companyId: string },
+): Promise<void> {
+  const now = new Date(clock.nowMs());
+  const name = systemMoversScheduleName(opts.companyId);
+  const cronExpr = `${EVERY_PREFIX}${SYSTEM_MOVERS_CADENCE_MINUTES}`;
+  const payloadTemplate = { companyId: opts.companyId };
+
+  const existing = await db
+    .select({ id: jobSchedules.id })
+    .from(jobSchedules)
+    .where(and(eq(jobSchedules.companyId, opts.companyId), eq(jobSchedules.name, name)))
+    .limit(1);
+
+  if (existing[0]) {
+    await db
+      .update(jobSchedules)
+      .set({
+        cronExpr,
+        queueClass: 'RESEARCH',
+        kind: 'library.system_movers',
+        payloadTemplate,
+        moduleId: null,
+        enabled: true,
+        updatedAt: now,
+      })
+      .where(eq(jobSchedules.id, existing[0].id));
+    return;
+  }
+
+  await db.insert(jobSchedules).values({
+    name,
+    cronExpr,
+    queueClass: 'RESEARCH',
+    kind: 'library.system_movers',
+    payloadTemplate,
+    companyId: opts.companyId,
+    moduleId: null,
+    enabled: true,
+  });
+}

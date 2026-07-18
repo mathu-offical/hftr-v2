@@ -679,6 +679,17 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   opens the right-panel Values tab and loads `GET …/values/{ref}/lineage`. Closes G3 M3.5
   partial for trace→lineage navigation (ui-spec flow 7). **Status: implemented.**
 
+- **D-061 (fund pct capital allocation resolve, 2026-07-17):** Extends
+  `resolveCapitalAllocationUsdCents` for scale-4 `pct` refs: floor
+  `baseBalanceCents * valueInt / (100 * 10^4)` with fail-closed null when base missing/≤0,
+  pct outside (0,100], or floored amount ≤0. Propose API passes company pool balance via
+  `getCompanyBalanceCents`. Fixed `usd_cents` path unchanged. **Status: implemented.**
+
+- **D-062 (system:movers daily job_schedule, 2026-07-17):** `ensureSystemMoversSchedule`
+  upserts `every:1440` RESEARCH schedule kind `library.system_movers` with `{ companyId }`
+  payload; called from `bootstrapCompanyKnowledge` after library seed so materializer can
+  enqueue daily placeholder refresh. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

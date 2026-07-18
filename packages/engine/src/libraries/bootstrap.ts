@@ -11,6 +11,8 @@ import {
   topicConcepts,
 } from '@hftr/db/schema';
 import { leakLint } from '../calc/leak-lint';
+import { createFixedClock } from '../clock';
+import { ensureSystemMoversSchedule } from '../schedules/materialize';
 import { ensureSystemMoversLibrary } from './system-movers';
 
 const MECHANISMS_LIBRARY_NAME = 'Seeded trading mechanisms';
@@ -367,6 +369,9 @@ export async function bootstrapCompanyKnowledge(opts: {
   const now = opts.now ?? new Date();
 
   await ensureSystemMoversLibrary(opts.db, opts.companyId, now);
+  await ensureSystemMoversSchedule(opts.db, createFixedClock(now.getTime()), {
+    companyId: opts.companyId,
+  });
 
   if (opts.skipIfSeeded !== false) {
     const [existingSeed] = await opts.db

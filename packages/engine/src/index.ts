@@ -39,9 +39,11 @@ export type {
 export {
   materializeSchedules,
   ensureResearchCadenceSchedule,
+  ensureSystemMoversSchedule,
   parseScheduleExpr,
   isScheduleDue,
   scheduleWindowKey,
+  SYSTEM_MOVERS_CADENCE_MINUTES,
 } from './schedules/materialize';
 export { attachConceptsToLibraries } from './libraries/attach';
 export { attachConceptsToTopic } from './libraries/topic-attach';

@@ -38,11 +38,11 @@ Usage and reference counters on topics and concepts exist for **system optimizat
 
 ```
 Company hull
- └─ Library hull (soft nest)
-     └─ Folder sphere (catalog tag / runtime; mass = amalgamated vocabulary)
-         └─ Article orbit (topic)
-             ├─ Concept nodes
-             └─ Tag satellites (capped; click → parent concept)
+ └─ Library framing (faint; D-136)
+     └─ Folder system (loose bound; may intersect)
+         └─ Article orbit (soft radial band)
+             ├─ Concept nodes (free-float on semantic springs)
+             └─ Tag satellites (loose parent orbit)
 ```
 
 Semantic distance uses the **same** LLM-assist regex normalize + Jaccard band path as
@@ -125,23 +125,21 @@ chips drawn from visible concepts’ tags (and optionally topic-level keywords).
 ### 4.1 Soft nested library clusters (3D physics default)
 
 - Company galaxy = outer 3D force space (`react-force-graph-3d` + `d3-force-3d`).
-- Each **library** is a **soft spherical nest** (attractor + restore force) with a **visible
-  wireframe / translucent sphere outline** at the nest center and radius. Concepts with
-  primary membership are pulled toward / restored into their library volume.
-- A larger **company envelope** sphere outlines the full organizational cloud (bounds visible
-  library nests).
-- **Volume packing (D-116):** library / folder / article centers use **Fibonacci-sphere**
-  samples on concentric shells so XYZ volume is used — not an XY spiral or planar ring
-  (`research/galaxy-3d-volume-layout.md`). Nest + folder **shell radial** forces fill ball
-  volume; camera frames via packing-derived elevated orbit (**Fit** control) with gentle
-  idle auto-rotate (reduced-motion → static).
-- Cross-library concept links may span nests (spring length still set by weight band + relation).
-- Concepts in multiple libraries: **primary membership** determines nest; secondary
-  memberships shown as badges on the concept card / node label, not duplicated nodes.
-- Master library (if flagged) may render as the outermost company cloud or a dedicated nest —
-  default: **master = company outer**, curated libraries = inner nests.
-- Reducing scope (library filter, zoom into one nest) remains stable because nest forces
-  reheat with the filtered subgraph.
+- **D-136 free-float:** concepts and tags drift on **semantic weight + similarity** springs.
+  Articles apply **soft orbital** radial bands; folders are **loose system** bounds that
+  **may intersect**. Library hulls are faint organizational framing only (not hard nests).
+- A larger **company envelope** sphere outlines the full organizational cloud.
+- **Volume packing (D-116):** library / folder / article *centers* use **Fibonacci-sphere**
+  samples on concentric shells so XYZ volume is used
+  (`research/galaxy-3d-volume-layout.md`). Camera Fit + idle orbit unchanged.
+- Cross-membership links stay active (`hierarchicalLinkScale` only gently biases
+  same-article / same-folder springs) so related concepts bridge systems.
+- Concepts in multiple libraries: **primary membership** biases seed; secondary
+  memberships shown as badges / via intersecting orbits and links.
+- Master library (if flagged) may render as the outermost company cloud —
+  default: **master = company outer**, curated libraries = soft framing.
+- Reducing scope (library filter) reheats forces on the filtered subgraph without
+  requiring hard containment.
 
 ### 4.2 Zoom, filters, re-layout
 

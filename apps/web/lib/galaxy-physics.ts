@@ -1,9 +1,8 @@
 /**
- * Galaxy 3D physics helpers (TD-09 / D-116).
- * Tuned for neural-style force-directed layouts: spring links by qualitative
- * weight band, many-body charge, collision, and soft library-nest attractors.
- * Nest centers use Fibonacci-sphere packing so the layout fills volume
- * (not a flat XY pancake / planar spiral).
+ * Galaxy 3D physics helpers (TD-09 / D-116 / D-136).
+ * Concepts and tags free-float on semantic springs; articles apply soft orbits;
+ * folders apply soft system bounds. Hierarchy may intersect — weight/similarity
+ * springs dominate over nest restore (D-136).
  */
 
 import type { ResearchGraphLibraryNest, ResearchGraphLink } from '@hftr/contracts';
@@ -322,9 +321,9 @@ export function hashSpread3D(id: string): { dx: number; dy: number; dz: number }
 }
 
 /**
- * Spherical nest force: attract to library center + hard restore when outside hull (D-132).
- * When a folder key is present, library pull weakens so folder spheres own local structure,
- * but restore stays strong enough that folders cannot escape the parent nest.
+ * Faint library framing only (D-136). Concepts free-float; folders/articles own
+ * local structure. Restore is soft and only kicks in far outside the hull so
+ * semantic springs can pull nodes across library boundaries.
  */
 export function createLibraryNestForce(centers: Map<string, LibraryCenter3D>) {
   let nodes: GalaxySimNode[] = [];
@@ -337,15 +336,16 @@ export function createLibraryNestForce(centers: Map<string, LibraryCenter3D>) {
       const center = centers.get(libId);
       if (!center) continue;
 
-      const hasFolder = Boolean(node.primaryFolderKey);
-      const pull = alpha * (hasFolder ? 0.04 : 0.14);
-      const restore = alpha * (hasFolder ? 0.72 : 1.25);
+      const hasLocal = Boolean(node.primaryFolderKey || node.primaryArticleId);
+      const pull = alpha * (hasLocal ? 0.006 : 0.018);
+      const restore = alpha * (hasLocal ? 0.05 : 0.12);
 
       const dx = (node.x ?? 0) - center.x;
       const dy = (node.y ?? 0) - center.y;
       const dz = (node.z ?? 0) - center.z;
       const dist = Math.hypot(dx, dy, dz) || 1e-6;
-      const maxR = center.radius * (hasFolder ? 0.88 : 0.78);
+      // Loose envelope — allow intersection / escape for semantic links.
+      const maxR = center.radius * (hasLocal ? 1.55 : 1.35);
 
       if (dist > maxR) {
         const k = ((dist - maxR) / dist) * restore;
@@ -498,14 +498,16 @@ export function computeArticleOrbitCenters3D(opts: {
   return centers;
 }
 
-/** Soft folder nest: attract nodes with matching library + folder key. */
+/**
+ * Soft folder *system* bound (D-136): gentle attract toward folder center with a
+ * loose outer restore. Systems may intersect; semantic springs remain primary.
+ */
 export function createFolderNestForce(centers: Map<string, FolderCenter3D>) {
   let nodes: GalaxySimNode[] = [];
 
   function force(alpha: number) {
-    // Stronger than library pull so catalog folders become the visible clusters (D-132).
-    const pull = alpha * 0.18;
-    const restore = alpha * 1.05;
+    const pull = alpha * 0.055;
+    const restore = alpha * 0.24;
     for (const node of nodes) {
       if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
       const libId = node.primaryLibraryId;
@@ -518,7 +520,7 @@ export function createFolderNestForce(centers: Map<string, FolderCenter3D>) {
       const dy = (node.y ?? 0) - center.y;
       const dz = (node.z ?? 0) - center.z;
       const dist = Math.hypot(dx, dy, dz) || 1e-6;
-      const maxR = center.radius * 0.72;
+      const maxR = center.radius * 1.25;
 
       if (dist > maxR) {
         const k = ((dist - maxR) / dist) * restore;
@@ -556,17 +558,17 @@ export function createNestShellRadialForce(centers: Map<string, LibraryCenter3D>
   let nodes: GalaxySimNode[] = [];
 
   function force(alpha: number) {
-    const strength = alpha * 0.12;
+    // Very soft — free-float prefers semantic layout over filling library balls (D-136).
+    const strength = alpha * 0.035;
     for (const node of nodes) {
       if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
-      // Folder/article attractors own local structure when present.
       if (node.primaryFolderKey || node.primaryArticleId) continue;
       const libId = node.primaryLibraryId;
       if (!libId) continue;
       const center = centers.get(libId);
       if (!center) continue;
 
-      const targetR = center.radius * hashedRadialBand(String(node.id ?? ''), 0.22, 0.72);
+      const targetR = center.radius * hashedRadialBand(String(node.id ?? ''), 0.3, 0.9);
 
       const dx = (node.x ?? 0) - center.x;
       const dy = (node.y ?? 0) - center.y;
@@ -587,17 +589,15 @@ export function createNestShellRadialForce(centers: Map<string, LibraryCenter3D>
 }
 
 /**
- * Soft radial shell inside each folder nest so folder members fill the folder ball
- * instead of collapsing to the folder core (D-116 folder volume refine).
+ * Soft system volume fill — mild radial preference inside a folder (D-136).
  */
 export function createFolderShellRadialForce(centers: Map<string, FolderCenter3D>) {
   let nodes: GalaxySimNode[] = [];
 
   function force(alpha: number) {
-    const strength = alpha * 0.14;
+    const strength = alpha * 0.06;
     for (const node of nodes) {
       if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
-      // Article orbits own local structure when present.
       if (node.primaryArticleId) continue;
       const libId = node.primaryLibraryId;
       const folderKey = node.primaryFolderKey;
@@ -605,7 +605,7 @@ export function createFolderShellRadialForce(centers: Map<string, FolderCenter3D
       const center = centers.get(`${libId}::${folderKey}`);
       if (!center) continue;
 
-      const targetR = center.radius * hashedRadialBand(String(node.id ?? ''), 0.28, 0.78);
+      const targetR = center.radius * hashedRadialBand(String(node.id ?? ''), 0.35, 0.95);
 
       const dx = (node.x ?? 0) - center.x;
       const dy = (node.y ?? 0) - center.y;
@@ -643,7 +643,7 @@ export function createFolderCohereForce() {
       groups.set(key, list);
     }
 
-    const strength = alpha * 0.14;
+    const strength = alpha * 0.045;
     for (const members of groups.values()) {
       if (members.length < 2) continue;
       let cx = 0;
@@ -673,8 +673,7 @@ export function createFolderCohereForce() {
 }
 
 /**
- * Cohesion inside each library: pull members toward the live library centroid so
- * same-library concepts form a readable blob even when cross-library springs tug (D-132).
+ * Mild library cohesion — kept weak so free-float / semantic springs win (D-136).
  */
 export function createLibraryCohereForce() {
   let nodes: GalaxySimNode[] = [];
@@ -689,7 +688,7 @@ export function createLibraryCohereForce() {
       groups.set(node.primaryLibraryId, list);
     }
 
-    const strength = alpha * 0.14;
+    const strength = alpha * 0.03;
     for (const members of groups.values()) {
       if (members.length < 2) continue;
       let cx = 0;
@@ -719,13 +718,13 @@ export function createLibraryCohereForce() {
 }
 
 /**
- * Push concepts out of foreign library hulls so nests stay spatially separate (D-132).
+ * Very soft keep-out so foreign systems can intersect (D-136). Nearly off vs D-132.
  */
 export function createForeignLibraryRepelForce(centers: Map<string, LibraryCenter3D>) {
   let nodes: GalaxySimNode[] = [];
 
   function force(alpha: number) {
-    const strength = alpha * 1.2;
+    const strength = alpha * 0.08;
     for (const node of nodes) {
       if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
       const home = node.primaryLibraryId;
@@ -736,7 +735,7 @@ export function createForeignLibraryRepelForce(centers: Map<string, LibraryCente
         const dy = (node.y ?? 0) - center.y;
         const dz = (node.z ?? 0) - center.z;
         const dist = Math.hypot(dx, dy, dz) || 1e-6;
-        const keepOut = center.radius * 1.28;
+        const keepOut = center.radius * 0.55;
         if (dist >= keepOut) continue;
         const k = ((keepOut - dist) / dist) * strength;
         node.vx = (node.vx ?? 0) + dx * k;
@@ -754,24 +753,43 @@ export function createForeignLibraryRepelForce(centers: Map<string, LibraryCente
 }
 
 /**
- * Scale spring layout when endpoints belong to different primary libraries (D-132).
- * Cross-library edges remain visible but must not collapse separate nests into one cloud.
+ * Hierarchy gently biases springs; semantic weight/similarity still dominate (D-136).
+ * Systems and orbits may intersect via cross-membership edges.
  */
+export function hierarchicalLinkScale(opts: {
+  sameLibrary: boolean;
+  sameFolder: boolean;
+  sameArticle: boolean;
+}): { distanceMul: number; strengthMul: number } {
+  if (opts.sameArticle) return { distanceMul: 0.8, strengthMul: 1.15 };
+  if (opts.sameFolder) return { distanceMul: 0.9, strengthMul: 1.06 };
+  if (opts.sameLibrary) return { distanceMul: 1, strengthMul: 1 };
+  // Cross-library: still fully active so semantic relations can bridge systems.
+  return { distanceMul: 1.18, strengthMul: 0.88 };
+}
+
+/** @deprecated Prefer hierarchicalLinkScale — kept for call-site migration. */
 export function crossLibraryLinkScale(sameLibrary: boolean): {
   distanceMul: number;
   strengthMul: number;
 } {
-  if (sameLibrary) return { distanceMul: 1, strengthMul: 1 };
-  return { distanceMul: 2.85, strengthMul: 0.16 };
+  return hierarchicalLinkScale({
+    sameLibrary,
+    sameFolder: false,
+    sameArticle: false,
+  });
 }
 
-/** Weaker article-orbit attractor keyed by primaryArticleId. */
+/**
+ * Soft article orbit (D-136): prefer a radial band around the article center;
+ * mild outer restore only. Concepts remain free to leave via strong semantic links.
+ */
 export function createArticleOrbitForce(centers: Map<string, ArticleOrbitCenter3D>) {
   let nodes: GalaxySimNode[] = [];
 
   function force(alpha: number) {
-    const pull = alpha * 0.08;
-    const restore = alpha * 0.42;
+    const orbitStrength = alpha * 0.09;
+    const restore = alpha * 0.2;
     for (const node of nodes) {
       if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
       const articleId = node.primaryArticleId;
@@ -783,7 +801,8 @@ export function createArticleOrbitForce(centers: Map<string, ArticleOrbitCenter3
       const dy = (node.y ?? 0) - center.y;
       const dz = (node.z ?? 0) - center.z;
       const dist = Math.hypot(dx, dy, dz) || 1e-6;
-      const maxR = center.radius * 0.84;
+      const targetR = center.radius * hashedRadialBand(String(node.id ?? ''), 0.4, 0.95);
+      const maxR = center.radius * 1.45;
 
       if (dist > maxR) {
         const k = ((dist - maxR) / dist) * restore;
@@ -791,9 +810,10 @@ export function createArticleOrbitForce(centers: Map<string, ArticleOrbitCenter3
         node.vy = (node.vy ?? 0) - dy * k;
         node.vz = (node.vz ?? 0) - dz * k;
       } else {
-        node.vx = (node.vx ?? 0) - dx * pull;
-        node.vy = (node.vy ?? 0) - dy * pull;
-        node.vz = (node.vz ?? 0) - dz * pull;
+        const delta = (dist - targetR) / dist;
+        node.vx = (node.vx ?? 0) - dx * delta * orbitStrength;
+        node.vy = (node.vy ?? 0) - dy * delta * orbitStrength;
+        node.vz = (node.vz ?? 0) - dz * delta * orbitStrength;
       }
     }
   }
@@ -816,8 +836,8 @@ export function createTagSatelliteForce() {
       byId.set(String(node.id), node);
     }
 
-    const restDistance = 14;
-    const strength = 0.28;
+    const restDistance = 22;
+    const strength = 0.14;
 
     for (const node of nodes) {
       if (node.__kind !== 'tag-sat') continue;

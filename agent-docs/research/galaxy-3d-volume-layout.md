@@ -93,20 +93,17 @@ Result: orbit camera still looked like a **flat necklace of nests**, not a volum
 | P5 | Persist camera bookmarks | Product nice-to-have (design § out of scope) |
 | P6 | Faster graph GET / warm cache | Graph still ~3m cold — UX lag unrelated to packing |
 
-### D-132 cluster contract
+### D-132 cluster contract → D-136 free-float
 
-| Lever | Behavior |
-|-------|----------|
-| Packing | Cap nest radii; `separateLibraryCenters` until gap ≥ 1.38×(r₁+r₂) |
-| Nest force | Stronger restore (≈1.25α) so concepts stay inside home hull |
-| Library cohere | Live centroid pull per `primaryLibraryId` |
-| Foreign repel | Keep-out 1.28× foreign radius |
-| Cross-lib springs | Distance ×2.85, strength ×0.16 |
-| Folder LOD | Up to 5 folder shells in large libs (was 1) — catalog folders are clusters |
-| Folder packing | Outer Fibonacci band inside parent (shellR ≈ 0.72× parent) |
-| Remount | Avoided — live FG coords reseeded on packing signature change |
-| Visual | Library + folder shell/wire opacities raised |
-| QA | `layoutStats().clusterSeparation.ok` and `nestMembership.fractionInside` |
+| Lever | Behavior (D-136) |
+|-------|------------------|
+| Concepts / tags | Free-float on weight + similarity springs |
+| Article | Soft orbital radial band + mild outer restore |
+| Folder | Loose system attractor (intersects OK) |
+| Library | Faint framing only |
+| Cross-membership springs | `hierarchicalLinkScale` — mild bias, not crush |
+| Foreign repel | Near-off so systems can overlap |
+| QA | `layoutStats` still reports packing AABB / separation |
 
 ## 6. Verification
 

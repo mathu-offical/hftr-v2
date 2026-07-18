@@ -17,6 +17,7 @@ import {
   createNestShellRadialForce,
   createTagSatelliteForce,
   crossLibraryLinkScale,
+  hierarchicalLinkScale,
   fibonacciSpherePoint,
   linkDistanceForWeight,
   linkStrengthForWeight,
@@ -469,10 +470,33 @@ describe('galaxy-physics', () => {
     expect(b.vx).toBeLessThan(0);
   });
 
-  it('crossLibraryLinkScale weakens inter-nest springs', () => {
-    expect(crossLibraryLinkScale(true)).toEqual({ distanceMul: 1, strengthMul: 1 });
-    const cross = crossLibraryLinkScale(false);
-    expect(cross.distanceMul).toBeGreaterThan(2);
-    expect(cross.strengthMul).toBeLessThan(0.25);
+  it('hierarchicalLinkScale biases by membership without crushing cross-system springs', () => {
+    expect(hierarchicalLinkScale({ sameLibrary: true, sameFolder: false, sameArticle: false })).toEqual({
+      distanceMul: 1,
+      strengthMul: 1,
+    });
+    const article = hierarchicalLinkScale({
+      sameLibrary: true,
+      sameFolder: true,
+      sameArticle: true,
+    });
+    expect(article.distanceMul).toBeLessThan(1);
+    expect(article.strengthMul).toBeGreaterThan(1);
+    const cross = hierarchicalLinkScale({
+      sameLibrary: false,
+      sameFolder: false,
+      sameArticle: false,
+    });
+    expect(cross.distanceMul).toBeLessThan(1.5);
+    expect(cross.strengthMul).toBeGreaterThan(0.7);
+  });
+
+  it('crossLibraryLinkScale delegates to hierarchicalLinkScale', () => {
+    expect(crossLibraryLinkScale(true)).toEqual(
+      hierarchicalLinkScale({ sameLibrary: true, sameFolder: false, sameArticle: false }),
+    );
+    expect(crossLibraryLinkScale(false)).toEqual(
+      hierarchicalLinkScale({ sameLibrary: false, sameFolder: false, sameArticle: false }),
+    );
   });
 });

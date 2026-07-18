@@ -16,13 +16,13 @@ function baseOpacities(hullKind: NestHullKind): OpacitySet {
     case 'company':
       return { shell: 0.02, wire: 0.14, ring: 0.1, meridian: 0.08 };
     case 'library':
-      // Higher idle opacity so library nests read as distinct clusters (D-132).
-      return { shell: 0.14, wire: 0.72, ring: 0.55, meridian: 0.38 };
+      // Faint organizational framing — systems/orbits carry the read (D-136).
+      return { shell: 0.05, wire: 0.38, ring: 0.28, meridian: 0.16 };
     case 'folder':
-      // Brighter folder shells — primary visual cluster unit inside large libs (D-132).
-      return { shell: 0.11, wire: 0.58, ring: 0.48, meridian: 0.26 };
+      // Folder = soft system bound (more visible than library).
+      return { shell: 0.09, wire: 0.52, ring: 0.4, meridian: 0.22 };
     case 'article':
-      return { shell: 0.035, wire: 0.28, ring: 0.22, meridian: 0.1 };
+      return { shell: 0.06, wire: 0.42, ring: 0.34, meridian: 0.16 };
     case 'topic':
       return { shell: 0.09, wire: 0.6, ring: 0.45, meridian: 0.26 };
     default: {

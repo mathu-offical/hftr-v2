@@ -22,11 +22,10 @@ import {
   createFolderNestForce,
   createFolderShellRadialForce,
   createForeignLibraryRepelForce,
-  createLibraryCohereForce,
   createLibraryNestForce,
   createNestShellRadialForce,
   createTagSatelliteForce,
-  crossLibraryLinkScale,
+  hierarchicalLinkScale,
   hashSpread3D,
   nestPackingSignature,
   type GalaxySimNode,
@@ -423,16 +422,15 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           val: Math.max(1.2, degree * 0.7 + refs * 0.4 + 1),
           __focused: focused,
         };
-        // Seed nest coordinates until the sim has committed this id (keeps d3 positions).
-        // Scale jitter to ~35% of nest radius so seeds start as tight clusters (D-132).
+        // Free-float seed with mild bias toward article/folder/library (D-136).
         if (!layoutCommittedRef.current.has(n.id)) {
           const spread = hashSpread3D(n.id);
-          const nestScale = center ? Math.min(1, (center.radius * 0.35) / 84) : 0.45;
+          const freeScale = center ? 1.35 : 1.8;
           return {
             ...base,
-            x: center ? center.x + spread.dx * nestScale : spread.dx * 0.45,
-            y: center ? center.y + spread.dy * nestScale : spread.dy * 0.45,
-            z: center ? center.z + spread.dz * nestScale : spread.dz * 0.45,
+            x: center ? center.x + spread.dx * freeScale : spread.dx * freeScale,
+            y: center ? center.y + spread.dy * freeScale : spread.dy * freeScale,
+            z: center ? center.z + spread.dz * freeScale : spread.dz * freeScale,
           };
         }
         return base;
@@ -522,16 +520,27 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         );
         const fromLib = fromNode?.primaryLibraryId ?? null;
         const toLib = toNode?.primaryLibraryId ?? null;
+        const fromFolder = conceptFolderIndex.get(l.fromConceptId);
+        const toFolder = conceptFolderIndex.get(l.toConceptId);
+        const fromArticle = conceptArticleIndex.get(l.fromConceptId) ?? null;
+        const toArticle = conceptArticleIndex.get(l.toConceptId) ?? null;
+        const sameArticle = Boolean(fromArticle && toArticle && fromArticle === toArticle);
+        const sameFolder = Boolean(
+          fromFolder &&
+            toFolder &&
+            fromFolder.libraryId === toFolder.libraryId &&
+            fromFolder.folderKey === toFolder.folderKey,
+        );
         const sameLibrary = Boolean(fromLib && toLib && fromLib === toLib);
-        const cross = crossLibraryLinkScale(sameLibrary);
+        const hierarchy = hierarchicalLinkScale({ sameLibrary, sameFolder, sameArticle });
         return {
           ...l,
           source: l.fromConceptId,
           target: l.toConceptId,
           __bothFocused: bothFocused,
           __eitherFocused: eitherFocused,
-          __distance: layout.distance * cross.distanceMul,
-          __strength: layout.strength * cross.strengthMul,
+          __distance: layout.distance * hierarchy.distanceMul,
+          __strength: layout.strength * hierarchy.strengthMul,
           __directed:
             l.relation === 'causes' || l.relation === 'supports' || l.relation === 'derived_from',
         };
@@ -598,23 +607,22 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         );
 
         const center = fg.d3Force('center') as { strength?: (n: number) => unknown } | undefined;
-        // Near-zero global centering — nest shells own framing (D-116 / D-132).
-        center?.strength?.(0.002);
+        // Near-zero — free-float cloud; Fit frames the envelope (D-136).
+        center?.strength?.(0.0015);
 
         fg.d3Force(
           'collide',
           forceCollide((node: unknown) => {
             const n = node as GalaxySimNode & { __kind?: string };
             if (n.__kind === 'nest-hull') return 0;
-            if (n.__kind === 'tag-sat') return Math.cbrt(n.val ?? 0.35) * 2.2;
-            return Math.cbrt(n.val ?? 1) * 3.6;
+            if (n.__kind === 'tag-sat') return Math.cbrt(n.val ?? 0.35) * 2.4;
+            return Math.cbrt(n.val ?? 1) * 3.2;
           })
-            .strength(0.75)
+            .strength(0.65)
             .iterations(2),
         );
         fg.d3Force('nest', createLibraryNestForce(libraryCenters));
         fg.d3Force('nestShell', createNestShellRadialForce(libraryCenters));
-        fg.d3Force('libCohere', createLibraryCohereForce());
         fg.d3Force('folderNest', createFolderNestForce(folderCenters));
         fg.d3Force('folderShell', createFolderShellRadialForce(folderCenters));
         fg.d3Force('folderCohere', createFolderCohereForce());
@@ -694,10 +702,10 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       const center = articleCenter ?? folderCenter ?? libCenter;
       if (!center) continue;
       const spread = hashSpread3D(id);
-      const nestScale = Math.min(1, (center.radius * 0.35) / 84);
-      node.x = center.x + spread.dx * nestScale;
-      node.y = center.y + spread.dy * nestScale;
-      node.z = center.z + spread.dz * nestScale;
+      const freeScale = 1.35;
+      node.x = center.x + spread.dx * freeScale;
+      node.y = center.y + spread.dy * freeScale;
+      node.z = center.z + spread.dz * freeScale;
       moved += 1;
     }
     if (moved > 0) {
@@ -1742,7 +1750,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           aria-live="polite"
         >
           {use3dRenderer && !statusText
-            ? '3D clusters · separated library nests · Fit frames envelope · idle orbit'
+            ? '3D free-float · article orbits · folder systems · semantic springs'
             : null}
           {use3dRenderer && (hasTopicFocus || statusText) ? ' · ' : null}
           {hasTopicFocus && `Focused ${focusSet!.size} concepts`}

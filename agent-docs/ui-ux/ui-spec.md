@@ -336,13 +336,17 @@ suppressed in editable fields.
   **top** of the panel window (tabs above content); `` ` `` / Esc / chevron still toggle height.
   Content defaults to **~70vh** (capped at 48rem, floor 16rem) below the top chrome (D-105).
   **Multi-open panes (D-114):** ribbon tabs toggle independently (`aria-pressed`); several
-  condensed side-by-side panes can be open at once (Positions, Policies, Trends, …). Pane
-  headers collapse/expand or hide; `openTabs` + `collapsedPanes` persist per company.
+  condensed side-by-side panes can be open at once in a **horizontally scrollable** row
+  (Trends, Scenarios, Watch, **Open positions**, **Policies**, Decisions, Lineage, Approvals,
+  Dead). Pane headers collapse/expand or hide independently of whole-panel show/hide;
+  `openTabs` + `collapsedPanes` persist per company (legacy single `tab` migrates). Positions
+  list non-zero qty from `GET …/positions`; Policies list canvas policy modules (envelope /
+  notes / status).
 - **Engine scope (D-097):** dropdown selects `All engines` or one `engine_instances` row.
   Every tab filters durable API projections to modules whose `engine_instance_id` matches
-  (trends, leads/trees, watchlists, executions/decisions, lineage columns, approvals that
-  touch member modules, dead letters with a member `moduleId`). Company-scoped rows with no
-  module binding appear only under **All engines**.
+  (trends, leads/trees, watchlists, positions, policies, executions/decisions, lineage columns,
+  approvals that touch member modules, dead letters with a member `moduleId`). Company-scoped
+  rows with no module binding appear only under **All engines**.
 - **Trends tab lists (D-104):** one list card per **trend module** in the selected engine
   (multiple cards when the engine has multiple trend modules). Each list shows that module's
   `trend_candidates` (candidate + promoted, capped by `maxActiveTrends`) — the same rows as

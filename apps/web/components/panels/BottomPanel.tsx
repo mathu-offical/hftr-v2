@@ -434,9 +434,7 @@ export function BottomPanel(props: {
   }, []);
 
   const togglePaneCollapse = useCallback((id: Tab) => {
-    setCollapsedPanes((prev) =>
-      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id],
-    );
+    setCollapsedPanes((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
   }, []);
 
   const openPositions = byEngine(positions).filter((p) => {
@@ -680,8 +678,7 @@ function CondensedRow(props: {
   meta?: ReactNode;
   onClick?: () => void;
 }) {
-  const className =
-    'w-full border-b border-[var(--color-line)] py-1.5 text-left last:border-b-0';
+  const className = 'w-full border-b border-[var(--color-line)] py-1.5 text-left last:border-b-0';
   const body = (
     <>
       <div className="flex items-baseline justify-between gap-2">
@@ -699,7 +696,11 @@ function CondensedRow(props: {
   );
   if (props.onClick) {
     return (
-      <button type="button" onClick={props.onClick} className={`${className} hover:bg-[var(--color-surface-1)]`}>
+      <button
+        type="button"
+        onClick={props.onClick}
+        className={`${className} hover:bg-[var(--color-surface-1)]`}
+      >
         {body}
       </button>
     );
@@ -763,10 +764,7 @@ function CondensedPoliciesList(props: { modules: ModuleOption[] }) {
   );
 }
 
-function CondensedWatchlistList(props: {
-  rows: WatchlistRow[];
-  onConfirm: (id: string) => void;
-}) {
+function CondensedWatchlistList(props: { rows: WatchlistRow[]; onConfirm: (id: string) => void }) {
   if (props.rows.length === 0) {
     return <CondensedEmpty>No watched symbols for this tier filter.</CondensedEmpty>;
   }
@@ -963,9 +961,7 @@ function TrendsView(props: {
                         className="mt-1 text-[10px] uppercase tracking-wider text-[var(--color-accent)] hover:underline disabled:opacity-40"
                         onClick={() => void promote(t)}
                       >
-                        {promotingId === t.id
-                          ? 'Promoting…'
-                          : (promoted[t.id] ?? 'Promote')}
+                        {promotingId === t.id ? 'Promoting…' : (promoted[t.id] ?? 'Promote')}
                       </button>
                     ) : null}
                   </div>
@@ -2355,7 +2351,9 @@ function DeadLettersView(props: {
   if (props.condensed) {
     return (
       <div>
-        {message ? <p className="mb-1 text-[10px] text-[var(--color-ink-faint)]">{message}</p> : null}
+        {message ? (
+          <p className="mb-1 text-[10px] text-[var(--color-ink-faint)]">{message}</p>
+        ) : null}
         {props.jobs.map((j) => (
           <div key={j.id} className="border-b border-[var(--color-line)] py-1.5 last:border-b-0">
             <CondensedRow

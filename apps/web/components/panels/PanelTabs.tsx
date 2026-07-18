@@ -52,9 +52,7 @@ export function PanelTabs<T extends string>(props: PanelTabsProps<T>) {
       } ${props.className ?? ''}`.trim()}
     >
       {props.tabs.map((t) => {
-        const selected = multi
-          ? (props.values?.includes(t.id) ?? false)
-          : props.value === t.id;
+        const selected = multi ? (props.values?.includes(t.id) ?? false) : props.value === t.id;
         return (
           <button
             key={t.id}

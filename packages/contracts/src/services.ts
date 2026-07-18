@@ -150,3 +150,32 @@ export function normalizeAdapterServiceCapabilities(
 
   return dedupeSorted(caps);
 }
+
+/**
+ * Map saved research-gather providers to service capabilities (D-092).
+ * All configured research keys imply research_provider; market-data providers
+ * that also expose OHLC also imply historical_bars.
+ */
+export function normalizeResearchKeyServiceCapabilities(
+  provider: string | null | undefined,
+): ServiceCapability[] {
+  if (!provider) return [];
+
+  const caps = new Set<ServiceCapability>(['research_provider']);
+  switch (provider) {
+    case 'polygon':
+    case 'alpha_vantage':
+    case 'twelve_data':
+    case 'marketstack':
+      caps.add('historical_bars');
+      break;
+    case 'brave':
+    case 'market_news':
+    case 'finnhub':
+    case 'fred':
+      break;
+    default:
+      break;
+  }
+  return dedupeSorted(caps);
+}

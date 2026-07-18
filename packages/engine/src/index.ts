@@ -82,6 +82,10 @@ export {
   collectSeededConceptTags,
   SEED_CATALOG_NAMES,
   SEED_CATALOG_TARGETS,
+  SEEDED_TOPIC_PROGRAM_TITLE,
+  SEEDED_TOPIC_SPECS,
+  SEEDED_TOPIC_TITLES,
+  isSeededTopicTitle,
   type SeededCatalogEntry,
 } from './libraries/bootstrap';
 export { ensureSectorKnowledge } from './libraries/ensure-sector-knowledge';
@@ -120,7 +124,11 @@ export {
   isSealValid,
   type CorroborateAndNormalizeInput,
 } from './research/verified-normalize';
-export { persistVerifiedBundle, systemDocKindForView, type PersistVerifiedBundleInput } from './research/seal-persist';
+export {
+  persistVerifiedBundle,
+  systemDocKindForView,
+  type PersistVerifiedBundleInput,
+} from './research/seal-persist';
 export {
   loadLatestValidSeal,
   loadSealSummariesForSynthesize,
@@ -135,7 +143,10 @@ export {
   canContinueRejectRepair,
   librarianEnvelopeFromBatch,
 } from './research/reject-repair';
-export { validateEvidencePackages, type ValidateEvidencePackagesInput } from './research/validation';
+export {
+  validateEvidencePackages,
+  type ValidateEvidencePackagesInput,
+} from './research/validation';
 export {
   submitOperatorResearchArticle,
   type SubmitOperatorResearchArticleOpts,
@@ -177,6 +188,7 @@ export type {
   CompileSelectionInput,
 } from './handlers/model-gateway';
 import './handlers/maintenance';
+import './handlers/equity-refresh';
 import './handlers/dispatch';
 import './handlers/trend';
 import './handlers/promote';
@@ -212,7 +224,14 @@ export {
   type ResolvedInstruction,
   type InstructionFinalizeErrorCode,
 } from './dispatch/instruction-finalizer';
-export { getCompanyBalanceCents, getModuleBalanceCents } from './dispatch/balances';
+export {
+  getCompanyBalanceCents,
+  getModuleBalanceCents,
+  getCompanyRealizedLossCents,
+  resolveCompileBalanceCents,
+  type CompileBalanceSource,
+  type CompileBalanceResolution,
+} from './dispatch/balances';
 export {
   resolveExecutionContext,
   type ResolvedExecutionContext,
@@ -247,6 +266,14 @@ export {
   type EquityTrigger,
   type RecomputeCompanyEquityOpts,
 } from './equity/recompute';
+export {
+  EQUITY_REFRESH_INTERVAL_MS,
+  equityRefreshWindowKey,
+  equityRefreshIdempotencyKey,
+  shouldScheduleEquityRefresh,
+  planEquityRefreshJobs,
+  type EquityRefreshPlanItem,
+} from './equity/refresh';
 
 // Service resolution (company-equity-and-service-sources design)
 export {

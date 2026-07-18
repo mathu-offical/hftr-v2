@@ -6,6 +6,7 @@ import { materializeSchedules } from '../schedules/materialize';
 import { enqueue, pruneCompleted, sweepExpiredLeases } from '../queue/queue';
 import { scrubSecretsFromJobPayloads } from '../queue/scrub-payload-secrets';
 import { archiveStaleHotRows } from '../retention/archive';
+import { enqueueDueEquityRefreshJobs } from '../equity/schedule-refresh';
 import { registerHandler } from './registry';
 
 const COMPLETED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -39,6 +40,8 @@ registerHandler('maintenance.sweep', async ({ db, clock }) => {
     idempotencyKey: `broker-balances-${venueMinuteBucket(clock.nowMs())}`,
     priority: 'LOW',
   });
+  // D-084: 15s equity fallback while XNYS session is open (idempotent per window).
+  await enqueueDueEquityRefreshJobs(db, clock);
 });
 
 /**

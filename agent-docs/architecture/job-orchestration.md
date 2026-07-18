@@ -62,6 +62,11 @@ Rules (from production-queue literature + v1 lessons):
 - `job_schedules` table holds recurring definitions (cron expr, queue class, payload template,
   module_id). A `MAINTENANCE` tick materializes due schedules into jobs (idempotent per
   schedule+window key).
+- **Equity 15s fallback (D-084):** `maintenance.sweep` calls `enqueueDueEquityRefreshJobs`,
+  which plans one `equity.refresh` job per active paper company for the current 15-second
+  window when XNYS session phase is `open` / `midday` / `power_hour`. Closed / overnight /
+  pre_market defer. Idempotency key `equity-refresh-{companyId}-{window}`. Handler runs
+  `recomputeCompanyEquity(…, 'schedule')` without inventing marks.
 - Vercel Cron entries (few, coarse): `*/1min queue drain tick`, `pre-market research`,
   `nightly curation + seed verification`, `lease sweep`. Fine-grained cadences (≤5m execution
   tier, ≤30m tactical) come from `job_schedules`, not Vercel config → user-tunable per module.

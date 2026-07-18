@@ -19,7 +19,7 @@ const CurateInput = z
     mode: ResearchQueryMode.optional(),
     topicId: z.string().uuid().optional(),
     topicScope: z.string().max(200).optional(),
-    sourceKinds: z.array(ResearchSourceKind).max(8).optional(),
+    sourceKinds: z.array(ResearchSourceKind).max(24).optional(),
   })
   .default({});
 

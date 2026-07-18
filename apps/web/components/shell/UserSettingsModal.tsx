@@ -32,6 +32,12 @@ const RESEARCH_KEY_PROVIDERS: { id: ResearchKeyProvider; label: string; hint: st
   { id: 'market_news', label: 'Market news', hint: 'Marketaux public market news' },
   { id: 'finnhub', label: 'Finnhub', hint: 'Company and general market news (free tier available)' },
   { id: 'polygon', label: 'Polygon.io', hint: 'Reference news feed (API key required)' },
+  { id: 'fred', label: 'FRED', hint: 'St. Louis Fed macro series search (free API key)' },
+  {
+    id: 'alpha_vantage',
+    label: 'Alpha Vantage',
+    hint: 'News sentiment feed (free tier available)',
+  },
 ];
 
 const PROVIDERS: { id: LlmProvider; label: string; tier: string }[] = [
@@ -100,6 +106,8 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
     market_news: '',
     finnhub: '',
     polygon: '',
+    fred: '',
+    alpha_vantage: '',
   });
   const [messages, setMessages] = useState<
     Partial<Record<LlmProvider | ResearchKeyProvider | 'brokers', string>>

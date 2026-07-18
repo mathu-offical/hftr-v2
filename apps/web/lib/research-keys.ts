@@ -8,6 +8,8 @@ export interface ResearchGatherKeys {
   marketNewsApiKey?: string;
   finnhubApiKey?: string;
   polygonApiKey?: string;
+  fredApiKey?: string;
+  alphaVantageApiKey?: string;
   alpacaKeyId?: string;
   alpacaSecret?: string;
 }
@@ -50,6 +52,10 @@ export async function loadResearchGatherKeys(
       keys.finnhubApiKey = plain;
     } else if (row.provider === 'polygon') {
       keys.polygonApiKey = plain;
+    } else if (row.provider === 'fred') {
+      keys.fredApiKey = plain;
+    } else if (row.provider === 'alpha_vantage') {
+      keys.alphaVantageApiKey = plain;
     }
   }
 

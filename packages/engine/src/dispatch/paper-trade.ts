@@ -31,11 +31,21 @@ import { resolveExecutionContext } from './execution-context';
 import { preDispatchGauntlet } from './pre-dispatch';
 import { applyFill, getPosition } from './positions';
 import { getSyntheticQuote } from './quotes';
+import {
+  InstructionFinalizeError,
+  finalizeErrorToFailureCode,
+  resolveInstructionFromRefs,
+  type ResolvedInstruction,
+} from './instruction-finalizer';
 
 /**
  * The deterministic paper-trade path (broker-integration.md, dispatch README):
  * record values → instruction → pre-dispatch gauntlet → finalize task →
  * venue submit/fill → immutable trace → verification → ledger.
+ *
+ * Compile path: resolve existing `action_instructions` ValueRefs via
+ * `executePaperTradeFromInstruction` (no raw quantity on the job payload).
+ * Operator path: UI form still records operator_input refs then inserts an instruction.
  */
 
 export interface PaperTradeRequest {
@@ -47,6 +57,11 @@ export interface PaperTradeRequest {
   quantity: number;
   limitPriceCents?: number | null;
   jobId?: string | null;
+  /**
+   * When set, reuse the compile-produced instruction and its ValueRef lineage
+   * instead of inserting a new instruction from raw numbers.
+   */
+  compiled?: ResolvedInstruction;
 }
 
 export interface PaperTradeResult {
@@ -70,11 +85,98 @@ const ORDER_FREQ_WINDOW_MS = 60_000;
 
 export { getCompanyBalanceCents } from './balances';
 
+/**
+ * Promote/compile dispatch path: resolve `action_instructions` ValueRefs then
+ * run the same paper gauntlet/fill path without re-deriving quantity from the job.
+ */
+export async function executePaperTradeFromInstruction(
+  db: Db,
+  clock: Clock,
+  args: { instructionId: string; jobId?: string | null },
+): Promise<PaperTradeResult> {
+  let resolved: ResolvedInstruction;
+  try {
+    resolved = await resolveInstructionFromRefs(db, clock, args.instructionId);
+  } catch (err) {
+    if (err instanceof InstructionFinalizeError) {
+      return {
+        outcome: 'blocked',
+        failureCode: finalizeErrorToFailureCode(err.code),
+        detail: err.message,
+        traceId: null,
+        fillPriceCents: null,
+        notionalCents: null,
+        balanceAfterCents: null,
+      };
+    }
+    throw err;
+  }
+
+  if (resolved.actionVerb !== 'buy' && resolved.actionVerb !== 'sell') {
+    return {
+      outcome: 'blocked',
+      failureCode: 'broker_policy_block',
+      detail: `unsupported actionVerb for paper dispatch: ${resolved.actionVerb}`,
+      traceId: null,
+      fillPriceCents: null,
+      notionalCents: null,
+      balanceAfterCents: null,
+    };
+  }
+  if (resolved.orderType !== 'market' && resolved.orderType !== 'limit') {
+    return {
+      outcome: 'blocked',
+      failureCode: 'broker_policy_block',
+      detail: `unsupported orderType for paper dispatch: ${resolved.orderType}`,
+      traceId: null,
+      fillPriceCents: null,
+      notionalCents: null,
+      balanceAfterCents: null,
+    };
+  }
+  if (resolved.quantityScale !== 0) {
+    return {
+      outcome: 'blocked',
+      failureCode: 'numeric_sanity_block',
+      detail: 'compiled quantity scale must be 0 for paper dispatch',
+      traceId: null,
+      fillPriceCents: null,
+      notionalCents: null,
+      balanceAfterCents: null,
+    };
+  }
+  const quantity = Number(resolved.quantityInt);
+  if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > MAX_QUANTITY) {
+    return {
+      outcome: 'blocked',
+      failureCode: 'numeric_sanity_block',
+      detail: 'compiled quantity out of bounds',
+      traceId: null,
+      fillPriceCents: null,
+      notionalCents: null,
+      balanceAfterCents: null,
+    };
+  }
+
+  return executePaperTrade(db, clock, {
+    companyId: resolved.companyId,
+    moduleId: resolved.moduleId,
+    symbol: resolved.symbol,
+    actionVerb: resolved.actionVerb,
+    orderType: resolved.orderType,
+    quantity,
+    limitPriceCents: resolved.limitPriceCents,
+    ...(args.jobId !== undefined ? { jobId: args.jobId } : {}),
+    compiled: resolved,
+  });
+}
+
 export async function executePaperTrade(
   db: Db,
   clock: Clock,
   req: PaperTradeRequest,
 ): Promise<PaperTradeResult> {
+  const compiled = req.compiled;
   let execCtx;
   try {
     execCtx = await resolveExecutionContext(db, clock, req.companyId);
@@ -87,22 +189,30 @@ export async function executePaperTrade(
   }
 
   const { adapter, venue, brokerConnectionId } = execCtx;
-  const envelope: HandoffEnvelope = {
-    contractVersion: '1.0.0',
-    producerRunId: null,
-    companyId: req.companyId,
-    moduleId: req.moduleId,
-    authorityClass: 'OPERATOR_INPUT',
-    mutationClass: 'IMMUTABLE',
-    queueClass: 'DISPATCH',
-    priorityBand: 'HIGH',
-    timeoutClass: 'SHORT',
-    idempotencyKey: `ptrade-${randomUUID()}`,
-    replayHash: null,
-    controlSnapshotRef: null,
-    causationRefs: req.jobId ? [req.jobId] : [],
-    expiresAt: null,
-  };
+  const envelope: HandoffEnvelope = compiled
+    ? {
+        ...compiled.envelope,
+        causationRefs: [
+          ...compiled.envelope.causationRefs,
+          ...(req.jobId ? [req.jobId] : []),
+        ],
+      }
+    : {
+        contractVersion: '1.0.0',
+        producerRunId: null,
+        companyId: req.companyId,
+        moduleId: req.moduleId,
+        authorityClass: 'OPERATOR_INPUT',
+        mutationClass: 'IMMUTABLE',
+        queueClass: 'DISPATCH',
+        priorityBand: 'HIGH',
+        timeoutClass: 'SHORT',
+        idempotencyKey: `ptrade-${randomUUID()}`,
+        replayHash: null,
+        controlSnapshotRef: null,
+        causationRefs: req.jobId ? [req.jobId] : [],
+        expiresAt: null,
+      };
 
   if (!Number.isInteger(req.quantity) || req.quantity <= 0 || req.quantity > MAX_QUANTITY) {
     return blockedSimple(db, req, 'numeric_sanity_block', 'quantity out of bounds', venue);
@@ -130,65 +240,85 @@ export async function executePaperTrade(
     moduleId: req.moduleId,
   });
 
-  const quantityRef = await record(db, clock, {
-    kind: 'quantity',
-    unit: 'shares',
-    scale: 0,
-    valueInt: BigInt(req.quantity),
-    sourceClass: 'operator_input',
-    sourceId: 'ui:paper_trade_form',
-    ttlMs: 10 * 60_000,
-    sanity: { minInt: '1', maxInt: String(MAX_QUANTITY), maxAgeMs: null, mustBePositive: true },
-    companyId: req.companyId,
-    moduleId: req.moduleId,
-  });
-  const timeoutRef = await record(db, clock, {
-    kind: 'duration_ms',
-    unit: 'ms',
-    scale: 0,
-    valueInt: 30_000n,
-    timezone: 'UTC',
-    sourceClass: 'band_seed',
-    sourceId: 'band:fill_timeout:typical',
-    ttlMs: 10 * 60_000,
-    companyId: req.companyId,
-    moduleId: req.moduleId,
-  });
-  const limitRef =
-    req.orderType === 'limit' && req.limitPriceCents != null
-      ? await record(db, clock, {
-          kind: 'price',
-          unit: 'USD_cents',
-          scale: 0,
-          valueInt: BigInt(req.limitPriceCents),
-          sourceClass: 'operator_input',
-          sourceId: 'ui:paper_trade_form',
-          ttlMs: 10 * 60_000,
-          companyId: req.companyId,
-          moduleId: req.moduleId,
-        })
-      : null;
+  let quantityRef: string;
+  let timeoutRef: string;
+  let limitRef: string | null;
+  let clientOrderId: string;
+  let instructionId: string;
+  let fillTimeoutMs: number;
+  let timeInForce: DeterministicActionTask['timeInForce'];
 
-  const clientOrderId = `co_${randomUUID().replaceAll('-', '').slice(0, 20)}`;
-  const instructionRows = await db
-    .insert(actionInstructions)
-    .values({
+  if (compiled) {
+    quantityRef = compiled.lineage.quantityRef;
+    timeoutRef = compiled.lineage.fillTimeoutRef;
+    limitRef = compiled.lineage.limitPriceRef;
+    clientOrderId = compiled.clientOrderId;
+    instructionId = compiled.instructionId;
+    fillTimeoutMs = compiled.fillTimeoutMs;
+    timeInForce = compiled.timeInForce;
+  } else {
+    quantityRef = await record(db, clock, {
+      kind: 'quantity',
+      unit: 'shares',
+      scale: 0,
+      valueInt: BigInt(req.quantity),
+      sourceClass: 'operator_input',
+      sourceId: 'ui:paper_trade_form',
+      ttlMs: 10 * 60_000,
+      sanity: { minInt: '1', maxInt: String(MAX_QUANTITY), maxAgeMs: null, mustBePositive: true },
       companyId: req.companyId,
       moduleId: req.moduleId,
-      actionVerb: req.actionVerb,
-      symbol: quote.symbol,
-      orderType: req.orderType,
-      timeInForce: 'day',
-      quantityRef,
-      limitPriceRef: limitRef,
-      fillTimeoutRef: timeoutRef,
-      guardrailRefs: ['capital_limit_v1', 'session_legality_v1'],
-      verificationSchemaVersion: VERIFICATION_SCHEMA_VERSION,
-      clientOrderId,
-      envelope,
-    })
-    .returning({ id: actionInstructions.id });
-  const instructionId = instructionRows[0]!.id;
+    });
+    timeoutRef = await record(db, clock, {
+      kind: 'duration_ms',
+      unit: 'ms',
+      scale: 0,
+      valueInt: 30_000n,
+      timezone: 'UTC',
+      sourceClass: 'band_seed',
+      sourceId: 'band:fill_timeout:typical',
+      ttlMs: 10 * 60_000,
+      companyId: req.companyId,
+      moduleId: req.moduleId,
+    });
+    limitRef =
+      req.orderType === 'limit' && req.limitPriceCents != null
+        ? await record(db, clock, {
+            kind: 'price',
+            unit: 'USD_cents',
+            scale: 0,
+            valueInt: BigInt(req.limitPriceCents),
+            sourceClass: 'operator_input',
+            sourceId: 'ui:paper_trade_form',
+            ttlMs: 10 * 60_000,
+            companyId: req.companyId,
+            moduleId: req.moduleId,
+          })
+        : null;
+
+    clientOrderId = `co_${randomUUID().replaceAll('-', '').slice(0, 20)}`;
+    fillTimeoutMs = 30_000;
+    timeInForce = 'day';
+    const instructionRows = await db
+      .insert(actionInstructions)
+      .values({
+        companyId: req.companyId,
+        moduleId: req.moduleId,
+        actionVerb: req.actionVerb,
+        symbol: quote.symbol,
+        orderType: req.orderType,
+        timeInForce,
+        quantityRef,
+        limitPriceRef: limitRef,
+        fillTimeoutRef: timeoutRef,
+        guardrailRefs: ['capital_limit_v1', 'session_legality_v1'],
+        verificationSchemaVersion: VERIFICATION_SCHEMA_VERSION,
+        clientOrderId,
+        envelope,
+      })
+      .returning({ id: actionInstructions.id });
+    instructionId = instructionRows[0]!.id;
+  }
 
   const session = await getSession(db, 'XNYS', venueDate(clock.nowMs(), 'America/New_York'));
   const phase = sessionPhase(session, clock.nowMs());
@@ -251,12 +381,12 @@ export async function executePaperTrade(
     symbol: quote.symbol,
     actionVerb: req.actionVerb,
     orderType: req.orderType,
-    timeInForce: 'day',
+    timeInForce,
     quantityInt: String(req.quantity),
     quantityScale: 0,
     limitPriceCents: req.limitPriceCents ?? null,
-    stopPriceCents: null,
-    fillTimeoutMs: 30_000,
+    stopPriceCents: compiled?.stopPriceCents ?? null,
+    fillTimeoutMs,
     idempotencyKey: envelope.idempotencyKey,
     clientOrderId,
     lineage: { quantityRef, limitPriceRef: limitRef, fillTimeoutRef: timeoutRef },

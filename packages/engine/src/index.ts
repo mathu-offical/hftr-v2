@@ -123,12 +123,20 @@ import './handlers/analyzer';
 // Dispatch
 export {
   executePaperTrade,
+  executePaperTradeFromInstruction,
   finalizeRecoveredVenueFill,
   buildFillVerificationFields,
   type PaperTradeRequest,
   type PaperTradeResult,
   type FinalizeRecoveredVenueFillArgs,
 } from './dispatch/paper-trade';
+export {
+  resolveInstructionFromRefs,
+  InstructionFinalizeError,
+  finalizeErrorToFailureCode,
+  type ResolvedInstruction,
+  type InstructionFinalizeErrorCode,
+} from './dispatch/instruction-finalizer';
 export { getCompanyBalanceCents } from './dispatch/balances';
 export {
   resolveExecutionContext,

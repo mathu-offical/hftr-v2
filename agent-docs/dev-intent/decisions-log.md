@@ -627,6 +627,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   sources still run. Operators must Delete + Save & verify after
   `SETTINGS_ENCRYPTION_KEY` drift. **Status: implemented.**
 
+- **D-057 (compile dispatch via instruction finalizer, 2026-07-17):**
+  G3 NRA gap: `compile.select` still enqueued raw `quantity` onto `dispatch.paper_trade`,
+  and `executePaperTrade` re-recorded operator-shaped refs. Wire: compile payload is
+  `{ instructionId, companyId, moduleId, leadId? }`; handler calls
+  `executePaperTradeFromInstruction` → `resolveInstructionFromRefs` and reuses the
+  compile instruction + ValueRef lineage (DETERMINISTIC envelope). Operator UI trade
+  form remains a separate `OPERATOR_INPUT` path. **Status: implemented.**
+
 - **D-056 (canvas visual families + role buses, 2026-07-17):** Operator asked for clear
   distinction between data sources vs agents/modules, subtypes, engine backgrounds, and
   connection points specific to the nature of transferred data. Canvas cards gain **family

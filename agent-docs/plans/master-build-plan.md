@@ -15,7 +15,7 @@ sprint specs are written when the prior gate passes, incorporating learnings).
 | **G0** Foundation | **Passed** | Monorepo, Clerk, Drizzle migrations, Vercel skeleton, CI typecheck/lint/vitest | — |
 | **G1** Canvas + queue spine | **Passed (local)** | Company wizard, canvas CRUD, queue drain, panels, deterministic assistant, Playwright M1 flows | Remote CI e2e first green run |
 | **G2** Research stack | **Partial** | Libraries/topics, galaxy + D-040 overlay, Obsidian zip, research bus D-039, D-041 links, ARCH-005, D-042 librarian/process layers, D-043 engine-centric create | Credentialed provider soak; llm_calls ledger soak evidence under load |
-| **G3** Paper trading loop | **Partial** | ValueRef instruction finalizer + leak audit; Alpaca bars→regime; v1-parity **327** engine tests; `paper-loop`/`lineage` Playwright flows 3+7 | Remote CI e2e first green; credentialed Alpaca paper fill (not paper_sim) |
+| **G3** Paper trading loop | **Partial** | ValueRef instruction finalizer **wired on promote→dispatch** (D-057); Alpaca bars→regime; v1-parity **327** engine tests; `paper-loop`/`lineage` Playwright flows 3+7 | Remote CI e2e first green; credentialed Alpaca paper fill (not paper_sim); fund-router settlement; trace→lineage deep links |
 | **G4** Brokers + billing | **Partial (non-billing)** | Full §7 assistant write tools + Mistral schema; deterministic sims + Analyzer stub; Alpaca/Kalshi settings UX | **Billing deferred (D-032)**; Stripe; operator-key Alpaca paper round-trip |
 | **G5** Multi-venue + live | **Partial** | Live-gate arming UI; real Kalshi demo HTTP client + settings/verify; crypto/prediction templates; Palette via `/api/engine-templates` | **Live Alpaca unverified**; live Kalshi blocked; OQ-2 dedicated-worker evidence |
 | **G6** Polish + ops | **Partial** | Dead-letter bulk-retry; archive-first retention `0017`; auto-disarm; drain `lastDrain`; security-audit checklist; CI `workflow_dispatch` smoke skeleton | Full a11y/perf pass; Polymarket (OQ-5); remote credentialed smoke green |
@@ -131,7 +131,9 @@ approve/reject + Approvals tab; ValueRef lineage walk API + Values tab. Engine t
 3. Trading module (day-trading preset first): Mistral tree expansion → Groq compile →
    paper_sim dispatch → traces/verification → ledger. **Deterministic path shipped.**
 4. **NRA pipeline integration:** lever resolver + pre-dispatch + lineage UI **partial**;
-   full finalizer ValueRef-only production path still maturing.
+   compile→dispatch now enqueues `instructionId` only and resolves via
+   `resolveInstructionFromRefs` / `executePaperTradeFromInstruction` (D-057). Operator UI
+   trade form remains a separate operator_input path. Trace→lineage deep links still partial.
 5. Middle-bottom control panel v1 (lineage columns, watchlists + shared-access chips, approvals)
    and right panel v1 (ledger, trace inspector with value-lineage links). **Approvals + lineage
    partial.**

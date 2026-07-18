@@ -19,6 +19,13 @@ export type NestHullNode = {
   __kind: 'nest-hull';
   __hullKind: NestHullKind;
   __libraryId?: string;
+  /** Topic uuid when __hullKind === 'article'. */
+  __topicId?: string;
+  /**
+   * Parent system key for article stars (`libraryId::folderKey`), matching
+   * `folderCenters` map keys — so articles soft-orbit shelf/folder space (D-139).
+   */
+  __parentFolderKey?: string | null;
   __radius: number;
   __label: string;
   __color: string;
@@ -29,9 +36,10 @@ export type NestHullNode = {
   x: number;
   y: number;
   z: number;
-  fx: number;
-  fy: number;
-  fz: number;
+  /** Pinned coords — omit/undefined so article stars can orbit folder systems. */
+  fx?: number;
+  fy?: number;
+  fz?: number;
   primaryLibraryId?: null;
 };
 
@@ -231,31 +239,41 @@ export type ArticleHullInput = {
   y: number;
   z: number;
   radius: number;
+  libraryId?: string | null;
+  folderKey?: string | null;
+  memberCount?: number;
 };
 
-/** Article (topic) orbit shells inside folder / library volumes (D-077). */
+/**
+ * Article stars — seeded inside folder/shelf space, not pinned, so they can
+ * soft-orbit the parent system (D-139). Concepts orbit these live hubs.
+ */
 export function buildArticleHullNodes(articles: readonly ArticleHullInput[]): NestHullNode[] {
   return articles.map((a, i) => {
     const color = hullColorForIndex(i + 5);
     const label = shortLibraryLabel(a.title, 18);
-    return {
+    const mass = a.memberCount ?? 1;
+    const node: NestHullNode = {
       id: articleHullId(a.topicId),
       __kind: 'nest-hull' as const,
       __hullKind: 'article' as const,
+      __topicId: a.topicId,
+      __parentFolderKey:
+        a.libraryId && a.folderKey ? `${a.libraryId}::${a.folderKey}` : null,
       __radius: a.radius,
       __label: label,
       __color: color,
       title: a.title,
       tags: [],
       body: '',
-      val: 0.2,
+      val: Math.max(0.8, Math.min(6, mass * 0.45)),
       x: a.x,
       y: a.y,
       z: a.z,
-      fx: a.x,
-      fy: a.y,
-      fz: a.z,
+      // No fx/fy/fz — free to orbit folder system centers.
       primaryLibraryId: null,
     };
+    if (a.libraryId) node.__libraryId = a.libraryId;
+    return node;
   });
 }

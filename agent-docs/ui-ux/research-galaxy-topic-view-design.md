@@ -128,6 +128,11 @@ chips drawn from visible concepts’ tags (and optionally topic-level keywords).
 - **D-136 free-float:** concepts and tags drift on **semantic weight + similarity** springs.
   Articles apply **soft orbital** radial bands; folders are **loose system** bounds that
   **may intersect**. Library hulls are faint organizational framing only (not hard nests).
+- **D-139 celestial hierarchy:** each granular node renders as a distinct celestial body
+  (`rock` / `planet` / `ember` / `comet` / `moon` by source class; article hubs = **stars**).
+  Article stars are **unpinned** orbit centers inside folder/shelf systems; concepts
+  soft-orbit the **live** article-star position (not a frozen seed). Top-N article stars
+  always visible; full set under topic focus.
 - A larger **company envelope** sphere outlines the full organizational cloud.
 - **Volume packing (D-116):** library / folder / article *centers* use **Fibonacci-sphere**
   samples on concentric shells so XYZ volume is used

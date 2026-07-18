@@ -1,8 +1,8 @@
 /**
- * Galaxy 3D physics helpers (TD-09 / D-116 / D-136).
- * Concepts and tags free-float on semantic springs; articles apply soft orbits;
- * folders apply soft system bounds. Hierarchy may intersect — weight/similarity
- * springs dominate over nest restore (D-136).
+ * Galaxy 3D physics helpers (TD-09 / D-116 / D-136 / D-139).
+ * Concepts and tags free-float on semantic springs as distinct celestial bodies;
+ * articles are live star hubs that soft-orbit folder systems; concepts soft-orbit
+ * those live hubs. Hierarchy may intersect — weight/similarity springs dominate (D-136).
  */
 
 import type { ResearchGraphLibraryNest, ResearchGraphLink } from '@hftr/contracts';
@@ -36,6 +36,9 @@ export type GalaxySimNode = {
   /** Topic uuid for article-orbit nesting. */
   primaryArticleId?: string | null;
   __kind?: string;
+  __hullKind?: string;
+  __topicId?: string;
+  __parentFolderKey?: string | null;
   /** Parent concept id for tag-satellite orbit forces. */
   __parentConceptId?: string;
 };
@@ -781,11 +784,13 @@ export function crossLibraryLinkScale(sameLibrary: boolean): {
 }
 
 /**
- * Soft article orbit (D-136): prefer a radial band around the article center;
- * mild outer restore only. Concepts remain free to leave via strong semantic links.
+ * Soft article orbit (D-136 / D-139): prefer a radial band around the article
+ * center; mild outer restore only. Prefers live `nest-hull` article star
+ * positions when present so concepts follow hubs that orbit folder systems.
  */
 export function createArticleOrbitForce(centers: Map<string, ArticleOrbitCenter3D>) {
   let nodes: GalaxySimNode[] = [];
+  let hullByTopic = new Map<string, GalaxySimNode>();
 
   function force(alpha: number) {
     const orbitStrength = alpha * 0.09;
@@ -794,15 +799,71 @@ export function createArticleOrbitForce(centers: Map<string, ArticleOrbitCenter3
       if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
       const articleId = node.primaryArticleId;
       if (!articleId) continue;
-      const center = centers.get(articleId);
+      const seed = centers.get(articleId);
+      if (!seed) continue;
+      const live = hullByTopic.get(articleId);
+      const cx = live?.x ?? seed.x;
+      const cy = live?.y ?? seed.y;
+      const cz = live?.z ?? seed.z;
+      const radius = seed.radius;
+
+      const dx = (node.x ?? 0) - cx;
+      const dy = (node.y ?? 0) - cy;
+      const dz = (node.z ?? 0) - cz;
+      const dist = Math.hypot(dx, dy, dz) || 1e-6;
+      const targetR = radius * hashedRadialBand(String(node.id ?? ''), 0.4, 0.95);
+      const maxR = radius * 1.45;
+
+      if (dist > maxR) {
+        const k = ((dist - maxR) / dist) * restore;
+        node.vx = (node.vx ?? 0) - dx * k;
+        node.vy = (node.vy ?? 0) - dy * k;
+        node.vz = (node.vz ?? 0) - dz * k;
+      } else {
+        const delta = (dist - targetR) / dist;
+        node.vx = (node.vx ?? 0) - dx * delta * orbitStrength;
+        node.vy = (node.vy ?? 0) - dy * delta * orbitStrength;
+        node.vz = (node.vz ?? 0) - dz * delta * orbitStrength;
+      }
+    }
+  }
+
+  force.initialize = (initNodes: GalaxySimNode[]) => {
+    nodes = initNodes;
+    hullByTopic = new Map();
+    for (const n of initNodes) {
+      if (n?.__kind === 'nest-hull' && n.__hullKind === 'article' && n.__topicId) {
+        hullByTopic.set(n.__topicId, n);
+      }
+    }
+  };
+
+  return force;
+}
+
+/**
+ * Article stars soft-orbit their parent folder/shelf system (D-139).
+ * Folder centers stay soft attractors; articles remain free hubs that concepts follow.
+ */
+export function createArticleHullOrbitForce(folderCenters: Map<string, FolderCenter3D>) {
+  let nodes: GalaxySimNode[] = [];
+
+  function force(alpha: number) {
+    const orbitStrength = alpha * 0.11;
+    const restore = alpha * 0.22;
+    for (const node of nodes) {
+      if (node.__kind !== 'nest-hull' || node.__hullKind !== 'article') continue;
+      const systemKey = node.__parentFolderKey;
+      if (!systemKey) continue;
+      const center = folderCenters.get(systemKey);
       if (!center) continue;
 
       const dx = (node.x ?? 0) - center.x;
       const dy = (node.y ?? 0) - center.y;
       const dz = (node.z ?? 0) - center.z;
       const dist = Math.hypot(dx, dy, dz) || 1e-6;
-      const targetR = center.radius * hashedRadialBand(String(node.id ?? ''), 0.4, 0.95);
-      const maxR = center.radius * 1.45;
+      const targetR = center.radius * hashedRadialBand(String(node.id ?? ''), 0.35, 0.78);
+      const maxR = center.radius * 1.12;
 
       if (dist > maxR) {
         const k = ((dist - maxR) / dist) * restore;

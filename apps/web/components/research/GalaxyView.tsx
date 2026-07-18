@@ -17,6 +17,7 @@ import {
   computeFolderCenters3D,
   computeLibraryCenters3D,
   computeVolumeCameraPose,
+  createArticleHullOrbitForce,
   createArticleOrbitForce,
   createFolderCohereForce,
   createFolderNestForce,
@@ -52,6 +53,12 @@ import {
   paintNestHull2d,
   type NestEmphasis,
 } from '@/lib/galaxy-nest-mesh';
+import {
+  celestialKindForConcept,
+  celestialKindForTagSatellite,
+  createCelestialObject3d,
+  paintCelestial2d,
+} from '@/lib/galaxy-celestial';
 import {
   conceptHoverLines,
   linkHoverLines,
@@ -475,25 +482,29 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             return selected.sort((a, b) => b.mass - a.mass).slice(0, 14);
           })(),
     );
-    // Article shells only under topic focus — dozens of article hulls read as uniform noise.
-    const articleHulls =
+    // Article stars: always top-N by membership; all matching under topic focus (D-139).
+    const articleCandidates = [...articleCenters.values()]
+      .filter(
+        (center) => !center.libraryId || !libraryFilter || libraryFilter.has(center.libraryId),
+      )
+      .sort((a, b) => b.radius - a.radius || a.topicId.localeCompare(b.topicId));
+    const articleForHulls =
       focusSet && focusSet.size > 0
-        ? buildArticleHullNodes(
-            [...articleCenters.values()]
-              .filter(
-                (center) =>
-                  !center.libraryId || !libraryFilter || libraryFilter.has(center.libraryId),
-              )
-              .map((center) => ({
-                topicId: center.topicId,
-                title: center.title,
-                x: center.x,
-                y: center.y,
-                z: center.z,
-                radius: center.radius,
-              })),
-          )
-        : [];
+        ? articleCandidates
+        : articleCandidates.slice(0, Math.min(14, articleCandidates.length));
+    const articleHulls = buildArticleHullNodes(
+      articleForHulls.map((center) => ({
+        topicId: center.topicId,
+        title: center.title,
+        x: center.x,
+        y: center.y,
+        z: center.z,
+        radius: center.radius,
+        libraryId: center.libraryId,
+        folderKey: center.folderKey,
+        memberCount: Math.max(1, Math.round((center.radius - 12) / 2.4)),
+      })),
+    );
     const companyHull = buildCompanyHullNode(libraryCenters, libraryFilter);
     const hullNodes: NestHullNode[] = [
       companyHull,
@@ -598,8 +609,11 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           'charge',
           forceManyBody()
             .strength((node: unknown) => {
-              const n = node as GalaxySimNode & { __kind?: string };
-              if (n.__kind === 'nest-hull') return 0;
+              const n = node as GalaxySimNode & { __kind?: string; __hullKind?: string };
+              if (n.__kind === 'nest-hull') {
+                // Article stars need mild repulsion so hubs don't stack (D-139).
+                return n.__hullKind === 'article' ? baseCharge * 0.2 : 0;
+              }
               if (n.__kind === 'tag-sat') return baseCharge * 0.28;
               return baseCharge;
             })
@@ -628,6 +642,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         fg.d3Force('folderCohere', createFolderCohereForce());
         fg.d3Force('foreignRepel', createForeignLibraryRepelForce(libraryCenters));
         fg.d3Force('articleOrbit', createArticleOrbitForce(articleCenters));
+        fg.d3Force('articleHullOrbit', createArticleHullOrbitForce(folderCenters));
         fg.d3Force('tagSat', createTagSatelliteForce());
 
         fg.d3ReheatSimulation?.();
@@ -1404,15 +1419,51 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     [clearHover, findSimNode, nodeLookupById, placeHoverCard, projectNodeToLocal],
   );
 
-  const nodeThreeObject = useCallback((node: object) => {
-    if (!isNestHullNode(node as NestHullNode)) return undefined;
-    const hull = node as NestHullNode;
-    const emphasis = resolveNestEmphasis(
-      { id: hull.id, __hullKind: hull.__hullKind, __libraryId: hull.__libraryId },
-      nestEmphasisCtxRef.current,
-    );
-    return createNestHullObject3d(hull, emphasis);
-  }, []);
+  const nodeThreeObject = useCallback(
+    (node: object) => {
+      const n = node as {
+        id?: string | number;
+        __kind?: string;
+        __hullKind?: string;
+        __libraryId?: string;
+        __color?: string;
+        tags?: string[];
+        sourceClass?: string | null;
+        referenceCount?: number | null;
+        val?: number;
+      };
+
+      if (isNestHullNode(n as NestHullNode)) {
+        const hull = n as NestHullNode;
+        const emphasis = resolveNestEmphasis(
+          { id: hull.id, __hullKind: hull.__hullKind, __libraryId: hull.__libraryId },
+          nestEmphasisCtxRef.current,
+        );
+        return createNestHullObject3d(hull, emphasis);
+      }
+
+      const fill = (() => {
+        if (isTagSatelliteNode(n)) {
+          const tag = n.tags?.[0];
+          return tag ? tagColor(tag, props.tags) : '#7dcfff';
+        }
+        const tag = n.tags?.[0];
+        return tag ? tagColor(tag, props.tags) : '#9aa4b8';
+      })();
+
+      if (isTagSatelliteNode(n)) {
+        return createCelestialObject3d(celestialKindForTagSatellite(), fill, n.val ?? 0.4);
+      }
+
+      const kind = celestialKindForConcept({
+        sourceClass: n.sourceClass,
+        tags: n.tags,
+        referenceCount: n.referenceCount,
+      });
+      return createCelestialObject3d(kind, fill, n.val ?? 1);
+    },
+    [props.tags],
+  );
 
   const nestEmphasisFor = useCallback(
     (node: { id?: string | number; __hullKind?: string; __libraryId?: string }): NestEmphasis => {
@@ -1527,9 +1578,13 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         ctx.stroke();
       }
 
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, 2 * Math.PI);
-      ctx.fillStyle = isHighlight || isHovered ? '#7aa2f7' : fill;
+      const kind = isTagSat
+        ? celestialKindForTagSatellite()
+        : celestialKindForConcept({
+            sourceClass: (node as { sourceClass?: string | null }).sourceClass,
+            tags: node.tags,
+            referenceCount: (node as { referenceCount?: number | null }).referenceCount,
+          });
       ctx.globalAlpha = isTagSat
         ? 0.75
         : hoverNeighborIds && !isNeighbor
@@ -1537,7 +1592,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           : hasTopicFocus && node.__focused === false
             ? 0.28
             : 0.95;
-      ctx.fill();
+      paintCelestial2d(kind, ctx, x, y, isHighlight || isHovered ? '#7aa2f7' : fill, r);
       ctx.globalAlpha = 1;
 
       const showLabel =
@@ -1750,7 +1805,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           aria-live="polite"
         >
           {use3dRenderer && !statusText
-            ? '3D free-float · article orbits · folder systems · semantic springs'
+            ? '3D celestial · article stars · folder systems · semantic springs'
             : null}
           {use3dRenderer && (hasTopicFocus || statusText) ? ' · ' : null}
           {hasTopicFocus && `Focused ${focusSet!.size} concepts`}

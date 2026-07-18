@@ -93,16 +93,17 @@ Result: orbit camera still looked like a **flat necklace of nests**, not a volum
 | P5 | Persist camera bookmarks | Product nice-to-have (design § out of scope) |
 | P6 | Faster graph GET / warm cache | Graph still ~3m cold — UX lag unrelated to packing |
 
-### D-132 cluster contract → D-136 free-float
+### D-132 cluster contract → D-136 free-float → D-139 celestial
 
-| Lever | Behavior (D-136) |
+| Lever | Behavior (D-139 builds on D-136) |
 |-------|------------------|
-| Concepts / tags | Free-float on weight + similarity springs |
-| Article | Soft orbital radial band + mild outer restore |
-| Folder | Loose system attractor (intersects OK) |
+| Concepts / tags | Free-float celestial bodies (planet/rock/ember/comet/moon) |
+| Article | **Star hub** — soft-orbits folder system; concepts orbit live star |
+| Folder | Loose system attractor / shelf space (intersects OK) |
 | Library | Faint framing only |
 | Cross-membership springs | `hierarchicalLinkScale` — mild bias, not crush |
 | Foreign repel | Near-off so systems can overlap |
+| LOD | Top-N article stars always on; all under topic focus |
 | QA | `layoutStats` still reports packing AABB / separation |
 
 ## 6. Verification

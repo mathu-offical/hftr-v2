@@ -7,6 +7,7 @@ import {
   computeFolderCenters3D,
   computeLibraryCenters3D,
   computeVolumeCameraPose,
+  createArticleHullOrbitForce,
   createArticleOrbitForce,
   createFolderCohereForce,
   createFolderNestForce,
@@ -178,6 +179,84 @@ describe('galaxy-physics', () => {
     force.initialize([node]);
     force(1);
     expect(node.vx).toBeLessThan(0);
+  });
+
+  it('article orbit prefers live article-hull position over seed center', () => {
+    const centers = new Map([
+      [
+        'topic-1',
+        {
+          x: 0,
+          y: 0,
+          z: 0,
+          radius: 20,
+          topicId: 'topic-1',
+          title: 'T',
+          libraryId: 'lib',
+          folderKey: 'topics',
+        },
+      ],
+    ]);
+    const force = createArticleOrbitForce(centers);
+    const hull = {
+      id: '__article_hull:topic-1',
+      __kind: 'nest-hull' as const,
+      __hullKind: 'article' as const,
+      __topicId: 'topic-1',
+      x: 80,
+      y: 0,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+    };
+    const node = {
+      primaryArticleId: 'topic-1',
+      x: 100,
+      y: 0,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+    };
+    force.initialize([hull, node]);
+    force(1);
+    // Pull toward live hull at x=80, not seed at x=0 — vx should still be negative but smaller.
+    expect(node.vx).toBeLessThan(0);
+    expect(Math.abs(node.vx)).toBeLessThan(20);
+  });
+
+  it('article hull orbit force pulls stars toward folder system', () => {
+    const folderCenters = new Map([
+      [
+        'lib::topics',
+        {
+          x: 0,
+          y: 0,
+          z: 0,
+          radius: 40,
+          name: 'Topics',
+          folderKey: 'topics',
+          libraryId: 'lib',
+          mass: 4,
+        },
+      ],
+    ]);
+    const force = createArticleHullOrbitForce(folderCenters);
+    const hull = {
+      __kind: 'nest-hull' as const,
+      __hullKind: 'article' as const,
+      __parentFolderKey: 'lib::topics',
+      x: 120,
+      y: 0,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+    };
+    force.initialize([hull]);
+    force(1);
+    expect(hull.vx).toBeLessThan(0);
   });
 
   it('tag satellite force attracts toward parent concept', () => {

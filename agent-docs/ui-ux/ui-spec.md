@@ -439,19 +439,18 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
 
 ### Galaxy tab
 - `react-force-graph-3d` + `d3-force-3d` (**canonical 3D physics space**, TD-09): concepts as
-  nodes (size blends degree + reference-band; color = dominant tag); every `concept_links`
-  edge is a spring (distance/strength from qualitative weight band + relation); many-body
-  charge, collision, and soft library-nest attractors. Directional particles on links
-  (neural-style). 2D fallback only on WebGL failure or explicit toggle.
-- **Library nests (default):** soft 3D spherical clusters per library (primary membership
-  pulls/restores inside the nest) with **visible sphere outlines** (wireframe + translucent
-  shell + equatorial rings) and **always-on nest labels** (library/folder sprites in 3D).
-  Folder hulls use an octahedron wire cue; articles stay quieter dashed shells (shown under
-  topic focus only). Default LOD shows the heaviest folder per library so the view stays
-  readable. A company envelope sphere bounds the visible nests. Cross-library edges may
-  span nests. Master library = company outer cloud. Layout uses size-ranked spiral library
-  centers, folder cohesion, and foreign-nest repel so clusters do not look like a uniform
-  cloud (D-107).
+  **celestial bodies** (planet/rock/ember/comet by source class; size blends degree +
+  reference-band; color = dominant tag); tag satellites as moons; article hubs as **stars**.
+  Every `concept_links` edge is a spring (distance/strength from qualitative weight band +
+  relation); many-body charge, collision, and soft folder-system / article-orbit forces
+  (D-136 / D-139). Directional particles on links (neural-style). 2D fallback only on WebGL
+  failure or explicit toggle.
+- **Library nests (default):** faint library framing; folders = soft system/shelf spaces;
+  **article stars** soft-orbit inside folders and act as live orbit centers for member
+  concepts (top-N always visible; full set under topic focus). Folder hulls use an
+  octahedron wire cue. A company envelope sphere bounds the visible nests. Cross-library
+  edges may span systems. Layout uses Fibonacci volume packing (D-116) with free-float
+  semantic springs (D-136) and celestial hierarchy (D-139).
 - **Rotating info-tag layer** over the graph (subtle orbit of tag chips; static under
   `prefers-reduced-motion`); chips double as filters.
 - **Topic focus** (left-panel select): dim non-member concepts/edges; stronger particles on

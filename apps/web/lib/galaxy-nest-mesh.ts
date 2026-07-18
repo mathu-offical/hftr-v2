@@ -22,7 +22,8 @@ function baseOpacities(hullKind: NestHullKind): OpacitySet {
       // Folder = soft system bound (more visible than library).
       return { shell: 0.09, wire: 0.52, ring: 0.4, meridian: 0.22 };
     case 'article':
-      return { shell: 0.06, wire: 0.42, ring: 0.34, meridian: 0.16 };
+      // Faint orbit shell — star core carries the read (D-139).
+      return { shell: 0.035, wire: 0.28, ring: 0.4, meridian: 0.12 };
     case 'topic':
       return { shell: 0.09, wire: 0.6, ring: 0.45, meridian: 0.26 };
     default: {
@@ -107,7 +108,8 @@ function createNestLabelSprite(
   const trimmed = label.trim();
   if (!trimmed) return null;
 
-  const alwaysOn = hullKind === 'library' || hullKind === 'folder' || hullKind === 'topic';
+  const alwaysOn =
+    hullKind === 'library' || hullKind === 'folder' || hullKind === 'topic' || hullKind === 'article';
   if (!alwaysOn && emphasis !== 'hover' && emphasis !== 'selected') return null;
   if (hullKind === 'company' && emphasis === 'idle') return null;
 
@@ -253,6 +255,32 @@ export function createNestHullObject3d(
     group.add(meridian);
   }
 
+  if (isArticle) {
+    // Article = star hub: bright core + corona inside a faint orbit shell (D-139).
+    const core = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(Math.min(14, radius * 0.22), 1),
+      new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: emphasis === 'dim' ? 0.35 : 0.95,
+      }),
+    );
+    core.userData.nestPart = 'starCore';
+    group.add(core);
+    const corona = new THREE.Mesh(
+      new THREE.SphereGeometry(Math.min(22, radius * 0.38), 16, 12),
+      new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: emphasis === 'dim' ? 0.08 : 0.22,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    );
+    corona.userData.nestPart = 'starCorona';
+    group.add(corona);
+  }
+
   if (isFolder) {
     // Octahedron wire cue — folders read as angular clusters inside smooth library shells.
     const octa = new THREE.Mesh(
@@ -349,6 +377,12 @@ export function applyNestHullEmphasis(
           mat.color.set('#c0caf5');
         }
         break;
+      case 'starCore':
+        mat.opacity = emphasis === 'dim' ? 0.35 : 0.95;
+        break;
+      case 'starCorona':
+        mat.opacity = emphasis === 'dim' ? 0.08 : emphasis === 'selected' ? 0.35 : 0.22;
+        break;
       default:
         break;
     }
@@ -423,6 +457,20 @@ export function paintNestHull2d(
   ctx.stroke();
   ctx.setLineDash([]);
 
+  if (isArticle) {
+    ctx.beginPath();
+    ctx.arc(x, y, Math.min(10, r * 0.22), 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.globalAlpha = emphasis === 'dim' ? 0.35 : 0.95;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x, y, Math.min(16, r * 0.38), 0, Math.PI * 2);
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = emphasis === 'dim' ? 0.12 : 0.4;
+    ctx.lineWidth = 1.2 / Math.max(globalScale * 0.5, 0.35);
+    ctx.stroke();
+  }
+
   if (isLibrary) {
     ctx.beginPath();
     ctx.arc(x, y, r * 0.78, 0, Math.PI * 2);
@@ -442,12 +490,13 @@ export function paintNestHull2d(
   }
 
   const label = node.__label ?? '';
-  // Library/folder labels prefer earlier zoom; articles only when close or focused.
-  const labelZoom = isLibrary ? 0.35 : isFolder ? 0.55 : isArticle ? 1.05 : 0.7;
+  // Library/folder/article labels prefer earlier zoom; article stars stay readable.
+  const labelZoom = isLibrary ? 0.35 : isFolder ? 0.55 : isArticle ? 0.65 : 0.7;
   const forceLabel =
     emphasis === 'hover' ||
     emphasis === 'selected' ||
     isLibrary ||
+    isArticle ||
     (isFolder && globalScale > 0.4);
   if (label && (forceLabel || globalScale > labelZoom)) {
     const fontSize = Math.max((isLibrary ? 11 : 9) / globalScale, 2.2);

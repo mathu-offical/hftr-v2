@@ -1463,6 +1463,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   start returns the partial `traceId`. Soak helper caps companies; credentialed refresh
   verified on Neon. Docs: post-fill-deterministic-lifecycle.md. **Status: implemented (paper).**
 
+- **D-139 (galaxy celestial objects + article-star orbits, 2026-07-18):** Granular galaxy
+  nodes render as distinct celestial bodies (`galaxy-celestial.ts`: star / planet / rock /
+  ember / moon / comet by source class and role). Article hulls are **unpinned star hubs**
+  that soft-orbit parent folder/shelf systems (`createArticleHullOrbitForce`); concept
+  soft-orbits follow **live** article-hull positions (`createArticleOrbitForce`). Top-N
+  article stars always visible; full set under topic focus. Builds on D-136 free-float.
+  Docs: `research/galaxy-3d-volume-layout.md`, `ui-ux/research-galaxy-topic-view-design.md`
+  §4.1. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

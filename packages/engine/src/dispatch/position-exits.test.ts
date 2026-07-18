@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { getRrTargetLadder, getTimeStopTypicalMinutes } from '../pipeline/bands';
 import {
+  measurableGainFloorCents,
   recoveryPhaseForExit,
   resolvePositionExitReason,
   riskDistanceCents,
   scaleOutQty,
   shouldExitAtrStop,
   shouldExitBreakeven,
+  shouldExitMeasurableGain,
+  shouldExitSessionClose,
   shouldExitTargetDeadline,
   shouldExitTimeStop,
   shouldHitRrMultiple,
@@ -60,6 +63,33 @@ describe('shouldExitTargetDeadline', () => {
 
   it('returns false before the deadline', () => {
     expect(shouldExitTargetDeadline(1_000, 999)).toBe(false);
+  });
+});
+
+describe('measurable gain', () => {
+  it('floor covers synthetic round-trip plus net gain bps', () => {
+    // halfSpread=2, roundTrip=4, net 25bps=25 → 29
+    expect(measurableGainFloorCents(10_000)).toBe(29);
+  });
+
+  it('shouldExitMeasurableGain requires clearing the floor', () => {
+    expect(shouldExitMeasurableGain(10_000, 10_028)).toBe(false);
+    expect(shouldExitMeasurableGain(10_000, 10_029)).toBe(true);
+  });
+});
+
+describe('shouldExitSessionClose', () => {
+  it('fires when cash session is closed and position opened in open hours', () => {
+    expect(shouldExitSessionClose('overnight', { openedDuringOpenSession: true })).toBe(true);
+    expect(shouldExitSessionClose('closed', { openedDuringOpenSession: true })).toBe(true);
+  });
+
+  it('skips when position opened while already closed (weekend paper)', () => {
+    expect(shouldExitSessionClose('overnight', { openedDuringOpenSession: false })).toBe(false);
+  });
+
+  it('does not fire during open cash hours', () => {
+    expect(shouldExitSessionClose('midday')).toBe(false);
   });
 });
 
@@ -168,7 +198,20 @@ describe('resolvePositionExitReason', () => {
     ).toBe('atr_stop');
   });
 
-  it('returns rr_tp1_scale_out at +1R', () => {
+  it('returns measurable_gain_take before session_close when gain clears floor', () => {
+    expect(
+      resolvePositionExitReason({
+        ...base,
+        catalogExitsEnabled: true,
+        markCents: 10_029,
+        atrMultiplier: 2.25,
+        sessionPhase: 'overnight',
+        openedDuringOpenSession: true,
+      }),
+    ).toBe('measurable_gain_take');
+  });
+
+  it('returns rr_tp1_scale_out at +1R (above measurable floor)', () => {
     expect(
       resolvePositionExitReason({
         ...base,
@@ -201,14 +244,26 @@ describe('resolvePositionExitReason', () => {
     ).toBe('rr_tp3_exit');
   });
 
-  it('returns session_close when cash session is closed', () => {
+  it('returns session_close when cash session is closed and opened in open hours', () => {
     expect(
       resolvePositionExitReason({
         ...base,
         catalogExitsEnabled: true,
         sessionPhase: 'overnight',
+        openedDuringOpenSession: true,
       }),
     ).toBe('session_close');
+  });
+
+  it('skips session_close for positions opened while already closed', () => {
+    expect(
+      resolvePositionExitReason({
+        ...base,
+        catalogExitsEnabled: true,
+        sessionPhase: 'overnight',
+        openedDuringOpenSession: false,
+      }),
+    ).toBeNull();
   });
 
   it('does not session_close during open cash hours', () => {
@@ -226,6 +281,7 @@ describe('recoveryPhaseForExit', () => {
   it('maps stop/scale reasons to recovery ladder verbs', () => {
     expect(recoveryPhaseForExit('atr_stop')).toBe('escalate_or_abort');
     expect(recoveryPhaseForExit('rr_tp1_scale_out')).toBe('constrain');
+    expect(recoveryPhaseForExit('measurable_gain_take')).toBe('constrain');
     expect(recoveryPhaseForExit('time_stop')).toBe('observe');
   });
 });

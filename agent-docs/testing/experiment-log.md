@@ -118,9 +118,11 @@ Scoring: `intent-alignment-scoring.md`
 6. **Done (2026-07-18):** Bootstrap mirrors `auto_admitted` catalog seeds into trend-linked
    Strategy Evidence Library shelves so day_trading `evidence_fit` can pass (D-090 preserved).
 7. **Done (2026-07-18):** Model-free `maintenance.position_exits` — catalog ATR stop
-   (synthetic ATR proxy), RR tp1/tp2 scale-out + tp3, breakeven (spread-buffered),
-   `time_stop_band.typical_min`, recovery phase labels on envelopes; tactical trees bind
-   catalog recovery ladder phases when `strategyFamily` is set.
+   (synthetic ATR proxy), RR tp1/tp2 scale-out + tp3, **measurable_gain_take** (net gain
+   floor before session flatten), breakeven (spread-buffered), `time_stop_band.typical_min`,
+   session_close only when opened during open cash hours (weekend paper holds until gain/
+   time_stop); recovery phase labels on envelopes; tactical trees bind catalog recovery
+   ladder phases when `strategyFamily` is set.
 
 ---
 
@@ -165,4 +167,4 @@ Scoring: `intent-alignment-scoring.md`
 | System fixes | `UserMenu` → `@/lib/auth-client` (stop importing `@clerk/nextjs/server` into client); executions + timeline skip non-UUID causation refs (`atr_stop_catalog`); CDP scripts under `apps/web/scripts/cdp-*.ts` |
 | Re-verify | executions 200 (2 fills); CDP SUMMARY **14/14**; Chrome left on company canvas with posture overlay |
 | Alignment | **aligned** for processing UI paths; IronBee CallMcpTool still cannot address extension server id (use CDP attach to same profile) |
-| Notes | Disk ~100% full caused `.next` ENOENT / Next churn; prefer nohup Next + clear `.next/cache` when packs fail |
+| Notes | Disk ~100% full caused `.next` ENOENT / Next churn; prefer nohup Next + clear `.next/cache` when packs fail. Trader desk session flattened NVDA/AAPL via weekend `session_close` at a small loss — fixed by measurable_gain_take priority + skip session_close when opened while cash session already closed. |

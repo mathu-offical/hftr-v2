@@ -284,8 +284,10 @@ UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
   maintenance kick) so posture/library side-jobs cannot starve paper fill.
   `maintenance.position_exits` (via `maintenance.sweep`) scans open paper positions for
   model-free exits: targetExit deadline, ATR stop (synthetic ATR × catalog multiplier),
-  RR tp1/tp2 scale-out + tp3 exit, spread-buffered breakeven, catalog time_stop →
-  sell `actionInstructions` + `dispatch.paper_trade` (gauntlet intact). Recovery phase
+  RR tp1/tp2 scale-out + tp3 exit, **measurable_gain_take** (net gain floor before
+  session flatten), spread-buffered breakeven, catalog time_stop, and session_close
+  (only when the position opened during an open cash session) → sell
+  `actionInstructions` + `dispatch.paper_trade` (gauntlet intact). Recovery phase
   labels are attached on exit envelopes; tactical trees bind catalog recovery ladder
   phases when `strategyFamily` is known.
 - **job_schedules** — cron-like recurring definitions per module cadence.

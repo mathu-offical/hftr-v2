@@ -26,6 +26,7 @@ export type PositionExitReason =
   | 'time_stop'
   | 'session_close'
   | 'atr_stop'
+  | 'measurable_gain_take'
   | 'rr_tp1_scale_out'
   | 'rr_tp2_scale_out'
   | 'rr_tp3_exit';
@@ -49,6 +50,14 @@ const DEFAULT_BREAKEVEN_BUFFER_BPS = 15;
  * documented as synthetic until OHLC ATR ValueRefs ship.
  */
 const SYNTHETIC_ATR_BPS = 50;
+/**
+ * Net measurable-gain floor (bps of avg cost) after covering synthetic round-trip
+ * spread (~4 bps each way). Take-profit exits require clearing this floor so
+ * auto-exits fire on intention-aligned gains, not noise.
+ */
+const MEASURABLE_GAIN_NET_BPS = 25;
+/** Half-spread proxy matching getSyntheticQuote (2 bps of mid, min 1¢). */
+const SYNTHETIC_HALF_SPREAD_BPS = 2;
 
 /**
  * Long position: exit when mark is below average cost by more than the buffer
@@ -77,8 +86,8 @@ export function shouldExitTargetDeadline(targetExitMs: number, nowMs: number): b
   return nowMs >= targetExitMs;
 }
 
-/** Catalog time_stop_band max = session_close — flatten after the cash session. */
-export function shouldExitSessionClose(phase: SessionPhase): boolean {
+/** True when the cash session is closed / overnight (flat-by-close candidate). */
+export function isCashSessionClosed(phase: SessionPhase): boolean {
   switch (phase) {
     case 'closed':
     case 'overnight':
@@ -93,6 +102,45 @@ export function shouldExitSessionClose(phase: SessionPhase): boolean {
       return _exhaustive;
     }
   }
+}
+
+/**
+ * Catalog time_stop_band max = session_close — flatten after the cash session.
+ * Positions opened while already closed (weekend / overnight paper) must not
+ * flatten on the next maintenance tick; wait for a real open→close cycle.
+ */
+export function shouldExitSessionClose(
+  phase: SessionPhase,
+  opts?: { openedDuringOpenSession?: boolean },
+): boolean {
+  if (!isCashSessionClosed(phase)) return false;
+  if (opts?.openedDuringOpenSession === false) return false;
+  return true;
+}
+
+/**
+ * Minimum mark above avg cost (cents) that counts as a measurable long gain:
+ * synthetic round-trip spread + net gain bps.
+ */
+export function measurableGainFloorCents(
+  avgCostCents: number,
+  netGainBps = MEASURABLE_GAIN_NET_BPS,
+): number {
+  if (avgCostCents <= 0) return 1;
+  const halfSpread = Math.max(1, Math.round((avgCostCents * SYNTHETIC_HALF_SPREAD_BPS) / 10_000));
+  const roundTrip = halfSpread * 2;
+  const netGain = Math.max(1, Math.floor((avgCostCents * netGainBps) / 10_000));
+  return roundTrip + netGain;
+}
+
+/** Long: take profit when mark clears the measurable-gain floor above avg cost. */
+export function shouldExitMeasurableGain(
+  avgCostCents: number,
+  markCents: number,
+  netGainBps = MEASURABLE_GAIN_NET_BPS,
+): boolean {
+  if (avgCostCents <= 0 || markCents <= 0) return false;
+  return markCents >= avgCostCents + measurableGainFloorCents(avgCostCents, netGainBps);
 }
 
 /** Deterministic synthetic ATR in cents from mark (paper loop). */
@@ -185,6 +233,11 @@ export function resolvePositionExitReason(args: {
   atrMultiplier?: number;
   /** XNYS (or venue) session phase for flat-by-close. */
   sessionPhase?: SessionPhase | null;
+  /**
+   * When false, skip session_close (position opened while cash session was
+   * already closed — weekend/overnight paper). Default true when omitted.
+   */
+  openedDuringOpenSession?: boolean;
 }): PositionExitReason | null {
   if (args.markCents === null) return null;
 
@@ -198,12 +251,12 @@ export function resolvePositionExitReason(args: {
     const risk = riskDistanceCents(atr, atrMult);
     const ladder = getRrTargetLadder();
 
+    // Protect capital first.
     if (shouldExitAtrStop(args.avgCostCents, args.markCents, risk)) {
       return 'atr_stop';
     }
-    if (args.sessionPhase && shouldExitSessionClose(args.sessionPhase)) {
-      return 'session_close';
-    }
+
+    // Prefer measurable / RR gains before flat-by-close.
     if (shouldHitRrMultiple(args.avgCostCents, args.markCents, risk, ladder.tp3R)) {
       return 'rr_tp3_exit';
     }
@@ -213,7 +266,24 @@ export function resolvePositionExitReason(args: {
     if (shouldHitRrMultiple(args.avgCostCents, args.markCents, risk, ladder.tp1R)) {
       return 'rr_tp1_scale_out';
     }
-  } else if (args.sessionPhase && shouldExitSessionClose(args.sessionPhase)) {
+    if (shouldExitMeasurableGain(args.avgCostCents, args.markCents)) {
+      return 'measurable_gain_take';
+    }
+
+    if (
+      args.sessionPhase &&
+      shouldExitSessionClose(args.sessionPhase, {
+        openedDuringOpenSession: args.openedDuringOpenSession !== false,
+      })
+    ) {
+      return 'session_close';
+    }
+  } else if (
+    args.sessionPhase &&
+    shouldExitSessionClose(args.sessionPhase, {
+      openedDuringOpenSession: args.openedDuringOpenSession !== false,
+    })
+  ) {
     return 'session_close';
   }
 
@@ -241,6 +311,8 @@ export function exitReasonLabel(reason: PositionExitReason): string {
       return 'session_close_flat';
     case 'atr_stop':
       return 'atr_stop_catalog';
+    case 'measurable_gain_take':
+      return 'measurable_gain_take';
     case 'rr_tp1_scale_out':
       return 'rr_tp1_scale_out';
     case 'rr_tp2_scale_out':
@@ -260,6 +332,7 @@ export function recoveryPhaseForExit(reason: PositionExitReason): string {
     case 'atr_stop':
     case 'breakeven':
       return 'escalate_or_abort';
+    case 'measurable_gain_take':
     case 'rr_tp1_scale_out':
     case 'rr_tp2_scale_out':
       return 'constrain';
@@ -282,6 +355,9 @@ function resolveExitQty(qty: bigint, reason: PositionExitReason): bigint {
       return scaleOutQty(qty, ladder.tp1ScalePct);
     case 'rr_tp2_scale_out':
       return scaleOutQty(qty, ladder.tp2ScalePct);
+    case 'measurable_gain_take':
+      // Skim half when sized for tranches; full exit on qty=1.
+      return scaleOutQty(qty, ladder.tp1ScalePct);
     case 'rr_tp3_exit':
     case 'atr_stop':
     case 'breakeven':
@@ -303,6 +379,7 @@ function exitIdempotencyKey(
   nowMs: number,
 ): string {
   switch (reason) {
+    case 'measurable_gain_take':
     case 'rr_tp1_scale_out':
     case 'rr_tp2_scale_out':
     case 'rr_tp3_exit':
@@ -358,13 +435,23 @@ export async function scanPositionExitSignals(
     const targetExitRef = row.moduleTargetExitRef ?? row.engineTargetExitRef ?? null;
     const targetExitMs = await resolveTargetExitMs(db, clock, targetExitRef);
 
+    const openedAtMs = row.openedAt.getTime();
+    const openSession = await getSession(
+      db,
+      'XNYS',
+      venueDate(openedAtMs, 'America/New_York'),
+    );
+    const openedPhase = sessionPhase(openSession, openedAtMs);
+    const openedDuringOpenSession = !isCashSessionClosed(openedPhase);
+
     const reason = resolvePositionExitReason({
       avgCostCents: row.avgCostCents,
       markCents,
       targetExitMs,
-      openedAtMs: row.openedAt.getTime(),
+      openedAtMs,
       nowMs,
       sessionPhase: phase,
+      openedDuringOpenSession,
       ...(opts?.timeStopEnabled !== undefined
         ? { timeStopEnabled: opts.timeStopEnabled }
         : {}),

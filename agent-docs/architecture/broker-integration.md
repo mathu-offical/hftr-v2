@@ -90,6 +90,10 @@ Approved design: `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-
   current awareness) + position-exits marks via MarketModel.
   Phase 3: `resolveDispatchSpendAuthority` — engine envelope/ledger spend caps;
   `capital_isolation_block` when raiding another engine’s slice.
+  Phase 4: `both_verify` keeps internal fill authoritative; shadow `submitOrder` on
+  the provider produces append-only `book_deltas` + observation `training_feedback`
+  (`mutation_class=book_delta`). Gap tags: `both_verify_linked` /
+  `both_verify_no_provider`.
 - Company-level `broker_connections` bind remains for credentials; it no longer implies
   automatic venue submit for every paper trade (routing mode decides).
 

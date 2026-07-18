@@ -1295,7 +1295,7 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Related: D-002, D-014, D-023, D-025, D-027, D-059, D-061, D-120, D-125, D-126; OQ-13
   (resolved). Spec: `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-design.md`.
   Plan: `docs/superpowers/plans/2026-07-18-internal-paper-trade-engine.md`.
-  **Status: implementing (Phase 3 — engine capital isolation).**
+  **Status: implementing (Phase 4 done; Phase 5 — InternalPaperCore unify + UI binding).**
 
 - **D-134 (control_snapshots + atr_stream cadence + time-spaced drain, 2026-07-18):**
   Closes D-129 follow-ons. (1) Admitted promote + successful compile persist

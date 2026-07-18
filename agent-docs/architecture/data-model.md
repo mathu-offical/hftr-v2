@@ -258,12 +258,17 @@ UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
   `engine_instances.capital_allocation_ref` (or module ref) and/or member ledger credits;
   `capital_isolation_block` when company pool still has cash but this engine’s envelope is
   exhausted. Explicit share remains settled `fund_transfers` / funds-bus utility links.
-  Future: durable `book_deltas` (Phase 4).
-- **training_feedback** — append-only bounded band/weight deltas only
-  (`mutation_class`: `band_position` | `weight_delta`), source run/trace refs,
+  **Phase 4:** append-only `book_deltas` stores validated `BookDelta` JSON from
+  `both_verify` shadow provider compares; linked `training_feedback` rows use
+  `mutation_class=book_delta` (observation-only — not applied by
+  `applyControlSnapshotDelta`). Internal fill remains authoritative for the HFTR
+  ledger; provider submit is shadow-only under `both_verify`.
+- **training_feedback** — append-only bounded band/weight deltas
+  (`mutation_class`: `band_position` | `weight_delta` | `book_delta`), source run/trace refs,
   optional `applied_control_snapshot_id`. Applied via `applyControlSnapshotDelta`
-  (D-126). Never stores secrets or prompts.
+  for band/weight only (D-126). Never stores secrets or prompts.
   applied_control_snapshot ref.
+- **book_deltas** — append-only dual-book observations (D-122 Phase 4).
 - **control_snapshots** — company/module scope, philosophy profile + lever state + envelope
   versions + content hash (D-029 `ControlSnapshot` contract).
 - **guardrail_evaluations** — APPEND-ONLY: package_id + `GuardrailEvaluation` jsonb.

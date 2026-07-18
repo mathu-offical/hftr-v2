@@ -93,7 +93,15 @@
 
 ---
 
+### Task 6: Phase 4 — both_verify + BookDelta persistence
+
+- [x] `usesProviderAsPrimaryBook` / `shouldShadowVerifyOnProvider` routing split
+- [x] `book_deltas` table + persist + training_feedback `book_delta` observation
+- [x] Internal fill authoritative; provider shadow submit for linked deltas
+- [x] Commit Phase 4 (`0877505` / `f1365d6` / `7f42b68`)
+
+---
+
 ### Later phases
 
-- Phase 4: real `both_verify` + BookDelta persistence → valves
 - Phase 5: unify InternalPaperCore with `paper-sim` adapter + UI controls

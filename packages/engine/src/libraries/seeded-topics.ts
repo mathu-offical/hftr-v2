@@ -6,6 +6,7 @@
  */
 
 import { and, eq, inArray, notInArray } from 'drizzle-orm';
+import { resolveSectorSeedTargetFromLabel } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { researchTopics, topicConcepts } from '@hftr/db/schema';
 import { leakLint } from '../calc/leak-lint';
@@ -13,6 +14,9 @@ import { leakLint } from '../calc/leak-lint';
 export const SEEDED_TOPIC_PROGRAM_TITLE = 'Seeded trading mechanisms';
 /** @deprecated Prefer SEEDED_TOPIC_PROGRAM_TITLE; kept for archive/API compatibility. */
 export const SEEDED_TOPIC_TITLE = SEEDED_TOPIC_PROGRAM_TITLE;
+
+/** Dynamic company desk-focus directives (sector + catalog combinations). */
+export const DESK_FOCUS_TOPIC_PREFIX = 'Desk focus · ';
 
 export type SeededTopicMemberFilter = {
   catalog: string;
@@ -54,14 +58,9 @@ function directiveFor(label: string, intent: string): string {
   return `Directive: ${intent} (${label}). Module-side work program — may spawn articles or specialty libraries; catalog concepts stay library-side.`;
 }
 
-function groupSpec(
-  title: string,
-  parentTitle: string,
-  intent: string,
-): SeededTopicSpec {
+function groupSpec(title: string, intent: string): SeededTopicSpec {
   return {
     title,
-    parentTitle,
     members: [],
     directive: directiveFor(title, intent),
   };
@@ -189,9 +188,9 @@ export const SECTOR_SEED_KEYS = [
 ] as const;
 
 /**
- * High-granularity seeded directives under the compile-time mechanisms program.
- * Mid-level groups are synopsis-only; leaves filter library-side catalog articles
- * by catalog + class/tier. Topics may spawn further articles/libraries (D-086).
+ * Catalog-backed seeded directives as **separate top-level roots** (D-096).
+ * "Seeded trading mechanisms" remains an overview index (library nest name), not a
+ * mega-parent that hides every other directive. Mid-level groups own class/tier leaves.
  */
 export const SEEDED_TOPIC_SPECS: readonly SeededTopicSpec[] = [
   {
@@ -199,13 +198,12 @@ export const SEEDED_TOPIC_SPECS: readonly SeededTopicSpec[] = [
     isProgram: true,
     members: [],
     directive:
-      'Program directive for compile-time trading mechanisms. Child topics are research-module work programs that organize library-side catalog articles; agents may spawn further articles or specialty libraries from these directives.',
+      'Overview index for compile-time trading mechanisms. Peer top-level topics are the actual research-module work programs (strategy, guardrails, sectors, desk focuses). Concepts stay library-side under the Seeded trading mechanisms nest.',
   },
 
   // —— Strategy families (class + activation tier) ——
   groupSpec(
     'Strategy families',
-    SEEDED_TOPIC_PROGRAM_TITLE,
     'organize strategy-family mechanisms by class and activation tier',
   ),
   ...STRATEGY_FAMILY_CLASSES.map((c) =>
@@ -230,10 +228,9 @@ export const SEEDED_TOPIC_SPECS: readonly SeededTopicSpec[] = [
     'curate Tier C strategy family mechanisms — lower activation / specialty paths',
   ),
 
-  // —— Small catalogs (single leaf under program) ——
+  // —— Small catalogs (top-level leaves) ——
   {
     title: 'Compound strategies',
-    parentTitle: SEEDED_TOPIC_PROGRAM_TITLE,
     members: [{ catalog: 'compound_strategies' }],
     directive: directiveFor(
       'Compound strategies',
@@ -242,7 +239,6 @@ export const SEEDED_TOPIC_SPECS: readonly SeededTopicSpec[] = [
   },
   {
     title: 'Recovery ladders',
-    parentTitle: SEEDED_TOPIC_PROGRAM_TITLE,
     members: [{ catalog: 'recovery_ladders' }],
     directive: directiveFor(
       'Recovery ladders',
@@ -251,7 +247,6 @@ export const SEEDED_TOPIC_SPECS: readonly SeededTopicSpec[] = [
   },
   {
     title: 'Session constraints',
-    parentTitle: SEEDED_TOPIC_PROGRAM_TITLE,
     members: [{ catalog: 'session_constraints' }],
     directive: directiveFor(
       'Session constraints',
@@ -260,7 +255,6 @@ export const SEEDED_TOPIC_SPECS: readonly SeededTopicSpec[] = [
   },
   {
     title: 'Broker policy',
-    parentTitle: SEEDED_TOPIC_PROGRAM_TITLE,
     members: [{ catalog: 'broker_policy_envelopes' }],
     directive: directiveFor(
       'Broker policy',
@@ -269,11 +263,7 @@ export const SEEDED_TOPIC_SPECS: readonly SeededTopicSpec[] = [
   },
 
   // —— Guardrails by class ——
-  groupSpec(
-    'Guardrails',
-    SEEDED_TOPIC_PROGRAM_TITLE,
-    'keep guardrail packages visible as class-scoped research directives',
-  ),
+  groupSpec('Guardrails', 'keep guardrail packages visible as class-scoped research directives'),
   ...GUARDRAIL_CLASSES.map((c) =>
     classLeaf(
       'Guardrails',
@@ -287,7 +277,6 @@ export const SEEDED_TOPIC_SPECS: readonly SeededTopicSpec[] = [
   // —— Trend lead patterns by class ——
   groupSpec(
     'Trend lead patterns',
-    SEEDED_TOPIC_PROGRAM_TITLE,
     'organize trend-lead vocabulary for research→trend handoff',
   ),
   ...TREND_LEAD_CLASSES.map((c) =>
@@ -303,7 +292,6 @@ export const SEEDED_TOPIC_SPECS: readonly SeededTopicSpec[] = [
   // —— Compliance by class ——
   groupSpec(
     'Compliance packages',
-    SEEDED_TOPIC_PROGRAM_TITLE,
     'organize compliance policy packages for policy-aware research',
   ),
   ...COMPLIANCE_CLASSES.map((c) =>
@@ -319,7 +307,6 @@ export const SEEDED_TOPIC_SPECS: readonly SeededTopicSpec[] = [
   // —— Event archetypes by class ——
   groupSpec(
     'Event archetypes',
-    SEEDED_TOPIC_PROGRAM_TITLE,
     'frame corporate and calendar event research by archetype class',
   ),
   ...EVENT_ARCHETYPE_CLASSES.map((c) =>
@@ -335,7 +322,6 @@ export const SEEDED_TOPIC_SPECS: readonly SeededTopicSpec[] = [
   // —— Macro triggers by class ——
   groupSpec(
     'Macro triggers',
-    SEEDED_TOPIC_PROGRAM_TITLE,
     'organize macro and geopolitical triggers for blackout and reentry vocabulary',
   ),
   ...MACRO_TRIGGER_CLASSES.map((c) =>
@@ -348,21 +334,93 @@ export const SEEDED_TOPIC_SPECS: readonly SeededTopicSpec[] = [
     ),
   ),
 
-  // —— Sectors ——
+  // —— Sectors (full catalog atlas; company focuses get separate Desk focus topics) ——
   groupSpec(
     'Sector knowledge',
-    SEEDED_TOPIC_PROGRAM_TITLE,
     'admit sector behavior seeds; deepen into specialty libraries when needed',
   ),
   ...SECTOR_SEED_KEYS.map((s) => sectorLeaf(s)),
 ];
 
+/** Catalog domains combined into each company desk-focus directive. */
+const DESK_FOCUS_COMBINATION_CATALOGS = [
+  { suffix: 'Strategies', catalog: 'strategy_families', intent: 'strategy-family mechanisms' },
+  { suffix: 'Trend leads', catalog: 'trend_lead_patterns', intent: 'trend-lead patterns' },
+  { suffix: 'Guardrails', catalog: 'guardrail_packages', intent: 'guardrail packages' },
+  { suffix: 'Events', catalog: 'event_archetypes', intent: 'event archetypes' },
+] as const;
+
+/**
+ * Company sector-focus directives: one top-level desk topic per focus, plus
+ * combination children that OR sector_seeds with a catalog domain (D-096).
+ */
+export function buildDeskFocusTopicSpecs(
+  sectorFocuses: readonly string[],
+): SeededTopicSpec[] {
+  const specs: SeededTopicSpec[] = [];
+  const seenLabels = new Set<string>();
+
+  for (const raw of sectorFocuses) {
+    const label = raw.trim();
+    if (!label || seenLabels.has(label)) continue;
+    const target = resolveSectorSeedTargetFromLabel(label);
+    if (!target) continue;
+    seenLabels.add(label);
+
+    const focusTitle = `${DESK_FOCUS_TOPIC_PREFIX}${label}`;
+    specs.push({
+      title: focusTitle,
+      members: [{ catalog: 'sector_seeds', class: target.sectorKey }],
+      directive: directiveFor(
+        focusTitle,
+        `primary desk research for company sector focus "${label}" — sector seeds plus combination child directives`,
+      ),
+    });
+
+    for (const combo of DESK_FOCUS_COMBINATION_CATALOGS) {
+      const title = `${focusTitle} · ${combo.suffix}`;
+      specs.push({
+        title,
+        parentTitle: focusTitle,
+        members: [
+          { catalog: 'sector_seeds', class: target.sectorKey },
+          { catalog: combo.catalog },
+        ],
+        directive: directiveFor(
+          title,
+          `combine ${label} sector seeds with seeded ${combo.intent} for desk research`,
+        ),
+      });
+    }
+  }
+
+  return specs;
+}
+
+/** Full seeded topic set for a company (static catalog roots + desk focuses). */
+export function buildSeededTopicSpecsForCompany(
+  sectorFocuses: readonly string[] = [],
+): SeededTopicSpec[] {
+  return [...SEEDED_TOPIC_SPECS, ...buildDeskFocusTopicSpecs(sectorFocuses)];
+}
+
 export const SEEDED_TOPIC_TITLES: ReadonlySet<string> = new Set(
   SEEDED_TOPIC_SPECS.map((s) => s.title),
 );
 
+/** Top-level catalog roots excluding the mechanisms overview index. */
+export const SEEDED_TOPIC_CATALOG_ROOT_TITLES: readonly string[] = SEEDED_TOPIC_SPECS.filter(
+  (s) => !s.parentTitle && s.title !== SEEDED_TOPIC_PROGRAM_TITLE,
+).map((s) => s.title);
+
 export function isSeededTopicTitle(title: string): boolean {
-  return SEEDED_TOPIC_TITLES.has(title);
+  return SEEDED_TOPIC_TITLES.has(title) || title.startsWith(DESK_FOCUS_TOPIC_PREFIX);
+}
+
+export function protectedSeededTopicTitles(
+  sectorFocuses: readonly string[] = [],
+): ReadonlySet<string> {
+  return new Set(buildSeededTopicSpecsForCompany(sectorFocuses).map((s) => s.title));
 }
 
 function assertLeakClean(text: string): void {
@@ -400,7 +458,7 @@ export function buildSeededDirectiveSynopsisMd(opts: {
   ];
 
   if (opts.childTitles && opts.childTitles.length > 0) {
-    lines.push('', '## Child directives', '');
+    lines.push('', opts.isProgram ? '## Peer directives' : '## Child directives', '');
     for (const child of opts.childTitles) {
       lines.push(`- [[${child}]]`);
     }
@@ -490,12 +548,17 @@ function specDepth(spec: SeededTopicSpec, byTitle: ReadonlyMap<string, SeededTop
   return depth;
 }
 
-function directChildTitles(parentTitle: string): string[] {
-  return SEEDED_TOPIC_SPECS.filter((s) => s.parentTitle === parentTitle).map((s) => s.title);
+function directChildTitles(
+  parentTitle: string,
+  specs: readonly SeededTopicSpec[],
+): string[] {
+  return specs.filter((s) => s.parentTitle === parentTitle).map((s) => s.title);
 }
 
 /**
- * Upsert the full seeded topic tree for one research module and rebuild memberships.
+ * Upsert the full seeded topic forest for one research module and rebuild memberships.
+ * Catalog domains are separate top-level roots; company sector focuses add Desk focus
+ * combination topics (D-096).
  */
 export async function ensureSeededResearchTopics(opts: {
   db: Db;
@@ -508,11 +571,19 @@ export async function ensureSeededResearchTopics(opts: {
   tierBySourceRef: ReadonlyMap<string, string | null>;
   /** Map sourceRef → payload class or sector. */
   classBySourceRef?: ReadonlyMap<string, string | null>;
+  /** Company sector focuses (create wizard labels) → Desk focus topics. */
+  sectorFocuses?: readonly string[];
 }): Promise<{ topicIds: string[]; programTopicId: string | null }> {
-  const byTitle = new Map(SEEDED_TOPIC_SPECS.map((s) => [s.title, s]));
-  const ordered = [...SEEDED_TOPIC_SPECS].sort(
+  const specs = buildSeededTopicSpecsForCompany(opts.sectorFocuses ?? []);
+  const byTitle = new Map(specs.map((s) => [s.title, s]));
+  const ordered = [...specs].sort(
     (a, b) => specDepth(a, byTitle) - specDepth(b, byTitle) || a.title.localeCompare(b.title),
   );
+
+  const peerRootTitles = specs
+    .filter((s) => !s.parentTitle && s.title !== SEEDED_TOPIC_PROGRAM_TITLE)
+    .map((s) => s.title)
+    .sort((a, b) => a.localeCompare(b));
 
   const topicIdByTitle = new Map<string, string>();
   const classMap = opts.classBySourceRef ?? new Map<string, string | null>();
@@ -524,7 +595,9 @@ export async function ensureSeededResearchTopics(opts: {
       opts.tierBySourceRef,
       classMap,
     );
-    const childTitles = directChildTitles(spec.title);
+    const childTitles = spec.isProgram
+      ? peerRootTitles
+      : directChildTitles(spec.title, specs);
     const synopsisMd = buildSeededDirectiveSynopsisMd({
       title: spec.title,
       directive: spec.directive,
@@ -606,6 +679,7 @@ export async function ensureSeededResearchTopics(opts: {
     db: opts.db,
     companyId: opts.companyId,
     researchModuleId: opts.researchModuleId,
+    sectorFocuses: opts.sectorFocuses ?? [],
   });
 
   return {
@@ -616,13 +690,17 @@ export async function ensureSeededResearchTopics(opts: {
 
 /**
  * Remove obsolete bootstrap topics (e.g. prior title/humanize variants) that are
- * no longer in {@link SEEDED_TOPIC_TITLES}. Keeps operator-created topics.
+ * no longer in the company seeded title set. Keeps operator-created topics.
  */
 export async function pruneObsoleteSeededTopics(opts: {
   db: Db;
   companyId: string;
   researchModuleId: string;
+  sectorFocuses?: readonly string[];
 }): Promise<number> {
+  const protectedTitles = [
+    ...protectedSeededTopicTitles(opts.sectorFocuses ?? []),
+  ];
   const obsolete = await opts.db
     .select({ id: researchTopics.id })
     .from(researchTopics)
@@ -631,7 +709,7 @@ export async function pruneObsoleteSeededTopics(opts: {
         eq(researchTopics.companyId, opts.companyId),
         eq(researchTopics.moduleId, opts.researchModuleId),
         eq(researchTopics.provenance, 'deterministic_bootstrap'),
-        notInArray(researchTopics.title, [...SEEDED_TOPIC_TITLES]),
+        notInArray(researchTopics.title, protectedTitles),
       ),
     );
   if (obsolete.length === 0) return 0;

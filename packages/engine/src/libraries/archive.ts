@@ -9,6 +9,7 @@ import {
   topicConcepts,
 } from '@hftr/db/schema';
 import {
+  DESK_FOCUS_TOPIC_PREFIX,
   isSeededTopicTitle,
   SEEDED_TOPIC_TITLE,
   SEEDED_TOPIC_TITLES,
@@ -16,6 +17,14 @@ import {
 
 export const SEEDED_LIBRARY_NAME = 'Seeded trading mechanisms';
 export { SEEDED_TOPIC_TITLE, SEEDED_TOPIC_TITLES, isSeededTopicTitle };
+
+/** Active/archived runtime topics exclude static seeds and desk-focus combinations. */
+function isRuntimeTopicTitleSql() {
+  return and(
+    notInArray(researchTopics.title, [...SEEDED_TOPIC_TITLES]),
+    sql`${researchTopics.title} not like ${`${DESK_FOCUS_TOPIC_PREFIX}%`}`,
+  );
+}
 
 export type ConfidenceBand = 'low' | 'medium' | 'high';
 export type ConfidenceDirection = 'up' | 'down' | 'verify';
@@ -374,7 +383,7 @@ export async function archiveAllRuntimeResearch(
       and(
         eq(researchTopics.companyId, companyId),
         eq(researchTopics.status, 'active'),
-        notInArray(researchTopics.title, [...SEEDED_TOPIC_TITLES]),
+        isRuntimeTopicTitleSql(),
       ),
     )
     .returning({ id: researchTopics.id });
@@ -449,7 +458,7 @@ export async function clearArchive(db: Db, companyId: string): Promise<ArchiveCo
       and(
         eq(researchTopics.companyId, companyId),
         eq(researchTopics.status, 'archived'),
-        notInArray(researchTopics.title, [...SEEDED_TOPIC_TITLES]),
+        isRuntimeTopicTitleSql(),
       ),
     );
   const archivedLibraryRows = await db

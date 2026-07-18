@@ -2,6 +2,7 @@ import { and, eq, ilike, inArray } from 'drizzle-orm';
 import type { Db } from '@hftr/db';
 import {
   catalogEntries,
+  companies,
   conceptLinks,
   concepts,
   libraries,
@@ -35,9 +36,13 @@ export {
   SEEDED_TOPIC_SPECS,
   SEEDED_TOPIC_TITLE,
   SEEDED_TOPIC_TITLES,
+  SEEDED_TOPIC_CATALOG_ROOT_TITLES,
+  DESK_FOCUS_TOPIC_PREFIX,
   isSeededTopicTitle,
   ensureSeededResearchTopics,
   buildSeededDirectiveSynopsisMd,
+  buildDeskFocusTopicSpecs,
+  buildSeededTopicSpecsForCompany,
 } from './seeded-topics';
 
 const MECHANISMS_LIBRARY_NAME = 'Seeded trading mechanisms';
@@ -88,6 +93,17 @@ async function loadCatalogMeta(db: Db): Promise<{
   return { tierBySourceRef, classBySourceRef };
 }
 
+async function loadCompanySectorFocuses(db: Db, companyId: string): Promise<string[]> {
+  const [row] = await db
+    .select({ sectorFocuses: companies.sectorFocuses })
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1);
+  const focuses = row?.sectorFocuses;
+  if (!Array.isArray(focuses)) return [];
+  return focuses.filter((f): f is string => typeof f === 'string' && f.trim().length > 0);
+}
+
 async function syncSeededTopicsForResearchModule(opts: {
   db: Db;
   companyId: string;
@@ -109,6 +125,7 @@ async function syncSeededTopicsForResearchModule(opts: {
       ),
     );
   const { tierBySourceRef, classBySourceRef } = await loadCatalogMeta(opts.db);
+  const sectorFocuses = await loadCompanySectorFocuses(opts.db, opts.companyId);
   const result = await ensureSeededResearchTopics({
     db: opts.db,
     companyId: opts.companyId,
@@ -117,8 +134,22 @@ async function syncSeededTopicsForResearchModule(opts: {
     conceptRows,
     tierBySourceRef,
     classBySourceRef,
+    sectorFocuses,
   });
   return result.programTopicId;
+}
+
+/** Prefer an explicit research module for topic ownership (D-096). */
+async function resolveResearchModuleId(
+  db: Db,
+  companyId: string,
+): Promise<string | null> {
+  const [research] = await db
+    .select({ id: modules.id })
+    .from(modules)
+    .where(and(eq(modules.companyId, companyId), eq(modules.type, 'research')))
+    .limit(1);
+  return research?.id ?? null;
 }
 
 /**
@@ -669,23 +700,23 @@ export async function bootstrapCompanyKnowledge(opts: {
   }
 
   const ownerModule = companyModules.find((m) => m.id === ownerModuleId);
-  if (ownerModule?.type !== 'research') {
-    const sector = await ensureSectorKnowledge(opts.db, opts.companyId, now);
-    return {
-      librariesEnsured,
-      conceptsUpserted: conceptsUpserted + sector.conceptsUpserted,
-      topicId: null,
-    };
-  }
-
-  // Sector knowledge first so sector_seeds concepts exist for the Sector knowledge topic.
+  // Sector knowledge first so sector_seeds concepts exist for Sector / Desk focus topics.
   const sector = await ensureSectorKnowledge(opts.db, opts.companyId, now);
-  const topicId = await syncSeededTopicsForResearchModule({
-    db: opts.db,
-    companyId: opts.companyId,
-    researchModuleId: ownerModuleId,
-    now,
-  });
+
+  // Topics always attach to a research module when one exists (even if catalog
+  // concepts are owned by librarian/library — D-096).
+  const researchModuleId =
+    ownerModule?.type === 'research'
+      ? ownerModuleId
+      : await resolveResearchModuleId(opts.db, opts.companyId);
+  const topicId = researchModuleId
+    ? await syncSeededTopicsForResearchModule({
+        db: opts.db,
+        companyId: opts.companyId,
+        researchModuleId,
+        now,
+      })
+    : null;
 
   return {
     librariesEnsured,

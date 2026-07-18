@@ -148,6 +148,12 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   verification), seed allocation, desired exit timeline, attached data/research/trend modules,
   full internal verification loop. **Detail modal (D-042)** exposes tree/compile/dispatch/
   loop_refine as observe + bounded-tune layers (not separate canvas nodes).
+- **Internal paper engine (D-122):** each trading engine has optional `executionBinding`
+  (`funds_only` default | `execute_on_service` | `both_verify`). Unbound → internal paper
+  functions. Bound provider ledger = **added funds source**. Default `funds_only` fills on
+  the internal core against the **live market model** (shared with posture hub + current
+  awareness). Engines spend only their **allocated capital** unless explicitly shared.
+  Design: `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-design.md`.
 - **Position lifecycle (paper):** `maintenance.position_exits` applies model-free exits —
   targetExit deadline, RR ladder scale-outs (`rr_target_ladder` tp1/tp2/tp3),
   **trail_stop** (chandelier: peak − `trail_multiplier`×ATR after tp1 peak),

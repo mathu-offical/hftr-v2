@@ -71,7 +71,25 @@ payloads with precision-safe rounding tables per instrument.
   correspondent/broker-dealer arrangement with Alpaca. Not an MVP dependency; revisit when the
   platform has users.
 
-## 6. Reconciliation & verification
+## 7. Internal paper engine + dual books (D-122)
+
+Approved design: `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-design.md`.
+
+- **Per-engine binding:** each trading engine may bind to a real service (Alpaca paper, …)
+  or use internal paper functions when unbound.
+- **Routing modes:** `funds_only` (default) | `execute_on_service` | `both_verify`.
+  Safest default = `funds_only`: provider ledger is an **added funds source**; orders fill on
+  the **internal paper core** against the **live market model** (adapter/hydrator quotes when
+  entitled). Elevating to `execute_on_service` or `both_verify` is explicit.
+- **Capital isolation:** each execution engine spends only its allocated slice; cross-engine
+  spend requires explicit share/transfer (fund_router).
+- **Main book:** company rollup of engine books.
+- **Deltas:** `both_verify` (and sim-vs-live marks) produce `BookDelta` artifacts for
+  weighting / valve training (D-125). Phase 1 ships contracts + `funds_only` dispatch path.
+- Company-level `broker_connections` bind remains for credentials; it no longer implies
+  automatic venue submit for every paper trade (routing mode decides).
+
+## 8. Reconciliation & verification
 
 - Post-dispatch reconciliation jobs (VERIFY class) pull fills per venue and diff against
   expected `ActionInstruction` outcomes → `verification_records` + `dispatch_reconciliation`

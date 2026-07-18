@@ -248,6 +248,11 @@ UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
 - **simulation_runs** — simulator_module_id, target_trading_module_id, params jsonb, seed,
   status, parallel_group_id; **simulation_results** — run_id, pnl, drawdown, slippage stats,
   divergence tags, feed_target jsonb (which trend/research module receives results).
+- **Engine execution binding (D-122):** `TradingModuleConfig.executionBinding` —
+  `routingMode` (`funds_only` | `execute_on_service` | `both_verify`), optional
+  `brokerConnectionId`, `useProviderLedgerAsFundsSource`. Contracts in
+  `packages/contracts/src/paper-engine.ts`. Future: durable `book_deltas` + hard engine
+  allocation rows (Phase 3–4); until then module-scoped `positions` + fund_transfers.
 - **training_feedback** — append-only bounded band/weight deltas only
   (`mutation_class`: `band_position` | `weight_delta`), source run/trace refs,
   optional `applied_control_snapshot_id`. Applied via `applyControlSnapshotDelta`

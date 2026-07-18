@@ -1292,8 +1292,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   9. The **hybrid combination** of bindings + routing modes **hydrates the company’s
      main book** (rollup), while engine books remain the spend authority for dispatch.
 
-  Related: D-002, D-014, D-023, D-025, D-027, D-059, D-061, D-120, D-126; OQ-13
-  (resolved). **Status: decided (design pending).**
+  Related: D-002, D-014, D-023, D-025, D-027, D-059, D-061, D-120, D-125, D-126; OQ-13
+  (resolved). Spec: `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-design.md`.
+  Plan: `docs/superpowers/plans/2026-07-18-internal-paper-trade-engine.md`.
+  **Status: implementing (Phase 1 — contracts + funds_only dispatch).**
 
 - **D-129 (POV child-slice drain + operator exit scan, 2026-07-18):** Completes the
   paper POV follow-on from the post-fill lifecycle workstream. Paper dispatch drains

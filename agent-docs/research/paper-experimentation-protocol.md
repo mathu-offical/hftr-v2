@@ -208,7 +208,10 @@ flowchart TB
 | Any | Mismatch vs UI chip | HF-008 hard-fail | no |
 
 **Rule:** never label a synthetic or paper adapter as a production entitlement. Paper experiments
-default to `synthetic_sim` unless explicitly testing Alpaca paper (M4+).
+default to `synthetic_sim` unless explicitly testing Alpaca paper (M4+) **or** D-122
+`funds_only` with a live market quote (`live_market_quote` / `alpaca_iex_paper` feedClass on
+traces with `funds_only_routing` + `inline_fill_model` gap tags — internal fill, not venue
+submit).
 
 ### 4.2 `simulatorGapTags` (paper realism disclosure)
 

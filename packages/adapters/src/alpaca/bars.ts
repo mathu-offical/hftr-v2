@@ -22,6 +22,10 @@ export interface FetchBarsParams {
   client?: AlpacaClient;
   /** Market data feed entitlement (default iex for paper). */
   feed?: string;
+  /** Inclusive window start (ISO-8601). */
+  start?: string;
+  /** Inclusive window end (ISO-8601). */
+  end?: string;
 }
 
 interface AlpacaBarRecord {
@@ -73,11 +77,17 @@ export async function fetchBars(params: FetchBarsParams): Promise<FetchBarsResul
       secret: params.credentials.secret,
     });
 
-  const path =
+  let path =
     `/v2/stocks/${encodeURIComponent(upper)}/bars` +
     `?timeframe=${encodeURIComponent(timeframe)}` +
     `&limit=${limit}` +
     `&feed=${encodeURIComponent(feed)}`;
+  if (params.start) {
+    path += `&start=${encodeURIComponent(params.start)}`;
+  }
+  if (params.end) {
+    path += `&end=${encodeURIComponent(params.end)}`;
+  }
 
   const res = await client.getData<AlpacaBarsResponse>(path);
   if (!res.ok) {

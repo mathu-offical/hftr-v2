@@ -249,6 +249,45 @@ describe('createAlpacaPaperAdapter', () => {
     expect(quote.askCents).toBe(15_012);
   });
 
+  it('getQuoteAt picks nearest 1Min bar close with alpaca_iex_paper', async () => {
+    const atIso = new Date(T0 - 3_600_000).toISOString();
+    const nearIso = new Date(T0 - 3_600_000 - 30_000).toISOString();
+    const farIso = new Date(T0 - 3_600_000 - 120_000).toISOString();
+    const fetchImpl = async (url: string | URL | Request) => {
+      const u = String(url);
+      if (u.includes('/bars') && u.includes('start=')) {
+        return new Response(
+          JSON.stringify({
+            bars: [
+              { t: farIso, o: 148, h: 149, l: 147, c: 148.5, v: 100 },
+              { t: nearIso, o: 149, h: 150, l: 148, c: 149.25, v: 200 },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response('not found', { status: 404 });
+    };
+
+    const client = createAlpacaClient({
+      keyId: 'PKTESTKEY1',
+      secret: 'secret-test',
+      fetchImpl: fetchImpl as typeof fetch,
+    });
+    const adapter = createAlpacaPaperAdapter({
+      keyId: 'PKTESTKEY1',
+      secret: 'secret-test',
+      nowMs: () => T0,
+      client,
+    });
+
+    const quote = await adapter.getQuoteAt!('aapl', atIso);
+    expect(quote.feedClass).toBe('alpaca_iex_paper');
+    expect(quote.symbol).toBe('AAPL');
+    expect(quote.lastCents).toBe(14_925);
+    expect(quote.asOfIso).toBe(nearIso);
+  });
+
   it('getOrderByClientId maps filled order snapshot', async () => {
     const fetchImpl = async (url: string | URL | Request) => {
       const u = String(url);

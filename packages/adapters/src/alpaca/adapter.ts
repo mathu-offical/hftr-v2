@@ -11,6 +11,7 @@ import type {
   QuoteSnapshot,
   SubmitResult,
 } from '@hftr/contracts';
+import { fetchBars } from './bars';
 import { createAlpacaClient, type AlpacaClient } from './client';
 import { mapTaskToAlpacaOrder } from './map-order';
 
@@ -181,6 +182,47 @@ export function createAlpacaAdapter(opts: AlpacaAdapterOptions): BrokerAdapter {
         lastCents: last,
         asOfIso: q.t ?? new Date(opts.nowMs()).toISOString(),
         feedClass: 'alpaca_iex_paper',
+      };
+    },
+
+    async getQuoteAt(symbol: string, atIso: string): Promise<QuoteSnapshot> {
+      const upper = symbol.toUpperCase();
+      const atMs = Date.parse(atIso);
+      if (!Number.isFinite(atMs)) {
+        throw new Error(`alpaca_quote_at_invalid_time:${upper}`);
+      }
+      const startIso = new Date(atMs - 20 * 60_000).toISOString();
+      const endIso = new Date(atMs + 60_000).toISOString();
+      const result = await fetchBars({
+        symbol: upper,
+        timeframe: '1Min',
+        limit: 30,
+        start: startIso,
+        end: endIso,
+        credentials: { keyId: opts.keyId, secret: opts.secret },
+        client,
+        feed: 'iex',
+      });
+      if (result.bars.length === 0) {
+        throw new Error(`alpaca_quote_at_unavailable:${upper}`);
+      }
+      let best = result.bars[0]!;
+      let bestDelta = Math.abs(Date.parse(best.timestamp) - atMs);
+      for (const bar of result.bars) {
+        const delta = Math.abs(Date.parse(bar.timestamp) - atMs);
+        if (delta < bestDelta) {
+          best = bar;
+          bestDelta = delta;
+        }
+      }
+      const closeCents = dollarsToCents(best.close);
+      return {
+        symbol: upper,
+        bidCents: closeCents,
+        askCents: closeCents,
+        lastCents: closeCents,
+        asOfIso: best.timestamp,
+        feedClass: result.feedClass,
       };
     },
 

@@ -232,11 +232,35 @@ export const ResearchGraphLibraryNest = z.object({
 });
 export type ResearchGraphLibraryNest = z.infer<typeof ResearchGraphLibraryNest>;
 
+/** Catalog or runtime folder star for nested galaxy layout (D-040). */
+export const ResearchGraphFolderStar = z.object({
+  /** e.g. strategy_families | sector_seeds | guardrail_packages | runtime */
+  folderKey: z.string().min(1),
+  libraryId: z.string().uuid(),
+  label: z.string(),
+  /** Amalgamation mass from member concept text tokens. */
+  mass: z.number().positive(),
+  memberConceptIds: z.array(z.string().uuid()).default([]),
+});
+export type ResearchGraphFolderStar = z.infer<typeof ResearchGraphFolderStar>;
+
+/** Research topic orbit grouping member concepts (D-040). */
+export const ResearchGraphArticleOrbit = z.object({
+  topicId: z.string().uuid(),
+  title: z.string(),
+  libraryId: z.string().uuid().nullable(),
+  folderKey: z.string().nullable().default(null),
+  memberConceptIds: z.array(z.string().uuid()).default([]),
+});
+export type ResearchGraphArticleOrbit = z.infer<typeof ResearchGraphArticleOrbit>;
+
 export const ResearchGraphResponse = z.object({
   nodes: z.array(ResearchGraphNode),
   links: z.array(ResearchGraphLink),
   tags: z.array(z.string()),
   libraries: z.array(ResearchGraphLibraryNest).default([]),
+  folders: z.array(ResearchGraphFolderStar).default([]),
+  articles: z.array(ResearchGraphArticleOrbit).default([]),
 });
 export type ResearchGraphResponse = z.infer<typeof ResearchGraphResponse>;
 

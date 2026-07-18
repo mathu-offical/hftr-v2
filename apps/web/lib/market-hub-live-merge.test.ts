@@ -58,6 +58,16 @@ function baseHub(): MarketHubResponse {
     ],
     pipeline: [],
     capitalSources: [],
+    news: {
+      status: 'missing',
+      title: null,
+      sealId: null,
+      corroborationBand: null,
+      items: [],
+      verifiedAt: null,
+      expiresAt: null,
+      reportConceptId: null,
+    },
     freshness: {
       moversExpiresAt: '2026-07-19T12:00:00.000Z',
       fetchedAt: '2026-07-18T12:00:00.000Z',

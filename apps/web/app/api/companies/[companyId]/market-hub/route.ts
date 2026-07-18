@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   RESEARCH_SOURCE_REGISTRY,
@@ -44,6 +44,7 @@ import {
 } from '@hftr/engine';
 import type { MarketHubSymbolViz, QualitativeBand } from '@hftr/contracts';
 import { withAuth } from '@/lib/api';
+import { projectMarketHubCapitalSources } from '@/lib/market-hub-capital';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 90;
@@ -226,7 +227,11 @@ export async function GET(_req: Request, ctx: Ctx) {
     }
 
     const engineRows = await db
-      .select({ id: engineInstances.id, label: engineInstances.label })
+      .select({
+        id: engineInstances.id,
+        label: engineInstances.label,
+        capitalAllocationRef: engineInstances.capitalAllocationRef,
+      })
       .from(engineInstances)
       .where(eq(engineInstances.companyId, companyId));
     const engineById = new Map(engineRows.map((e) => [e.id, e.label]));
@@ -245,56 +250,6 @@ export async function GET(_req: Request, ctx: Ctx) {
       .where(eq(modules.companyId, companyId));
     const moduleById = new Map(moduleRows.map((m) => [m.id, m]));
 
-    const capitalSources = moduleRows
-      .filter(
-        (m) =>
-          m.type === 'holding_fund' ||
-          m.type === 'trading' ||
-          m.type === 'math' ||
-          m.type === 'fund_router',
-      )
-      .map((m) => {
-        const cfg =
-          m.config && typeof m.config === 'object' && !Array.isArray(m.config)
-            ? (m.config as Record<string, unknown>)
-            : {};
-        let kind: 'holding_fund' | 'trading_desk' | 'math_hub' | 'other' = 'other';
-        switch (m.type) {
-          case 'holding_fund':
-            kind = 'holding_fund';
-            break;
-          case 'trading':
-            kind = 'trading_desk';
-            break;
-          case 'math':
-            kind = 'math_hub';
-            break;
-          default:
-            kind = 'other';
-        }
-        const fundSource =
-          typeof cfg.source === 'string' ? cfg.source.replace(/_/g, ' ') : null;
-        const sourceLabel =
-          fundSource ??
-          (m.capitalAllocationRef ? 'allocation set' : 'capital not configured');
-        const status: 'configured' | 'draft' | 'unavailable' =
-          m.status === 'draft'
-            ? 'draft'
-            : m.type === 'holding_fund' || m.capitalAllocationRef
-              ? 'configured'
-              : 'unavailable';
-        return {
-          id: m.id,
-          name: m.name.slice(0, 120),
-          moduleType: m.type,
-          kind,
-          sourceLabel: sourceLabel.slice(0, 80),
-          status,
-          allocationRef: m.capitalAllocationRef,
-        };
-      })
-      .slice(0, 64);
-
     const enginesForModule = (moduleId: string): MarketHubEngineChip[] => {
       const mod = moduleById.get(moduleId);
       if (!mod?.engineInstanceId) return [];
@@ -303,82 +258,109 @@ export async function GET(_req: Request, ctx: Ctx) {
       return [{ id: mod.engineInstanceId, label }];
     };
 
-    const [watchRows, trendRows, positionRows, leadRows, treeRows, ledgerRows, companyEquity] =
-      await Promise.all([
-        db
-          .select({
-            id: watchlistItems.id,
-            moduleId: watchlistItems.moduleId,
-            moduleName: modules.name,
-            moduleType: modules.type,
-            symbol: watchlistItems.symbol,
-            bias: watchlistItems.bias,
-            note: watchlistItems.note,
-            sourceClass: watchlistItems.sourceClass,
-            status: watchlistItems.status,
-            updatedAt: watchlistItems.updatedAt,
-          })
-          .from(watchlistItems)
-          .innerJoin(modules, eq(modules.id, watchlistItems.moduleId))
-          .where(eq(watchlistItems.companyId, companyId))
-          .orderBy(desc(watchlistItems.updatedAt))
-          .limit(200),
-        db
-          .select()
-          .from(trendCandidates)
-          .where(eq(trendCandidates.companyId, companyId))
-          .orderBy(desc(trendCandidates.createdAt))
-          .limit(50),
-        db
-          .select({
-            id: positions.id,
-            moduleId: positions.moduleId,
-            moduleName: modules.name,
-            moduleType: modules.type,
-            symbol: positions.symbol,
-            qty: positions.qty,
-            avgCostCents: positions.avgCostCents,
-            realizedPnlCents: positions.realizedPnlCents,
-            updatedAt: positions.updatedAt,
-            engineInstanceId: modules.engineInstanceId,
-          })
-          .from(positions)
-          .innerJoin(modules, eq(modules.id, positions.moduleId))
-          .where(eq(positions.companyId, companyId))
-          .orderBy(desc(positions.updatedAt))
-          .limit(100),
-        db
-          .select()
-          .from(leadPackages)
-          .where(eq(leadPackages.companyId, companyId))
-          .orderBy(desc(leadPackages.createdAt))
-          .limit(100),
-        db
-          .select()
-          .from(decisionTrees)
-          .where(eq(decisionTrees.companyId, companyId))
-          .orderBy(desc(decisionTrees.createdAt))
-          .limit(100),
-        db
-          .select({
-            createdAt: ledgerEntries.createdAt,
-            balanceAfterCents: ledgerEntries.balanceAfterCents,
-          })
-          .from(ledgerEntries)
-          .where(eq(ledgerEntries.companyId, companyId))
-          .orderBy(asc(ledgerEntries.createdAt))
-          .limit(120),
-        db
-          .select({
-            equityCents: companies.equityCents,
-            equityAsOf: companies.equityAsOf,
-            equityStatus: companies.equityStatus,
-            equityVersion: companies.equityVersion,
-          })
-          .from(companies)
-          .where(eq(companies.id, companyId))
-          .limit(1),
-      ]);
+    const [
+      watchRows,
+      trendRows,
+      positionRows,
+      leadRows,
+      treeRows,
+      ledgerRows,
+      companyEquity,
+      moduleLedgerRows,
+    ] = await Promise.all([
+      db
+        .select({
+          id: watchlistItems.id,
+          moduleId: watchlistItems.moduleId,
+          moduleName: modules.name,
+          moduleType: modules.type,
+          symbol: watchlistItems.symbol,
+          bias: watchlistItems.bias,
+          note: watchlistItems.note,
+          sourceClass: watchlistItems.sourceClass,
+          status: watchlistItems.status,
+          updatedAt: watchlistItems.updatedAt,
+        })
+        .from(watchlistItems)
+        .innerJoin(modules, eq(modules.id, watchlistItems.moduleId))
+        .where(eq(watchlistItems.companyId, companyId))
+        .orderBy(desc(watchlistItems.updatedAt))
+        .limit(200),
+      db
+        .select()
+        .from(trendCandidates)
+        .where(eq(trendCandidates.companyId, companyId))
+        .orderBy(desc(trendCandidates.createdAt))
+        .limit(50),
+      db
+        .select({
+          id: positions.id,
+          moduleId: positions.moduleId,
+          moduleName: modules.name,
+          moduleType: modules.type,
+          symbol: positions.symbol,
+          qty: positions.qty,
+          avgCostCents: positions.avgCostCents,
+          realizedPnlCents: positions.realizedPnlCents,
+          updatedAt: positions.updatedAt,
+          engineInstanceId: modules.engineInstanceId,
+        })
+        .from(positions)
+        .innerJoin(modules, eq(modules.id, positions.moduleId))
+        .where(eq(positions.companyId, companyId))
+        .orderBy(desc(positions.updatedAt))
+        .limit(100),
+      db
+        .select()
+        .from(leadPackages)
+        .where(eq(leadPackages.companyId, companyId))
+        .orderBy(desc(leadPackages.createdAt))
+        .limit(100),
+      db
+        .select()
+        .from(decisionTrees)
+        .where(eq(decisionTrees.companyId, companyId))
+        .orderBy(desc(decisionTrees.createdAt))
+        .limit(100),
+      db
+        .select({
+          createdAt: ledgerEntries.createdAt,
+          balanceAfterCents: ledgerEntries.balanceAfterCents,
+        })
+        .from(ledgerEntries)
+        .where(eq(ledgerEntries.companyId, companyId))
+        .orderBy(asc(ledgerEntries.createdAt))
+        .limit(120),
+      db
+        .select({
+          equityCents: companies.equityCents,
+          equityAsOf: companies.equityAsOf,
+          equityStatus: companies.equityStatus,
+          equityVersion: companies.equityVersion,
+          seedCreditsCents: companies.seedCreditsCents,
+        })
+        .from(companies)
+        .where(eq(companies.id, companyId))
+        .limit(1),
+      db
+        .select({
+          moduleId: ledgerEntries.moduleId,
+          balanceAfterCents: ledgerEntries.balanceAfterCents,
+        })
+        .from(ledgerEntries)
+        .where(
+          and(eq(ledgerEntries.companyId, companyId), sql`${ledgerEntries.moduleId} is not null`),
+        )
+        .orderBy(desc(ledgerEntries.createdAt))
+        .limit(500),
+    ]);
+
+    const moduleLedgerBalance = new Map<string, string>();
+    for (const row of moduleLedgerRows) {
+      if (!row.moduleId) continue;
+      if (moduleLedgerBalance.has(row.moduleId)) continue;
+      moduleLedgerBalance.set(row.moduleId, row.balanceAfterCents.toString());
+    }
 
     const watchlists = watchRows.map((r) => ({
       id: r.id,
@@ -558,6 +540,22 @@ export async function GET(_req: Request, ctx: Ctx) {
         ? equityRow.equityCents.toString()
         : null;
 
+    const companyPoolCents =
+      equityRow?.equityCents != null && equityRow.equityCents > 0n
+        ? equityRow.equityCents
+        : equityRow?.seedCreditsCents != null && equityRow.seedCreditsCents > 0n
+          ? equityRow.seedCreditsCents
+          : null;
+
+    const capitalSources = await projectMarketHubCapitalSources({
+      db,
+      moduleRows,
+      engineRows,
+      engineLabelById: engineById,
+      moduleLedgerBalance,
+      companyPoolCents,
+    });
+
     const series = ledgerRows.map((row) => ({
       t: row.createdAt.toISOString(),
       equityCents: row.balanceAfterCents.toString(),
@@ -691,6 +689,30 @@ export async function GET(_req: Request, ctx: Ctx) {
 
     let sectorExpiresAt: string | null = null;
     let dailyExpiresAt: string | null = null;
+    let news: {
+      status: 'ready' | 'missing' | 'expired';
+      title: string | null;
+      sealId: string | null;
+      corroborationBand: QualitativeBand | null;
+      items: Array<{
+        symbolOrSector?: string;
+        directionBand?: QualitativeBand;
+        strengthBand?: QualitativeBand;
+        headline?: string;
+      }>;
+      verifiedAt: string | null;
+      expiresAt: string | null;
+      reportConceptId: string | null;
+    } = {
+      status: 'missing',
+      title: null,
+      sealId: null,
+      corroborationBand: null,
+      items: [],
+      verifiedAt: null,
+      expiresAt: null,
+      reportConceptId: null,
+    };
     try {
       const sectorSeal = await loadLatestValidSeal(db, {
         companyId,
@@ -699,6 +721,25 @@ export async function GET(_req: Request, ctx: Ctx) {
         nowMs,
       });
       sectorExpiresAt = sectorSeal?.expiresAt ?? null;
+      if (sectorSeal) {
+        const expMs = Date.parse(sectorSeal.expiresAt);
+        const expired = Number.isFinite(expMs) && expMs <= nowMs;
+        news = {
+          status: expired ? 'expired' : 'ready',
+          title: sectorSeal.view.title?.slice(0, 300) ?? null,
+          sealId: sectorSeal.sealId,
+          corroborationBand: sectorSeal.corroborationBand,
+          items: sectorSeal.view.items.slice(0, 48).map((item) => ({
+            ...(item.symbolOrSector ? { symbolOrSector: item.symbolOrSector } : {}),
+            ...(item.directionBand ? { directionBand: item.directionBand } : {}),
+            ...(item.strengthBand ? { strengthBand: item.strengthBand } : {}),
+            ...(item.headline ? { headline: item.headline } : {}),
+          })),
+          verifiedAt: sectorSeal.verifiedAt,
+          expiresAt: sectorSeal.expiresAt,
+          reportConceptId: sectorSeal.reportConceptId ?? null,
+        };
+      }
     } catch {
       sectorExpiresAt = null;
     }
@@ -871,6 +912,7 @@ export async function GET(_req: Request, ctx: Ctx) {
       positions: positionProjection,
       pipeline,
       capitalSources,
+      news,
       freshness: {
         moversExpiresAt: movers.expiresAt,
         sectorExpiresAt,

@@ -35,6 +35,16 @@ function stubHub(partial?: Partial<MarketHubResponse>): MarketHubResponse {
     positions: [],
     pipeline: [],
     capitalSources: [],
+    news: {
+      status: 'missing',
+      title: null,
+      sealId: null,
+      corroborationBand: null,
+      items: [],
+      verifiedAt: null,
+      expiresAt: null,
+      reportConceptId: null,
+    },
     freshness: { moversExpiresAt: null, fetchedAt: '2026-07-18T00:00:00.000Z' },
     sources: {
       lanes: [],

@@ -35,6 +35,8 @@ export const ResearchDirective = z.object({
   topicScope: z.string().max(200),
   topicSectors: z.array(z.string().max(64)).max(12).default([]),
   philosophyAxes: z.array(z.string().max(64)).max(16).default([]),
+  /** Immutable operator directives — qualitative after digit collapse (D-082). */
+  operatorDirectives: z.array(z.string().max(500)).max(8).default([]),
   catalogHints: z
     .array(
       z.object({

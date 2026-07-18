@@ -110,6 +110,7 @@ export function createWebModelGateway(db: Db, clerkUserId: string): ModelGateway
         topicScope: input.topicScope,
         topicSectors: input.topicSectors,
         philosophyAxes: input.philosophyAxes,
+        operatorDirectives: input.operatorDirectives ?? [],
         catalogHints: input.catalogHints,
         existingConceptTitles: input.existingConceptTitles,
         evidenceSummaries: input.evidenceSummaries ?? [],

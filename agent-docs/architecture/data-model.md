@@ -26,6 +26,9 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   auto_fund_policy jsonb (approval thresholds), archived_at.
   Soft caps: `MAX_MODULES_PER_COMPANY` (200; hub + members + dedicated Math) and create-form
   `MAX_ENGINES_PER_COMPANY` (16). Company jobs are company-serial (D-052).
+  **D-082:** companion append-only **operator_philosophy_directives** (company_id,
+  module_id nullable, body, created_by_clerk_user_id, created_at) — immutable operator
+  constraints folded into synthesize; never agent-writable. Migration `0035`.
 - **engine_instances** (D-028, migration `0014_engine_instances`) — company_id, template_id,
   label, master_topic_sectors text[], canvas_bounds jsonb `{x,y,width,height}` nullable.
   Member modules reference via `modules.engine_instance_id`; Math modules never join.

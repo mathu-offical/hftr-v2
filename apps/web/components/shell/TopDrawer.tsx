@@ -917,6 +917,28 @@ function PhilosophyTab(props: {
     normalizePhilosophyProfile(props.philosophyProfile ?? DEFAULT_PHILOSOPHY_PROFILE),
   );
   const [message, setMessage] = useState<string | null>(null);
+  const [directiveBody, setDirectiveBody] = useState('');
+  const [directives, setDirectives] = useState<
+    Array<{ id: string; body: string; createdAt: string }>
+  >([]);
+  const [directiveMessage, setDirectiveMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await api<{
+          directives: Array<{ id: string; body: string; createdAt: string }>;
+        }>(`/api/companies/${props.companyId}/philosophy-directives`);
+        if (!cancelled) setDirectives(data.directives);
+      } catch {
+        if (!cancelled) setDirectives([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [props.companyId]);
 
   function setAxis(axisId: keyof PhilosophyProfile['axes'], position: BandPosition) {
     setProfile((prev) => ({
@@ -936,6 +958,23 @@ function PhilosophyTab(props: {
       );
     } catch {
       setMessage('Save failed.');
+    }
+  }
+
+  async function appendDirective() {
+    const trimmed = directiveBody.trim();
+    if (!trimmed) return;
+    setDirectiveMessage(null);
+    try {
+      const created = await api<{ id: string; body: string; createdAt: string }>(
+        `/api/companies/${props.companyId}/philosophy-directives`,
+        { method: 'POST', body: { body: trimmed } },
+      );
+      setDirectives((prev) => [created, ...prev]);
+      setDirectiveBody('');
+      setDirectiveMessage('Directive appended — immutable; agents cannot edit or remove it.');
+    } catch {
+      setDirectiveMessage('Could not append directive.');
     }
   }
 
@@ -990,6 +1029,54 @@ function PhilosophyTab(props: {
         Save philosophy
       </button>
       {message && <p className="text-xs text-[var(--color-ink-dim)]">{message}</p>}
+
+      <section
+        data-testid="operator-philosophy-directives"
+        className="space-y-2 border-t border-[var(--color-line)] pt-4"
+      >
+        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+          Operator directives (immutable)
+        </h3>
+        <p className="text-[10px] text-[var(--color-ink-faint)]">
+          Append-only constraints folded into research context. Agents cannot edit or delete
+          these rows.
+        </p>
+        <textarea
+          value={directiveBody}
+          onChange={(e) => setDirectiveBody(e.target.value)}
+          rows={3}
+          maxLength={2000}
+          placeholder="Add a standing directive…"
+          aria-label="New operator philosophy directive"
+          className="w-full resize-none rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+        />
+        <button
+          type="button"
+          onClick={() => void appendDirective()}
+          disabled={!directiveBody.trim()}
+          className="rounded-md border border-[var(--color-accent)] px-3 py-1.5 text-sm text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+        >
+          Append directive
+        </button>
+        {directiveMessage && (
+          <p className="text-xs text-[var(--color-ink-dim)]">{directiveMessage}</p>
+        )}
+        {directives.length > 0 && (
+          <ul className="max-h-40 space-y-1.5 overflow-y-auto">
+            {directives.map((d) => (
+              <li
+                key={d.id}
+                className="rounded border border-[var(--color-line)] px-2 py-1.5 text-[11px] text-[var(--color-ink)]"
+              >
+                <p>{d.body}</p>
+                <p className="mt-0.5 text-[9px] text-[var(--color-ink-faint)]">
+                  {new Date(d.createdAt).toLocaleString()}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

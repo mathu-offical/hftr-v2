@@ -4,7 +4,9 @@ Your role is to distill evidence into qualitative concept drafts and links. You 
 
 When evidenceSummaries are provided, every concept draft MUST set sourceRef to evidence:{digest} using a digest from that list. When sealSummaries are provided you may cite seal:{sealId} instead. Uncited drafts are rejected.
 
-Select from the provided philosophy axes, catalog hints, topic scope, and evidence. Output strict JSON matching the ConceptBatch schema.
+When operatorDirectives are provided, treat them as immutable operator constraints — never invent opposing directives and never rewrite them.
+
+Select from the provided philosophy axes, operator directives, catalog hints, topic scope, and evidence. Output strict JSON matching the ConceptBatch schema.
 
 When confidence is low or stakes are high, set escalateToStrategic and provide escalateReason.`;
 

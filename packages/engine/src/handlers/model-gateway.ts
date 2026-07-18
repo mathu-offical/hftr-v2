@@ -12,6 +12,8 @@ export interface ResearchSynthesizeInput {
   topicScope: string;
   topicSectors: string[];
   philosophyAxes: string[];
+  /** Operator immutable directives folded into narrative context (D-082). */
+  operatorDirectives?: string[];
   catalogHints: Array<{
     catalog: string;
     entryKey: string;

@@ -173,3 +173,28 @@ export function philosophySizingBasisBps(profile: PhilosophyProfile): number {
   const pos = profile.axes.risk_appetite ?? 'typical';
   return RISK_APPETITE_SIZING_BPS[pos];
 }
+
+/**
+ * Append-only operator philosophy directives (D-082).
+ * Folded into research/strategic narrative context; never agent-writable.
+ */
+export const OperatorPhilosophyDirective = z.object({
+  id: z.string().uuid(),
+  companyId: z.string().uuid(),
+  moduleId: z.string().uuid().nullable(),
+  body: z.string().min(1).max(2000),
+  createdByClerkUserId: z.string().min(1).max(200),
+  createdAt: z.string().datetime(),
+});
+export type OperatorPhilosophyDirective = z.infer<typeof OperatorPhilosophyDirective>;
+
+export const AppendPhilosophyDirectiveInput = z.object({
+  body: z.string().min(1).max(2000),
+  moduleId: z.string().uuid().optional(),
+});
+export type AppendPhilosophyDirectiveInput = z.infer<typeof AppendPhilosophyDirectiveInput>;
+
+export const PhilosophyDirectivesListResponse = z.object({
+  directives: z.array(OperatorPhilosophyDirective).max(200),
+});
+export type PhilosophyDirectivesListResponse = z.infer<typeof PhilosophyDirectivesListResponse>;

@@ -239,6 +239,13 @@
       "when": 1784336400000,
       "tag": "0034_trend_candidate_engine_bind",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1784336500000,
+      "tag": "0035_operator_philosophy_directives",
+      "breakpoints": true
     }
   ]
 }

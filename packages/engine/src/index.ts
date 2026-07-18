@@ -140,6 +140,7 @@ export {
   submitOperatorResearchArticle,
   type SubmitOperatorResearchArticleOpts,
 } from './research/operator-submit';
+export { loadOperatorDirectiveHints } from './research/operator-directives';
 export {
   resolveResearchGatherCredentials,
   type ResearchGatherCredentials,

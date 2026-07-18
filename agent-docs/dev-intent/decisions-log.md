@@ -853,7 +853,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   with scrollable table chrome; concept inspector sets `omitLeadingH1`. List previews
   use prose-only excerpts (`excerptResearchMarkdownBody`) instead of raw mid-table
   slices. Galaxy folder/article hull wireframes and labels are quieter so nested
-  hierarchy stays readable. Docs: ui-spec § floating inspector. **Status: implemented.**
+  hierarchy stays readable. Bootstrap `skipIfSeeded` short-circuit still
+  **rematerializes** catalog_seed bodies/tags + seeded topic synopsis so companies
+  created before D-079 pick up rich articles on the next graph/libraries GET. Docs:
+  ui-spec § floating inspector. **Status: implemented.**
 
 - **D-081 (Market posture left hub, 2026-07-18):** Left panel gains always-present
   **Market posture** tab (between Research + Libraries and Data sources). Composite
@@ -863,6 +866,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   stays research-only. `POST …/market-hub` enqueues `library.system_movers`; non-flat
   `trend.scan` and admitted `trend.promote` also enqueue movers revalidation (seal
   idempotent). Contracts: `market-hub.ts`. **Status: implemented.**
+
+- **D-082 (operator philosophy directives, 2026-07-18):** Append-only
+  `operator_philosophy_directives` rows (company- or module-scoped). Operators append
+  via TopDrawer Philosophy tab / `POST …/philosophy-directives`. No PATCH/DELETE in
+  app code — agents never write these. Research synthesize folds digit-collapsed
+  directive text into `ResearchDirective.operatorDirectives`. Distinct from editable
+  `philosophy_prompt`. Migration `0035`. **Status: implemented.**
 
 ## Open questions
 

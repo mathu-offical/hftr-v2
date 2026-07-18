@@ -8,6 +8,7 @@ export * from './knowledge';
 export * from './libraries';
 export * from './research';
 export * from './system-normalized';
+export * from './operator-philosophy';
 export * from './research-bus';
 export * from './watchlists';
 export * from './assistant';

@@ -10,6 +10,7 @@ import {
   allowedRefsFromEvidence,
   assertBatchEvidenceGrounded,
 } from './evidence-grounding';
+import { loadOperatorDirectiveHints } from './operator-directives';
 
 export function buildDeterministicBatchFromEvidence(opts: {
   evidencePackages: EvidencePackage[];
@@ -74,6 +75,10 @@ export async function runResearchSynthesis(ctx: {
     company?.philosophyProfile && typeof company.philosophyProfile === 'object'
       ? Object.keys(company.philosophyProfile as Record<string, unknown>).slice(0, 16)
       : [];
+  const operatorDirectives = await loadOperatorDirectiveHints(ctx.db, {
+    companyId: ctx.companyId,
+    moduleId: ctx.moduleId,
+  });
 
   const evidenceSummaries = ctx.evidencePackages.slice(0, 24).map((pkg) => ({
     digest: pkg.digest,
@@ -90,6 +95,7 @@ export async function runResearchSynthesis(ctx: {
     topicScope: ctx.topicScope,
     topicSectors: mod?.topicSectors ?? [],
     philosophyAxes,
+    operatorDirectives,
     catalogHints,
     existingConceptTitles: existing.map((r) => r.title),
     evidenceSummaries,

@@ -1,9 +1,25 @@
 import { z } from 'zod';
+import { NormalizedViewKind } from './verified-normalize';
 
 /**
  * Research / tactical / compile model-output contracts.
  * Value fields use opaque refs or qualitative descriptors only — never raw money/time.
  */
+
+/** Qualitative evidence digest for synthesize grounding — leak-linted strings only. */
+export const EvidenceSummaryForSynth = z.object({
+  digest: z.string().min(8).max(128),
+  title: z.string().min(1).max(300),
+  summary: z.string().min(1).max(4000),
+});
+export type EvidenceSummaryForSynth = z.infer<typeof EvidenceSummaryForSynth>;
+
+export const SealSummaryForSynth = z.object({
+  sealId: z.string().min(8).max(128),
+  kind: NormalizedViewKind,
+  title: z.string().min(1).max(300),
+});
+export type SealSummaryForSynth = z.infer<typeof SealSummaryForSynth>;
 
 export const ConceptLinkRelation = z.enum([
   'supports',
@@ -31,6 +47,8 @@ export const ResearchDirective = z.object({
     .max(24)
     .default([]),
   existingConceptTitles: z.array(z.string().max(200)).max(40).default([]),
+  evidenceSummaries: z.array(EvidenceSummaryForSynth).max(24).default([]),
+  sealSummaries: z.array(SealSummaryForSynth).max(8).default([]),
 });
 export type ResearchDirective = z.infer<typeof ResearchDirective>;
 

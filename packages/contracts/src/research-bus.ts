@@ -51,7 +51,7 @@ export const ResearchArtifactRef = z
   .min(3)
   .max(200)
   .regex(
-    /^(concept|topic|library|evidence|value_ref|request|result):[A-Za-z0-9_.:-]+$/,
+    /^(concept|topic|library|evidence|value_ref|request|result|seal):[A-Za-z0-9_.:-]+$/,
     'invalid_artifact_ref',
   );
 export type ResearchArtifactRef = z.infer<typeof ResearchArtifactRef>;
@@ -91,6 +91,9 @@ export const ValidationGateId = z.enum([
   'leak_recheck',
   'coherence',
   'freshness',
+  'sector_scope',
+  'source_credibility',
+  'corroboration',
 ]);
 export type ValidationGateId = z.infer<typeof ValidationGateId>;
 
@@ -108,6 +111,8 @@ export const ConceptValidationResult = z.object({
   gates: z.array(ValidationGateResult).min(1).max(12),
   relevanceBand: z.enum(['low', 'medium', 'high']).default('medium'),
   artifactRefs: z.array(ResearchArtifactRef).max(24).default([]),
+  /** Band-only librarian repair hints (D-071) — never raw ratios. */
+  repairHints: z.array(z.string().max(300)).max(8).default([]),
 });
 export type ConceptValidationResult = z.infer<typeof ConceptValidationResult>;
 

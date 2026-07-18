@@ -31,6 +31,7 @@ import {
   deriveGeneratedModuleName,
   handleIdForLink,
   handleIdForStream,
+  handleIdForTrendCandidate,
   isLegalFundRoute,
   LINK_KIND_ORDER,
   linkKindForHandlePair,
@@ -43,6 +44,7 @@ import {
   moduleStreamPorts,
   isMathDockStreamPort,
   parseStreamHandle,
+  parseTrendCandidateHandle,
   ModuleType,
   MAX_MODULES_PER_COMPANY,
   projectedModuleSlotsForCreate,
@@ -262,6 +264,18 @@ describe('canvas link port helpers', () => {
       peerModuleId: peer,
     });
     expect(parseStreamHandle('not-a-handle')).toBeNull();
+  });
+
+  it('builds and parses D-077 trend-candidate directive handles', () => {
+    const candidateId = '00000000-0000-4000-8000-0000000000c1';
+    const handle = handleIdForTrendCandidate(candidateId);
+    expect(handle).toBe(`directive-out__trend:${candidateId}`);
+    expect(parseTrendCandidateHandle(handle)).toBe(candidateId);
+    expect(parseTrendCandidateHandle(handleIdForStream('directive', 'out', candidateId))).toBeNull();
+    expect(parseTrendCandidateHandle('directive-out')).toBeNull();
+    expect(
+      linkKindForHandlePair(handle, handleIdForStream('directive', 'in')),
+    ).toBe('directive');
   });
 
   it('emits bus then per-peer stream ports for trading inbound data_feed', () => {
@@ -1080,9 +1094,29 @@ describe('Libraries and research graph (M2)', () => {
           conceptCount: 1,
         },
       ],
+      folders: [
+        {
+          folderKey: 'strategy_families',
+          libraryId: '33333333-3333-3333-3333-333333333333',
+          label: 'Strategy families',
+          mass: 4,
+          memberConceptIds: ['11111111-1111-1111-1111-111111111111'],
+        },
+      ],
+      articles: [
+        {
+          topicId: '44444444-4444-4444-4444-444444444444',
+          title: 'Thesis',
+          libraryId: '33333333-3333-3333-3333-333333333333',
+          folderKey: 'strategy_families',
+          memberConceptIds: ['11111111-1111-1111-1111-111111111111'],
+        },
+      ],
     });
     expect(graph.nodes).toHaveLength(1);
     expect(graph.libraries).toHaveLength(1);
+    expect(graph.folders).toHaveLength(1);
+    expect(graph.articles).toHaveLength(1);
 
     const { PutTopicConceptsInput, PatchResearchTopicInput, ResearchTopicDetail } =
       await import('./libraries');

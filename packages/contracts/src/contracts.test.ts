@@ -36,6 +36,8 @@ import {
   MODULE_CONFIG_SCHEMAS,
   moduleLinkPorts,
   ModuleType,
+  MAX_MODULES_PER_COMPANY,
+  projectedModuleSlotsForCreate,
   requiredModuleSetupFields,
   UpdateModuleInput,
   allowedLinkKinds,
@@ -1010,6 +1012,20 @@ describe('canvas layout (D-033)', () => {
     expect(moduleRequiresMath('generator')).toBe(true);
     expect(moduleRequiresMath('library')).toBe(false);
     expect(moduleRequiresMath('math')).toBe(false);
+  });
+
+  it('projects create module slots under the company cap for day trading + deps', () => {
+    const day = ENGINE_TEMPLATES.find((engine) => engine.id === 'engine_day_trading');
+    const regime = ENGINE_TEMPLATES.find((engine) => engine.id === 'research_market_regime_lab');
+    const desk = ENGINE_TEMPLATES.find((engine) => engine.id === 'research_desk_aligned');
+    expect(day && regime && desk).toBeTruthy();
+    const slots = projectedModuleSlotsForCreate({
+      engineModuleTypes: [day!, regime!, desk!].map((engine) =>
+        engine.modules.map((module) => module.type),
+      ),
+    });
+    expect(slots).toBe(34);
+    expect(slots).toBeLessThanOrEqual(MAX_MODULES_PER_COMPANY);
   });
 
   it('docks explicit dedicated Math below its measured owner without link inference', () => {

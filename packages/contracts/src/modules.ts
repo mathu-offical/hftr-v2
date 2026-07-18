@@ -40,6 +40,37 @@ export function moduleRequiresMath(type: ModuleType): boolean {
   return MATH_REQUIRED_MODULE_TYPES.has(type);
 }
 
+/**
+ * Hard cap on modules per company (hub + engine members + dedicated Math tools).
+ * Sized for flexible multi-engine canvases (D-052); engines share one company queue.
+ */
+export const MAX_MODULES_PER_COMPANY = 200;
+
+/** Create-form / canvas soft cap on ENGINE groups (see CreateCompanyForm). */
+export const MAX_ENGINES_PER_COMPANY = 16;
+
+/**
+ * Projected module rows for company create: 1 hub + each engine member + one
+ * dedicated Math per math-required member + optional standalone extras.
+ */
+export function projectedModuleSlotsForCreate(input: {
+  engineModuleTypes: ReadonlyArray<ReadonlyArray<ModuleType>>;
+  extraModuleTypes?: ReadonlyArray<ModuleType>;
+}): number {
+  let count = 1;
+  for (const types of input.engineModuleTypes) {
+    count += types.length;
+    for (const type of types) {
+      if (moduleRequiresMath(type)) count += 1;
+    }
+  }
+  for (const type of input.extraModuleTypes ?? []) {
+    count += 1;
+    if (moduleRequiresMath(type)) count += 1;
+  }
+  return count;
+}
+
 export const TradingSubtype = z.enum(['crypto', 'prediction', 'hft', 'day', 'long_term', 'custom']);
 export type TradingSubtype = z.infer<typeof TradingSubtype>;
 

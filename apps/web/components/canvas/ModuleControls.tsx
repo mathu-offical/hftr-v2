@@ -163,13 +163,36 @@ interface CatalogEntry {
   tier: string | null;
 }
 
+type PaperRoutingMode = 'funds_only' | 'execute_on_service' | 'both_verify';
+
+interface ExecutionBindingConfig {
+  routingMode: PaperRoutingMode;
+  brokerConnectionId: string | null;
+  useProviderLedgerAsFundsSource: boolean;
+}
+
 interface TradingConfig {
   subtype: string;
   strategyFamilies: string[];
   exitTimelineDays: number;
   cadenceMinutes: number;
   manualControl: boolean;
+  executionBinding: ExecutionBindingConfig;
 }
+
+interface BrokerOption {
+  id: string;
+  venue: string;
+  mode: string;
+  status: string;
+  keyHint: string;
+}
+
+const DEFAULT_EXECUTION_BINDING: ExecutionBindingConfig = {
+  routingMode: 'funds_only',
+  brokerConnectionId: null,
+  useProviderLedgerAsFundsSource: true,
+};
 
 const DEFAULT_TRADING_CONFIG: TradingConfig = {
   subtype: 'day',
@@ -177,26 +200,65 @@ const DEFAULT_TRADING_CONFIG: TradingConfig = {
   exitTimelineDays: 1,
   cadenceMinutes: 5,
   manualControl: false,
+  executionBinding: DEFAULT_EXECUTION_BINDING,
 };
+
+const ROUTING_MODE_OPTIONS: Array<{ value: PaperRoutingMode; label: string; detail: string }> = [
+  {
+    value: 'funds_only',
+    label: 'Funds only (default)',
+    detail: 'Live quotes when entitled; fills on internal paper core. No venue submit.',
+  },
+  {
+    value: 'execute_on_service',
+    label: 'Execute on service',
+    detail: 'Orders submit to the bound paper service. Requires a connected service.',
+  },
+  {
+    value: 'both_verify',
+    label: 'Both verify',
+    detail: 'Internal fill + shadow service submit for BookDelta training. Requires a connected service.',
+  },
+];
 
 export function TradingConfigForm(props: { companyId: string; moduleId: string }) {
   const [families, setFamilies] = useState<CatalogEntry[]>([]);
   const [config, setConfig] = useState<TradingConfig | null>(null);
+  const [brokers, setBrokers] = useState<BrokerOption[]>([]);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let stopped = false;
     async function load() {
       try {
-        const [cat, mod] = await Promise.all([
+        const [cat, mod, brokerRes] = await Promise.all([
           api<{ entries: CatalogEntry[] }>('/api/catalogs/strategy_families'),
-          api<{ module: { config: Partial<TradingConfig> } }>(
-            `/api/companies/${props.companyId}/modules/${props.moduleId}`,
-          ),
+          api<{
+            module: {
+              config: Partial<TradingConfig> & {
+                executionBinding?: Partial<ExecutionBindingConfig> | null;
+              };
+            };
+          }>(`/api/companies/${props.companyId}/modules/${props.moduleId}`),
+          api<{ connections: BrokerOption[] }>('/api/settings/brokers').catch(() => ({
+            connections: [] as BrokerOption[],
+          })),
         ]);
         if (stopped) return;
         setFamilies(cat.entries);
-        setConfig({ ...DEFAULT_TRADING_CONFIG, ...mod.module.config });
+        const rawBinding = mod.module.config.executionBinding ?? {};
+        setConfig({
+          ...DEFAULT_TRADING_CONFIG,
+          ...mod.module.config,
+          executionBinding: {
+            ...DEFAULT_EXECUTION_BINDING,
+            ...rawBinding,
+            brokerConnectionId: rawBinding.brokerConnectionId ?? null,
+          },
+        });
+        setBrokers(
+          brokerRes.connections.filter((b) => b.mode === 'paper' && b.status !== 'revoked'),
+        );
       } catch {
         if (!stopped) setMessage('Could not load strategy catalog.');
       }
@@ -207,12 +269,7 @@ export function TradingConfigForm(props: { companyId: string; moduleId: string }
     };
   }, [props.companyId, props.moduleId]);
 
-  async function toggleFamily(key: string) {
-    if (!config) return;
-    const next = config.strategyFamilies.includes(key)
-      ? config.strategyFamilies.filter((f) => f !== key)
-      : [...config.strategyFamilies, key];
-    const nextConfig = { ...config, strategyFamilies: next };
+  async function saveConfig(nextConfig: TradingConfig, prev: TradingConfig) {
     setConfig(nextConfig);
     try {
       await api(`/api/companies/${props.companyId}/modules/${props.moduleId}`, {
@@ -221,9 +278,17 @@ export function TradingConfigForm(props: { companyId: string; moduleId: string }
       });
       setMessage(null);
     } catch {
-      setConfig(config); // revert
+      setConfig(prev);
       setMessage('Save failed.');
     }
+  }
+
+  async function toggleFamily(key: string) {
+    if (!config) return;
+    const next = config.strategyFamilies.includes(key)
+      ? config.strategyFamilies.filter((f) => f !== key)
+      : [...config.strategyFamilies, key];
+    await saveConfig({ ...config, strategyFamilies: next }, config);
   }
 
   if (!config) {
@@ -234,6 +299,11 @@ export function TradingConfigForm(props: { companyId: string; moduleId: string }
     );
   }
 
+  const binding = config.executionBinding;
+  const elevateNeedsService =
+    binding.routingMode === 'execute_on_service' || binding.routingMode === 'both_verify';
+  const hasDedicatedOrCanInherit = brokers.length > 0 || binding.brokerConnectionId != null;
+
   return (
     <div className="space-y-2 border-t border-[var(--color-line)] pt-4">
       <span className="text-xs text-[var(--color-ink-dim)]">
@@ -242,21 +312,96 @@ export function TradingConfigForm(props: { companyId: string; moduleId: string }
       <ManualControlToggle
         enabled={config.manualControl}
         onChange={async (manualControl) => {
-          const next = { ...config, manualControl };
-          const prev = config;
-          setConfig(next);
-          try {
-            await api(`/api/companies/${props.companyId}/modules/${props.moduleId}`, {
-              method: 'PATCH',
-              body: { config: next },
-            });
-            setMessage(null);
-          } catch {
-            setConfig(prev);
-            setMessage('Save failed.');
-          }
+          await saveConfig({ ...config, manualControl }, config);
         }}
       />
+
+      <div className="space-y-2 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] p-2.5">
+        <span className="text-xs font-medium text-[var(--color-ink)]">Execution binding</span>
+        <p className="text-[10px] leading-snug text-[var(--color-ink-faint)]">
+          Per-engine routing (D-122). Default is funds only — safest. Elevating modes require a
+          connected paper service.
+        </p>
+        <label className="block space-y-1 text-[11px] text-[var(--color-ink-dim)]">
+          <span>Routing mode</span>
+          <select
+            value={binding.routingMode}
+            aria-label="Paper routing mode"
+            className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2 py-1.5 text-xs text-[var(--color-ink)]"
+            onChange={(e) => {
+              const routingMode = e.target.value as PaperRoutingMode;
+              void saveConfig(
+                {
+                  ...config,
+                  executionBinding: { ...binding, routingMode },
+                },
+                config,
+              );
+            }}
+          >
+            {ROUTING_MODE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="text-[10px] leading-snug text-[var(--color-ink-faint)]">
+          {ROUTING_MODE_OPTIONS.find((o) => o.value === binding.routingMode)?.detail}
+        </p>
+        {elevateNeedsService && !hasDedicatedOrCanInherit && (
+          <p className="text-[10px] text-[var(--color-block)]">
+            No paper broker connections available. Bind a service in Settings or keep funds only.
+          </p>
+        )}
+        <label className="block space-y-1 text-[11px] text-[var(--color-ink-dim)]">
+          <span>Service connection</span>
+          <select
+            value={binding.brokerConnectionId ?? ''}
+            aria-label="Engine broker connection"
+            className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2 py-1.5 text-xs text-[var(--color-ink)]"
+            onChange={(e) => {
+              const brokerConnectionId = e.target.value === '' ? null : e.target.value;
+              void saveConfig(
+                {
+                  ...config,
+                  executionBinding: { ...binding, brokerConnectionId },
+                },
+                config,
+              );
+            }}
+          >
+            <option value="">Inherit company broker</option>
+            {brokers.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.venue.replace(/_/g, ' ')} · ···{b.keyHint} ({b.status})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center justify-between gap-2 text-[11px] text-[var(--color-ink-dim)]">
+          <span>Use provider ledger as funds source</span>
+          <input
+            type="checkbox"
+            checked={binding.useProviderLedgerAsFundsSource}
+            aria-label="Use provider ledger as funds source"
+            className="h-3.5 w-3.5 accent-[var(--color-accent)]"
+            onChange={(e) => {
+              void saveConfig(
+                {
+                  ...config,
+                  executionBinding: {
+                    ...binding,
+                    useProviderLedgerAsFundsSource: e.target.checked,
+                  },
+                },
+                config,
+              );
+            }}
+          />
+        </label>
+      </div>
+
       <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
         {families.map((f) => {
           const selected = config.strategyFamilies.includes(f.entryKey);

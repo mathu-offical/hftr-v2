@@ -154,6 +154,7 @@ export function CompanyCard(props: CompanyCardProps) {
               type="button"
               onClick={() => void saveRename()}
               disabled={busy}
+              aria-label="Save company name"
               className="rounded bg-[var(--color-accent)] px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
             >
               {busy ? 'Saving…' : 'Save'}

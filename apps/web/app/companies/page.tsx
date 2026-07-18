@@ -26,7 +26,7 @@ export default async function CompaniesPage() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
+    <main className="mx-auto max-w-6xl px-6 py-10">
       <header className="mb-10 flex items-center justify-between">
         <div className="flex items-baseline gap-4">
           <Link href="/" className="font-mono text-sm tracking-widest text-[var(--color-ink-dim)]">

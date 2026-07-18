@@ -9,7 +9,7 @@ const timestamps = {
 
 /**
  * Operator + engine watch lists (bottom panel / Market posture).
- * status tiers: suggested_search → suggested_verified → watching (D-089).
+ * status tiers: suggested_search → suggested_verified → watching (D-092).
  * sourceClass distinguishes operator intent from movers_rank / trend_promotion.
  * Unique (moduleId, symbol) — automation must never clobber source_class=operator.
  */

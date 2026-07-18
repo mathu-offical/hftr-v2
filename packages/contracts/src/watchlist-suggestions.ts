@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { QualitativeBand } from './system-libraries';
 
 /**
- * Watchlist admission tiers (D-089) — search → verified → operator watching.
+ * Watchlist admission tiers (D-092) — search → verified → operator watching.
  * Filterable across Market posture and bottom-panel watch lists.
  */
 export const WatchlistItemStatus = z.enum([

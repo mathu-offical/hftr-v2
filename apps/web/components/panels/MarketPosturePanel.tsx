@@ -1,11 +1,19 @@
 'use client';
 
+import { useCallback, useState } from 'react';
 import type { MarketHubResponse } from '@hftr/contracts';
 import {
   useMarketPostureView,
   type MarketPostureCategory,
 } from '@/components/panels/MarketPostureViewContext';
 import { PanelTabs } from '@/components/panels/PanelTabs';
+import {
+  WatchlistTierFilterChips,
+  watchlistMatchesTierFilter,
+  type WatchlistTierFilter,
+} from '@/components/panels/WatchlistTierFilters';
+import { api } from '@/lib/client';
+import { invalidateMarketHub } from '@/lib/market-hub-cache';
 import { useMarketHub } from '@/lib/use-market-hub';
 
 const CATEGORIES: { id: MarketPostureCategory; label: string }[] = [
@@ -16,32 +24,53 @@ const CATEGORIES: { id: MarketPostureCategory; label: string }[] = [
 ];
 
 /**
- * Left-panel navigator for Market posture (D-081 / D-085). Main dashboard lives in
+ * Left-panel navigator for Market posture (D-081 / D-085 / D-092). Main dashboard lives in
  * MarketPostureOverlay; this rail lists company-wide persisted categories.
  * Hub data is shared with the overlay via market-hub cache (SWR + warm prefetch).
  */
 export function MarketPosturePanel(props: { companyId: string }) {
   const mp = useMarketPostureView();
-  const { data: hub, loading, refreshing, error } = useMarketHub(props.companyId, {
+  const { data: hub, loading, refreshing, error, refresh } = useMarketHub(props.companyId, {
     // Prefetch poller already runs at shell; panel still polls while visible.
     poll: true,
   });
+  const [watchlistTierFilter, setWatchlistTierFilter] = useState<WatchlistTierFilter>('default');
+
+  const confirmWatchlist = useCallback(
+    async (itemId: string) => {
+      await api(`/api/companies/${props.companyId}/watchlists/${itemId}`, {
+        method: 'PATCH',
+        body: { status: 'watching' },
+      });
+      invalidateMarketHub({ companyId: props.companyId });
+      await refresh(true);
+    },
+    [props.companyId, refresh],
+  );
 
   if (error && !hub) {
     return <p className="text-xs text-[var(--color-block)]">{error}</p>;
   }
 
   if (!hub && loading) {
-    return <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">Loading…</p>;
+    return (
+      <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+        Loading…
+      </p>
+    );
   }
 
   if (!hub) {
     return <p className="text-[10px] text-[var(--color-ink-faint)]">No posture data</p>;
   }
 
+  const filteredWatchlists = hub.watchlists.filter((w) =>
+    watchlistMatchesTierFilter(w.status, watchlistTierFilter),
+  );
+
   const counts: Record<MarketPostureCategory, number> = {
     positions: hub.positions.length,
-    watchlists: hub.watchlists.length,
+    watchlists: filteredWatchlists.length,
     trends: hub.trendCandidates.length,
     pipeline: hub.pipeline.length,
   };
@@ -71,25 +100,43 @@ export function MarketPosturePanel(props: { companyId: string }) {
         }))}
       />
 
-      {mp.category === 'positions' && (
-        <PositionList hub={hub} mp={mp} />
-      )}
+      {mp.category === 'positions' && <PositionList hub={hub} mp={mp} />}
 
       {mp.category === 'watchlists' && (
-        <ul className="space-y-1 text-xs">
-          {hub.watchlists.length === 0 ? (
-            <li className="text-[var(--color-ink-faint)]">No watchlists</li>
-          ) : (
-            hub.watchlists.map((w) => (
-              <li key={w.id} className="rounded border border-[var(--color-line)] px-2 py-1">
-                <span className="font-medium">{w.symbol}</span>
-                <span className="ml-1 font-mono text-[10px] text-[var(--color-ink-faint)]">
-                  {w.bias} · {w.moduleName}
-                </span>
-              </li>
-            ))
-          )}
-        </ul>
+        <div className="space-y-2">
+          <WatchlistTierFilterChips
+            value={watchlistTierFilter}
+            onChange={setWatchlistTierFilter}
+          />
+          <ul className="space-y-1 text-xs">
+            {filteredWatchlists.length === 0 ? (
+              <li className="text-[var(--color-ink-faint)]">No watchlists for this tier</li>
+            ) : (
+              filteredWatchlists.map((w) => (
+                <li
+                  key={w.id}
+                  className="flex items-start justify-between gap-2 rounded border border-[var(--color-line)] px-2 py-1"
+                >
+                  <div>
+                    <span className="font-medium">{w.symbol}</span>
+                    <span className="ml-1 font-mono text-[10px] text-[var(--color-ink-faint)]">
+                      {w.bias} · {w.status} · {w.moduleName}
+                    </span>
+                  </div>
+                  {w.status === 'suggested_search' || w.status === 'suggested_verified' ? (
+                    <button
+                      type="button"
+                      className="shrink-0 text-[9px] uppercase tracking-wider text-[var(--color-accent)] hover:underline"
+                      onClick={() => void confirmWatchlist(w.id)}
+                    >
+                      Confirm
+                    </button>
+                  ) : null}
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
       )}
 
       {mp.category === 'trends' && (

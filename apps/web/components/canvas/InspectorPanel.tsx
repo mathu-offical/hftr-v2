@@ -8,6 +8,7 @@ import {
   DisplayConfigForm,
   LibrarianConfigForm,
   LibraryConfigForm,
+  LiveApiConfigForm,
   MathConfigForm,
   ResearchConfigForm,
   TradingConfigForm,
@@ -303,6 +304,10 @@ export function InspectorPanel(props: {
 
       {mod.type === 'library' && (
         <LibraryConfigForm companyId={props.companyId} moduleId={mod.id} />
+      )}
+
+      {mod.type === 'live_api' && (
+        <LiveApiConfigForm companyId={props.companyId} moduleId={mod.id} />
       )}
 
       {mod.type === 'math' && <MathConfigForm companyId={props.companyId} moduleId={mod.id} />}

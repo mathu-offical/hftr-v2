@@ -1117,3 +1117,157 @@ export function TrendConfigForm(props: { companyId: string; moduleId: string }) 
     </div>
   );
 }
+
+interface LiveApiConfig {
+  venue: string;
+  instruments: string[];
+  feedClass: string;
+  pollSeconds: number;
+}
+
+const DEFAULT_LIVE_API_CONFIG: LiveApiConfig = {
+  venue: 'paper_sim',
+  instruments: [],
+  feedClass: 'iex_free',
+  pollSeconds: 60,
+};
+
+const LIVE_VENUE_OPTIONS = [
+  { value: 'alpaca', label: 'Alpaca' },
+  { value: 'kalshi', label: 'Kalshi' },
+  { value: 'polymarket', label: 'Polymarket' },
+  { value: 'coinbase', label: 'Coinbase' },
+  { value: 'paper_sim', label: 'Paper sim' },
+] as const;
+
+/** D-077: Live API inspector form (venue, instruments, feed, poll). */
+export function LiveApiConfigForm(props: { companyId: string; moduleId: string }) {
+  const [config, setConfig] = useState<LiveApiConfig | null>(null);
+  const [instrumentsText, setInstrumentsText] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let stopped = false;
+    async function load() {
+      try {
+        const mod = await api<{ module: { config: Partial<LiveApiConfig> } }>(
+          `/api/companies/${props.companyId}/modules/${props.moduleId}`,
+        );
+        if (stopped) return;
+        const next = {
+          ...DEFAULT_LIVE_API_CONFIG,
+          ...mod.module.config,
+          instruments: Array.isArray(mod.module.config.instruments)
+            ? mod.module.config.instruments
+            : [],
+        };
+        setConfig(next);
+        setInstrumentsText(next.instruments.join(', '));
+      } catch {
+        if (!stopped) setMessage('Could not load live API settings.');
+      }
+    }
+    void load();
+    return () => {
+      stopped = true;
+    };
+  }, [props.companyId, props.moduleId]);
+
+  async function saveConfig(next: LiveApiConfig) {
+    const prev = config;
+    setConfig(next);
+    setSaving(true);
+    try {
+      await api(`/api/companies/${props.companyId}/modules/${props.moduleId}`, {
+        method: 'PATCH',
+        body: { config: next },
+      });
+      setMessage(null);
+    } catch {
+      setConfig(prev);
+      setMessage('Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!config) {
+    return (
+      <div className="border-t border-[var(--color-line)] pt-4 text-xs text-[var(--color-ink-faint)]">
+        {message ?? 'Loading live API settings…'}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5 border-t border-[var(--color-line)] pt-4">
+      <span className="text-xs text-[var(--color-ink-dim)]">Live API settings</span>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Venue</span>
+        <select
+          value={config.venue}
+          disabled={saving}
+          onChange={(e) => void saveConfig({ ...config, venue: e.target.value })}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          {LIVE_VENUE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Instruments</span>
+        <input
+          type="text"
+          value={instrumentsText}
+          disabled={saving}
+          onChange={(e) => setInstrumentsText(e.target.value)}
+          onBlur={() => {
+            const instruments = instrumentsText
+              .split(',')
+              .map((s) => s.trim().toUpperCase())
+              .filter(Boolean);
+            void saveConfig({ ...config, instruments });
+          }}
+          placeholder="SPY, QQQ, AAPL"
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Feed class</span>
+        <input
+          type="text"
+          value={config.feedClass}
+          disabled={saving}
+          onChange={(e) => setConfig({ ...config, feedClass: e.target.value })}
+          onBlur={() =>
+            void saveConfig({ ...config, feedClass: config.feedClass.trim() || 'iex_free' })
+          }
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Poll seconds</span>
+        <input
+          type="number"
+          min={5}
+          max={3600}
+          value={config.pollSeconds}
+          disabled={saving}
+          onChange={(e) =>
+            setConfig({
+              ...config,
+              pollSeconds: Math.min(3600, Math.max(5, Number(e.target.value) || 60)),
+            })
+          }
+          onBlur={() => void saveConfig(config)}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        />
+      </label>
+      {message && <p className="text-xs text-[var(--color-block)]">{message}</p>}
+    </div>
+  );
+}

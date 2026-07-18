@@ -22,12 +22,14 @@ import {
   engineCanvasOffsetForOrigin,
   ENGINE_GROUP_PADDING,
   handleIdForStream,
+  handleIdForTrendCandidate,
   isMathToolAttachment,
   layoutCanvas,
   LAYOUT_COLUMN_STEP,
   LAYOUT_ROW_STEP,
   missingModuleSetupFields,
   MODULE_COLUMN,
+  parseTrendCandidateHandle,
   placeNextEngineOrigin,
   reflowEngineAtOrigin,
   translateLayoutResultToOrigin,
@@ -59,6 +61,7 @@ import {
   type CanvasEngineGroup,
   type CanvasLink,
   type CanvasModule,
+  type ModuleTypeContextProjection,
 } from './types';
 
 const nodeTypes = { module: ModuleNode, mathTool: MathToolNode, engineGroup: EngineGroupNode };
@@ -79,6 +82,45 @@ function isMathToolNode(node: CanvasFlowNode): node is MathToolFlowNode {
 
 function isGraphModuleNode(node: CanvasFlowNode): node is ModuleFlowNode | MathToolFlowNode {
   return isModuleNode(node) || isMathToolNode(node);
+}
+
+/** D-077: visual edges from trend-candidate → trading bindings (not module_links). */
+function trendBindingEdgesFromNodes(nodes: readonly CanvasFlowNode[]): Edge[] {
+  const edges: Edge[] = [];
+  for (const node of nodes) {
+    if (!isModuleNode(node) || node.data.moduleType !== 'trend') continue;
+    const ctx = node.data.typeContext;
+    if (ctx?.kind !== 'trend') continue;
+    for (const trend of ctx.trends) {
+      if (!trend.tradingModuleId) continue;
+      edges.push({
+        id: `trend-bind:${trend.id}`,
+        source: node.id,
+        target: trend.tradingModuleId,
+        sourceHandle: handleIdForTrendCandidate(trend.id),
+        targetHandle: handleIdForStream('directive', 'in', node.id),
+        type: 'smoothstep',
+        label: trend.symbol,
+        style: {
+          stroke: LINK_COLORS.directive,
+          strokeWidth: 1.5,
+          strokeDasharray: '4 3',
+        },
+        labelStyle: { fill: 'var(--color-ink-faint)', fontSize: 9 },
+        labelBgStyle: { fill: 'var(--color-surface-0)' },
+        data: { linkKind: 'directive' as LinkKind, trendCandidateId: trend.id, binding: true },
+        className: 'hftr-edge hftr-edge-directive hftr-edge-trend-bind',
+      });
+    }
+  }
+  return edges;
+}
+
+function mergeTrendBindingEdges(current: Edge[], nodes: readonly CanvasFlowNode[]): Edge[] {
+  const without = current.filter(
+    (edge) => !(edge.data as { binding?: boolean } | undefined)?.binding,
+  );
+  return [...without, ...trendBindingEdgesFromNodes(nodes)];
 }
 
 function ClearCanvasDialog(props: {
@@ -394,6 +436,8 @@ function toModuleNode(
       toolOwnerModuleId: m.toolOwnerModuleId,
       topicSectorsOverridden: m.topicSectorsOverridden,
       attachedMathTools,
+      ...(m.config != null ? { config: m.config } : {}),
+      ...(m.typeContext != null ? { typeContext: m.typeContext } : {}),
     },
   };
 }
@@ -1009,7 +1053,7 @@ export function CompanyCanvas(props: {
     };
   }, [setNodes]);
 
-  // T1.4 node status projections: poll the server-composed status lines.
+  // T1.4 / D-077: poll status + type-context projections.
   useEffect(() => {
     let stopped = false;
     async function poll() {
@@ -1020,12 +1064,13 @@ export function CompanyCanvas(props: {
             statusText: string;
             activeJobs: number;
             budgetQueuedJobs: number;
+            typeContext?: ModuleTypeContextProjection;
           }[];
         }>(`/api/companies/${props.companyId}/canvas`);
         if (stopped) return;
         const byId = new Map(projections.map((p) => [p.moduleId, p]));
-        setNodes((current) =>
-          current.map((n) => {
+        setNodes((current) => {
+          const next = current.map((n) => {
             if (!isModuleNode(n)) return n;
             const p = byId.get(n.id);
             return p
@@ -1036,18 +1081,25 @@ export function CompanyCanvas(props: {
                     statusText: p.statusText,
                     activeJobs: p.activeJobs,
                     budgetQueuedJobs: p.budgetQueuedJobs,
+                    ...(p.typeContext != null
+                      ? { typeContext: p.typeContext }
+                      : {}),
                   },
                 }
               : n;
-          }),
-        );
-        const active = new Set(projections.filter((p) => p.activeJobs > 0).map((p) => p.moduleId));
-        setEdges((current) =>
-          current.map((e) => {
-            const animated = active.has(e.source) || active.has(e.target);
-            return animated === Boolean(e.animated) ? e : { ...e, animated };
-          }),
-        );
+          });
+          setEdges((edges) => {
+            const withBindings = mergeTrendBindingEdges(edges, next);
+            const active = new Set(
+              projections.filter((p) => p.activeJobs > 0).map((p) => p.moduleId),
+            );
+            return withBindings.map((e) => {
+              const animated = active.has(e.source) || active.has(e.target);
+              return animated === Boolean(e.animated) ? e : { ...e, animated };
+            });
+          });
+          return next;
+        });
       } catch {
         // transient; next poll retries
       }
@@ -1267,6 +1319,63 @@ export function CompanyCanvas(props: {
       const from = nodes.find((n) => n.id === connection.source);
       const to = nodes.find((n) => n.id === connection.target);
       if (!from || !to || !isGraphModuleNode(from) || !isGraphModuleNode(to)) return;
+
+      const trendCandidateId = parseTrendCandidateHandle(connection.sourceHandle);
+      if (trendCandidateId) {
+        if (!isModuleNode(from) || from.data.moduleType !== 'trend') {
+          flash('Trend item ports only apply on Trend cards.');
+          return;
+        }
+        if (!isModuleNode(to) || to.data.moduleType !== 'trading') {
+          flash('Connect a trend item to a trading module.');
+          return;
+        }
+        try {
+          const { trend } = await api<{
+            trend: {
+              id: string;
+              engineInstanceId: string | null;
+              tradingModuleId: string | null;
+            };
+          }>(`/api/companies/${props.companyId}/trends/${trendCandidateId}`, {
+            method: 'PATCH',
+            body: {
+              tradingModuleId: to.id,
+              engineInstanceId: to.data.engineInstanceId,
+            },
+          });
+          setNodes((current) => {
+            const next = current.map((node) => {
+              if (!isModuleNode(node) || node.id !== from.id) return node;
+              const prevCtx = node.data.typeContext;
+              if (prevCtx?.kind !== 'trend') return node;
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  typeContext: {
+                    ...prevCtx,
+                    trends: prevCtx.trends.map((row) =>
+                      row.id === trend.id
+                        ? {
+                            ...row,
+                            engineInstanceId: trend.engineInstanceId,
+                            tradingModuleId: trend.tradingModuleId,
+                          }
+                        : row,
+                    ),
+                  },
+                },
+              };
+            });
+            setEdges((edges) => mergeTrendBindingEdges(edges, next));
+            return next;
+          });
+        } catch {
+          flash('Could not bind that trend to the trading module.');
+        }
+        return;
+      }
 
       const linkKind = edgeKindForHandles(
         connection.sourceHandle,

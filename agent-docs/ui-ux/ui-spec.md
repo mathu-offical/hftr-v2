@@ -90,22 +90,31 @@
   rounded right-angle routing with column spacing as the primary collision control. **Not**
   arbitrary obstacle avoidance — advanced ELK/pathfinding that routes around nodes is deferred.
   Canonical intent: edges "should generally be structured to avoid nodes."
-- **Node anatomy (dashboard card — design D-026 / `canvas-node-dashboard-design.md`):** fixed-size
-  card (no expand-on-select). Header: type chip + function-specific name + text-first status.
-  Body: always-visible editable high-level fields for that type (topic/sector, capital
-  allocation, target exit where required). Missing fields have **per-field Required chips** and
-  warn borders; confirmed fields have neutral borders and subtle green checks inside the trailing
-  field edge. Validation stays on the corresponding control, not in a detached banner. Setup commits
-  via an explicit **Save setup** button on the node (PATCH `setup`); fields are not auto-saved
-  on blur/Enter. Activity / status line remains text-first. Clicking card chrome opens the
-  floating inspector (full / secondary settings); interacting with inline fields does not open
-  the inspector or change card geometry.
+- **Node anatomy (dashboard card — design D-026 / `canvas-node-dashboard-design.md`, D-077):**
+  fixed-size card (no expand-on-select). Header: type chip + function-specific name + text-first
+  status. Body: **type-relevant interactive context** for `library` / `research` / `live_api` /
+  `trend` (class + linked library, research topics + target libs, venue/instruments/feed/poll,
+  trend posture + list) via `ModuleContextPanel`. Cascaded engine topic/sector is demoted to a
+  secondary **Scope** / **Focus seed** control — not the primary card identity. Capital-bearing
+  types still show capital / target-exit setup fields. Missing fields have **per-field Required
+  chips** and warn borders; confirmed fields have neutral borders and subtle green checks inside
+  the trailing field edge. Validation stays on the corresponding control, not in a detached
+  banner. Setup commits via an explicit **Save setup** / type Save on the node (PATCH `setup` /
+  `config`); fields are not auto-saved on blur/Enter for capital setup. Activity / status line
+  remains text-first. Clicking card chrome opens the floating inspector (full / secondary
+  settings); interacting with inline fields does not open the inspector or change card geometry.
+- **Trend item ports (D-077):** under Trend cards, `TrendListChrome` lists
+  `trend_candidates` (candidate + promoted, capped by `maxActiveTrends`). Each row exposes
+  `directive-out__trend:{candidateId}`; connecting to a trading module persists
+  `trading_module_id` / `engine_instance_id` on the candidate (binding topology; compile wiring
+  follow-up). Binding edges render dashed directive strokes from the item handle.
 - **Labeled ports + stream pins (D-056 / D-057 / D-075):** each allowed `LinkKind` exposes a free
   **bus** handle (new links) plus one **stream** handle per existing peer dependency
   (`{kind}-{in|out}__{peerId}`), labeled `← Peer` / `→ Peer` with role context (Corpus,
   Market feed, Trade directive, …). Math: top data streams + side fund streams. Owner cards
   attach dedicated Math on the **bottom** edge (`data_feed` ↔ math streams). Edges attach
   to stream pins; kind color + dash pattern. Validation remains `LinkKind` + `LINK_RULES`.
+  Trend-item handles use the same parse path with synthetic peer `trend:{uuid}`.
 - **Node families (D-056 / D-068 / D-073):** cards distinguish **Data source** (`library` shelves /
   book-spine silhouette; `live_api` aperture + signal bars — dashed border), **Agent** (solid +
   left bar), **Vault** / fund (`holding_fund`, `fund_router` — vault door, rivets, dial chrome;
@@ -306,6 +315,10 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
 - Right panel over the galaxy for the selected target: **Page** (agent synopsis + member
   concepts as open-in-inspector buttons), **Concept**, **Library**, or **Tag**. Left panel
   and galaxy never expand article/concept bodies inline — they navigate only.
+- **Rich formatting (D-078):** Page synopsis and Concept body use full `ResearchMarkdown`
+  prose; membership / library / tag list rows use `ResearchConceptPreview` (markdown
+  excerpt + tags/role chips) so seeded and curated bodies stay readable without opening
+  each concept.
 - Inline synopsis links navigate in-app (inspect concept / select related topic).
 - Usage badges: queried / referenced / last queried (text-first).
 - Linked pages highlighted in the left Pages list when a page is open.

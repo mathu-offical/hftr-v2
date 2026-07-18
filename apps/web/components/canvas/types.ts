@@ -42,7 +42,52 @@ export interface CanvasModule {
   /** Operator-visible subtype chip (library class, venue, trading subtype, …). */
   subtypeChip?: string | null;
   config?: Record<string, unknown>;
+  /** D-077: type-relevant card projection from GET …/canvas. */
+  typeContext?: ModuleTypeContextProjection;
 }
+
+/** Compact trend row for TrendListChrome + binding edges (D-077). */
+export interface CanvasTrendRow {
+  id: string;
+  symbol: string;
+  direction: string;
+  strengthBand: string;
+  status: string;
+  engineInstanceId: string | null;
+  tradingModuleId: string | null;
+}
+
+/** D-077: type-relevant facts for on-card interactive context. */
+export type ModuleTypeContextProjection =
+  | {
+      kind: 'library';
+      libraryId: string | null;
+      name: string | null;
+      conceptCount: number;
+      libraryClass: string | null;
+    }
+  | {
+      kind: 'research';
+      topics: { id: string; title: string }[];
+      targetLibraries: { id: string; name: string }[];
+      researchSubtype: string | null;
+      cadenceMinutes: number | null;
+    }
+  | {
+      kind: 'live_api';
+      venue: string | null;
+      instruments: string[];
+      feedClass: string | null;
+      pollSeconds: number | null;
+    }
+  | {
+      kind: 'trend';
+      trendPosture: string | null;
+      maxActiveTrends: number;
+      cadenceMinutes: number | null;
+      trends: CanvasTrendRow[];
+    }
+  | { kind: 'none' };
 
 /** Per-module canvas status projection from GET …/canvas (T1.4, REQ-LLM-007). */
 export interface ModuleCanvasStatusProjection {
@@ -54,6 +99,7 @@ export interface ModuleCanvasStatusProjection {
   lastTradeOutcome: string | null;
   lastTrendSymbol: string | null;
   statusText: string;
+  typeContext?: ModuleTypeContextProjection;
 }
 
 export interface CanvasEngineGroup {

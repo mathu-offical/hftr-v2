@@ -18,10 +18,13 @@ import {
   moduleSetupInputFromDraft,
   type ModuleSetupDraft,
 } from './ModuleSetupFields';
+import { ModuleContextPanel, moduleUsesTypeContext } from './ModuleContextPanel';
+import { TrendListChrome } from './TrendListChrome';
 import { FAMILY_LABELS, MODULE_VISUALS } from './canvas-visuals';
 import { FamilyShapeChrome } from './FamilyShapeChrome';
 import { MathPortBuses, NodePortBuses } from './NodePortBuses';
 import { useModuleStreamPorts } from './use-module-stream-ports';
+import type { ModuleTypeContextProjection } from './types';
 
 export type ModuleNodeData = {
   name: string;
@@ -47,6 +50,10 @@ export type ModuleNodeData = {
   toolOwnerModuleId?: string | null;
   topicSectorsOverridden: boolean;
   attachedMathTools?: { id: string; name: string }[];
+  /** Operator config blob (hydrated for type-context cards). */
+  config?: Record<string, unknown> | undefined;
+  /** D-077 type-relevant projection. */
+  typeContext?: ModuleTypeContextProjection | undefined;
 };
 
 export type ModuleFlowNode = Node<ModuleNodeData, 'module'>;
@@ -79,7 +86,13 @@ export const ModuleNode = memo(function ModuleNode({
   const [savingSetup, setSavingSetup] = useState(false);
   const [restoringTopic, setRestoringTopic] = useState(false);
   const [topicOverridden, setTopicOverridden] = useState(Boolean(data.topicSectorsOverridden));
+  const [localConfig, setLocalConfig] = useState<Record<string, unknown>>(data.config ?? {});
+  const [localTypeContext, setLocalTypeContext] = useState(data.typeContext);
   const missingSetup = missingModuleSetupFields(data.moduleType, setupState);
+  const usesTypeContext = moduleUsesTypeContext(data.moduleType);
+  const setupFieldsForCard = usesTypeContext
+    ? requiredSetupFields.filter((field) => field !== 'topic_sector')
+    : requiredSetupFields;
 
   useEffect(() => {
     setSetupDraft({
@@ -92,12 +105,16 @@ export const ModuleNode = memo(function ModuleNode({
       targetExitRef: data.targetExitRef,
     });
     setTopicOverridden(Boolean(data.topicSectorsOverridden));
+    setLocalConfig(data.config ?? {});
+    setLocalTypeContext(data.typeContext);
   }, [
     data.capitalAllocationRef,
     data.targetExitRef,
     data.topicSectors,
     data.topicSectorsOverridden,
     data.moduleType,
+    data.config,
+    data.typeContext,
   ]);
 
   async function saveSetup() {
@@ -351,9 +368,29 @@ export const ModuleNode = memo(function ModuleNode({
           <span className={budgetHeld ? 'text-[var(--color-warn)]' : undefined}>{statusLine}</span>
         </div>
 
-        {requiredSetupFields.length > 0 && (
+        {usesTypeContext && (
+          <ModuleContextPanel
+            companyId={data.companyId}
+            moduleId={id}
+            moduleType={data.moduleType}
+            config={localConfig}
+            typeContext={localTypeContext}
+            topicSectors={setupState.topicSectors}
+            topicOverridden={topicOverridden}
+            engineInstanceId={data.engineInstanceId}
+            onTopicSectorsChange={(sectors) => {
+              setSetupState((prev) => ({ ...prev, topicSectors: sectors }));
+              setSetupDraft((prev) => ({ ...prev, topicSectors: sectors.join(', ') }));
+            }}
+            onConfigChange={(config) => setLocalConfig(config)}
+            onRestoreEngineTopic={() => void restoreEngineTopic()}
+            restoringTopic={restoringTopic}
+          />
+        )}
+
+        {setupFieldsForCard.length > 0 && (
           <div className="nodrag nowheel mt-1.5 border-t border-[var(--color-line)] pt-1.5">
-            {data.engineInstanceId && topicOverridden && (
+            {!usesTypeContext && data.engineInstanceId && topicOverridden && (
               <button
                 type="button"
                 disabled={restoringTopic}
@@ -364,8 +401,8 @@ export const ModuleNode = memo(function ModuleNode({
               </button>
             )}
             <ModuleSetupFields
-              requiredFields={requiredSetupFields}
-              missingFields={missingSetup}
+              requiredFields={setupFieldsForCard}
+              missingFields={missingSetup.filter((f) => setupFieldsForCard.includes(f))}
               draft={setupDraft}
               onChange={setSetupDraft}
               compact
@@ -385,6 +422,13 @@ export const ModuleNode = memo(function ModuleNode({
         )}
         </div>
       </div>
+
+      {data.moduleType === 'trend' && localTypeContext?.kind === 'trend' && (
+        <TrendListChrome
+          trends={localTypeContext.trends}
+          maxActiveTrends={localTypeContext.maxActiveTrends}
+        />
+      )}
 
       {(data.attachedMathTools?.length ?? 0) > 0 && (
         <div className="nodrag mt-1.5 space-y-1">

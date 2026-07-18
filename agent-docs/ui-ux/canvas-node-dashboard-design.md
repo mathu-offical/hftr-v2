@@ -9,7 +9,9 @@
 Make canvas modules feel like a compact, interactive dashboard:
 
 1. **Labeled ports** — one separate, labeled connection point per link kind the node can accept or emit.
-2. **Always-visible high-level fields** — editable on the node body (topic/sector, capital, target exit, status where applicable).
+2. **Always-visible high-level fields** — editable on the node body. For topic-scoped knowledge /
+   feed / trend types (D-077), **type-defining settings** are primary; cascaded topic/sector is
+   secondary. Capital-bearing types keep capital + target exit where applicable.
 3. **Fixed card size** — no expand-on-select / no in-node “expanded info” shell. “Static” means fixed geometry, not read-only.
 4. **Inspector on click** — selecting the card chrome opens the right-side inspector with full/secondary settings.
 5. **Function-specific names** — auto-derived from type + connections until the operator customizes; restore-default available while editing.
@@ -113,8 +115,9 @@ Persisted `module_links.link_kind` remains authoritative; handle ids are present
 
 | Surface | Contents |
 |---------|----------|
-| **Node body** | Required setup fields for the type (`requiredModuleSetupFields`), plus compact status line. **Explicit Save setup** button commits via PATCH `{ setup: ModuleSetupInput }` (no auto-save on blur/Enter). |
-| **Inspector** | Rename (blur/Enter PATCH `{ name }`), **Restore generated name** (`PATCH { restoreGeneratedName: true }`), status draft/active/paused, delete, type-specific advanced controls (trend scan, watchlist, paper trade, display config, etc.). |
+| **Node body** | **D-077:** for `library` / `research` / `live_api` / `trend`, type-relevant interactive fields (`ModuleContextPanel`) are primary; cascaded topic/sector is a secondary Scope / Focus seed. Capital-bearing types still use `requiredModuleSetupFields` (capital / target exit) with **Save setup**. Compact status line. Config commits via PATCH `{ config }` / `{ setup }`. |
+| **Trend list** | **D-077:** `TrendListChrome` under Trend cards — rows from `trend_candidates` with per-item `directive-out__trend:{id}` handles; bind to trading persists `engine_instance_id` / `trading_module_id`. |
+| **Inspector** | Rename (blur/Enter PATCH `{ name }`), **Restore generated name** (`PATCH { restoreGeneratedName: true }`), status draft/active/paused, delete, type-specific advanced controls (trend scan, watchlist, paper trade, display config, **Live API** venue/instruments, etc.). |
 
 **D-024 change:** incomplete nodes no longer suppress the inspector and no longer expand to host the full setup form — setup lives in the fixed body; inspector always available on select.
 

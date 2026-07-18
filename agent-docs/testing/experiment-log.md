@@ -151,3 +151,18 @@ Scoring: `intent-alignment-scoring.md`
 | System fixes | Migration **0040** drop legacy CHECK + reinstall XOR; trade drain DISPATCH-only; scan RESEARCH-only; market-hub returns `drained`/`drainError` |
 | Re-verify | coverage 200 (18 modules); trade claimed 1; scan claimed 1 no deadlineHit; hub_refresh drained 3/3 failed 0 |
 | Alignment | **aligned** for observed operator paths after fixes |
+
+---
+
+## EXP-2026-07-18-003 — Persistent headed browser processing-system pass
+
+| Field | Value |
+|---|---|
+| Status | pass with fixes |
+| Mode | paper only |
+| Hypothesis | Headed persistent Chrome (CDP :9222) can drive companies → canvas → promote/trade → posture → hub drain without IronBee MCP attach |
+| Observed | Promote drain 3/3; hub drain 2/2; live gate + posture panel/overlay; executions previously 500; AAPL buy/sell fills visible |
+| System fixes | `UserMenu` → `@/lib/auth-client` (stop importing `@clerk/nextjs/server` into client); executions + timeline skip non-UUID causation refs (`atr_stop_catalog`); CDP scripts under `apps/web/scripts/cdp-*.ts` |
+| Re-verify | executions 200 (2 fills); CDP SUMMARY 14/14 after Trends-before-Posture order; Chrome left on company canvas |
+| Alignment | **aligned** for processing UI paths; IronBee CallMcpTool still cannot address extension server id (use CDP attach to same profile) |
+| Notes | Disk ~100% full caused `.next` ENOENT / Next churn; prefer nohup Next + clear `.next/cache` when packs fail |

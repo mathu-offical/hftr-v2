@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import {
   ConceptBatch,
   SubmitResearchArticleInput,
+  withResearchArticleTag,
   type SubmitResearchArticleResult,
 } from '@hftr/contracts';
 import { deriveOperatorArticleTitle, normalizeOperatorArticleEvidence } from '@hftr/adapters';
@@ -46,7 +47,8 @@ export async function submitOperatorResearchArticle(
   if (mod.type !== 'research') throw new Error('module_type_not_research');
   if (mod.status !== 'active') throw new Error('module_not_active');
 
-  if (input.libraryId) {
+  if (!input.libraryId) throw new Error('library_id_required');
+  {
     const [lib] = await opts.db
       .select({ id: libraries.id })
       .from(libraries)
@@ -142,9 +144,9 @@ export async function submitOperatorResearchArticle(
   }
 
   const tags = [
+    ...withResearchArticleTag(input.tags ?? []),
     'operator_submit',
     input.kind === 'link' ? 'operator_link' : 'operator_text',
-    ...(input.tags ?? []),
   ].slice(0, 16);
 
   const batch = ConceptBatch.parse({

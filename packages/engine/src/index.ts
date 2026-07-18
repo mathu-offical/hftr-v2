@@ -86,9 +86,12 @@ export {
   SEEDED_TOPIC_SPECS,
   SEEDED_TOPIC_TITLES,
   SEEDED_TOPIC_CATALOG_ROOT_TITLES,
+  CURRENT_AWARENESS_TOPIC_TITLE,
+  SECTOR_RESEARCH_TOPIC_PREFIX,
   DESK_FOCUS_TOPIC_PREFIX,
   isSeededTopicTitle,
   buildDeskFocusTopicSpecs,
+  buildSectorResearchTopicSpecs,
   buildSeededTopicSpecsForCompany,
   type SeededCatalogEntry,
 } from './libraries/bootstrap';
@@ -309,6 +312,9 @@ export {
 export { getSyntheticQuote } from './dispatch/quotes';
 export {
   resolvePositionExitReason,
+  exitReasonLabel,
+  recoveryPhaseForExit,
+  isCashSessionClosed,
   shouldExitBreakeven,
   shouldExitSessionClose,
   shouldExitAtrStop,

@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { ConceptBatch, type EvidencePackage } from '@hftr/contracts';
+import { ConceptBatch, type EvidencePackage, withResearchArticleTag } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { companies, concepts, modules } from '@hftr/db/schema';
 import type { Clock } from '../clock';
@@ -24,7 +24,7 @@ export function buildDeterministicBatchFromEvidence(opts: {
     body:
       `Evidence-backed qualitative note from ${pkg.sourceKind} (${pkg.feedClass}). ` +
       `${pkg.summary}`,
-    tags: [...new Set([pkg.sourceKind, ...scopeTags])].slice(0, 16),
+    tags: withResearchArticleTag([pkg.sourceKind, ...scopeTags]).slice(0, 16),
     sourceRef: `evidence:${pkg.digest}`,
   }));
 

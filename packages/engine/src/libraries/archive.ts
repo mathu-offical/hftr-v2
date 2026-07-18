@@ -11,6 +11,7 @@ import {
 import {
   DESK_FOCUS_TOPIC_PREFIX,
   isSeededTopicTitle,
+  SECTOR_RESEARCH_TOPIC_PREFIX,
   SEEDED_TOPIC_TITLE,
   SEEDED_TOPIC_TITLES,
 } from './seeded-topics';
@@ -18,10 +19,11 @@ import {
 export const SEEDED_LIBRARY_NAME = 'Seeded trading mechanisms';
 export { SEEDED_TOPIC_TITLE, SEEDED_TOPIC_TITLES, isSeededTopicTitle };
 
-/** Active/archived runtime topics exclude static seeds and desk-focus combinations. */
+/** Active/archived runtime topics exclude static seeds and sector/desk research points. */
 function isRuntimeTopicTitleSql() {
   return and(
     notInArray(researchTopics.title, [...SEEDED_TOPIC_TITLES]),
+    sql`${researchTopics.title} not like ${`${SECTOR_RESEARCH_TOPIC_PREFIX}%`}`,
     sql`${researchTopics.title} not like ${`${DESK_FOCUS_TOPIC_PREFIX}%`}`,
   );
 }

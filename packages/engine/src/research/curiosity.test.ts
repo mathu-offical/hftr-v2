@@ -32,6 +32,10 @@ describe('research pipeline helpers', () => {
     });
     expect(batch.concepts).toHaveLength(1);
     expect(batch.concepts[0]?.title).toBe('Mean reversion guard');
-    expect(batch.concepts[0]?.tags).toContain('catalog');
+    // D-127: article marker + display tags; catalog/sourceKind is a system tag and is dropped.
+    expect(batch.concepts[0]?.tags).toContain('hftr:article');
+    expect(batch.concepts[0]?.tags).toContain('risk');
+    expect(batch.concepts[0]?.tags).toContain('controls');
+    expect(batch.concepts[0]?.tags).not.toContain('catalog');
   });
 });

@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import type { ConceptBatch, CurationStatus } from '@hftr/contracts';
+import { withResearchArticleTag } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { conceptLinks, concepts } from '@hftr/db/schema';
 import { attachConceptsToLibraries } from '../libraries/attach';
@@ -16,14 +17,26 @@ export interface PersistConceptBatchOptions {
   curationStatus?: CurationStatus;
   /** When set, membership + reference telemetry attach to this topic (D-040). */
   topicId?: string | null;
+  /**
+   * When true (default for model_generated), stamp `hftr:article` so research
+   * outputs appear in the Articles panel (D-127).
+   */
+  asArticles?: boolean;
 }
 
 export async function persistConceptBatch(opts: PersistConceptBatchOptions): Promise<string[]> {
   const sourceClass = opts.sourceClass ?? 'model_generated';
+  const asArticles =
+    opts.asArticles ?? (sourceClass === 'model_generated' || sourceClass === 'operator');
   const titleToId = new Map<string, string>();
   const persistedIds: string[] = [];
 
   for (const draft of opts.batch.concepts) {
+    const tags = asArticles
+      ? [...withResearchArticleTag(draft.tags), ...draft.tags.filter((t) => t.startsWith('operator_'))]
+          .filter((t, i, arr) => arr.indexOf(t) === i)
+          .slice(0, 16)
+      : draft.tags;
     const rows = await opts.db
       .insert(concepts)
       .values({
@@ -31,7 +44,7 @@ export async function persistConceptBatch(opts: PersistConceptBatchOptions): Pro
         moduleId: opts.moduleId,
         title: draft.title,
         body: draft.body,
-        tags: draft.tags,
+        tags,
         sourceClass,
         sourceRef: draft.sourceRef,
         researchRunId: opts.researchRunId ?? null,
@@ -41,7 +54,7 @@ export async function persistConceptBatch(opts: PersistConceptBatchOptions): Pro
         target: [concepts.moduleId, concepts.title],
         set: {
           body: draft.body,
-          tags: draft.tags,
+          tags,
           sourceClass,
           sourceRef: draft.sourceRef,
           researchRunId: opts.researchRunId ?? null,

@@ -3,158 +3,127 @@ import {
   buildDeskFocusTopicSpecs,
   buildSeededDirectiveSynopsisMd,
   buildSeededTopicSpecsForCompany,
+  buildSectorResearchTopicSpecs,
+  CURRENT_AWARENESS_TOPIC_TITLE,
   DESK_FOCUS_TOPIC_PREFIX,
   isSeededTopicTitle,
   matchSeededTopicMembers,
+  SECTOR_RESEARCH_TOPIC_PREFIX,
   SEEDED_TOPIC_CATALOG_ROOT_TITLES,
   SEEDED_TOPIC_SPECS,
   SEEDED_TOPIC_TITLES,
-  STRATEGY_FAMILY_CLASSES,
 } from './seeded-topics';
 
-describe('seeded topics (D-086 / D-096)', () => {
-  it('defines separate catalog roots plus an overview index', () => {
-    expect(SEEDED_TOPIC_SPECS.some((s) => s.isProgram)).toBe(true);
-    expect(SEEDED_TOPIC_SPECS.length).toBe(78);
+describe('seeded topics (D-126 awareness + sector research points)', () => {
+  it('seeds awareness + library overview — not catalog class mirrors', () => {
+    expect(SEEDED_TOPIC_SPECS.length).toBe(5);
+    expect(SEEDED_TOPIC_SPECS.some((s) => s.title === 'Seeded trading mechanisms')).toBe(
+      true,
+    );
+    expect(SEEDED_TOPIC_SPECS.some((s) => s.title === CURRENT_AWARENESS_TOPIC_TITLE)).toBe(
+      true,
+    );
+    expect(SEEDED_TOPIC_SPECS.some((s) => s.title === 'Market regime and breadth')).toBe(
+      true,
+    );
+    expect(SEEDED_TOPIC_SPECS.some((s) => s.title === 'Strategy families')).toBe(false);
+    expect(SEEDED_TOPIC_SPECS.some((s) => s.title.startsWith('Guardrail —'))).toBe(false);
+    expect(SEEDED_TOPIC_SPECS.some((s) => s.title.startsWith('Sector —'))).toBe(false);
+
+    expect(SEEDED_TOPIC_CATALOG_ROOT_TITLES).toEqual([CURRENT_AWARENESS_TOPIC_TITLE]);
     expect(isSeededTopicTitle('Seeded trading mechanisms')).toBe(true);
-    expect(isSeededTopicTitle('Strategy families')).toBe(true);
-    expect(isSeededTopicTitle('Strategy families — Tier A')).toBe(true);
-    expect(isSeededTopicTitle('Strategy class — Opening auction and opening range')).toBe(
-      true,
-    );
-    expect(isSeededTopicTitle('Guardrail — Catalyst conflict guardrail')).toBe(true);
-    expect(isSeededTopicTitle('Sector — Technology')).toBe(true);
-    expect(isSeededTopicTitle('Compliance packages')).toBe(true);
-    expect(SEEDED_TOPIC_TITLES.has('Macro triggers')).toBe(true);
-    expect(STRATEGY_FAMILY_CLASSES.length).toBe(8);
-    expect(SEEDED_TOPIC_CATALOG_ROOT_TITLES).toEqual(
-      expect.arrayContaining([
-        'Strategy families',
-        'Guardrails',
-        'Compound strategies',
-        'Sector knowledge',
-        'Session constraints',
-        'Broker policy',
-      ]),
-    );
-    expect(SEEDED_TOPIC_CATALOG_ROOT_TITLES).not.toContain('Seeded trading mechanisms');
+    expect(isSeededTopicTitle('Macro and policy watch')).toBe(true);
+    expect(isSeededTopicTitle('Strategy families')).toBe(false);
   });
 
-  it('does not nest catalog roots under Seeded trading mechanisms', () => {
-    const nestedUnderProgram = SEEDED_TOPIC_SPECS.filter(
-      (s) => s.parentTitle === 'Seeded trading mechanisms',
-    );
-    expect(nestedUnderProgram).toEqual([]);
-
-    const tierA = SEEDED_TOPIC_SPECS.find((s) => s.title === 'Strategy families — Tier A')!;
-    expect(tierA.parentTitle).toBe('Strategy families');
-    const sector = SEEDED_TOPIC_SPECS.find((s) => s.title === 'Sector — Energy')!;
-    expect(sector.parentTitle).toBe('Sector knowledge');
-
-    const strategyFamilies = SEEDED_TOPIC_SPECS.find((s) => s.title === 'Strategy families')!;
-    expect(strategyFamilies.parentTitle).toBeUndefined();
+  it('nests awareness children under Current awareness', () => {
+    const regime = SEEDED_TOPIC_SPECS.find((s) => s.title === 'Market regime and breadth')!;
+    expect(regime.parentTitle).toBe(CURRENT_AWARENESS_TOPIC_TITLE);
+    const program = SEEDED_TOPIC_SPECS.find((s) => s.title === CURRENT_AWARENESS_TOPIC_TITLE)!;
+    expect(program.isProgram).toBe(true);
+    expect(program.parentTitle).toBeUndefined();
   });
 
-  it('builds desk-focus combination topics from company sector focuses', () => {
-    const desk = buildDeskFocusTopicSpecs(['Semiconductors', 'Oil & gas producers']);
-    expect(desk.some((s) => s.title === `${DESK_FOCUS_TOPIC_PREFIX}Semiconductors`)).toBe(
-      true,
-    );
-    expect(
-      desk.some((s) => s.title === `${DESK_FOCUS_TOPIC_PREFIX}Semiconductors · Strategies`),
-    ).toBe(true);
-    expect(
-      desk.some((s) => s.title === `${DESK_FOCUS_TOPIC_PREFIX}Oil & gas producers · Trend leads`),
-    ).toBe(true);
+  it('builds one Sector · research point per company focus (no catalog combos)', () => {
+    const sectors = buildSectorResearchTopicSpecs([
+      'Semiconductors',
+      'Oil & gas producers',
+      'Custom niche label',
+    ]);
+    expect(sectors.map((s) => s.title)).toEqual([
+      `${SECTOR_RESEARCH_TOPIC_PREFIX}Semiconductors`,
+      `${SECTOR_RESEARCH_TOPIC_PREFIX}Oil & gas producers`,
+      `${SECTOR_RESEARCH_TOPIC_PREFIX}Custom niche label`,
+    ]);
+    expect(sectors.every((s) => !s.parentTitle)).toBe(true);
+    expect(sectors.some((s) => s.title.includes('Strategies'))).toBe(false);
 
-    const strategies = desk.find(
-      (s) => s.title === `${DESK_FOCUS_TOPIC_PREFIX}Semiconductors · Strategies`,
+    const semis = sectors.find(
+      (s) => s.title === `${SECTOR_RESEARCH_TOPIC_PREFIX}Semiconductors`,
     )!;
-    expect(strategies.parentTitle).toBe(`${DESK_FOCUS_TOPIC_PREFIX}Semiconductors`);
-    expect(strategies.members).toEqual(
-      expect.arrayContaining([
-        { catalog: 'sector_seeds', class: 'technology' },
-        { catalog: 'strategy_families' },
-      ]),
-    );
+    expect(semis.members).toEqual([{ catalog: 'sector_seeds', class: 'technology' }]);
 
+    const custom = sectors.find(
+      (s) => s.title === `${SECTOR_RESEARCH_TOPIC_PREFIX}Custom niche label`,
+    )!;
+    expect(custom.members).toEqual([]);
+
+    expect(isSeededTopicTitle(`${SECTOR_RESEARCH_TOPIC_PREFIX}Semiconductors`)).toBe(true);
     expect(isSeededTopicTitle(`${DESK_FOCUS_TOPIC_PREFIX}Semiconductors · Strategies`)).toBe(
       true,
     );
+
+    // Deprecated alias still works.
+    expect(buildDeskFocusTopicSpecs(['Semiconductors']).length).toBe(1);
+
     expect(buildSeededTopicSpecsForCompany(['Semiconductors']).length).toBe(
-      SEEDED_TOPIC_SPECS.length + desk.filter((s) => s.title.includes('Semiconductors')).length,
+      SEEDED_TOPIC_SPECS.length + 1,
     );
   });
 
-  it('matches members by catalog, tier, and class (OR across member filters)', () => {
-    const tierA = SEEDED_TOPIC_SPECS.find((s) => s.title === 'Strategy families — Tier A')!;
-    const opening = SEEDED_TOPIC_SPECS.find(
-      (s) => s.title === 'Strategy class — Opening auction and opening range',
-    )!;
+  it('matches light sector_seeds membership for mapped focuses', () => {
+    const semis = buildSectorResearchTopicSpecs(['Semiconductors'])[0]!;
     const rows = [
       {
         id: '1',
-        title: 'a',
-        sourceRef: 'strategy_families/x',
-        tier: 'tier_a',
-      },
-      {
-        id: '2',
-        title: 'b',
-        sourceRef: 'strategy_families/y',
-        tier: 'tier_b',
-      },
-      {
-        id: '3',
-        title: 'c',
-        sourceRef: 'guardrail_packages/z',
-        tier: null,
-      },
-      {
-        id: '4',
-        title: 'tech',
+        title: 'tech seed',
         sourceRef: 'sector_seeds/technology',
         tier: null,
       },
+      {
+        id: '2',
+        title: 'strategy',
+        sourceRef: 'strategy_families/x',
+        tier: 'tier_a',
+      },
     ];
     const classBySourceRef = new Map<string, string | null>([
-      ['strategy_families/x', 'opening_auction_and_opening_range'],
-      ['strategy_families/y', 'intraday_trend_and_momentum'],
-      ['guardrail_packages/z', 'catalyst_conflict_guardrail'],
       ['sector_seeds/technology', 'technology'],
+      ['strategy_families/x', 'opening_auction_and_opening_range'],
     ]);
-    expect(matchSeededTopicMembers(tierA, rows).map((m) => m.id)).toEqual(['1']);
     expect(
-      matchSeededTopicMembers(opening, rows, undefined, classBySourceRef).map((m) => m.id),
+      matchSeededTopicMembers(semis, rows, undefined, classBySourceRef).map((m) => m.id),
     ).toEqual(['1']);
-
-    const combo = buildDeskFocusTopicSpecs(['Semiconductors']).find(
-      (s) => s.title === `${DESK_FOCUS_TOPIC_PREFIX}Semiconductors · Strategies`,
-    )!;
-    expect(
-      matchSeededTopicMembers(combo, rows, undefined, classBySourceRef)
-        .map((m) => m.id)
-        .sort(),
-    ).toEqual(['1', '2', '4']);
   });
 
-  it('builds leak-clean directive synopses with peer/child links', () => {
+  it('builds leak-clean awareness synopses', () => {
     const md = buildSeededDirectiveSynopsisMd({
-      title: 'Guardrails',
-      directive: 'Directive: keep guardrail packages visible.',
-      childTitles: ['Guardrail — Catalyst conflict guardrail'],
+      title: CURRENT_AWARENESS_TOPIC_TITLE,
+      directive: 'Research point: seed awareness.',
+      isProgram: true,
+      childTitles: ['Market regime and breadth'],
     });
-    expect(md).toContain('# Guardrails');
-    expect(md).toContain('[[Guardrail — Catalyst conflict guardrail]]');
-    expect(md).toContain('module-side');
+    expect(md).toContain(`# ${CURRENT_AWARENESS_TOPIC_TITLE}`);
+    expect(md).toContain('[[Market regime and breadth]]');
+    expect(md).toContain('distinct from seeded library knowledge');
 
     const overview = buildSeededDirectiveSynopsisMd({
       title: 'Seeded trading mechanisms',
-      directive: 'Overview index.',
-      isProgram: true,
-      childTitles: ['Strategy families', 'Guardrails'],
+      directive: 'Library nest overview.',
+      childTitles: [CURRENT_AWARENESS_TOPIC_TITLE],
     });
-    expect(overview).toContain('## Peer directives');
-    expect(overview).toContain('[[Strategy families]]');
+    expect(overview).toContain('not a research queue');
+    expect(overview).toContain(`[[${CURRENT_AWARENESS_TOPIC_TITLE}]]`);
+    expect(SEEDED_TOPIC_TITLES.has('News and event readthrough')).toBe(true);
   });
 });

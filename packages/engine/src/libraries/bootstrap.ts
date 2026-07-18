@@ -41,11 +41,14 @@ export {
   SEEDED_TOPIC_TITLE,
   SEEDED_TOPIC_TITLES,
   SEEDED_TOPIC_CATALOG_ROOT_TITLES,
+  CURRENT_AWARENESS_TOPIC_TITLE,
+  SECTOR_RESEARCH_TOPIC_PREFIX,
   DESK_FOCUS_TOPIC_PREFIX,
   isSeededTopicTitle,
   ensureSeededResearchTopics,
   buildSeededDirectiveSynopsisMd,
   buildDeskFocusTopicSpecs,
+  buildSectorResearchTopicSpecs,
   buildSeededTopicSpecsForCompany,
 } from './seeded-topics';
 

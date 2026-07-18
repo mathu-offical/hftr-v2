@@ -1,8 +1,13 @@
 /**
- * Seeded research topics are **module-side directives** (D-086).
- * They live on a research module, organize concept membership, and may spawn
- * further articles/libraries — they are not library containers.
- * Concepts / tags / trends / functions remain library-side.
+ * Seeded research topics are **module-side research points** (D-086 / D-126).
+ *
+ * They are **not** mirrors of seeded library knowledge (catalog concepts live in the
+ * Seeded trading mechanisms library nest). Per-company seeds are:
+ *   1. General **current awareness** starters (regime, macro, news/events)
+ *   2. **Sector research** points from `companies.sector_focuses`
+ *   3. A thin **library overview** topic titled like the nest (D-045 Overview link)
+ *
+ * Topics organize membership and may spawn gather work — they do not own catalog shelves.
  */
 
 import { and, eq, inArray, notInArray } from 'drizzle-orm';
@@ -11,11 +16,21 @@ import type { Db } from '@hftr/db';
 import { researchTopics, topicConcepts } from '@hftr/db/schema';
 import { leakLint } from '../calc/leak-lint';
 
+/** Library nest overview title (also the baseline library name). Not a research queue. */
 export const SEEDED_TOPIC_PROGRAM_TITLE = 'Seeded trading mechanisms';
 /** @deprecated Prefer SEEDED_TOPIC_PROGRAM_TITLE; kept for archive/API compatibility. */
 export const SEEDED_TOPIC_TITLE = SEEDED_TOPIC_PROGRAM_TITLE;
 
-/** Dynamic company desk-focus directives (sector + catalog combinations). */
+/** Company-wide current-awareness program (D-126). */
+export const CURRENT_AWARENESS_TOPIC_TITLE = 'Current awareness';
+
+/** Dynamic sector research points from company sector focuses (D-126). */
+export const SECTOR_RESEARCH_TOPIC_PREFIX = 'Sector · ';
+
+/**
+ * Legacy desk-focus prefix (D-096). Still recognized for archive/protection;
+ * bootstrap prunes these in favor of Sector · topics.
+ */
 export const DESK_FOCUS_TOPIC_PREFIX = 'Desk focus · ';
 
 export type SeededTopicMemberFilter = {
@@ -34,327 +49,77 @@ export type SeededTopicMemberFilter = {
 export type SeededTopicSpec = {
   /** Stable operator-facing title (unique per research module). */
   title: string;
-  /** When true, this is the program parent; children nest under it. */
+  /** When true, this is a program parent; children nest under it. */
   isProgram?: boolean;
   /** Parent directive title (program or mid-level group). */
   parentTitle?: string;
   /**
-   * Concept membership filter. Empty = synopsis-only group/program directive
-   * (points at child topics; does not own every concept).
+   * Optional light membership (e.g. mapped sector_seeds for a focus label).
+   * Empty = synopsis-only research point — membership fills from research runs.
    */
   members: SeededTopicMemberFilter[];
   /** Short qualitative directive intent for the synopsis. */
   directive: string;
 };
 
-/** Operator-facing label: underscores → spaces, capitalize first word only. */
-function humanizeSnake(value: string): string {
-  const spaced = value.replace(/_/g, ' ').trim();
-  if (!spaced) return spaced;
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-}
-
 function directiveFor(label: string, intent: string): string {
-  return `Directive: ${intent} (${label}). Module-side work program — may spawn articles or specialty libraries; catalog concepts stay library-side.`;
+  return `Research point: ${intent} (${label}). Module-side — seeds gather and awareness; catalog concepts stay library-side.`;
 }
-
-function groupSpec(title: string, intent: string): SeededTopicSpec {
-  return {
-    title,
-    members: [],
-    directive: directiveFor(title, intent),
-  };
-}
-
-function classLeaf(
-  parentTitle: string,
-  catalog: string,
-  classKey: string,
-  titlePrefix: string,
-  intent: string,
-): SeededTopicSpec {
-  const label = humanizeSnake(classKey);
-  return {
-    title: `${titlePrefix} — ${label}`,
-    parentTitle,
-    members: [{ catalog, class: classKey }],
-    directive: directiveFor(`${titlePrefix} / ${label}`, intent),
-  };
-}
-
-function tierLeaf(tier: 'tier_a' | 'tier_b' | 'tier_c', intent: string): SeededTopicSpec {
-  const letter = tier.slice(-1).toUpperCase();
-  return {
-    title: `Strategy families — Tier ${letter}`,
-    parentTitle: 'Strategy families',
-    members: [{ catalog: 'strategy_families', tier }],
-    directive: directiveFor(`Strategy families Tier ${letter}`, intent),
-  };
-}
-
-function sectorLeaf(sector: string): SeededTopicSpec {
-  const label = humanizeSnake(sector);
-  return {
-    title: `Sector — ${label}`,
-    parentTitle: 'Sector knowledge',
-    members: [{ catalog: 'sector_seeds', class: sector }],
-    directive: directiveFor(`Sector ${label}`, 'deepen sector behavior seeds into desk research and optional specialty libraries'),
-  };
-}
-
-/** Strategy family mechanism classes from seeded-strategy-catalog.json. */
-export const STRATEGY_FAMILY_CLASSES = [
-  'opening_auction_and_opening_range',
-  'intraday_trend_and_momentum',
-  'intraday_reversion_and_repricing',
-  'quote_and_microstructure',
-  'relative_value_and_spread',
-  'event_and_news_overlay',
-  'session_and_venue_specific',
-  'volatility_and_risk_overlay',
-] as const;
-
-export const GUARDRAIL_CLASSES = [
-  'catalyst_conflict_guardrail',
-  'macro_and_policy_guardrail',
-  'liquidity_and_spread_guardrail',
-  'order_workflow_recovery',
-  'relative_value_and_sympathy_guardrail',
-  'inventory_and_adverse_selection_guardrail',
-  'session_and_order_form_guardrail',
-  'account_and_live_mode_guardrail',
-] as const;
-
-export const COMPLIANCE_CLASSES = [
-  'launch_boundary',
-  'retention_and_override',
-  'session_and_order_legality',
-  'transport_and_policy_cap',
-  'traceability_and_reporting',
-  'jurisdiction_and_product_scope',
-  'access_and_approval',
-  'regulatory_reform_tracking',
-] as const;
-
-export const EVENT_ARCHETYPE_CLASSES = [
-  'earnings',
-  'guidance',
-  'filing',
-  'regulatory',
-  'product',
-  'strategic_transaction',
-  'management_change',
-] as const;
-
-export const MACRO_TRIGGER_CLASSES = [
-  'macro_policy',
-  'macro_data_release',
-  'market_regime',
-  'geopolitical',
-  'geopolitical_policy',
-  'regulatory_geopolitical',
-  'geopolitical_operational',
-  'regulatory',
-  'policy_regime',
-] as const;
-
-export const TREND_LEAD_CLASSES = [
-  'sector_breadth_and_leadership',
-  'event_and_supply_chain_readthrough',
-  'macro_repricing_and_reentry',
-  'microstructure_and_level_recovery',
-  'session_transition_and_discovery',
-  'defensive_regime_rotation',
-  'policy_and_supply_chain_repricing',
-  'crypto_policy_and_proxy_rotation',
-  'rates_sensitive_cross_sector_rotation',
-  'regime_and_breadth_confirmation',
-  'event_impact_transmission',
-] as const;
-
-export const SECTOR_SEED_KEYS = [
-  'technology',
-  'communication_services',
-  'consumer_discretionary',
-  'consumer_staples',
-  'financials',
-  'health_care',
-  'industrials',
-  'energy',
-  'materials',
-  'utilities',
-  'real_estate',
-  'crypto_equities_and_proxies',
-] as const;
 
 /**
- * Catalog-backed seeded directives as **separate top-level roots** (D-096).
- * "Seeded trading mechanisms" remains an overview index (library nest name), not a
- * mega-parent that hides every other directive. Mid-level groups own class/tier leaves.
+ * Static per-company research seeds (awareness + library overview).
+ * Catalog class/tier mirrors were removed in D-126 — those live only in the library nest.
  */
 export const SEEDED_TOPIC_SPECS: readonly SeededTopicSpec[] = [
   {
     title: SEEDED_TOPIC_PROGRAM_TITLE,
-    isProgram: true,
     members: [],
     directive:
-      'Overview index for compile-time trading mechanisms. Peer top-level topics are the actual research-module work programs (strategy, guardrails, sectors, desk focuses). Concepts stay library-side under the Seeded trading mechanisms nest.',
+      'Library nest overview index for Seeded trading mechanisms. Not a research work queue — open this from Libraries for the catalog shelf. Research points live under Current awareness and Sector · topics.',
   },
-
-  // —— Strategy families (class + activation tier) ——
-  groupSpec(
-    'Strategy families',
-    'organize strategy-family mechanisms by class and activation tier',
-  ),
-  ...STRATEGY_FAMILY_CLASSES.map((c) =>
-    classLeaf(
-      'Strategy families',
-      'strategy_families',
-      c,
-      'Strategy class',
-      'curate and operationalize this strategy-family class',
-    ),
-  ),
-  tierLeaf(
-    'tier_a',
-    'curate high-activation Tier A strategy family mechanisms for desk research and librarian scoring',
-  ),
-  tierLeaf(
-    'tier_b',
-    'curate Tier B strategy family mechanisms — broader set for opportunistic research and validation',
-  ),
-  tierLeaf(
-    'tier_c',
-    'curate Tier C strategy family mechanisms — lower activation / specialty paths',
-  ),
-
-  // —— Small catalogs (top-level leaves) ——
   {
-    title: 'Compound strategies',
-    members: [{ catalog: 'compound_strategies' }],
+    title: CURRENT_AWARENESS_TOPIC_TITLE,
+    isProgram: true,
+    members: [],
     directive: directiveFor(
-      'Compound strategies',
-      'bind multi-mechanism compound strategy patterns into readable articles and library membership',
+      CURRENT_AWARENESS_TOPIC_TITLE,
+      'seed general market current awareness for the desk — regime, macro calendar, and news/event readthrough',
     ),
   },
   {
-    title: 'Recovery ladders',
-    members: [{ catalog: 'recovery_ladders' }],
+    title: 'Market regime and breadth',
+    parentTitle: CURRENT_AWARENESS_TOPIC_TITLE,
+    members: [],
     directive: directiveFor(
-      'Recovery ladders',
-      'document recovery ladder templates as qualitative operating articles for verification and dispatch framing',
+      'Market regime and breadth',
+      'track regime character, sector breadth, and leadership rotation without assuming a trade',
     ),
   },
   {
-    title: 'Session constraints',
-    members: [{ catalog: 'session_constraints' }],
+    title: 'Macro and policy watch',
+    parentTitle: CURRENT_AWARENESS_TOPIC_TITLE,
+    members: [],
     directive: directiveFor(
-      'Session constraints',
-      'session legality and window constraints as curated knowledge for research and policy overlap',
+      'Macro and policy watch',
+      'keep a live watch on macro releases and policy posture that can reprice risk appetite',
     ),
   },
   {
-    title: 'Broker policy',
-    members: [{ catalog: 'broker_policy_envelopes' }],
+    title: 'News and event readthrough',
+    parentTitle: CURRENT_AWARENESS_TOPIC_TITLE,
+    members: [],
     directive: directiveFor(
-      'Broker policy',
-      'broker policy envelopes as qualitative articles for venue-aware research scope',
+      'News and event readthrough',
+      'seed ongoing awareness of news and corporate/event readthrough into names and sectors',
     ),
   },
-
-  // —— Guardrails by class ——
-  groupSpec('Guardrails', 'keep guardrail packages visible as class-scoped research directives'),
-  ...GUARDRAIL_CLASSES.map((c) =>
-    classLeaf(
-      'Guardrails',
-      'guardrail_packages',
-      c,
-      'Guardrail',
-      'document and cross-link this guardrail class from research focus',
-    ),
-  ),
-
-  // —— Trend lead patterns by class ——
-  groupSpec(
-    'Trend lead patterns',
-    'organize trend-lead vocabulary for research→trend handoff',
-  ),
-  ...TREND_LEAD_CLASSES.map((c) =>
-    classLeaf(
-      'Trend lead patterns',
-      'trend_lead_patterns',
-      c,
-      'Trend lead',
-      'curate this trend-lead pattern class for librarian relevance and handoff',
-    ),
-  ),
-
-  // —— Compliance by class ——
-  groupSpec(
-    'Compliance packages',
-    'organize compliance policy packages for policy-aware research',
-  ),
-  ...COMPLIANCE_CLASSES.map((c) =>
-    classLeaf(
-      'Compliance packages',
-      'compliance_packages',
-      c,
-      'Compliance',
-      'baseline articles for this compliance class',
-    ),
-  ),
-
-  // —— Event archetypes by class ——
-  groupSpec(
-    'Event archetypes',
-    'frame corporate and calendar event research by archetype class',
-  ),
-  ...EVENT_ARCHETYPE_CLASSES.map((c) =>
-    classLeaf(
-      'Event archetypes',
-      'event_archetypes',
-      c,
-      'Event',
-      'research framing for this company-event archetype class',
-    ),
-  ),
-
-  // —— Macro triggers by class ——
-  groupSpec(
-    'Macro triggers',
-    'organize macro and geopolitical triggers for blackout and reentry vocabulary',
-  ),
-  ...MACRO_TRIGGER_CLASSES.map((c) =>
-    classLeaf(
-      'Macro triggers',
-      'macro_triggers',
-      c,
-      'Macro',
-      'curate this macro/geopolitical trigger class',
-    ),
-  ),
-
-  // —— Sectors (full catalog atlas; company focuses get separate Desk focus topics) ——
-  groupSpec(
-    'Sector knowledge',
-    'admit sector behavior seeds; deepen into specialty libraries when needed',
-  ),
-  ...SECTOR_SEED_KEYS.map((s) => sectorLeaf(s)),
 ];
 
-/** Catalog domains combined into each company desk-focus directive. */
-const DESK_FOCUS_COMBINATION_CATALOGS = [
-  { suffix: 'Strategies', catalog: 'strategy_families', intent: 'strategy-family mechanisms' },
-  { suffix: 'Trend leads', catalog: 'trend_lead_patterns', intent: 'trend-lead patterns' },
-  { suffix: 'Guardrails', catalog: 'guardrail_packages', intent: 'guardrail packages' },
-  { suffix: 'Events', catalog: 'event_archetypes', intent: 'event archetypes' },
-] as const;
-
 /**
- * Company sector-focus directives: one top-level desk topic per focus, plus
- * combination children that OR sector_seeds with a catalog domain (D-096).
+ * One research point per company sector focus (plus optional light sector_seeds membership
+ * when the label maps to a vendored sector key). No catalog combination children.
  */
-export function buildDeskFocusTopicSpecs(
+export function buildSectorResearchTopicSpecs(
   sectorFocuses: readonly string[],
 ): SeededTopicSpec[] {
   const specs: SeededTopicSpec[] = [];
@@ -363,58 +128,58 @@ export function buildDeskFocusTopicSpecs(
   for (const raw of sectorFocuses) {
     const label = raw.trim();
     if (!label || seenLabels.has(label)) continue;
-    const target = resolveSectorSeedTargetFromLabel(label);
-    if (!target) continue;
     seenLabels.add(label);
 
-    const focusTitle = `${DESK_FOCUS_TOPIC_PREFIX}${label}`;
+    const target = resolveSectorSeedTargetFromLabel(label);
+    const title = `${SECTOR_RESEARCH_TOPIC_PREFIX}${label}`;
     specs.push({
-      title: focusTitle,
-      members: [{ catalog: 'sector_seeds', class: target.sectorKey }],
+      title,
+      members: target ? [{ catalog: 'sector_seeds', class: target.sectorKey }] : [],
       directive: directiveFor(
-        focusTitle,
-        `primary desk research for company sector focus "${label}" — sector seeds plus combination child directives`,
+        title,
+        `initial sector research for company focus "${label}" — landscape, catalysts, and flow awareness`,
       ),
     });
-
-    for (const combo of DESK_FOCUS_COMBINATION_CATALOGS) {
-      const title = `${focusTitle} · ${combo.suffix}`;
-      specs.push({
-        title,
-        parentTitle: focusTitle,
-        members: [
-          { catalog: 'sector_seeds', class: target.sectorKey },
-          { catalog: combo.catalog },
-        ],
-        directive: directiveFor(
-          title,
-          `combine ${label} sector seeds with seeded ${combo.intent} for desk research`,
-        ),
-      });
-    }
   }
 
   return specs;
 }
 
-/** Full seeded topic set for a company (static catalog roots + desk focuses). */
+/**
+ * @deprecated Prefer `buildSectorResearchTopicSpecs` (D-126). Legacy D-096 name retained
+ * for imports; behavior is sector research points (not catalog combination trees).
+ */
+export function buildDeskFocusTopicSpecs(
+  sectorFocuses: readonly string[],
+): SeededTopicSpec[] {
+  return buildSectorResearchTopicSpecs(sectorFocuses);
+}
+
+/** Full seeded topic set for a company (awareness + library overview + sector points). */
 export function buildSeededTopicSpecsForCompany(
   sectorFocuses: readonly string[] = [],
 ): SeededTopicSpec[] {
-  return [...SEEDED_TOPIC_SPECS, ...buildDeskFocusTopicSpecs(sectorFocuses)];
+  return [...SEEDED_TOPIC_SPECS, ...buildSectorResearchTopicSpecs(sectorFocuses)];
 }
 
 export const SEEDED_TOPIC_TITLES: ReadonlySet<string> = new Set(
   SEEDED_TOPIC_SPECS.map((s) => s.title),
 );
 
-/** Top-level catalog roots excluding the mechanisms overview index. */
+/**
+ * Top-level research roots operators should see first (excludes library overview).
+ * @deprecated Name kept for D-096 callers; values are awareness roots, not catalog domains.
+ */
 export const SEEDED_TOPIC_CATALOG_ROOT_TITLES: readonly string[] = SEEDED_TOPIC_SPECS.filter(
   (s) => !s.parentTitle && s.title !== SEEDED_TOPIC_PROGRAM_TITLE,
 ).map((s) => s.title);
 
 export function isSeededTopicTitle(title: string): boolean {
-  return SEEDED_TOPIC_TITLES.has(title) || title.startsWith(DESK_FOCUS_TOPIC_PREFIX);
+  return (
+    SEEDED_TOPIC_TITLES.has(title) ||
+    title.startsWith(SECTOR_RESEARCH_TOPIC_PREFIX) ||
+    title.startsWith(DESK_FOCUS_TOPIC_PREFIX)
+  );
 }
 
 export function protectedSeededTopicTitles(
@@ -443,34 +208,56 @@ export function buildSeededDirectiveSynopsisMd(opts: {
   childTitles?: readonly string[];
   memberTitles?: readonly string[];
 }): string {
+  const isLibraryOverview = opts.title === SEEDED_TOPIC_PROGRAM_TITLE;
   const lines = [
     `# ${opts.title}`,
     '',
-    '> Research-module directive (module-side). Concepts and tags remain library-side.',
+    isLibraryOverview
+      ? '> Library nest overview (not a research queue). Catalog concepts stay on the Seeded trading mechanisms shelf.'
+      : '> Research-module point (module-side). Seeds sector and current awareness — distinct from seeded library knowledge.',
     '',
     opts.directive,
     '',
     '## Scope',
     '',
-    '- Owns ordered concept membership for focus and Page reading.',
-    '- May spawn additional research articles or specialty libraries during agent work.',
-    '- Does not replace the Seeded trading mechanisms library nest.',
   ];
 
+  if (isLibraryOverview) {
+    lines.push(
+      '- Links the Libraries dock Overview control to the catalog nest.',
+      '- Does not enqueue research; use Current awareness and Sector · topics for gather work.',
+    );
+  } else {
+    lines.push(
+      '- Initial research point for desk awareness / sector focus.',
+      '- May spawn gather runs, articles, or specialty libraries during agent work.',
+      '- Does not mirror catalog shelves (strategy families, guardrails, etc. stay library-side).',
+    );
+  }
+
   if (opts.childTitles && opts.childTitles.length > 0) {
-    lines.push('', opts.isProgram ? '## Peer directives' : '## Child directives', '');
+    lines.push('', opts.isProgram ? '## Child research points' : '## Related points', '');
     for (const child of opts.childTitles) {
       lines.push(`- [[${child}]]`);
     }
   }
 
   if (opts.memberTitles && opts.memberTitles.length > 0) {
-    lines.push('', '## Member concepts', '');
+    lines.push('', '## Starting concepts', '');
     for (const title of opts.memberTitles) {
       lines.push(`- [[${title}]]`);
     }
-  } else if (!opts.isProgram && !(opts.childTitles && opts.childTitles.length > 0)) {
-    lines.push('', '## Member concepts', '', '_No matching catalog articles yet._');
+  } else if (
+    !opts.isProgram &&
+    !(opts.childTitles && opts.childTitles.length > 0) &&
+    !isLibraryOverview
+  ) {
+    lines.push(
+      '',
+      '## Starting concepts',
+      '',
+      '_Membership fills as research runs admit concepts._',
+    );
   }
 
   const synopsisMd = lines.join('\n');
@@ -556,9 +343,9 @@ function directChildTitles(
 }
 
 /**
- * Upsert the full seeded topic forest for one research module and rebuild memberships.
- * Catalog domains are separate top-level roots; company sector focuses add Desk focus
- * combination topics (D-096).
+ * Upsert the seeded research-topic forest for one research module and rebuild memberships.
+ * Awareness + sector points + library overview (D-126). Prunes obsolete catalog-mirror
+ * bootstrap topics from D-096.
  */
 export async function ensureSeededResearchTopics(opts: {
   db: Db;
@@ -571,7 +358,7 @@ export async function ensureSeededResearchTopics(opts: {
   tierBySourceRef: ReadonlyMap<string, string | null>;
   /** Map sourceRef → payload class or sector. */
   classBySourceRef?: ReadonlyMap<string, string | null>;
-  /** Company sector focuses (create wizard labels) → Desk focus topics. */
+  /** Company sector focuses (create wizard labels) → Sector · research points. */
   sectorFocuses?: readonly string[];
 }): Promise<{ topicIds: string[]; programTopicId: string | null }> {
   const specs = buildSeededTopicSpecsForCompany(opts.sectorFocuses ?? []);
@@ -595,14 +382,15 @@ export async function ensureSeededResearchTopics(opts: {
       opts.tierBySourceRef,
       classMap,
     );
-    const childTitles = spec.isProgram
-      ? peerRootTitles
-      : directChildTitles(spec.title, specs);
+    const childTitles = directChildTitles(spec.title, specs);
+    // Library overview lists peer research roots for navigation.
+    const synopsisChildTitles =
+      spec.title === SEEDED_TOPIC_PROGRAM_TITLE ? peerRootTitles : childTitles;
     const synopsisMd = buildSeededDirectiveSynopsisMd({
       title: spec.title,
       directive: spec.directive,
       ...(spec.isProgram ? { isProgram: true as const } : {}),
-      ...(childTitles.length > 0 ? { childTitles } : {}),
+      ...(synopsisChildTitles.length > 0 ? { childTitles: synopsisChildTitles } : {}),
       memberTitles: members.map((m) => m.title),
     });
 
@@ -689,7 +477,7 @@ export async function ensureSeededResearchTopics(opts: {
 }
 
 /**
- * Remove obsolete bootstrap topics (e.g. prior title/humanize variants) that are
+ * Remove obsolete bootstrap topics (catalog mirrors, legacy Desk focus trees) that are
  * no longer in the company seeded title set. Keeps operator-created topics.
  */
 export async function pruneObsoleteSeededTopics(opts: {
@@ -715,7 +503,6 @@ export async function pruneObsoleteSeededTopics(opts: {
   if (obsolete.length === 0) return 0;
   const ids = obsolete.map((r) => r.id);
   await opts.db.delete(topicConcepts).where(inArray(topicConcepts.topicId, ids));
-  // Clear parent pointers from any remaining children before delete.
   await opts.db
     .update(researchTopics)
     .set({ parentTopicId: null })

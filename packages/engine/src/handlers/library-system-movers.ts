@@ -1,15 +1,47 @@
-import { and, eq } from 'drizzle-orm';
-import { EvidencePackage, SystemTopicScope } from '@hftr/contracts';
+import { and, eq, ne } from 'drizzle-orm';
+import {
+  EvidencePackage,
+  SystemTopicScope,
+  type ResearchSourceKind,
+  type SuggestionThresholdProfile,
+} from '@hftr/contracts';
 import { z } from 'zod';
 import {
-  gatherAlpacaBarsEvidence,
+  buildResearchQueryPlan,
+  fetchBars,
+  gatherEvidencePackages,
   normalizeToEvidencePackage,
-  resolveBrokerAdapter,
 } from '@hftr/adapters';
-import { decryptSecret } from '@hftr/secrets';
-import { brokerConnections, companies, modules } from '@hftr/db/schema';
+import {
+  companies,
+  modules,
+  positions,
+  trendCandidates,
+} from '@hftr/db/schema';
 import { ensureSystemLibrary } from '../libraries/ensure-system-library';
+import { ensureSectorKnowledge } from '../libraries/ensure-sector-knowledge';
 import { getSystemLibraryEntry } from '../libraries/system-library-registry';
+import {
+  buildMoversUniverse,
+  DEFAULT_LIQUID_FALLBACK,
+  extractTickerCandidates,
+  rankCompoundScores,
+  scoreCompoundSymbol,
+} from '../libraries/movers-compound';
+import { listCompanyLibraryIds, loadMoversLibraryCorpus } from '../libraries/movers-corpus';
+import { computeRelStrength } from '../libraries/movers-rel-strength';
+import { proposeThresholdProfileHeuristic } from '../libraries/suggestion-threshold-propose';
+import { resolveSuggestionThresholds } from '../libraries/suggestion-thresholds';
+import {
+  evaluateSuggestionVerifyGates,
+  suggestionVerifyPasses,
+} from '../libraries/suggestion-verify';
+import {
+  promoteVerifiedSuggestions,
+  upsertMoversRankSuggestions,
+} from '../libraries/watchlist-suggestions-persist';
+import { resolvePhilosophyControl } from '../pipeline/philosophy-control';
+import { resolveResearchGatherCredentials } from '../research/gather-credentials';
 import { corroborateAndNormalize } from '../research/verified-normalize';
 import { persistVerifiedBundle } from '../research/seal-persist';
 import { loadLatestValidSeal } from '../research/seal-load';
@@ -19,22 +51,35 @@ const SystemMoversPayload = z.object({
   companyId: z.string().uuid(),
 });
 
-/** Liquid universe for paper movers scan — qualitative ranking only. */
-const DEFAULT_MOVERS_UNIVERSE = [
-  'SPY',
-  'QQQ',
-  'IWM',
-  'AAPL',
-  'MSFT',
-  'NVDA',
-  'AMZN',
-  'META',
-] as const;
+const NEWS_KINDS: ResearchSourceKind[] = [
+  'gdelt_news',
+  'market_news',
+  'alpha_vantage_news',
+  'alpaca_news',
+  'finnhub_news',
+  'polygon_news',
+];
+const MACRO_KINDS: ResearchSourceKind[] = [
+  'fred_macro',
+  'frankfurter_fx',
+  'coingecko_crypto',
+  'world_bank_indicator',
+];
+const WEB_KINDS: ResearchSourceKind[] = ['brave_search', 'sec_edgar'];
+const BAR_KINDS: ResearchSourceKind[] = ['alpaca_bars', 'twelve_data', 'marketstack'];
+
+function domainCountBand(n: number): 'absent' | 'single' | 'dual' | 'multi' {
+  if (n >= 3) return 'multi';
+  if (n === 2) return 'dual';
+  if (n === 1) return 'single';
+  return 'absent';
+}
 
 function buildMoversReportBody(opts: {
   corroborationBand: string;
   itemHeadlines: string[];
   feedClass: string;
+  thresholdSource: string;
 }): string {
   const notes =
     opts.itemHeadlines.length > 0
@@ -47,6 +92,7 @@ function buildMoversReportBody(opts: {
     '## Scan window',
     '',
     `Paper scan via ${opts.feedClass} with corroboration band ${opts.corroborationBand}.`,
+    `Threshold profile source: ${opts.thresholdSource}.`,
     'Values stay on the ValueRef path; this report is qualitative only.',
     '',
     '## Leadership notes',
@@ -61,65 +107,17 @@ function buildMoversReportBody(opts: {
   ].join('\n');
 }
 
-async function loadAlpacaPaperCredentials(
-  db: Parameters<typeof ensureSystemLibrary>[0],
-  companyId: string,
-): Promise<{ keyId: string; secret: string } | null> {
-  const [company] = await db
-    .select({ brokerConnectionId: companies.brokerConnectionId })
-    .from(companies)
-    .where(eq(companies.id, companyId))
-    .limit(1);
-  if (!company?.brokerConnectionId) return null;
-
-  const [conn] = await db
-    .select()
-    .from(brokerConnections)
-    .where(
-      and(
-        eq(brokerConnections.id, company.brokerConnectionId),
-        eq(brokerConnections.venue, 'alpaca'),
-        eq(brokerConnections.mode, 'paper'),
-        eq(brokerConnections.status, 'connected'),
-      ),
-    )
-    .limit(1);
-  if (!conn) return null;
-
-  try {
-    const plain = decryptSecret(conn.ciphertext, 'broker_credentials');
-    const credentials = JSON.parse(plain) as {
-      keyId?: string;
-      secret?: string;
-      apiKeyId?: string;
-      apiSecret?: string;
-    };
-    const keyId = credentials.keyId ?? credentials.apiKeyId;
-    const secret = credentials.secret ?? credentials.apiSecret;
-    if (!keyId?.trim() || !secret?.trim()) return null;
-    // Confirm adapter resolves without throwing
-    resolveBrokerAdapter({
-      connection: {
-        venue: 'alpaca',
-        mode: 'paper',
-        status: 'connected',
-        credentials,
-      },
-      nowMs: () => Date.now(),
-      paperSim: {
-        getQuote: () => {
-          throw new Error('unused');
-        },
-        startingCashCents: 0,
-      },
-    });
-    return { keyId: keyId.trim(), secret: secret.trim() };
-  } catch {
-    return null;
-  }
+function packagesForSymbol(pkgs: EvidencePackage[], symbol: string): EvidencePackage[] {
+  const u = symbol.toUpperCase();
+  return pkgs.filter(
+    (p) =>
+      p.title.toUpperCase().includes(u) ||
+      p.summary.toUpperCase().includes(u) ||
+      (p.externalRef?.toUpperCase().includes(u) ?? false),
+  );
 }
 
-registerHandler('library.system_movers', async ({ db, clock, job }) => {
+registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }) => {
   const payload = SystemMoversPayload.parse(job.payload);
   const now = new Date(clock.nowMs());
   const nowMs = clock.nowMs();
@@ -131,21 +129,16 @@ registerHandler('library.system_movers', async ({ db, clock, job }) => {
   const entry = getSystemLibraryEntry(SystemTopicScope.MOVERS);
   if (!entry) return;
 
-  const subjectKey = 'daily';
-  const existing = await loadLatestValidSeal(db, {
-    companyId: payload.companyId,
-    kind: 'movers_board',
-    subjectKey,
-    nowMs,
-  });
-  if (existing) {
-    return;
-  }
-
   const companyModules = await db
-    .select({ id: modules.id, type: modules.type })
+    .select({
+      id: modules.id,
+      type: modules.type,
+      topicSectors: modules.topicSectors,
+      config: modules.config,
+    })
     .from(modules)
     .where(eq(modules.companyId, payload.companyId));
+
   const ownerModuleId =
     companyModules.find((m) => m.type === 'research')?.id ??
     companyModules.find((m) => m.type === 'librarian')?.id ??
@@ -153,25 +146,286 @@ registerHandler('library.system_movers', async ({ db, clock, job }) => {
     companyModules.find((m) => m.type === 'math')?.id;
   if (!ownerModuleId) return;
 
-  const evidence: EvidencePackage[] = [];
-  const creds = await loadAlpacaPaperCredentials(db, payload.companyId);
-  let feedClass = 'system_movers_rank';
+  const topicSectors =
+    companyModules.find((m) => (m.topicSectors?.length ?? 0) > 0)?.topicSectors ?? [];
 
-  if (creds) {
-    for (const symbol of DEFAULT_MOVERS_UNIVERSE.slice(0, 6)) {
+  await ensureSectorKnowledge(db, payload.companyId, now);
+
+  const subjectKey = 'daily';
+  const existingSeal = await loadLatestValidSeal(db, {
+    companyId: payload.companyId,
+    kind: 'movers_board',
+    subjectKey,
+    nowMs,
+  });
+
+  const [company] = await db
+    .select({
+      philosophyProfile: companies.philosophyProfile,
+      clerkUserId: companies.clerkUserId,
+    })
+    .from(companies)
+    .where(eq(companies.id, payload.companyId))
+    .limit(1);
+
+  const philosophy = resolvePhilosophyControl({
+    philosophyProfile: company?.philosophyProfile ?? {},
+  });
+  const axisLabels = Object.keys(philosophy.philosophyProfile.axes ?? {}).slice(0, 16);
+
+  const gatherCredentials = await resolveResearchGatherCredentials(db, payload.companyId);
+
+  const plan = buildResearchQueryPlan({
+    topicScope: SystemTopicScope.MOVERS,
+    topicSectors,
+    queryText: 'cross sectional leadership movers relative strength',
+    cadence: 'every:1440',
+  });
+
+  const sourceKinds: ResearchSourceKind[] = [
+    ...NEWS_KINDS,
+    ...MACRO_KINDS,
+    ...WEB_KINDS,
+    ...BAR_KINDS,
+  ];
+
+  const { packages: gathered } = await gatherEvidencePackages({
+    query: plan.baseQuery,
+    queryBySource: plan.bySource,
+    sourceKinds,
+    allowlist: [],
+    blocklist: [],
+    maxEvidence: 32,
+    marketNewsAllowDeterministicFallback: false,
+    ...gatherCredentials,
+  });
+
+  const usable = gathered.filter(
+    (pkg) =>
+      pkg.legalUseClass === 'ALLOWED' &&
+      !pkg.feedClass.includes('stub') &&
+      !pkg.feedClass.includes('public_stub'),
+  );
+
+  const domains = new Set(usable.map((p) => p.sourceKind));
+  const hasNews = usable.some((p) => NEWS_KINDS.includes(p.sourceKind as ResearchSourceKind));
+  const hasMacro = usable.some((p) => MACRO_KINDS.includes(p.sourceKind as ResearchSourceKind));
+  const hasWeb = usable.some((p) => WEB_KINDS.includes(p.sourceKind as ResearchSourceKind));
+  const hasBars = usable.some((p) => BAR_KINDS.includes(p.sourceKind as ResearchSourceKind));
+
+  const libraryIds = await listCompanyLibraryIds(db, payload.companyId, [
+    SystemTopicScope.MOVERS,
+    ...topicSectors.map((s) => `sector:${s}`),
+    'sector',
+  ]);
+  // Also include any active library ids when topic scopes miss.
+  if (libraryIds.length === 0) {
+    const allIds = await listCompanyLibraryIds(db, payload.companyId, []);
+    libraryIds.push(...allIds.slice(0, 8));
+  }
+  const corpus = await loadMoversLibraryCorpus(db, payload.companyId, [
+    libraryId,
+    ...libraryIds,
+  ].slice(0, 12));
+  const hasLibraryCorpus = corpus.texts.length > 0;
+
+  const lanePresence = {
+    hasMarketBars: hasBars || Boolean(gatherCredentials.alpacaKeyId),
+    hasNews,
+    hasMacro,
+    hasFilingsOrWeb: hasWeb,
+    hasLibraryCorpus,
+    domainCount: domains.size,
+    sessionPhase: 'scan',
+  };
+
+  let profile: SuggestionThresholdProfile | null = null;
+  let thresholdSource: 'llm_profile' | 'typical_defaults' = 'typical_defaults';
+
+  if (modelGateway && process.env.HFTR_LLM_MODE !== 'deterministic') {
+    const llm = await modelGateway.proposeSuggestionThresholds({
+      companyId: payload.companyId,
+      moduleId: ownerModuleId,
+      jobId: job.id,
+      philosophyAxisLabels: axisLabels,
+      libraryLensTitles: corpus.titles.slice(0, 24),
+      sectorFocuses: topicSectors,
+      lanePresence: {
+        hasMarketBars: lanePresence.hasMarketBars,
+        hasNews: lanePresence.hasNews,
+        hasMacro: lanePresence.hasMacro,
+        hasFilingsOrWeb: lanePresence.hasFilingsOrWeb,
+        hasLibraryCorpus: lanePresence.hasLibraryCorpus,
+        domainCountBand: domainCountBand(lanePresence.domainCount),
+      },
+      sessionPhase: 'scan',
+    });
+    if (llm.ok) {
+      profile = llm.profile;
+      thresholdSource = 'llm_profile';
+    }
+  }
+
+  if (!profile) {
+    // Fail-closed: typical defaults (catalog anchors). Heuristic kept for audit note only.
+    void proposeThresholdProfileHeuristic(lanePresence);
+    profile = null;
+  }
+
+  const thresholds = resolveSuggestionThresholds({
+    profile,
+    evidenceBarMax: philosophy.philosophyProfile.axes.evidence_bar === 'max',
+    breadthBias:
+      philosophy.philosophyProfile.axes.research_breadth === 'min'
+        ? 'min'
+        : philosophy.philosophyProfile.axes.research_breadth === 'max'
+          ? 'max'
+          : 'typical',
+    sourceClass: thresholdSource,
+  });
+
+  const positionRows = await db
+    .select({ symbol: positions.symbol })
+    .from(positions)
+    .where(eq(positions.companyId, payload.companyId))
+    .limit(40);
+
+  const trendRows = await db
+    .select({ symbol: trendCandidates.symbol, status: trendCandidates.status })
+    .from(trendCandidates)
+    .where(
+      and(eq(trendCandidates.companyId, payload.companyId), ne(trendCandidates.status, 'expired')),
+    )
+    .limit(40);
+
+  const evidenceTexts = usable.map((p) => `${p.title} ${p.summary}`);
+  const evidenceSymbols = extractTickerCandidates(evidenceTexts, 16);
+
+  const universe = buildMoversUniverse({
+    sectorPeers: [],
+    evidenceSymbols,
+    trendSymbols: trendRows.map((t) => t.symbol),
+    positionSymbols: positionRows.map((p) => p.symbol),
+    fallbackLiquid: DEFAULT_LIQUID_FALLBACK,
+    universeCap: thresholds.universeCap,
+  });
+
+  const openBook = new Set(positionRows.map((p) => p.symbol.toUpperCase()));
+  const bookAtCap = openBook.size >= Math.max(4, Math.floor(thresholds.suggestionCap / 2));
+
+  const newsPkgs = usable.filter((p) => NEWS_KINDS.includes(p.sourceKind as ResearchSourceKind) || WEB_KINDS.includes(p.sourceKind as ResearchSourceKind));
+  const macroPkgs = usable.filter((p) => MACRO_KINDS.includes(p.sourceKind as ResearchSourceKind));
+  const newsCorpus = newsPkgs.map((p) => `${p.title}\n${p.summary}`);
+  const macroCorpus = macroPkgs.map((p) => `${p.title}\n${p.summary}`);
+
+  type BarSnap = { closes: number[]; volumes: number[] };
+  const barBySymbol = new Map<string, BarSnap>();
+
+  if (gatherCredentials.alpacaKeyId && gatherCredentials.alpacaSecret) {
+    const creds = {
+      keyId: gatherCredentials.alpacaKeyId,
+      secret: gatherCredentials.alpacaSecret,
+    };
+    for (const symbol of universe.slice(0, thresholds.universeCap)) {
       try {
-        const pkgs = await gatherAlpacaBarsEvidence({
-          query: symbol,
+        const result = await fetchBars({
+          symbol,
+          limit: 12,
+          timeframe: '15Min',
           credentials: creds,
         });
-        evidence.push(...pkgs);
-        if (pkgs[0]?.feedClass) feedClass = pkgs[0].feedClass;
+        if (result.bars.length >= 2) {
+          barBySymbol.set(symbol, {
+            closes: result.bars.map((b) => b.close),
+            volumes: result.bars.map((b) => b.volume),
+          });
+        }
       } catch {
-        // Soft-fail per symbol; placeholders already refreshed.
+        // Soft-fail per symbol.
       }
     }
   }
 
+  const spyBars = barBySymbol.get('SPY') ?? null;
+  const scores = [];
+  for (const symbol of universe) {
+    const snap = barBySymbol.get(symbol) ?? { closes: [], volumes: [] };
+    const rs = computeRelStrength(snap, spyBars, thresholds.flatBps);
+    const symPkgs = packagesForSymbol(usable, symbol);
+    const domainSet = new Set(symPkgs.map((p) => p.sourceKind));
+    // Bars entitlement alone counts as one domain when OHLC present.
+    if (barBySymbol.has(symbol)) domainSet.add('alpaca_bars');
+    if (corpus.texts.length > 0) domainSet.add('library');
+
+    scores.push(
+      scoreCompoundSymbol(
+        {
+          symbol,
+          relStrengthAbsBps: rs.relStrengthAbsBps,
+          direction: rs.direction,
+          volumeExpansionRatio: rs.volumeExpansionRatio,
+          corroborationDomains: domainSet.size,
+          libraryQueryText: `${symbol} ${topicSectors.join(' ')} movers leadership`,
+          corpusTexts: corpus.texts,
+          newsCorpusTexts: newsCorpus,
+          macroCorpusTexts: macroCorpus,
+          bookAtCap,
+          inOpenBook: openBook.has(symbol),
+        },
+        thresholds,
+      ),
+    );
+  }
+
+  const ranked = rankCompoundScores(scores);
+  const topK = ranked.slice(0, Math.min(8, thresholds.suggestionCap));
+
+  // Watchlist module: prefer trading/trend for operator confirm UX.
+  const watchModuleId =
+    companyModules.find((m) => m.type === 'trading')?.id ??
+    companyModules.find((m) => m.type === 'trend')?.id ??
+    ownerModuleId;
+
+  await upsertMoversRankSuggestions({
+    db,
+    companyId: payload.companyId,
+    moduleId: watchModuleId,
+    scores: ranked,
+    suggestionCap: thresholds.suggestionCap,
+    now,
+  });
+
+  const verifiedSymbols: string[] = [];
+  for (const score of ranked) {
+    if (!score.admitsSearch) continue;
+    const gates = evaluateSuggestionVerifyGates({
+      score,
+      thresholds,
+      universe,
+      evidenceScannedAtMs: nowMs,
+      nowMs,
+      regimeTrendUp: null,
+    });
+    if (suggestionVerifyPasses(gates)) {
+      verifiedSymbols.push(score.symbol);
+    }
+  }
+
+  await promoteVerifiedSuggestions({
+    db,
+    companyId: payload.companyId,
+    moduleId: watchModuleId,
+    symbols: verifiedSymbols.slice(0, thresholds.suggestionCap),
+    now,
+    noteSuffix: `Verified (${thresholdSource}; corroboration floor ${thresholds.corroborationMinDomains}).`,
+  });
+
+  if (existingSeal) {
+    // Seal still valid — suggestions refreshed; skip re-seal.
+    return;
+  }
+
+  const evidence: EvidencePackage[] = [...usable];
   evidence.push(
     normalizeToEvidencePackage({
       sourceKind: 'catalog',
@@ -182,9 +436,22 @@ registerHandler('library.system_movers', async ({ db, clock, job }) => {
       externalRef: null,
       authorityClass: 'DETERMINISTIC',
       legalUseClass: 'ALLOWED',
-      expiresAt: new Date(nowMs + 24 * 60 * 60 * 1000).toISOString(),
+      expiresAt: new Date(nowMs + thresholds.freshnessWindowMs).toISOString(),
     }),
   );
+  if (corpus.titles.length > 0) {
+    evidence.push(
+      normalizeToEvidencePackage({
+        sourceKind: 'library',
+        feedClass: 'system_movers_rank',
+        title: 'Movers library corpus',
+        summary: `Hydrated ${corpus.titles.length} admitted library lenses for compound fit.`,
+        authorityClass: 'CURATED_BACKGROUND',
+        legalUseClass: 'ALLOWED',
+        expiresAt: new Date(nowMs + thresholds.freshnessWindowMs).toISOString(),
+      }),
+    );
+  }
 
   const bundle = corroborateAndNormalize({
     evidence,
@@ -193,18 +460,32 @@ registerHandler('library.system_movers', async ({ db, clock, job }) => {
     title: 'Daily movers board',
     nowMs,
     topicScope: SystemTopicScope.MOVERS,
+    topicSectors,
   });
   if (!bundle) return;
+
+  // Overlay compound-ranked symbols onto sealed view items (symbolOrSector).
+  bundle.view.items = topK.map((s) => ({
+    headline: `${s.symbol} leadership ${s.leadershipBand}; corroboration ${s.corroborationBand}`,
+    symbolOrSector: s.symbol,
+    directionBand:
+      s.direction === 'flat' ? ('low' as const) : s.leadershipBand,
+    strengthBand: s.leadershipBand,
+  }));
 
   const itemHeadlines = bundle.view.items
     .map((item) => item.headline ?? item.symbolOrSector ?? '')
     .filter((h) => h.length > 0)
     .slice(0, 8);
 
+  const feedClass =
+    usable.find((p) => p.sourceKind === 'alpaca_bars')?.feedClass ?? 'system_movers_rank';
+
   const reportBody = buildMoversReportBody({
     corroborationBand: bundle.corroborationBand,
     itemHeadlines,
     feedClass,
+    thresholdSource,
   });
 
   await persistVerifiedBundle({

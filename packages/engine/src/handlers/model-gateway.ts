@@ -1,4 +1,9 @@
-import type { CompileSelectionOutput, ConceptBatch, TreeExpandOutput } from '@hftr/contracts';
+import type {
+  CompileSelectionOutput,
+  ConceptBatch,
+  SuggestionThresholdProfile,
+  TreeExpandOutput,
+} from '@hftr/contracts';
 
 /**
  * Injected from the app layer so @hftr/engine never imports @hftr/llm.
@@ -58,6 +63,29 @@ export interface CompileSelectionInput {
   recoveryLadderSteps: string[];
 }
 
+/**
+ * Qualitative threshold-profile input — lane presence + axis labels only.
+ * No raw prices, bps, or free-form financial floats (D-091).
+ */
+export interface SuggestionThresholdProposeInput {
+  companyId: string;
+  moduleId: string;
+  jobId: string;
+  philosophyAxisLabels: string[];
+  libraryLensTitles: string[];
+  sectorFocuses: string[];
+  lanePresence: {
+    hasMarketBars: boolean;
+    hasNews: boolean;
+    hasMacro: boolean;
+    hasFilingsOrWeb: boolean;
+    hasLibraryCorpus: boolean;
+    domainCountBand: 'absent' | 'single' | 'dual' | 'multi';
+  };
+  sessionPhase: string;
+  priorProfileNote?: string;
+}
+
 export interface ModelGateway {
   synthesizeResearch(
     input: ResearchSynthesizeInput,
@@ -70,4 +98,10 @@ export interface ModelGateway {
   compileSelection(
     input: CompileSelectionInput,
   ): Promise<{ ok: true; output: CompileSelectionOutput } | { ok: false; failure: string }>;
+
+  proposeSuggestionThresholds(
+    input: SuggestionThresholdProposeInput,
+  ): Promise<
+    { ok: true; profile: SuggestionThresholdProfile } | { ok: false; failure: string }
+  >;
 }

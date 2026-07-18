@@ -534,6 +534,27 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Aligns with DevSpecs research-library philosophy (compile-time seeded mechanisms).
   **Note:** D-044 remains company sector focus presets; this bootstrap decision is D-045.
 
+- **D-047 (research archive + confidence bands + system chips, 2026-07-17):**
+  Soft-delete is the primary cleanup path: concepts/topics/libraries get `status=archived`
+  + `archived_at`. Left-panel **Archive** lists soft-deleted rows; **Restore** reactivates;
+  **Clear archive** hard-deletes archived runtime rows only. **Archive runtime** soft-deletes
+  non-`catalog_seed` concepts and non-seeded topics/libraries. Seeded trading mechanisms
+  library/topic and `catalog_seed` concepts are protected. Qualitative `confidence_band`
+  (`low|medium|high`) on concepts and topics bumps on admit/accept/verify/refine.
+  Shared `ResearchMarkdown` renders optional `[[sys:kind:id]]` chips. Design:
+  `ui-ux/research-archive-confidence-design.md`.
+
+- **D-048 (multi-domain research source registry + free/open fan-out, 2026-07-17):**
+  Research gather is pre-optimized for **any ready source at any time**:
+  `RESEARCH_SOURCE_REGISTRY` + `selectReadySourceKinds` / `resolveDefaultSourceKinds`
+  auto-select shipped sources whose auth is satisfied (public, research key, or paper
+  Alpaca). Max explicit `sourceKinds` raised to **24**; fan-out remains isolated
+  `Promise.all`. Free/open domains shipped: Frankfurter FX, CoinGecko crypto, FRED
+  macro (key), Alpha Vantage news (key), World Bank indicators. GDELT verified then
+  rate-limited → stub. Twelve Data / Marketstack researched only. Live WebSocket
+  feeds catalogued as candidates (not trading path). Matrix:
+  `research/integrations-matrix.md`. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

@@ -1,99 +1,104 @@
 # Integrations matrix (hftr-v2)
 
-Provider inventory: auth mode, implementation status, smoke commands, and official docs.
-Updated 2026-07-17 (D-046).
+Provider inventory across domains: auth, implementation, live posture, smoke, docs.
+Updated 2026-07-17 (D-046, D-048).
 
-**Decisions:** D-027 (LLM/broker user keys), D-039 (research gather), D-031 (live gate),
-D-046 (direct market/news gather sources).
+**Decisions:** D-027 (user keys), D-039 (research gather), D-031 (live gate),
+D-046 (direct market/news), D-048 (multi-domain registry + free/open fan-out).
 
-## Summary
+**Registry (code):** `packages/contracts/src/research-source-registry.ts` —
+`selectReadySourceKinds` chooses every *shipped* source whose auth is satisfied
+(public / research key / paper Alpaca). Gather fans out with `Promise.all`
+(per-source errors isolated). Max explicit `sourceKinds`: **24**.
+
+## Gather domains (research evidence)
+
+| Domain | Shipped sources | Auth | Notes |
+|--------|-----------------|------|-------|
+| web_search | `brave_search` | research key | Brave |
+| filings | `sec_edgar` | none | SEC EDGAR + data.sec.gov |
+| news | `market_news`, `alpha_vantage_news` | research key | Marketaux; AV NEWS_SENTIMENT |
+| equity_news | `alpaca_news`, `finnhub_news`, `polygon_news` | broker paper / keys | Honest feed classes |
+| equity_bars | `alpaca_bars` | broker paper | Qualitative entitlement only |
+| fx | `frankfurter_fx` | none | ECB reference via frankfurter.dev `/v2/rates` |
+| crypto | `coingecko_crypto` | none | Markets list; prices redacted |
+| macro | `fred_macro`, `world_bank_indicator` | FRED key / none | Series titles only; no observation digits |
+| news (global) | `gdelt_news` | none | **stub** — DOC API verified then 429; backoff pending |
+| equity_bars (alt) | `twelve_data`, `marketstack` | researched | Not wired |
+| internal | `catalog`, `library`, `operator` | N/A | Explicit request only |
+
+Evidence titles/summaries are always leak-linted — **never** raw OHLC, FX rates, or quote levels.
+
+## LLM + broker (runtime)
 
 | Provider | Category | Runtime auth | Status | Smoke | Docs |
 |----------|----------|--------------|--------|-------|------|
-| Anthropic | LLM (strategic) | `user_api_keys` | shipped | `pnpm smoke:llm` | https://docs.anthropic.com |
-| Mistral | LLM (tactical/assistant) | `user_api_keys` | shipped | `pnpm smoke:llm` | https://docs.mistral.ai |
-| Groq | LLM (execution compile) | `user_api_keys` | shipped | `pnpm smoke:llm` | https://console.groq.com/docs |
-| Cerebras | LLM (alt execution/tactical) | `user_api_keys` | shipped | `pnpm smoke:llm` | https://inference-docs.cerebras.ai |
-| Fireworks | LLM (alt) | `user_api_keys` | shipped | `pnpm smoke:llm` | https://docs.fireworks.ai |
-| OpenRouter | LLM (ZDR routing) | `user_api_keys` | shipped | `pnpm smoke:llm` | https://docs.openrouter.ai |
-| Alpaca paper | Broker + IEX quotes/bars | `broker_connections` | shipped (M2) | `pnpm smoke:alpaca-paper` | https://docs.alpaca.markets |
-| Alpaca live | Broker | `broker_connections` + live gate | fail-closed | manual only | https://docs.alpaca.markets |
-| Alpaca news | Research gather | paper Alpaca broker creds | shipped (D-046) | `pnpm smoke:research` | https://docs.alpaca.markets/reference/news-1 |
-| Alpaca bars (research) | Research gather (qualitative) | paper Alpaca broker creds | shipped (D-046) | unit tests | `packages/adapters/src/research/alpaca-bars-evidence.ts` |
-| Brave Search | Research gather | `user_research_keys` (`brave`) | shipped | `pnpm smoke:research` | https://api.search.brave.com/app/documentation |
-| Marketaux | Research gather (news) | `user_research_keys` (`market_news`) | shipped | `pnpm smoke:research` | https://www.marketaux.com/documentation |
-| Finnhub | Research gather (news) | `user_research_keys` (`finnhub`) | shipped (D-046) | `pnpm smoke:research` | https://finnhub.io/docs/api/company-news |
-| Polygon.io | Research gather (news) | `user_research_keys` (`polygon`) | shipped (D-046) | `pnpm smoke:research` | https://polygon.io/docs/stocks/get_v2_reference_news |
-| SEC EDGAR | Research gather (filings) | none (public) | shipped | N/A | https://www.sec.gov/edgar/search-and-access |
-| paper_sim | Internal broker | N/A | shipped | unit tests | `architecture/broker-integration.md` |
-| Kalshi | Broker | planned M3 | stub | — | https://docs.kalshi.com |
-| Polymarket | Broker | planned M4 | stub | — | https://docs.polymarket.com |
-| Stripe | Billing | platform secret | deferred (M4) | — | https://docs.stripe.com |
+| Anthropic | LLM strategic | `user_api_keys` | shipped | `pnpm smoke:llm` | https://docs.anthropic.com |
+| Mistral | LLM tactical | `user_api_keys` | shipped | `pnpm smoke:llm` | https://docs.mistral.ai |
+| Groq | LLM compile | `user_api_keys` | shipped | `pnpm smoke:llm` | https://console.groq.com/docs |
+| Cerebras / Fireworks / OpenRouter | LLM alt | `user_api_keys` | shipped | `pnpm smoke:llm` | provider docs |
+| Alpaca paper | Broker + IEX | `broker_connections` | shipped | `pnpm smoke:alpaca-paper` | https://docs.alpaca.markets |
+| Alpaca live | Broker | live gate | fail-closed | manual | https://docs.alpaca.markets |
+| paper_sim | Internal | N/A | shipped | unit | broker-integration.md |
+| Kalshi / Polymarket | Broker | M3/M4 | stub | — | venue docs |
+| Stripe | Billing | platform | deferred M4 | — | https://docs.stripe.com |
+
+## Free / open data — verified this session
+
+| Source | Probe | Result | Product posture |
+|--------|-------|--------|-----------------|
+| Frankfurter `/v2/rates?base=USD` | HTTP | **200** | shipped gather |
+| Frankfurter `/v2/latest` | HTTP | **404** | do not use |
+| CoinGecko `/api/v3/ping` + markets | HTTP | **200** | shipped gather |
+| World Bank `/v2/indicator` | HTTP | **200** | shipped gather |
+| FRED series API | HTTP | **400** without real key (shape OK) | shipped + settings key |
+| Alpha Vantage NEWS_SENTIMENT | HTTP | **200** demo notice | shipped + settings key |
+| SEC `data.sec.gov` | HTTP | **200** | shipped |
+| GDELT DOC ArtList | HTTP | **200** then **429** | stub until backoff |
+| Twelve Data / Marketstack | docs | free tier exists | researched only |
+
+## Live / streaming feed candidates (not yet product-wired)
+
+| Feed | Mode | Auth | Status | Use when |
+|------|------|------|--------|----------|
+| Alpaca market data WS | websocket | broker keys | researched | live quotes after live gate |
+| Finnhub WS trades/news | websocket | finnhub key | researched | optional live desk |
+| Polygon WS | websocket | polygon key | researched | paid entitlement |
+| CoinGecko REST poll | rest_poll | none | shipped (research) | crypto breadth, not tick trading |
+| Frankfurter daily | rest_poll | none | shipped | FX reference, not L1 forex |
+
+Live trading quotes remain on the **broker adapter path** with honest `feedClass`. Research gather is REST fan-out + qualitative evidence only.
 
 ## Auth modes
 
-### User settings (production)
+| Secret | Table | Encryption | UI |
+|--------|-------|------------|-----|
+| LLM | `user_api_keys` | `SETTINGS_ENCRYPTION_KEY` | Settings → LLM |
+| Research | `user_research_keys` | same | Settings → Research (Brave, Marketaux, Finnhub, Polygon, FRED, Alpha Vantage) |
+| Broker | `broker_connections` | `CREDENTIALS_ENCRYPTION_KEY` | Settings → Brokers |
 
-| Secret type | Table | Encryption key | UI surface |
-|-------------|-------|----------------|------------|
-| LLM API keys | `user_api_keys` | `SETTINGS_ENCRYPTION_KEY` | User settings → LLM providers |
-| Research keys | `user_research_keys` | `SETTINGS_ENCRYPTION_KEY` | User settings → Research |
-| Broker credentials | `broker_connections` | `CREDENTIALS_ENCRYPTION_KEY` | User settings → Brokers |
+Env keys authorize **smoke only** (D-027).
 
-Verify flows decrypt server-side and ping provider (never return plaintext to client).
+## Smoke
 
-### Environment (CI / smoke only)
-
-Deployment env vars **do not** authorize runtime calls (D-027).
-
-| Flag | Script | Purpose |
-|------|--------|---------|
-| `HFTR_LLM_SMOKE=1` | `scripts/smoke-llm-providers.mjs` | Models-list / format verify per present `*_API_KEY` |
-| `HFTR_RESEARCH_SMOKE=1` | `scripts/smoke-research-sources.mjs` | Brave, Marketaux, Alpaca news, Finnhub, Polygon |
-| `ALPACA_PAPER_SMOKE=1` | `scripts/smoke-alpaca-paper.mjs` | Alpaca paper adapter vitest smoke |
-
-Without flags, scripts exit 0 with `skip:`.
-
-## Env variable map (smoke)
-
-| Variable | Provider | Alias |
-|----------|----------|-------|
-| `ANTHROPIC_API_KEY` | Anthropic | — |
-| `MISTRAL_API_KEY` | Mistral | — |
-| `GROQ_API_KEY` | Groq | — |
-| `CEREBRAS_API_KEY` | Cerebras | — |
-| `FIREWORKS_API_KEY` | Fireworks | — |
-| `OPENROUTER_API_KEY` | OpenRouter | — |
-| `BRAVE_API_KEY` | Brave | — |
-| `MARKETAUX_API_KEY` | Marketaux | `MARKET_NEWS_API_KEY` |
-| `FINNHUB_API_KEY` | Finnhub | — |
-| `POLYGON_API_KEY` | Polygon | — |
-| `ALPACA_PAPER_KEY` | Alpaca | `ALPACA_PAPER_KEY_ID` |
-| `ALPACA_PAPER_SECRET` | Alpaca | — |
-
-Manifest: `packages/contracts/src/env.ts` (kept in sync with `.env.example` by test).
+| Flag | Script |
+|------|--------|
+| `HFTR_LLM_SMOKE=1` | `pnpm smoke:llm` |
+| `HFTR_RESEARCH_SMOKE=1` | `pnpm smoke:research` (Frankfurter, CoinGecko, World Bank always; keyed sources when present) |
+| `ALPACA_PAPER_SMOKE=1` | `pnpm smoke:alpaca-paper` |
 
 ## Implementation pointers
 
 | Area | Path |
 |------|------|
-| LLM verify | `apps/web/lib/llm-verify.ts` |
-| LLM transport | `packages/llm/src/providers.ts` |
-| LLM contracts | `packages/contracts/src/llm.ts` |
-| Brave gather | `packages/adapters/src/research/brave-search.ts` |
-| Market news | `packages/adapters/src/research/market-news.ts` |
-| Finnhub news | `packages/adapters/src/research/finnhub-news.ts` |
-| Polygon news | `packages/adapters/src/research/polygon-news.ts` |
-| Alpaca news | `packages/adapters/src/alpaca/news.ts` |
-| Alpaca bars evidence | `packages/adapters/src/research/alpaca-bars-evidence.ts` |
-| Gather orchestrator | `packages/adapters/src/research/gather.ts` |
-| Alpaca adapter | `packages/adapters/src/alpaca/` |
-| Settings API | `apps/web/app/api/settings/` |
-| Operator runbook | `agent-docs/ops/runbook.md` |
-| Cursor skill | `.cursor/skills/external-integrations/SKILL.md` |
+| Source registry | `packages/contracts/src/research-source-registry.ts` |
+| Gather + credential bag | `packages/adapters/src/research/gather.ts` |
+| Free adapters | `frankfurter-fx`, `coingecko-crypto`, `fred-macro`, `alpha-vantage-news`, `world-bank-indicator` |
+| Skill | `.cursor/skills/external-integrations/SKILL.md` |
+| Workflow | `.cursor/workflows/credentialed-integrations.md` |
 
 ## Related
 
-- `architecture/broker-integration.md` — venue rollout and funding UX
-- `architecture/llm-pipeline.md` — tier boundary and gather placement
-- `research/tech-decisions.md` — TD-08 brokers, TD-11 market data
+- TD-11 market data — `research/tech-decisions.md`
+- Broker rollout — `architecture/broker-integration.md`
+- Number handling — evidence must stay digit-safe for model paths

@@ -12,7 +12,10 @@ Matrix: `agent-docs/research/integrations-matrix.md`
 ## Runtime auth (mandatory)
 
 - **LLM calls:** user-saved keys from `user_api_keys` only (D-027). Never `process.env.ANTHROPIC_API_KEY` (or siblings) to authorize inference.
-- **Research gather:** `user_research_keys` for Brave / market_news / finnhub / polygon (D-039, D-046). Alpaca news/bars reuse paper broker creds. SEC EDGAR is public — no key.
+- **Research gather:** `user_research_keys` for Brave / market_news / finnhub / polygon /
+  fred / alpha_vantage (D-039, D-046, D-048). Public: SEC, Frankfurter, CoinGecko,
+  World Bank. Alpaca news/bars reuse paper broker creds. Registry:
+  `packages/contracts/src/research-source-registry.ts`.
 - **Broker dispatch:** decrypted `broker_connections` for bound company only. Deterministic core is the only order submitter.
 
 ## Encryption

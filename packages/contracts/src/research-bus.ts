@@ -24,7 +24,10 @@ export const ResearchSourceKind = z.enum([
   'brave_search',
   'sec_edgar',
   'market_news',
+  'alpaca_news',
   'alpaca_bars',
+  'finnhub_news',
+  'polygon_news',
   'catalog',
   'library',
   'operator',
@@ -145,7 +148,12 @@ export const ResearchResult = z.object({
 export type ResearchResult = z.infer<typeof ResearchResult>;
 
 /** External research gather providers (operator-supplied API keys). */
-export const ResearchKeyProvider = z.enum(['brave', 'market_news']);
+export const ResearchKeyProvider = z.enum([
+  'brave',
+  'market_news',
+  'finnhub',
+  'polygon',
+]);
 export type ResearchKeyProvider = z.infer<typeof ResearchKeyProvider>;
 
 export const CreateResearchQueryInput = z.object({
@@ -162,7 +170,10 @@ export const RESEARCH_SOURCE_FEED_CLASS: Record<ResearchSourceKind, string> = {
   brave_search: 'brave_search',
   sec_edgar: 'sec_edgar_free',
   market_news: 'market_news_public',
+  alpaca_news: 'alpaca_benzinga_news',
   alpaca_bars: 'alpaca_iex_paper',
+  finnhub_news: 'finnhub_company_news',
+  polygon_news: 'polygon_reference_news',
   catalog: 'seed_catalog',
   library: 'company_library',
   operator: 'operator_input',

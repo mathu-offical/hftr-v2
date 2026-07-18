@@ -839,6 +839,8 @@ describe('Research bus (D-039)', () => {
       ResearchQueryMode,
       CreateResearchQueryInput,
       RESEARCH_SOURCE_FEED_CLASS,
+      ResearchKeyProvider,
+      ResearchSourceKind,
     } = await import('./research-bus');
     const { HandoffEnvelope } = await import('./foundation');
     const { ResearchModuleConfig } = await import('./modules');
@@ -846,6 +848,12 @@ describe('Research bus (D-039)', () => {
     expect(AdmissionMode.options).toContain('auto_admit_validated');
     expect(ResearchQueryMode.options).toContain('manual');
     expect(RESEARCH_SOURCE_FEED_CLASS.brave_search).toBe('brave_search');
+    expect(RESEARCH_SOURCE_FEED_CLASS.finnhub_news).toBe('finnhub_company_news');
+    expect(RESEARCH_SOURCE_FEED_CLASS.polygon_news).toBe('polygon_reference_news');
+    expect(ResearchKeyProvider.options).toContain('finnhub');
+    expect(ResearchKeyProvider.options).toContain('polygon');
+    expect(ResearchSourceKind.options).toContain('finnhub_news');
+    expect(ResearchSourceKind.options).toContain('polygon_news');
 
     const envelope = HandoffEnvelope.parse({
       contractVersion: '1',

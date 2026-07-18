@@ -79,9 +79,13 @@ import {
   CANVAS_LAYOUT,
   LAYOUT_COLUMN_STEP,
   LAYOUT_ROW_STEP,
+  engineCanvasOffsetForOrigin,
   layoutCanvas,
+  placeNextEngineOrigin,
   rankEngineMembers,
   reflowEngineAtOrigin,
+  rectsOverlap,
+  translateLayoutResultToOrigin,
 } from './canvas-layout';
 
 describe('env manifest', () => {
@@ -1169,6 +1173,57 @@ describe('canvas layout (D-033)', () => {
     expect(second!.canvasBounds.x).toBeGreaterThanOrEqual(
       first!.canvasBounds.x + first!.canvasBounds.width,
     );
+  });
+
+  it('places the next engine origin without overlapping occupied envelopes', () => {
+    const first = { x: 40, y: 40, width: 800, height: 600 };
+    const size = { width: 700, height: 500 };
+    const origin = placeNextEngineOrigin([first], size);
+    expect(
+      rectsOverlap(
+        { ...origin, ...size },
+        first,
+      ),
+    ).toBe(false);
+    expect(origin.x).toBeGreaterThanOrEqual(first.x + first.width);
+    expect(origin.y).toBe(CANVAS_LAYOUT.originY);
+  });
+
+  it('keeps a preferred origin when it already clears occupied engines', () => {
+    const occupied = [{ x: 40, y: 40, width: 400, height: 300 }];
+    const preferred = { x: 800, y: 40 };
+    expect(
+      placeNextEngineOrigin(occupied, { width: 300, height: 300 }, { preferred }),
+    ).toEqual(preferred);
+  });
+
+  it('derives canvas offset so template envelopes land at the chosen origin', () => {
+    const { offset, bounds } = engineCanvasOffsetForOrigin(
+      [
+        { x: 100, y: 200 },
+        { x: 400, y: 200 },
+      ],
+      { x: 40, y: 40 },
+      ENGINE_GROUP_PADDING,
+    );
+    expect(bounds.x).toBe(40);
+    expect(bounds.y).toBe(40);
+    expect(offset.x).toBe(40 - (100 - ENGINE_GROUP_PADDING.left));
+    expect(offset.y).toBe(40 - (200 - ENGINE_GROUP_PADDING.top));
+  });
+
+  it('translates a reflowed engine to a collision-free origin', () => {
+    const a = '00000000-0000-4000-8000-0000000000f1';
+    const laid = reflowEngineAtOrigin(
+      { id: engineId, memberModuleIds: [a] },
+      [mkModule(a)],
+      [],
+      { x: 40, y: 40 },
+      ENGINE_GROUP_PADDING,
+    );
+    const moved = translateLayoutResultToOrigin(laid, engineId, { x: 900, y: 40 });
+    expect(moved.engines[0]!.canvasBounds.x).toBe(900);
+    expect(moved.modules[0]!.canvasPosition.x - laid.modules[0]!.canvasPosition.x).toBe(860);
   });
 });
 

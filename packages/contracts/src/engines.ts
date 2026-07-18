@@ -111,15 +111,16 @@ export function isMathToolAttachment(
 export const ENGINE_GROUP_PADDING = {
   left: 112,
   right: 112,
-  /** Label bar + full shared setup chrome (D-035 EngineGroupNode). */
-  top: 300,
+  /** Label bar + compact human-readable setup strip (D-035 EngineGroupNode). */
+  top: 200,
   bottom: 180,
 } as const;
 
 export function computeEngineBoundsFromPositions(
   positions: readonly { x: number; y: number }[],
   nodeWidth = 280,
-  nodeHeight = 220,
+  /** Match CANVAS_LAYOUT.moduleHeight so create/reflow envelopes clear tall cards. */
+  nodeHeight = 320,
 ): EngineCanvasBounds {
   if (positions.length === 0) {
     return {

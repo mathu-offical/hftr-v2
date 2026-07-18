@@ -438,3 +438,139 @@ export function reflowEngineAtOrigin(
     engines: [{ id: engine.id, canvasBounds: laid.canvasBounds }],
   };
 }
+
+/** Axis-aligned canvas rectangle (engine chrome or free module envelope). */
+export type LayoutRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export function inflateRect(rect: LayoutRect, gutter: number): LayoutRect {
+  if (gutter === 0) return rect;
+  return {
+    x: rect.x - gutter,
+    y: rect.y - gutter,
+    width: rect.width + gutter * 2,
+    height: rect.height + gutter * 2,
+  };
+}
+
+export function rectsOverlap(a: LayoutRect, b: LayoutRect): boolean {
+  return (
+    a.x < b.x + b.width &&
+    a.x + a.width > b.x &&
+    a.y < b.y + b.height &&
+    a.y + a.height > b.y
+  );
+}
+
+/**
+ * Next top-left origin for an engine envelope that does not overlap occupied
+ * rects. Prefers the caller's preferred origin, then left-to-right packing
+ * (canvas default), then below existing engines.
+ */
+export function placeNextEngineOrigin(
+  occupied: readonly LayoutRect[],
+  size: { width: number; height: number },
+  options?: {
+    gutter?: number;
+    originX?: number;
+    originY?: number;
+    preferred?: { x: number; y: number };
+  },
+): { x: number; y: number } {
+  const gutter = options?.gutter ?? CANVAS_LAYOUT.topLevelGutter;
+  const originX = options?.originX ?? CANVAS_LAYOUT.originX;
+  const originY = options?.originY ?? CANVAS_LAYOUT.originY;
+  const pad = gutter / 2;
+
+  const fits = (origin: { x: number; y: number }): boolean => {
+    const candidate = inflateRect(
+      { x: origin.x, y: origin.y, width: size.width, height: size.height },
+      pad,
+    );
+    return !occupied.some((rect) => rectsOverlap(candidate, inflateRect(rect, pad)));
+  };
+
+  if (options?.preferred && fits(options.preferred)) {
+    return options.preferred;
+  }
+  if (occupied.length === 0) {
+    return { x: originX, y: originY };
+  }
+
+  const ordered = [...occupied].sort((a, b) => a.x - b.x || a.y - b.y);
+  const candidates: Array<{ x: number; y: number }> = [
+    { x: originX, y: originY },
+    ...ordered.map((rect) => ({ x: rect.x + rect.width + gutter, y: originY })),
+    ...ordered.map((rect) => ({ x: rect.x, y: rect.y + rect.height + gutter })),
+  ];
+  for (const candidate of candidates) {
+    if (fits(candidate)) return candidate;
+  }
+
+  const maxRight = Math.max(...occupied.map((rect) => rect.x + rect.width));
+  return { x: maxRight + gutter, y: originY };
+}
+
+/**
+ * Canvas offset for template module positions so the padded group envelope
+ * lands at `origin` (top-left of engine chrome).
+ */
+export function engineCanvasOffsetForOrigin(
+  templatePositions: readonly { x: number; y: number }[],
+  origin: { x: number; y: number },
+  padding: { left: number; right: number; top: number; bottom: number },
+  nodeWidth = CANVAS_LAYOUT.moduleWidth,
+  nodeHeight = CANVAS_LAYOUT.moduleHeight,
+): { offset: { x: number; y: number }; bounds: LayoutRect } {
+  const relative = computePaddedBounds(templatePositions, padding, nodeWidth, nodeHeight);
+  return {
+    offset: {
+      x: origin.x - relative.x,
+      y: origin.y - relative.y,
+    },
+    bounds: {
+      x: origin.x,
+      y: origin.y,
+      width: relative.width,
+      height: relative.height,
+    },
+  };
+}
+
+/** Translate a layout result so the named engine's chrome moves to `origin`. */
+export function translateLayoutResultToOrigin(
+  layout: LayoutResult,
+  engineId: string,
+  origin: { x: number; y: number },
+): LayoutResult {
+  const engine = layout.engines.find((item) => item.id === engineId);
+  if (!engine) return layout;
+  const dx = origin.x - engine.canvasBounds.x;
+  const dy = origin.y - engine.canvasBounds.y;
+  if (dx === 0 && dy === 0) return layout;
+  return {
+    modules: layout.modules.map((module) => ({
+      id: module.id,
+      canvasPosition: {
+        x: module.canvasPosition.x + dx,
+        y: module.canvasPosition.y + dy,
+      },
+    })),
+    engines: layout.engines.map((item) =>
+      item.id === engineId
+        ? {
+            id: item.id,
+            canvasBounds: {
+              ...item.canvasBounds,
+              x: origin.x,
+              y: origin.y,
+            },
+          }
+        : item,
+    ),
+  };
+}

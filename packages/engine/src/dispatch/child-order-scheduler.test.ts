@@ -1,5 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeChildSliceFraction, planChildSlices } from './child-order-scheduler';
+import { normalizeChildSliceFraction, planChildSlices, sliceDrainIntervalMs } from './child-order-scheduler';
+
+describe('sliceDrainIntervalMs', () => {
+  it('maps low urgency to ~30s and high urgency to ~5s', () => {
+    expect(sliceDrainIntervalMs(0.2)).toBe(30_000);
+    expect(sliceDrainIntervalMs(3)).toBe(5_000);
+  });
+
+  it('clamps out-of-range urgency', () => {
+    expect(sliceDrainIntervalMs(0)).toBe(sliceDrainIntervalMs(0.2));
+    expect(sliceDrainIntervalMs(10)).toBe(sliceDrainIntervalMs(3));
+  });
+
+  it('decreases monotonically as urgency rises', () => {
+    const low = sliceDrainIntervalMs(0.5);
+    const mid = sliceDrainIntervalMs(1.5);
+    const high = sliceDrainIntervalMs(2.5);
+    expect(low).toBeGreaterThan(mid);
+    expect(mid).toBeGreaterThan(high);
+  });
+});
 
 describe('child-order-scheduler', () => {
   it('plans slices that sum to parent qty', () => {

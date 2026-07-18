@@ -39,8 +39,12 @@ import {
   resolveDispatchSpendAuthority,
   resolveEquityCentsForLimits,
 } from './balances';
-import { materializeChildSliceFills } from './child-slice-fills';
+import { materializeChildSliceFills, normalizeChildSlicesForDrain } from './child-slice-fills';
 import { planChildSlices } from './child-order-scheduler';
+import { buildFillVerificationFields } from './fill-verification';
+import { startTimeSpacedChildDrain } from './paper-trade-child-drain';
+import type { PaperTradeRequest, PaperTradeResult } from './paper-trade-types';
+export type { PaperTradeRequest, PaperTradeResult } from './paper-trade-types';
 import { resolveExecutionContext } from './execution-context';
 import { feeCentsFromNotional } from './fees';
 import { preDispatchGauntlet } from './pre-dispatch';
@@ -64,37 +68,10 @@ import { resolveMarketQuote, loadAdapterMarketQuote } from '../paper/market-mode
  * Operator path: UI form still records operator_input refs then inserts an instruction.
  */
 
-export interface PaperTradeRequest {
-  companyId: string;
-  moduleId: string;
-  symbol: string;
-  actionVerb: 'buy' | 'sell';
-  orderType: 'market' | 'limit';
-  quantity: number;
-  limitPriceCents?: number | null;
-  jobId?: string | null;
-  /**
-   * When set, reuse the compile-produced instruction and its ValueRef lineage
-   * instead of inserting a new instruction from raw numbers.
-   */
-  compiled?: ResolvedInstruction;
-}
-
-export interface PaperTradeResult {
-  outcome: 'filled' | 'rejected' | 'blocked';
-  failureCode: string | null;
-  detail: string;
-  traceId: string | null;
-  fillPriceCents: number | null;
-  notionalCents: number | null;
-  balanceAfterCents: string | null;
-}
-
 const POLICY_ENVELOPE_VERSION = 'paper_balanced_general_v1';
 const VERIFICATION_SCHEMA_VERSION = 'trade_verify_v1';
 const MAX_QUANTITY = 100_000;
 const QUOTE_TTL_MS = 90_000;
-const MAX_FILL_DEVIATION_BPS = 50;
 const DEFAULT_BROKER_ENVELOPE_ID = 'bpe-001';
 const DEFAULT_GUARDRAIL_PACKAGE_IDS = ['grd-001', 'grd-003'] as const;
 const ORDER_FREQ_WINDOW_MS = 60_000;
@@ -197,7 +174,7 @@ export async function executePaperTradeFromInstruction(
 export async function executePaperTrade(
   db: Db,
   clock: Clock,
-  req: PaperTradeRequest,
+  req: PaperTradeRequest & { compiled?: ResolvedInstruction },
 ): Promise<PaperTradeResult> {
   const compiled = req.compiled;
   let execCtx;
@@ -623,9 +600,9 @@ export async function executePaperTrade(
     };
   }
 
-  const compileSlices = compiled
-    ? await loadCompileChildSlices(db, instructionId)
-    : null;
+  const compilePlan = compiled ? await loadCompileDrainPlan(db, instructionId) : null;
+  const compileSlices = compilePlan?.slices ?? null;
+  const urgencyScalar = compilePlan?.urgencyScalar ?? 1.2;
   // Operator path: when no compile plan, still POV-slice qty≥2 so multi-share
   // opportunistic entries get honest partial-fill legs (same planner as compile).
   const slicesForDrain =
@@ -638,6 +615,27 @@ export async function executePaperTrade(
           childSliceFraction: 0.6,
         }).slices
       : null);
+  const normalizedSlices = normalizeChildSlicesForDrain(req.quantity, slicesForDrain);
+
+  if (normalizedSlices && normalizedSlices.length >= 2) {
+    return startTimeSpacedChildDrain(db, clock, req, {
+      task,
+      taskId,
+      instructionId,
+      slices: normalizedSlices,
+      basePriceCents: fill.priceCents,
+      venueOrderId: fill.venueOrderId,
+      quoteRef,
+      quote,
+      sessionSnapshot,
+      venue,
+      brokerConnectionId: brokerConnectionId ?? null,
+      urgencyScalar,
+      usedLiveMarketQuote: usesLiveMarketQuote,
+      routingMode,
+    });
+  }
+
   const childMaterialized = materializeChildSliceFills({
     parentQty: req.quantity,
     slices: slicesForDrain,
@@ -669,18 +667,25 @@ export async function executePaperTrade(
   });
 }
 
-async function loadCompileChildSlices(
+async function loadCompileDrainPlan(
   db: Db,
   instructionId: string,
-): Promise<unknown> {
+): Promise<{ slices: unknown; urgencyScalar: number }> {
   const rows = await db
     .select({ lineage: compileEvents.lineage })
     .from(compileEvents)
     .where(eq(compileEvents.instructionId, instructionId))
     .limit(1);
   const lineage = rows[0]?.lineage;
-  if (!lineage || typeof lineage !== 'object' || Array.isArray(lineage)) return null;
-  return (lineage as { childSlices?: unknown }).childSlices ?? null;
+  if (!lineage || typeof lineage !== 'object' || Array.isArray(lineage)) {
+    return { slices: null, urgencyScalar: 1.2 };
+  }
+  const record = lineage as { childSlices?: unknown; urgencyScalar?: unknown };
+  const urgencyScalar =
+    typeof record.urgencyScalar === 'number' && Number.isFinite(record.urgencyScalar)
+      ? record.urgencyScalar
+      : 1.2;
+  return { slices: record.childSlices ?? null, urgencyScalar };
 }
 
 interface VenueTradeContext {
@@ -1167,42 +1172,7 @@ async function finalizeFilledTrade(
   };
 }
 
-export function buildFillVerificationFields(args: {
-  quantity: number;
-  quantityInt: string;
-  fillPriceCents: number;
-  quoteLastCents: number | null;
-  actionVerb: 'buy' | 'sell';
-  limitPriceCents: number | null;
-}): Array<{ field: string; pass: boolean; detail: string }> {
-  const deviationBps = Math.abs(
-    Math.round(
-      ((args.fillPriceCents - (args.quoteLastCents ?? args.fillPriceCents)) / args.fillPriceCents) *
-        10_000,
-    ),
-  );
-  return [
-    {
-      field: 'quantity',
-      pass: args.quantityInt === String(args.quantity),
-      detail: 'fill quantity matches instruction',
-    },
-    {
-      field: 'fill_price_deviation',
-      pass: deviationBps <= MAX_FILL_DEVIATION_BPS,
-      detail: `deviation ${deviationBps} bps vs bound ${MAX_FILL_DEVIATION_BPS}`,
-    },
-    {
-      field: 'limit_respected',
-      pass:
-        args.limitPriceCents === null ||
-        (args.actionVerb === 'buy'
-          ? args.fillPriceCents <= args.limitPriceCents
-          : args.fillPriceCents >= args.limitPriceCents),
-      detail: 'fill respects limit price',
-    },
-  ];
-}
+export { buildFillVerificationFields } from './fill-verification';
 
 function computeFill(
   task: DeterministicActionTask,

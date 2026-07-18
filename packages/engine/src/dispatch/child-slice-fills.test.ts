@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   materializeChildSliceFills,
+  materializeOneChildSliceFill,
   normalizeChildSlicesForDrain,
 } from './child-slice-fills';
 
@@ -58,5 +59,27 @@ describe('materializeChildSliceFills', () => {
       venueOrderId: 'psim_x',
     });
     expect(r.fills.map((f) => f.priceCents)).toEqual([50, 49]);
+  });
+});
+
+describe('materializeOneChildSliceFill', () => {
+  it('matches batch materialization for a single leg', () => {
+    const one = materializeOneChildSliceFill({
+      sliceIndex: 2,
+      qty: 1,
+      basePriceCents: 100,
+      actionVerb: 'buy',
+      quoteRef: 'nv_q',
+      venueOrderId: 'psim_abc',
+    });
+    const batch = materializeChildSliceFills({
+      parentQty: 6,
+      slices: [3, 2, 1],
+      basePriceCents: 100,
+      actionVerb: 'buy',
+      quoteRef: 'nv_q',
+      venueOrderId: 'psim_abc',
+    });
+    expect(one).toEqual(batch.fills[2]);
   });
 });

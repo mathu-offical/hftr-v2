@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { executePaperTrade, executePaperTradeFromInstruction } from '../dispatch/paper-trade';
+import { executePaperTradeChildSlice } from '../dispatch/paper-trade-child-drain';
 import { registerHandler } from './registry';
 
 const OperatorPaperTradePayload = z.object({
@@ -54,4 +55,16 @@ registerHandler('dispatch.paper_trade', async ({ db, clock, job }) => {
     // Permanent input problem — failing the job would retry uselessly.
     return;
   }
+});
+
+const ChildSliceDrainPayload = z.object({
+  taskId: z.string().uuid(),
+  companyId: z.string().uuid(),
+  moduleId: z.string().uuid(),
+  sliceIndex: z.number().int().nonnegative(),
+});
+
+registerHandler('dispatch.paper_trade_child_slice', async ({ db, clock, job }) => {
+  const payload = ChildSliceDrainPayload.parse(job.payload);
+  await executePaperTradeChildSlice(db, clock, payload);
 });

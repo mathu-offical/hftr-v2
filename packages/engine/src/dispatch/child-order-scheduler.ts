@@ -97,6 +97,16 @@ export function planChildSlices(input: ChildSlicePlanInput): ChildSlicePlan {
   };
 }
 
+/**
+ * Delay between POV child-slice drain jobs. Higher urgency → shorter interval.
+ * Maps ~30_000ms at urgency 0.2 → ~5_000ms at urgency 3.
+ */
+export function sliceDrainIntervalMs(urgencyScalar: number): number {
+  const urgency = clamp(urgencyScalar, 0.2, 3);
+  const t = (urgency - 0.2) / (3 - 0.2);
+  return Math.round(30_000 - t * 25_000);
+}
+
 /** Normalize catalog child_slice pct (10/60/100) or fraction to 0–1. */
 export function normalizeChildSliceFraction(raw: number): number {
   if (!Number.isFinite(raw) || raw <= 0) return 0.6;

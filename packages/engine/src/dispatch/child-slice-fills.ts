@@ -41,6 +41,30 @@ export function normalizeChildSlicesForDrain(
 }
 
 /**
+ * Build one child fill leg with 1¢ adverse walk per slice index
+ * (buy: higher asks; sell: lower bids).
+ */
+export function materializeOneChildSliceFill(args: {
+  sliceIndex: number;
+  qty: number;
+  basePriceCents: number;
+  actionVerb: 'buy' | 'sell';
+  quoteRef: string;
+  venueOrderId: string;
+}): ChildSliceFillLeg {
+  const walk = args.actionVerb === 'buy' ? args.sliceIndex : -args.sliceIndex;
+  const priceCents = Math.max(1, args.basePriceCents + walk);
+  return {
+    qtyInt: String(args.qty),
+    qtyScale: 0,
+    priceCents,
+    atRef: args.quoteRef,
+    sliceIndex: args.sliceIndex,
+    venueOrderId: `${args.venueOrderId}_s${args.sliceIndex}`,
+  };
+}
+
+/**
  * Build sequential child fill legs with a 1¢ adverse walk per slice
  * (buy: higher asks; sell: lower bids) — honest paper impact proxy under POV.
  */
@@ -75,17 +99,16 @@ export function materializeChildSliceFills(args: {
   let notional = 0;
   for (let i = 0; i < normalized.length; i++) {
     const qty = normalized[i]!;
-    const walk = args.actionVerb === 'buy' ? i : -i;
-    const priceCents = Math.max(1, args.basePriceCents + walk);
-    fills.push({
-      qtyInt: String(qty),
-      qtyScale: 0,
-      priceCents,
-      atRef: args.quoteRef,
+    const leg = materializeOneChildSliceFill({
       sliceIndex: i,
-      venueOrderId: `${args.venueOrderId}_s${i}`,
+      qty,
+      basePriceCents: args.basePriceCents,
+      actionVerb: args.actionVerb,
+      quoteRef: args.quoteRef,
+      venueOrderId: args.venueOrderId,
     });
-    notional += qty * priceCents;
+    fills.push(leg);
+    notional += qty * leg.priceCents;
   }
   const totalQty = args.parentQty;
   const vwapCents = Math.max(1, Math.round(notional / totalQty));

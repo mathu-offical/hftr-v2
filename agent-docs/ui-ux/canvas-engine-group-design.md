@@ -41,21 +41,25 @@ Engine group header exposes comma-separated master topic editor + **Save** → `
 ## Canvas chrome (target UX)
 
 ```
-┌─ Engine ─────────────────────── [Delete] ─┐
-│ Day trading engine                        │
-│ Master topic/sector  [________] [Save]    │
-│ ┌─────────────────────────────────────┐   │
-│ │  (member module nodes as children)  │   │
-│ └─────────────────────────────────────┘   │
-└───────────────────────────────────────────┘
+┌─ Engine ──────────────── [Reflow] [Delete] ─┐
+│ Day trading engine                          │
+│ Topic / sector     [human-length value____] │
+│ Capital allocation [USD] [value___________] │
+│ Target exit        [datetime-local________] │
+│ Template inputs (human labels) …  [Save]    │
+│ ┌─────────────────────────────────────────┐ │
+│ │  (member module nodes as children)      │ │
+│ └─────────────────────────────────────────┘ │
+└─────────────────────────────────────────────┘
 ```
 
 - React Flow **parent node** `type: engineGroup`; children use `parentId` + relative positions.
 - Bounds: `computeEngineBoundsFromPositions(member positions)` + `ENGINE_GROUP_PADDING`.
 - Drag handle on group header bar (`engine-group-drag`); inline fields use `nodrag nowheel`.
+- Enterable fields sit in a **compact top strip** with visible human-readable labels; tap focuses the control for entry.
+- Create / insert / single-engine reflow / engine drag-stop use `placeNextEngineOrigin` so envelopes do not overlap.
 
-**Shipped:** `EngineGroupNode.tsx`, `CanvasEngineGroup` type.  
-**Pending:** `CompanyCanvas` must load `GET .../engines`, render parents, route palette insert through `POST .../engines`, and host delete modal.
+**Shipped:** `EngineGroupNode.tsx`, `CanvasEngineGroup` type, non-overlapping placement helpers.
 
 ## Delete modal
 

@@ -12,6 +12,7 @@ import {
 import { ResearchConceptPreview } from '@/components/research/ResearchConceptPreview';
 import { ResearchMarkdown } from '@/components/research/ResearchMarkdown';
 import { useResearchView, type InspectorTarget } from '@/components/research/ResearchViewContext';
+import { Justification } from '@/components/panels/Justification';
 
 function usageLine(queryCount: number, referenceCount: number): string {
   return `Queried ${queryCount} · Referenced ${referenceCount}`;
@@ -298,14 +299,28 @@ function ConceptInspector(props: {
     );
   }
 
+  const justificationLines = [
+    `Concept status: ${local.status}.`,
+    local.curationStatus
+      ? `Library admission: ${local.curationStatus.replace(/_/g, ' ')}.`
+      : 'No library admission status recorded.',
+    local.confidenceBand
+      ? `Confidence band: ${local.confidenceBand}.`
+      : 'No confidence band recorded.',
+    local.sourceRef ? `Evidence ref: ${local.sourceRef}.` : 'No evidence ref on this concept.',
+    usageLine(local.queryCount ?? 0, local.referenceCount ?? 0),
+  ];
+
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-3">
       <header className="mb-3 border-b border-[var(--color-line)] pb-2">
-        <h2 className="text-sm font-medium text-[var(--color-ink)]">{local.title}</h2>
-        <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
-          {usageLine(local.queryCount ?? 0, local.referenceCount ?? 0)}
-          {local.confidenceBand ? ` · Confidence ${local.confidenceBand}` : ''}
-        </p>
+        <Justification sourceClass={local.sourceClass} lines={justificationLines} block>
+          <h2 className="text-sm font-medium text-[var(--color-ink)]">{local.title}</h2>
+          <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
+            {usageLine(local.queryCount ?? 0, local.referenceCount ?? 0)}
+            {local.confidenceBand ? ` · Confidence ${local.confidenceBand}` : ''}
+          </p>
+        </Justification>
         {local.tags.length > 0 && (
           <div className="mt-1.5 flex flex-wrap gap-1">
             {local.tags.map((t) => (

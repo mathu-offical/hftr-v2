@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { TraceValueRefs } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import { dispatchValueLineageFocus } from '@/lib/value-lineage-focus';
+import { Justification, timelineStageSourceClass } from './Justification';
 import { stageTone } from './format';
 
 interface TimelineEntry {
@@ -20,11 +21,7 @@ interface TimelineEntry {
  * ledger) as a vertical timeline, ordered as delivered by the API.
  * ValueRef deep links open the right-panel Values tab lineage walk.
  */
-export function TraceTimeline(props: {
-  companyId: string;
-  traceId: string;
-  onClose: () => void;
-}) {
+export function TraceTimeline(props: { companyId: string; traceId: string; onClose: () => void }) {
   const [timeline, setTimeline] = useState<TimelineEntry[] | null>(null);
   const [valueRefs, setValueRefs] = useState<TraceValueRefs | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -123,19 +120,32 @@ export function TraceTimeline(props: {
                     )}
                   </div>
                   <div className="min-w-0 pb-4">
-                    <div className="flex items-baseline gap-2 text-xs">
-                      <span className="font-medium uppercase tracking-wide text-[var(--color-ink)]">
-                        {entry.stage}
-                      </span>
-                      <span style={{ color: stageTone(entry.status) }}>{entry.status}</span>
-                      <span className="text-[10px] text-[var(--color-ink-faint)]">
-                        {new Date(entry.at).toLocaleTimeString()}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-[11px] text-[var(--color-ink-dim)]">{entry.summary}</p>
-                    <p className="mt-0.5 font-mono text-[10px] text-[var(--color-ink-faint)]">
-                      {entry.refId}
-                    </p>
+                    <Justification
+                      sourceClass={timelineStageSourceClass(entry.stage)}
+                      lines={[
+                        entry.summary,
+                        `Stage status: ${entry.status}.`,
+                        `Record id: ${entry.refId}.`,
+                        `Recorded ${new Date(entry.at).toLocaleString()}.`,
+                      ]}
+                      block
+                    >
+                      <div className="flex items-baseline gap-2 text-xs">
+                        <span className="font-medium uppercase tracking-wide text-[var(--color-ink)]">
+                          {entry.stage}
+                        </span>
+                        <span style={{ color: stageTone(entry.status) }}>{entry.status}</span>
+                        <span className="text-[10px] text-[var(--color-ink-faint)]">
+                          {new Date(entry.at).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] text-[var(--color-ink-dim)]">
+                        {entry.summary}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[10px] text-[var(--color-ink-faint)]">
+                        {entry.refId}
+                      </p>
+                    </Justification>
                   </div>
                 </li>
               ))}

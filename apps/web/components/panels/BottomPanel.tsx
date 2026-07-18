@@ -8,14 +8,7 @@ import { Justification } from './Justification';
 import { TraceTimeline } from './TraceTimeline';
 import { LlmAvailabilityChips } from '@/components/shell/LlmConnectionStatus';
 
-type Tab =
-  | 'trends'
-  | 'scenarios'
-  | 'watchlists'
-  | 'decisions'
-  | 'lineage'
-  | 'approvals'
-  | 'dead';
+type Tab = 'trends' | 'scenarios' | 'watchlists' | 'decisions' | 'lineage' | 'approvals' | 'dead';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'trends', label: 'Trends' },
   { id: 'scenarios', label: 'Scenario engine' },
@@ -372,14 +365,10 @@ export function BottomPanel(props: { companyId: string; modules: ModuleOption[] 
           <LineageView
             trends={byModule(trends)}
             leads={byModule(leads)}
-            trees={trees.filter(
-              (t) => moduleFilter === 'all' || t.moduleId === moduleFilter,
-            )}
+            trees={trees.filter((t) => moduleFilter === 'all' || t.moduleId === moduleFilter)}
             executions={byModule(executions)}
             verifications={verifications}
-            deadJobs={deadJobs.filter(
-              (j) => moduleFilter === 'all' || j.moduleId === moduleFilter,
-            )}
+            deadJobs={deadJobs.filter((j) => moduleFilter === 'all' || j.moduleId === moduleFilter)}
             moduleName={moduleName}
             selectedKey={selectedLineageKey}
             onSelectKey={setSelectedLineageKey}
@@ -826,18 +815,26 @@ function ScenarioView(props: {
                   );
                 }
                 return (
-                  <button
+                  <Justification
                     key={key}
-                    onClick={() => setExpandedGate(expandedGate === cellId ? null : cellId)}
-                    title={gate.evidence}
-                    aria-label={`Gate ${key}: ${gate.result}. Toggle evidence detail`}
-                    aria-expanded={expandedGate === cellId}
-                    className="rounded border border-[var(--color-line)] px-1 py-0.5 text-center text-[9px] hover:bg-[var(--color-surface-2)]"
-                    style={{ color: gateTone(gate.result) }}
+                    sourceClass="deterministic_placeholder"
+                    lines={[
+                      `Gate "${key}" result: ${gate.result}.`,
+                      gate.evidence || 'No evidence text recorded for this gate.',
+                    ]}
                   >
-                    {key}
-                    <div>{gate.result}</div>
-                  </button>
+                    <button
+                      onClick={() => setExpandedGate(expandedGate === cellId ? null : cellId)}
+                      title={gate.evidence}
+                      aria-label={`Gate ${key}: ${gate.result}. Toggle evidence detail`}
+                      aria-expanded={expandedGate === cellId}
+                      className="rounded border border-[var(--color-line)] px-1 py-0.5 text-center text-[9px] hover:bg-[var(--color-surface-2)]"
+                      style={{ color: gateTone(gate.result) }}
+                    >
+                      {key}
+                      <div>{gate.result}</div>
+                    </button>
+                  </Justification>
                 );
               })}
             </div>

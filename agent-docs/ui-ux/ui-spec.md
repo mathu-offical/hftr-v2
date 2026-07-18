@@ -228,9 +228,12 @@ editable fields.
   **galaxy-style canvas overlay dashboard** with: equity chart (company series; accent path
   follows selected holding mark), sector top movers, report navigation buttons (open sealed
   report concepts in Research + Libraries), detailed holdings cards with **presiding engine
-  chips**, and continuation/exit stubs. Distinct from Research + Libraries (async corpus).
-  Polls `GET …/market-hub`; **Refresh** enqueues `library.system_movers`. Non-flat
-  `trend.scan` and admitted `trend.promote` also enqueue movers revalidation.
+  chips**, and continuation/exit stubs. Hover justification (D-083) where wired.
+  Distinct from Research + Libraries (async corpus). Polls `GET …/market-hub`; **Refresh**
+  enqueues `library.system_movers`. Non-flat `trend.scan` and admitted `trend.promote` also
+  enqueue movers revalidation.
+- Research concept inspector titles and TraceTimeline stage rows also use Justification hover
+  (D-083) with honest source-class labels (model vs deterministic vs system seal).
 - Research overlay (main content, layered over canvas): **Galaxy** surface with optional
   right **inspector** (Page / Concept / Library / Tag — D-049). Overlay and inspector are
   viewport-bounded (`overflow-hidden` / `min-h-0`) with scrollable inspector body and
@@ -288,10 +291,13 @@ Mistral conversational chat lands with the research/assistant LLM budget work (M
 Full design: `ui-ux/research-galaxy-topic-view-design.md`.
 
 ### Objects
-- **Topics** — agent-created organizations (research + librarian curation). They group many
-  concepts from company DBs, seeded knowledge, and external gather. **Not** galaxy nodes.
-  **D-045** seeds topic **Seeded trading mechanisms** (when a research module exists) so Page
-  tab has baseline catalog mechanisms without a research run.
+- **Topics** — research-**module** directives / work programs (agent-created or seeded). They
+  organize focus and can spawn multiple articles or libraries; they are **not** galaxy nodes
+  and are distinct from library-side concepts/tags/trends/functions. **D-045** / **D-086**
+  seed program topic **Seeded trading mechanisms** plus catalog/tier child directives (when a
+  research module exists) so Pages lists high-granularity module-side work programs; concepts
+  stay in the mechanisms library (and other seeded nests) so galaxy/Article have baseline
+  catalog content without a research run.
 - **Galaxy nodes** — concepts (primary) and tags (secondary / color / filter). Typed
   `concept_links` remain edges. **D-045** materializes compile-time catalog targets into
   company concepts + library nests on create/ensure so galaxy is never empty of baseline

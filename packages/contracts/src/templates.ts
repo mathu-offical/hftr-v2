@@ -237,7 +237,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     id: 'engine_trend_research',
     label: 'Trend research engine',
     category: 'trend_research',
-    description: 'Research → library → trend scanner loop; no trading desk until you add one.',
+    description:
+      'Research → library → trend scanner loop; terminal analyzer concat → data_out. No trading desk until you add one.',
     available: true,
     modules: [
       {
@@ -258,10 +259,19 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         config: { focus: 'pending_operator_scope', maxActiveTrends: 10, cadenceMinutes: 120 },
         position: { x: 920, y: 0 },
       },
+      {
+        type: 'analyzer',
+        name: 'Research Concat',
+        config: { emitMode: 'to_desk_stream' },
+        position: { x: 1380, y: 0 },
+      },
     ],
     links: [
       { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
     ],
     inputs: [
       {
@@ -673,7 +683,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     id: 'research_web_fabric',
     label: 'Web research fabric',
     category: 'research',
-    description: 'Pure-data research ENGINE: web discover + librarian → topic libraries.',
+    description:
+      'Pure-data research ENGINE: web discover + librarian → topic libraries; terminal analyzer concat → data_out.',
     available: true,
     modules: [
       {
@@ -705,11 +716,19 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         },
         position: { x: 460, y: 140 },
       },
+      {
+        type: 'analyzer',
+        name: 'Research Concat',
+        config: { emitMode: 'to_desk_stream' },
+        position: { x: 920, y: 140 },
+      },
     ],
     links: [
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 1, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
     ],
     inputs: [
       {
@@ -725,7 +744,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     id: 'research_filings_fundamentals',
     label: 'Filings & fundamentals',
     category: 'research',
-    description: 'Pure-data ENGINE focused on SEC/EDGAR and fundamentals curation.',
+    description:
+      'Pure-data ENGINE focused on SEC/EDGAR and fundamentals curation; terminal analyzer concat → data_out.',
     available: true,
     modules: [
       {
@@ -757,10 +777,18 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         },
         position: { x: 460, y: 140 },
       },
+      {
+        type: 'analyzer',
+        name: 'Research Concat',
+        config: { emitMode: 'to_desk_stream' },
+        position: { x: 920, y: 140 },
+      },
     ],
     links: [
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
     ],
     inputs: [
       {
@@ -776,7 +804,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     id: 'research_seed_mechanisms',
     label: 'Seeded mechanisms keeper',
     category: 'research',
-    description: 'Protect and refresh compile-time seeded trading-mechanism libraries.',
+    description:
+      'Protect and refresh compile-time seeded trading-mechanism libraries; terminal analyzer concat → library.',
     available: true,
     modules: [
       {
@@ -809,10 +838,18 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         },
         position: { x: 460, y: 140 },
       },
+      {
+        type: 'analyzer',
+        name: 'Research Concat',
+        config: { emitMode: 'to_library' },
+        position: { x: 920, y: 140 },
+      },
     ],
     links: [
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
     ],
     inputs: [],
   },
@@ -820,7 +857,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     id: 'research_event_catalyst',
     label: 'Event catalyst research',
     category: 'research',
-    description: 'Pure-data event/macro archetype curation for later desk promotion.',
+    description:
+      'Pure-data event/macro archetype curation for later desk promotion; terminal analyzer concat → data_out.',
     available: true,
     modules: [
       {
@@ -852,10 +890,18 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         },
         position: { x: 460, y: 140 },
       },
+      {
+        type: 'analyzer',
+        name: 'Research Concat',
+        config: { emitMode: 'to_desk_stream' },
+        position: { x: 920, y: 140 },
+      },
     ],
     links: [
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
     ],
     inputs: [
       {
@@ -871,7 +917,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     id: 'research_market_regime_lab',
     label: 'Market regime lab',
     category: 'research',
-    description: 'Market-trend research ENGINE with live feed and research-only trend scanner.',
+    description:
+      'Market-trend research ENGINE with live feed and research-only trend scanner; terminal analyzer concat → data_out.',
     available: true,
     modules: [
       {
@@ -935,6 +982,12 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         },
         position: { x: 920, y: 276 },
       },
+      {
+        type: 'analyzer',
+        name: 'Research Concat',
+        config: { emitMode: 'to_desk_stream' },
+        position: { x: 1380, y: 276 },
+      },
     ],
     links: [
       { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
@@ -942,6 +995,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 5, linkKind: 'data_feed' },
       { fromIndex: 4, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 6, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 6, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 6, linkKind: 'data_feed' },
+      { fromIndex: 5, toIndex: 6, linkKind: 'data_feed' },
     ],
     inputs: [
       {
@@ -964,7 +1021,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     id: 'research_crypto_context',
     label: 'Crypto context research',
     category: 'research',
-    description: 'Crypto narrative + cross-cap trend lab (market_trend mode).',
+    description:
+      'Crypto narrative + cross-cap trend lab (market_trend mode); terminal analyzer concat → data_out.',
     available: true,
     modules: [
       {
@@ -1019,12 +1077,22 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         },
         position: { x: 920, y: 276 },
       },
+      {
+        type: 'analyzer',
+        name: 'Research Concat',
+        config: { emitMode: 'to_desk_stream' },
+        position: { x: 1380, y: 276 },
+      },
     ],
     links: [
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 4, toIndex: 5, linkKind: 'data_feed' },
     ],
     inputs: [
       {
@@ -1040,7 +1108,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     id: 'research_prediction_niche',
     label: 'Prediction niche research',
     category: 'research',
-    description: 'Event/probability research lab before prediction desk wiring.',
+    description:
+      'Event/probability research lab before prediction desk wiring; terminal analyzer concat → data_out.',
     available: true,
     modules: [
       {
@@ -1095,12 +1164,22 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         },
         position: { x: 920, y: 276 },
       },
+      {
+        type: 'analyzer',
+        name: 'Research Concat',
+        config: { emitMode: 'to_desk_stream' },
+        position: { x: 1380, y: 276 },
+      },
     ],
     links: [
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 4, toIndex: 5, linkKind: 'data_feed' },
     ],
     inputs: [
       {
@@ -1116,7 +1195,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     id: 'research_desk_aligned',
     label: 'Desk-aligned research',
     category: 'research',
-    description: 'Specialty-desk curator + evidence library + research-only trend feeder.',
+    description:
+      'Specialty-desk curator + evidence library + research-only trend feeder; terminal analyzer concat → data_out.',
     available: true,
     modules: [
       {
@@ -1170,12 +1250,21 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         },
         position: { x: 920, y: 276 },
       },
+      {
+        type: 'analyzer',
+        name: 'Research Concat',
+        config: { emitMode: 'to_desk_stream' },
+        position: { x: 1380, y: 276 },
+      },
     ],
     links: [
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 4, toIndex: 5, linkKind: 'data_feed' },
     ],
     inputs: [
       {
@@ -1192,7 +1281,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     label: 'Multi-curator fabric',
     category: 'research',
     description:
-      'Broad pure-data fabric with web, filings, and market-news curators plus librarian.',
+      'Broad pure-data fabric with web, filings, and market-news curators plus librarian; terminal analyzer concat → data_out.',
     available: true,
     modules: [
       {
@@ -1254,6 +1343,12 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         },
         position: { x: 460, y: 700 },
       },
+      {
+        type: 'analyzer',
+        name: 'Research Concat',
+        config: { emitMode: 'to_desk_stream' },
+        position: { x: 920, y: 700 },
+      },
     ],
     links: [
       { fromIndex: 0, toIndex: 4, linkKind: 'data_feed' },
@@ -1262,6 +1357,11 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 5, linkKind: 'data_feed' },
       { fromIndex: 4, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 4, toIndex: 6, linkKind: 'data_feed' },
+      { fromIndex: 5, toIndex: 6, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 6, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 6, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 6, linkKind: 'data_feed' },
     ],
     inputs: [
       {
@@ -1505,7 +1605,8 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
   trend_research_lab: {
     id: 'trend_research_lab',
     label: 'Trend research lab',
-    description: 'Research and trend modules only — no trading desk until you add one.',
+    description:
+      'Research and trend modules only — terminal analyzer concat → data_out. No trading desk until you add one.',
     modules: [
       {
         type: 'research',
@@ -1538,10 +1639,19 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
         },
         position: { x: 540, y: 240 },
       },
+      {
+        type: 'analyzer',
+        name: 'Research Concat',
+        config: { emitMode: 'to_desk_stream' },
+        position: { x: 800, y: 240 },
+      },
     ],
     links: [
       { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
     ],
   },
 };

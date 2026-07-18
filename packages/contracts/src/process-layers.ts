@@ -136,6 +136,14 @@ export const PROCESS_LAYERS_BY_MODULE: Record<ModuleType, readonly ProcessLayerD
       tunable: true,
       description: 'Execution monitor and verification feedback into research/trend.',
     },
+    {
+      id: 'concat_emit',
+      label: 'Concat & emit',
+      v1Refs: ['analyzer_concat', 'engine_data_out'],
+      tunable: true,
+      description:
+        'D-091: model-free merge of inbound research/library/live packages; emit to library, desk stream, or verify loopback.',
+    },
   ],
   math: [
     {

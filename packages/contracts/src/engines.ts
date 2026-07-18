@@ -9,10 +9,78 @@ import {
 } from './modules';
 
 /**
- * Persisted ENGINE instance contracts (D-028 / D-035).
+ * Persisted ENGINE instance contracts (D-028 / D-035 / D-091).
  * An engine is an insertable template graph with master setup (topic, total
  * capital envelope, overall exit) that cascades to members unless overridden.
+ * D-091: chrome exposes typed utility buses (motherboard I/O).
  */
+
+/** D-091: engine chrome utility buses (motherboard ports). */
+export const EngineUtilityBus = z.enum([
+  'data_in',
+  'data_out',
+  'clock',
+  'funds',
+  'system_control',
+]);
+export type EngineUtilityBus = z.infer<typeof EngineUtilityBus>;
+
+/** Which buses an engine template category exposes. */
+export function engineUtilityBusesForCategory(
+  category: string,
+): readonly EngineUtilityBus[] {
+  switch (category) {
+    case 'research':
+    case 'trend_research':
+      return ['data_in', 'data_out', 'clock', 'system_control'];
+    case 'day_trading':
+    case 'crypto':
+    case 'prediction':
+    case 'long_term':
+    case 'hft':
+    case 'high_frequency':
+    case 'execution':
+      return ['data_in', 'data_out', 'clock', 'funds', 'system_control'];
+    default:
+      return ['data_in', 'data_out', 'clock', 'system_control'];
+  }
+}
+
+export const EngineUtilityLink = z.object({
+  id: z.string().uuid(),
+  companyId: z.string().uuid(),
+  toEngineId: z.string().uuid(),
+  bus: EngineUtilityBus,
+  /** Upstream engine (inter-engine stream) XOR company module (e.g. Master Clock). */
+  fromEngineId: z.string().uuid().nullable().optional(),
+  fromModuleId: z.string().uuid().nullable().optional(),
+  /** Opaque stream id for data_out→data_in (qualitative descriptors only). */
+  streamId: z.string().max(80).nullable().optional(),
+  streamDescriptor: z.string().max(200).nullable().optional(),
+});
+export type EngineUtilityLink = z.infer<typeof EngineUtilityLink>;
+
+export const CreateEngineUtilityLinkInput = z
+  .object({
+    toEngineId: z.string().uuid(),
+    bus: EngineUtilityBus,
+    fromEngineId: z.string().uuid().optional(),
+    fromModuleId: z.string().uuid().optional(),
+    streamId: z.string().max(80).optional(),
+    streamDescriptor: z.string().max(200).optional(),
+  })
+  .superRefine((v, ctx) => {
+    const hasEngine = Boolean(v.fromEngineId);
+    const hasModule = Boolean(v.fromModuleId);
+    if (hasEngine === hasModule) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'exactly_one_of_fromEngineId_or_fromModuleId',
+      });
+    }
+  });
+export type CreateEngineUtilityLinkInput = z.infer<typeof CreateEngineUtilityLinkInput>;
+
 
 export const DeleteEngineMode = z.enum(['cascade', 'ungroup']);
 export type DeleteEngineMode = z.infer<typeof DeleteEngineMode>;

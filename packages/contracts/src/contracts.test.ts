@@ -185,7 +185,7 @@ describe('canvas link port helpers', () => {
   it('derives trend ports with only kinds the type participates in', () => {
     expect(moduleLinkPorts('trend')).toEqual({
       inbound: ['data_feed', 'verification'],
-      outbound: ['data_feed', 'directive'],
+      outbound: ['data_feed', 'directive', 'verification'],
     });
   });
 
@@ -414,7 +414,8 @@ describe('canvas link port helpers', () => {
 
   it('exposes clock and time link ports and parses configs (D-088)', () => {
     expect(allowedLinkKinds('clock', 'time')).toEqual(['data_feed']);
-    expect(allowedLinkKinds('clock', 'trading')).toEqual(['data_feed']);
+    expect(allowedLinkKinds('clock', 'math')).toEqual(['data_feed']);
+    expect(allowedLinkKinds('clock', 'trading')).toEqual([]);
     expect(allowedLinkKinds('time', 'trading')).toEqual(['data_feed']);
     expect(allowedLinkKinds('clock', 'research')).toEqual([]);
     expect(MODULE_CONFIG_SCHEMAS.clock.parse({})).toMatchObject({
@@ -426,6 +427,26 @@ describe('canvas link port helpers', () => {
     });
     expect(moduleLinkPorts('clock').outbound).toContain('data_feed');
     expect(moduleLinkPorts('time').outbound).toContain('data_feed');
+  });
+
+  it('exposes analyzer emit modes and engine utility buses (D-091)', async () => {
+    const { EngineUtilityBus, engineUtilityBusesForCategory } = await import('./engines');
+    const { AnalyzerModuleConfig, deriveLibraryDisplayName } = await import('./modules');
+    expect(AnalyzerModuleConfig.parse({}).emitMode).toBe('verify_loopback');
+    expect(AnalyzerModuleConfig.parse({ emitMode: 'to_desk_stream' }).emitMode).toBe(
+      'to_desk_stream',
+    );
+    expect(allowedLinkKinds('library', 'analyzer')).toEqual(['data_feed']);
+    expect(allowedLinkKinds('analyzer', 'library')).toEqual(['data_feed']);
+    expect(engineUtilityBusesForCategory('research')).toContain('data_out');
+    expect(engineUtilityBusesForCategory('day_trading')).toContain('funds');
+    expect(EngineUtilityBus.options).toContain('clock');
+    expect(
+      deriveLibraryDisplayName({
+        topicSectors: ['Semiconductors'],
+        sourceLabels: ['Alpaca', 'Research'],
+      }),
+    ).toBe('Semiconductors · Alpaca + Research');
   });
 
   it('orders engine template Math fund_route links into-Math then out-of-Math', () => {
@@ -1354,7 +1375,7 @@ describe('canvas layout (D-033)', () => {
         engine.modules.map((module) => module.type),
       ),
     });
-    expect(slots).toBe(35);
+    expect(slots).toBe(39);
     expect(slots).toBeLessThanOrEqual(MAX_MODULES_PER_COMPANY);
   });
 

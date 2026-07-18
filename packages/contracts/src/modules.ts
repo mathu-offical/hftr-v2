@@ -185,8 +185,15 @@ export const LINK_RULES: Readonly<Record<string, readonly LinkKind[]>> = {
   'analyzer->trend': ['verification', 'data_feed'],
   'analyzer->research': ['verification', 'data_feed'],
   'analyzer->librarian': ['verification', 'data_feed'],
+  'analyzer->library': ['data_feed'],
+  'library->analyzer': ['data_feed'],
+  'research->analyzer': ['data_feed'],
+  'librarian->analyzer': ['data_feed'],
+  'live_api->analyzer': ['data_feed'],
+  'trend->analyzer': ['data_feed', 'verification'],
   'trading->analyzer': ['verification'],
   'analyzer->policy': ['verification'],
+  'analyzer->trading': ['data_feed'],
   // Dedicated Math ownership (D-033): owner input/context ↔ Math (data only).
   'research->math': ['data_feed'],
   'librarian->math': ['data_feed'],
@@ -213,23 +220,32 @@ export const LINK_RULES: Readonly<Record<string, readonly LinkKind[]>> = {
   'live_api->display': ['data_feed'],
   'library->display': ['data_feed'],
   'librarian->display': ['data_feed'],
-  // D-088: Master Clock temporal authority / orientation.
+  // D-088 / D-091: Master Clock → Time hub only (direct clock→consumer deprecated).
   'clock->time': ['data_feed'],
-  'clock->trading': ['data_feed'],
-  'clock->trend': ['data_feed'],
-  'clock->policy': ['data_feed'],
-  'clock->analyzer': ['data_feed'],
   'clock->math': ['data_feed'],
-  // D-088: Time processors emit processed temporal refs.
+  // D-088 / D-091: Time processors emit processed temporal refs to consumers.
   'time->trading': ['data_feed'],
   'time->trend': ['data_feed'],
   'time->policy': ['data_feed'],
   'time->analyzer': ['data_feed'],
   'time->display': ['data_feed'],
   'time->math': ['data_feed'],
+  'time->research': ['data_feed'],
+  'time->librarian': ['data_feed'],
+  'time->library': ['data_feed'],
   'math->time': ['data_feed'],
   'math->clock': ['data_feed'],
 };
+
+/** Module types that require a Time (or engine-hydrated Time) connection when active (D-091). */
+export const TIME_BEARING_MODULE_TYPES: ReadonlySet<ModuleType> = new Set([
+  'trading',
+  'trend',
+  'policy',
+  'analyzer',
+  'research',
+  'librarian',
+]);
 
 /** Module types allowed on either end of a fund_route edge. */
 export const FUND_ROUTE_MODULE_TYPES: ReadonlySet<ModuleType> = new Set([
@@ -979,6 +995,30 @@ function truncatePreferringRefs(primary: string, refs: string | null): string {
 }
 
 /**
+ * D-091: human shelf name for module-owned libraries from topic + inbound sources.
+ * Example: `Semiconductors · Research + Alpaca`
+ */
+export function deriveLibraryDisplayName(input: {
+  topicScope?: string | null;
+  topicSectors?: readonly string[] | null;
+  /** Sorted unique human labels for upstream sources (Research, Alpaca, …). */
+  sourceLabels?: readonly string[] | null;
+}): string {
+  const topic =
+    input.topicSectors?.find((t) => t.trim() && t !== 'pending_operator_scope')?.trim() ||
+    (input.topicScope && input.topicScope !== 'pending_operator_scope'
+      ? input.topicScope.trim()
+      : '') ||
+    'Runtime library';
+  const sources = [...new Set((input.sourceLabels ?? []).map((s) => s.trim()).filter(Boolean))].sort(
+    (a, b) => a.localeCompare(b),
+  );
+  if (sources.length === 0) return topic.slice(0, 120);
+  const combined = `${topic} · ${sources.join(' + ')}`;
+  return combined.slice(0, 120);
+}
+
+/**
  * Derive a compact display name: `{Fn} · {Focus}` plus optional `←`/`→` neighbor Fn refs.
  * Math stays primary-only (no connection suffix).
  */
@@ -1056,6 +1096,24 @@ export const TimeModuleConfig = z.object({
 });
 export type TimeModuleConfig = z.infer<typeof TimeModuleConfig>;
 
+/** D-091: flexible analyzer emit modes (research terminal + verify). */
+export const AnalyzerEmitMode = z.enum([
+  'to_library',
+  'to_desk_stream',
+  'verify_loopback',
+]);
+export type AnalyzerEmitMode = z.infer<typeof AnalyzerEmitMode>;
+
+export const AnalyzerModuleConfig = z.object({
+  /** Where concatenated inbound packages go (model-free merge). */
+  emitMode: AnalyzerEmitMode.default('verify_loopback'),
+  /** Optional human descriptor for engine data_out stream (no raw numbers). */
+  streamDescriptor: z.string().max(200).optional(),
+  /** When to_library: prefer this library module id if set. */
+  targetLibraryModuleId: z.string().uuid().optional(),
+});
+export type AnalyzerModuleConfig = z.infer<typeof AnalyzerModuleConfig>;
+
 export const MODULE_CONFIG_SCHEMAS: Record<ModuleType, z.ZodTypeAny> = {
   research: ResearchModuleConfig,
   librarian: LibrarianModuleConfig,
@@ -1066,7 +1124,7 @@ export const MODULE_CONFIG_SCHEMAS: Record<ModuleType, z.ZodTypeAny> = {
   policy: PolicyModuleConfig,
   generator: GenericModuleConfig,
   simulator: GenericModuleConfig,
-  analyzer: GenericModuleConfig,
+  analyzer: AnalyzerModuleConfig,
   holding_fund: HoldingFundModuleConfig,
   fund_router: FundRouterModuleConfig,
   math: MathModuleConfig,

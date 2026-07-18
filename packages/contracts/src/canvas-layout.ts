@@ -412,8 +412,16 @@ export function layoutCanvas(
   }
 
   const memberIds = new Set(engines.flatMap((e) => e.memberModuleIds));
+  // Time processors (non-engine) also reserved for cadence rail — exclude from free lanes.
   const free = modules
-    .filter((m) => m.type !== 'math' && !memberIds.has(m.id) && !resultModules.has(m.id))
+    .filter(
+      (m) =>
+        m.type !== 'math' &&
+        m.type !== 'clock' &&
+        m.type !== 'time' &&
+        !memberIds.has(m.id) &&
+        !resultModules.has(m.id),
+    )
     .sort((a, b) => a.id.localeCompare(b.id));
 
   const freeByLane = new Map<number, LayoutModule[]>();
@@ -456,6 +464,37 @@ export function layoutCanvas(
     });
     mathY += CANVAS_LAYOUT.mathToolHeight + CANVAS_LAYOUT.verticalGutter;
   }
+
+  // D-091: Master Clock pins to a bottom company cadence rail under all engines.
+  let cadenceY: number = originY;
+  for (const pos of resultModules.values()) {
+    cadenceY = Math.max(cadenceY, pos.y + CANVAS_LAYOUT.moduleHeight);
+  }
+  for (const eng of resultEngines) {
+    cadenceY = Math.max(cadenceY, eng.canvasBounds.y + eng.canvasBounds.height);
+  }
+  cadenceY += CANVAS_LAYOUT.topLevelGutter;
+  const clocks = modules
+    .filter((m) => m.type === 'clock')
+    .sort((a, b) => a.id.localeCompare(b.id));
+  clocks.forEach((m, index) => {
+    resultModules.set(m.id, {
+      x: CANVAS_LAYOUT.originX + index * (CANVAS_LAYOUT.moduleWidth + CANVAS_LAYOUT.horizontalGutter),
+      y: cadenceY,
+    });
+  });
+  // Time processors dock on the cadence rail to the right of Clock (hub pattern).
+  const times = modules
+    .filter((m) => m.type === 'time' && !memberIds.has(m.id))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  times.forEach((m, index) => {
+    resultModules.set(m.id, {
+      x:
+        CANVAS_LAYOUT.originX +
+        (clocks.length + index) * (CANVAS_LAYOUT.moduleWidth + CANVAS_LAYOUT.horizontalGutter),
+      y: cadenceY,
+    });
+  });
 
   return {
     modules: [...resultModules.entries()].map(([id, canvasPosition]) => ({

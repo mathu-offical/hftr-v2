@@ -45,6 +45,11 @@ export const VerifiedNormalizedBundle = z.object({
   expiresAt: z.string().datetime(),
   gatesSnapshot: z.array(ValidationGateResult).max(12),
   reportConceptId: z.string().uuid().nullable().optional(),
+  /**
+   * Evidence source kinds that contributed to this seal (operator-visible provenance).
+   * Optional for seals persisted before D-103.
+   */
+  contributingSourceKinds: z.array(ResearchSourceKind).max(24).optional(),
 });
 export type VerifiedNormalizedBundle = z.infer<typeof VerifiedNormalizedBundle>;
 

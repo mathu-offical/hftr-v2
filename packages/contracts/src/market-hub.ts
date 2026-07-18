@@ -136,6 +136,30 @@ export const MarketHubFreshness = z.object({
 });
 export type MarketHubFreshness = z.infer<typeof MarketHubFreshness>;
 
+/** Operator-visible provider surfaces for Market posture / movers compound (D-103). */
+export const MarketHubSourceRow = z.object({
+  kind: z.string().max(40),
+  domain: z.string().max(40),
+  label: z.string().max(120),
+  authMode: z.enum(['none', 'research_key', 'broker_paper']),
+  /** Credential-ready (or public) for this company owner. */
+  status: z.enum(['ready', 'missing_key']),
+  /** True when the latest movers seal included evidence from this kind. */
+  contributed: z.boolean().default(false),
+});
+export type MarketHubSourceRow = z.infer<typeof MarketHubSourceRow>;
+
+export const MarketHubSources = z.object({
+  /** Movers-lane kinds: entitled + missing-key honesty. */
+  lanes: z.array(MarketHubSourceRow).max(32),
+  /** Kinds that contributed on the latest sealed movers scan. */
+  contributedKinds: z.array(z.string().max(40)).max(32).default([]),
+  /** Position mark path honesty until live broker marks. */
+  markFeedClass: z.enum(['synthetic', 'broker_paper']),
+  scannedAt: z.string().datetime().nullable(),
+});
+export type MarketHubSources = z.infer<typeof MarketHubSources>;
+
 export const MarketHubResponse = z.object({
   sectorFocuses: z.array(z.string().max(80)).max(24).default([]),
   equity: MarketHubEquity,
@@ -146,6 +170,12 @@ export const MarketHubResponse = z.object({
   positions: z.array(MarketHubPosition).max(100),
   pipeline: z.array(MarketHubPipelineBySymbol).max(100),
   freshness: MarketHubFreshness,
+  sources: MarketHubSources.default({
+    lanes: [],
+    contributedKinds: [],
+    markFeedClass: 'synthetic',
+    scannedAt: null,
+  }),
 });
 export type MarketHubResponse = z.infer<typeof MarketHubResponse>;
 

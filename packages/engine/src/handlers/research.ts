@@ -22,6 +22,10 @@ const CuratePayload = z.object({
   sourceKinds: z.array(z.string()).max(8).optional(),
   braveApiKey: z.string().optional(),
   marketNewsApiKey: z.string().optional(),
+  alpacaKeyId: z.string().optional(),
+  alpacaSecret: z.string().optional(),
+  finnhubApiKey: z.string().optional(),
+  polygonApiKey: z.string().optional(),
 });
 
 const StrategicPayload = z.object({
@@ -99,6 +103,10 @@ registerHandler('research.curate', async ({ db, clock, job }) => {
       sourceKinds: payload.sourceKinds,
       braveApiKey: payload.braveApiKey,
       marketNewsApiKey: payload.marketNewsApiKey,
+      alpacaKeyId: payload.alpacaKeyId,
+      alpacaSecret: payload.alpacaSecret,
+      finnhubApiKey: payload.finnhubApiKey,
+      polygonApiKey: payload.polygonApiKey,
     },
     idempotencyKey: `research-gather-${requestId}`,
     companyId: payload.companyId,

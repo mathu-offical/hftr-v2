@@ -42,6 +42,10 @@ const GatherPayload = z.object({
   causationRefs: z.array(z.string()).max(24).optional(),
   braveApiKey: z.string().optional(),
   marketNewsApiKey: z.string().optional(),
+  alpacaKeyId: z.string().optional(),
+  alpacaSecret: z.string().optional(),
+  finnhubApiKey: z.string().optional(),
+  polygonApiKey: z.string().optional(),
 });
 
 registerHandler('research.gather', async ({ db, clock, job }) => {
@@ -91,6 +95,15 @@ registerHandler('research.gather', async ({ db, clock, job }) => {
     'sec_edgar',
     'market_news',
   ];
+  if (payload.alpacaKeyId?.trim() && payload.alpacaSecret?.trim()) {
+    defaultExternalKinds.push('alpaca_news', 'alpaca_bars');
+  }
+  if (payload.finnhubApiKey?.trim()) {
+    defaultExternalKinds.push('finnhub_news');
+  }
+  if (payload.polygonApiKey?.trim()) {
+    defaultExternalKinds.push('polygon_news');
+  }
   const sourceKinds: ResearchSourceKind[] =
     externalKinds.length > 0 ? [...externalKinds] : [...defaultExternalKinds];
   if (libraryConceptsForGather.length > 0 && !sourceKinds.includes('library')) {
@@ -105,6 +118,10 @@ registerHandler('research.gather', async ({ db, clock, job }) => {
     maxEvidence,
     braveApiKey: payload.braveApiKey ?? null,
     marketNewsApiKey: payload.marketNewsApiKey ?? null,
+    alpacaKeyId: payload.alpacaKeyId ?? null,
+    alpacaSecret: payload.alpacaSecret ?? null,
+    finnhubApiKey: payload.finnhubApiKey ?? null,
+    polygonApiKey: payload.polygonApiKey ?? null,
     secAllowEmptyOnError: true,
     marketNewsAllowDeterministicFallback: true,
     libraryConcepts: libraryConceptsForGather,

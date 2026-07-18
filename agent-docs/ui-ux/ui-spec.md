@@ -105,7 +105,7 @@
   (`{kind}-{in|out}__{peerId}`), labeled `← Peer` / `→ Peer` with role context (Corpus,
   Market feed, Trade directive, …). Math: top data streams + side fund streams. Edges attach
   to stream pins; kind color + dash pattern. Validation remains `LinkKind` + `LINK_RULES`.
-- **Node families (D-056 / D-067):** cards distinguish **Data source** (`library` shelves /
+- **Node families (D-056 / D-068):** cards distinguish **Data source** (`library` shelves /
   book-spine silhouette; `live_api` aperture + signal bars — dashed border), **Agent** (solid +
   left bar), **Vault** / fund (`holding_fund`, `fund_router` — vault door, rivets, dial chrome;
   double border), **Tool** (Math), **Control** (policy). Subtype chips show library class, venue,

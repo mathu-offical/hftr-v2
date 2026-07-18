@@ -1,6 +1,6 @@
 /**
  * Rudimentary family silhouettes for fund (vault) and data-source (library / live feed)
- * canvas cards (D-067). Decorative only — no interaction; color reinforces text labels.
+ * canvas cards (D-068). Decorative only — no interaction; color reinforces text labels.
  */
 
 import type { FamilyShapeKind } from './canvas-visuals';

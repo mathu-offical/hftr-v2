@@ -27,13 +27,13 @@ export const MODULE_FAMILY: Record<ModuleType, ModuleFamily> = {
 export const FAMILY_LABELS: Record<ModuleFamily, string> = {
   data_source: 'Data source',
   agent: 'Agent',
-  /** Capital nodes read as vaults (D-067 silhouette). */
+  /** Capital nodes read as vaults (D-068 silhouette). */
   fund: 'Vault',
   tool: 'Tool',
   control: 'Control',
 };
 
-/** Rudimentary card silhouette for fund / data-source families (D-067). */
+/** Rudimentary card silhouette for fund / data-source families (D-068). */
 export type FamilyShapeKind = 'vault' | 'library' | 'live_feed';
 
 export type ModuleVisual = {

@@ -50,7 +50,7 @@ Visible label next to each handle (text-first; color reinforces). Default kind l
 colored rail on the node edge groups inbound/outbound kinds as separate visual buses.
 Math: top data bus + horizontal fund bus.
 
-**D-067:** fund cards render as **vault** silhouettes; `library` as **shelf/book**
+**D-068:** fund cards render as **vault** silhouettes; `library` as **shelf/book**
 chrome; `live_api` as a **feed aperture** with signal bars (`FamilyShapeChrome`). Family chip
 for capital modules reads **Vault**.
 

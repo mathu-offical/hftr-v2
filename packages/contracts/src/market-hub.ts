@@ -3,9 +3,9 @@ import { QualitativeBand } from './system-libraries';
 import { SystemNormalizedViewItem } from './verified-normalize';
 
 /**
- * Market posture hub projection (D-081).
- * Left-panel live operating awareness: movers seal, watchlists, trend candidates,
- * positions, and pipeline continuation/exit stubs. Facts only — no LLM narrative.
+ * Market posture hub projection (D-081 / D-082).
+ * Live operating dashboard: equity series, movers, positions with engine chips,
+ * watchlists / trends / pipeline categories, and report navigation targets.
  */
 
 export const MarketHubMoversItem = SystemNormalizedViewItem;
@@ -23,6 +23,12 @@ export const MarketHubMovers = z.object({
 });
 export type MarketHubMovers = z.infer<typeof MarketHubMovers>;
 
+export const MarketHubEngineChip = z.object({
+  id: z.string().uuid(),
+  label: z.string().max(120),
+});
+export type MarketHubEngineChip = z.infer<typeof MarketHubEngineChip>;
+
 export const MarketHubWatchlistItem = z.object({
   id: z.string().uuid(),
   moduleId: z.string().uuid(),
@@ -34,6 +40,7 @@ export const MarketHubWatchlistItem = z.object({
   sourceClass: z.string().max(40),
   status: z.string().max(40),
   updatedAt: z.string().datetime(),
+  engines: z.array(MarketHubEngineChip).max(12).default([]),
 });
 export type MarketHubWatchlistItem = z.infer<typeof MarketHubWatchlistItem>;
 
@@ -46,6 +53,7 @@ export const MarketHubTrendCandidate = z.object({
   status: z.string().max(40),
   tradingModuleId: z.string().uuid().nullable().optional(),
   engineInstanceId: z.string().uuid().nullable().optional(),
+  engines: z.array(MarketHubEngineChip).max(12).default([]),
   scannedAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),
 });
@@ -53,12 +61,17 @@ export type MarketHubTrendCandidate = z.infer<typeof MarketHubTrendCandidate>;
 
 export const MarketHubPosition = z.object({
   id: z.string().uuid(),
+  moduleId: z.string().uuid(),
+  moduleName: z.string().max(120),
+  moduleType: z.string().max(40).optional(),
   symbol: z.string().max(12),
   qty: z.string(),
   avgCostCents: z.union([z.number().int(), z.string()]),
   markCents: z.union([z.number().int(), z.string()]),
   unrealizedPnlCents: z.string(),
   realizedPnlCents: z.union([z.number().int(), z.string()]).optional(),
+  /** Engines whose member modules preside over this holding. */
+  engines: z.array(MarketHubEngineChip).max(12).default([]),
   updatedAt: z.string().datetime(),
 });
 export type MarketHubPosition = z.infer<typeof MarketHubPosition>;
@@ -90,6 +103,31 @@ export const MarketHubPipelineBySymbol = z.object({
 });
 export type MarketHubPipelineBySymbol = z.infer<typeof MarketHubPipelineBySymbol>;
 
+export const MarketHubEquityPoint = z.object({
+  t: z.string().datetime(),
+  equityCents: z.string(),
+  /** Optional selected-position mark path (same timestamps). */
+  positionMarkCents: z.string().nullable().optional(),
+});
+export type MarketHubEquityPoint = z.infer<typeof MarketHubEquityPoint>;
+
+export const MarketHubEquity = z.object({
+  status: z.enum(['fresh', 'stale', 'unavailable']),
+  equityCents: z.string().nullable(),
+  asOfIso: z.string().datetime().nullable(),
+  version: z.number().int().nonnegative(),
+  /** Company equity (ledger balance-after) time series for chart. */
+  series: z.array(MarketHubEquityPoint).max(120),
+});
+export type MarketHubEquity = z.infer<typeof MarketHubEquity>;
+
+export const MarketHubReportLink = z.object({
+  id: z.string().uuid(),
+  title: z.string().max(200),
+  kind: z.enum(['movers_report', 'sector_bulletin', 'daily_summary', 'other']),
+});
+export type MarketHubReportLink = z.infer<typeof MarketHubReportLink>;
+
 export const MarketHubFreshness = z.object({
   moversExpiresAt: z.string().datetime().nullable(),
   fetchedAt: z.string().datetime(),
@@ -97,7 +135,10 @@ export const MarketHubFreshness = z.object({
 export type MarketHubFreshness = z.infer<typeof MarketHubFreshness>;
 
 export const MarketHubResponse = z.object({
+  sectorFocuses: z.array(z.string().max(80)).max(24).default([]),
+  equity: MarketHubEquity,
   movers: MarketHubMovers,
+  reports: z.array(MarketHubReportLink).max(24).default([]),
   watchlists: z.array(MarketHubWatchlistItem).max(200),
   trendCandidates: z.array(MarketHubTrendCandidate).max(50),
   positions: z.array(MarketHubPosition).max(100),

@@ -25,6 +25,7 @@ import {
 import { peekResearchResource } from '@/lib/research-resource-cache';
 import { isBaselineSeededLibrary } from '@/lib/research-library-shelves';
 import { MarketPosturePanel } from '@/components/panels/MarketPosturePanel';
+import { useMarketPostureView } from '@/components/panels/MarketPostureViewContext';
 
 type Tab = 'research' | 'market_posture' | 'data';
 const LEFT_TABS: Tab[] = ['research', 'market_posture', 'data'];
@@ -112,6 +113,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
   );
   const [shellRefreshing, setShellRefreshing] = useState(false);
   const researchView = useResearchView();
+  const marketPostureView = useMarketPostureView();
 
   useEffect(() => {
     if (!storageKey) {
@@ -256,12 +258,35 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
   }, [researchView.registerLeftPanelBridge]);
 
   useEffect(() => {
+    marketPostureView.registerLeftPanelBridge({
+      ensurePostureOpen: () => {
+        setOpen(true);
+        setTab('market_posture');
+      },
+      collapse: () => setOpen(false),
+    });
+    return () => marketPostureView.registerLeftPanelBridge(null);
+  }, [marketPostureView.registerLeftPanelBridge]);
+
+  useEffect(() => {
     if (open && tab === 'research') {
       researchView.openOverlay();
+      marketPostureView.closeOverlay();
+    } else if (open && tab === 'market_posture') {
+      marketPostureView.openOverlay();
+      researchView.closeOverlay();
     } else {
       researchView.closeOverlay();
+      marketPostureView.closeOverlay();
     }
-  }, [open, tab, researchView.openOverlay, researchView.closeOverlay]);
+  }, [
+    open,
+    tab,
+    researchView.openOverlay,
+    researchView.closeOverlay,
+    marketPostureView.openOverlay,
+    marketPostureView.closeOverlay,
+  ]);
 
   const research = props.modules.filter(
     (m) => m.type === 'research' || m.type === 'librarian' || m.type === 'trend',

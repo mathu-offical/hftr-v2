@@ -2,8 +2,15 @@
 
 import type { ReactNode } from 'react';
 import { ResearchViewProvider } from '@/components/research/ResearchViewContext';
+import { MarketPostureViewProvider } from '@/components/panels/MarketPostureViewContext';
 
-/** Shared research view state for left panel + canvas overlay (D-040). */
+/** Shared research + market posture view state for left panel + canvas overlays. */
 export function CompanyResearchShell(props: { companyId: string; children: ReactNode }) {
-  return <ResearchViewProvider companyId={props.companyId}>{props.children}</ResearchViewProvider>;
+  return (
+    <ResearchViewProvider companyId={props.companyId}>
+      <MarketPostureViewProvider companyId={props.companyId}>
+        {props.children}
+      </MarketPostureViewProvider>
+    </ResearchViewProvider>
+  );
 }

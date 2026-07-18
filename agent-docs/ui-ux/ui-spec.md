@@ -223,12 +223,14 @@ editable fields.
   Library shell lists use client SWR cache (D-063) so shelf chrome returns from
   memory/session while page indexes lazy-load. Design:
   `ui-ux/research-tab-shelves-inspector-design.md`.
-- **Market posture** tab (D-081): live operating hub for baseline movers seal (`movers_board`),
-  company/module watchlist symbols, active trend candidates, open positions (synthetic marks
-  labeled), and continuation/exit stubs from latest lead + decision-tree recovery ladder per
-  symbol. Distinct from Research + Libraries (async corpus). Polls `GET …/market-hub`;
-  **Refresh posture** enqueues `library.system_movers`. Non-flat `trend.scan` and admitted
-  `trend.promote` also enqueue movers revalidation. Does **not** open the galaxy overlay.
+- **Market posture** tab (D-081 / D-085): live operating hub. Left rail lists company-wide
+  persisted categories (positions, watchlists, trends, plans). Opening the tab opens a
+  **galaxy-style canvas overlay dashboard** with: equity chart (company series; accent path
+  follows selected holding mark), sector top movers, report navigation buttons (open sealed
+  report concepts in Research + Libraries), detailed holdings cards with **presiding engine
+  chips**, and continuation/exit stubs. Distinct from Research + Libraries (async corpus).
+  Polls `GET …/market-hub`; **Refresh** enqueues `library.system_movers`. Non-flat
+  `trend.scan` and admitted `trend.promote` also enqueue movers revalidation.
 - Research overlay (main content, layered over canvas): **Galaxy** surface with optional
   right **inspector** (Page / Concept / Library / Tag — D-049). Overlay and inspector are
   viewport-bounded (`overflow-hidden` / `min-h-0`) with scrollable inspector body and

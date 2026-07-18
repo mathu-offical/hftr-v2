@@ -874,6 +874,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   directive text into `ResearchDirective.operatorDirectives`. Distinct from editable
   `philosophy_prompt`. Migration `0035`. **Status: implemented.**
 
+- **D-085 (Market posture dashboard overlay, 2026-07-18):** Market posture opens a
+  canvas overlay (galaxy-style) with equity chart that refocuses on selected
+  holdings (accent mark path), sector movers, report nav into Research concepts,
+  and higher-detail position cards showing **presiding engine chips** (from
+  position module + symbol-linked trend binds). Left rail is a category navigator
+  (positions / watchlists / trends / plans). Hub API adds `equity`, `sectorFocuses`,
+  `reports`, and `engines[]` on positions/watchlists/trends. **Status: implemented.**
+
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

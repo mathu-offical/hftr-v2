@@ -17,12 +17,41 @@ export function createNestHullObject3d(node: NestHullNode): THREE.Group {
   const latSeg = isCompany ? 36 : isTopic || isArticle ? 24 : isFolder ? 20 : 22;
   const lonSeg = isCompany ? 24 : isTopic || isArticle ? 16 : isFolder ? 14 : 14;
 
+  // Folder/article shells stay quieter so concept nodes read first; library/topic stronger.
+  const shellOpacity = isCompany
+    ? 0.025
+    : isArticle
+      ? 0.055
+      : isTopic
+        ? 0.08
+        : isFolder
+          ? 0.04
+          : 0.055;
+  const wireOpacity = isCompany
+    ? 0.16
+    : isArticle
+      ? 0.38
+      : isTopic
+        ? 0.55
+        : isFolder
+          ? 0.28
+          : 0.42;
+  const ringOpacity = isCompany
+    ? 0.12
+    : isArticle
+      ? 0.28
+      : isTopic
+        ? 0.4
+        : isFolder
+          ? 0.22
+          : 0.34;
+
   const shell = new THREE.Mesh(
     new THREE.SphereGeometry(radius, latSeg, lonSeg),
     new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: isCompany ? 0.03 : isArticle ? 0.1 : isTopic ? 0.08 : isFolder ? 0.07 : 0.055,
+      opacity: shellOpacity,
       depthWrite: false,
       side: THREE.DoubleSide,
     }),
@@ -35,7 +64,7 @@ export function createNestHullObject3d(node: NestHullNode): THREE.Group {
       color,
       wireframe: true,
       transparent: true,
-      opacity: isCompany ? 0.2 : isArticle ? 0.62 : isTopic ? 0.55 : isFolder ? 0.5 : 0.42,
+      opacity: wireOpacity,
       depthWrite: false,
     }),
   );
@@ -46,7 +75,7 @@ export function createNestHullObject3d(node: NestHullNode): THREE.Group {
     new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: isCompany ? 0.16 : isArticle ? 0.45 : isTopic ? 0.4 : isFolder ? 0.38 : 0.34,
+      opacity: ringOpacity,
       side: THREE.DoubleSide,
       depthWrite: false,
     }),
@@ -54,13 +83,15 @@ export function createNestHullObject3d(node: NestHullNode): THREE.Group {
   ring.rotation.x = Math.PI / 2;
   group.add(ring);
 
-  // Meridian ring for 3D readability
-  const meridian = ring.clone();
-  meridian.rotation.x = 0;
-  meridian.rotation.y = Math.PI / 2;
-  meridian.material = (ring.material as THREE.MeshBasicMaterial).clone();
-  (meridian.material as THREE.MeshBasicMaterial).opacity = isCompany ? 0.1 : 0.22;
-  group.add(meridian);
+  // Meridian ring for 3D readability (skip on dense folder shells)
+  if (!isFolder) {
+    const meridian = ring.clone();
+    meridian.rotation.x = 0;
+    meridian.rotation.y = Math.PI / 2;
+    meridian.material = (ring.material as THREE.MeshBasicMaterial).clone();
+    (meridian.material as THREE.MeshBasicMaterial).opacity = isCompany ? 0.1 : isArticle ? 0.14 : 0.22;
+    group.add(meridian);
+  }
 
   return group;
 }
@@ -92,18 +123,18 @@ export function paintNestHull2d(
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fillStyle = color;
-  ctx.globalAlpha = isCompany ? 0.04 : isArticle ? 0.1 : isTopic ? 0.08 : isFolder ? 0.07 : 0.06;
+  ctx.globalAlpha = isCompany ? 0.035 : isArticle ? 0.06 : isTopic ? 0.08 : isFolder ? 0.04 : 0.06;
   ctx.fill();
 
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.strokeStyle = color;
-  ctx.globalAlpha = isCompany ? 0.35 : isArticle ? 0.75 : isTopic ? 0.7 : isFolder ? 0.62 : 0.55;
-  ctx.lineWidth = (isCompany ? 1.1 : isArticle || isFolder ? 1.5 : 1.7) / Math.max(globalScale * 0.5, 0.35);
+  ctx.globalAlpha = isCompany ? 0.3 : isArticle ? 0.5 : isTopic ? 0.7 : isFolder ? 0.38 : 0.55;
+  ctx.lineWidth = (isCompany ? 1.1 : isArticle || isFolder ? 1.2 : 1.7) / Math.max(globalScale * 0.5, 0.35);
   if (isTopic || isArticle) {
     ctx.setLineDash([8 / globalScale, 5 / globalScale]);
   } else if (isFolder) {
-    ctx.setLineDash([4 / globalScale, 3 / globalScale]);
+    ctx.setLineDash([5 / globalScale, 4 / globalScale]);
   } else {
     ctx.setLineDash([]);
   }
@@ -111,12 +142,14 @@ export function paintNestHull2d(
   ctx.setLineDash([]);
 
   const label = node.__label ?? '';
-  if (label && globalScale > 0.55) {
+  // Folder labels only when zoomed in; library/topic sooner.
+  const labelZoom = isFolder ? 1.15 : isArticle ? 0.9 : 0.55;
+  if (label && globalScale > labelZoom) {
     const fontSize = Math.max(9 / globalScale, 2.2);
     ctx.font = `500 ${fontSize}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.globalAlpha = 0.85;
+    ctx.globalAlpha = isFolder ? 0.7 : 0.85;
     ctx.fillStyle = color;
     ctx.fillText(label, x, y - r - 6 / globalScale);
   }

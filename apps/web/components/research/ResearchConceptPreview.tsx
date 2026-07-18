@@ -1,26 +1,6 @@
 'use client';
 
-import { ResearchMarkdown } from '@/components/research/ResearchMarkdown';
-
-/** Compact markdown chrome for list previews (memberships, library nests, tags). */
-export const RESEARCH_EXCERPT_PROSE_CLASS =
-  [
-    'research-md research-md-excerpt',
-    'prose prose-invert max-w-none',
-    'text-[10px] leading-snug text-[var(--color-ink-dim)]',
-    'prose-p:my-0.5 prose-p:leading-snug',
-    'prose-headings:my-0.5 prose-headings:text-[11px] prose-headings:font-medium prose-headings:text-[var(--color-ink)]',
-    'prose-ul:my-0.5 prose-ul:list-disc prose-ul:pl-3',
-    'prose-ol:my-0.5 prose-ol:list-decimal prose-ol:pl-3',
-    'prose-li:my-0',
-    'prose-strong:font-semibold prose-strong:text-[var(--color-ink)]',
-    'prose-em:italic',
-    'prose-code:rounded prose-code:border prose-code:border-[var(--color-line)]',
-    'prose-code:bg-[var(--color-surface-2)] prose-code:px-0.5 prose-code:font-mono',
-    'prose-code:text-[9px] prose-code:before:content-none prose-code:after:content-none',
-    'prose-a:text-[var(--color-accent)]',
-    'line-clamp-3 overflow-hidden',
-  ].join(' ');
+import { excerptResearchMarkdownBody } from '@/lib/research-markdown-excerpt';
 
 type ConceptPreviewProps = {
   title: string;
@@ -35,10 +15,10 @@ type ConceptPreviewProps = {
 /**
  * Shared rich preview row for research objects in inspector lists
  * (topic memberships, library members, tag matches).
+ * Excerpts are prose-only (no mid-table GFM slices).
  */
 export function ResearchConceptPreview(props: ConceptPreviewProps) {
-  const body = props.body?.trim() ?? '';
-  const excerpt = body.length > 480 ? `${body.slice(0, 480)}\n\n…` : body;
+  const excerpt = excerptResearchMarkdownBody(props.body ?? '', 280);
 
   return (
     <button
@@ -74,9 +54,9 @@ export function ResearchConceptPreview(props: ConceptPreviewProps) {
         </div>
       ) : null}
       {excerpt ? (
-        <div className="mt-1 pointer-events-none" aria-hidden>
-          <ResearchMarkdown markdown={excerpt} className={RESEARCH_EXCERPT_PROSE_CLASS} />
-        </div>
+        <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-[var(--color-ink-dim)]" aria-hidden>
+          {excerpt}
+        </p>
       ) : (
         <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">No excerpt</p>
       )}

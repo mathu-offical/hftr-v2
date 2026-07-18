@@ -3,11 +3,20 @@
 import { createElement, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type { Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { stripLeadingMarkdownH1 } from '@/lib/research-markdown-excerpt';
 import { parseSysChipHref, preprocessSysChips } from '@/lib/research-sys-chips';
+
+export { stripLeadingMarkdownH1 } from '@/lib/research-markdown-excerpt';
 
 type Props = {
   markdown: string;
   className?: string;
+  /**
+   * When true, drop a leading ATX H1 so the inspector chrome title is not duplicated
+   * (seeded bodies open with `# Title`).
+   */
+  omitLeadingH1?: boolean;
   /** Extra react-markdown component overrides (e.g. wikilink anchors). */
   components?: Components;
 };
@@ -41,18 +50,24 @@ export const RESEARCH_MARKDOWN_PROSE_CLASS =
     'prose-pre:text-[10px] prose-pre:leading-snug',
     'prose-hr:my-3 prose-hr:border-[var(--color-line)]',
     'prose-a:font-medium prose-a:text-[var(--color-accent)] prose-a:no-underline hover:prose-a:underline',
-    'prose-table:my-2 prose-table:w-full prose-table:text-[10px]',
+    'prose-table:my-0 prose-table:w-full prose-table:border-collapse prose-table:text-[10px]',
     'prose-th:border prose-th:border-[var(--color-line)] prose-th:bg-[var(--color-surface-2)]',
     'prose-th:px-2 prose-th:py-1 prose-th:text-left prose-th:font-medium prose-th:text-[var(--color-ink)]',
-    'prose-td:border prose-td:border-[var(--color-line)] prose-td:px-2 prose-td:py-1',
+    'prose-td:border prose-td:border-[var(--color-line)] prose-td:px-2 prose-td:py-1 prose-td:align-top',
+    'prose-td:text-[var(--color-ink-dim)]',
   ].join(' ');
 
 /**
  * Shared research markdown renderer with inline system-ref chips (D-047).
- * Uses [[sys:tool|lever|catalog|module:id]] → chip; other markdown unchanged.
+ * Uses [[sys:tool|lever|catalog|module:id]] → chip; GFM tables via remark-gfm (D-079).
  */
 export function ResearchMarkdown(props: Props) {
-  const prepared = useMemo(() => preprocessSysChips(props.markdown), [props.markdown]);
+  const prepared = useMemo(() => {
+    const source = props.omitLeadingH1
+      ? stripLeadingMarkdownH1(props.markdown)
+      : props.markdown;
+    return preprocessSysChips(source);
+  }, [props.markdown, props.omitLeadingH1]);
 
   const components = useMemo<Components>(() => {
     const outerA = props.components?.a;
@@ -81,6 +96,29 @@ export function ResearchMarkdown(props: Props) {
           </a>
         );
       },
+      table: ({ children }) => (
+        <div className="my-2 w-full overflow-x-auto rounded-md border border-[var(--color-line)]">
+          <table className="w-full min-w-[16rem] border-collapse text-[10px]">{children}</table>
+        </div>
+      ),
+      thead: ({ children }) => (
+        <thead className="bg-[var(--color-surface-2)]">{children}</thead>
+      ),
+      th: ({ children }) => (
+        <th className="border border-[var(--color-line)] px-2 py-1 text-left font-medium text-[var(--color-ink)]">
+          {children}
+        </th>
+      ),
+      td: ({ children }) => (
+        <td className="border border-[var(--color-line)] px-2 py-1 align-top text-[var(--color-ink-dim)]">
+          {children}
+        </td>
+      ),
+      blockquote: ({ children }) => (
+        <blockquote className="my-2 border-l-2 border-[var(--color-accent)]/50 bg-[var(--color-surface-2)]/40 py-1 pl-3 pr-2 text-[11px] not-italic text-[var(--color-ink-dim)]">
+          {children}
+        </blockquote>
+      ),
       pre: ({ children }) => (
         <pre className="overflow-x-auto rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] p-2.5 text-[10px] leading-snug text-[var(--color-ink)]">
           {children}
@@ -112,7 +150,9 @@ export function ResearchMarkdown(props: Props) {
       data-testid="research-markdown"
       className={props.className ?? RESEARCH_MARKDOWN_PROSE_CLASS}
     >
-      <ReactMarkdown components={components}>{prepared}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        {prepared}
+      </ReactMarkdown>
     </div>
   );
 }

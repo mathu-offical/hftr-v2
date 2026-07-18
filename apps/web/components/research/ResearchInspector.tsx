@@ -11,10 +11,7 @@ import {
 } from '@/lib/research-wikilinks';
 import { ResearchConceptPreview } from '@/components/research/ResearchConceptPreview';
 import { ResearchMarkdown } from '@/components/research/ResearchMarkdown';
-import {
-  useResearchView,
-  type InspectorTarget,
-} from '@/components/research/ResearchViewContext';
+import { useResearchView, type InspectorTarget } from '@/components/research/ResearchViewContext';
 
 function usageLine(queryCount: number, referenceCount: number): string {
   return `Queried ${queryCount} · Referenced ${referenceCount}`;
@@ -28,7 +25,7 @@ function ConceptMembershipRow(props: {
   return (
     <ResearchConceptPreview
       title={m.title ?? 'Untitled concept'}
-      body={m.body}
+      body={m.body ?? null}
       role={m.role}
       onOpen={() => props.onOpenConcept(m.conceptId)}
       testId={`inspector-membership-${m.conceptId}`}
@@ -205,10 +202,7 @@ function TopicInspector(props: {
             className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2 py-1.5 font-mono text-[11px] text-[var(--color-ink)] outline-none focus:border-[var(--color-accent)]"
           />
         ) : topic.synopsisMd ? (
-          <ResearchMarkdown
-            markdown={renderedSynopsis}
-            components={synopsisMarkdownComponents}
-          />
+          <ResearchMarkdown markdown={renderedSynopsis} components={synopsisMarkdownComponents} />
         ) : (
           <p className="text-[11px] text-[var(--color-ink-faint)]">No synopsis yet.</p>
         )}
@@ -350,7 +344,7 @@ function ConceptInspector(props: {
         </p>
       )}
 
-      <ResearchMarkdown markdown={local.body} />
+      <ResearchMarkdown markdown={local.body} omitLeadingH1 />
 
       <dl className="mt-3 space-y-0.5 text-[9px] text-[var(--color-ink-faint)]">
         <div>

@@ -308,11 +308,24 @@ export function BottomPanel(props: {
     writePanelState(storageKey, { open, openTabs, collapsedPanes, engineFilter });
   }, [storageKey, open, openTabs, collapsedPanes, engineFilter, persistReady]);
 
+  /** No open panes → panel content stays collapsed (ribbon only). */
+  useEffect(() => {
+    if (open && openTabs.length === 0) setOpen(false);
+  }, [open, openTabs]);
+
+  const setPanelOpen = useCallback(
+    (next: boolean) => {
+      if (next && openTabs.length === 0) return;
+      setOpen(next);
+    },
+    [openTabs.length],
+  );
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === '`' && !isEditableTarget(e)) {
         e.preventDefault();
-        setOpen((v) => !v);
+        setPanelOpen(!open);
         return;
       }
       // TraceTimeline closes itself on Escape; only collapse panel when modal is absent.
@@ -322,7 +335,7 @@ export function BottomPanel(props: {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, openTraceId]);
+  }, [open, openTraceId, setPanelOpen]);
 
   const load = useCallback(async () => {
     const base = `/api/companies/${props.companyId}`;
@@ -423,7 +436,9 @@ export function BottomPanel(props: {
     setOpenTabs((prev) => {
       if (prev.includes(id)) {
         setCollapsedPanes((c) => c.filter((t) => t !== id));
-        return prev.filter((t) => t !== id);
+        const next = prev.filter((t) => t !== id);
+        if (next.length === 0) setOpen(false);
+        return next;
       }
       setOpen(true);
       return [...prev, id];
@@ -431,7 +446,11 @@ export function BottomPanel(props: {
   }, []);
 
   const hideTab = useCallback((id: Tab) => {
-    setOpenTabs((prev) => prev.filter((t) => t !== id));
+    setOpenTabs((prev) => {
+      const next = prev.filter((t) => t !== id);
+      if (next.length === 0) setOpen(false);
+      return next;
+    });
     setCollapsedPanes((prev) => prev.filter((t) => t !== id));
   }, []);
 
@@ -543,14 +562,19 @@ export function BottomPanel(props: {
         </select>
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setPanelOpen(!open)}
           className="text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+          disabled={!open && openTabs.length === 0}
           aria-label={
             open
               ? 'Collapse bottom panel (keyboard shortcut backtick or Escape)'
-              : 'Expand bottom panel (keyboard shortcut backtick)'
+              : openTabs.length === 0
+                ? 'Open a ribbon tab to expand the bottom panel'
+                : 'Expand bottom panel (keyboard shortcut backtick)'
           }
-          title={open ? 'Collapse (` or Esc)' : 'Expand (`)'}
+          title={
+            open ? 'Collapse (` or Esc)' : openTabs.length === 0 ? 'Open a tab first' : 'Expand (`)'
+          }
         >
           {open ? '▼' : '▲'}
         </button>
@@ -569,108 +593,102 @@ export function BottomPanel(props: {
     <section className="flex shrink-0 flex-col bg-[var(--color-surface-1)]">
       {ribbon}
       <div className="flex h-[min(70vh,48rem)] min-h-[16rem] gap-2 overflow-x-auto overflow-y-hidden px-3 py-2 text-sm">
-        {orderedOpenTabs.length === 0 ? (
-          <p className="self-center px-2 text-xs text-[var(--color-ink-faint)]">
-            No panes open. Press a ribbon tab to show a condensed list.
-          </p>
-        ) : (
-          orderedOpenTabs.map((id) => {
-            const meta = TABS.find((t) => t.id === id)!;
-            const collapsed = collapsedPanes.includes(id);
-            const soleExpanded = !collapsed && expandedPaneCount === 1;
-            return (
-              <PaneShell
-                key={id}
-                title={meta.label}
-                rail={meta.rail}
-                count={paneCount(id)}
-                collapsed={collapsed}
-                soleExpanded={soleExpanded}
-                onToggleCollapse={() => togglePaneCollapse(id)}
-                onHide={() => hideTab(id)}
-              >
-                {id === 'trends' ? (
-                  <TrendsView
-                    companyId={props.companyId}
-                    trends={scopedTrends}
-                    modules={scopedModules()}
-                    engines={props.engines}
-                    onRefetch={load}
-                    condensed
+        {orderedOpenTabs.map((id) => {
+          const meta = TABS.find((t) => t.id === id)!;
+          const collapsed = collapsedPanes.includes(id);
+          const soleExpanded = !collapsed && expandedPaneCount === 1;
+          return (
+            <PaneShell
+              key={id}
+              title={meta.label}
+              rail={meta.rail}
+              count={paneCount(id)}
+              collapsed={collapsed}
+              soleExpanded={soleExpanded}
+              onToggleCollapse={() => togglePaneCollapse(id)}
+              onHide={() => hideTab(id)}
+            >
+              {id === 'trends' ? (
+                <TrendsView
+                  companyId={props.companyId}
+                  trends={scopedTrends}
+                  modules={scopedModules()}
+                  engines={props.engines}
+                  onRefetch={load}
+                  condensed
+                />
+              ) : null}
+              {id === 'scenarios' ? (
+                <ScenarioView
+                  leads={scopedLeads}
+                  trees={scopedTrees}
+                  executions={scopedExecutions}
+                  moduleName={moduleName}
+                  condensed
+                />
+              ) : null}
+              {id === 'watchlists' ? (
+                <div className="space-y-1.5">
+                  <WatchlistTierFilterChips
+                    value={watchlistTierFilter}
+                    onChange={setWatchlistTierFilter}
                   />
-                ) : null}
-                {id === 'scenarios' ? (
-                  <ScenarioView
-                    leads={scopedLeads}
-                    trees={scopedTrees}
-                    executions={scopedExecutions}
-                    moduleName={moduleName}
-                    condensed
+                  <CondensedWatchlistList
+                    rows={scopedWatchlists}
+                    onConfirm={(itemId) => void confirmWatchlist(itemId)}
                   />
-                ) : null}
-                {id === 'watchlists' ? (
-                  <div className="space-y-1.5">
-                    <WatchlistTierFilterChips
-                      value={watchlistTierFilter}
-                      onChange={setWatchlistTierFilter}
-                    />
-                    <CondensedWatchlistList
-                      rows={scopedWatchlists}
-                      onConfirm={(itemId) => void confirmWatchlist(itemId)}
-                    />
-                  </div>
-                ) : null}
-                {id === 'positions' ? (
-                  <CondensedPositionsList rows={openPositions} moduleName={moduleName} />
-                ) : null}
-                {id === 'policies' ? <CondensedPoliciesList modules={policyModules} /> : null}
-                {id === 'lineage' ? (
-                  <LineageView
-                    trends={scopedTrends}
-                    leads={scopedLeads}
-                    trees={scopedTrees}
-                    executions={scopedExecutions}
-                    verifications={verifications}
-                    pendingJobs={scopedPending}
-                    deadJobs={scopedDead}
-                    moduleName={moduleName}
-                    selectedKey={selectedLineageKey}
-                    onSelectKey={setSelectedLineageKey}
-                    condensed
-                  />
-                ) : null}
-                {id === 'decisions' ? (
-                  <CondensedDecisionsList
-                    executions={scopedExecutions}
-                    verifications={verifications}
-                    moduleName={moduleName}
-                    onOpenTrace={setOpenTraceId}
-                  />
-                ) : null}
-                {id === 'approvals' ? (
-                  <ApprovalsView
-                    companyId={props.companyId}
-                    transfers={scopedTransfers()}
-                    proposals={proposals}
-                    liveGate={liveGate}
-                    moduleName={moduleName}
-                    onRefetch={load}
-                    condensed
-                  />
-                ) : null}
-                {id === 'dead' ? (
-                  <DeadLettersView
-                    companyId={props.companyId}
-                    jobs={scopedDead}
-                    moduleName={moduleName}
-                    onRefetch={load}
-                    condensed
-                  />
-                ) : null}
-              </PaneShell>
-            );
-          })
-        )}
+                </div>
+              ) : null}
+              {id === 'positions' ? (
+                <CondensedPositionsList rows={openPositions} moduleName={moduleName} />
+              ) : null}
+              {id === 'policies' ? <CondensedPoliciesList modules={policyModules} /> : null}
+              {id === 'lineage' ? (
+                <LineageView
+                  trends={scopedTrends}
+                  leads={scopedLeads}
+                  trees={scopedTrees}
+                  executions={scopedExecutions}
+                  verifications={verifications}
+                  pendingJobs={scopedPending}
+                  deadJobs={scopedDead}
+                  moduleName={moduleName}
+                  selectedKey={selectedLineageKey}
+                  onSelectKey={setSelectedLineageKey}
+                  condensed
+                />
+              ) : null}
+              {id === 'decisions' ? (
+                <CondensedDecisionsList
+                  executions={scopedExecutions}
+                  verifications={verifications}
+                  moduleName={moduleName}
+                  onOpenTrace={setOpenTraceId}
+                />
+              ) : null}
+              {id === 'approvals' ? (
+                <ApprovalsView
+                  companyId={props.companyId}
+                  transfers={scopedTransfers()}
+                  proposals={proposals}
+                  liveGate={liveGate}
+                  moduleName={moduleName}
+                  onRefetch={load}
+                  condensed
+                />
+              ) : null}
+              {id === 'dead' ? (
+                <DeadLettersView
+                  companyId={props.companyId}
+                  jobs={scopedDead}
+                  moduleName={moduleName}
+                  onRefetch={load}
+                  condensed
+                />
+              ) : null}
+            </PaneShell>
+          );
+        })}
       </div>
 
       {openTraceId && (

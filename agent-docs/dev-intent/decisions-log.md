@@ -1182,10 +1182,28 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Policies list policy modules with envelope refs. Docs: ui-spec §4 middle-bottom.
   **Status: implemented.**
 
+- **D-115 (company TopDrawer layered overlay + condensed tabs, 2026-07-18):** Company drawer
+  is a **layered panel** over the canvas (dimmed backdrop, fixed `w-[min(34rem,…)]`, rounded bottom —
+  not full-bleed edge-to-edge). Tabs condensed to **Desk / PnL** (trading profile + ledger +
+  equity chart + allocation/trend charts + positions/ledger tables), **Philosophy & sectors**
+  (mandate + sector focuses / excludes), LLM/operating, Settings. Per-tab SWR cache
+  (`company-drawer-cache` + shared market-hub cache) with lazy refresh when a section is
+  viewed; mutations invalidate the owning slice. Docs: ui-spec §2.   **Status: implemented.**
+
+- **D-116 (galaxy 3D volume packing — Fibonacci spheres, 2026-07-18):** Research galaxy
+  under-used Z (pancake / necklace). Surveyed d3-force-3d clustering, dagMode, hyperbolic
+  trees; kept TD-09 stack. Nest centers move to **Fibonacci-sphere** packing on concentric
+  shells; folders/articles pack on spheres inside parents; weaken global `center`; longer
+  springs + charge reach; `zoomToFit` padding so volume fills the viewport. Research:
+  `research/galaxy-3d-volume-layout.md`. Docs: research-galaxy-topic-view-design §4.1,
+  TD-09 amendment. **Status: implemented.**
+
 - **D-117 (panel condensed density + count chrome, 2026-07-18):** Bottom condensed panes
   show header counts, stretch when sole-expanded, sectioned lineage lists with selection
   highlight, and a 48-row cap with “showing N of M”. Ribbon + left/right `PanelTabs` expose
-  count `meta` when non-zero. Docs: ui-spec §4. **Status: implemented.**
+  count `meta` when non-zero. **Empty `openTabs` auto-collapses** the bottom panel to the
+  ribbon (hide/toggle last pane, chevron/` blocked until a tab is open). Docs: ui-spec §4.
+  **Status: implemented.**
 
 ## Open questions
 

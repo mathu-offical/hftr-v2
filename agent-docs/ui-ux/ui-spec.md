@@ -18,9 +18,10 @@
 ## 2. Application shell
 
 - **Top ribbon (L→R, implemented 2026-07-17 per DevSpecs/ui-ux.spec.md):** logo → company
-  switcher dropdown (`CompanySwitcher`) → top-drawer toggle (`TopDrawer`: Ledger/PnL,
-  Trading profile, LLM/operating, Settings, Philosophy, **Sectors** tabs — D-106; drawer is
-  near-fullscreen under the ribbon `h-[min(92vh,calc(100vh-ribbon))]`) → executions ticker tape (`ExecutionTicker`,
+  switcher dropdown (`CompanySwitcher`) → top-drawer toggle (`TopDrawer`: **Desk / PnL**,
+  **Philosophy & sectors**, LLM/operating, Settings — D-115; layered overlay under the ribbon
+  with dimmed backdrop, fixed `w-[min(34rem,…)]`, rounded bottom edge — not full-bleed; SWR
+  per-tab cache with lazy refresh on view) → executions ticker tape (`ExecutionTicker`,
   marquee of recent fills/blocks with amounts, pauses on hover) → paper/live master switch
   (`ModeSwitch`, live gated with an explanation popover — fails closed until the broker
   milestone) → **LLM connection chip** (`LlmRibbonStatusChip`: `llm: n/6` from shell
@@ -28,9 +29,11 @@
   queue chip → **User settings** modal (`UserSettingsLauncher`: tabs **LLM
   providers** | **Research** | **Brokers** — six LLM providers + Anthropic ZDR attestation,
   research gather keys, Alpaca paper Key ID + Secret via **Save & verify** — D-027) → Clerk
-  user button. TopDrawer **Sectors** tab: add/remove broad groups (defaults all specifics on),
-  deselect specifics to narrow, curate separate `universe_excludes` tickers; overlaps shown as
-  text-first peer hints. TopDrawer LLM/operating tab: **trading capital caps** (virtual / broker buying
+  user button. TopDrawer **Desk / PnL**: company identity + seed, equity chart (taller),
+  allocation/trend charts from market-hub, positions + ledger tables (trading profile +
+  ledger condensed). **Philosophy & sectors**: free-text + axes + directives above sector
+  group/specific refinement and `universe_excludes` (D-106); overlaps as text-first peer hints.
+  TopDrawer LLM/operating tab: **trading capital caps** (virtual / broker buying
   power / effective min when bound, else paper sim), provider budgets + **provider health**
   chips (same shell connection status; last failure from recent calls when operating tab
   loads), company `llm_policy` with tier
@@ -339,7 +342,8 @@ suppressed in editable fields.
   condensed side-by-side panes can be open at once in a **horizontally scrollable** row
   (Trends, Scenarios, Watch, **Open positions**, **Policies**, Decisions, Lineage, Approvals,
   Dead). Pane headers show **item counts**, collapse/expand or hide independently of whole-panel
-  show/hide; a sole expanded pane stretches. Lists cap at 48 rows with a “showing N of M”
+  show/hide; a sole expanded pane stretches. Closing the last open pane (or having none selected)
+  **auto-collapses** the panel to the ribbon. Lists cap at 48 rows with a “showing N of M”
   footer. `openTabs` + `collapsedPanes` persist per company (legacy single `tab` migrates).
   Positions list non-zero qty from `GET …/positions`; Policies list canvas policy modules
   (envelope / notes / status). Ribbon and left/right panel tabs show count meta when > 0.

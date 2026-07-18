@@ -243,34 +243,31 @@ accent underline on the active tab (financial-terminal, not pill chips). Short r
 labels use `aria-label` / `title` for full product names (e.g. Research → Research +
 Libraries). Nested category strips (Market posture) use `density="compact"`.
 
-**Keyboard + persistence (shipped 2026-07-17, D-022; engine scope D-097; edge rails D-118):**
-`[` toggles left, `]` toggles right, `` ` `` toggles bottom; `Esc` collapses the active panel
-(bottom defers when `TraceTimeline` is open). **Edge toggles persist** at each panel’s window
-edge while expanded: left/right keep the vertical expand rail outside the panel body (no
-header `×`); bottom keeps a slim bottom-edge hide/show strip while the tab ribbon stays on
-top of the panel (D-113). Per-company `localStorage` keys `hftr:{companyId}:panel:{left|bottom|right}`
-restore open state, active tab, and bottom **execution-engine** filter (`engineFilter`: `all`
-or `engine_instances.id`) on return visits. Legacy `moduleFilter` keys are ignored. Shortcuts
-are suppressed in editable fields.
+**Keyboard + persistence (shipped 2026-07-17, D-022; engine scope D-097; edge rails D-118 /
+D-123):** `[` toggles left, `]` toggles right, `` ` `` toggles bottom; `Esc` collapses the
+active panel (bottom defers when `TraceTimeline` is open). **Edge toggles persist** at each
+panel’s window edge while expanded. Left/right use a wider **symbol rail** (`PanelEdgeRail`,
+`w-10`): Lucide icons for each tab stay visible when collapsed; clicking a symbol opens that
+tab; a bottom chevron show/hides the panel body. Bottom keeps a slim bottom-edge hide/show
+strip while the tab ribbon stays on top of the panel (D-113). Per-company `localStorage` keys
+`hftr:{companyId}:panel:{left|bottom|right}` restore open state, active tab, and bottom
+**execution-engine** filter (`engineFilter`: `all` or `engine_instances.id`) on return visits.
+Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fields.
 
-### LEFT — Research + Libraries + Market posture + Data
-- Tabs: **Research + Libraries** | **Market posture** | **Data sources** (D-081).
-- Research + Libraries tab (**D-040**, **D-047**, **D-049**, **D-094**, **D-095**): scroll column —
+### LEFT — Research + Market posture + Data (+ shared Libraries dock)
+- Tabs: **Research** | **Market posture** | **Data** (D-081). **Libraries** are first-class
+  left-panel chrome (D-121): elevated bottom sheet (rounded, shadowed, inset) persists across
+  **all three** tabs — not Research-only. Dock includes System / Runtime / Baseline shelves
+  plus **Company** (canvas `library` modules); create/export/curation stay in the dock.
+- Research tab (**D-040**, **D-047**, **D-049**, **D-094**, **D-095**): scroll column —
   **Submit new topic** at top; **entity search** with Topics / Concepts / Tags / Libraries
   toggles; dedicated **Research topics** (collapsible directive tree — shortened nested labels,
   Program/Group/Directive kinds, concept counts; per-topic **Research** + **Research all**
   enqueue on the library research lane — D-098); **Agent activity** under topics (per
   research-module run / evidence / admission); **Archive** (D-047); collapsed Modules & tools
-  (inventory + sweep). **Libraries** live in a **bottom-anchored dock** (show/hide into a
-  Libraries card; persisted with left panel state) with expandable shelves as folders of
-  pages — system/runtime shelves plus one **Baseline seeded** shelf with inline catalog
-  folders (strategy / guardrails / session / broker / trend leads / **sector knowledge** per
-  D-076) and optional **tier** / **sector** subfolders; caret expands page leaves; Overview
-  opens Seeded trading mechanisms; linked-topic highlight in Research topics. Opening
-  Research + Libraries opens the Galaxy overlay only — detail lives in a right floating
-  inspector over the galaxy (no Galaxy|Page tab strip). Library shell lists use client SWR
-  cache (D-063) so shelf chrome returns from memory/session while page indexes lazy-load.
-  Design: `ui-ux/research-tab-shelves-inspector-design.md`.
+  (inventory + sweep). Opening Research opens the Galaxy overlay — detail in a right floating
+  inspector. Galaxy **traces** topics/connections; library **content browse** uses Data
+  Explorer (D-121). Shelves design: `ui-ux/research-tab-shelves-inspector-design.md`.
   Library research (`LIBRARY_RESEARCH`) is a separate queue from posture research
   (`POSTURE_RESEARCH`) and from execution/other LLM lanes (D-098).- **Market posture** tab (D-081 / D-085 / D-092 / D-101): live operating hub. Left rail lists
   company-wide persisted categories (positions, watchlists, trends, plans) with rich row
@@ -283,7 +280,7 @@ are suppressed in editable fields.
   expiry**, holdings with realized PnL + pipeline/recovery stubs, and bottom grids at rail
   parity (tier filters including `triggered`, Confirm, Justification). Freshness strip shows
   hub `fetchedAt` + movers expiry. Hover justification (D-083) where wired.
-  Distinct from Research + Libraries (async corpus).   Hub data uses client **SWR cache**
+  Distinct from Research (async corpus).   Hub data uses client **SWR cache**
   (`market-hub-cache` + `useMarketHub`): memory + sessionStorage, 15s fresh / 10m stale for
   **full hub** cache policy (used on mount/Sync/after Analyze), inflight dedupe, shell
   warm-prefetch. Automatic refresh is **not** a full-hub poll.
@@ -336,8 +333,10 @@ are suppressed in editable fields.
   ring + fly-to; focus dims non-members. Inspector shows text-first **library admission**,
   **evidence ref**, **research run** provenance, **usage**, **confidence**, Verify / Delete.
   Bodies render via `ResearchMarkdown` with optional `[[sys:…]]` chips (D-047).
-- Data sources tab: connected live APIs with freshness/entitlement labels, create-new-source
-  flow, library list with curation status.
+- Data tab (D-121): **LIVE DATA SOURCES** via `GET …/live-data-sources` (registry + readiness);
+  place-on-canvas for entitled hydrators; **Data Explorer** overlay (browse / filter / search;
+  markdown | JSON). Canvas `live_api` uses `config.sourceKind`. Overlays mutually exclusive
+  with Galaxy and Market posture.
 
 ### MIDDLE BOTTOM — Exploration + Analysis + Choice (the main control panel)
 - **Persistent ribbon (D-097 / D-113 / D-114 / D-118):** collapsed view keeps tab buttons +

@@ -1232,6 +1232,35 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   ui-spec §4 Market posture Model, research-live-system-cadence, data-model.
   **Status: implemented.**
 
+- **D-121 (shared Libraries dock + DATA live sources + Data Explorer, 2026-07-18):** Libraries
+  dock is **first-class left-panel chrome** — visible under Research, Market posture, and Data
+  (not Research-owned). DATA tab primary list is **LIVE DATA SOURCES** (full
+  `RESEARCH_SOURCE_REGISTRY` inventory with readiness via `GET …/live-data-sources`).
+  Company canvas `library` modules appear under dock **Company**. Center **Data Explorer**
+  overlay browses live hydrators and library contents (markdown / JSON). Canvas `live_api`
+  identity uses optional `sourceKind` hydrator (legacy venue map). Galaxy stays Research-owned
+  for topic/connection **trace**; Explorer is content **read**. Spec:
+  `docs/superpowers/specs/2026-07-18-data-tab-libraries-dock-explorer-design.md`.
+  Docs: ui-spec §4, research-tab-shelves-inspector-design, product-spec §Data modules.
+  **Status: implemented** (elevated Libraries sheet chrome; contracts + web typecheck verified).
+
+- **D-122 (dual paper books + delta training, 2026-07-18):** Paper execution uses **explicit
+  dual books** — an internal hftr paper engine book and optional provider paper books
+  (Alpaca paper, Kalshi demo, …). Books stay linked; neither silently replaces the other.
+  **Deltas** between books (fill price, latency, partials, cash/position marks, reject codes)
+  are first-class artifacts used to **train / weight** the internal sim (and related
+  realism parameters), not discarded reconciliation noise. Provider paper remains available
+  on top of the internal engine; operators may toggle real/provider accounts without
+  abandoning the internal book. Full design pending brainstorm (architecture doc + plan to
+  follow). Related: D-002, D-014, D-025, D-027; OQ-13. **Status: decided (design pending).**
+
+- **D-123 (side panel symbol edge rails, 2026-07-18):** Left/right persistent edge rails
+  (D-118) are wider (`w-10`) and show **Lucide symbol buttons for each tab** in both open and
+  collapsed states. Clicking a symbol selects that tab and expands the panel; a bottom
+  chevron remains the explicit show/hide control (`[` / `]` labels preserved for e2e).
+  Active tab gets accent stroke + edge bar. Shared `PanelEdgeRail`. Docs: ui-spec §4.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;
@@ -1265,3 +1294,7 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 - **OQ-5 (open):** Polymarket wallet/key custody design before that adapter ships.
 - **OQ-6 (open):** Dashboard/diagnostics slide direction conflict from v1 DevSpecs (top vs
   bottom) — v2 resolves via the three-panel model; confirm no separate diagnostics slide needed.
+- **OQ-13 (open, D-122):** Dual paper books — which book is authoritative for capital
+  admission, risk limits, position exits, and company UI equity while both books run; which
+  delta dimensions feed the weighting system first; whether provider shadow is always-on when
+  connected or opt-in per company/module. Resolve in paper-engine design brainstorm.

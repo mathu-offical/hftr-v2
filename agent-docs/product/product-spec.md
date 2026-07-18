@@ -121,17 +121,19 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
 - **Libraries:** curated knowledge bases hydrated by research modules; per-company, shareable
   across modules; scoped by topic but cross-referenced (all libraries are subsets of the master
   library graph). Curation statuses include `proposed`, `accepted`, `auto_admitted`, `rejected`,
-  `archived`. Views: browse/tag/search, **hard-nested galaxy nests** (D-040), markdown preview /
-  hybrid topic articles.
+  `archived`. Views: left-panel **Libraries dock** (D-121, all tabs) + **Data Explorer**
+  browse/filter/search (markdown | JSON); galaxy nests remain Research **trace** (D-040).
   **Bootstrap (D-045):** company create and research graph/topics/libraries ensure paths call
   `bootstrapCompanyKnowledge` so compile-time catalog mechanisms appear as readable
   `catalog_seed` galaxy concepts (payload-derived bodies, not placeholders) and an operator
   Page topic without waiting for a research run.
   **Export: Obsidian-optimized folder of .md files** (frontmatter: tags, links as wikilinks,
   provenance; topic articles as linked notes) — zip download per library or whole company.
-- **Live APIs:** deterministic feed managers (Alpaca data, Kalshi books, future venues).
-  Config: instruments, feed class (labeled entitlement), polling/stream mode, throttle preset.
-  They hydrate ACTUAL numbers into the pipeline — no LLM connectors for market data ever.
+- **Live APIs:** deterministic feed managers bound to a registry **hydrator** (`sourceKind`,
+  D-121) — not generic venue-only chips. DATA tab lists all available live sources with
+  readiness; entitled hydrators can be placed on canvas. Config: sourceKind, instruments,
+  feed class (labeled entitlement), polling/stream mode, throttle preset. They hydrate ACTUAL
+  numbers into the pipeline — no LLM connectors for market data ever.
 
 ### Trend modules
 - The engine linking libraries + live data + company philosophy to trading directives.

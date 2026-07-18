@@ -5,8 +5,10 @@ Living design for the left Research tab layout and floating in-galaxy inspector.
 ## Left Research tab layout
 
 Two regions: a **scroll column** (topics + agent activity) and a **bottom-anchored Libraries
-dock** (show/hide). Dock open/closed persists on `hftr:{companyId}:panel:left` as
-`librariesDockOpen` (D-095).
+dock** (show/hide). Dock is **first-class left-panel chrome** (D-121) — visible on Research,
+Market posture, and Data. Open/closed persists on `hftr:{companyId}:panel:left` as
+`librariesDockOpen` (D-095). Content browse opens Data Explorer; Galaxy stays Research-owned
+for topic/connection tracing.
 
 ### Scroll column (top → bottom)
 

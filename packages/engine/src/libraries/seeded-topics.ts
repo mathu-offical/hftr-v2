@@ -528,8 +528,8 @@ export async function ensureSeededResearchTopics(opts: {
     const synopsisMd = buildSeededDirectiveSynopsisMd({
       title: spec.title,
       directive: spec.directive,
-      isProgram: spec.isProgram,
-      childTitles: childTitles.length > 0 ? childTitles : undefined,
+      ...(spec.isProgram ? { isProgram: true as const } : {}),
+      ...(childTitles.length > 0 ? { childTitles } : {}),
       memberTitles: members.map((m) => m.title),
     });
 

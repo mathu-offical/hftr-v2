@@ -177,8 +177,10 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
       } catch {
         // Route may not be deployed yet; keep whatever we have.
         if (peekResearchResource<ConceptRow[]>({ kind: 'concepts', companyId }) === null) {
-          setConceptsLoaded(true);
+          setConcepts([]);
         }
+      } finally {
+        setConceptsLoaded(true);
       }
     },
     [companyId],
@@ -254,7 +256,10 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
       setTopics(cachedTopics);
       setTopicsLoaded(true);
     }
-    if (cachedConcepts) setConcepts(cachedConcepts);
+    if (cachedConcepts) {
+      setConcepts(cachedConcepts);
+      setConceptsLoaded(true);
+    }
     void refreshShell(false);
   }, [companyId, refreshShell]);
 
@@ -735,6 +740,13 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                   onSelectTopic={(topicId) => {
                     setTab('research');
                     void researchView.selectTopic(topicId);
+                  }}
+                  researchModuleId={researchModules[0]?.id ?? null}
+                  onLibraryActionComplete={() => {
+                    invalidateAfterResearchMutation(companyId, 'concepts');
+                    invalidateAfterResearchMutation(companyId, 'libraryPages');
+                    invalidateAfterResearchMutation(companyId, 'libraries');
+                    void refreshShell(true);
                   }}
                 />
                 <LibrariesSection

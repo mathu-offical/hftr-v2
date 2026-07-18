@@ -4,6 +4,7 @@ import {
   CANVAS_LAYOUT,
   TIME_BEARING_MODULE_TYPES,
   composeModulePrimaryLabel,
+  moduleHasClockIn,
   placeEngineTimeHubPosition,
   type ModuleType,
 } from '@hftr/contracts';
@@ -53,7 +54,10 @@ export async function provisionEngineTimeHub(
   members: readonly TimeHubOwnerSeed[],
   now = new Date(),
 ): Promise<ProvisionedTimeHub | null> {
-  const bearing = members.filter((m) => TIME_BEARING_MODULE_TYPES.has(m.type));
+  // Clock-in recipients: time-bearing ∪ {library, display} (D-108). Math excluded.
+  const bearing = members.filter(
+    (m) => TIME_BEARING_MODULE_TYPES.has(m.type) || moduleHasClockIn(m.type),
+  );
   if (bearing.length === 0) return null;
 
   const [existingTime] = await db

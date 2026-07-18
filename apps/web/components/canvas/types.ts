@@ -15,6 +15,8 @@ export {
   LINK_PORT_VISUALS,
   MODULE_FAMILY,
   MODULE_VISUALS,
+  NATURE_COLORS,
+  NATURE_EDGE_DASH,
   engineVisualForTemplate,
   moduleSubtypeChip,
   portRoleLabel,

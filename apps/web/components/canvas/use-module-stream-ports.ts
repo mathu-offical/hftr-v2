@@ -25,6 +25,7 @@ function peerLabelFromNodeData(data: Record<string, unknown> | undefined): strin
 export function useModuleStreamPorts(
   moduleId: string,
   moduleType: ModuleType,
+  exposedOutputChannels?: readonly string[] | null,
 ): { inbound: StreamPortSpec[]; outbound: StreamPortSpec[] } {
   const edges = useEdges();
   const nodes = useNodes();
@@ -65,6 +66,7 @@ export function useModuleStreamPorts(
       type: moduleType,
       moduleId,
       links,
+      ...(exposedOutputChannels != null ? { exposedOutputChannels } : {}),
     });
-  }, [edges, nodes, moduleId, moduleType]);
+  }, [edges, nodes, moduleId, moduleType, exposedOutputChannels]);
 }

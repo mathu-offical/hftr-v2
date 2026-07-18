@@ -207,6 +207,31 @@ export const LINK_COLORS: Record<LinkKind, string> = {
   fund_route: '#73daca',
 };
 
+/** D-108: nature families for rails/edges (system vs data vs time vs fund). */
+export const NATURE_COLORS: Record<'data' | 'system' | 'fund' | 'time', string> = {
+  data: '#7aa2f7',
+  system: '#e0af68',
+  fund: '#73daca',
+  time: '#bb9af7',
+};
+
+export const NATURE_EDGE_DASH: Record<'data' | 'system' | 'fund' | 'time', string | undefined> = {
+  data: undefined,
+  system: '6 3',
+  fund: '10 4',
+  time: '3 3',
+};
+
+export const NATURE_PORT_VISUALS: Record<
+  'data' | 'system' | 'fund' | 'time',
+  { label: string; shortLabel: string; color: string }
+> = {
+  data: { label: 'Data', shortLabel: 'Data', color: NATURE_COLORS.data },
+  system: { label: 'System', shortLabel: 'Sys', color: NATURE_COLORS.system },
+  fund: { label: 'Fund', shortLabel: 'Fund', color: NATURE_COLORS.fund },
+  time: { label: 'Time', shortLabel: 'Time', color: NATURE_COLORS.time },
+};
+
 /** Edge dash patterns — visual bus identity per link kind. */
 export const LINK_EDGE_DASH: Record<LinkKind, string | undefined> = {
   data_feed: undefined,
@@ -242,7 +267,7 @@ export function portRoleLabel(type: ModuleType, kind: LinkKind, direction: 'in' 
       if (type === 'math') return 'Calc ref';
       if (type === 'clock') return direction === 'out' ? 'Now' : 'Clock in';
       if (type === 'time') {
-        return direction === 'out' ? 'Duration' : 'Schedule in';
+        return direction === 'out' ? 'Time bus' : 'Authority in';
       }
       if (type === 'analyzer') return direction === 'out' ? 'Analysis' : 'Observe';
       if (type === 'simulator') return direction === 'out' ? 'Sim data' : 'Sim in';

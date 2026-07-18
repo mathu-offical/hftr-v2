@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { allowedLinkKinds, CreateLinkInput, isLegalFundRoute, ModuleType } from '@hftr/contracts';
+import {
+  allowedLinkKinds,
+  CreateLinkInput,
+  isLegalFundRoute,
+  isLegalStreamPortPair,
+  ModuleType,
+} from '@hftr/contracts';
 import { moduleLinks } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
@@ -41,6 +47,18 @@ export async function POST(req: Request, ctx: Ctx) {
     }
     if (input.linkKind === 'fund_route' && !isLegalFundRoute(fromType, toType)) {
       throw new ApiError(422, 'fund_route_must_traverse_math');
+    }
+    // D-108: Time schedule/bus → clock_in only (fail-closed when handles provided).
+    if (
+      !isLegalStreamPortPair({
+        fromType,
+        toType,
+        sourceHandle: input.sourceHandle ?? null,
+        targetHandle: input.targetHandle ?? null,
+        linkKind: input.linkKind,
+      })
+    ) {
+      throw new ApiError(422, 'port_slot_not_allowed');
     }
 
     const inserted = await db

@@ -3,11 +3,15 @@
 import { Handle, Position } from '@xyflow/react';
 import {
   handleIdForStream,
+  isClockInPort,
   isMathDockStreamPort,
+  isScheduleOutPort,
+  isTimeBusOutPort,
   type ModuleType,
+  type PortNature,
   type StreamPortSpec,
 } from '@hftr/contracts';
-import { LINK_PORT_VISUALS, portRoleLabel } from './canvas-visuals';
+import { LINK_PORT_VISUALS, NATURE_PORT_VISUALS, portRoleLabel } from './canvas-visuals';
 
 function portTopPercent(index: number, total: number): string {
   if (total <= 1) return '50%';
@@ -19,8 +23,19 @@ function portLeftPercent(index: number, total: number): string {
   return `${((index + 1) / (total + 1)) * 100}%`;
 }
 
+function portNature(port: StreamPortSpec): PortNature {
+  if (port.nature) return port.nature;
+  if (isClockInPort(port) || isScheduleOutPort(port) || isTimeBusOutPort(port)) return 'time';
+  if (port.kind === 'fund_route') return 'fund';
+  if (port.kind === 'directive' || port.kind === 'verification') return 'system';
+  return 'data';
+}
+
 function streamLabel(moduleType: ModuleType, port: StreamPortSpec): string {
-  // D-088: info-type labels only — never peer names as primary text.
+  if (port.label?.trim()) return port.label.trim();
+  if (isClockInPort(port)) return 'Clock in';
+  if (isScheduleOutPort(port)) return 'Schedule';
+  if (isTimeBusOutPort(port)) return 'Time bus';
   if (port.kind === 'data_feed' && (port.peerType === 'math' || moduleType === 'math')) {
     return port.role === 'bus' ? portRoleLabel(moduleType, port.kind, port.direction) : 'Calc ref';
   }
@@ -33,31 +48,55 @@ function streamTitle(moduleType: ModuleType, port: StreamPortSpec): string {
   return peer ? `${label} · ${peer}` : label;
 }
 
+function visualForPort(port: StreamPortSpec) {
+  const nature = portNature(port);
+  return NATURE_PORT_VISUALS[nature] ?? LINK_PORT_VISUALS[port.kind];
+}
+
 /**
- * Per-stream + bus connection points with a vertical rail on the node edge.
- * Bus ports accept new links; stream ports bind one existing dependency peer.
- * Math tool dock streams (`data_feed` ↔ math) render on the bottom edge (D-075).
+ * Per-stream + bus connection points with nature-colored rails.
+ * Placement (D-105): left/right data+system; Time top schedule + right time bus;
+ * bottom far-left clock_in then Math docks. Clock ports are additive.
  */
 export function NodePortBuses(props: {
   moduleType: ModuleType;
   inbound: readonly StreamPortSpec[];
   outbound: readonly StreamPortSpec[];
 }) {
-  const sideInbound = props.inbound.filter((port) => !isMathDockStreamPort(port));
-  const sideOutbound = props.outbound.filter((port) => !isMathDockStreamPort(port));
-  // Bottom L→R: outs to Math (owner → tool) then inns from Math (tool → owner).
-  const bottomPorts = [
+  const all = [...props.inbound, ...props.outbound];
+
+  const leftPorts = all.filter(
+    (p) =>
+      (p.edge ?? (p.direction === 'in' ? 'left' : 'right')) === 'left' &&
+      !isMathDockStreamPort(p) &&
+      !isClockInPort(p),
+  );
+  const rightPorts = all.filter(
+    (p) =>
+      (p.edge ?? (p.direction === 'in' ? 'left' : 'right')) === 'right' &&
+      !isMathDockStreamPort(p) &&
+      !isClockInPort(p) &&
+      !isScheduleOutPort(p),
+  );
+  const topPorts = all.filter(
+    (p) => p.edge === 'top' || isScheduleOutPort(p),
+  );
+  // Bottom L→R: clock_in (far left) then Math dock streams.
+  const clockInPorts = all.filter(isClockInPort);
+  const mathDockPorts = [
     ...props.outbound.filter(isMathDockStreamPort),
     ...props.inbound.filter(isMathDockStreamPort),
   ];
+  const bottomPorts = [...clockInPorts, ...mathDockPorts];
 
   const sides: Array<{
+    key: string;
     ports: readonly StreamPortSpec[];
-    direction: 'in' | 'out';
-    position: Position.Left | Position.Right;
+    position: Position.Left | Position.Right | Position.Top;
   }> = [
-    { ports: sideInbound, direction: 'in', position: Position.Left },
-    { ports: sideOutbound, direction: 'out', position: Position.Right },
+    { key: 'left', ports: leftPorts, position: Position.Left },
+    { key: 'right', ports: rightPorts, position: Position.Right },
+    { key: 'top', ports: topPorts, position: Position.Top },
   ];
 
   return (
@@ -65,48 +104,68 @@ export function NodePortBuses(props: {
       {sides.map((side) => {
         if (side.ports.length === 0) return null;
         const isLeft = side.position === Position.Left;
-        const kinds = [...new Set(side.ports.map((p) => p.kind))];
+        const isTop = side.position === Position.Top;
+        const natures = [...new Set(side.ports.map(portNature))];
         return (
-          <div key={side.direction}>
-            <div
-              className="pointer-events-none absolute top-2 bottom-2 w-[3px] overflow-hidden rounded-full"
-              style={{
-                [isLeft ? 'left' : 'right']: -1,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 1,
-              }}
-              aria-hidden
-            >
-              {kinds.map((kind) => (
-                <div
-                  key={`${side.direction}-rail-${kind}`}
-                  className="min-h-[8px] flex-1"
-                  style={{
-                    background: LINK_PORT_VISUALS[kind].color,
-                    opacity: 0.4,
-                  }}
-                />
-              ))}
-            </div>
+          <div key={side.key}>
+            {!isTop ? (
+              <div
+                className="pointer-events-none absolute top-2 bottom-2 w-[3px] overflow-hidden rounded-full"
+                style={{
+                  [isLeft ? 'left' : 'right']: -1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1,
+                }}
+                aria-hidden
+              >
+                {natures.map((nature) => (
+                  <div
+                    key={`${side.key}-rail-${nature}`}
+                    className="min-h-[8px] flex-1"
+                    style={{
+                      background: NATURE_PORT_VISUALS[nature].color,
+                      opacity: 0.45,
+                    }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div
+                className="pointer-events-none absolute top-0 left-4 right-4 h-[3px] overflow-hidden rounded-full"
+                style={{ display: 'flex', gap: 2, transform: 'translateY(-1px)' }}
+                aria-hidden
+              >
+                {side.ports.map((port) => (
+                  <div
+                    key={`top-rail-${port.handleId}`}
+                    className="min-w-[8px] flex-1"
+                    style={{ background: visualForPort(port).color, opacity: 0.5 }}
+                  />
+                ))}
+              </div>
+            )}
 
             {side.ports.map((port, index) => {
-              const visual = LINK_PORT_VISUALS[port.kind];
+              const visual = visualForPort(port);
               const label = streamLabel(props.moduleType, port);
               const title = streamTitle(props.moduleType, port);
-              const top = portTopPercent(index, side.ports.length);
               const isStream = port.role === 'stream';
+              const isOut = port.direction === 'out';
+              const stylePos = isTop
+                ? { left: portLeftPercent(index, side.ports.length) }
+                : { top: portTopPercent(index, side.ports.length) };
               return (
                 <div key={port.handleId}>
                   <Handle
                     id={port.handleId}
-                    type={side.direction === 'in' ? 'target' : 'source'}
+                    type={isOut ? 'source' : 'target'}
                     position={side.position}
                     className="hftr-handle"
                     aria-label={`${title} (${visual.label})`}
                     title={title}
                     style={{
-                      top,
+                      ...stylePos,
                       width: isStream ? 8 : 10,
                       height: isStream ? 8 : 10,
                       background: visual.color,
@@ -118,10 +177,26 @@ export function NodePortBuses(props: {
                     }}
                   />
                   <span
-                    className={`pointer-events-none absolute w-[4.25rem] text-[6px] leading-tight ${
+                    className={`pointer-events-none absolute text-[6px] leading-tight ${
                       isStream ? 'text-[var(--color-ink-dim)]' : 'text-[var(--color-ink-faint)]'
-                    } ${isLeft ? '-left-[4.6rem] text-right' : '-right-[4.6rem] text-left'}`}
-                    style={{ top, transform: 'translateY(-50%)' }}
+                    } ${
+                      isTop
+                        ? '-top-3 max-w-[3.5rem] truncate text-center'
+                        : isLeft
+                          ? '-left-[4.6rem] w-[4.25rem] text-right'
+                          : '-right-[4.6rem] w-[4.25rem] text-left'
+                    }`}
+                    style={
+                      isTop
+                        ? {
+                            left: portLeftPercent(index, side.ports.length),
+                            transform: 'translateX(-50%)',
+                          }
+                        : {
+                            top: portTopPercent(index, side.ports.length),
+                            transform: 'translateY(-50%)',
+                          }
+                    }
                     aria-hidden
                   >
                     {label}
@@ -134,9 +209,9 @@ export function NodePortBuses(props: {
       })}
 
       {bottomPorts.length > 0 ? (
-        <div key="math-dock-bottom">
+        <div key="bottom-ports">
           <div
-            className="pointer-events-none absolute bottom-0 left-4 right-4 h-[3px] overflow-hidden rounded-full"
+            className="pointer-events-none absolute bottom-0 left-3 right-3 h-[3px] overflow-hidden rounded-full"
             style={{ display: 'flex', gap: 2, transform: 'translateY(1px)' }}
             aria-hidden
           >
@@ -144,7 +219,7 @@ export function NodePortBuses(props: {
               <div
                 key={`bottom-rail-${port.handleId}`}
                 className="min-w-[8px] flex-1"
-                style={{ background: LINK_PORT_VISUALS.data_feed.color, opacity: 0.45 }}
+                style={{ background: visualForPort(port).color, opacity: 0.5 }}
               />
             ))}
           </div>
@@ -152,8 +227,16 @@ export function NodePortBuses(props: {
           {bottomPorts.map((port, index) => {
             const label = streamLabel(props.moduleType, port);
             const title = streamTitle(props.moduleType, port);
-            const left = portLeftPercent(index, bottomPorts.length);
+            // Bias clock_in to far left of the bottom edge.
+            const left =
+              clockInPorts.length > 0 && isClockInPort(port)
+                ? portLeftPercent(
+                    clockInPorts.findIndex((p) => p.handleId === port.handleId),
+                    Math.max(bottomPorts.length, 3),
+                  )
+                : portLeftPercent(index, bottomPorts.length);
             const isOut = port.direction === 'out';
+            const visual = visualForPort(port);
             return (
               <div key={port.handleId}>
                 <Handle
@@ -161,14 +244,15 @@ export function NodePortBuses(props: {
                   type={isOut ? 'source' : 'target'}
                   position={Position.Bottom}
                   className="hftr-handle"
-                  aria-label={`${title} (Calc ref)`}
+                  aria-label={title}
                   title={title}
                   style={{
                     left,
-                    width: 8,
-                    height: 8,
-                    background: LINK_PORT_VISUALS.data_feed.color,
+                    width: isClockInPort(port) ? 10 : 8,
+                    height: isClockInPort(port) ? 10 : 8,
+                    background: visual.color,
                     border: '1px solid var(--color-surface-0)',
+                    borderRadius: isClockInPort(port) ? '9999px' : 2,
                   }}
                 />
                 <span
@@ -205,15 +289,14 @@ export function MathPortBuses(props: {
     peerLabel: null,
     peerType: null,
     role: 'bus',
+    edge: 'top',
+    nature: 'data',
+    label: 'Calc ref',
   };
   const fallbackOut: StreamPortSpec = {
+    ...fallbackIn,
     handleId: handleIdForStream('data_feed', 'out'),
-    kind: 'data_feed',
     direction: 'out',
-    peerModuleId: null,
-    peerLabel: null,
-    peerType: null,
-    role: 'bus',
   };
   const fallbackFundIn: StreamPortSpec = {
     handleId: handleIdForStream('fund_route', 'in'),
@@ -223,179 +306,90 @@ export function MathPortBuses(props: {
     peerLabel: null,
     peerType: null,
     role: 'bus',
+    edge: 'left',
+    nature: 'fund',
+    label: 'Fund in',
   };
   const fallbackFundOut: StreamPortSpec = {
+    ...fallbackFundIn,
     handleId: handleIdForStream('fund_route', 'out'),
-    kind: 'fund_route',
     direction: 'out',
-    peerModuleId: null,
-    peerLabel: null,
-    peerType: null,
-    role: 'bus',
+    edge: 'right',
+    label: 'Fund out',
   };
 
   const topIn = dataIn.length > 0 ? dataIn : [fallbackIn];
   const topOut = dataOut.length > 0 ? dataOut : [fallbackOut];
-  const sideIn = fundIn.length > 0 ? fundIn : [fallbackFundIn];
-  const sideOut = fundOut.length > 0 ? fundOut : [fallbackFundOut];
-  // Top edge L→R: calc-ins (pipeline order) then calc-outs (same peer order).
-  const topTotal = topIn.length + topOut.length;
+  const leftFund = fundIn.length > 0 ? fundIn : [fallbackFundIn];
+  const rightFund = fundOut.length > 0 ? fundOut : [fallbackFundOut];
+
+  const topPorts = [...topIn, ...topOut];
 
   return (
     <>
       <div
-        className="pointer-events-none absolute left-4 right-4 top-0 h-[3px] overflow-hidden rounded-full"
-        style={{ display: 'flex', gap: 2, transform: 'translateY(-1px)' }}
+        className="pointer-events-none absolute top-0 left-3 right-3 h-[2px] rounded-full"
+        style={{ background: NATURE_PORT_VISUALS.data.color, opacity: 0.4 }}
         aria-hidden
-      >
-        {[...topIn, ...topOut].map((port) => (
-          <div
-            key={`top-rail-${port.handleId}`}
-            className="min-w-[8px] flex-1"
-            style={{ background: LINK_PORT_VISUALS.data_feed.color, opacity: 0.45 }}
+      />
+      {topPorts.map((port, index) => {
+        const left = portLeftPercent(index, topPorts.length);
+        const isOut = port.direction === 'out';
+        return (
+          <Handle
+            key={port.handleId}
+            id={port.handleId}
+            type={isOut ? 'source' : 'target'}
+            position={Position.Top}
+            className="hftr-handle"
+            aria-label={streamTitle('math', port)}
+            title={streamTitle('math', port)}
+            style={{
+              left,
+              width: 8,
+              height: 8,
+              background: NATURE_PORT_VISUALS.data.color,
+              border: '1px solid var(--color-surface-0)',
+            }}
           />
-        ))}
-      </div>
-
-      {topIn.map((port, index) => {
-        const label = streamLabel('math', port);
-        const title = streamTitle('math', port);
-        const left = portLeftPercent(index, topTotal);
-        return (
-          <div key={port.handleId}>
-            <Handle
-              id={port.handleId}
-              type="target"
-              position={Position.Top}
-              className="hftr-handle"
-              aria-label={title}
-              title={title}
-              style={{
-                left,
-                width: port.role === 'stream' ? 8 : 10,
-                height: port.role === 'stream' ? 8 : 10,
-                background: LINK_PORT_VISUALS.data_feed.color,
-                border: '2px solid var(--color-surface-0)',
-              }}
-            />
-            <span
-              className="pointer-events-none absolute -top-3 max-w-[3.25rem] truncate text-[6px] text-[var(--color-ink-faint)]"
-              style={{ left, transform: 'translateX(-50%)' }}
-              aria-hidden
-            >
-              {label}
-            </span>
-          </div>
         );
       })}
-
-      {topOut.map((port, index) => {
-        const label = streamLabel('math', port);
-        const title = streamTitle('math', port);
-        const left = portLeftPercent(topIn.length + index, topTotal);
-        return (
-          <div key={port.handleId}>
-            <Handle
-              id={port.handleId}
-              type="source"
-              position={Position.Top}
-              className="hftr-handle"
-              aria-label={title}
-              title={title}
-              style={{
-                left,
-                width: port.role === 'stream' ? 8 : 10,
-                height: port.role === 'stream' ? 8 : 10,
-                background: LINK_PORT_VISUALS.data_feed.color,
-                border: '2px solid var(--color-surface-0)',
-              }}
-            />
-            <span
-              className="pointer-events-none absolute -top-3 max-w-[3.25rem] truncate text-[6px] text-[var(--color-ink-faint)]"
-              style={{ left, transform: 'translateX(-50%)' }}
-              aria-hidden
-            >
-              {label}
-            </span>
-          </div>
-        );
-      })}
-
-      <div
-        className="pointer-events-none absolute top-1/2 left-0 right-0 h-[3px] -translate-y-1/2"
-        aria-hidden
-      >
-        <div
-          className="absolute left-0 right-0 top-0 h-full opacity-30"
+      {leftFund.map((port, index) => (
+        <Handle
+          key={port.handleId}
+          id={port.handleId}
+          type="target"
+          position={Position.Left}
+          className="hftr-handle"
+          aria-label={streamTitle('math', port)}
           style={{
-            background: `linear-gradient(90deg, ${LINK_PORT_VISUALS.fund_route.color}, transparent 40%, transparent 60%, ${LINK_PORT_VISUALS.fund_route.color})`,
+            top: portTopPercent(index, leftFund.length),
+            width: 8,
+            height: 8,
+            background: NATURE_PORT_VISUALS.fund.color,
+            borderRadius: 2,
+            border: '1px solid var(--color-surface-0)',
           }}
         />
-      </div>
-
-      {sideIn.map((port, index) => {
-        const label = streamLabel('math', port);
-        const top = portTopPercent(index, sideIn.length);
-        return (
-          <div key={port.handleId}>
-            <Handle
-              id={port.handleId}
-              type="target"
-              position={Position.Left}
-              className="hftr-handle"
-              aria-label={label}
-              title={label}
-              style={{
-                top,
-                width: 10,
-                height: 10,
-                background: LINK_PORT_VISUALS.fund_route.color,
-                border: '2px solid var(--color-surface-0)',
-                borderRadius: 2,
-              }}
-            />
-            <span
-              className="pointer-events-none absolute -left-[4.5rem] w-16 text-right text-[7px] text-[var(--color-ink-faint)]"
-              style={{ top, transform: 'translateY(-50%)' }}
-              aria-hidden
-            >
-              {label}
-            </span>
-          </div>
-        );
-      })}
-
-      {sideOut.map((port, index) => {
-        const label = streamLabel('math', port);
-        const top = portTopPercent(index, sideOut.length);
-        return (
-          <div key={port.handleId}>
-            <Handle
-              id={port.handleId}
-              type="source"
-              position={Position.Right}
-              className="hftr-handle"
-              aria-label={label}
-              title={label}
-              style={{
-                top,
-                width: 10,
-                height: 10,
-                background: LINK_PORT_VISUALS.fund_route.color,
-                border: '2px solid var(--color-surface-0)',
-                borderRadius: 2,
-              }}
-            />
-            <span
-              className="pointer-events-none absolute -right-[4.5rem] w-16 text-left text-[7px] text-[var(--color-ink-faint)]"
-              style={{ top, transform: 'translateY(-50%)' }}
-              aria-hidden
-            >
-              {label}
-            </span>
-          </div>
-        );
-      })}
+      ))}
+      {rightFund.map((port, index) => (
+        <Handle
+          key={port.handleId}
+          id={port.handleId}
+          type="source"
+          position={Position.Right}
+          className="hftr-handle"
+          aria-label={streamTitle('math', port)}
+          style={{
+            top: portTopPercent(index, rightFund.length),
+            width: 8,
+            height: 8,
+            background: NATURE_PORT_VISUALS.fund.color,
+            borderRadius: 2,
+            border: '1px solid var(--color-surface-0)',
+          }}
+        />
+      ))}
     </>
   );
 }

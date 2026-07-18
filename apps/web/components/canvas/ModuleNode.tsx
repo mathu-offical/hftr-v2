@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { Layers } from 'lucide-react';
 import { type NodeProps, type Node } from '@xyflow/react';
 import {
@@ -70,7 +70,11 @@ export const ModuleNode = memo(function ModuleNode({
   selected,
 }: NodeProps<ModuleFlowNode>) {
   const visual = MODULE_VISUALS[data.moduleType];
-  const streamPorts = useModuleStreamPorts(id, data.moduleType);
+  const exposedOutputChannels = useMemo(() => {
+    const raw = data.config?.exposedOutputChannels;
+    return Array.isArray(raw) ? (raw as string[]) : undefined;
+  }, [data.config?.exposedOutputChannels]);
+  const streamPorts = useModuleStreamPorts(id, data.moduleType, exposedOutputChannels);
   const requiredSetupFields = requiredModuleSetupFields(data.moduleType);
   const [setupDraft, setSetupDraft] = useState<ModuleSetupDraft>({
     ...EMPTY_MODULE_SETUP_DRAFT,

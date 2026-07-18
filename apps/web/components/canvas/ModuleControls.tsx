@@ -1110,9 +1110,13 @@ export function ClockConfigForm(props: { companyId: string; moduleId: string }) 
 interface AnalyzerConfig {
   emitMode: 'to_library' | 'to_desk_stream' | 'verify_loopback';
   streamDescriptor?: string;
+  exposedOutputChannels?: string[];
 }
 
-const DEFAULT_ANALYZER_CONFIG: AnalyzerConfig = { emitMode: 'verify_loopback' };
+const DEFAULT_ANALYZER_CONFIG: AnalyzerConfig = {
+  emitMode: 'verify_loopback',
+  exposedOutputChannels: ['analyzer_concat'],
+};
 
 export function AnalyzerConfigForm(props: { companyId: string; moduleId: string }) {
   const [config, setConfig] = useState<AnalyzerConfig | null>(null);
@@ -1219,6 +1223,39 @@ export function AnalyzerConfigForm(props: { companyId: string; moduleId: string 
           {running ? 'Running concat…' : 'Run concat'}
         </button>
       )}
+      <div className="space-y-1 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] p-2">
+        <span className="text-[10px] text-[var(--color-ink-dim)]">
+          Delivery outs (D-108) — clock / master / system stay locked
+        </span>
+        <label className="flex items-center justify-between gap-2 text-[11px] text-[var(--color-ink-dim)]">
+          <span>Concat</span>
+          <input
+            type="checkbox"
+            disabled={saving || running}
+            checked={(config.exposedOutputChannels ?? ['analyzer_concat']).includes(
+              'analyzer_concat',
+            )}
+            onChange={(e) => {
+              const next = e.target.checked
+                ? Array.from(
+                    new Set([...(config.exposedOutputChannels ?? []), 'analyzer_concat']),
+                  )
+                : (config.exposedOutputChannels ?? ['analyzer_concat']).filter(
+                    (id) => id !== 'analyzer_concat',
+                  );
+              const patched = { ...config, exposedOutputChannels: next };
+              void (async () => {
+                await saveConfig(patched);
+                window.dispatchEvent(
+                  new CustomEvent('hftr:module-config-saved', {
+                    detail: { moduleId: props.moduleId, config: patched },
+                  }),
+                );
+              })();
+            }}
+          />
+        </label>
+      </div>
       {message && <p className="text-xs text-[var(--color-block)]">{message}</p>}
     </div>
   );

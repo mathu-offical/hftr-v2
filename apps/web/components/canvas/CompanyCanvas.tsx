@@ -25,12 +25,14 @@ import {
   engineUtilityTargetHandleId,
   handleIdForStream,
   handleIdForTrendCandidate,
+  isLegalStreamPortPair,
   isMathToolAttachment,
   layoutCanvas,
   LAYOUT_COLUMN_STEP,
   LAYOUT_ROW_STEP,
   missingModuleSetupFields,
   MODULE_COLUMN,
+  natureForLinkKind,
   parseEngineUtilityHandle,
   parseTrendCandidateHandle,
   placeNextEngineOrigin,
@@ -61,6 +63,8 @@ import {
   edgeKindForHandles,
   LINK_COLORS,
   LINK_EDGE_DASH,
+  NATURE_COLORS,
+  NATURE_EDGE_DASH,
   moduleSubtypeChip,
   type CanvasEngineGroup,
   type CanvasLink,
@@ -346,7 +350,7 @@ function appendProvisionedMath(
   }
   return {
     nodes: syncDedicatedMathParents([...nodes, ...additions]),
-    edges: [...edges, ...tools.flatMap((tool) => tool.links.map(toEdge))],
+    edges: [...edges, ...tools.flatMap((tool) => tool.links.map((l) => toEdge(l)))],
   };
 }
 
@@ -652,8 +656,24 @@ function buildInitialGraph(
   return nodes;
 }
 
-function toEdge(l: CanvasLink): Edge {
-  const dash = LINK_EDGE_DASH[l.linkKind];
+function edgeNatureForLink(
+  linkKind: LinkKind,
+  fromType?: ModuleType | null,
+  toType?: ModuleType | null,
+): 'data' | 'system' | 'fund' | 'time' {
+  if ((fromType === 'time' || fromType === 'clock') && linkKind === 'data_feed') return 'time';
+  if (fromType === 'librarian' && toType === 'library' && linkKind === 'data_feed') return 'system';
+  return natureForLinkKind(linkKind);
+}
+
+function toEdge(
+  l: CanvasLink,
+  typeById?: ReadonlyMap<string, ModuleType>,
+): Edge {
+  const fromType = typeById?.get(l.fromModuleId) ?? null;
+  const toType = typeById?.get(l.toModuleId) ?? null;
+  const nature = edgeNatureForLink(l.linkKind, fromType, toType);
+  const dash = NATURE_EDGE_DASH[nature] ?? LINK_EDGE_DASH[l.linkKind];
   return {
     id: l.id,
     source: l.fromModuleId,
@@ -664,15 +684,15 @@ function toEdge(l: CanvasLink): Edge {
     targetHandle: handleIdForStream(l.linkKind, 'in', l.fromModuleId),
     label: l.linkKind.replace('_', ' '),
     style: {
-      stroke: LINK_COLORS[l.linkKind],
+      stroke: NATURE_COLORS[nature] ?? LINK_COLORS[l.linkKind],
       strokeWidth: l.linkKind === 'fund_route' ? 2 : 1.5,
       ...(dash ? { strokeDasharray: dash } : {}),
     },
     labelStyle: { fill: 'var(--color-ink-faint)', fontSize: 9 },
     labelBgStyle: { fill: 'var(--color-surface-0)' },
     animated: false,
-    className: `hftr-edge hftr-edge-${l.linkKind}`,
-    data: { linkKind: l.linkKind },
+    className: `hftr-edge hftr-edge-${l.linkKind} hftr-edge-nature-${nature}`,
+    data: { linkKind: l.linkKind, nature },
   };
 }
 
@@ -685,15 +705,35 @@ type UtilityLinkEdgeInput = {
   streamDescriptor?: string | null;
 };
 
-/** D-091: React Flow edges for motherboard utility binds (not module_links). */
+function utilityBusNature(bus: EngineUtilityBus): 'data' | 'system' | 'fund' | 'time' {
+  switch (bus) {
+    case 'clock':
+      return 'time';
+    case 'funds':
+      return 'fund';
+    case 'system_control':
+      return 'system';
+    case 'data_in':
+    case 'data_out':
+      return 'data';
+    default: {
+      const _exhaustive: never = bus;
+      return _exhaustive;
+    }
+  }
+}
+
+/** D-091 / D-108: React Flow edges for motherboard utility binds (not module_links). */
 function toUtilityEdge(link: UtilityLinkEdgeInput): Edge | null {
   const label =
     link.streamDescriptor?.trim() ||
     link.bus.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
+  const nature = utilityBusNature(link.bus);
+  const dash = NATURE_EDGE_DASH[nature];
   const style = {
-    stroke: 'var(--color-accent, #5b9fd4)',
+    stroke: NATURE_COLORS[nature],
     strokeWidth: 1.5,
-    strokeDasharray: '4 3',
+    ...(dash ? { strokeDasharray: dash } : {}),
   } as const;
   const labelStyle = { fill: 'var(--color-ink-faint)', fontSize: 9 };
   const labelBgStyle = { fill: 'var(--color-surface-0)' };
@@ -711,8 +751,8 @@ function toUtilityEdge(link: UtilityLinkEdgeInput): Edge | null {
       labelStyle,
       labelBgStyle,
       animated: false,
-      className: `hftr-edge hftr-edge-utility hftr-edge-utility-${link.bus}`,
-      data: { utilityLinkId: link.id, bus: link.bus },
+      className: `hftr-edge hftr-edge-utility hftr-edge-utility-${link.bus} hftr-edge-nature-${nature}`,
+      data: { utilityLinkId: link.id, bus: link.bus, nature },
     };
   }
 
@@ -733,8 +773,8 @@ function toUtilityEdge(link: UtilityLinkEdgeInput): Edge | null {
       labelStyle,
       labelBgStyle,
       animated: false,
-      className: `hftr-edge hftr-edge-utility hftr-edge-utility-${link.bus}`,
-      data: { utilityLinkId: link.id, bus: link.bus },
+      className: `hftr-edge hftr-edge-utility hftr-edge-utility-${link.bus} hftr-edge-nature-${nature}`,
+      data: { utilityLinkId: link.id, bus: link.bus, nature },
     };
   }
 
@@ -997,8 +1037,14 @@ export function CompanyCanvas(props: {
       stableEngineCallbacks,
     ),
   );
+  const initialTypeById = useMemo(
+    () => new Map(props.initialModules.map((m) => [m.id, m.type] as const)),
+    [props.initialModules],
+  );
   const [edges, setEdges] = useEdgesState<Edge>([
-    ...dedupeMathCalcRefLinks(props.initialLinks, props.initialModules).map(toEdge),
+    ...dedupeMathCalcRefLinks(props.initialLinks, props.initialModules).map((l) =>
+      toEdge(l, initialTypeById),
+    ),
     ...utilityEdgesFromEngines(props.initialEngines),
   ]);
   const ownerDragOriginRef = useRef<Map<string, { x: number; y: number }>>(new Map());
@@ -1251,11 +1297,33 @@ export function CompanyCanvas(props: {
         }),
       );
     }
+    function handleConfigSaved(event: Event) {
+      const detail = (
+        event as CustomEvent<{
+          moduleId: string;
+          config: Record<string, unknown>;
+        }>
+      ).detail;
+      setNodes((current) =>
+        current.map((node) => {
+          if (!isModuleNode(node) || node.id !== detail.moduleId) return node;
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              config: { ...(node.data.config ?? {}), ...detail.config },
+            },
+          };
+        }),
+      );
+    }
     window.addEventListener('hftr:module-setup-saved', handleSetupSaved);
     window.addEventListener('hftr:module-topic-restored', handleTopicRestored);
+    window.addEventListener('hftr:module-config-saved', handleConfigSaved);
     return () => {
       window.removeEventListener('hftr:module-setup-saved', handleSetupSaved);
       window.removeEventListener('hftr:module-topic-restored', handleTopicRestored);
+      window.removeEventListener('hftr:module-config-saved', handleConfigSaved);
     };
   }, [setNodes]);
 
@@ -1708,16 +1776,37 @@ export function CompanyCanvas(props: {
         flash(`${from.data.moduleType} → ${to.data.moduleType} is not a valid connection.`);
         return;
       }
+      if (
+        !isLegalStreamPortPair({
+          fromType: from.data.moduleType,
+          toType: to.data.moduleType,
+          sourceHandle: connection.sourceHandle,
+          targetHandle: connection.targetHandle,
+          linkKind,
+        })
+      ) {
+        flash('That port pair is not allowed (time outs require Clock in).');
+        return;
+      }
       try {
         const { link, renamedModules } = await api<{
           link: CanvasLink;
           renamedModules: ModuleNameUpdate[];
         }>(`/api/companies/${props.companyId}/links`, {
           method: 'POST',
-          body: { fromModuleId: from.id, toModuleId: to.id, linkKind },
+          body: {
+            fromModuleId: from.id,
+            toModuleId: to.id,
+            linkKind,
+            sourceHandle: connection.sourceHandle ?? undefined,
+            targetHandle: connection.targetHandle ?? undefined,
+          },
         });
         setEdges((current) => {
-          const next = [...current, toEdge(link)];
+          const next = [
+            ...current,
+            toEdge(link, new Map([[from.id, from.data.moduleType], [to.id, to.data.moduleType]])),
+          ];
           setNodes((nodeState) =>
             applyMathAttachments(applyRenamedModules(nodeState, renamedModules ?? []), next),
           );
@@ -1727,7 +1816,9 @@ export function CompanyCanvas(props: {
         flash(
           err instanceof RequestError && err.code === 'link_already_exists'
             ? 'That link already exists.'
-            : 'Link rejected by the server.',
+            : err instanceof RequestError && err.code === 'port_slot_not_allowed'
+              ? 'That port pair is not allowed (time outs require Clock in).'
+              : 'Link rejected by the server.',
         );
       }
     },
@@ -1790,7 +1881,16 @@ export function CompanyCanvas(props: {
         to.data.moduleType,
       );
       if (!linkKind) return false;
-      return allowedLinkKinds(from.data.moduleType, to.data.moduleType).includes(linkKind);
+      if (!allowedLinkKinds(from.data.moduleType, to.data.moduleType).includes(linkKind)) {
+        return false;
+      }
+      return isLegalStreamPortPair({
+        fromType: from.data.moduleType,
+        toType: to.data.moduleType,
+        sourceHandle: 'sourceHandle' in connection ? connection.sourceHandle : null,
+        targetHandle: 'targetHandle' in connection ? connection.targetHandle : null,
+        linkKind,
+      });
     },
     [nodes],
   );
@@ -1875,7 +1975,7 @@ export function CompanyCanvas(props: {
         ]);
         setEdges((current) => [
           ...current,
-          ...dedicatedMath.flatMap((tool) => tool.links.map(toEdge)),
+          ...dedicatedMath.flatMap((tool) => tool.links.map((l) => toEdge(l))),
         ]);
         setSelectedId(module.id);
       } catch (err) {
@@ -1967,7 +2067,7 @@ export function CompanyCanvas(props: {
           ...link,
           toEngineId: link.toEngineId,
         }));
-        const newModuleEdges = response.links.map(toEdge);
+        const newModuleEdges = response.links.map((l) => toEdge(l));
         const insertedNodes = buildInitialGraph(
           response.modules.map((row) => moduleRowToCanvas(row)),
           [

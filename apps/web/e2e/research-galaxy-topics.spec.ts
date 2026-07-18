@@ -99,18 +99,17 @@ test.describe('Research topics galaxy overlay (D-040)', () => {
 
     await page.reload();
     await page.getByRole('button', { name: /Expand left panel/ }).click();
-    await expect(page.getByTestId(`research-topic-${topic.id}`)).toBeVisible({ timeout: 15_000 });
-    await page.getByRole('button', { name: `Select topic E2E Topic Nest` }).click();
+    await expect(page.getByTestId('research-pages-list')).toBeVisible({ timeout: 15_000 });
+    await page.getByRole('button', { name: `Select page E2E Topic Nest` }).click();
 
     await expect(page.getByTestId('research-overlay')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('galaxy-view')).toBeVisible();
-    await expect(page.getByTestId('research-tab-galaxy')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('research-page-inspector')).toBeVisible();
 
     if (graphConceptCount > 0) {
       await expect(page.getByText(/Focused \d+ concepts/)).toBeVisible({ timeout: 10_000 });
     }
 
-    await page.getByTestId('research-tab-article').click();
     await expect(page.getByText('Synopsis', { exact: true })).toBeVisible();
     await expect(page.getByText('Semantic synopsis for semiconductors.')).toBeVisible();
 
@@ -127,17 +126,14 @@ test.describe('Research topics galaxy overlay (D-040)', () => {
     });
 
     if ((graph.libraries?.length ?? 0) > 0) {
-      await page.getByTestId('research-tab-galaxy').click();
       await expect(page.getByRole('toolbar', { name: 'Library nest filters' })).toBeVisible({
         timeout: 15_000,
       });
     }
 
     if (graphConceptCount > 0) {
-      await page.getByTestId('research-tab-article').click();
       await expect(page.getByText('Member concepts', { exact: true })).toBeVisible();
     } else {
-      await page.getByTestId('research-tab-galaxy').click();
       await expect(page.getByTestId('galaxy-view')).toBeVisible();
     }
 

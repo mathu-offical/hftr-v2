@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { CurateLibraryConceptInput } from '@hftr/contracts';
 import { NotFoundError } from '@hftr/db';
 import { concepts, libraryConcepts } from '@hftr/db/schema';
+import { bumpConceptConfidence } from '@hftr/engine';
 import { parseBody, withAuth } from '@/lib/api';
 import { getOwnedLibrary } from '@/lib/libraries';
 
@@ -41,6 +42,15 @@ export async function POST(req: Request, ctx: Ctx) {
       .returning();
     const libraryConcept = rows[0];
     if (!libraryConcept) throw new NotFoundError('library_concept');
+
+    // Qualitative confidence advances on positive curation events (D-047).
+    if (
+      input.curationStatus === 'accepted' ||
+      input.curationStatus === 'auto_admitted'
+    ) {
+      await bumpConceptConfidence(db, input.conceptId, 'verify', new Date());
+    }
+
     return { libraryConcept };
   });
 }

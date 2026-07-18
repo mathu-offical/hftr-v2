@@ -26,7 +26,7 @@
   `LlmConnectionStatusProvider`, refreshed on settings save — not re-fetched per panel) →
   queue chip → **User settings** modal (`UserSettingsLauncher`: tabs **LLM
   providers** | **Research** | **Brokers** — six LLM providers + Anthropic ZDR attestation,
-  research gather keys, Alpaca paper connect/verify — D-027) → Clerk
+  research gather keys, Alpaca paper Key ID + Secret via **Save & verify** — D-027) → Clerk
   user button. TopDrawer LLM/operating tab: **trading capital caps** (virtual / broker buying
   power / effective min when bound, else paper sim), provider budgets + **provider health**
   chips (same shell connection status; last failure from recent calls when operating tab
@@ -34,7 +34,8 @@
   model cost/privacy labels from `MODEL_CAPABILITY_REGISTRY`, broker bind + feed entitlement,
   recent `llm_calls` metadata (request id truncated, retention class — no prompts/outputs).
   User settings modal chrome is **fixed height** (`min(36rem, 90vh)`) with a scrollable tab panel only — short tabs do not shrink the dialog. User settings: per-provider **Verify** (`POST /api/settings/keys/:provider/verify`) and
-  Alpaca paper connect/verify with capability readout + bound company id.
+  Alpaca paper: paste API Key ID + Secret Key, one **Save & verify** action (no OAuth);
+  capability readout + bound company id after handshake.
 - **Canvas-centric layout** per company beneath the ribbon: slim collapsible strips on the
   left (Research · Data), bottom (Trends · Scenarios · Watch lists · Decisions), and right
   (Verify · Executions · Ledger · Sims · Values) expand into panels; the canvas keeps the
@@ -43,10 +44,11 @@
 - **Companies directory (`/companies`):** header shell includes **LLM connection chip**
   (`llm: n/6`) plus the same **User settings** launcher next to the user menu (LLM /
   Research / Brokers) so credentials are reachable before opening a company. Card grid with paper (cyan) / live (red) text-first
-  mode badges, listed engine labels, link into the company canvas, and a ⋯ menu for rename,
-  duplicate (always a zero-capital paper copy of topology with non-Math modules reset to draft),
-  and archive/delete (fail-closed: leaves directory, stops schedules, clears live/broker bind;
-  traces kept).
+  mode badges, listed engine labels, **Seed $…** / **Current value $…** (tabular-nums;
+  text status `Stale` / `Unavailable` when equity projection is not fresh), link into the
+  company canvas, and a ⋯ menu for rename, duplicate (always a zero-capital paper copy of
+  topology with non-Math modules reset to draft), and archive/delete (fail-closed: leaves
+  directory, stops schedules, clears live/broker bind; traces kept).
 
 ## 3. Canvas (React Flow)
 
@@ -181,23 +183,26 @@ editable fields.
 
 ### LEFT — Research + Data + Trends
 - Tabs: **Research** | **Data sources** | (contextual third tab when opened from a trend module).
-- Research tab (**D-040**): **all company topics first** (grouped by module; tree when nested).
-  Each row shows title, status, concept count, coverage, and text-first **queried /
-  referenced** usage. Selecting a topic opens the Research overlay on the main content area,
-  focuses that topic’s concept trace in the galaxy, and loads its hybrid article. Next:
-  **Concepts & tags** company-wide search/tag browser (Focus → galaxy). Workspace strip
-  switches **Galaxy | Page** tabs. Opening the left Research tab auto-opens the layered
-  overlay. Secondary (collapsed): module progress, library management + Obsidian export.
-- Research overlay (main content, layered over canvas): tabs **Galaxy** | **Page** (see §6).
-  Shared chrome: search, tag chips, library scope, zoom, clear-topic-focus.
+- Research tab (**D-040**, **D-047**, **D-049**): **Submit new topic** at top; **entity
+  search** with Topics / Concepts / Tags / Libraries toggles; three expandable **library
+  shelves** (caret expands; name click opens inspector — no inline article expand);
+  **Pages** list (topics) with linked-page highlight when the inspector is open;
+  **Archive** (D-047); collapsed Modules & tools. Opening Research opens the Galaxy overlay
+  only — detail lives in a right floating inspector over the galaxy (no Galaxy|Page tab strip).
+  Design: `ui-ux/research-tab-shelves-inspector-design.md`.
+- Research overlay (main content, layered over canvas): **Galaxy** surface with optional
+  right **inspector** (Page / Concept / Library / Tag — D-049). Shared chrome: search, tag
+  chips, library scope, zoom, clear-focus.
 - Research module cards (D-039): **admission mode** select (auto-admit vs require approval),
   manual query / Curate now / company sweep, multi-poll **run status** (phase · evidence ·
   concepts · validation · admission applied), **validation gate scores** after a run, and an
   evidence list. On terminal run phase, evidence + concepts + galaxy reload.
 - Libraries: curation filters (all / proposed / accepted / …) plus **Approve all proposed** /
   **Reject all proposed** bulk actions when any concepts are proposed.
-- Galaxy concept detail: text-first **library admission**, **evidence ref**, **research run**
-  provenance, and **usage** (query/reference counts) when present on the graph node.
+- Galaxy: click concept → floating inspector (not a bottom drawer). Highlighted node gets
+  ring + fly-to; focus dims non-members. Inspector shows text-first **library admission**,
+  **evidence ref**, **research run** provenance, **usage**, **confidence**, Verify / Delete.
+  Bodies render via `ResearchMarkdown` with optional `[[sys:…]]` chips (D-047).
 - Data sources tab: connected live APIs with freshness/entitlement labels, create-new-source
   flow, library list with curation status.
 
@@ -261,16 +266,17 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
   brightness without destroying nests.
 - Filters / zoom / library multi-select re-scope visible nests and nodes; layout reorganizes
   from UI selection state (session-stable positions preferred).
-- Click concept → detail card (body markdown, tags, libraries, provenance, usage counters).
+- Click concept → floating inspector (body markdown, tags, libraries, provenance, usage);
+  galaxy highlights / fly-to the node (no bottom drawer).
 - Time scrubber (concept creation over time) remains phase-gated.
 
-### Article tab (Page)
-- Hybrid wiki for the selected topic: **agent synopsis** (semantic markdown with inline links
-  to concepts / libraries / evidence / related topics) + **expandable ordered concept
-  sections** from membership. Curation keeps article and graph coherent; all saved research
-  must be system-usable and operator-viewable.
-- Inline links navigate in-app (concept card, galaxy focus, related topic, run provenance).
+### Floating inspector (D-049)
+- Right panel over the galaxy for the selected target: **Page** (agent synopsis + member
+  concepts as open-in-inspector buttons), **Concept**, **Library**, or **Tag**. Left panel
+  and galaxy never expand article/concept bodies inline — they navigate only.
+- Inline synopsis links navigate in-app (inspect concept / select related topic).
 - Usage badges: queried / referenced / last queried (text-first).
+- Linked pages highlighted in the left Pages list when a page is open.
 
 ### Performance
 - Ladder in TD-09; >200 concepts force 2D; LOD may hide tag orbit / simplify hulls when
@@ -285,7 +291,7 @@ teardown.
 
 | Spec | What it exercises |
 |---|---|
-| `companies.spec.ts` | Companies directory; engine-centric create (≥1 gate, quick-add, remove); Required chips and Skip; card mode/engines + navigate/rename/duplicate/archive |
+| `companies.spec.ts` | Companies directory; engine-centric create (≥1 gate, quick-add, remove); Required chips and Skip; card mode/engines/Seed/Current value + navigate/rename/duplicate/archive |
 | `company-workspace.spec.ts` | skipped `day_trading_starter` setup → missing node chips → collapse info panel → complete trading setup inline through ValueRef route (type-scoped node under generated titles) → separate LLM/operating view → full seeded names + **10** `smoothstep` edges → panels/shortcuts/store → assistant persistence → archive cleanup |
 | `canvas-node-dashboard.spec.ts` | **D-026/D-034:** skip setup → always-visible trading fields + missing Required chips → confirmed in-field checks with neutral borders → labeled LinkKind handles → chrome-click inspector without geometry change → explicit **Save setup** → rename + restore generated name |
 | `service-settings.spec.ts` | user settings (six LLM providers + Brokers/Alpaca fields + verify affordance) → company operating tab (capital caps, provider health, LLM policy, broker bind, recent calls) → broker GET shape without real keys |

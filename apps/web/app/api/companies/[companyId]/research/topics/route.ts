@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import { CreateResearchTopicInput } from '@hftr/contracts';
 import { scoping } from '@hftr/db';
@@ -27,13 +27,18 @@ export async function GET(req: Request, ctx: Ctx) {
       .nullable()
       .parse(new URL(req.url).searchParams.get('moduleId'));
 
+    // Live topic tree excludes archived (D-047); Archive panel lists soft-deleted.
     const rows = await db
       .select()
       .from(researchTopics)
       .where(
         moduleId
-          ? and(eq(researchTopics.companyId, companyId), eq(researchTopics.moduleId, moduleId))
-          : eq(researchTopics.companyId, companyId),
+          ? and(
+              eq(researchTopics.companyId, companyId),
+              eq(researchTopics.moduleId, moduleId),
+              ne(researchTopics.status, 'archived'),
+            )
+          : and(eq(researchTopics.companyId, companyId), ne(researchTopics.status, 'archived')),
       )
       .orderBy(desc(researchTopics.createdAt))
       .limit(200);

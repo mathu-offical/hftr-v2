@@ -33,13 +33,18 @@ export async function GET(req: Request, ctx: Ctx) {
     const moduleId = z.string().uuid().nullable().parse(url.searchParams.get('moduleId'));
     const bumpQueries = url.searchParams.get('bumpQueries') === '1';
 
+    // Live galaxy excludes archived concepts (D-047); Archive panel lists soft-deleted.
     const conceptRows = await db
       .select()
       .from(concepts)
       .where(
         moduleId
-          ? and(eq(concepts.companyId, companyId), eq(concepts.moduleId, moduleId))
-          : eq(concepts.companyId, companyId),
+          ? and(
+              eq(concepts.companyId, companyId),
+              eq(concepts.moduleId, moduleId),
+              eq(concepts.status, 'active'),
+            )
+          : and(eq(concepts.companyId, companyId), eq(concepts.status, 'active')),
       )
       .limit(500);
 
@@ -112,6 +117,7 @@ export async function GET(req: Request, ctx: Ctx) {
         referenceCount: row.referenceCount ?? 0,
         lastQueriedAt: row.lastQueriedAt?.toISOString() ?? null,
         lastReferencedAt: row.lastReferencedAt?.toISOString() ?? null,
+        confidenceBand: row.confidenceBand ?? 'medium',
       };
     });
 

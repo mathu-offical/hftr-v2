@@ -18,7 +18,9 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   philosophy_profile jsonb (slideable
   axes → LeverSetting; D-025), llm_policy jsonb (privacy mode, tier model ids, profile;
   D-027), goals jsonb, reinvestment_policy jsonb, scoping_policies jsonb, mode `paper|live`,
-  seed_credits_cents (paper),   broker_connection_id nullable unique FK → broker_connections,
+  seed_credits_cents (paper), equity_cents / equity_ref / equity_as_of / equity_status
+  (`fresh|stale|unavailable`) / equity_version (materialized read projection; cards display
+  Seed + Current value), broker_connection_id nullable unique FK → broker_connections,
   live_armed_at timestamptz nullable, live_gate_evidence_id uuid nullable FK →
   live_gate_evidence (D-029),
   auto_fund_policy jsonb (approval thresholds), archived_at.
@@ -145,8 +147,12 @@ UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
   Watch lists tab and the module inspector. Migration `0003_bitter_piledriver`. D-017.
 - **concepts** — research-module curated knowledge rows (title, body, tags jsonb,
   source_class `catalog_seed|deterministic_placeholder|model_generated|operator`, optional
-  `research_run_id`). Written by D-045 catalog bootstrap and the D-039 synthesize/admit path
-  (orchestrated by `research.curate`). Migration `0004_petite_hellfire_club`; research bus `0019`.
+  `research_run_id`, status `active|archived`, `archived_at`, qualitative `confidence_band`
+  `low|medium|high`). Soft-delete + Archive/Clear archive (D-047). Written by D-045 catalog
+  bootstrap and the D-039 synthesize/admit path (orchestrated by `research.curate`).
+  Migrations `0004_petite_hellfire_club`, research bus `0019`, archive/confidence `0032`.
+- **research_topics** — also carry `confidence_band` + `archived_at` (D-047); live lists exclude
+  `archived`. **libraries** carry `archived_at` for soft-delete.
 - **research_requests / research_evidence / research_results / research_runs** — typed research
   bus (D-039): request envelope + mode, append-only evidence packages, validation/admission
   projection, operator-visible run phase. Migrations `0019_research_bus`, `0020_research_keys`.

@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { CreateLibraryInput } from '@hftr/contracts';
 import { scoping } from '@hftr/db';
@@ -32,7 +32,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     const rows = await db
       .select()
       .from(libraries)
-      .where(eq(libraries.companyId, companyId))
+      .where(and(eq(libraries.companyId, companyId), eq(libraries.status, 'active')))
       .orderBy(desc(libraries.createdAt))
       .limit(200);
     return { libraries: rows };

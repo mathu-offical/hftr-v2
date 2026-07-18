@@ -2,10 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import type { CurationStatus, Library } from '@hftr/contracts';
+import type { CurationStatus, Library, ResearchTopic } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import { useResearchView } from '@/components/research/ResearchViewContext';
-import { ResearchTopicsTree } from '@/components/research/ResearchTopicsTree';
+import { ResearchArchiveSection } from '@/components/research/ResearchArchiveSection';
+import { ResearchEntitySearch } from '@/components/research/ResearchEntitySearch';
+import { ResearchLibraryShelves } from '@/components/research/ResearchLibraryShelves';
+import { ResearchNewTopicButton } from '@/components/research/ResearchNewTopicButton';
+import { ResearchPagesList } from '@/components/research/ResearchPagesList';
 import {
   ResearchRunStatus,
   type ResearchRunSnapshot,
@@ -93,9 +97,10 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
   const [tab, setTab] = useState<Tab>('research');
   const [persistReady, setPersistReady] = useState(false);
   const [concepts, setConcepts] = useState<ConceptRow[]>([]);
-  const [conceptsLoaded, setConceptsLoaded] = useState(false);
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [librariesLoaded, setLibrariesLoaded] = useState(false);
+  const [topics, setTopics] = useState<ResearchTopic[]>([]);
+  const [topicsLoaded, setTopicsLoaded] = useState(false);
   const researchView = useResearchView();
 
   useEffect(() => {
@@ -138,8 +143,6 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
       setConcepts(data.concepts);
     } catch {
       // Route may not be deployed yet; keep whatever we have.
-    } finally {
-      setConceptsLoaded(true);
     }
   }, [companyId]);
 
@@ -155,16 +158,32 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
     }
   }, [companyId]);
 
+  const loadTopics = useCallback(async () => {
+    if (!companyId) return;
+    try {
+      const data = await api<{ topics: ResearchTopic[] }>(
+        `/api/companies/${companyId}/research/topics`,
+      );
+      setTopics(data.topics);
+    } catch {
+      setTopics([]);
+    } finally {
+      setTopicsLoaded(true);
+    }
+  }, [companyId]);
+
   useEffect(() => {
     if (!open) return;
     void loadConcepts();
     void loadLibraries();
+    void loadTopics();
     const interval = setInterval(() => {
       void loadConcepts();
       void loadLibraries();
+      void loadTopics();
     }, 30_000);
     return () => clearInterval(interval);
-  }, [open, loadConcepts, loadLibraries]);
+  }, [open, loadConcepts, loadLibraries, loadTopics]);
 
   // Research tab owns the layered Galaxy|Page workspace over the canvas.
   useEffect(() => {
@@ -245,11 +264,10 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
         {tab === 'research' && (
           <>
             {topicOwnerModules.length > 0 ? (
-              <ResearchTopicsTree
+              <ResearchNewTopicButton
                 companyId={companyId}
                 modules={topicOwnerModules.map((m) => ({ id: m.id, name: m.name }))}
-                selectedTopicId={researchView.selectedTopicId}
-                onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
+                onCreated={() => void loadTopics()}
               />
             ) : (
               <p className="px-1 text-xs text-[var(--color-ink-faint)]">
@@ -257,57 +275,73 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
               </p>
             )}
 
-            <div
-              data-testid="research-concepts-browser"
-              className="mt-3 rounded-lg border border-[var(--color-line)] p-2.5"
-            >
-              <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                Concepts & tags
-              </p>
-              <ConceptsBrowser
-                concepts={concepts}
-                loaded={conceptsLoaded}
-                onSelectConcept={(conceptId) => researchView.focusConcept(conceptId)}
+            <div className="mt-3">
+              <ResearchEntitySearch
+                companyId={companyId}
+                concepts={concepts.map((c) => ({
+                  id: c.id,
+                  title: c.title,
+                  tags: c.tags,
+                  body: c.body,
+                  sourceClass: c.sourceClass,
+                }))}
+                topics={topics.map((t) => ({ id: t.id, title: t.title }))}
+                libraries={libraries.map((l) => ({ id: l.id, name: l.name }))}
+                highlightedTopicIds={researchView.linkedTopicIds}
+                onSelectConcept={(conceptId) => researchView.inspectConcept(conceptId)}
+                onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
+                onSelectTag={(tag) => {
+                  const ids = concepts.filter((c) => c.tags.includes(tag)).map((c) => c.id);
+                  researchView.inspectTag(tag, ids);
+                }}
+                onSelectLibrary={(libraryId) => {
+                  const lib = libraries.find((l) => l.id === libraryId);
+                  researchView.inspectLibrary(libraryId, lib?.name ?? 'Library');
+                }}
               />
             </div>
 
-            <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-[var(--color-line)] px-2.5 py-2">
-              <span className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                Workspace
-              </span>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => researchView.openOverlay({ tab: 'galaxy' })}
-                  aria-pressed={researchView.overlayOpen && researchView.activeTab === 'galaxy'}
-                  aria-label="Show galaxy tab"
-                  className={`rounded-md border px-2 py-0.5 text-[10px] ${
-                    researchView.overlayOpen && researchView.activeTab === 'galaxy'
-                      ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
-                      : 'border-[var(--color-line)] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
-                  }`}
-                >
-                  Galaxy
-                </button>
-                <button
-                  type="button"
-                  onClick={() => researchView.openOverlay({ tab: 'article' })}
-                  aria-pressed={researchView.overlayOpen && researchView.activeTab === 'article'}
-                  aria-label="Show page tab"
-                  className={`rounded-md border px-2 py-0.5 text-[10px] ${
-                    researchView.overlayOpen && researchView.activeTab === 'article'
-                      ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
-                      : 'border-[var(--color-line)] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
-                  }`}
-                >
-                  Page
-                </button>
-              </div>
+            <div className="mt-3">
+              <ResearchLibraryShelves
+                companyId={companyId}
+                libraries={libraries}
+                onSelectConcept={(conceptId) => researchView.inspectConcept(conceptId)}
+                onSelectLibrary={(libraryId, libraryName) =>
+                  researchView.inspectLibrary(libraryId, libraryName)
+                }
+              />
             </div>
+
+            <div className="mt-3">
+              {!topicsLoaded ? (
+                <p className="text-[10px] text-[var(--color-ink-faint)]">Loading pages…</p>
+              ) : (
+                <ResearchPagesList
+                  topics={topics.map((t) => ({
+                    id: t.id,
+                    title: t.title,
+                    moduleId: t.moduleId,
+                  }))}
+                  selectedTopicId={researchView.selectedTopicId}
+                  linkedTopicIds={researchView.linkedTopicIds}
+                  linkedTopicTitles={researchView.linkedTopicTitles}
+                  onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
+                />
+              )}
+            </div>
+
+            <ResearchArchiveSection
+              companyId={companyId}
+              onChanged={() => {
+                void loadConcepts();
+                void loadLibraries();
+                void loadTopics();
+              }}
+            />
 
             <details className="mt-3 rounded-lg border border-[var(--color-line)] p-2.5">
               <summary className="cursor-pointer text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                Modules & libraries
+                Modules & tools
               </summary>
               <div className="mt-2">
                 <NewResearchModuleForm companyId={companyId} />
@@ -363,6 +397,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                           onDone={() => {
                             void loadConcepts();
                             void loadLibraries();
+                            void loadTopics();
                           }}
                         />
                       )}
@@ -1281,156 +1316,6 @@ function ResearchActions(props: {
           </ul>
         )}
       </div>
-    </div>
-  );
-}
-
-/**
- * Company-wide concepts & tags browser: search over title/tags/body,
- * tag chip filters, expandable cards; optional Focus opens galaxy highlight.
- */
-function ConceptsBrowser(props: {
-  concepts: ConceptRow[];
-  loaded: boolean;
-  onSelectConcept?: (conceptId: string) => void;
-}) {
-  const [query, setQuery] = useState('');
-  const [activeTag, setActiveTag] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  const allTags = useMemo(() => {
-    const set = new Set<string>();
-    for (const c of props.concepts) for (const t of c.tags) set.add(t);
-    return [...set].sort();
-  }, [props.concepts]);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return props.concepts.filter((c) => {
-      if (activeTag && !c.tags.includes(activeTag)) return false;
-      if (!q) return true;
-      return (
-        c.title.toLowerCase().includes(q) ||
-        c.body.toLowerCase().includes(q) ||
-        c.tags.some((t) => t.toLowerCase().includes(q))
-      );
-    });
-  }, [props.concepts, query, activeTag]);
-
-  if (!props.loaded) {
-    return <p className="mt-2 text-[10px] text-[var(--color-ink-faint)]">Loading concepts…</p>;
-  }
-  if (props.concepts.length === 0) {
-    return <p className="mt-2 text-[10px] text-[var(--color-ink-faint)]">No concepts curated yet.</p>;
-  }
-
-  return (
-    <div className="mt-2">
-      <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search concepts and tags"
-        aria-label="Search concepts by title, tag, or body"
-        className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)]"
-      />
-      {allTags.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-1" role="list" aria-label="Concept tags">
-          {allTags.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setActiveTag(activeTag === t ? null : t)}
-              aria-label={`Filter concepts by tag ${t}`}
-              aria-pressed={activeTag === t}
-              className={`rounded-full border px-1.5 py-0.5 text-[10px] ${
-                activeTag === t
-                  ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
-                  : 'border-[var(--color-line)] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {filtered.length === 0 ? (
-        <p className="mt-2 text-[10px] text-[var(--color-ink-faint)]">
-          No concepts match the current filter.
-        </p>
-      ) : (
-        <ul className="mt-2 max-h-64 space-y-1.5 overflow-y-auto">
-          {filtered.map((c) => {
-            const prov = provenanceChip(c.sourceClass);
-            const expanded = expandedId === c.id;
-            return (
-              <li key={c.id} className="rounded-md border border-[var(--color-line)] p-2">
-                <div className="flex items-start gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setExpandedId(expanded ? null : c.id)}
-                    aria-label={`${expanded ? 'Collapse' : 'Expand'} concept ${c.title}`}
-                    aria-expanded={expanded}
-                    className="min-w-0 flex-1 text-left"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="text-[11px] font-medium text-[var(--color-ink)]">
-                        {c.title}
-                      </span>
-                      <span
-                        className="shrink-0 rounded-full border border-[var(--color-line)] px-1.5 py-0.5 text-[9px]"
-                        style={{ color: prov.color }}
-                      >
-                        {prov.label}
-                      </span>
-                    </div>
-                    {!expanded && (
-                      <p className="mt-0.5 text-[10px] text-[var(--color-ink-dim)]">
-                        {snippet(c.body)}
-                      </p>
-                    )}
-                  </button>
-                  {props.onSelectConcept && (
-                    <button
-                      type="button"
-                      onClick={() => props.onSelectConcept?.(c.id)}
-                      aria-label={`Focus concept ${c.title} in galaxy`}
-                      className="shrink-0 rounded border border-[var(--color-line)] px-1.5 py-0.5 text-[9px] text-[var(--color-accent)] hover:border-[var(--color-accent)]"
-                    >
-                      Focus
-                    </button>
-                  )}
-                </div>
-                {c.tags.length > 0 && (
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {c.tags.map((t) => (
-                      <span
-                        key={t}
-                        className="rounded-full border border-[var(--color-line)] px-1.5 py-0.5 text-[9px] text-[var(--color-ink-faint)]"
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {expanded && (
-                  <div className="mt-1.5 border-t border-[var(--color-line)] pt-1.5">
-                    <p className="whitespace-pre-wrap text-[11px] text-[var(--color-ink-dim)]">
-                      {c.body}
-                    </p>
-                    <p className="mt-1.5 font-mono text-[9px] text-[var(--color-ink-faint)]">
-                      source: {c.sourceRef}
-                    </p>
-                    <p className="text-[9px] text-[var(--color-ink-faint)]">
-                      {c.status} · created {new Date(c.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
     </div>
   );
 }

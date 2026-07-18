@@ -31,6 +31,8 @@ implementation proceeds.
 | `product/product-spec.md` | Companies, modules, funds, policies, assistant — full product behavior |
 | `ui-ux/ui-spec.md` | Canvas, panels, galaxy + article research view, design system, visual standards |
 | `ui-ux/research-galaxy-topic-view-design.md` | D-040 topics, nested library galaxy, hybrid wiki articles, usage telemetry |
+| `ui-ux/research-archive-confidence-design.md` | D-047 soft-delete Archive, confidence bands, system chips |
+| `ui-ux/research-tab-shelves-inspector-design.md` | D-049 Research tab shelves, entity search, floating Page inspector |
 | `ui-ux/canvas-node-dashboard-design.md` | D-026 labeled ports + fixed dashboard card |
 | `ui-ux/canvas-engine-group-design.md` | D-028 ENGINE parent groups + Math tools |
 | `ui-ux/canvas-layout-and-dedicated-math-design.md` | D-033 scoped Reflow + dedicated Math ownership and routing |

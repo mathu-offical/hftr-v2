@@ -11,7 +11,6 @@ import {
   type ComponentType,
   type CSSProperties,
 } from 'react';
-import ReactMarkdown from 'react-markdown';
 import type {
   ResearchGraphLibraryNest,
   ResearchGraphLink,
@@ -52,7 +51,7 @@ const TAG_COLORS = [
 
 function tagColor(tag: string, tags: readonly string[]): string {
   const idx = tags.indexOf(tag);
-  return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'var(--color-accent)';
+  return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? '#7aa2f7';
 }
 
 interface LibraryCenter {
@@ -104,10 +103,6 @@ function computeLibraryCenters(
   return centers;
 }
 
-function usageLine(queryCount: number, referenceCount: number): string {
-  return `Queried ${queryCount} · Referenced ${referenceCount}`;
-}
-
 export interface GalaxyViewProps {
   companyId: string;
   nodes: ResearchGraphNode[];
@@ -115,10 +110,14 @@ export interface GalaxyViewProps {
   tags: string[];
   libraries?: ResearchGraphLibraryNest[];
   focusConceptIds?: string[] | null;
-  /** Fly-to and select when set (e.g. article wikilink navigation). */
+  /** Fly-to and emphasize when set (inspect / wikilink). */
   highlightConceptId?: string | null;
   selectedLibraryIds?: string[] | null;
   className?: string;
+  /** Open concept in floating inspector (D-049) — preferred over inline drawer. */
+  onInspectConcept?: (conceptId: string) => void;
+  /** Called after verify / archive so the overlay can reload the graph (D-047). */
+  onGraphInvalidated?: () => void;
 }
 
 function useGraphDimensions() {
@@ -198,7 +197,6 @@ function GalaxyViewInner(props: GalaxyViewProps) {
   const [ForceGraph3D, setForceGraph3D] = useState<ForceGraph3DComponent | null>(null);
   const [query, setQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
-  const [selected, setSelected] = useState<ResearchGraphNode | null>(null);
   const [statusText, setStatusText] = useState<string | null>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
   const graphBox = useGraphDimensions();
@@ -350,34 +348,94 @@ function GalaxyViewInner(props: GalaxyViewProps) {
   useEffect(() => {
     const id = props.highlightConceptId;
     if (!id) return;
-    const node = props.nodes.find((n) => n.id === id) ?? null;
-    if (node) setSelected(node);
     const fg = graphHandleRef.current;
     if (!fg?.zoomToFit) return;
-    const durationMs = reducedMotion ? 0 : 500;
-    fg.zoomToFit(durationMs, 64, (n) => String(n.id) === id);
+    const durationMs = reducedMotion ? 0 : 600;
+    // Slight delay so layout/focus flags settle before camera move.
+    const t = window.setTimeout(() => {
+      fg.zoomToFit?.(durationMs, 80, (n) => String(n.id) === id);
+    }, reducedMotion ? 0 : 80);
+    return () => window.clearTimeout(t);
   }, [props.highlightConceptId, props.nodes, reducedMotion]);
 
   const onNodeClick = useCallback(
     (node: { id?: string | number }) => {
       if (node.id === undefined) return;
-      const nodeId = String(node.id);
-      const full = props.nodes.find((n) => n.id === nodeId) ?? null;
-      setSelected(full);
+      props.onInspectConcept?.(String(node.id));
     },
-    [props.nodes],
+    [props],
   );
 
   const nodeColor = useCallback(
-    (node: { tags?: string[]; __focused?: boolean }) => {
+    (node: { id?: string | number; tags?: string[]; __focused?: boolean }) => {
       const tag = node.tags?.[0];
-      const base = tag ? tagColor(tag, props.tags) : 'var(--color-ink-dim)';
+      const base = tag ? tagColor(tag, props.tags) : '#9aa4b8';
+      if (props.highlightConceptId && String(node.id) === props.highlightConceptId) {
+        return '#7aa2f7';
+      }
       if (hasTopicFocus && node.__focused === false) {
         return 'rgba(120, 130, 150, 0.35)';
       }
       return base;
     },
-    [props.tags, hasTopicFocus],
+    [props.tags, props.highlightConceptId, hasTopicFocus],
+  );
+
+  const paintNode = useCallback(
+    (
+      node: {
+        id?: string | number;
+        x?: number;
+        y?: number;
+        tags?: string[];
+        __focused?: boolean;
+        title?: string;
+      },
+      ctx: CanvasRenderingContext2D,
+      globalScale: number,
+    ) => {
+      const x = node.x ?? 0;
+      const y = node.y ?? 0;
+      const isHighlight = Boolean(
+        props.highlightConceptId && String(node.id) === props.highlightConceptId,
+      );
+      const isFocused = !hasTopicFocus || node.__focused !== false;
+      const r = (isHighlight ? 7 : isFocused ? 4.5 : 3) / Math.max(globalScale * 0.35, 0.5);
+      const fill = nodeColor(node);
+
+      if (isHighlight) {
+        ctx.beginPath();
+        ctx.arc(x, y, r * 1.85, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'rgba(122, 162, 247, 0.55)';
+        ctx.lineWidth = 2 / globalScale;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x, y, r * 2.4, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'rgba(122, 162, 247, 0.22)';
+        ctx.lineWidth = 1.5 / globalScale;
+        ctx.stroke();
+      }
+
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, 2 * Math.PI);
+      ctx.fillStyle = isHighlight ? '#7aa2f7' : fill;
+      ctx.globalAlpha = hasTopicFocus && node.__focused === false ? 0.28 : 0.95;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      if (isHighlight || (isFocused && globalScale > 1.1)) {
+        const label = node.title ?? '';
+        if (label) {
+          const fontSize = Math.max(9 / globalScale, 2.2);
+          ctx.font = `${isHighlight ? 600 : 400} ${fontSize}px sans-serif`;
+          ctx.fillStyle = isHighlight ? '#e8ecf4' : 'rgba(200, 210, 230, 0.85)';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.fillText(label.slice(0, 42), x, y + r + 2 / globalScale);
+        }
+      }
+    },
+    [hasTopicFocus, nodeColor, props.highlightConceptId],
   );
 
   const nodeColorAccessor = nodeColor as (node: object) => string;
@@ -594,6 +652,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               onEngineStop={onEngineStop}
               onEngineTick={onEngineTick}
               nodeCanvasObjectMode={() => 'replace'}
+              nodeCanvasObject={paintNode as (node: object, ctx: CanvasRenderingContext2D, globalScale: number) => void}
               linkCanvasObjectMode={() => 'after'}
               linkCanvasObject={(link, ctx, globalScale) => {
                 const l = link as {
@@ -619,82 +678,6 @@ function GalaxyViewInner(props: GalaxyViewProps) {
                 ctx.stroke();
               }}
             />
-          )}
-
-          {selected && (
-            <div
-              className="absolute bottom-0 left-0 right-0 max-h-[55%] overflow-y-auto border-t border-[var(--color-line)] bg-[var(--color-surface-1)]/95 p-2 backdrop-blur"
-              role="region"
-              aria-label={`Concept detail: ${selected.title}`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-[11px] font-medium text-[var(--color-ink)]">
-                  {selected.title}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setSelected(null)}
-                  aria-label="Close concept detail"
-                  className="text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-                >
-                  ×
-                </button>
-              </div>
-              {selected.tags.length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {selected.tags.map((t) => (
-                    <span
-                      key={t}
-                      className="rounded-full border border-[var(--color-line)] px-1.5 py-0.5 text-[9px]"
-                      style={{ color: tagColor(t, props.tags) }}
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <p className="mt-1 text-[9px] text-[var(--color-ink-faint)]">
-                {usageLine(selected.queryCount ?? 0, selected.referenceCount ?? 0)}
-              </p>
-              <div className="prose prose-invert mt-2 max-w-none text-[11px] text-[var(--color-ink-dim)] prose-p:my-1 prose-headings:my-1 prose-headings:text-[var(--color-ink)]">
-                <ReactMarkdown>{selected.body}</ReactMarkdown>
-              </div>
-              <dl className="mt-2 space-y-0.5 text-[9px] text-[var(--color-ink-faint)]">
-                <div className="flex flex-wrap gap-x-2">
-                  <dt className="sr-only">Source class</dt>
-                  <dd>{selected.sourceClass.replace(/_/g, ' ')}</dd>
-                  <dt className="sr-only">Concept status</dt>
-                  <dd>· {selected.status}</dd>
-                </div>
-                {selected.curationStatus && (
-                  <div>
-                    <dt className="inline">Library admission: </dt>
-                    <dd className="inline text-[var(--color-ink-dim)]">
-                      {selected.curationStatus.replace(/_/g, ' ')}
-                    </dd>
-                  </div>
-                )}
-                {selected.sourceRef && (
-                  <div>
-                    <dt className="inline">Evidence ref: </dt>
-                    <dd className="inline break-all text-[var(--color-ink-dim)]">
-                      {selected.sourceRef}
-                    </dd>
-                  </div>
-                )}
-                {selected.researchRunId && (
-                  <div>
-                    <dt className="inline">Research run: </dt>
-                    <dd className="inline break-all text-[var(--color-ink-dim)]">
-                      {selected.researchRunId}
-                    </dd>
-                  </div>
-                )}
-                {!selected.curationStatus && !selected.sourceRef && !selected.researchRunId && (
-                  <p>No research-bus provenance on this concept yet.</p>
-                )}
-              </dl>
-            </div>
           )}
         </div>
       )}

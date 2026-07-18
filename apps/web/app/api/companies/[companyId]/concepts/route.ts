@@ -24,8 +24,12 @@ export async function GET(req: Request, ctx: Ctx) {
       .from(concepts)
       .where(
         moduleId
-          ? and(eq(concepts.companyId, companyId), eq(concepts.moduleId, moduleId))
-          : eq(concepts.companyId, companyId),
+          ? and(
+              eq(concepts.companyId, companyId),
+              eq(concepts.moduleId, moduleId),
+              eq(concepts.status, 'active'),
+            )
+          : and(eq(concepts.companyId, companyId), eq(concepts.status, 'active')),
       )
       .orderBy(desc(concepts.createdAt))
       .limit(200);

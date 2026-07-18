@@ -89,7 +89,7 @@
 - [x] `computeEngineSpendCapCents` + `resolveDispatchSpendAuthority`
 - [x] Wire buy admission + gauntlet `effectiveCapCents` in `paper-trade.ts`
 - [x] Contract + balances unit tests
-- [ ] Commit Phase 3
+- [x] Commit Phase 3 (`6db8b1f` / `1b1d103` / `e92d5eb`)
 
 ---
 

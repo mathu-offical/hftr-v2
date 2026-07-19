@@ -145,7 +145,7 @@
   bottom-left under the member envelope. Port roles: Now / Authority in / Schedule / Time bus /
   Clock in. Engines receive clock authority via motherboard `clock` utility bind; Time → members
   land on clock_in.
-- **Node families (D-056 / D-068 / D-073 / D-088 / D-110 / D-140):** cards distinguish **Data source**
+- **Node families (D-056 / D-068 / D-073 / D-088 / D-110 / D-140 / D-143):** cards distinguish **Data source**
   (`library` shelves / book-spine silhouette; `live_api` aperture + signal bars — dashed border),
   **Agent** (solid + left bar) with low-contrast silhouettes for `research` / `librarian` /
   `trend` / `trading` / `analyzer`, **Vault** / fund (`holding_fund`, `fund_router` — vault door,
@@ -156,11 +156,13 @@
   nest in-family libraries under the hub; Query (hub→trading) and Hydrate/Policies/Notes returns.
   Engine motherboard utility handles use **nature-colored** outward labels
   (data / time / fund / system). Subtype chips cover library class, venue, trend posture,
-  analyzer emitMode, policy envelope, simulator/generator, holding_fund / fund_router so cards
-  in a default ENGINE read distinctly. Create-flow preview cards reuse `NodePortBuses` +
-  `FamilyShapeChrome` + category wash (`engineVisualForTemplate`) for insert parity. Shape chrome
-  is decorative; text-first family labels remain authoritative. Stream peers and engine-template
-  Math `fund_route` links order by capital-flow / pipeline lane.
+  analyzer emitMode, policy envelope (fund_router prefers envelope over approval mode),
+  simulator/generator, holding_fund so cards in a default ENGINE read distinctly. Create-flow
+  preview cards (~168×72) reuse `NodePortBuses` + `FamilyShapeChrome` + category wash and
+  engine utility bus chips for insert parity. Default ENGINE spines use strict
+  research→librarian→library (no research→library bypass; D-143). Shape chrome is decorative;
+  text-first family labels remain authoritative. Stream peers and engine-template Math
+  `fund_route` links order by capital-flow / pipeline lane.
 - **Density (D-057 / D-088):** module cards ~220×168 layout floor (was 220×240); Math tools
   180×40; tighter ModuleNode/context/trend padding; engine padding and gutters; React Flow
   `minZoom=0.15` so full engines fit in view.
@@ -278,12 +280,12 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   librarian **Curate / Verify / Refresh** (D-127). Library research (`LIBRARY_RESEARCH`) is a
   separate queue from posture research (`POSTURE_RESEARCH`) and from execution/other LLM lanes
   (D-098).
-- **Market posture** tab (D-081 / D-085 / D-092 / D-101 / **D-131** / **D-138** / **D-139**):
+- **Market posture** tab (D-081 / D-085 / D-092 / D-101 / **D-131** / **D-138** / **D-144**):
   split inventory vs day quant. **Left rail** viewing pattern:
-  1. **Company · root funds** — company pool + root `holding_fund` only (resolved amounts)
-  2. **Execution · module splits** — trading desks (engine envelope only if no desk)
+  1. **Company · root funds** — company pool header + nested root `holding_fund` only
+  2. **Execution · module splits** — trading desks only, grouped by engine
   3. **Open positions**
-  Fund-router hops are **not** listed (route topology ≠ capital source). Sync + **Day view**.
+  Fund-router hops and research engine envelopes are **not** listed. Sync + **Day view**.
   Canvas overlay: **master equity**, dual **stock / news** boards, sealed reports,
   recommendations, synthesis Model. Analyze reseals stock compound + sector news in parallel.
   Distinct from Research (async corpus).   Hub data uses client **SWR cache**

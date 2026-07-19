@@ -1412,15 +1412,17 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   boards (lens toggle), and recommendations; Analyze already reseals movers compound + sector
   news in parallel — UI and hub `news` board make both streams first-class. Docs: ui-spec §4,
   data-model, contracts `MarketHubCapitalSource` / `MarketHubNews`. **Status: implemented**
-  (refined by D-139 — root funds only).
+  (refined by D-144 — root funds + trading splits only).
 
-- **D-139 (Posture capital = company roots + execution splits, 2026-07-18):** Left Posture
+- **D-144 (Posture capital = company roots + execution splits, 2026-07-18):** Left Posture
   capital inventory is **not** the fund_route graph. Viewing pattern:
-  1. **Company · root funds** — synthetic company pool + `holding_fund` modules only
-  2. **Execution · module splits** — `trading` desks (and engine envelopes only when no desk)
+  1. **Company · root funds** — company pool header + nested `holding_fund` modules only
+  2. **Execution · module splits** — `trading` desks only, grouped by engine
   3. **Open positions**
-  `fund_router` hops are omitted (topology, not sources). `MarketHubCapitalSource.tier`
-  discriminates `company_root` vs `execution_split`. Docs: ui-spec §4, contracts.
+  Omits `fund_router` hops and research `engine_envelope` rows (topology / research capital ≠
+  inventory sources). `MarketHubCapitalSource.tier` discriminates `company_root` vs
+  `execution_split`. (Earlier commit notes said D-139; that ID is reserved for galaxy
+  celestial — this decision is D-144.) Docs: ui-spec §4, contracts.
   **Status: implemented.**
 
 - **D-132 (galaxy library clusters — separation + nest dominance, 2026-07-18):** Fibonacci
@@ -1504,6 +1506,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   collide/repel. `layoutStats` adds article/folder orbit fractions + hull counts.
   Docs: galaxy-3d-volume-layout, research-galaxy-topic-view-design §4.1.
   **Status: implemented.**
+
+- **D-143 (strict librarian spines + chrome polish, 2026-07-18):** Default ENGINE and company
+  starter templates drop parallel `research→library` data_feed bypasses so ingest is only
+  `research→librarian→library`. Fixes `engine_crypto` philosophy targeting trend (not live_api),
+  aligns `trend_research_lab` with `engine_trend_research`, renames long-term seed fund to
+  Paper Horizon Holding Fund. Canvas chrome: fund_router subtype prefers policy envelope;
+  Math attached-strip tokens from `MODULE_VISUALS.math`; port labels 6px; create-preview cards
+  enlarged with separate subtype chips + PreviewEngineGroupNode utility bus labels.
+  Docs: ui-spec §3, canvas-connection-point-audit. **Status: implemented.**
 
 ## Open questions
 

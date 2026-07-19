@@ -12,6 +12,7 @@ import {
   equityStatusLabel,
   formatOrientation,
 } from '@/components/panels/market-posture-format';
+import { equityHeadline, fundsHeadline } from '@/lib/capital-mode-label';
 import { useMarketHub } from '@/lib/use-market-hub';
 
 function capitalKindLabel(kind: MarketHubCapitalSource['kind']): string {
@@ -66,6 +67,7 @@ type ExecutionGroup = {
  */
 export function MarketPosturePanel(props: { companyId: string }) {
   const mp = useMarketPostureView();
+  const { companyMode } = mp;
   const { data: hub, loading, refreshing, analyzing, error, refresh } = useMarketHub(
     props.companyId,
     { poll: true },
@@ -185,7 +187,7 @@ export function MarketPosturePanel(props: { companyId: string }) {
             <ChevronRight className="h-3 w-3 shrink-0 text-[var(--color-ink-faint)]" aria-hidden />
           )}
           <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]">
-            Funds
+            {fundsHeadline(companyMode)}
           </span>
           <span className="min-w-0 flex-1 truncate font-mono text-[9px] tabular-nums text-[var(--color-ink-faint)]">
             {fundsSummary}
@@ -225,7 +227,7 @@ export function MarketPosturePanel(props: { companyId: string }) {
 
       <div className="shrink-0 border-t border-[var(--color-line)] pt-2">
         <p className="font-mono text-[10px] tabular-nums text-[var(--color-ink-faint)]">
-          Equity {equityStatusLabel(hub.equity.status)}
+          {equityHeadline(companyMode)} {equityStatusLabel(hub.equity.status)}
           {hub.equity.equityCents ? ` · ${dollarsFromCents(hub.equity.equityCents)}` : ''}
           {hub.equity.asOfIso ? ` · as of ${formatOrientation(hub.equity.asOfIso)}` : ''}
         </p>

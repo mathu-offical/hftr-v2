@@ -19,6 +19,14 @@ import {
   type RetentionClass,
 } from '@hftr/contracts';
 import { api } from '@/lib/client';
+import {
+  balanceLabel,
+  brokerBuyingPowerHeadline,
+  equityHeadline,
+  normalizeCapitalMode,
+  pnlHeadline,
+  type CapitalMode,
+} from '@/lib/capital-mode-label';
 import { useOptionalLlmConnectionStatus } from '@/components/shell/LlmConnectionStatus';
 import { CompanySectorsTab } from '@/components/shell/CompanySectorsTab';
 import { MarketPostureEquityChart } from '@/components/panels/MarketPostureEquityChart';
@@ -79,6 +87,7 @@ function dollars(cents: string | number): string {
 export function TopDrawer(props: {
   companyId: string;
   companyName: string;
+  companyMode?: string;
   philosophy: string;
   philosophyProfile?: unknown;
   seedCreditsCents: string;
@@ -86,6 +95,7 @@ export function TopDrawer(props: {
   sectorFocuses?: string[];
   universeExcludes?: string[];
 }) {
+  const companyMode = normalizeCapitalMode(props.companyMode);
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('desk');
   const llmConnection = useOptionalLlmConnectionStatus();
@@ -161,6 +171,7 @@ export function TopDrawer(props: {
                   <DeskPnLTab
                     companyId={props.companyId}
                     companyName={props.companyName}
+                    companyMode={companyMode}
                     seedCreditsCents={props.seedCreditsCents}
                     createdAt={props.createdAt}
                     active={open && tab === 'desk'}
@@ -211,6 +222,7 @@ export function TopDrawer(props: {
 function DeskPnLTab(props: {
   companyId: string;
   companyName: string;
+  companyMode: CapitalMode;
   seedCreditsCents: string;
   createdAt: string;
   active: boolean;
@@ -326,14 +338,18 @@ function DeskPnLTab(props: {
       </header>
 
       <div className="flex flex-wrap gap-6">
-        <Metric label="Paper balance" value={balance ? dollars(balance) : '—'} />
         <Metric
-          label="Realized PnL"
+          label={balanceLabel(props.companyMode)}
+          value={balance ? dollars(balance) : '—'}
+          data-testid="desk-paper-balance"
+        />
+        <Metric
+          label={pnlHeadline('realized', props.companyMode)}
           value={dollars(realized.toString())}
           tone={realized >= 0n ? 'ok' : 'block'}
         />
         <Metric
-          label="Unrealized PnL"
+          label={pnlHeadline('unrealized', props.companyMode)}
           value={dollars(unrealized.toString())}
           tone={unrealized >= 0n ? 'ok' : 'block'}
         />
@@ -345,6 +361,7 @@ function DeskPnLTab(props: {
         selectedMarkCents={Number.isFinite(selectedMark) ? selectedMark : null}
         selectedSymbol={selected?.symbol ?? null}
         equityLabel={equityLabel}
+        capitalModeTitle={equityHeadline(props.companyMode)}
         {...(hub?.equity.status ? { equityStatus: hub.equity.status } : {})}
         asOfIso={hub?.equity.asOfIso ?? null}
         {...(hub?.equity.version != null ? { version: hub.equity.version } : {})}
@@ -1011,6 +1028,7 @@ function CapitalCapsSection(props: { status: CompanyBrokerStatus }) {
   const brokerBp = props.status.brokerSnapshot
     ? dollars(props.status.brokerSnapshot.buyingPowerCents)
     : null;
+  const brokerMode = normalizeCapitalMode(props.status.mode);
 
   return (
     <section className="space-y-2">
@@ -1022,10 +1040,14 @@ function CapitalCapsSection(props: { status: CompanyBrokerStatus }) {
         </p>
       </div>
       <div className="flex flex-wrap gap-6">
-        <Metric label="Virtual cap" value={virtual} />
+        <Metric label="Virtual cap (paper ledger)" value={virtual} />
         {props.status.bound && brokerBp !== null ? (
           <>
-            <Metric label="Broker buying power" value={brokerBp} />
+            <Metric
+              label={brokerBuyingPowerHeadline(brokerMode)}
+              value={brokerBp}
+              data-testid="broker-cap-buying-power"
+            />
             <Metric label="Effective cap" value={effective} />
           </>
         ) : (
@@ -1166,9 +1188,14 @@ function BudgetLine(props: {
   );
 }
 
-function Metric(props: { label: string; value: string; tone?: 'ok' | 'block' }) {
+function Metric(props: {
+  label: string;
+  value: string;
+  tone?: 'ok' | 'block';
+  'data-testid'?: string;
+}) {
   return (
-    <div>
+    <div data-testid={props['data-testid']}>
       <div className="text-[11px] text-[var(--color-ink-faint)]">{props.label}</div>
       <div
         className="font-mono text-sm"

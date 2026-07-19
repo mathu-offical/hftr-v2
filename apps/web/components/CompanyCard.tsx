@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { formatUsdFromCents, type EquityStatus } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
+import { currentValueHeadline, normalizeCapitalMode } from '@/lib/capital-mode-label';
 
 export interface CompanyCardEngine {
   id: string;
@@ -129,6 +130,8 @@ export function CompanyCard(props: CompanyCardProps) {
   }
 
   const modeLabel = props.mode === 'live' ? 'live' : 'paper';
+  const capitalMode = normalizeCapitalMode(props.mode);
+  const equityHeadline = currentValueHeadline(capitalMode);
   const engineLabels =
     props.engines.length > 0
       ? props.engines.map((e) => e.label).join(' · ')
@@ -222,14 +225,16 @@ export function CompanyCard(props: CompanyCardProps) {
             <div className="mb-2 space-y-0.5 text-xs text-[var(--color-ink-dim)]">
               {seedLabel && (
                 <p data-testid="company-card-seed" className="tabular-nums">
-                  Seed {seedLabel}
+                  {capitalMode === 'paper' ? 'Paper seed' : 'Seed'} {seedLabel}
                 </p>
               )}
               <p data-testid="company-card-equity" className="tabular-nums">
                 {equityLabel ? (
-                  <>Current value {equityLabel}</>
+                  <>
+                    {equityHeadline} {equityLabel}
+                  </>
                 ) : (
-                  <span className={equityStatusTone}>Current value Unavailable</span>
+                  <span className={equityStatusTone}>{equityHeadline} Unavailable</span>
                 )}
                 {props.equity.status === 'stale' && (
                   <span className={`ml-2 ${equityStatusTone}`}>Stale</span>

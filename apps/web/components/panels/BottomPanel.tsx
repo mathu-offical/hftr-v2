@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { api, RequestError } from '@/lib/client';
+import {
+  executionCapitalChip,
+  fundTransfersHeadline,
+  normalizeCapitalMode,
+  type CapitalMode,
+} from '@/lib/capital-mode-label';
 import { ACTIVITY_REFRESH_EVENT } from '../canvas/PaperTradeForm';
 import { dollars, GATE_KEYS, gateLabel, gateTone, toneFor } from './format';
 import { Justification } from './Justification';
@@ -236,9 +242,11 @@ interface FundTransferRow {
  */
 export function BottomPanel(props: {
   companyId: string;
+  companyMode?: string;
   modules: ModuleOption[];
   engines: EngineOption[];
 }) {
+  const companyMode = normalizeCapitalMode(props.companyMode);
   const storageKey = props.companyId ? `hftr:${props.companyId}:panel:bottom` : null;
 
   const [open, setOpen] = useState(false);
@@ -651,6 +659,7 @@ export function BottomPanel(props: {
               {id === 'approvals' ? (
                 <ApprovalsView
                   companyId={props.companyId}
+                  companyMode={companyMode}
                   transfers={scopedTransfers()}
                   proposals={proposals}
                   liveGate={liveGate}
@@ -1476,7 +1485,17 @@ function ScenarioView(props: {
                       {e.outcome}
                     </span>
                     <span className="truncate">{e.description ?? e.failureCode ?? ''}</span>
-                    {e.amountCents && <span className="font-mono">{dollars(e.amountCents)}</span>}
+                    {e.amountCents && (
+                      <span className="flex items-center gap-1 font-mono">
+                        <span
+                          className="rounded border border-[var(--color-line)] px-1 text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]"
+                          data-testid="execution-mode-chip"
+                        >
+                          {executionCapitalChip(e.mode, e.venue)}
+                        </span>
+                        {dollars(e.amountCents)}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -1499,6 +1518,7 @@ function endpointLabel(kind: string, moduleId: string | null, moduleName: (id: s
 
 function ApprovalsView(props: {
   companyId: string;
+  companyMode: CapitalMode;
   transfers: FundTransferRow[];
   proposals: AssistantProposalRow[];
   liveGate: LiveGateStatusRow | null;
@@ -1622,7 +1642,17 @@ function ApprovalsView(props: {
         {pending.map((t) => (
           <div key={t.id} className="border-b border-[var(--color-line)] py-1.5 last:border-b-0">
             <CondensedRow
-              primary={dollars(t.amountCents)}
+              primary={
+                <span className="flex items-center gap-1">
+                  <span
+                    className="rounded border border-[var(--color-line)] px-1 text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]"
+                    data-testid="fund-transfers-paper"
+                  >
+                    {props.companyMode === 'live' ? 'live' : 'paper'}
+                  </span>
+                  {dollars(t.amountCents)}
+                </span>
+              }
               secondary={`${endpointLabel(t.fromKind, t.fromModuleId, props.moduleName)} → ${endpointLabel(t.toKind, t.toModuleId, props.moduleName)}`}
               meta={t.status}
             />
@@ -1738,9 +1768,9 @@ function ApprovalsView(props: {
       )}
 
       {pending.length > 0 && (
-        <div className="space-y-1.5">
+        <div className="space-y-1.5" data-testid="fund-transfers-paper">
           <p className="text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-            Fund transfers
+            {fundTransfersHeadline(props.companyMode)}
           </p>
           <Table
             head={['From', 'To', 'Amount', 'Requested', 'Actions']}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/client';
+import { executionCapitalChip } from '@/lib/capital-mode-label';
 import styles from './ticker.module.css';
 
 interface ExecutionRow {
@@ -9,6 +10,8 @@ interface ExecutionRow {
   outcome: string;
   description: string | null;
   amountCents: string | null;
+  mode: string;
+  venue: string;
   createdAt: string;
 }
 
@@ -28,6 +31,7 @@ function amount(cents: string): string {
 /**
  * Ribbon ticker tape of recent executions (ui-ux spec: top app shell).
  * Marquee only when there is content; text-first outcomes, color reinforces.
+ * Amounts carry a paper/live chip so fill dollars are never ambiguous (D-167).
  */
 export function ExecutionTicker(props: { companyId: string }) {
   const [rows, setRows] = useState<ExecutionRow[]>([]);
@@ -75,7 +79,13 @@ export function ExecutionTicker(props: { companyId: string }) {
             </span>
             {r.description && <span className="text-[var(--color-ink-dim)]">{r.description}</span>}
             {r.amountCents && (
-              <span className="font-mono text-[var(--color-ink-faint)]">
+              <span className="flex items-center gap-1 font-mono text-[var(--color-ink-faint)]">
+                <span
+                  className="rounded border border-[var(--color-line)] px-1 text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]"
+                  data-testid="execution-mode-chip"
+                >
+                  {executionCapitalChip(r.mode ?? 'paper', r.venue ?? 'paper_sim')}
+                </span>
                 {amount(r.amountCents)}
               </span>
             )}

@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/client';
+import {
+  balanceLabel,
+  executionCapitalChip,
+  normalizeCapitalMode,
+  type CapitalMode,
+} from '@/lib/capital-mode-label';
 import { ACTIVITY_REFRESH_EVENT } from '../canvas/PaperTradeForm';
 import { VALUE_LINEAGE_FOCUS_EVENT, type ValueLineageFocusDetail } from '@/lib/value-lineage-focus';
 import { dollars, scaled, toneFor } from './format';
@@ -133,7 +139,8 @@ interface SimulationRow {
  * recovery / agent actions), Ledger, Simulation, and the Math value-store
  * audit. Read-only projections over append-only sources.
  */
-export function RightPanel(props: { companyId: string }) {
+export function RightPanel(props: { companyId: string; companyMode?: string }) {
+  const companyMode = normalizeCapitalMode(props.companyMode);
   const storageKey = props.companyId ? `hftr:${props.companyId}:panel:right` : null;
 
   const [tab, setTab] = useState<Tab>('executions');
@@ -281,8 +288,11 @@ export function RightPanel(props: { companyId: string }) {
             />
           </div>
 
-          <div className="border-b border-[var(--color-line)] px-4 py-2.5">
-            <div className="text-xs text-[var(--color-ink-dim)]">Paper balance</div>
+          <div
+            className="border-b border-[var(--color-line)] px-4 py-2.5"
+            data-testid="right-panel-paper-balance"
+          >
+            <div className="text-xs text-[var(--color-ink-dim)]">{balanceLabel(companyMode)}</div>
             <div className="font-mono text-lg">{balance ? dollars(balance) : '—'}</div>
           </div>
 
@@ -294,7 +304,7 @@ export function RightPanel(props: { companyId: string }) {
             {tab === 'positions' && (
               <PositionsTab companyId={props.companyId} executions={executions} />
             )}
-            {tab === 'ledger' && <LedgerTab ledger={ledger} />}
+            {tab === 'ledger' && <LedgerTab ledger={ledger} companyMode={companyMode} />}
             {tab === 'simulation' && (
               <SimulationTab runs={simulations} comparisonSummary={simComparison} />
             )}
@@ -450,15 +460,26 @@ function ExecutionsTab(props: { executions: ExecutionRow[] }) {
           <div className="mt-1 text-xs text-[var(--color-ink-dim)]">
             {e.description ?? e.failureCode ?? `${e.venue} · ${e.mode}`}
           </div>
-          {e.amountCents && <div className="mt-1 font-mono text-xs">{dollars(e.amountCents)}</div>}
+          {e.amountCents && (
+            <div className="mt-1 flex items-center gap-1.5 font-mono text-xs">
+              <span
+                className="rounded border border-[var(--color-line)] px-1 text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]"
+                data-testid="execution-mode-chip"
+              >
+                {executionCapitalChip(e.mode, e.venue)}
+              </span>
+              {dollars(e.amountCents)}
+            </div>
+          )}
         </li>
       ))}
     </ul>
   );
 }
 
-function LedgerTab(props: { ledger: LedgerRow[] }) {
+function LedgerTab(props: { ledger: LedgerRow[]; companyMode: CapitalMode }) {
   if (props.ledger.length === 0) return <Empty text="No ledger entries yet." />;
+  const balPrefix = props.companyMode === 'live' ? 'live bal' : 'paper bal';
   return (
     <ul className="space-y-1.5">
       {props.ledger.map((l) => (
@@ -466,7 +487,7 @@ function LedgerTab(props: { ledger: LedgerRow[] }) {
           <div className="flex items-center justify-between text-xs">
             <span className="font-mono">{dollars(l.amountCents)}</span>
             <span className="text-[10px] text-[var(--color-ink-faint)]">
-              bal {dollars(l.balanceAfterCents)}
+              {balPrefix} {dollars(l.balanceAfterCents)}
             </span>
           </div>
           <div className="mt-0.5 truncate text-[11px] text-[var(--color-ink-dim)]">

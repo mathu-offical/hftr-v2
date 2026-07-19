@@ -1,6 +1,10 @@
 'use client';
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import {
+  normalizeCapitalMode,
+  type CapitalMode,
+} from '@/lib/capital-mode-label';
 
 /** Overlay recommendation focus (D-131). Left rail is holdings-only inventory. */
 export type MarketPostureCategory =
@@ -20,6 +24,8 @@ export interface MarketPostureFocusOpts {
 
 export interface MarketPostureViewContextValue {
   companyId: string;
+  /** Company trading mode — drives paper/live capital copy on money surfaces (D-167). */
+  companyMode: CapitalMode;
   overlayOpen: boolean;
   selectedPositionId: string | null;
   selectedSymbol: string | null;
@@ -39,7 +45,12 @@ export interface MarketPostureViewContextValue {
 
 const MarketPostureViewContext = createContext<MarketPostureViewContextValue | null>(null);
 
-export function MarketPostureViewProvider(props: { companyId: string; children: ReactNode }) {
+export function MarketPostureViewProvider(props: {
+  companyId: string;
+  companyMode?: string;
+  children: ReactNode;
+}) {
+  const companyMode = normalizeCapitalMode(props.companyMode);
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [selectedPositionId, setSelectedPositionId] = useState<string | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
@@ -90,6 +101,7 @@ export function MarketPostureViewProvider(props: { companyId: string; children: 
   const value = useMemo<MarketPostureViewContextValue>(
     () => ({
       companyId: props.companyId,
+      companyMode,
       overlayOpen,
       selectedPositionId,
       selectedSymbol,
@@ -104,6 +116,7 @@ export function MarketPostureViewProvider(props: { companyId: string; children: 
     }),
     [
       props.companyId,
+      companyMode,
       overlayOpen,
       selectedPositionId,
       selectedSymbol,

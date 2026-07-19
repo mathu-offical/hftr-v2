@@ -26,6 +26,7 @@ import {
   reportKindLabel,
 } from '@/components/panels/market-posture-format';
 import { api } from '@/lib/client';
+import { masterEquityHeadline } from '@/lib/capital-mode-label';
 import { invalidateMarketHub } from '@/lib/market-hub-cache';
 import { useMarketHub } from '@/lib/use-market-hub';
 import { useMarketHubSynthesis } from '@/lib/use-market-hub-synthesis';
@@ -231,7 +232,7 @@ export function MarketPostureOverlay() {
             <section className="space-y-2" data-testid="market-posture-master-equity">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                  Master equity
+                  {masterEquityHeadline(mp.companyMode)}
                 </h3>
                 <SourceVerifyChips
                   chips={hub.equity.sourceChips ?? []}
@@ -244,6 +245,7 @@ export function MarketPostureOverlay() {
                 selectedMarkCents={null}
                 selectedSymbol={null}
                 equityLabel={equityLabel}
+                capitalModeTitle={masterEquityHeadline(mp.companyMode)}
                 equityStatus={hub.equity.status}
                 asOfIso={hub.equity.asOfIso}
                 version={hub.equity.version}

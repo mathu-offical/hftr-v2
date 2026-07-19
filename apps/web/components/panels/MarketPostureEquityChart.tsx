@@ -32,6 +32,8 @@ export function MarketPostureEquityChart(props: {
   selectedMarkCents: number | null;
   selectedSymbol: string | null;
   equityLabel: string;
+  /** Optional paper/live headline replacing the generic "Equity" label (D-167). */
+  capitalModeTitle?: string;
   equityStatus?: 'fresh' | 'stale' | 'unavailable';
   asOfIso?: string | null;
   version?: number;
@@ -155,7 +157,7 @@ export function MarketPostureEquityChart(props: {
     <div data-testid="market-posture-equity-chart" className="space-y-1">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          Equity
+          {props.capitalModeTitle ?? 'Equity'}
           {props.selectedSymbol ? ` · focus ${props.selectedSymbol}` : ' · company'}
           {status ? (
             <span

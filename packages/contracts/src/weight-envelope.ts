@@ -42,8 +42,9 @@ export const TrainingFeedbackDelta = z.discriminatedUnion('mutationClass', [
     toWeight: z.number().finite(),
   }),
   /**
-   * Observation-only link from both_verify BookDelta (D-122 Phase 4).
-   * Not applied by applyControlSnapshotDelta — trains valves via separate jobs.
+   * Observation link from both_verify BookDelta (D-122 Phase 4).
+   * Not applied directly by applyControlSnapshotDelta — D-205 valve jobs
+   * aggregate these into band_position mutations.
    */
   z.object({
     mutationClass: z.literal('book_delta'),

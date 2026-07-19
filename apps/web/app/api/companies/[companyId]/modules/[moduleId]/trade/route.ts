@@ -55,7 +55,8 @@ export async function POST(req: Request, ctx: Ctx) {
     });
     const drained = await drainQueues(db, clock, {
       workerId: `inline:${clerkUserId.slice(0, 12)}`,
-      budgetMs: 15_000,
+      // both_verify shadow submit can take up to fillTimeoutMs (~30s); keep headroom.
+      budgetMs: 45_000,
       batchSize: 3,
       queueClasses: ['DISPATCH'],
       kickMaintenanceSweep: false,

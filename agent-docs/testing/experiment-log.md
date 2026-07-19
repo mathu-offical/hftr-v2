@@ -374,6 +374,21 @@ Scoring: `intent-alignment-scoring.md`
 
 ---
 
+## EXP-2026-07-19-09 — BookDelta valve training + both_verify / RTH harness (D-205)
+
+| Field | Value |
+|---|---|
+| Status | unit **pass**; baseline verify **29/29**; `HFTR_BOTH_VERIFY_SMOKE=1` book_deltas + valve apply **pass** (weekend shadow rejects OK) |
+| Mode | paper only |
+| Hypothesis | Unapplied book_delta observations produce a bounded participation_rate_band snapshot; both_verify persists book_deltas when Alpaca paper is bound |
+| Declared intent | Close BookDelta→valve gap; make RTH soak and credentialed both_verify runnable via env flags |
+| Observed | Shadow path wrote 2× `both_verify` book_deltas; `POST …/training/book-delta-valves` applied snapshot; RTH flag skipped (Sunday). Trade drain budget raised to 45s; shadow submit capped at 12s |
+| Alignment | **aligned** (RTH fresh soak deferred to weekday) |
+| Decisions | D-205 |
+| Flags | `HFTR_BOTH_VERIFY_SMOKE=1`, `HFTR_REQUIRE_RTH_FRESH=1` (skip on weekend) |
+
+---
+
 ## EXP-2026-07-19-03 — Sector × day_trading / HFT cohort (D-174)
 
 | Field | Value |

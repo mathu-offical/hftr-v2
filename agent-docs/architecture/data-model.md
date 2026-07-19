@@ -283,17 +283,19 @@ UI/layout contract: `ui-ux/research-galaxy-topic-view-design.md` (D-040).
   exhausted. Explicit share remains settled `fund_transfers` / funds-bus utility links.
   **Phase 4:** append-only `book_deltas` stores validated `BookDelta` JSON from
   `both_verify` shadow provider compares; linked `training_feedback` rows use
-  `mutation_class=book_delta` (observation-only — not applied by
-  `applyControlSnapshotDelta`). Internal fill remains authoritative for the HFTR
-  ledger; provider submit is shadow-only under `both_verify`.
+  `mutation_class=book_delta`. **D-205:** `applyBookDeltaValvesForModule` /
+  `maintenance.book_delta_valves` consumes unapplied book_delta observations into
+  bounded `participation_rate_band` control snapshots (model-free). Internal fill
+  remains authoritative for the HFTR ledger; provider submit is shadow-only under
+  `both_verify`.
   **Phase 5:** InternalPaperCore (`computeInternalPaperFill`) unifies dispatch and
   `paper-sim` fill math; `executionBinding.brokerConnectionId` is honored by
   `resolveExecutionContext` (inherit company when omitted).
 - **training_feedback** — append-only bounded band/weight deltas
   (`mutation_class`: `band_position` | `weight_delta` | `book_delta`), source run/trace refs,
   optional `applied_control_snapshot_id`. Applied via `applyControlSnapshotDelta`
-  for band/weight only (D-126). Never stores secrets or prompts.
-  applied_control_snapshot ref.
+  for band/weight; book_delta rows are marked applied after D-205 valve jobs (D-126 / D-205).
+  Never stores secrets or prompts.
 - **book_deltas** — append-only dual-book observations (D-122 Phase 4).
 - **control_snapshots** — company/module scope, philosophy profile + lever state + envelope
   versions + content hash (D-029 `ControlSnapshot` contract).

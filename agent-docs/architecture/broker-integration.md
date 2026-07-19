@@ -116,6 +116,10 @@ Approved design: `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-
   Phase 7e (D-194): expand chip vocab (Inline fill / No venue latency / On service);
   `hydrateOperatorQuoteValueRefs` on operator trade + preview; limit-order UI on
   PaperTradeForm; Playwright `paper-trade-deep.spec.ts`.
+  Phase 7f (D-205): BookDelta → participation valve training
+  (`applyBookDeltaValvesForModule`, `GET …/book-deltas`,
+  `POST …/training/book-delta-valves`); opt-in verify
+  `HFTR_BOTH_VERIFY_SMOKE=1` / `HFTR_REQUIRE_RTH_FRESH=1`.
 - Company-level `broker_connections` bind remains for credentials; it no longer implies
   automatic venue submit for every paper trade (routing mode decides).
 

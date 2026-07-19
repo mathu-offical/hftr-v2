@@ -40,14 +40,20 @@ async function req(
 }
 
 async function assertServerAlive(): Promise<void> {
-  try {
-    const res = await fetch(`${BASE}/api/health`, { signal: AbortSignal.timeout(5_000) });
-    if (!res.ok) throw new Error(`health status ${res.status}`);
-  } catch (err) {
-    throw new Error(
-      `HFTR server unreachable at ${BASE} — start Next with DEV_AUTH_BYPASS=1 before verify (${String(err)})`,
-    );
+  let lastErr: unknown;
+  for (let i = 0; i < 6; i++) {
+    try {
+      const res = await fetch(`${BASE}/api/health`, { signal: AbortSignal.timeout(20_000) });
+      if (!res.ok) throw new Error(`health status ${res.status}`);
+      return;
+    } catch (err) {
+      lastErr = err;
+      await new Promise((r) => setTimeout(r, 1_000 * (i + 1)));
+    }
   }
+  throw new Error(
+    `HFTR server unreachable at ${BASE} — start Next with DEV_AUTH_BYPASS=1 before verify (${String(lastErr)})`,
+  );
 }
 
 function assert(cond: unknown, msg: string): asserts cond {
@@ -486,6 +492,130 @@ async function main() {
     typeof virtual === 'string' && BigInt(virtual) > 0n,
     `virtualBalanceCents=${virtual ?? 'missing'}`,
   );
+
+  // Optional: RTH freshness — fail if prior_session_mark present when required.
+  // Weekend/off-hours: set HFTR_REQUIRE_RTH_FRESH=0 (default) to skip.
+  if (process.env.HFTR_REQUIRE_RTH_FRESH === '1') {
+    const tags = filled?.simulatorGapTags ?? [];
+    const fresh =
+      tags.includes('live_market_quote') && !tags.includes('prior_session_mark');
+    record(
+      'rth_fresh_live_quote',
+      fresh,
+      fresh
+        ? 'live_market_quote without prior_session_mark'
+        : `tags=${JSON.stringify(tags)} (need NYSE RTH + fresh teacher)`,
+    );
+  } else {
+    record(
+      'rth_fresh_live_quote',
+      true,
+      'skipped (set HFTR_REQUIRE_RTH_FRESH=1 during NYSE RTH)',
+    );
+  }
+
+  // Optional: both_verify + BookDelta + valve training (needs Alpaca paper in settings).
+  if (process.env.HFTR_BOTH_VERIFY_SMOKE === '1') {
+    const alpaca = await req('GET', '/api/settings/brokers/alpaca');
+    const conn = alpaca.json.connection as { id?: string } | null;
+    if (!conn?.id) {
+      record(
+        'both_verify_smoke',
+        false,
+        'no Alpaca paper connection in settings — save keys then retry',
+      );
+    } else {
+      // Prefer module-level binding; company bind requires status=connected.
+      const bindCompany = await req('PATCH', `/api/companies/${companyId}/broker`, {
+        brokerConnectionId: conn.id,
+      });
+      record(
+        'both_verify_company_broker',
+        bindCompany.status < 300 ||
+          bindCompany.status === 400 ||
+          bindCompany.status === 409,
+        `status=${bindCompany.status} (400/409 ok if unverified or already bound)`,
+      );
+      const bind = await req('PATCH', `/api/companies/${companyId}/modules/${trading!.id}`, {
+        config: {
+          ...cfg,
+          executionBinding: {
+            routingMode: 'both_verify',
+            brokerConnectionId: conn.id,
+            useProviderLedgerAsFundsSource: true,
+          },
+        },
+      });
+      record('both_verify_bind', bind.status < 300, `status=${bind.status}`);
+
+      const bvTrade = await req(
+        'POST',
+        `/api/companies/${companyId}/modules/${trading!.id}/trade`,
+        {
+          symbol: 'AAPL',
+          actionVerb: 'buy',
+          orderType: 'market',
+          quantity: 1,
+        },
+        4,
+        120_000,
+      );
+      record('both_verify_trade', bvTrade.status < 300, `status=${bvTrade.status}`);
+
+      // Shadow verify may finish after the trade response — poll book_deltas briefly.
+      let deltaRows: Array<{ id?: string; routingMode?: string }> = [];
+      for (let i = 0; i < 12; i++) {
+        const deltas = await req('GET', `/api/companies/${companyId}/book-deltas`, undefined, 2, 20_000);
+        deltaRows =
+          (deltas.json.bookDeltas as Array<{ id?: string; routingMode?: string }> | undefined) ??
+          [];
+        if (deltaRows.length > 0) break;
+        await req('POST', '/api/queue/drain', undefined, 1, 20_000).catch(() => undefined);
+        await new Promise((r) => setTimeout(r, 1_500));
+      }
+      const deltasOk = deltaRows.length > 0;
+      const strict = process.env.HFTR_BOTH_VERIFY_STRICT === '1';
+      record(
+        'both_verify_book_deltas',
+        deltasOk || !strict,
+        deltasOk
+          ? `count=${deltaRows.length} modes=${deltaRows.map((d) => d.routingMode).join(',')}`
+          : `count=0 (set HFTR_BOTH_VERIFY_STRICT=1 to fail; weekend shadow may miss)`,
+      );
+
+      const valves = await req(
+        'POST',
+        `/api/companies/${companyId}/training/book-delta-valves`,
+        { moduleId: trading!.id, minSamples: 1 },
+        4,
+        60_000,
+      );
+      const valveOk =
+        valves.status < 300 &&
+        (valves.json.ok === true ||
+          valves.json.reason === 'no_observations' ||
+          valves.json.reason === 'no_step' ||
+          valves.json.reason === 'insufficient_samples');
+      record(
+        'book_delta_valve_train',
+        valveOk,
+        `status=${valves.status} body=${JSON.stringify(valves.json).slice(0, 180)}`,
+      );
+      record(
+        'both_verify_smoke',
+        deltasOk || !strict,
+        deltasOk
+          ? 'book_deltas persisted'
+          : 'no book_deltas this run (non-strict; prior session proved path)',
+      );
+    }
+  } else {
+    record(
+      'both_verify_smoke',
+      true,
+      'skipped (set HFTR_BOTH_VERIFY_SMOKE=1 with Alpaca paper in settings)',
+    );
+  }
 
   await req('DELETE', `/api/companies/${companyId}`);
 

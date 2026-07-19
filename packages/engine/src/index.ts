@@ -292,6 +292,7 @@ export type {
 } from './handlers/model-gateway';
 import './handlers/maintenance';
 import './handlers/atr-stream';
+import './handlers/book-delta-valves';
 import './handlers/position-exits';
 import './handlers/equity-refresh';
 import './handlers/dispatch';
@@ -659,6 +660,12 @@ export {
 } from './dispatch/child-slice-fills';
 export { feeCentsFromNotional, roundTripFeeBpsFromAmounts } from './dispatch/fees';
 export { applyControlSnapshotDelta } from './training/apply-control-snapshot-delta';
+export {
+  proposeBandPositionFromBookDeltas,
+  outcomeScoreFromBookDeltaObservations,
+  BOOK_DELTA_VALVE_BAND_ID,
+} from './training/book-delta-valve-proposal';
+export { applyBookDeltaValvesForModule } from './training/apply-book-delta-valves';
 export {
   canonicalControlSnapshotJson,
   controlSnapshotContentHash,

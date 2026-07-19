@@ -122,10 +122,9 @@ export async function shadowVerifyAndPersistBookDelta(
 
   let submitResult;
   try {
-    submitResult = await withTimeout(
-      args.adapter.submitOrder(shadowTask),
-      args.fillTimeoutMs,
-    );
+    // Cap shadow wait so weekend/closed-market rejects don't block DISPATCH drain (D-205).
+    const shadowBudgetMs = Math.min(Math.max(3_000, args.fillTimeoutMs), 12_000);
+    submitResult = await withTimeout(args.adapter.submitOrder(shadowTask), shadowBudgetMs);
   } catch {
     const { bookDeltaId } = await persistRejectDelta(db, args, 'submit_timeout');
     return { ok: false, reason: 'submit_timeout', bookDeltaId };

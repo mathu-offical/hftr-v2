@@ -7,8 +7,9 @@ import { controlSnapshots } from './safety';
  * Append-only training feedback (D-126): bounded band/weight deltas only.
  * Never stores secrets or raw model prompts.
  *
- * mutation_class `book_delta` (D-122 Phase 4) is observation-only — links a
- * book_deltas row for later valve training; not applied as lever mutation.
+ * mutation_class `book_delta` (D-122 Phase 4) links a book_deltas row.
+ * D-205: `maintenance.book_delta_valves` / applyBookDeltaValvesForModule consumes
+ * unapplied book_delta rows into bounded participation_rate_band snapshots.
  */
 
 export const trainingFeedback = pgTable(

@@ -606,25 +606,25 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               if (n.__kind === 'tag-sat') return baseCharge * 0.35;
               return baseCharge;
             })
-            .distanceMax(420),
+            .distanceMax(560),
         );
 
         const center = fg.d3Force('center') as { strength?: (n: number) => unknown } | undefined;
-        // Near-zero — free-float cloud; Fit frames the envelope (D-136 / D-170).
-        center?.strength?.(0.0008);
+        // Near-zero — free-float cloud; Fit frames the envelope (D-136 / D-178).
+        center?.strength?.(0.0004);
 
         fg.d3Force(
           'collide',
           forceCollide((node: unknown) => {
             const n = node as GalaxySimNode & { __kind?: string; __hullKind?: string; val?: number };
             if (n.__kind === 'nest-hull') {
-              return n.__hullKind === 'article' ? Math.max(12, Math.cbrt(n.val ?? 1) * 7) : 0;
+              return n.__hullKind === 'article' ? Math.max(14, Math.cbrt(n.val ?? 1) * 8.5) : 0;
             }
-            if (n.__kind === 'tag-sat') return Math.cbrt(n.val ?? 0.35) * 3.1;
-            return Math.cbrt(n.val ?? 1) * 4.2;
+            if (n.__kind === 'tag-sat') return Math.cbrt(n.val ?? 0.35) * 3.8;
+            return Math.cbrt(n.val ?? 1) * 5.4;
           })
-            .strength(0.62)
-            .iterations(2),
+            .strength(0.55)
+            .iterations(3),
         );
         fg.d3Force('nest', createLibraryNestForce(libraryCenters));
         fg.d3Force('nestShell', createNestShellRadialForce(libraryCenters));
@@ -1671,8 +1671,8 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         !isTagSat &&
         (isHighlight ||
           isHovered ||
-          (isFocused && !hoverNeighborIds && globalScale > 1.35) ||
-          (isNeighbor && globalScale > 1.1));
+          (isNeighbor && globalScale > 1.6) ||
+          (isFocused && !hoverNeighborIds && globalScale > 2.4));
       if (showLabel) {
         const label = humanizeConceptTitle(node.title ?? '');
         if (label) {

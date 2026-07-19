@@ -158,6 +158,10 @@ chips drawn from visible concepts’ tags (and optionally topic-level keywords).
 - **D-170 looser gravity / more volume:** longer link rest lengths, weaker nest attractors,
   stronger many-body charge, packing gap ≥ 1.48, larger library/folder radii and shell
   spacing so galaxy elements spread instead of huddling.
+- **D-178 natural volume + label declutter:** catalog folder packing uses wider shells,
+  stronger hard separation, and a density breath factor; nest attractors soften further;
+  folder/article nameplates are hover/zoom-gated so the middle of the galaxy is not a
+  stacked chip blob.
   Seeded catalog folders use system-defined similarity bands for placement (related closer,
   unrelated farther) via `galaxy-folder-similarity.ts`.
 - A larger **company envelope** sphere outlines the full organizational cloud.

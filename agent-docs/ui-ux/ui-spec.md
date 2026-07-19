@@ -525,8 +525,9 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
   semantic springs (D-136), celestial hierarchy (D-139 / D-141), orbital shelf
   bands (D-142), **client semantic springs** (D-145), **physical library bridges** (D-151),
   and **independent sphere growth** with system-seeded folder similarity placement (D-164),
-  plus **looser gravity** (longer springs, stronger charge, wider packing — D-170) so nests
-  and members occupy more volume.
+  plus **looser gravity** (longer springs, stronger charge, wider packing — D-170 / D-178)
+  and **hover-first nest labels** so catalog shelves open into readable volume instead of a
+  central label blob.
 - **Rotating info-tag layer** over the graph (subtle orbit of tag chips; static under
   `prefers-reduced-motion`); chips double as filters.
 - **Topic focus** (left-panel select): dim non-member concepts/edges; stronger particles on

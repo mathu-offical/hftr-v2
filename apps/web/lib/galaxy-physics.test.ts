@@ -166,7 +166,7 @@ describe('galaxy-physics', () => {
     const b = libraryCenters.get('b')!;
     const gap = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
     expect(a.radius).toBeGreaterThan(40);
-    expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.48 - 1e-3);
+    expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.62 - 1e-3);
   });
 
   it('soft folder nest force pulls outliers inward', () => {
@@ -641,8 +641,8 @@ describe('galaxy-physics', () => {
         const a = entries[i]!;
         const b = entries[j]!;
         const gap = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-        // Soft packing (D-170): independent growth with gap ≥ 1.48.
-        expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.48 - 1e-3);
+        // Soft packing (D-178): independent growth with gap ≥ 1.62.
+        expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.62 - 1e-3);
       }
     }
   });

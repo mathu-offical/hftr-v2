@@ -1785,6 +1785,24 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Docs: canvas-layout-and-dedicated-math-design, canvas-engine-group-design, ui-spec §3.
   **Status: implemented.**
 
+- **D-177 (MarketModel ValueRef fusion + catalog slippage, 2026-07-19):** Extend D-171
+  MarketModel so dispatch fuses fresh company price ValueRefs (`live_api:quote:{SYM}`,
+  alpaca quote marks) with adapter / owner Alpaca teachers. Trend `pollQuotes` persists
+  marks via `recordPolledQuotesAsValueRefs`. InternalPaperCore fills resolve slippage from
+  catalog `max_slippage_bps_band` (typical) and optional square-root participation impact
+  when POV participation is known (compile lineage or operator multi-share plan). Honesty
+  tags: `square_root_impact_proxy` vs `no_market_impact`. No secrets in payloads; quote
+  teacher remains read-only. Docs: internal-paper-trade-engine-design Phase 7,
+  broker-integration §7, experiment-log EXP-2026-07-19-04.
+  **Status: implemented.**
+
+- **D-178 (galaxy natural volume + label declutter, 2026-07-19):** Address residual central
+  blob after D-170: wider folder Fibonacci shells + hard gap ≥ 1.85 + density breath;
+  packing gap ≥ **1.62**; stronger charge; softer nest/folder/article attractors; longer
+  springs. Nest nameplates: libraries quiet; **folder/article labels hover/select or close
+  zoom only** — no always-on stacked shelf chips. Concept canvas labels require higher zoom.
+  Docs: ui-spec §6, research-galaxy-topic-view-design. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

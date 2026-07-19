@@ -490,15 +490,17 @@ export function paintNestHull2d(
   }
 
   const label = node.__label ?? '';
-  // Library/folder/article labels prefer earlier zoom; article stars stay readable.
-  const labelZoom = isLibrary ? 0.35 : isFolder ? 0.55 : isArticle ? 0.65 : 0.7;
-  const forceLabel =
-    emphasis === 'hover' ||
-    emphasis === 'selected' ||
-    isLibrary ||
-    isArticle ||
-    (isFolder && globalScale > 0.4);
-  if (label && (forceLabel || globalScale > labelZoom)) {
+  // D-178: declutter — libraries keep a quiet nameplate; folders/articles only on
+  // hover/select (or very close zoom) so catalog shelves do not stack chips in the middle.
+  const labelZoom = isLibrary ? 0.55 : isFolder ? 1.45 : isArticle ? 1.25 : 1.1;
+  const forceLabel = emphasis === 'hover' || emphasis === 'selected';
+  const showLabel =
+    Boolean(label) &&
+    (forceLabel ||
+      (isLibrary && globalScale > labelZoom) ||
+      (!isLibrary && !isFolder && !isArticle && globalScale > labelZoom) ||
+      ((isFolder || isArticle) && globalScale > labelZoom));
+  if (showLabel) {
     const fontSize = Math.max((isLibrary ? 11 : 9) / globalScale, 2.2);
     ctx.font = `${forceLabel || isLibrary ? 600 : 500} ${fontSize}px sans-serif`;
     ctx.textAlign = 'center';
@@ -513,7 +515,7 @@ export function paintNestHull2d(
       metrics.width + pad * 2,
       fontSize + pad * 2,
     );
-    ctx.globalAlpha = forceLabel ? 0.95 : isFolder ? 0.78 : 0.9;
+    ctx.globalAlpha = forceLabel ? 0.95 : isFolder ? 0.72 : 0.88;
     ctx.fillStyle = forceLabel && emphasis === 'selected' ? '#e8ecf4' : color;
     ctx.fillText(label, x, y - r - 6 / globalScale);
   }

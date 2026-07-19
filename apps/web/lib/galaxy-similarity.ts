@@ -20,11 +20,11 @@ import { tokenizeQualitativeText, type RelevanceBand } from '@hftr/contracts';
 export function linkDistanceForSimilarity(band: RelevanceBand): number {
   switch (band) {
     case 'high':
-      return 42;
+      return 58;
     case 'medium':
-      return 72;
+      return 95;
     case 'low':
-      return 115;
+      return 150;
     default: {
       const _exhaustive: never = band;
       return _exhaustive;
@@ -36,11 +36,11 @@ export function linkDistanceForSimilarity(band: RelevanceBand): number {
 export function linkStrengthForSimilarity(band: RelevanceBand): number {
   switch (band) {
     case 'high':
-      return 0.85;
+      return 0.65;
     case 'medium':
-      return 0.48;
+      return 0.35;
     case 'low':
-      return 0.16;
+      return 0.12;
     default: {
       const _exhaustive: never = band;
       return _exhaustive;

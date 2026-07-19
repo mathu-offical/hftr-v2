@@ -2,8 +2,9 @@
  * Galaxy 3D physics helpers (TD-09 / D-116 / D-136 / D-139 / D-142 / D-145 / D-151 / D-164 / D-170).
  * Library/folder spheres grow independently from content; packing separates hulls
  * instead of crushing them. Seeded catalog folders are placed by system similarity
- * scores (D-164). Semantic springs still bridge related nests. D-170 loosens gravity
- * (longer springs, stronger charge, wider packing) so elements occupy more volume.
+ * scores (D-164). Semantic springs still bridge related nests. D-170/D-178 loosen
+ * gravity and folder packing so catalog shelves open into readable volume instead of
+ * a central blob; labels declutter separately in the view layer.
  */
 
 import type { ResearchGraphLibraryNest, ResearchGraphLink } from '@hftr/contracts';
@@ -90,17 +91,17 @@ export function linkDistanceForWeight(
   weightBand: ResearchGraphLink['weightBand'],
   relation: ResearchGraphLink['relation'],
 ): number {
-  // Longer springs — looser gravity so connected orbits breathe into volume (D-170).
-  let base = 92;
+  // Longer springs — looser gravity so connected orbits breathe into volume (D-170 / D-178).
+  let base = 120;
   switch (weightBand) {
     case 'strong':
-      base = 55;
+      base = 72;
       break;
     case 'typical':
-      base = 92;
+      base = 120;
       break;
     case 'weak':
-      base = 140;
+      base = 180;
       break;
     default: {
       const _exhaustive: never = weightBand;
@@ -128,11 +129,11 @@ export function linkDistanceForWeight(
 export function linkStrengthForWeight(weightBand: ResearchGraphLink['weightBand']): number {
   switch (weightBand) {
     case 'strong':
-      return 0.72;
+      return 0.55;
     case 'typical':
-      return 0.4;
+      return 0.3;
     case 'weak':
-      return 0.15;
+      return 0.11;
     default: {
       const _exhaustive: never = weightBand;
       return _exhaustive;
@@ -141,11 +142,11 @@ export function linkStrengthForWeight(weightBand: ResearchGraphLink['weightBand'
 }
 
 export function chargeStrengthForGraphSize(nodeCount: number): number {
-  // Stronger global repulsion so elements occupy more volume (D-170).
-  if (nodeCount > 400) return -58;
-  if (nodeCount > 200) return -82;
-  if (nodeCount > 80) return -110;
-  return -140;
+  // Stronger global repulsion so elements occupy more volume (D-170 / D-178).
+  if (nodeCount > 400) return -90;
+  if (nodeCount > 200) return -130;
+  if (nodeCount > 80) return -175;
+  return -220;
 }
 
 /**
@@ -154,8 +155,8 @@ export function chargeStrengthForGraphSize(nodeCount: number): number {
  */
 export function separateLibraryCenters(
   centers: Map<string, LibraryCenter3D>,
-  gapFactor = 1.55,
-  passes = 28,
+  gapFactor = 1.7,
+  passes = 36,
 ): void {
   const entries = [...centers.entries()];
   if (entries.length < 2) return;
@@ -239,21 +240,21 @@ export function computeLibraryCenters3D(
   });
 
   // Gap > 1 so growing spheres push neighbors away rather than overlapping (D-170).
-  separateLibraryCenters(centers, 1.48, 36);
+  separateLibraryCenters(centers, 1.62, 40);
   return centers;
 }
 
 /** Content-driven library hull radius (independent of other libraries). */
 export function libraryRadiusForConceptCount(conceptCount: number): number {
   const n = Math.max(1, conceptCount);
-  return 55 + Math.min(220, Math.sqrt(n) * 18 + n * 1.45);
+  return 70 + Math.min(280, Math.sqrt(n) * 22 + n * 1.8);
 }
 
 /** Content-driven folder hull radius (independent of sibling folders). */
 export function folderRadiusForMembers(mass: number, memberCount: number): number {
   const m = Math.max(1, memberCount);
-  const massPart = Math.max(0, mass) * 1.7;
-  return 30 + Math.min(120, massPart + Math.sqrt(m) * 10 + m * 1.9);
+  const massPart = Math.max(0, mass) * 2.1;
+  return 38 + Math.min(150, massPart + Math.sqrt(m) * 12 + m * 2.3);
 }
 
 /**
@@ -358,15 +359,15 @@ export function createLibraryNestForce(centers: Map<string, LibraryCenter3D>) {
       if (!center) continue;
 
       const hasLocal = Boolean(node.primaryFolderKey || node.primaryArticleId);
-      const pull = alpha * (hasLocal ? 0.004 : 0.012);
-      const restore = alpha * (hasLocal ? 0.035 : 0.08);
+      const pull = alpha * (hasLocal ? 0.002 : 0.008);
+      const restore = alpha * (hasLocal ? 0.022 : 0.055);
 
       const dx = (node.x ?? 0) - center.x;
       const dy = (node.y ?? 0) - center.y;
       const dz = (node.z ?? 0) - center.z;
       const dist = Math.hypot(dx, dy, dz) || 1e-6;
       // Loose envelope — allow intersection / escape for semantic links.
-      const maxR = center.radius * (hasLocal ? 1.75 : 1.5);
+      const maxR = center.radius * (hasLocal ? 1.95 : 1.65);
 
       if (dist > maxR) {
         const k = ((dist - maxR) / dist) * restore;
@@ -438,8 +439,8 @@ export function computeFolderCenters3D(opts: {
     const locals: Local[] = sorted.map((folder, i) => {
       const radius = folderRadiusForMembers(folder.mass, folder.memberCount);
       const unit = fibonacciSpherePoint(i, count);
-      // Seed on a wider shell from this folder's own radius + siblings (D-170).
-      const shellR = radius * 1.75 + Math.min(110, count * 16);
+      // Wide initial shell so catalog shelves do not seed as a central blob (D-178).
+      const shellR = radius * 2.9 + Math.min(220, count * 28);
       const offset = scaleSpherePoint(unit, shellR);
       return {
         folderKey: folder.folderKey,
@@ -454,7 +455,7 @@ export function computeFolderCenters3D(opts: {
     });
 
     // Similarity springs: high → closer; low → farther (system-seeded catalog scores).
-    for (let pass = 0; pass < 16; pass++) {
+    for (let pass = 0; pass < 22; pass++) {
       for (let i = 0; i < locals.length; i++) {
         for (let j = i + 1; j < locals.length; j++) {
           const a = locals[i]!;
@@ -467,7 +468,7 @@ export function computeFolderCenters3D(opts: {
           const rest = (a.radius + b.radius) * folderSimilarityRestMul(band);
           const strength = folderSimilaritySpringStrength(band);
           const delta = (dist - rest) / dist;
-          const k = strength * 0.35 * delta;
+          const k = strength * 0.28 * delta;
           a.x += dx * k;
           a.y += dy * k;
           a.z += dz * k;
@@ -485,7 +486,7 @@ export function computeFolderCenters3D(opts: {
           const dy = b.y - a.y;
           const dz = b.z - a.z;
           const dist = Math.hypot(dx, dy, dz) || 1e-6;
-          const minDist = (a.radius + b.radius) * 1.35;
+          const minDist = (a.radius + b.radius) * 1.85;
           if (dist >= minDist) continue;
           const push = (minDist - dist) / 2;
           const ux = dx / dist;
@@ -498,6 +499,16 @@ export function computeFolderCenters3D(opts: {
           b.y += uy * push;
           b.z += uz * push;
         }
+      }
+    }
+
+    // Extra breath for dense catalog libraries (many shelves → more volume).
+    const breath = 1 + Math.min(1.35, Math.max(0, count - 3) * 0.12);
+    if (breath > 1.01) {
+      for (const local of locals) {
+        local.x *= breath;
+        local.y *= breath;
+        local.z *= breath;
       }
     }
 
@@ -541,10 +552,10 @@ export function refitLibraryPackingAfterFolders(
       if (d > extent) extent = d;
     }
     // Parent grows from children — not a fixed shared density band.
-    lib.radius = Math.max(lib.radius, extent + 36);
+    lib.radius = Math.max(lib.radius, extent + 52);
   }
 
-  separateLibraryCenters(libraryCenters, 1.48, 36);
+  separateLibraryCenters(libraryCenters, 1.62, 40);
 
   for (const [libId, lib] of libraryCenters) {
     const prev = oldPos.get(libId);
@@ -694,16 +705,16 @@ export function createFolderNestForce(centers: Map<string, FolderCenter3D>) {
       if (!center) continue;
 
       const hasArticle = Boolean(node.primaryArticleId);
-      const orbitStrength = alpha * (hasArticle ? 0.018 : 0.085);
-      const restore = alpha * (hasArticle ? 0.065 : 0.2);
-      const spread = alpha * (hasArticle ? 0.01 : 0.045);
+      const orbitStrength = alpha * (hasArticle ? 0.01 : 0.045);
+      const restore = alpha * (hasArticle ? 0.04 : 0.12);
+      const spread = alpha * (hasArticle ? 0.014 : 0.055);
 
       const dx = (node.x ?? 0) - center.x;
       const dy = (node.y ?? 0) - center.y;
       const dz = (node.z ?? 0) - center.z;
       const dist = Math.hypot(dx, dy, dz) || 1e-6;
-      const targetR = center.radius * hashedRadialBand(String(node.id ?? ''), 0.42, 0.95);
-      const maxR = center.radius * (hasArticle ? 1.5 : 1.32);
+      const targetR = center.radius * hashedRadialBand(String(node.id ?? ''), 0.48, 1.05);
+      const maxR = center.radius * (hasArticle ? 1.7 : 1.5);
 
       if (dist > maxR) {
         const k = ((dist - maxR) / dist) * restore;
@@ -736,7 +747,7 @@ export function createNestShellRadialForce(centers: Map<string, LibraryCenter3D>
 
   function force(alpha: number) {
     // Very soft — free-float prefers semantic layout over filling library balls (D-136 / D-170).
-    const strength = alpha * 0.022;
+    const strength = alpha * 0.012;
     for (const node of nodes) {
       if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
       if (node.primaryFolderKey || node.primaryArticleId) continue;
@@ -773,7 +784,7 @@ export function createFolderShellRadialForce(centers: Map<string, FolderCenter3D
   let nodes: GalaxySimNode[] = [];
 
   function force(alpha: number) {
-    const strength = alpha * 0.072;
+    const strength = alpha * 0.038;
     for (const node of nodes) {
       if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
       if (node.primaryArticleId) continue;
@@ -821,7 +832,7 @@ export function createFolderCohereForce() {
       groups.set(key, list);
     }
 
-    const strength = alpha * 0.028;
+    const strength = alpha * 0.012;
     for (const members of groups.values()) {
       if (members.length < 2) continue;
       let cx = 0;
@@ -866,7 +877,7 @@ export function createLibraryCohereForce() {
       groups.set(node.primaryLibraryId, list);
     }
 
-    const strength = alpha * 0.018;
+    const strength = alpha * 0.01;
     for (const members of groups.values()) {
       if (members.length < 2) continue;
       let cx = 0;
@@ -1025,9 +1036,9 @@ export function createArticleOrbitForce(centers: Map<string, ArticleOrbitCenter3
   let hullByTopic = new Map<string, GalaxySimNode>();
 
   function force(alpha: number) {
-    const orbitStrength = alpha * 0.078;
-    const restore = alpha * 0.16;
-    const spread = alpha * 0.038;
+    const orbitStrength = alpha * 0.045;
+    const restore = alpha * 0.1;
+    const spread = alpha * 0.05;
     for (const node of nodes) {
       if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
       const articleId = node.primaryArticleId;
@@ -1044,8 +1055,8 @@ export function createArticleOrbitForce(centers: Map<string, ArticleOrbitCenter3
       const dy = (node.y ?? 0) - cy;
       const dz = (node.z ?? 0) - cz;
       const dist = Math.hypot(dx, dy, dz) || 1e-6;
-      const targetR = radius * hashedRadialBand(String(node.id ?? ''), 0.45, 1.05);
-      const maxR = radius * 1.65;
+      const targetR = radius * hashedRadialBand(String(node.id ?? ''), 0.5, 1.15);
+      const maxR = radius * 1.85;
 
       if (dist > maxR) {
         const k = ((dist - maxR) / dist) * restore;
@@ -1083,9 +1094,9 @@ export function createArticleHullOrbitForce(folderCenters: Map<string, FolderCen
   let nodes: GalaxySimNode[] = [];
 
   function force(alpha: number) {
-    const orbitStrength = alpha * 0.09;
-    const restore = alpha * 0.17;
-    const spread = alpha * 0.048;
+    const orbitStrength = alpha * 0.05;
+    const restore = alpha * 0.1;
+    const spread = alpha * 0.055;
     for (const node of nodes) {
       if (node.__kind !== 'nest-hull' || node.__hullKind !== 'article') continue;
       const systemKey = node.__parentFolderKey;
@@ -1097,8 +1108,8 @@ export function createArticleHullOrbitForce(folderCenters: Map<string, FolderCen
       const dy = (node.y ?? 0) - center.y;
       const dz = (node.z ?? 0) - center.z;
       const dist = Math.hypot(dx, dy, dz) || 1e-6;
-      const targetR = center.radius * hashedRadialBand(String(node.id ?? ''), 0.4, 0.88);
-      const maxR = center.radius * 1.28;
+      const targetR = center.radius * hashedRadialBand(String(node.id ?? ''), 0.45, 0.95);
+      const maxR = center.radius * 1.45;
 
       if (dist > maxR) {
         const k = ((dist - maxR) / dist) * restore;

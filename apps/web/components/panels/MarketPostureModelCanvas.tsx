@@ -17,6 +17,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type {
+  MarketHubModelHydration,
   MarketHubSynthesisRun,
   MarketHubSynthesisStage,
   MarketHubSynthesisStageStatus,
@@ -49,18 +50,16 @@ function kindBorder(kind: PostureAlgoNodeData['kind']): string {
   }
 }
 
-function kindLabel(kind: PostureAlgoNodeData['kind']): string {
-  switch (kind) {
-    case 'llm':
-      return 'LLM';
-    case 'data':
-      return 'DATA';
-    case 'deterministic':
-      return 'DET';
-    case 'output':
-      return 'OUT';
+function roleLabel(role: PostureAlgoNodeData['nodeRole']): string {
+  switch (role) {
+    case 'live_source':
+      return 'LIVE';
+    case 'library_source':
+      return 'LIB';
+    case 'stage':
+      return 'STAGE';
     default: {
-      const _exhaustive: never = kind;
+      const _exhaustive: never = role;
       return _exhaustive;
     }
   }
@@ -93,22 +92,32 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
   const ring = data.selected ? 'ring-1 ring-[var(--color-accent)]' : '';
   return (
     <div
-      className={`min-w-[148px] max-w-[168px] rounded border bg-[var(--color-surface-1)] px-2 py-1.5 shadow-sm ${kindBorder(data.kind)} ${ring}`}
+      className={`min-w-[152px] max-w-[176px] rounded border bg-[var(--color-surface-1)] px-2 py-1.5 shadow-sm ${kindBorder(data.kind)} ${ring}`}
+      data-testid={`market-posture-model-node-${data.nodeRole}`}
     >
       <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !bg-[var(--color-ink-faint)]" />
       <div className="flex items-baseline justify-between gap-1">
         <p className="font-mono text-[8px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          {kindLabel(data.kind)}
+          {roleLabel(data.nodeRole)}
         </p>
-        <p
-          className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]"
-          title={statusWord(data.stageStatus)}
-        >
-          <span aria-hidden>{statusGlyph(data.stageStatus)}</span> {statusWord(data.stageStatus)}
-        </p>
+        {data.nodeRole === 'stage' ? (
+          <p
+            className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]"
+            title={statusWord(data.stageStatus)}
+          >
+            <span aria-hidden>{statusGlyph(data.stageStatus)}</span> {statusWord(data.stageStatus)}
+          </p>
+        ) : null}
       </div>
-      <p className="text-[11px] font-medium text-[var(--color-ink)]">{data.label}</p>
-      <p className="mt-0.5 text-[9px] leading-snug text-[var(--color-ink-faint)]">{data.detail}</p>
+      <p className="truncate text-[11px] font-medium text-[var(--color-ink)]" title={data.label}>
+        {data.label}
+      </p>
+      <p className="mt-0.5 font-mono text-[10px] tabular-nums text-[var(--color-ink)]">
+        {data.amount}
+      </p>
+      <p className="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-accent)]">
+        {data.operation}
+      </p>
       <Handle type="source" position={Position.Right} className="!h-1.5 !w-1.5 !bg-[var(--color-ink-faint)]" />
     </div>
   );
@@ -118,10 +127,18 @@ const nodeTypes: NodeTypes = { postureAlgo: PostureAlgoNode };
 
 function InnerCanvas(props: {
   run: MarketHubSynthesisRun | null;
-  selectedStageId: string | null;
-  onSelectStage: (stageId: string | null) => void;
+  hydration: MarketHubModelHydration | null;
+  selectedNodeId: string | null;
+  onSelectNode: (nodeId: string | null) => void;
 }) {
-  const graph = useMemo(() => buildMarketPostureAlgorithmGraph(), []);
+  const graph = useMemo(
+    () =>
+      buildMarketPostureAlgorithmGraph({
+        hydration: props.hydration,
+        stages: props.run?.stages ?? null,
+      }),
+    [props.hydration, props.run],
+  );
   const byStage = useMemo(() => {
     const m = new Map<string, MarketHubSynthesisStage>();
     for (const s of props.run?.stages ?? []) m.set(s.stageId, s);
@@ -134,12 +151,12 @@ function InnerCanvas(props: {
         ...n,
         data: {
           ...n.data,
-          stageStatus: byStage.get(n.id)?.status,
-          selected: props.selectedStageId === n.id,
+          stageStatus: n.data.stageId ? byStage.get(n.data.stageId)?.status : undefined,
+          selected: props.selectedNodeId === n.id,
         },
         selectable: true,
       })),
-    [graph.nodes, byStage, props.selectedStageId],
+    [graph.nodes, byStage, props.selectedNodeId],
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(liveNodes);
@@ -165,7 +182,7 @@ function InnerCanvas(props: {
       })),
     );
     const frame = requestAnimationFrame(() => {
-      void fitView({ padding: 0.14, maxZoom: 1, duration: 200 });
+      void fitView({ padding: 0.1, maxZoom: 0.85, duration: 200 });
     });
     return () => cancelAnimationFrame(frame);
   }, [graph, setEdges, fitView]);
@@ -176,14 +193,14 @@ function InnerCanvas(props: {
       edges={edges}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
-      onNodeClick={(_e, node) => props.onSelectStage(node.id)}
+      onNodeClick={(_e, node) => props.onSelectNode(node.id)}
       nodeTypes={nodeTypes}
       nodesDraggable={false}
       nodesConnectable={false}
       elementsSelectable
       panOnScroll
       zoomOnScroll={false}
-      minZoom={0.2}
+      minZoom={0.12}
       maxZoom={1.2}
       proOptions={{ hideAttribution: true }}
       className="bg-[var(--color-surface-0)]"
@@ -194,87 +211,123 @@ function InnerCanvas(props: {
   );
 }
 
-function StageInspector(props: { stage: MarketHubSynthesisStage | null }) {
-  if (!props.stage) {
+function NodeInspector(props: {
+  node: PostureAlgoNodeData | null;
+  stage: MarketHubSynthesisStage | null;
+}) {
+  if (!props.node) {
     return (
       <p className="text-[10px] text-[var(--color-ink-faint)]">
-        Select a stage node for summary and justification.
+        Select a live source, library, or stage for operation detail.
       </p>
     );
   }
+  const n = props.node;
   const s = props.stage;
   return (
     <div className="space-y-1 rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5">
       <p className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]">
-        {s.label} · {s.status}
+        {roleLabel(n.nodeRole)} · {n.label}
       </p>
-      {s.summary ? (
+      <p className="font-mono text-[11px] tabular-nums text-[var(--color-ink)]">
+        {n.amount} · {n.operation}
+      </p>
+      {s?.summary ? (
         <Justification
           sourceClass={s.kind === 'llm' ? 'model_generated' : 'deterministic_scan'}
           lines={
-            s.justificationLines.length > 0
-              ? s.justificationLines
-              : [s.summary]
+            s.justificationLines.length > 0 ? s.justificationLines : [s.summary]
           }
         >
           <p className="text-[11px] text-[var(--color-ink)]">{s.summary}</p>
         </Justification>
       ) : (
-        <p className="text-[10px] text-[var(--color-ink-faint)]">No summary yet</p>
+        <p className="text-[10px] text-[var(--color-ink-faint)]">{n.detail}</p>
       )}
-      <p className="font-mono text-[8px] text-[var(--color-ink-faint)]">
-        {s.startedAt ? `start ${new Date(s.startedAt).toLocaleTimeString()}` : '—'}
-        {s.finishedAt ? ` · end ${new Date(s.finishedAt).toLocaleTimeString()}` : ''}
-      </p>
+      {s ? (
+        <p className="font-mono text-[8px] text-[var(--color-ink-faint)]">
+          {s.startedAt ? `start ${new Date(s.startedAt).toLocaleTimeString()}` : '—'}
+          {s.finishedAt ? ` · end ${new Date(s.finishedAt).toLocaleTimeString()}` : ''}
+        </p>
+      ) : null}
     </div>
   );
 }
 
 /**
- * Live synthesis hub canvas (D-120). Status from synthesis run stages;
- * never driven by equity live poll (D-112).
+ * Live synthesis hub canvas (D-120 / D-147).
+ * Shows all live + library baseline sources hydrating into Analyze stages.
+ * Status from synthesis run; never driven by equity live poll (D-112).
  */
 export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(props: {
   className?: string;
   run?: MarketHubSynthesisRun | null;
+  hydration?: MarketHubModelHydration | null;
 }) {
-  const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
-  const selected = props.run?.stages.find((s) => s.stageId === selectedStageId) ?? null;
-  const done = props.run?.stages.filter((s) =>
-    s.status === 'succeeded' || s.status === 'skipped' || s.status === 'failed',
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const hydration = props.hydration ?? null;
+  const graph = useMemo(
+    () =>
+      buildMarketPostureAlgorithmGraph({
+        hydration,
+        stages: props.run?.stages ?? null,
+      }),
+    [hydration, props.run],
+  );
+  const selectedNode = graph.nodes.find((n) => n.id === selectedNodeId)?.data ?? null;
+  const selectedStage =
+    selectedNode?.stageId != null
+      ? (props.run?.stages.find((s) => s.stageId === selectedNode.stageId) ?? null)
+      : null;
+  const done = props.run?.stages.filter(
+    (s) => s.status === 'succeeded' || s.status === 'skipped' || s.status === 'failed',
   ).length;
   const total = props.run?.stages.length ?? 0;
+  const liveN = hydration?.liveSources.length ?? 0;
+  const libN = hydration?.librarySources.length ?? 0;
 
   return (
     <div className={`space-y-2 ${props.className ?? ''}`}>
-      {props.run ? (
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        {props.run ? (
+          <p
+            className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]"
+            data-testid="market-posture-synthesis-strip"
+          >
+            Run {props.run.status}
+            {total > 0 ? ` · ${done ?? 0}/${total} stages` : ''}
+          </p>
+        ) : (
+          <p className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+            Baseline hydration — Analyze to animate stages
+          </p>
+        )}
         <p
-          className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]"
-          data-testid="market-posture-synthesis-strip"
+          className="font-mono text-[9px] text-[var(--color-ink-faint)]"
+          data-testid="market-posture-model-hydration-totals"
         >
-          Run {props.run.status}
-          {total > 0 ? ` · ${done ?? 0}/${total} stages` : ''}
+          Live {liveN}
+          {hydration ? ` · ${hydration.totals.liveReady} ready` : ''}
+          {` · Libraries ${libN}`}
+          {hydration ? ` · ${hydration.totals.admittedConcepts} admitted` : ''}
         </p>
-      ) : (
-        <p className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-          No synthesis run yet — Analyze to start
-        </p>
-      )}
+      </div>
       <div
         data-testid="market-posture-model-canvas"
-        className="h-[min(22rem,42vh)] min-h-[200px] overflow-hidden rounded border border-[var(--color-line)]"
+        className="h-[min(32rem,55vh)] min-h-[280px] overflow-hidden rounded border border-[var(--color-line)]"
         role="img"
-        aria-label="Market posture synthesis hub canvas"
+        aria-label="Market posture synthesis hydration model"
       >
         <ReactFlowProvider>
           <InnerCanvas
             run={props.run ?? null}
-            selectedStageId={selectedStageId}
-            onSelectStage={setSelectedStageId}
+            hydration={hydration}
+            selectedNodeId={selectedNodeId}
+            onSelectNode={setSelectedNodeId}
           />
         </ReactFlowProvider>
       </div>
-      <StageInspector stage={selected} />
+      <NodeInspector node={selectedNode} stage={selectedStage} />
     </div>
   );
 });

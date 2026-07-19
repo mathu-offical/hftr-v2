@@ -457,14 +457,16 @@ export function MarketPostureOverlay() {
               data-testid="market-posture-overlay-model"
             >
               <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                Synthesis model · stock + news
+                Synthesis model · hydration
               </h3>
               <p className="text-[10px] text-[var(--color-ink-dim)]">
-                Analyze runs stock movers (compound bars + news) and sector news seals in
-                parallel, then daily summaries and posture narrative. Funds stay on the left
-                rail.
+                All live hydrators and library shelves feed gather; each node shows an
+                operation and amount. Analyze animates pipeline stages (stock + news seals).
               </p>
-              <MarketPostureModelCanvas run={synthesis.run} />
+              <MarketPostureModelCanvas
+                run={synthesis.run}
+                hydration={hub.modelHydration ?? null}
+              />
               <MarketPostureAwarenessDock hub={hub} onOpenConcept={openReport} />
             </section>
 

@@ -22,6 +22,8 @@ import {
   resolveCompanyServiceBindings,
   ensureEngineMotherboardUtilities,
   listEngineUtilityLinks,
+  ensureEngineDataHub,
+  bootstrapCompanyKnowledge,
 } from '@hftr/engine';
 import { provisionEngineTimeHub } from '@/lib/time-provision';
 import { engineInstances, moduleLinks, modules } from '@hftr/db/schema';
@@ -306,6 +308,12 @@ export async function POST(req: Request, ctx: Ctx) {
     }
 
     await ensureEngineMotherboardUtilities(db, companyId, engineRow.id);
+    try {
+      await bootstrapCompanyKnowledge({ db, companyId });
+    } catch (err) {
+      console.error('bootstrapCompanyKnowledge failed on engine create', err);
+    }
+    const dataHub = await ensureEngineDataHub(db, companyId, engineRow.id);
 
     try {
       await resolveCompanyServiceBindings(db, clerkUserId, companyId);
@@ -325,9 +333,15 @@ export async function POST(req: Request, ctx: Ctx) {
         (m) =>
           memberIds.has(m.id) ||
           dedicatedMath.some((tool) => tool.id === m.id) ||
-          (timeHub != null && m.id === timeHub.id),
+          (timeHub != null && m.id === timeHub.id) ||
+          (dataHub.hubModuleId != null && m.id === dataHub.hubModuleId),
       ),
       links: createdLinks,
+      dataHub: {
+        hubModuleId: dataHub.hubModuleId,
+        hubLibraryId: dataHub.hubLibraryId,
+        nestedModuleIds: dataHub.nestedModuleIds,
+      },
       utilityLinks: utilityLinks.map((row) => ({
         id: row.id,
         toEngineId: row.toEngineId,

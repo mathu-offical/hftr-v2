@@ -17,7 +17,7 @@ import {
 } from '@hftr/contracts';
 import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
-import { bootstrapCompanyKnowledge, createSystemClock, loadSessionConstraints, resolveCompanyServiceBindings, ensureEngineMotherboardUtilities } from '@hftr/engine';
+import { bootstrapCompanyKnowledge, createSystemClock, loadSessionConstraints, resolveCompanyServiceBindings, ensureEngineMotherboardUtilities, ensureEngineDataHub } from '@hftr/engine';
 import { provisionEngineTimeHub } from '@/lib/time-provision';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import {
@@ -407,6 +407,19 @@ export async function POST(req: Request) {
       await bootstrapCompanyKnowledge({ db, companyId: company.id });
     } catch (err) {
       console.error('bootstrapCompanyKnowledge failed on company create', err);
+    }
+
+    // D-140: provision Engine Data Hubs after library rows exist so nests resolve.
+    const executionEngineIds = await db
+      .select({ id: engineInstances.id, templateId: engineInstances.templateId })
+      .from(engineInstances)
+      .where(eq(engineInstances.companyId, company.id));
+    for (const row of executionEngineIds) {
+      try {
+        await ensureEngineDataHub(db, company.id, row.id);
+      } catch (err) {
+        console.error('ensureEngineDataHub failed on company create', err);
+      }
     }
 
     // Persist module↔service coverage from any already-verified brokers (D-090).

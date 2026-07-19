@@ -54,6 +54,8 @@ import {
   allowedLinkKinds,
   humanizeResearchSourceKind,
   LiveApiModuleConfig,
+  LibraryModuleConfig,
+  isEngineDataHubConfig,
   resolveLiveApiSourceKind,
 } from './modules';
 import {
@@ -2229,5 +2231,28 @@ describe('CreateCompanyInput (D-043)', () => {
     for (const dep of deps) {
       expect(ENGINE_TEMPLATES.some((engine) => engine.id === dep)).toBe(true);
     }
+  });
+
+  it('allows Engine Data Hub link pairs (D-140)', () => {
+    expect(allowedLinkKinds('library', 'library')).toEqual(['data_feed']);
+    expect(allowedLinkKinds('library', 'trading')).toEqual(['data_feed']);
+    expect(allowedLinkKinds('trading', 'library')).toEqual(['data_feed']);
+    expect(allowedLinkKinds('policy', 'library')).toEqual(
+      expect.arrayContaining(['verification', 'data_feed']),
+    );
+  });
+
+  it('parses LibraryModuleConfig engine data hub fields (D-140)', () => {
+    const parsed = LibraryModuleConfig.parse({
+      topicScope: 'engine:data_hub',
+      libraryClass: 'engine_data_hub',
+      engineDataHub: true,
+      ownerEngineInstanceId: '11111111-1111-4111-8111-111111111111',
+      nestedModuleIds: ['22222222-2222-4222-8222-222222222222'],
+    });
+    expect(parsed.engineDataHub).toBe(true);
+    expect(parsed.libraryClass).toBe('engine_data_hub');
+    expect(moduleFunctionLabel('library', parsed)).toBe('DataHub');
+    expect(isEngineDataHubConfig(parsed)).toBe(true);
   });
 });

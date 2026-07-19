@@ -670,26 +670,55 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
     [props.companyId],
   );
 
-  const { runtimeLibraries, systemLibraries, baselineLibraries } = useMemo(() => {
+  const { runtimeLibraries, systemLibraries, baselineLibraries, dataHubLibraries } = useMemo(() => {
     const runtime: Library[] = [];
     const system: Library[] = [];
     const baseline: Library[] = [];
+    const dataHubs: Library[] = [];
     for (const lib of props.libraries) {
       if (lib.status !== 'active') continue;
       const kind = classifyLibraryShelf(lib);
-      if (kind === 'baseline_seeded') baseline.push(lib);
+      if (kind === 'engine_data_hub') dataHubs.push(lib);
+      else if (kind === 'baseline_seeded') baseline.push(lib);
       else if (kind === 'system_curated') system.push(lib);
       else runtime.push(lib);
     }
+    // Nests under a hub stay listed under runtime but sorted with parent awareness in hub section.
     runtime.sort((a, b) => a.name.localeCompare(b.name));
     system.sort((a, b) => a.name.localeCompare(b.name));
     baseline.sort((a, b) => a.name.localeCompare(b.name));
+    dataHubs.sort((a, b) => a.name.localeCompare(b.name));
     return {
       runtimeLibraries: runtime,
       systemLibraries: system,
       baselineLibraries: baseline,
+      dataHubLibraries: dataHubs,
     };
   }, [props.libraries]);
+
+  const dataHubTrees = useMemo(() => {
+    const hubIds = new Set(dataHubLibraries.map((h) => h.id));
+    return dataHubLibraries.map((hub) => ({
+      hub,
+      nests: props.libraries
+        .filter(
+          (l) =>
+            l.status === 'active' &&
+            l.parentHubLibraryId === hub.id &&
+            !hubIds.has(l.id),
+        )
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+  }, [dataHubLibraries, props.libraries]);
+
+  const runtimeWithoutNests = useMemo(() => {
+    const nestedIds = new Set(
+      props.libraries
+        .filter((l) => l.parentHubLibraryId)
+        .map((l) => l.id),
+    );
+    return runtimeLibraries.filter((l) => !nestedIds.has(l.id));
+  }, [props.libraries, runtimeLibraries]);
 
   const primaryBaseline =
     baselineLibraries.find((l) => isBaselineSeededLibrary(l)) ?? baselineLibraries[0] ?? null;
@@ -754,6 +783,49 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
         ) : null}
       </div>
       <div className="mt-1.5 space-y-1.5">
+        {dataHubTrees.length > 0 ? (
+          <div
+            data-testid="research-engine-data-hubs"
+            className="rounded border border-[var(--color-line)]/80 bg-[var(--color-surface-0)]/40 p-1.5"
+          >
+            <p className="mb-1 text-[9px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+              Engine Data Hubs
+            </p>
+            <ul className="space-y-1">
+              {dataHubTrees.map(({ hub, nests }) => (
+                <li key={hub.id} className="text-[11px]">
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-1 truncate text-left font-medium text-[var(--color-ink)] hover:text-[var(--color-accent)]"
+                    onClick={() => props.onSelectLibrary?.(hub.id, hub.name)}
+                    title={hub.name}
+                  >
+                    <FolderOpen size={11} aria-hidden className="shrink-0 opacity-70" />
+                    <span className="truncate">{hub.name}</span>
+                  </button>
+                  {nests.length > 0 ? (
+                    <ul className="ml-3 mt-0.5 space-y-0.5 border-l border-[var(--color-line)] pl-2">
+                      {nests.map((nest) => (
+                        <li key={nest.id}>
+                          <button
+                            type="button"
+                            className="truncate text-left text-[10px] text-[var(--color-ink-dim)] hover:text-[var(--color-ink)]"
+                            onClick={() => props.onSelectLibrary?.(nest.id, nest.name)}
+                            title={nest.name}
+                          >
+                            {nest.name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="ml-3 text-[9px] text-[var(--color-ink-faint)]">No nested libraries yet</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <RuntimeShelfSection
           kind="system_curated"
           libraries={systemLibraries}
@@ -772,7 +844,7 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
         />
         <RuntimeShelfSection
           kind="runtime"
-          libraries={runtimeLibraries}
+          libraries={runtimeWithoutNests}
           companyId={props.companyId}
           topics={topics}
           openLibraryIds={shelfUi.openRuntimeLibraryIds}

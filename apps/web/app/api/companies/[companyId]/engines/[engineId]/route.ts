@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { DeleteEngineInstanceInput, UpdateEngineInstanceInput } from '@hftr/contracts';
 import { engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
-import { createSystemClock } from '@hftr/engine';
+import { createSystemClock, cleanupEngineDataHub } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import {
   cascadeEngineSetup,
@@ -152,6 +152,10 @@ export async function DELETE(req: Request, ctx: Ctx) {
       .from(modules)
       .where(and(eq(modules.companyId, companyId), eq(modules.engineInstanceId, engineId)));
     const memberIds = members.map((m) => m.id);
+
+    if (mode === 'cascade') {
+      await cleanupEngineDataHub(db, companyId, engineId);
+    }
 
     if (mode === 'cascade' && memberIds.length > 0) {
       const incidentLinks = await db

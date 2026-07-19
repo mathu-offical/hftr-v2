@@ -124,7 +124,9 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   `weak|typical|strong`, source_class. Implemented (migration `0010`); galaxy UI in M2.
   (concepts + concept_links + tags = the galaxy graph AND the Obsidian export source.)
 - **libraries** — company_id, optional module_id, name, topic_scope text, master_library flag,
-  status. Implemented (migration `0012`).
+  **D-140** `is_engine_data_hub`, `owner_engine_instance_id` (execution owner),
+  `parent_hub_library_id` (nest under Engine Data Hub). Status active/archived + archived_at.
+  Implemented (migration `0012` + `0046`).
   **library_concepts** join (library_id, concept_id, curation_status
   `proposed|accepted|auto_admitted|rejected|archived`). **D-040:** primary library membership
   drives hard nested galaxy nests; secondary memberships are badges, not duplicate nodes.

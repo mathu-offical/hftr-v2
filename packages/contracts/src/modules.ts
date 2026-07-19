@@ -116,8 +116,13 @@ export const LibraryClass = z.enum([
   'runtime_app_logs',
   'specialty_evidence',
   'master_graph',
+  /** D-140: first-class Engine Data Hub shared library. */
+  'engine_data_hub',
 ]);
 export type LibraryClass = z.infer<typeof LibraryClass>;
+
+/** Topic scope marker for Engine Data Hub library rows (D-140). */
+export const ENGINE_DATA_HUB_TOPIC_SCOPE = 'engine:data_hub' as const;
 
 /** D-042: typed Math tools (`config.mathType`). */
 export const MathType = z.enum([
@@ -200,6 +205,12 @@ export const LINK_RULES: Readonly<Record<string, readonly LinkKind[]>> = {
   'analyzer->librarian': ['verification', 'data_feed'],
   'analyzer->library': ['data_feed'],
   'library->analyzer': ['data_feed'],
+  // D-140 Engine Data Hub: query, hydrate, returns.
+  'library->library': ['data_feed'],
+  'library->trading': ['data_feed'],
+  'trading->library': ['data_feed'],
+  'policy->library': ['verification', 'data_feed'],
+  'library->policy': ['data_feed'],
   'research->analyzer': ['data_feed'],
   'librarian->analyzer': ['data_feed'],
   'live_api->analyzer': ['data_feed'],
@@ -1032,9 +1043,23 @@ export const LibrarianModuleConfig = z.object({
 export const LibraryModuleConfig = z.object({
   topicScope: z.string().min(1),
   masterLibrary: z.boolean().default(false),
-  /** D-042: library content class. */
+  /** D-042 / D-140: library content class. */
   libraryClass: LibraryClass.default('topic_runtime'),
+  /** D-140: marks the first-class Engine Data Hub module. */
+  engineDataHub: z.boolean().default(false),
+  /** D-140: owning execution engine when this module is a hub (engine_instance_id may be null). */
+  ownerEngineInstanceId: z.string().uuid().optional(),
+  /** D-140: nested library module ids registered under this hub. */
+  nestedModuleIds: z.array(z.string().uuid()).max(64).default([]),
 });
+
+export function isEngineDataHubConfig(
+  config: Record<string, unknown> | null | undefined,
+): boolean {
+  if (!config) return false;
+  if (config.engineDataHub === true) return true;
+  return config.libraryClass === 'engine_data_hub';
+}
 
 export const LiveApiVenue = z.enum(['alpaca', 'kalshi', 'polymarket', 'coinbase', 'paper_sim']);
 export type LiveApiVenue = z.infer<typeof LiveApiVenue>;
@@ -1197,6 +1222,8 @@ export function moduleFunctionLabel(type: ModuleType, config?: unknown): string 
           return 'SpecLib';
         case 'master_graph':
           return 'MasterLib';
+        case 'engine_data_hub':
+          return 'DataHub';
       }
     }
     case 'live_api': {

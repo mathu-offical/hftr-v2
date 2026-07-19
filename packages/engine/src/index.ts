@@ -246,6 +246,15 @@ export {
   deleteEngineUtilityLink,
 } from './engines/utility-links';
 
+// D-140 Engine Data Hub
+export {
+  ensureEngineDataHub,
+  syncDataHubNests,
+  wireDataHubLinks,
+  cleanupEngineDataHub,
+  type EnsureEngineDataHubResult,
+} from './engines/data-hub';
+
 // Handlers (importing registers built-ins)
 export { registerHandler, getHandler, registeredKinds } from './handlers/registry';
 export type {

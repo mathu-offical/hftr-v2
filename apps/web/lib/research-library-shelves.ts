@@ -1,7 +1,65 @@
-export type LibraryShelfKind = 'system_curated' | 'runtime' | 'baseline_seeded';
+export type LibraryShelfKind = 'system_curated' | 'runtime' | 'baseline_seeded' | 'engine_data_hub';
 
 const BASELINE_NAME = 'Seeded trading mechanisms';
 const BASELINE_TOPIC_SCOPE = 'compile_time_mechanisms';
+const ENGINE_DATA_HUB_TOPIC_SCOPE = 'engine:data_hub';
+
+export type LibraryShelfRow = {
+  id?: string;
+  name: string;
+  topicScope: string;
+  status?: string;
+  isEngineDataHub?: boolean | null;
+  ownerEngineInstanceId?: string | null;
+  parentHubLibraryId?: string | null;
+  moduleId?: string | null;
+};
+
+export function classifyLibraryShelf(lib: LibraryShelfRow): LibraryShelfKind {
+  if (lib.isEngineDataHub || lib.topicScope === ENGINE_DATA_HUB_TOPIC_SCOPE) {
+    return 'engine_data_hub';
+  }
+  if (lib.name === BASELINE_NAME || lib.topicScope === BASELINE_TOPIC_SCOPE) {
+    return 'baseline_seeded';
+  }
+  if (lib.topicScope.startsWith('system:')) return 'system_curated';
+  return 'runtime';
+}
+
+/** Group libraries under Engine Data Hubs for Library/Data views (D-140). */
+export function groupLibrariesUnderDataHubs(
+  libs: Array<LibraryShelfRow & { id: string }>,
+): {
+  hubs: Array<{ hub: LibraryShelfRow & { id: string }; nests: Array<LibraryShelfRow & { id: string }> }>;
+  unnested: Array<LibraryShelfRow & { id: string }>;
+} {
+  const hubs = libs.filter(
+    (l) => l.isEngineDataHub || l.topicScope === ENGINE_DATA_HUB_TOPIC_SCOPE,
+  );
+  const hubIds = new Set(hubs.map((h) => h.id));
+  const nestsByHub = new Map<string, Array<LibraryShelfRow & { id: string }>>();
+  const unnested: Array<LibraryShelfRow & { id: string }> = [];
+
+  for (const lib of libs) {
+    if (hubIds.has(lib.id)) continue;
+    const parent = lib.parentHubLibraryId;
+    if (parent && hubIds.has(parent)) {
+      const list = nestsByHub.get(parent) ?? [];
+      list.push(lib);
+      nestsByHub.set(parent, list);
+    } else {
+      unnested.push(lib);
+    }
+  }
+
+  return {
+    hubs: hubs.map((hub) => ({
+      hub,
+      nests: (nestsByHub.get(hub.id) ?? []).sort((a, b) => a.name.localeCompare(b.name)),
+    })),
+    unnested: unnested.sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
 
 /** Catalog families seeded into the compile-time mechanisms library (bootstrap SEED_CATALOG_NAMES). */
 /** Catalog folders nested under the single Baseline seeded shelf (not separate panels). */
@@ -88,16 +146,6 @@ export type SeededCatalogGroup = {
   /** Flat pages when there is only one bucket and no tier split needed. */
   flatPages: SeededPageRow[] | null;
 };
-
-export function classifyLibraryShelf(lib: { name: string; topicScope: string }): LibraryShelfKind {
-  if (lib.name === BASELINE_NAME || lib.topicScope === BASELINE_TOPIC_SCOPE) {
-    return 'baseline_seeded';
-  }
-  if (lib.topicScope.startsWith('system:')) {
-    return 'system_curated';
-  }
-  return 'runtime';
-}
 
 export function isBaselineSeededLibrary(lib: { name: string; topicScope: string }): boolean {
   return classifyLibraryShelf(lib) === 'baseline_seeded';
@@ -338,6 +386,7 @@ function splitPagesIntoSectorFolders(pages: SeededPageRow[]): {
 }
 
 export const LIBRARY_SHELF_LABELS: Record<LibraryShelfKind, string> = {
+  engine_data_hub: 'Engine Data Hubs',
   system_curated: 'System curated (runtime)',
   runtime: 'Runtime (user / engine)',
   baseline_seeded: 'Baseline seeded',
@@ -345,6 +394,7 @@ export const LIBRARY_SHELF_LABELS: Record<LibraryShelfKind, string> = {
 
 /** Non-baseline shelves keep the original three-way order; baseline is replaced by catalog shelves. */
 export const LIBRARY_SHELF_ORDER: LibraryShelfKind[] = [
+  'engine_data_hub',
   'system_curated',
   'runtime',
   'baseline_seeded',

@@ -32,6 +32,12 @@ export const Library = z.object({
   name: z.string().min(1).max(120),
   topicScope: z.string().max(200).default(''),
   masterLibrary: z.boolean().default(false),
+  /** D-140: first-class Engine Data Hub row. */
+  isEngineDataHub: z.boolean().default(false),
+  /** D-140: owning execution engine for hubs (and optional for nests). */
+  ownerEngineInstanceId: z.string().uuid().nullable().default(null),
+  /** D-140: parent hub library when this row is a nest. */
+  parentHubLibraryId: z.string().uuid().nullable().default(null),
   status: z.enum(['active', 'archived']).default('active'),
   createdAt: z.string(),
   updatedAt: z.string(),

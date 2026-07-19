@@ -1,4 +1,9 @@
-import { getEngineTemplateById, type LinkKind, type ModuleType } from '@hftr/contracts';
+import {
+  getEngineTemplateById,
+  isEngineDataHubConfig,
+  type LinkKind,
+  type ModuleType,
+} from '@hftr/contracts';
 
 /** Canvas family for distinct card chrome (data vs agent vs fund vs tool). */
 export type ModuleFamily = 'data_source' | 'agent' | 'fund' | 'tool' | 'control';
@@ -278,7 +283,12 @@ export function portRoleLabel(
   const base = LINK_PORT_VISUALS[kind].label;
   switch (kind) {
     case 'data_feed': {
-      if (type === 'library') return direction === 'out' ? 'Corpus out' : 'Corpus in';
+      if (type === 'library') {
+        if (isEngineDataHubConfig(config)) {
+          return direction === 'out' ? 'Query' : 'Hydrate';
+        }
+        return direction === 'out' ? 'Corpus out' : 'Corpus in';
+      }
       if (type === 'live_api') return direction === 'out' ? 'Market feed' : 'Feed in';
       if (type === 'research') return direction === 'out' ? 'Findings' : 'Sources';
       if (type === 'librarian') return direction === 'out' ? 'Evidence' : 'Ingest';
@@ -309,9 +319,17 @@ export function portRoleLabel(
       return base;
     }
     case 'verification': {
-      if (type === 'policy') return direction === 'in' ? 'Policy check' : 'Verified';
-      if (type === 'analyzer') return direction === 'out' ? 'Verify out' : 'Verify in';
+      if (type === 'policy') {
+        return direction === 'out' ? 'Policies' : 'Policy check';
+      }
+      if (type === 'analyzer') {
+        if (direction === 'out') return 'Notes';
+        return 'Verify in';
+      }
       if (type === 'trading') return 'Verify';
+      if (type === 'library' && isEngineDataHubConfig(config)) {
+        return direction === 'in' ? 'Policies' : 'Policy out';
+      }
       return base;
     }
     case 'fund_route': {

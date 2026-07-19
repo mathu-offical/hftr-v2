@@ -9,7 +9,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { companies, modules } from './companies';
+import { companies, engineInstances, modules } from './companies';
 import { concepts } from './knowledge';
 
 const timestamps = {
@@ -31,6 +31,12 @@ export const libraries = pgTable(
     name: text('name').notNull(),
     topicScope: text('topic_scope').notNull().default(''),
     masterLibrary: boolean('master_library').notNull().default(false),
+    /** D-140: first-class Engine Data Hub. */
+    isEngineDataHub: boolean('is_engine_data_hub').notNull().default(false),
+    /** D-140: owning execution engine for hubs. */
+    ownerEngineInstanceId: uuid('owner_engine_instance_id').references(() => engineInstances.id),
+    /** D-140: parent hub when this library is a nest under a Data Hub. */
+    parentHubLibraryId: uuid('parent_hub_library_id'),
     status: text('status', { enum: ['active', 'archived'] })
       .notNull()
       .default('active'),
@@ -40,6 +46,8 @@ export const libraries = pgTable(
   (t) => [
     index('libraries_company_idx').on(t.companyId, t.createdAt),
     uniqueIndex('libraries_company_name_unique').on(t.companyId, t.name),
+    index('libraries_owner_engine_idx').on(t.ownerEngineInstanceId),
+    index('libraries_parent_hub_idx').on(t.parentHubLibraryId),
   ],
 );
 

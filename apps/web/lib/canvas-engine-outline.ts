@@ -172,3 +172,76 @@ export function buildCanvasEngineOutline(
 
   return families;
 }
+
+/** Module row for Modules inventory (D-215). */
+export type CanvasModuleOutlineItem = {
+  id: string;
+  name: string;
+  type: string;
+  engineInstanceId?: string | null;
+};
+
+export type CanvasModuleOutlineGroup = {
+  /** null = company-scoped / ungrouped modules (no engine_instance_id). */
+  engineId: string | null;
+  engineLabel: string;
+  modules: CanvasModuleOutlineItem[];
+};
+
+/**
+ * Group modules under their ENGINE membership for indented inventory viewing.
+ * Engine group order follows `engines`; unknown engine ids get a fallback label;
+ * ungrouped modules (clock, free Math, etc.) land in a final Company bucket.
+ */
+export function buildCanvasModuleOutline(
+  modules: readonly CanvasModuleOutlineItem[],
+  engines: ReadonlyArray<{ id: string; label: string }>,
+): CanvasModuleOutlineGroup[] {
+  const labelById = new Map(engines.map((engine) => [engine.id, engine.label]));
+  const byEngine = new Map<string | null, CanvasModuleOutlineItem[]>();
+
+  for (const mod of modules) {
+    const key = mod.engineInstanceId ?? null;
+    const list = byEngine.get(key) ?? [];
+    list.push(mod);
+    byEngine.set(key, list);
+  }
+
+  for (const [, list] of byEngine) {
+    list.sort((a, b) => a.name.localeCompare(b.name) || a.type.localeCompare(b.type));
+  }
+
+  const groups: CanvasModuleOutlineGroup[] = [];
+  const seenEngine = new Set<string>();
+
+  for (const engine of engines) {
+    const list = byEngine.get(engine.id);
+    if (!list || list.length === 0) continue;
+    seenEngine.add(engine.id);
+    groups.push({
+      engineId: engine.id,
+      engineLabel: engine.label,
+      modules: list,
+    });
+  }
+
+  for (const [engineId, list] of byEngine) {
+    if (engineId === null || seenEngine.has(engineId)) continue;
+    groups.push({
+      engineId,
+      engineLabel: labelById.get(engineId) ?? 'Engine',
+      modules: list,
+    });
+  }
+
+  const ungrouped = byEngine.get(null);
+  if (ungrouped && ungrouped.length > 0) {
+    groups.push({
+      engineId: null,
+      engineLabel: 'Company',
+      modules: ungrouped,
+    });
+  }
+
+  return groups;
+}

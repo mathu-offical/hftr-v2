@@ -22,6 +22,7 @@ import {
 import { api } from '@/lib/client';
 import {
   buildCanvasEngineOutline,
+  buildCanvasModuleOutline,
   type CanvasEngineOutlineItem,
 } from '@/lib/canvas-engine-outline';
 import {
@@ -197,6 +198,8 @@ export type PaletteCanvasModule = {
   id: string;
   name: string;
   type: ModuleType;
+  /** D-215 — ENGINE membership for inventory scoping. */
+  engineInstanceId?: string | null;
 };
 
 export type PaletteCanvasEngine = CanvasEngineOutlineItem;
@@ -243,6 +246,14 @@ export function Palette(props: {
   const engineOutline = useMemo(
     () => buildCanvasEngineOutline(canvasEngines),
     [canvasEngines],
+  );
+  const moduleOutline = useMemo(
+    () =>
+      buildCanvasModuleOutline(
+        canvasModules,
+        canvasEngines.map((engine) => ({ id: engine.id, label: engine.label })),
+      ),
+    [canvasModules, canvasEngines],
   );
 
   const enginesBySection = useMemo(() => {
@@ -440,31 +451,64 @@ export function Palette(props: {
                     No modules yet. Add new to open the store.
                   </p>
                 ) : (
-                  <ul className="space-y-0.5" aria-label="Canvas modules">
-                    {canvasModules.map((mod) => {
-                      const visual = MODULE_VISUALS[mod.type];
-                      return (
-                        <li key={mod.id}>
-                          <button
-                            type="button"
-                            onClick={() => props.onFocusNode?.(mod.id)}
-                            className="flex w-full items-center gap-2 px-2 py-1.5 text-left hover:bg-[var(--color-surface-2)]"
-                          >
-                            <span
-                              className="h-1.5 w-1.5 shrink-0 rounded-full"
-                              style={{ background: visual.hue }}
-                              aria-hidden
-                            />
-                            <span className="min-w-0 flex-1 truncate text-[12px] text-[var(--color-ink)]">
-                              {mod.name}
-                            </span>
-                            <span className="shrink-0 font-mono text-[8px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-                              {visual.label}
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })}
+                  <ul className="space-y-1" aria-label="Canvas modules by engine">
+                    {moduleOutline.map((group) => (
+                      <li key={group.engineId ?? 'company'}>
+                        <div
+                          className="flex items-center gap-2 px-2 py-1"
+                          data-testid="module-inventory-engine"
+                        >
+                          <span
+                            className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]"
+                            aria-hidden
+                          />
+                          <span className="min-w-0 flex-1 truncate font-mono text-[10px] uppercase tracking-wider text-[var(--color-ink-dim)]">
+                            {group.engineLabel}
+                          </span>
+                          <span className="shrink-0 font-mono text-[8px] text-[var(--color-ink-faint)]">
+                            {group.modules.length}
+                          </span>
+                        </div>
+                        <ul
+                          className="mt-0.5 space-y-0.5 border-l border-[var(--color-line)] ml-2.5 pl-2"
+                          aria-label={`Modules in ${group.engineLabel}`}
+                        >
+                          {group.modules.map((mod) => {
+                            const visual = MODULE_VISUALS[mod.type as ModuleType];
+                            return (
+                              <li key={mod.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => props.onFocusNode?.(mod.id)}
+                                  className="flex w-full items-center gap-2 px-2 py-1.5 text-left hover:bg-[var(--color-surface-2)]"
+                                  data-testid="module-inventory-child"
+                                >
+                                  <span
+                                    className="shrink-0 font-mono text-[10px] text-[var(--color-ink-faint)]"
+                                    aria-hidden
+                                  >
+                                    └
+                                  </span>
+                                  <span
+                                    className="h-1.5 w-1.5 shrink-0 rounded-full"
+                                    style={{
+                                      background: visual?.hue ?? 'var(--color-ink-faint)',
+                                    }}
+                                    aria-hidden
+                                  />
+                                  <span className="min-w-0 flex-1 truncate text-[12px] text-[var(--color-ink)]">
+                                    {mod.name}
+                                  </span>
+                                  <span className="shrink-0 font-mono text-[8px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+                                    {visual?.label ?? mod.type}
+                                  </span>
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </li>
+                    ))}
                   </ul>
                 )}
               </>

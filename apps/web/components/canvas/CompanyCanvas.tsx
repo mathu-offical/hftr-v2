@@ -3839,6 +3839,7 @@ export function CompanyCanvas(props: {
           id: node.id,
           name: node.data.name,
           type: node.data.moduleType,
+          engineInstanceId: node.data.engineInstanceId,
         }))}
         onFocusNode={(id) => {
           setSelectedId(id);

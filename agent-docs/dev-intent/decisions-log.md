@@ -2127,6 +2127,11 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   train. Orphans (no parent on canvas) stay roots. Extends D-204 / D-210.
   Docs: ui-spec §3. **Status: implemented.**
 
+- **D-215 (modules inventory scoped by engine, 2026-07-19):** Floating Modules
+  inventory groups on-canvas modules under their ENGINE (`engine_instance_id`),
+  indented like D-211; ungrouped modules (e.g. Master Clock) sit under **Company**.
+  Extends D-204 / D-211. Docs: ui-spec §3. **Status: implemented.**
+
 - **D-212 (engine member lane-row hard bands, 2026-07-19):** `rankEngineMembers`
   treats `MODULE_LANE_ROW` as a hard vertical ordering constraint within a column
   (research above librarian, library above live_api, analyzer above policy).

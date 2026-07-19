@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCanvasEngineOutline,
+  buildCanvasModuleOutline,
   canvasEnginesToOutlineItems,
 } from './canvas-engine-outline';
 
@@ -95,5 +96,26 @@ describe('canvasEnginesToOutlineItems', () => {
       childKind: 'simulation',
       simRole: 'gate',
     });
+  });
+});
+
+describe('buildCanvasModuleOutline', () => {
+  it('scopes modules under engines and buckets ungrouped as Company', () => {
+    const groups = buildCanvasModuleOutline(
+      [
+        { id: 'm1', name: 'Trading', type: 'trading', engineInstanceId: 'exec-1' },
+        { id: 'm2', name: 'Research', type: 'research', engineInstanceId: 'exec-1' },
+        { id: 'm3', name: 'Clock', type: 'clock', engineInstanceId: null },
+        { id: 'm4', name: 'Analyzer', type: 'analyzer', engineInstanceId: 'res-1' },
+      ],
+      [
+        { id: 'exec-1', label: 'Day desk' },
+        { id: 'res-1', label: 'Regime lab' },
+      ],
+    );
+    expect(groups.map((g) => g.engineLabel)).toEqual(['Day desk', 'Regime lab', 'Company']);
+    expect(groups[0]?.modules.map((m) => m.name)).toEqual(['Research', 'Trading']);
+    expect(groups[1]?.modules.map((m) => m.id)).toEqual(['m4']);
+    expect(groups[2]?.modules.map((m) => m.id)).toEqual(['m3']);
   });
 });

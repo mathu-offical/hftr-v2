@@ -235,14 +235,16 @@
 - Minimap + zoom controls bottom-right; fit-view on load; LOD: below zoom threshold, node bodies
   simplify to icon+status dot (perf + readability).
 - Empty state: company template picker rendered as ghost-nodes.
-- **Module / engine store (D-023, engines D-028, D-088, D-176, D-204, D-211):** unified
+- **Module / engine store (D-023, engines D-028, D-088, D-176, D-204, D-211, D-215):** unified
   top-left segmented control (**Engines** first, then **Modules**). Opening either
   shows the **on-canvas inventory** for that kind; **Add new** opens the existing
   store catalog (category modules / engine templates). Inventory rows focus the
   matching canvas node. **Engines inventory** is an indented outline: execution
   desks as roots, attached research packs and linked sims nested underneath
   (parent from `researchLibraryBinding.attach_execution` /
-  `simulationBinding.parentExecutionEngineId`). Engines insert from the store only.
+  `simulationBinding.parentExecutionEngineId`). **Modules inventory** groups members
+  under their `engine_instance_id` ENGINE (indented └ rows); modules without an
+  engine land under **Company**. Engines insert from the store only.
   Company creation auto-seeds Math hub + Master Clock.
   Engine insert defaults **Cascade from company** on: topic/sectors from `sectorFocuses`,
   capital from paper seed; operator can turn off and edit manually. Skip setup still applies

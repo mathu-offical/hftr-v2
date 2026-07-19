@@ -2089,6 +2089,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   canvas-engine-group-design, DecisionNode.tsx.
   **Status: implemented.**
 
+- **D-209 (per-engine canvas loading shells, 2026-07-19):** ENGINE envelopes paint
+  as soon as `listEngineInstances` (+ utility buses) resolve; nested Suspense streams
+  modules/links afterward. `EngineGroupNode` keeps category chrome + label while
+  `hydrationPhase: 'loading'` shows screen-style `InlineLoadingStrip`; setup fields
+  and bus chips wait for ready. Palette `insertEngine` paints a provisional shell
+  before each `POST …/engines` and swaps on success (strips pending on failure).
+  Extends D-196 / D-200 / D-203. Docs: ui-spec §2, canvas-engine-group-design.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

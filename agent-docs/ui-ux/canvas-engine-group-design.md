@@ -60,9 +60,13 @@ Engine group header exposes comma-separated master topic editor + **Save** → `
 - Create / insert / single-engine reflow / engine drag-stop use `placeNextEngineOrigin` so envelopes do not overlap.
 - **D-056:** category-colored background wash + diagonal stripe + left accent from
   `ENGINE_TEMPLATES.category` (`engineVisualForTemplate`); badge shows `Engine · {category}`.
+- **D-209 progressive engine load:** envelope chrome (badge, label, ports, wash) paints
+  immediately; setup fields / utility chips wait behind `hydrationPhase: 'loading'` +
+  `InlineLoadingStrip` (“Engine · retrieving members”). Company route streams engines
+  before modules; insert paints provisional shells then swaps to ready nodes.
 
 **Shipped:** `EngineGroupNode.tsx`, `CanvasEngineGroup` type, non-overlapping placement helpers,
-category chrome, D-089 header inline fields.
+category chrome, D-089 header inline fields, D-209 hydration chrome.
 
 ## Motherboard utility rail (D-091)
 

@@ -55,10 +55,10 @@ type EngineRow = Awaited<ReturnType<typeof scoping.listEngineInstances>>[number]
 type UtilityLinkRow = typeof engineUtilityLinks.$inferSelect;
 
 /**
- * Company workspace (D-196 / D-200):
+ * Company workspace (D-196 / D-200 / D-209):
  * - Header paints after fast `getOwnedCompany`.
- * - Suspense fallback mounts real panel rails/buttons with empty graph props.
- * - Workspace body does read-only module/link/engine loads (no layout mutations).
+ * - Outer Suspense waits only for engines (+ utility buses) so envelopes paint ASAP.
+ * - Inner Suspense streams modules/links; each engine shows loading chrome until ready.
  * - Family layout heal runs client-side after paint (`CanvasFamilyLayoutSync`).
  */
 export default async function CompanyPage(props: { params: Promise<{ companyId: string }> }) {
@@ -141,28 +141,97 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
                   <div className="absolute inset-x-0 top-0">
                     <IndeterminateProgressBar
                       size="lg"
-                      label="Loading canvas"
+                      label="Loading engines"
                       className="rounded-none"
                     />
                   </div>
                   <RegionLoadingCard
                     title={company.name}
-                    detail="streaming graph"
-                    phases={['Modules', 'Engines', 'Buses']}
+                    detail="streaming engines"
+                    phases={['Engines', 'Modules', 'Buses']}
                   />
                 </div>
               }
             />
           }
         >
-          <CompanyWorkspaceBody userId={userId} companyId={companyId} company={company} />
+          <CompanyEnginesShellBody userId={userId} companyId={companyId} company={company} />
         </Suspense>
       </div>
     </LlmConnectionStatusProvider>
   );
 }
 
-async function CompanyWorkspaceBody(props: {
+function mapEngineRowsToCanvas(
+  engineRows: EngineRow[],
+  moduleRows: ModuleRow[],
+  utilityLinkRows: UtilityLinkRow[],
+  hydrationPhase: 'loading' | 'ready',
+) {
+  return engineRows.map((e) => ({
+    id: e.id,
+    templateId: e.templateId,
+    label: e.label,
+    masterTopicSectors: e.masterTopicSectors,
+    capitalAllocationRef: e.capitalAllocationRef,
+    targetExitRef: e.targetExitRef,
+    setupSnapshot: (e.setupSnapshot ?? null) as {
+      topicSectors: string[];
+      allocationMode: 'amount' | 'percentage';
+      allocationValue: string;
+      targetExitLocal: string;
+    } | null,
+    templateInputs: (e.templateInputs ?? {}) as Record<string, string>,
+    canvasBounds: e.canvasBounds as {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    } | null,
+    memberModuleIds: moduleRows.filter((m) => m.engineInstanceId === e.id).map((m) => m.id),
+    hydrationPhase,
+    utilityLinks: utilityLinkRows
+      .filter((link) => link.toEngineId === e.id)
+      .map((link) => ({
+        id: link.id,
+        bus: EngineUtilityBus.parse(link.bus),
+        fromEngineId: link.fromEngineId,
+        fromModuleId: link.fromModuleId,
+        streamId: link.streamId,
+        streamDescriptor: link.streamDescriptor,
+      })),
+  }));
+}
+
+function mapModuleRowsToCanvas(moduleRows: ModuleRow[]) {
+  return moduleRows.map((m) => {
+    const config = (m.config ?? {}) as Record<string, unknown>;
+    return {
+      id: m.id,
+      type: m.type,
+      name: m.name,
+      generatedNameBase: m.generatedNameBase,
+      nameCustomized: m.nameCustomized,
+      status: m.status,
+      position: (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number },
+      topicSectors: m.topicSectors,
+      capitalAllocationRef: m.capitalAllocationRef,
+      targetExitRef: m.targetExitRef,
+      missingSetupFields: missingModuleSetupFields(m.type, {
+        topicSectors: m.topicSectors,
+        capitalAllocationRef: m.capitalAllocationRef,
+        targetExitRef: m.targetExitRef,
+      }),
+      engineInstanceId: m.engineInstanceId,
+      toolOwnerModuleId: m.toolOwnerModuleId,
+      topicSectorsOverridden: m.topicSectorsOverridden,
+      config,
+    };
+  });
+}
+
+/** Fast path (D-209): engines + utility buses paint envelopes before modules resolve. */
+async function CompanyEnginesShellBody(props: {
   userId: string;
   companyId: string;
   company: OwnedCompany;
@@ -170,22 +239,86 @@ async function CompanyWorkspaceBody(props: {
   const { userId, companyId, company } = props;
   const db = getDb();
 
-  let moduleRows: ModuleRow[];
-  let linkRows: LinkRow[];
   let engineRows: EngineRow[];
   let utilityLinkRows: UtilityLinkRow[];
   try {
-    // D-200: read-only path for first paint — layout heal is client POST after mount.
-    const [modules, links, engines, utilities] = await Promise.all([
-      scoping.listModules(db, userId, companyId),
-      scoping.listLinks(db, userId, companyId),
+    const [engines, utilities] = await Promise.all([
       scoping.listEngineInstances(db, userId, companyId),
       db.select().from(engineUtilityLinks).where(eq(engineUtilityLinks.companyId, companyId)),
     ]);
-    moduleRows = modules;
-    linkRows = links;
     engineRows = engines;
     utilityLinkRows = utilities;
+  } catch (err) {
+    if (err instanceof NotFoundError) notFound();
+    throw err;
+  }
+
+  const shellCompany: OwnedCompanyShellFields = {
+    name: company.name,
+    mode: company.mode,
+    philosophyPrompt: company.philosophyPrompt,
+    philosophyProfile: company.philosophyProfile,
+    seedCreditsCents: company.seedCreditsCents,
+    createdAt: company.createdAt,
+    sectorFocuses: company.sectorFocuses,
+    universeExcludes: company.universeExcludes,
+  };
+
+  return (
+    <Suspense
+      fallback={
+        <CompanyWorkspaceChrome
+          companyId={companyId}
+          company={shellCompany}
+          moduleRows={[]}
+          linkRows={[]}
+          engineRows={engineRows}
+          utilityLinkRows={utilityLinkRows}
+          canvas={
+            <CompanyCanvas
+              companyId={companyId}
+              initialModules={[]}
+              initialEngines={mapEngineRowsToCanvas(engineRows, [], utilityLinkRows, 'loading')}
+              initialLinks={[]}
+              companyDefaults={{
+                sectorFocuses: company.sectorFocuses ?? [],
+                seedCreditsCents: Number(company.seedCreditsCents),
+              }}
+            />
+          }
+        />
+      }
+    >
+      <CompanyWorkspaceModulesBody
+        userId={userId}
+        companyId={companyId}
+        company={company}
+        engineRows={engineRows}
+        utilityLinkRows={utilityLinkRows}
+      />
+    </Suspense>
+  );
+}
+
+async function CompanyWorkspaceModulesBody(props: {
+  userId: string;
+  companyId: string;
+  company: OwnedCompany;
+  engineRows: EngineRow[];
+  utilityLinkRows: UtilityLinkRow[];
+}) {
+  const { userId, companyId, company, engineRows, utilityLinkRows } = props;
+  const db = getDb();
+
+  let moduleRows: ModuleRow[];
+  let linkRows: LinkRow[];
+  try {
+    const [modules, links] = await Promise.all([
+      scoping.listModules(db, userId, companyId),
+      scoping.listLinks(db, userId, companyId),
+    ]);
+    moduleRows = modules;
+    linkRows = links;
   } catch (err) {
     if (err instanceof NotFoundError) notFound();
     throw err;
@@ -213,64 +346,13 @@ async function CompanyWorkspaceBody(props: {
       canvas={
         <CompanyCanvas
           companyId={companyId}
-          initialModules={moduleRows.map((m) => {
-            const config = (m.config ?? {}) as Record<string, unknown>;
-            return {
-              id: m.id,
-              type: m.type,
-              name: m.name,
-              generatedNameBase: m.generatedNameBase,
-              nameCustomized: m.nameCustomized,
-              status: m.status,
-              position: (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number },
-              topicSectors: m.topicSectors,
-              capitalAllocationRef: m.capitalAllocationRef,
-              targetExitRef: m.targetExitRef,
-              missingSetupFields: missingModuleSetupFields(m.type, {
-                topicSectors: m.topicSectors,
-                capitalAllocationRef: m.capitalAllocationRef,
-                targetExitRef: m.targetExitRef,
-              }),
-              engineInstanceId: m.engineInstanceId,
-              toolOwnerModuleId: m.toolOwnerModuleId,
-              topicSectorsOverridden: m.topicSectorsOverridden,
-              config,
-            };
-          })}
-          initialEngines={engineRows.map((e) => ({
-            id: e.id,
-            templateId: e.templateId,
-            label: e.label,
-            masterTopicSectors: e.masterTopicSectors,
-            capitalAllocationRef: e.capitalAllocationRef,
-            targetExitRef: e.targetExitRef,
-            setupSnapshot: (e.setupSnapshot ?? null) as {
-              topicSectors: string[];
-              allocationMode: 'amount' | 'percentage';
-              allocationValue: string;
-              targetExitLocal: string;
-            } | null,
-            templateInputs: (e.templateInputs ?? {}) as Record<string, string>,
-            canvasBounds: e.canvasBounds as {
-              x: number;
-              y: number;
-              width: number;
-              height: number;
-            } | null,
-            memberModuleIds: moduleRows
-              .filter((m) => m.engineInstanceId === e.id)
-              .map((m) => m.id),
-            utilityLinks: utilityLinkRows
-              .filter((link) => link.toEngineId === e.id)
-              .map((link) => ({
-                id: link.id,
-                bus: EngineUtilityBus.parse(link.bus),
-                fromEngineId: link.fromEngineId,
-                fromModuleId: link.fromModuleId,
-                streamId: link.streamId,
-                streamDescriptor: link.streamDescriptor,
-              })),
-          }))}
+          initialModules={mapModuleRowsToCanvas(moduleRows)}
+          initialEngines={mapEngineRowsToCanvas(
+            engineRows,
+            moduleRows,
+            utilityLinkRows,
+            'ready',
+          )}
           initialLinks={linkRows.map((l) => ({
             id: l.id,
             fromModuleId: l.fromModuleId,

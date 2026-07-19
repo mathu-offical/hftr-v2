@@ -68,7 +68,9 @@
   clickable while module lists stream; family layout heal is post-paint
   (`POST …/canvas/family-layout`); RightPanel fetches only when open with field-level
   updates; LeftPanel defers research shell refresh until open; LLM chip shows `llm: …`
-  until ready.
+  until ready. **D-209:** engines (+ utility buses) stream first so ENGINE envelopes
+  paint ASAP; each engine header shows an `InlineLoadingStrip` until members/links
+  resolve; palette insert paints a provisional shell per engine before `POST` returns.
 
 - **Canvas-centric layout** per company beneath the ribbon: slim collapsible strips on the
   left (Research · Posture · Data), bottom (Trends · Scenarios · Watch lists · Decisions), and right

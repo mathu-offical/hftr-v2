@@ -104,6 +104,9 @@ export interface ModuleCanvasStatusProjection {
   typeContext?: ModuleTypeContextProjection;
 }
 
+/** D-209: envelope paints immediately; details hydrate per engine. */
+export type EngineHydrationPhase = 'loading' | 'ready';
+
 export interface CanvasEngineGroup {
   id: string;
   templateId: string;
@@ -115,6 +118,8 @@ export interface CanvasEngineGroup {
   templateInputs?: Record<string, string>;
   canvasBounds: { x: number; y: number; width: number; height: number } | null;
   memberModuleIds: string[];
+  /** D-209 — omit / `ready` = full chrome; `loading` = shell + region bar. */
+  hydrationPhase?: EngineHydrationPhase;
   /** D-091 motherboard utility links. */
   utilityLinks?: Array<{
     id: string;

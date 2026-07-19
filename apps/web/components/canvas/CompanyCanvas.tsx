@@ -364,6 +364,7 @@ function canvasEnginesFromNodes(nodes: readonly CanvasFlowNode[]): CanvasEngineG
         height,
       },
       memberModuleIds: node.data.memberModuleIds,
+      ...(node.data.hydrationPhase ? { hydrationPhase: node.data.hydrationPhase } : {}),
       ...(node.data.utilityLinks ? { utilityLinks: node.data.utilityLinks } : {}),
     };
   });
@@ -793,6 +794,43 @@ function applyLayoutToNodes(
   return withSyncedOptionAnchors(laidOut).nodes;
 }
 
+/** D-209: optimistic engine envelope while POST …/engines is in flight. */
+function pendingEngineShellNode(args: {
+  pendingId: string;
+  companyId: string;
+  template: EngineTemplate;
+  label: string;
+  bounds: { x: number; y: number; width: number; height: number };
+  masterTopicSectors: string[];
+  templateInputs: Record<string, string>;
+  callbacks: Pick<
+    EngineGroupFlowNode['data'],
+    'onRequestDelete' | 'onRequestReflow' | 'onEngineSetupSaved'
+  >;
+}): EngineGroupFlowNode {
+  return {
+    id: args.pendingId,
+    type: 'engineGroup',
+    position: { x: args.bounds.x, y: args.bounds.y },
+    style: { width: args.bounds.width, height: args.bounds.height },
+    draggable: false,
+    selectable: false,
+    zIndex: -1,
+    data: {
+      companyId: args.companyId,
+      label: args.label,
+      templateId: args.template.id,
+      masterTopicSectors: args.masterTopicSectors,
+      setupSnapshot: null,
+      templateInputs: args.templateInputs,
+      memberModuleIds: [],
+      hydrationPhase: 'loading',
+      utilityLinks: [],
+      ...args.callbacks,
+    },
+  };
+}
+
 function buildInitialGraph(
   modules: CanvasModule[],
   engines: CanvasEngineGroup[],
@@ -849,6 +887,7 @@ function buildInitialGraph(
         templateInputs: engine.templateInputs ?? {},
         memberModuleIds: engine.memberModuleIds,
         utilityLinks: engine.utilityLinks ?? [],
+        ...(engine.hydrationPhase ? { hydrationPhase: engine.hydrationPhase } : {}),
         ...engineCallbacks,
       },
     });
@@ -1322,6 +1361,7 @@ export function CompanyCanvas(props: {
           eng.canvasBounds?.y,
           eng.canvasBounds?.width,
           eng.canvasBounds?.height,
+          eng.hydrationPhase ?? 'ready',
           (eng.utilityLinks ?? []).map((u) => u.id),
         ]),
         l: props.initialLinks.map((l) => [l.id, l.fromModuleId, l.toModuleId, l.linkKind]),
@@ -2487,6 +2527,26 @@ export function CompanyCanvas(props: {
             ENGINE_GROUP_PADDING,
           );
 
+          const pendingId = `pending-engine-${crypto.randomUUID()}`;
+          const pendingShell = pendingEngineShellNode({
+            pendingId,
+            companyId: props.companyId,
+            template: item.template,
+            label: item.template.label,
+            bounds: {
+              x: origin.x,
+              y: origin.y,
+              width: relativeBounds.width,
+              height: relativeBounds.height,
+            },
+            masterTopicSectors: setup?.topicSectors ?? props.companyDefaults?.sectorFocuses ?? [],
+            templateInputs: item.inputs,
+            callbacks: stableEngineCallbacks,
+          });
+          workingNodes = [...workingNodes, pendingShell];
+          setNodes(workingNodes);
+          setEdges(workingEdges);
+
           const response = await api<{
             engine: {
               id: string;
@@ -2558,6 +2618,8 @@ export function CompanyCanvas(props: {
             insertedExecutionId = response.engine.id;
           }
           insertedLabels.push(response.engine.label);
+
+          workingNodes = workingNodes.filter((node) => node.id !== pendingId);
 
           const bounds =
             response.engine.canvasBounds ??
@@ -2637,6 +2699,25 @@ export function CompanyCanvas(props: {
               origin,
               ENGINE_GROUP_PADDING,
             );
+            const pendingId = `pending-engine-${crypto.randomUUID()}`;
+            const pendingShell = pendingEngineShellNode({
+              pendingId,
+              companyId: props.companyId,
+              template: depTemplate,
+              label: depTemplate.label,
+              bounds: {
+                x: origin.x,
+                y: origin.y,
+                width: relativeBounds.width,
+                height: relativeBounds.height,
+              },
+              masterTopicSectors: setup?.topicSectors ?? props.companyDefaults?.sectorFocuses ?? [],
+              templateInputs: {},
+              callbacks: stableEngineCallbacks,
+            });
+            workingNodes = [...workingNodes, pendingShell];
+            setNodes(workingNodes);
+            setEdges(workingEdges);
             const depResponse = await api<{
               engine: {
                 id: string;
@@ -2702,6 +2783,7 @@ export function CompanyCanvas(props: {
               },
             });
             insertedLabels.push(depResponse.engine.label);
+            workingNodes = workingNodes.filter((node) => node.id !== pendingId);
             const depBounds =
               depResponse.engine.canvasBounds ??
               computeEngineBoundsFromPositions(
@@ -2778,6 +2860,25 @@ export function CompanyCanvas(props: {
               origin,
               ENGINE_GROUP_PADDING,
             );
+            const pendingId = `pending-engine-${crypto.randomUUID()}`;
+            const pendingShell = pendingEngineShellNode({
+              pendingId,
+              companyId: props.companyId,
+              template: simTemplate,
+              label: simTemplate.label,
+              bounds: {
+                x: origin.x,
+                y: origin.y,
+                width: relativeBounds.width,
+                height: relativeBounds.height,
+              },
+              masterTopicSectors: setup?.topicSectors ?? props.companyDefaults?.sectorFocuses ?? [],
+              templateInputs: {},
+              callbacks: stableEngineCallbacks,
+            });
+            workingNodes = [...workingNodes, pendingShell];
+            setNodes(workingNodes);
+            setEdges(workingEdges);
             const simResponse = await api<{
               engine: {
                 id: string;
@@ -2845,6 +2946,7 @@ export function CompanyCanvas(props: {
               },
             });
             insertedLabels.push(simResponse.engine.label);
+            workingNodes = workingNodes.filter((node) => node.id !== pendingId);
             const simBounds =
               simResponse.engine.canvasBounds ??
               computeEngineBoundsFromPositions(
@@ -2944,11 +3046,14 @@ export function CompanyCanvas(props: {
             : `${engine.label} inserted — activate its modules to start.`,
         );
       } catch {
+        setNodes((current) =>
+          current.filter((node) => !(isEngineGroupNode(node) && node.id.startsWith('pending-engine-'))),
+        );
         flash('Engine insert failed.');
         throw new Error('engine_insert_failed');
       }
     },
-    [nodes, edges, props.companyId, setNodes, setEdges, stableEngineCallbacks],
+    [nodes, edges, props.companyId, props.companyDefaults, setNodes, setEdges, stableEngineCallbacks],
   );
 
   const confirmClearCanvas = useCallback(async () => {

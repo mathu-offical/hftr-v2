@@ -10,6 +10,7 @@ import {
   type ModuleSetupField,
 } from '@hftr/contracts';
 import { api } from '@/lib/client';
+import { InlineLoadingStrip } from '@/components/shell/LoadingChrome';
 import { engineVisualForTemplate, NATURE_PORT_VISUALS } from './canvas-visuals';
 import {
   EMPTY_MODULE_SETUP_DRAFT,
@@ -18,6 +19,7 @@ import {
   moduleSetupInputFromDraft,
   type ModuleSetupDraft,
 } from './ModuleSetupFields';
+import type { EngineHydrationPhase } from './types';
 
 const ENGINE_SETUP_FIELDS: readonly ModuleSetupField[] = [
   'topic_sector',
@@ -59,6 +61,8 @@ export type EngineGroupNodeData = {
   setupSnapshot?: EngineSetupSnapshot | null;
   templateInputs?: Record<string, string>;
   memberModuleIds: string[];
+  /** D-209 — shell + loading region until members/setup retrieve. */
+  hydrationPhase?: EngineHydrationPhase;
   /** D-091 motherboard utility links bound to this engine. */
   utilityLinks?: EngineUtilityLinkView[];
   onRequestDelete: (engineId: string) => void;
@@ -219,10 +223,14 @@ export const EngineGroupNode = memo(function EngineGroupNode({
   const engineVisual = engineVisualForTemplate(data.templateId);
   const inboundBuses = utilityBuses.filter((b) => b !== 'data_out');
   const outboundBuses = utilityBuses.filter((b) => b === 'data_out' || b === 'system_control');
+  const hydrating = data.hydrationPhase === 'loading';
 
   return (
     <div
       className="relative h-full w-full overflow-hidden rounded-xl border border-dashed"
+      data-testid="engine-group-node"
+      data-hydration={hydrating ? 'loading' : 'ready'}
+      aria-busy={hydrating || undefined}
       style={{
         borderColor: selected ? engineVisual.hue : `${engineVisual.hue}99`,
         boxShadow: selected
@@ -321,94 +329,104 @@ export const EngineGroupNode = memo(function EngineGroupNode({
           <div className="nodrag flex shrink-0 items-center gap-1">
             <button
               type="button"
-              className="rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-ink-dim)]"
+              disabled={hydrating}
+              className="rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-ink-dim)] disabled:opacity-40"
               onClick={() => data.onRequestReflow(id)}
             >
               Reflow
             </button>
             <button
               type="button"
-              className="rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-block)]"
+              disabled={hydrating}
+              className="rounded border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-block)] disabled:opacity-40"
               onClick={() => data.onRequestDelete(id)}
             >
               Delete
             </button>
           </div>
         </div>
-        <div className="nodrag nowheel mt-1 flex min-w-0 flex-wrap items-center gap-1">
-          <ModuleSetupFields
-            requiredFields={ENGINE_SETUP_FIELDS}
-            missingFields={missingFields}
-            draft={draft}
-            onChange={setDraft}
-            layout="inline"
-            hideHints
-            focusField={focusField}
-            onFocusField={setFocusField}
-          />
-          {templateInputDefs.map((input) => (
-            <label
-              key={input.key}
-              className="min-w-[7rem] flex-1"
-              title={input.label}
-              onPointerDown={() => {
-                requestAnimationFrame(() => {
-                  templateInputRefs.current[input.key]?.focus();
-                });
-              }}
-            >
-              <span className="sr-only">{input.label}</span>
-              <input
-                ref={(element) => {
-                  templateInputRefs.current[input.key] = element;
-                }}
-                value={input.value}
-                onChange={(event) =>
-                  setTemplateInputs((current) => ({
-                    ...current,
-                    [input.key]: event.target.value,
-                  }))
-                }
-                placeholder={input.placeholder ?? input.label}
-                title={input.value || input.label}
-                aria-label={input.label}
-                className="w-full truncate rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-1 py-0.5 text-[9px] outline-none focus:border-[var(--color-accent)]"
+        {hydrating ? (
+          <div className="nodrag nowheel mt-1.5" data-testid="engine-group-loading">
+            <InlineLoadingStrip label="Engine" detail="retrieving members" />
+          </div>
+        ) : (
+          <>
+            <div className="nodrag nowheel mt-1 flex min-w-0 flex-wrap items-center gap-1">
+              <ModuleSetupFields
+                requiredFields={ENGINE_SETUP_FIELDS}
+                missingFields={missingFields}
+                draft={draft}
+                onChange={setDraft}
+                layout="inline"
+                hideHints
+                focusField={focusField}
+                onFocusField={setFocusField}
               />
-            </label>
-          ))}
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => void saveSetup()}
-            className="shrink-0 rounded border border-[var(--color-accent)] px-1.5 py-0.5 text-[9px] text-[var(--color-accent)] disabled:opacity-50"
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-          {error && <p className="text-[9px] text-[var(--color-block)]">{error}</p>}
-        </div>
-        <div className="nodrag mt-1 flex flex-wrap gap-1">
-          {utilityBuses.map((bus) => {
-            const bound = linksByBus.get(bus) ?? [];
-            const nature = NATURE_PORT_VISUALS[BUS_NATURE[bus]];
-            const tip =
-              bound[0]?.streamDescriptor ||
-              (bound.length > 0 ? `${bound.length} bound` : 'unbound');
-            return (
-              <span
-                key={bus}
-                className="rounded border px-1 py-0.5 text-[8px]"
-                style={{
-                  borderColor: bound.length > 0 ? `${nature.color}88` : 'var(--color-line)',
-                  color: bound.length > 0 ? nature.color : 'var(--color-ink-faint)',
-                }}
-                title={tip}
+              {templateInputDefs.map((input) => (
+                <label
+                  key={input.key}
+                  className="min-w-[7rem] flex-1"
+                  title={input.label}
+                  onPointerDown={() => {
+                    requestAnimationFrame(() => {
+                      templateInputRefs.current[input.key]?.focus();
+                    });
+                  }}
+                >
+                  <span className="sr-only">{input.label}</span>
+                  <input
+                    ref={(element) => {
+                      templateInputRefs.current[input.key] = element;
+                    }}
+                    value={input.value}
+                    onChange={(event) =>
+                      setTemplateInputs((current) => ({
+                        ...current,
+                        [input.key]: event.target.value,
+                      }))
+                    }
+                    placeholder={input.placeholder ?? input.label}
+                    title={input.value || input.label}
+                    aria-label={input.label}
+                    className="w-full truncate rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-1 py-0.5 text-[9px] outline-none focus:border-[var(--color-accent)]"
+                  />
+                </label>
+              ))}
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void saveSetup()}
+                className="shrink-0 rounded border border-[var(--color-accent)] px-1.5 py-0.5 text-[9px] text-[var(--color-accent)] disabled:opacity-50"
               >
-                {BUS_LABELS[bus]}
-                {bound.length > 0 ? ' ✓' : ''}
-              </span>
-            );
-          })}
-        </div>
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              {error && <p className="text-[9px] text-[var(--color-block)]">{error}</p>}
+            </div>
+            <div className="nodrag mt-1 flex flex-wrap gap-1">
+              {utilityBuses.map((bus) => {
+                const bound = linksByBus.get(bus) ?? [];
+                const nature = NATURE_PORT_VISUALS[BUS_NATURE[bus]];
+                const tip =
+                  bound[0]?.streamDescriptor ||
+                  (bound.length > 0 ? `${bound.length} bound` : 'unbound');
+                return (
+                  <span
+                    key={bus}
+                    className="rounded border px-1 py-0.5 text-[8px]"
+                    style={{
+                      borderColor: bound.length > 0 ? `${nature.color}88` : 'var(--color-line)',
+                      color: bound.length > 0 ? nature.color : 'var(--color-ink-faint)',
+                    }}
+                    title={tip}
+                  >
+                    {BUS_LABELS[bus]}
+                    {bound.length > 0 ? ' ✓' : ''}
+                  </span>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

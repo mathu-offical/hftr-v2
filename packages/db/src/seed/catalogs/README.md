@@ -8,7 +8,7 @@ canonical seed sources for v2 from now on; the v1 originals are historical refer
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `seeded-strategy-catalog.json`            | strategy families (Tier A/B/C), compound patterns, prediction-market families, deterministic tool catalog, literature registry |
 | `guardrail-recovery-package-catalog.json` | guardrail packages grd-001…008, recovery ladders rec-001…006, block reason families                                            |
-| `broker-policy-envelope-catalog.json`     | per-venue policy envelopes incl. throttle presets (e.g. `paper_balanced_general_v1`)                                           |
+| `broker-policy-envelope-catalog.json`     | per-venue policy envelopes incl. throttle presets (e.g. `paper_balanced_general_v1`, `paper_hft_swarm_v1`) |
 | `session-constraint-catalog.json`         | session legality constraints per venue/asset class                                                                             |
 | `compliance-policy-package-catalog.json`  | compliance policy packages (entitlement truthfulness, retention, language rules)                                               |
 | `sector-behavior-seed-catalog.json`       | sector behavior seeds for research modules                                                                                     |

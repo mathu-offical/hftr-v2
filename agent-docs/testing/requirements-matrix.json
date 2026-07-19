@@ -398,10 +398,14 @@
       "id": "REQ-MDL-012",
       "title": "Trading presets (crypto, prediction, HFT, long-term)",
       "source": "agent-docs/product/product-spec.md \u00a73",
-      "status": "deferred",
-      "evidence": ["templates.ts unavailableReason fields"],
-      "scenarios": ["M5 preset delivery"],
-      "venues": ["alpaca", "kalshi"],
+      "status": "partial",
+      "evidence": [
+        "engine_hft + research_microstructure_lab (D-157)",
+        "paper_hft_swarm_v1 broker baseline",
+        "engine_crypto unavailableReason until sess-crypto-alpaca-24x7"
+      ],
+      "scenarios": ["paper HFT create/insert", "M5 live gate for live HFT"],
+      "venues": ["alpaca", "kalshi", "paper_sim"],
       "philosophyAxes": ["strategy_outcome"],
       "safetyClass": "operational"
     },

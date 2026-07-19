@@ -58,7 +58,8 @@ watches, steers, and approves through the canvas + three panels + the assistant.
   inserting a research pack re-syncs Engine Data Hubs on dependent execution engines.
   Research packs are use-case-specific to the execution engine they support (not generic).
   Module store remains available for additional engines after create
-  (crypto/prediction/HFT listed with honest gating reasons). Scope fields use
+  (crypto remains gated on session envelope; prediction/HFT paper spines are available
+  with honest retail-API framing — live still fail-closed). Scope fields use
   `pending_operator_scope` until operator setup. Allocation and exit resolve through
   ValueRefs and temporal refs per `architecture/number-handling.md`.
 - **ENGINE groups (D-028 / D-091):** each inserted engine persists as an `engine_instances` row with
@@ -180,8 +181,9 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   - **Prediction markets** — Kalshi/Polymarket adapters, probability-edge families, niche data
     source emphasis, fast order execution posture.
   - **HFT** — micro-trade swarms across sectors; heaviest live-data + auto-research usage;
-    strictest throttle envelopes; realistic framing: "high-frequency-oriented" within retail API
-    latency limits (documented honestly per compliance baseline).
+    `paper_hft_swarm_v1` throttle envelope; realistic framing: "high-frequency-oriented" within
+    retail API latency limits (documented honestly per compliance baseline). Paper spine
+    available (`engine_hft` + `research_microstructure_lab`, D-157); live remains fail-closed.
   - **Day trading** — regular small gains, day strategy families (ORB, gap-and-go, VWAP
     reversion), flat-by-close policy default.
   - **Long-term** — stability/liquidity balance targets, long-horizon trends, one-time event
@@ -191,7 +193,7 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   ENGINE specialties (`research_web_fabric`, `research_filings_fundamentals`,
   `research_seed_mechanisms`, `research_event_catalyst`, `research_market_regime_lab`,
   `research_crypto_context`, `research_prediction_niche`, `research_desk_aligned`,
-  `research_multi_curator`) seed curator + library (+ optional trend/live) packs. See
+  `research_multi_curator`, `research_microstructure_lab`) seed curator + library (+ optional trend/live) packs. See
   `architecture/engine-node-family-design.md`.
 
 ### Utility modules

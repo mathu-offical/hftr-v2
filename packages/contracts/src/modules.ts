@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { TradingMode } from './foundation';
-import { ResearchSourceKind, type ResearchSourceKind as ResearchSourceKindType } from './research-bus';
+import {
+  ResearchSourceKind,
+  type ResearchSourceKind as ResearchSourceKindType,
+} from './research-bus';
 import { CompanySectorFocuses, CompanyUniverseExcludes } from './sector-focus';
 import {
   CLOCK_IN_MODULE_TYPES,
@@ -100,6 +103,8 @@ export const ResearchSubtype = z.enum([
   'event_catalyst',
   'crypto_onchain_context',
   'prediction_niche',
+  /** Quote/flow toxicity / imbalance context for HFT-oriented desks (D-157). */
+  'microstructure_context',
 ]);
 export type ResearchSubtype = z.infer<typeof ResearchSubtype>;
 
@@ -650,7 +655,12 @@ function enrichPortsWithPlacement(
     let label: string | null = null;
 
     // Time hub: split generic data_feed-out bus into schedule (top) + time bus (right).
-    if (type === 'time' && port.kind === 'data_feed' && port.direction === 'out' && port.role === 'bus') {
+    if (
+      type === 'time' &&
+      port.kind === 'data_feed' &&
+      port.direction === 'out' &&
+      port.role === 'bus'
+    ) {
       result.push({
         ...port,
         handleId: handleIdForStream('data_feed', 'out', slotPeerId('schedule_out')),
@@ -1053,9 +1063,7 @@ export const LibraryModuleConfig = z.object({
   nestedModuleIds: z.array(z.string().uuid()).max(64).default([]),
 });
 
-export function isEngineDataHubConfig(
-  config: Record<string, unknown> | null | undefined,
-): boolean {
+export function isEngineDataHubConfig(config: Record<string, unknown> | null | undefined): boolean {
   if (!config) return false;
   if (config.engineDataHub === true) return true;
   return config.libraryClass === 'engine_data_hub';
@@ -1192,6 +1200,8 @@ export function moduleFunctionLabel(type: ModuleType, config?: unknown): string 
           return 'CryptoCtx';
         case 'prediction_niche':
           return 'PredNiche';
+        case 'microstructure_context':
+          return 'MicroCtx';
       }
     }
     case 'librarian': {
@@ -1480,9 +1490,9 @@ export function deriveLibraryDisplayName(input: {
       ? input.topicScope.trim()
       : '') ||
     'Runtime library';
-  const sources = [...new Set((input.sourceLabels ?? []).map((s) => s.trim()).filter(Boolean))].sort(
-    (a, b) => a.localeCompare(b),
-  );
+  const sources = [
+    ...new Set((input.sourceLabels ?? []).map((s) => s.trim()).filter(Boolean)),
+  ].sort((a, b) => a.localeCompare(b));
   if (sources.length === 0) return topic.slice(0, 120);
   const combined = `${topic} · ${sources.join(' + ')}`;
   return combined.slice(0, 120);
@@ -1567,11 +1577,7 @@ export const TimeModuleConfig = z.object({
 export type TimeModuleConfig = z.infer<typeof TimeModuleConfig>;
 
 /** D-091: flexible analyzer emit modes (research terminal + verify). */
-export const AnalyzerEmitMode = z.enum([
-  'to_library',
-  'to_desk_stream',
-  'verify_loopback',
-]);
+export const AnalyzerEmitMode = z.enum(['to_library', 'to_desk_stream', 'verify_loopback']);
 export type AnalyzerEmitMode = z.infer<typeof AnalyzerEmitMode>;
 
 export const AnalyzerModuleConfig = z.object({

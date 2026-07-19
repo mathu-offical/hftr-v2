@@ -40,7 +40,8 @@ Info-type labels only (no peer names as primary). Distinct per nature on one car
 | engine_crypto | execution specialty (gated) | seeds `research_crypto_context`; Crypto Fund Router; philosophy→trend |
 | engine_prediction | execution specialty | seeds `research_prediction_niche`; Prediction Fund Router |
 | engine_long_term | full spine + funds | seeds `research_filings_fundamentals` + `research_event_catalyst`; Paper Horizon Holding Fund |
-| engine_hft | empty stub | no research dep until microstructure pack ships |
+| engine_hft | full spine + funds (paper) | seeds `research_microstructure_lab`; `microstructure_swarm` + `strat-007`; `paper_hft_swarm_v1` throttles; HFT Fund Router; live fail-closed (D-157) |
+| research_microstructure_lab | research pack | microstructure_context + market news → librarian → evidence; Alpaca bars @5s; research-only scanner → Concat |
 
 **Strict librarian spine (D-143):** When a template has both `research` and `library`,
 ingest must go `research→librarian→library`. Parallel `research→library` data_feed edges are

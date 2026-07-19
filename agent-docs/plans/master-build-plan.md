@@ -175,14 +175,16 @@ and drive setup via assistant. Playwright flows 2/4/5 green.
 
 ## M5 — Expansion: prediction markets, crypto preset, HFT/long-term presets, live gate
 
-**Progress (2026-07-17):** Live-gate APIs + `ModeSwitch` arming UI; `execution-context` /
+**Progress (2026-07-18):** Live-gate APIs + `ModeSwitch` arming UI; `execution-context` /
 `resolveBrokerAdapter` live path behind arming; Kalshi demo stub; crypto engine remains gated
-until `sess-crypto-alpaca-24x7` session envelope seeds. HFT/long-term presets still unavailable.
+until `sess-crypto-alpaca-24x7` session envelope seeds. **Paper HFT + microstructure lab (D-157)
+available**; long-term paper spine available; live HFT still fail-closed.
 
 1. Kalshi adapter (demo env) + prediction trading module preset + probability-edge families.
    **Partial — demo stub only.**
 2. Crypto preset (Alpaca crypto 24/7 sessions); HFT preset (throttle envelopes, swarm sizing);
-   long-term preset. **Crypto gated on session catalog.**
+   long-term preset. **Crypto gated on session catalog. Paper HFT (`engine_hft` +
+   `paper_hft_swarm_v1`) shipped D-157.**
 3. Live-gate checklist implementation (paper history thresholds, verification pass-rate,
    explicit confirmations) + live Alpaca behind it. Compliance copy pass. **Arming slice shipped.**
 4. Watcher escalation decision (OQ-2): measure Vercel drain latency during market hours; deploy

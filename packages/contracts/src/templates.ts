@@ -89,9 +89,7 @@ export interface EngineTemplateInput {
 }
 
 /** Primary + alsoTargets for template input application. */
-export function templateInputTargets(
-  input: EngineTemplateInput,
-): EngineTemplateInputTarget[] {
+export function templateInputTargets(input: EngineTemplateInput): EngineTemplateInputTarget[] {
   return [input.target, ...(input.alsoTargets ?? [])];
 }
 
@@ -242,7 +240,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. sector and theme scope',
         target: { moduleIndex: 0, configKey: 'topicScope' },
-        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
+        alsoTargets: [
+          { moduleIndex: 1, configKey: 'topicScope' },
+          { moduleIndex: 2, configKey: 'topicScope' },
+        ],
       },
       {
         key: 'focus',
@@ -334,7 +335,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. semiconductors and AI infrastructure',
         target: { moduleIndex: 0, configKey: 'topicScope' },
-        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
+        alsoTargets: [
+          { moduleIndex: 1, configKey: 'topicScope' },
+          { moduleIndex: 2, configKey: 'topicScope' },
+        ],
       },
     ],
   },
@@ -468,7 +472,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. sector and theme scope',
         target: { moduleIndex: 0, configKey: 'topicScope' },
-        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
+        alsoTargets: [
+          { moduleIndex: 1, configKey: 'topicScope' },
+          { moduleIndex: 2, configKey: 'topicScope' },
+        ],
       },
       {
         key: 'focus',
@@ -614,7 +621,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. US elections, macro CPI releases',
         target: { moduleIndex: 0, configKey: 'topicScope' },
-        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
+        alsoTargets: [
+          { moduleIndex: 1, configKey: 'topicScope' },
+          { moduleIndex: 2, configKey: 'topicScope' },
+        ],
       },
       {
         key: 'focus',
@@ -762,7 +772,11 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. defensive rotation, quality compounders',
         target: { moduleIndex: 0, configKey: 'topicScope' },
-        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }, { moduleIndex: 3, configKey: 'topicScope' }],
+        alsoTargets: [
+          { moduleIndex: 1, configKey: 'topicScope' },
+          { moduleIndex: 2, configKey: 'topicScope' },
+          { moduleIndex: 3, configKey: 'topicScope' },
+        ],
       },
       {
         key: 'focus',
@@ -831,7 +845,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. semiconductor supply chain',
         target: { moduleIndex: 0, configKey: 'topicScope' },
-        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
+        alsoTargets: [
+          { moduleIndex: 1, configKey: 'topicScope' },
+          { moduleIndex: 2, configKey: 'topicScope' },
+        ],
       },
     ],
   },
@@ -892,7 +909,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. S&P 500 10-K themes',
         target: { moduleIndex: 0, configKey: 'topicScope' },
-        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
+        alsoTargets: [
+          { moduleIndex: 1, configKey: 'topicScope' },
+          { moduleIndex: 2, configKey: 'topicScope' },
+        ],
       },
     ],
   },
@@ -954,7 +974,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. mechanism themes',
         target: { moduleIndex: 1, configKey: 'topicScope' },
-        alsoTargets: [{ moduleIndex: 0, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
+        alsoTargets: [
+          { moduleIndex: 0, configKey: 'topicScope' },
+          { moduleIndex: 2, configKey: 'topicScope' },
+        ],
       },
     ],
   },
@@ -1015,7 +1038,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. earnings season, CPI prints',
         target: { moduleIndex: 0, configKey: 'topicScope' },
-        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
+        alsoTargets: [
+          { moduleIndex: 1, configKey: 'topicScope' },
+          { moduleIndex: 2, configKey: 'topicScope' },
+        ],
       },
     ],
   },
@@ -1113,7 +1139,11 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. risk-on/risk-off equities',
         target: { moduleIndex: 0, configKey: 'topicScope' },
-        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }, { moduleIndex: 3, configKey: 'topicScope' }],
+        alsoTargets: [
+          { moduleIndex: 1, configKey: 'topicScope' },
+          { moduleIndex: 2, configKey: 'topicScope' },
+          { moduleIndex: 3, configKey: 'topicScope' },
+        ],
       },
       {
         key: 'focus',
@@ -1218,7 +1248,11 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. crypto knowledge scope',
         target: { moduleIndex: 0, configKey: 'topicScope' },
-        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }, { moduleIndex: 3, configKey: 'topicScope' }],
+        alsoTargets: [
+          { moduleIndex: 1, configKey: 'topicScope' },
+          { moduleIndex: 2, configKey: 'topicScope' },
+          { moduleIndex: 3, configKey: 'topicScope' },
+        ],
       },
       {
         key: 'focus',
@@ -1323,7 +1357,11 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. elections, macro prints',
         target: { moduleIndex: 0, configKey: 'topicScope' },
-        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }, { moduleIndex: 3, configKey: 'topicScope' }],
+        alsoTargets: [
+          { moduleIndex: 1, configKey: 'topicScope' },
+          { moduleIndex: 2, configKey: 'topicScope' },
+          { moduleIndex: 3, configKey: 'topicScope' },
+        ],
       },
     ],
   },
@@ -1409,7 +1447,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. day-trade large-cap tech',
         target: { moduleIndex: 0, configKey: 'topicScope' },
-        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
+        alsoTargets: [
+          { moduleIndex: 1, configKey: 'topicScope' },
+          { moduleIndex: 2, configKey: 'topicScope' },
+        ],
       },
     ],
   },
@@ -1507,7 +1548,122 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. company-wide market knowledge',
         target: { moduleIndex: 0, configKey: 'topicScope' },
-        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }, { moduleIndex: 3, configKey: 'topicScope' }, { moduleIndex: 4, configKey: 'topicScope' }, { moduleIndex: 5, configKey: 'topicScope' }],
+        alsoTargets: [
+          { moduleIndex: 1, configKey: 'topicScope' },
+          { moduleIndex: 2, configKey: 'topicScope' },
+          { moduleIndex: 3, configKey: 'topicScope' },
+          { moduleIndex: 4, configKey: 'topicScope' },
+          { moduleIndex: 5, configKey: 'topicScope' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'research_microstructure_lab',
+    label: 'Microstructure research lab',
+    category: 'research',
+    description:
+      'Quote/flow toxicity and imbalance context pack for high-frequency-oriented paper desks: microstructure + market-news curators, evidence library, high-cadence Alpaca bars, research-only scanner → data_out.',
+    available: true,
+    modules: [
+      {
+        type: 'research',
+        name: 'Microstructure Context Research',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'microstructure_context',
+          curiosity: 'exploratory',
+        },
+        position: { x: 0, y: 0 },
+      },
+      {
+        type: 'research',
+        name: 'Quote Quality News Research',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'external_market_news',
+          curiosity: 'balanced',
+        },
+        position: { x: 0, y: 280 },
+      },
+      {
+        type: 'librarian',
+        name: 'Microstructure Librarian',
+        config: {
+          topicScope: 'pending_operator_scope',
+          librarianSubtype: 'librarian_relevance',
+        },
+        position: { x: 0, y: 560 },
+      },
+      {
+        type: 'library',
+        name: 'Microstructure Evidence Library',
+        config: {
+          topicScope: 'pending_operator_scope',
+          libraryClass: 'specialty_evidence',
+          masterLibrary: false,
+        },
+        position: { x: 460, y: 140 },
+      },
+      {
+        type: 'live_api',
+        name: 'Alpaca Bars Feed',
+        config: {
+          venue: 'alpaca',
+          instruments: [],
+          feedClass: 'iex_free',
+          pollSeconds: 5,
+        },
+        position: { x: 460, y: 552 },
+      },
+      {
+        type: 'trend',
+        name: 'Microstructure Lab Scanner',
+        config: {
+          focus: 'pending_operator_scope',
+          trendPosture: 'research_only',
+          maxActiveTrends: 16,
+          cadenceMinutes: 5,
+        },
+        position: { x: 920, y: 276 },
+      },
+      {
+        type: 'analyzer',
+        name: 'Microstructure Lab Concat',
+        config: { emitMode: 'to_desk_stream' },
+        position: { x: 1380, y: 276 },
+      },
+    ],
+    links: [
+      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 4, toIndex: 5, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 6, linkKind: 'data_feed' },
+      { fromIndex: 0, toIndex: 6, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 6, linkKind: 'data_feed' },
+      { fromIndex: 5, toIndex: 6, linkKind: 'data_feed' },
+    ],
+    inputs: [
+      {
+        key: 'topicScope',
+        label: 'Microstructure scope',
+        kind: 'text',
+        placeholder: 'e.g. liquid large-cap quote quality',
+        target: { moduleIndex: 0, configKey: 'topicScope' },
+        alsoTargets: [
+          { moduleIndex: 1, configKey: 'topicScope' },
+          { moduleIndex: 2, configKey: 'topicScope' },
+          { moduleIndex: 3, configKey: 'topicScope' },
+        ],
+      },
+      {
+        key: 'focus',
+        label: 'Scanner focus',
+        kind: 'text',
+        placeholder: 'e.g. spread stability and flow toxicity',
+        target: { moduleIndex: 5, configKey: 'focus' },
       },
     ],
   },
@@ -1515,12 +1671,150 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     id: 'engine_hft',
     label: 'High-frequency engine',
     category: 'high_frequency',
-    description: 'Sub-minute execution engine with microstructure guards.',
-    available: false,
-    unavailableReason: 'Requires a low-latency worker and live feed entitlements (post-M5).',
-    modules: [],
-    links: [],
-    inputs: [],
+    description:
+      'High-frequency-oriented paper desk (retail API framing): microstructure research spine, high-cadence feed, swarm scanner, strat-007 execution, paper_hft_swarm_v1 throttles. Live remains fail-closed.',
+    available: true,
+    modules: [
+      {
+        type: 'research',
+        name: 'Microstructure Desk Research',
+        config: {
+          topicScope: 'pending_operator_scope',
+          researchSubtype: 'microstructure_context',
+          curiosity: 'exploratory',
+        },
+        position: { x: 0, y: 0 },
+      },
+      {
+        type: 'librarian',
+        name: 'Microstructure Evidence Librarian',
+        config: {
+          topicScope: 'pending_operator_scope',
+          librarianSubtype: 'librarian_relevance',
+        },
+        position: { x: 0, y: 280 },
+      },
+      {
+        type: 'library',
+        name: 'Microstructure Evidence Library',
+        config: {
+          topicScope: 'pending_operator_scope',
+          masterLibrary: false,
+          libraryClass: 'specialty_evidence',
+        },
+        position: { x: 460, y: 0 },
+      },
+      {
+        type: 'live_api',
+        name: 'High-cadence Market Feed',
+        config: {
+          venue: 'alpaca',
+          instruments: [],
+          feedClass: 'iex_free',
+          pollSeconds: 5,
+        },
+        position: { x: 460, y: 552 },
+      },
+      {
+        type: 'trend',
+        name: 'Microstructure Swarm Scanner',
+        config: {
+          focus: 'pending_operator_scope',
+          trendPosture: 'microstructure_swarm',
+          maxActiveTrends: 24,
+          cadenceMinutes: 5,
+        },
+        position: { x: 920, y: 276 },
+      },
+      {
+        type: 'trading',
+        name: 'Paper HFT Execution',
+        config: {
+          subtype: 'hft',
+          strategyFamilies: ['strat-007'],
+          exitTimelineDays: 0,
+          cadenceMinutes: 1,
+        },
+        position: { x: 1380, y: 276 },
+      },
+      {
+        type: 'holding_fund',
+        name: 'Paper HFT Holding Fund',
+        config: {
+          source: 'company_seed',
+          allocationPolicyRef: 'paper_hft_swarm_v1',
+        },
+        position: { x: 920, y: 828 },
+      },
+      {
+        type: 'fund_router',
+        name: 'HFT Fund Router',
+        config: {
+          policyEnvelopeRef: 'paper_hft_swarm_v1',
+          approvalMode: 'manual',
+          targetModuleIds: [],
+        },
+        position: { x: 1380, y: 828 },
+      },
+      {
+        type: 'analyzer',
+        name: 'HFT Execution Monitor',
+        config: {
+          emitMode: 'verify_loopback',
+          streamDescriptor: 'execution_verify_loopback',
+        },
+        position: { x: 1840, y: 276 },
+      },
+      {
+        type: 'policy',
+        name: 'Paper HFT Policy',
+        config: {
+          policyEnvelopeRef: 'paper_hft_swarm_v1',
+          notes:
+            'Fail-closed paper HFT policy (retail-API framing). Live unlock requires documented live-gate pass; not colocated HFT.',
+        },
+        position: { x: 1840, y: 828 },
+      },
+    ],
+    links: [
+      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
+      { fromIndex: 4, toIndex: 5, linkKind: 'directive' },
+      { fromIndex: 5, toIndex: 8, linkKind: 'verification' },
+      { fromIndex: 8, toIndex: 9, linkKind: 'verification' },
+      { fromIndex: 5, toIndex: 9, linkKind: 'directive' },
+      { fromIndex: 6, toIndex: 'math', linkKind: 'fund_route' },
+      { fromIndex: 'math', toIndex: 7, linkKind: 'fund_route' },
+    ],
+    inputs: [
+      {
+        key: 'topicScope',
+        label: 'Research scope',
+        kind: 'text',
+        placeholder: 'e.g. liquid large-cap microstructure',
+        target: { moduleIndex: 0, configKey: 'topicScope' },
+        alsoTargets: [
+          { moduleIndex: 1, configKey: 'topicScope' },
+          { moduleIndex: 2, configKey: 'topicScope' },
+        ],
+      },
+      {
+        key: 'focus',
+        label: 'Swarm focus',
+        kind: 'text',
+        placeholder: 'e.g. top-tier liquidity quote quality',
+        target: { moduleIndex: 4, configKey: 'focus' },
+      },
+      {
+        key: 'philosophy',
+        label: 'Trading philosophy',
+        kind: 'select',
+        options: ['spread capture', 'inventory skew defense', 'quote microstructure'],
+        target: { moduleIndex: 4, configKey: 'focus' },
+      },
+    ],
   },
 ];
 
@@ -1592,8 +1886,8 @@ export const EXECUTION_ENGINE_RESEARCH_DEPENDENCIES: Readonly<Record<string, rea
   engine_prediction: ['research_prediction_niche'],
   /** Filings/fundamentals + event catalysts for multi-month horizon desks. */
   engine_long_term: ['research_filings_fundamentals', 'research_event_catalyst'],
-  /** No research pack until microstructure lab ships with engine_hft modules. */
-  engine_hft: [],
+  /** Microstructure lab for high-frequency-oriented paper desks (D-157). */
+  engine_hft: ['research_microstructure_lab'],
 };
 
 export function engineCreateSection(template: EngineTemplate): EngineCreateSection {

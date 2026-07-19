@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-05-19",
+  "asOf": "2026-07-18",
   "status": "in_progress",
   "purpose": "Seeded broker policy envelope catalog used to bind user-configurable broker behavior inside deterministic platform guard bands.",
   "querySurfaces": {
@@ -158,6 +158,23 @@
         "seeded-testing-baseline-defaults.md",
         "endpoint-throttling-and-policy-controls.md"
       ]
+    },
+    "paper_hft_swarm_v1": {
+      "tradeRequestBudgetPerMin": 18,
+      "marketDataRequestBudgetPerMin": 360,
+      "streamingSymbolBudget": 48,
+      "wsReconnectMaxAttempts": 6,
+      "wsReconnectInitialBackoffMs": 400,
+      "wsReconnectMaxBackoffMs": 8000,
+      "wsReconnectJitterModel": "full_jitter",
+      "cooldownWindowMs": 45000,
+      "burstCap": 2,
+      "sourceDocs": [
+        "seeded-testing-baseline-defaults.md",
+        "endpoint-throttling-and-policy-controls.md",
+        "docs/superpowers/specs/2026-07-18-hft-engine-design.md"
+      ],
+      "notes": "Paper-only high-frequency-oriented swarm envelope (D-157). Elevated MD/stream for swarm watching; bounded trade budget + low burstCap so retail-API abuse fails closed. Not colocated HFT; live unlock still requires M5 live gate."
     }
   },
   "envelopes": [
@@ -314,6 +331,49 @@
         "selected_market_data_feed",
         "policy_profile_version",
         "session_router_state"
+      ]
+    },
+    {
+      "id": "bpe-005",
+      "name": "paper_hft_swarm",
+      "testingBaselineRef": "paper_hft_swarm_v1",
+      "modes": ["paper"],
+      "routingScope": ["regular_equities", "pre_market_equities", "after_hours_equities"],
+      "orderWorkflowCompatibility": ["single_order", "bracket", "oco", "oto"],
+      "throttleProfile": {
+        "tradeRequestBudgetPerMin": "elevated_paper_swarm",
+        "marketDataRequestBudgetPerMin": "swarm_watch_heavy",
+        "streamingSymbolBudget": "swarm_headroom",
+        "wsReconnectMaxAttempts": "bounded_standard",
+        "wsReconnectBackoffMs": "jittered_exponential_standard",
+        "cooldownWindowMs": "short",
+        "burstCap": "low"
+      },
+      "timeoutProfile": {
+        "orderSubmission": "standard",
+        "orderStateReconcile": "standard",
+        "cancelReplace": "standard"
+      },
+      "failureHandling": [
+        "treat_submission_timeout_as_indeterminate_until_broker_state_confirms_terminal_status",
+        "prefer_trade_updates_stream_for_primary_order_state",
+        "use_rest_reconciliation_after_socket_loss",
+        "fail_closed_on_burst_cap_or_trade_budget_exhaustion"
+      ],
+      "platformGuardrails": [
+        "hard_caps_are_non_bypassable",
+        "policy_version_must_be_trace_logged",
+        "sandbox_flexibility_cannot_bypass_verification_contracts",
+        "paper_only_until_live_gate_pass",
+        "not_colocated_hft_claims"
+      ],
+      "verificationSignals": [
+        "policy_profile_version",
+        "throttle_state_snapshot",
+        "socket_authorization_state",
+        "listening_ack_state",
+        "circuit_breaker_state",
+        "swarm_cadence_snapshot"
       ]
     }
   ],

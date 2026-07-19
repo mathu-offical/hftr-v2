@@ -190,6 +190,7 @@ Same topology; specialty remaps defaults only:
 ## Non-goals (this slice)
 
 - Fund ledger transfers (still topology-only)
-- Enabling HFT / live crypto without gates
+- Enabling **live** HFT / live crypto without gates (paper HFT spine is available per D-157)
 - Replacing job handlers with v1 `run_nodes` interpreter
 - Pixel office canvas
+- Colocated / sub-ms HFT claims (retail-API framing only)

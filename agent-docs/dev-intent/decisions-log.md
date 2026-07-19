@@ -1583,7 +1583,7 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 - **D-153 (use-case research deps + Data Hub family, 2026-07-18):** Default execution
   engines seed **specific** research packs (not generic fabric): day-trading → session
   regime lab + desk specialty; long-term → filings + event catalysts (not desk-aligned);
-  crypto/prediction keep domain packs; HFT has no pack until microstructure ships.
+  crypto/prediction keep domain packs; HFT → `research_microstructure_lab` (D-157).
   Day-trading inline research is session specialty (regime lab owns market news).
   `expandEngineSeedsWithResearchDeps` runs on company create; module-store execution
   insert seeds missing packs first; research insert re-syncs dependent Engine Data Hubs
@@ -1611,6 +1611,17 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `pipelines`). Catalog mirrors movers/sector lanes (e.g. dual Alpaca `entitle` vs `ohlc`→RS;
   news → gather/universe/sector|seal; library Jaccard → thresholds/rank/seal). Graph:
   live|lib → adapter → distinctive stages. Docs: ui-spec §4, data-model, synthesis hub design.
+  **Status: implemented.**
+
+- **D-157 (paper HFT engine + microstructure lab, 2026-07-18):** Ship a **usable paper**
+  high-frequency-oriented ENGINE (retail-API framing, not colocated HFT): full execution
+  spine (`engine_hft`), use-case pack `research_microstructure_lab`, research subtype
+  `microstructure_context`, trend posture `microstructure_swarm`, strategy family `strat-007`,
+  and throttle baseline/envelope `paper_hft_swarm_v1` (elevated MD/stream, bounded trade +
+  low burstCap). `EXECUTION_ENGINE_RESEARCH_DEPENDENCIES.engine_hft` → microstructure lab.
+  Live remains fail-closed until M5 live gate. Spec:
+  `docs/superpowers/specs/2026-07-18-hft-engine-design.md`. Extends D-153. Docs:
+  product-spec presets, canvas-connection-point-audit, engine-node-family-design, REQ-MDL-012.
   **Status: implemented.**
 
 ## Open questions

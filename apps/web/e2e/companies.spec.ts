@@ -87,9 +87,7 @@ test.describe('Companies directory', () => {
     await page.getByRole('button', { name: 'Open execution store' }).click();
     await expect(page.getByRole('button', { name: 'Add Day trading engine' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Locked · Crypto engine' })).toBeDisabled();
-    await expect(
-      page.getByRole('button', { name: 'Locked · High-frequency engine' }),
-    ).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Add High-frequency engine' })).toBeVisible();
     await page.keyboard.press('Escape');
 
     await page.getByRole('button', { name: 'Open research store' }).click();

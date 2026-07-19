@@ -100,13 +100,13 @@ describe('buildTemplatePreviewGraph', () => {
     ).toBe(true);
   });
 
-  it('skips bridges when an engine template has no modules', () => {
+  it('skips bridges when a dependency template is missing', () => {
     const { edges } = buildTemplatePreviewGraph({
       engines: [
         {
           key: 'dep-empty',
-          templateId: 'engine_hft',
-          label: 'Empty dep',
+          templateId: 'engine_does_not_exist',
+          label: 'Missing dep',
           autoDependency: true,
           cascadedFromKey: 'exec-day',
         },

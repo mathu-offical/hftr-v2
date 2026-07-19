@@ -702,7 +702,9 @@ describe('generated module names', () => {
   });
 
   it('moduleFunctionLabel maps research / library / analyzer specialties', () => {
-    expect(moduleFunctionLabel('research', { researchSubtype: 'external_filings' })).toBe('Filings');
+    expect(moduleFunctionLabel('research', { researchSubtype: 'external_filings' })).toBe(
+      'Filings',
+    );
     expect(moduleFunctionLabel('research', { researchSubtype: 'event_catalyst' })).toBe('Catalyst');
     expect(moduleFunctionLabel('library', { libraryClass: 'topic_runtime' })).toBe('TopicLib');
     expect(moduleFunctionLabel('library', { libraryClass: 'specialty_evidence' })).toBe('SpecLib');
@@ -741,11 +743,13 @@ describe('generated module names', () => {
       'AlpacaFeed',
     );
     expect(humanizeResearchSourceKind('frankfurter_fx')).toBe('FrankfurterFx');
+    expect(resolveLiveApiSourceKind({ venue: 'alpaca', instruments: ['SPY'] })).toBe('alpaca_bars');
     expect(
-      resolveLiveApiSourceKind({ venue: 'alpaca', instruments: ['SPY'] }),
-    ).toBe('alpaca_bars');
-    expect(
-      resolveLiveApiSourceKind({ sourceKind: 'twelve_data', venue: 'alpaca', instruments: ['SPY'] }),
+      resolveLiveApiSourceKind({
+        sourceKind: 'twelve_data',
+        venue: 'alpaca',
+        instruments: ['SPY'],
+      }),
     ).toBe('twelve_data');
   });
 
@@ -1072,7 +1076,7 @@ describe('engine templates', () => {
 
   it('requires librarian spine when research and library both present (D-109)', () => {
     for (const engine of ENGINE_TEMPLATES) {
-      if (engine.id === 'engine_hft' || engine.modules.length === 0) continue;
+      if (engine.modules.length === 0) continue;
       const types = engine.modules.map((m) => m.type);
       if (!types.includes('research') || !types.includes('library')) continue;
 
@@ -1100,15 +1104,13 @@ describe('engine templates', () => {
   it('wires every non-fund module into at least one link (D-109)', () => {
     const fundTypes = new Set(['holding_fund', 'fund_router', 'math']);
     for (const engine of ENGINE_TEMPLATES) {
-      if (engine.id === 'engine_hft' || engine.modules.length === 0) continue;
+      if (engine.modules.length === 0) continue;
 
       for (let i = 0; i < engine.modules.length; i++) {
         const mod = engine.modules[i]!;
         if (fundTypes.has(mod.type)) continue;
 
-        const linked = engine.links.some(
-          (link) => link.fromIndex === i || link.toIndex === i,
-        );
+        const linked = engine.links.some((link) => link.fromIndex === i || link.toIndex === i);
         expect(linked, `${engine.id} orphan ${mod.type} idx ${i} (${mod.name})`).toBe(true);
       }
     }
@@ -1129,10 +1131,11 @@ describe('engine templates', () => {
   });
 
   it('routes research only through librarian when library is present (D-143)', () => {
-    const templates: Array<{ id: string; modules: typeof ENGINE_TEMPLATES[number]['modules']; links: typeof ENGINE_TEMPLATES[number]['links'] }> = [
-      ...ENGINE_TEMPLATES,
-      ...Object.values(COMPANY_TEMPLATES),
-    ];
+    const templates: Array<{
+      id: string;
+      modules: (typeof ENGINE_TEMPLATES)[number]['modules'];
+      links: (typeof ENGINE_TEMPLATES)[number]['links'];
+    }> = [...ENGINE_TEMPLATES, ...Object.values(COMPANY_TEMPLATES)];
     for (const template of templates) {
       if (template.modules.length === 0) continue;
       const researchIdx = new Set(
@@ -1166,7 +1169,11 @@ describe('engine templates', () => {
     for (const engine of ENGINE_TEMPLATES) {
       if (engine.modules.length === 0) continue;
       const types = engine.modules.map((m) => m.type);
-      if (!types.includes('research') || !types.includes('library') || !types.includes('librarian')) {
+      if (
+        !types.includes('research') ||
+        !types.includes('library') ||
+        !types.includes('librarian')
+      ) {
         continue;
       }
       const scopeInput = engine.inputs.find((i) => i.key === 'topicScope');
@@ -1661,9 +1668,8 @@ describe('Research bus (D-039)', () => {
       }).mode,
     ).toBe('manual');
 
-    const { InitiateTopicResearchInput, InitiateTopicResearchResult, QueueClass } = await import(
-      './index'
-    );
+    const { InitiateTopicResearchInput, InitiateTopicResearchResult, QueueClass } =
+      await import('./index');
     expect(QueueClass.options).toEqual(
       expect.arrayContaining(['LIBRARY_RESEARCH', 'POSTURE_RESEARCH']),
     );
@@ -1690,22 +1696,15 @@ describe('Research bus (D-039)', () => {
 
 describe('live data sources contracts', () => {
   it('resolveLiveDataSourceStatus maps implementation and readiness', async () => {
-    const {
-      resolveLiveDataSourceStatus,
-      defaultBrowseQueryForDomain,
-      LiveDataSourceQueryRequest,
-    } = await import('./live-data-sources');
+    const { resolveLiveDataSourceStatus, defaultBrowseQueryForDomain, LiveDataSourceQueryRequest } =
+      await import('./live-data-sources');
     const { RESEARCH_SOURCE_REGISTRY } = await import('./research-source-registry');
 
-    expect(
-      resolveLiveDataSourceStatus(RESEARCH_SOURCE_REGISTRY.sec_edgar, true),
-    ).toBe('public');
-    expect(
-      resolveLiveDataSourceStatus(RESEARCH_SOURCE_REGISTRY.fred_macro, true),
-    ).toBe('ready');
-    expect(
-      resolveLiveDataSourceStatus(RESEARCH_SOURCE_REGISTRY.fred_macro, false),
-    ).toBe('missing_key');
+    expect(resolveLiveDataSourceStatus(RESEARCH_SOURCE_REGISTRY.sec_edgar, true)).toBe('public');
+    expect(resolveLiveDataSourceStatus(RESEARCH_SOURCE_REGISTRY.fred_macro, true)).toBe('ready');
+    expect(resolveLiveDataSourceStatus(RESEARCH_SOURCE_REGISTRY.fred_macro, false)).toBe(
+      'missing_key',
+    );
     expect(defaultBrowseQueryForDomain('filings')).toBe('10-K');
     expect(LiveDataSourceQueryRequest.parse({}).mode).toBe('search');
     expect(LiveDataSourceQueryRequest.parse({}).maxResults).toBe(12);
@@ -1782,10 +1781,12 @@ describe('paper engine binding (D-122)', () => {
   it('computes fill price delta bps', async () => {
     const { fillPriceDeltaBps, buildFillPriceBookDeltaDimension } = await import('./paper-engine');
     expect(fillPriceDeltaBps({ internalPriceCents: 10_000, referencePriceCents: 10_050 })).toBe(50);
-    expect(buildFillPriceBookDeltaDimension({
-      internalPriceCents: 100,
-      referencePriceCents: 101,
-    }).kind).toBe('fill_price_bps');
+    expect(
+      buildFillPriceBookDeltaDimension({
+        internalPriceCents: 100,
+        referencePriceCents: 101,
+      }).kind,
+    ).toBe('fill_price_bps');
   });
 
   it('computeInternalPaperFill matches 2 bps taker model', async () => {
@@ -1815,9 +1816,7 @@ describe('paper engine binding (D-122)', () => {
       engineModuleId: '00000000-0000-4000-8000-000000000002',
       instructionId: '00000000-0000-4000-8000-000000000003',
       routingMode: 'both_verify',
-      dimensions: [
-        { kind: 'fill_price_bps', internalValue: 10, referenceValue: 25, unit: 'bps' },
-      ],
+      dimensions: [{ kind: 'fill_price_bps', internalValue: 10, referenceValue: 25, unit: 'bps' }],
     });
     expect(d.dimensions[0]?.kind).toBe('fill_price_bps');
   });
@@ -2140,7 +2139,13 @@ describe('canvas layout (D-033)', () => {
     expect(timePos.y).toBeGreaterThanOrEqual(maxOtherBottom);
     const minX = Math.min(...others.map((p) => p.x));
     expect(timePos.x).toBe(minX);
-    expect(rankEngineMembers([research, library, analyzer, timeHub], new Map(modules.map((m) => [m.id, m])), []).every((r) => r.id !== timeHub)).toBe(true);
+    expect(
+      rankEngineMembers(
+        [research, library, analyzer, timeHub],
+        new Map(modules.map((m) => [m.id, m])),
+        [],
+      ).every((r) => r.id !== timeHub),
+    ).toBe(true);
   });
 
   it('placeEngineTimeHubPosition docks bottom-left under the envelope', () => {
@@ -2330,7 +2335,34 @@ describe('CreateCompanyInput (D-043)', () => {
     expect(researchDependenciesForExecutionEngine('engine_prediction')).toEqual([
       'research_prediction_niche',
     ]);
-    expect(researchDependenciesForExecutionEngine('engine_hft')).toEqual([]);
+    expect(researchDependenciesForExecutionEngine('engine_hft')).toEqual([
+      'research_microstructure_lab',
+    ]);
+  });
+
+  it('ships usable paper HFT spine with microstructure lab (D-157)', () => {
+    const hft = ENGINE_TEMPLATES.find((engine) => engine.id === 'engine_hft');
+    expect(hft?.available).toBe(true);
+    expect(hft?.modules.length).toBeGreaterThanOrEqual(10);
+    expect(
+      hft?.modules.some(
+        (m) => m.type === 'trading' && (m.config as { subtype?: string }).subtype === 'hft',
+      ),
+    ).toBe(true);
+    const lab = ENGINE_TEMPLATES.find((engine) => engine.id === 'research_microstructure_lab');
+    expect(lab?.available).toBe(true);
+    expect(
+      lab?.modules.some(
+        (m) =>
+          m.type === 'research' &&
+          (m.config as { researchSubtype?: string }).researchSubtype === 'microstructure_context',
+      ),
+    ).toBe(true);
+    const expanded = expandEngineSeedsWithResearchDeps([{ templateId: 'engine_hft' }]);
+    expect(expanded.map((s) => s.templateId)).toEqual([
+      'research_microstructure_lab',
+      'engine_hft',
+    ]);
   });
 
   it('expands create seeds with research deps ahead of execution (D-153)', () => {

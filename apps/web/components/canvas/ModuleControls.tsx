@@ -597,6 +597,7 @@ const RESEARCH_SUBTYPE_OPTIONS = [
   { value: 'event_catalyst', label: 'Event catalyst' },
   { value: 'crypto_onchain_context', label: 'Crypto on-chain context' },
   { value: 'prediction_niche', label: 'Prediction niche' },
+  { value: 'microstructure_context', label: 'Microstructure context' },
 ] as const;
 
 export function ResearchConfigForm(props: { companyId: string; moduleId: string }) {

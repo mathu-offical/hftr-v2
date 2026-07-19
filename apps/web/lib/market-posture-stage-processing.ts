@@ -164,14 +164,34 @@ export function buildStageNodeNumberFlow(
       break;
     }
     case 'library': {
+      if (hub.sectorFocuses.length > 0) {
+        push(steps, {
+          id: 'lib-sectors',
+          nodeId: 'lib:sectors',
+          nodeLabel: 'Sector constants',
+          transform: 'seed sector lenses',
+          valueLabel: String(hub.sectorFocuses.length),
+          formula: hub.sectorFocuses.slice(0, 4).join(' · '),
+        });
+      }
+      if (hub.universeExcludes.length > 0) {
+        push(steps, {
+          id: 'lib-excludes',
+          nodeId: 'lib:excludes',
+          nodeLabel: 'Universe excludes',
+          transform: 'filter universe symbols',
+          valueLabel: String(hub.universeExcludes.length),
+          formula: hub.universeExcludes.slice(0, 6).join(', '),
+        });
+      }
       for (const lib of hydration?.librarySources ?? []) {
         push(steps, {
           id: `lib:${lib.id}`,
           nodeId: `lib:${lib.id}`,
           nodeLabel: lib.name,
-          transform: 'admit corpus',
+          transform: 'admit corpus → ranges',
           valueLabel: `${lib.admittedCount} / ${lib.conceptCount}`,
-          formula: `${lib.shelf} · ${((lib.admittedCount / Math.max(lib.conceptCount, 1)) * 100).toFixed(0)}% admitted`,
+          formula: `${lib.shelf} · ${((lib.admittedCount / Math.max(lib.conceptCount, 1)) * 100).toFixed(0)}% admitted · ${lib.topicScope}`,
         });
       }
       for (const p of hub.positions) {
@@ -186,9 +206,9 @@ export function buildStageNodeNumberFlow(
           id: `libpos:${p.id}`,
           nodeId: `lib:pos:${p.symbol}`,
           nodeLabel: p.symbol,
-          transform: 'held mark / cost basis',
+          transform: 'held mark / cost → positioning',
           valueLabel: `${dollars(notional)} / ${dollars(costBasis)}`,
-          formula: `uPnL ${dollars(p.unrealizedPnlCents)}`,
+          formula: `uPnL ${dollars(p.unrealizedPnlCents)} · vsCost ${p.viz?.heldVsCost ?? '—'}`,
         });
       }
       break;
@@ -203,11 +223,9 @@ export function buildStageNodeNumberFlow(
           id: `lane:${lane.kind}`,
           nodeId: `live:${lane.kind}`,
           nodeLabel: lane.label,
-          transform: lane.contributed
-            ? 'filter → seal contribution'
-            : 'canvas-bound entitle',
-          valueLabel: live?.amount ?? (lane.contributed ? '1 seal hit' : `${bound} bound`),
-          formula: `${bound} canvas bound · ${lane.domain}`,
+          transform: 'query/filter → entitle',
+          valueLabel: live?.amount ?? (lane.contributed ? '1 contrib' : `${bound} bound`),
+          formula: `${lane.domain} · ${live?.operation ?? lane.authMode} · ${bound} canvas`,
         });
       }
       for (const f of hydration?.processingFlows ?? []) {
@@ -216,11 +234,28 @@ export function buildStageNodeNumberFlow(
           id: `flow:${f.id}`,
           nodeId: `adapter:${f.id}`,
           nodeLabel: f.adapterLabel,
-          transform: `${f.operation} → amount`,
+          transform: 'API → normalize route',
           valueLabel: f.amount,
           formula: f.route
-            ? `route ${f.route} · ${f.analysisRoles.join(',') || '—'}`
+            ? `${f.route} · vars ${f.analysisRoles.join(',') || '—'}`
             : f.analysisRoles.join(',') || null,
+        });
+      }
+      const normalizeSteps = (hydration?.processSteps ?? []).filter(
+        (s) =>
+          isActivePipelineStatus(s.status) &&
+          (s.processFunction === 'normalize' ||
+            s.processFunction === 'extract' ||
+            s.processFunction === 'fetch'),
+      );
+      for (const s of normalizeSteps.slice(0, 6)) {
+        push(steps, {
+          id: `norm:${s.id}`,
+          nodeId: `process:${s.id}`,
+          nodeLabel: s.label,
+          transform: `${s.processFunction} → system var`,
+          valueLabel: s.amount,
+          formula: `${s.route} · ${s.analysisRole ?? s.operation}`,
         });
       }
       const activeLanes = hub.sources.lanes.filter((l) =>
@@ -229,17 +264,19 @@ export function buildStageNodeNumberFlow(
           liveSources.find((s) => s.kind === l.kind),
         ),
       );
-      const activeFlows = (hydration?.processingFlows ?? []).filter((f) =>
-        isActivePipelineStatus(f.status, f.contributed),
-      );
-      if (activeLanes.length > 0 || activeFlows.length > 0) {
+      const roleSet = new Set<string>();
+      for (const f of hydration?.processingFlows ?? []) {
+        if (!isActivePipelineStatus(f.status, f.contributed)) continue;
+        for (const r of f.analysisRoles) roleSet.add(r);
+      }
+      if (activeLanes.length > 0 || roleSet.size > 0) {
         push(steps, {
           id: 'live-roll',
           nodeId: 'live:rollup',
-          nodeLabel: 'Active lane rollup',
-          transform: 'active lanes · seal kinds',
-          valueLabel: `${activeLanes.length} active · ${hub.sources.contributedKinds.length} contributed`,
-          formula: `mark feed ${hub.sources.markFeedClass}`,
+          nodeLabel: 'System variables',
+          transform: 'roles from active normalize',
+          valueLabel: `${roleSet.size} vars · ${activeLanes.length} sources`,
+          formula: [...roleSet].slice(0, 6).join(',') || `mark ${hub.sources.markFeedClass}`,
         });
       }
       break;
@@ -261,12 +298,12 @@ export function buildStageNodeNumberFlow(
         push(steps, {
           id: 'links-count',
           nodeId: 'process:links',
-          nodeLabel: 'Awareness links',
+          nodeLabel: 'Market↔news↔library links',
           transform: 'count projected edges',
           valueLabel: String(aw.links.length),
-          formula: `${aw.evidence.length} evidence pkgs`,
+          formula: `${aw.evidence.length} evidence · ${aw.trends.length} tagged trends`,
         });
-        for (const link of aw.links.slice(0, 6)) {
+        for (const link of aw.links.slice(0, 4)) {
           push(steps, {
             id: `lnk:${link.id}`,
             nodeId: `process:link:${link.id}`,
@@ -274,6 +311,16 @@ export function buildStageNodeNumberFlow(
             transform: `${link.fromKind}→${link.toKind} strength`,
             valueLabel: link.strengthBand,
             formula: null,
+          });
+        }
+        for (const t of aw.trends.slice(0, 4)) {
+          push(steps, {
+            id: `tr:${t.id}`,
+            nodeId: `process:trend:${t.id}`,
+            nodeLabel: `$${t.symbol}`,
+            transform: 'emit tagged trend',
+            valueLabel: t.linkStrengthBand ?? t.status,
+            formula: t.label ?? null,
           });
         }
       }
@@ -305,17 +352,37 @@ export function buildStageNodeNumberFlow(
       }
       break;
     }
-    case 'seals': {
+    case 'outlook': {
+      const watched = hub.watchlists.filter(
+        (w) =>
+          w.status === 'watching' ||
+          w.status === 'suggested_verified' ||
+          w.status === 'suggested_search',
+      );
       push(steps, {
-        id: 'movers-n',
-        nodeId: 'seal:movers',
-        nodeLabel: hub.movers.title ?? 'Stock movers',
-        transform: 'count sealed items',
-        valueLabel: String(hub.movers.items.length),
-        formula: hub.movers.corroborationBand
-          ? `corroboration ${hub.movers.corroborationBand}`
-          : null,
+        id: 'watch-n',
+        nodeId: 'outlook:watch',
+        nodeLabel: 'Watched symbols',
+        transform: 'count watch + suggested',
+        valueLabel: String(watched.length),
+        formula: `${hub.movers.items.length} sealed movers · ${hub.news.items.length} news`,
       });
+      for (const w of watched.slice(0, 6)) {
+        push(steps, {
+          id: `w:${w.id}`,
+          nodeId: `outlook:w:${w.symbol}`,
+          nodeLabel: `$${w.symbol}`,
+          transform: 'mark / heldVsCost outlook',
+          valueLabel: w.viz?.heldVsCost ?? w.status,
+          formula: [
+            w.bias,
+            w.viz?.direction,
+            w.viz?.spark?.feedClass,
+          ]
+            .filter(Boolean)
+            .join(' · '),
+        });
+      }
       const bandCounts = new Map<string, number>();
       for (const item of hub.movers.items) {
         const d = item.directionBand ?? 'unset';
@@ -323,26 +390,20 @@ export function buildStageNodeNumberFlow(
       }
       push(steps, {
         id: 'movers-dir',
-        nodeId: 'seal:movers:dirs',
-        nodeLabel: 'Mover direction bands',
-        transform: 'tally direction bands',
+        nodeId: 'outlook:movers:dirs',
+        nodeLabel: 'Sealed direction bands',
+        transform: 'tally sealed directions',
         valueLabel:
           [...bandCounts.entries()]
             .map(([k, v]) => `${k}:${v}`)
             .join(' ') || '0',
-        formula: null,
-      });
-      push(steps, {
-        id: 'news-n',
-        nodeId: 'seal:news',
-        nodeLabel: hub.news.title ?? 'News seal',
-        transform: 'count news items',
-        valueLabel: String(hub.news.items.length),
-        formula: null,
+        formula: hub.movers.corroborationBand
+          ? `corroboration ${hub.movers.corroborationBand}`
+          : null,
       });
       push(steps, {
         id: 'reports-n',
-        nodeId: 'seal:reports',
+        nodeId: 'outlook:reports',
         nodeLabel: 'Phase reports',
         transform: 'count sealed reports',
         valueLabel: String(hub.reports.length),
@@ -358,6 +419,14 @@ export function buildStageNodeNumberFlow(
           w.status === 'watching',
       ).length;
       push(steps, {
+        id: 'day-topics',
+        nodeId: 'day:topics',
+        nodeLabel: 'Research topics',
+        transform: 'sector lenses + report kinds',
+        valueLabel: `${hub.sectorFocuses.length} sectors · ${hub.reports.length} reports`,
+        formula: hub.sectorFocuses.slice(0, 3).join(' · ') || null,
+      });
+      push(steps, {
         id: 'day-move',
         nodeId: 'day:movements',
         nodeLabel: 'Movements',
@@ -368,7 +437,7 @@ export function buildStageNodeNumberFlow(
       push(steps, {
         id: 'day-act',
         nodeId: 'day:actions',
-        nodeLabel: 'Actions',
+        nodeLabel: 'Day actions',
         transform: 'suggested + watching + plans',
         valueLabel: `${actionN} watch · ${hub.pipeline.length} plans`,
         formula: null,
@@ -376,7 +445,7 @@ export function buildStageNodeNumberFlow(
       push(steps, {
         id: 'day-tr',
         nodeId: 'day:trends',
-        nodeLabel: 'Trends',
+        nodeLabel: 'Daily trends',
         transform: 'candidate count',
         valueLabel: String(hub.trendCandidates.length),
         formula: null,

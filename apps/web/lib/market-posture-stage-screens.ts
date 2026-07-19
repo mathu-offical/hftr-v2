@@ -1,16 +1,19 @@
 /**
  * Market Posture stage screens (D-186).
  * Pipeline-column screens above the fixed Model diagram strip.
+ *
+ * Order: capital → live → library → process → outlook → day
+ * Live precedes library so API hydrate feeds corpus/constants.
  */
 
 import type { MarketHubSynthesisStageId } from '@hftr/contracts';
 
 export const MarketPostureStageScreenId = [
   'capital',
-  'library',
   'live',
+  'library',
   'process',
-  'seals',
+  'outlook',
   'day',
 ] as const;
 export type MarketPostureStageScreenId = (typeof MarketPostureStageScreenId)[number];
@@ -40,27 +43,27 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
     panelSurfaceIds: ['capital', 'equity'],
   },
   {
-    id: 'library',
-    label: 'Library',
-    summary: 'Saved library data, open positions, book profile',
-    nodeIdPrefixes: ['lib:'],
-    nodeRoles: ['library_source'],
-    stageIds: [],
-    panelSurfaceIds: ['positions'],
-  },
-  {
     id: 'live',
     label: 'Live ingest',
-    summary: 'Live APIs → adapters → filtered source readouts',
+    summary: 'Active APIs → queries/filters → normalize → system variables',
     nodeIdPrefixes: ['live:', 'adapter:'],
     nodeRoles: ['live_source', 'adapter'],
     stageIds: ['providers'],
     panelSurfaceIds: [],
   },
   {
+    id: 'library',
+    label: 'Library',
+    summary: 'Sector/company constants → numerical ranges + positioning context',
+    nodeIdPrefixes: ['lib:'],
+    nodeRoles: ['library_source'],
+    stageIds: [],
+    panelSurfaceIds: ['positions'],
+  },
+  {
     id: 'process',
     label: 'Process',
-    summary: 'Ingest filtered feeds, link, set limits, cost basis',
+    summary: 'Link market + news + library → tagged trend lists',
     nodeIdPrefixes: ['process:'],
     nodeRoles: ['process'],
     stageIds: ['gather', 'thresholds', 'defaults', 'universe', 'rs', 'rank', 'verify'],
@@ -69,22 +72,21 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
       'awareness_links',
       'awareness_trends',
       'awareness_recommendations',
-      'watchlists',
     ],
   },
   {
-    id: 'seals',
-    label: 'Seals',
-    summary: 'Stock/news seals and phase daily reports',
+    id: 'outlook',
+    label: 'Outlook',
+    summary: 'Watched symbols, marks, and recommendation-linked growth outlook',
     nodeIdPrefixes: [],
     nodeRoles: ['stage'],
     stageIds: ['seal_movers', 'sector', 'daily', 'narrative'],
-    panelSurfaceIds: ['movers', 'news', 'reports'],
+    panelSurfaceIds: ['movers', 'news', 'reports', 'watchlists'],
   },
   {
     id: 'day',
     label: 'Day plan',
-    summary: 'Processed movements, actions, and trends for today',
+    summary: 'Actionable day plan, research topics, and daily trends',
     nodeIdPrefixes: ['panel:'],
     nodeRoles: ['panel_surface'],
     stageIds: ['hub_ready'],
@@ -155,6 +157,7 @@ export function resolveStageScreenId(input: {
   // Legacy ids from earlier D-186 drafts.
   if (nodeId.startsWith('group:adapt') || role === 'adapter') return 'live';
   if (nodeId.startsWith('group:compose')) return 'day';
+  if (nodeId.startsWith('group:seals') || nodeId.startsWith('group:seal')) return 'outlook';
 
   return 'process';
 }

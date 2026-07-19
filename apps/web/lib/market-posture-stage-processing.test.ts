@@ -78,9 +78,14 @@ describe('buildStageNodeNumberFlow', () => {
   it('traces live lanes into numeric/amount readouts', () => {
     const steps = buildStageNodeNumberFlow('live', emptyHub());
     expect(steps.some((s) => s.nodeLabel === 'Alpaca bars')).toBe(true);
-    expect(steps.some((s) => s.transform.includes('seal') || s.valueLabel.includes('seal'))).toBe(
-      true,
-    );
+    expect(
+      steps.some(
+        (s) =>
+          s.transform.includes('query/filter') ||
+          s.transform.includes('normalize') ||
+          s.transform.includes('entitle'),
+      ),
+    ).toBe(true);
     expect(steps.every((s) => !('status' in s && (s as { status?: string }).status === 'ready'))).toBe(
       true,
     );

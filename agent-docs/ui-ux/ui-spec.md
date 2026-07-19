@@ -294,11 +294,14 @@ are ignored. Shortcuts are suppressed in editable fields.
 
 ### LEFT — Research + Market posture + Data (+ shared Libraries dock)
 - Tabs: **Research** | **Market posture** | **Data** (D-081). **Libraries** are first-class
-  left-panel chrome (D-121 / D-128): elevated bottom sheet (rounded, shadowed, inset) persists
-  across **all three** tabs — not Research-only. Left edge rail **LIB** (above collapse)
+  left-panel chrome (D-121 / D-128): **flush panel-shell footer** (square corners, `border-t`
+  only — no floating elevation/inset) persists across **all three** tabs — not Research-only.
+  Collapsed state is a slim single-line bar with optional single-line library preview rows.
+  Left edge rail **LIB** (above collapse)
   always opens Libraries at **full panel height**; choosing Research / Posture / Data restores
   the compact dock. Dock includes System / Runtime / Baseline shelves plus **Company** (canvas
-  `library` modules); create/export/curation stay in the dock.
+  `library` modules); create/export/curation stay in the dock. Company + create-list library
+  rows are **single-line** (name + meta inline), not stacked thick cards.
 - Research tab (**D-040**, **D-047**, **D-049**, **D-094**, **D-095**, **D-127**, **D-130**):
   scroll column is **topic create** + **planned/in-progress topics** + **Articles** only.
   Entity search lives in the **Galaxy** overlay chrome (concepts default). Agent activity,
@@ -318,17 +321,20 @@ are ignored. Shortcuts are suppressed in editable fields.
      `name` + inline amount
   Fund-router hops and research engine envelopes are **not** listed. Sync + **Day view**.
   Canvas overlay (**D-186**): two-band workspace — horizontal **stage screens**
-  (capital / library / live / process / seals / day) snap-scroll above a
-  fixed bottom **Model diagram strip**. Each pipeline column emits into the screen above
-  it; clicking a Model node (or section group) navigates to that screen. Each stage
-  opens with charts and main numeric readouts first, then a **Group nodes → numbers**
-  trace underneath (active Model/hydration nodes only — no missing-key / unbound idle
-  services). **Capital** stage
-  shows root user-controlled funds only (company pool + holding funds), engine
-  allocation splits, master equity, and open position mark/uPnL values — not every
-  capital-bearing Model node. Content below: positions/library, combined live APIs +
-  adapters with filtered source readouts, process ingest + linking + limits + cost basis,
-  stock/news seals + reports, day plan movements/actions/trends.
+  (capital → live → library → process → outlook → day) snap-scroll above a
+  fixed bottom **Model diagram strip**. Live precedes library so API normalize feeds
+  corpus/constants. Each pipeline column emits into the screen above it; clicking a
+  Model node (or section group) navigates to that screen. Each stage opens with charts
+  and main numeric readouts first, then a **Group nodes → numbers** trace underneath
+  (active Model/hydration nodes only — no missing-key / unbound idle services).
+  **Capital** shows root user-controlled funds only (company pool + holding funds),
+  engine allocation splits, master equity, and open position mark/uPnL values.
+  **Live ingest** shows active APIs, query/filter orientation, normalize pipeline, and
+  system variables for downstream. **Library** shows sector/company constants → discrete
+  ranges + positioning context. **Process** links market + news + library and emits
+  tagged trend lists. **Outlook** (ex-seals) shows watched symbols/values, spark-path
+  growth orientation, and sealed stock/news boards. **Day plan** combines upstream into
+  actionable movements, actions, research topics, and daily trends.
   Analyze reseals stock compound + sector news in parallel.
   Distinct from Research (async corpus).   Hub data uses client **SWR cache**
   (`market-hub-cache` + `useMarketHub`): memory + sessionStorage, 15s fresh / 10m stale for

@@ -9,10 +9,10 @@ import {
   buildLibraryStageCharts,
   buildLiveEntityCharts,
   buildLiveStageCharts,
+  buildOutlookEntityCharts,
+  buildOutlookStageCharts,
   buildProcessEntityCharts,
   buildProcessStageCharts,
-  buildSealsEntityCharts,
-  buildSealsStageCharts,
   formatAllocationSlices,
 } from './market-posture-stage-charts';
 
@@ -317,10 +317,11 @@ describe('market-posture-stage-charts', () => {
     expect(charts.costBasis[0]?.label).toBe('AAPL');
   });
 
-  it('builds seals + day charts from sealed boards and actions', () => {
-    const seals = buildSealsStageCharts(baseHub());
-    expect(seals.moverDirections).toHaveLength(2);
-    expect(seals.reportKinds[0]?.id).toBe('daily');
+  it('builds outlook + day charts from watches, sealed boards, and actions', () => {
+    const outlook = buildOutlookStageCharts(baseHub());
+    expect(outlook.moverDirections).toHaveLength(2);
+    expect(outlook.reportKinds[0]?.id).toBe('daily');
+    expect(outlook.watchStatus.some((s) => s.id === 'suggested_verified')).toBe(true);
     const day = buildDayStageCharts(baseHub());
     expect(day.actions.some((s) => s.id === 'suggested_verified')).toBe(true);
     expect(day.trends.some((s) => s.id === 'moderate')).toBe(true);
@@ -333,7 +334,9 @@ describe('market-posture-stage-charts', () => {
     expect(buildLiveEntityCharts(hub).sources).toHaveLength(1);
     expect(buildLiveEntityCharts(hub).adapters).toHaveLength(1);
     expect(buildProcessEntityCharts(hub).steps[0]?.label).toBe('Rank');
-    expect(buildSealsEntityCharts(hub).movers).toHaveLength(2);
+    expect(buildOutlookEntityCharts(hub).movers).toHaveLength(2);
+    expect(buildOutlookEntityCharts(hub).watched.length).toBeGreaterThan(0);
     expect(buildDayEntityCharts(hub).trends[0]?.label).toBe('TSLA');
+    expect(buildDayEntityCharts(hub).topics.length).toBeGreaterThan(0);
   });
 });

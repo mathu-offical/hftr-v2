@@ -40,17 +40,17 @@ describe('applyStripScreenGroups', () => {
     expect(groups).toHaveLength(6);
     expect(groups.map((g) => g.data.stageScreenId)).toEqual([
       'capital',
-      'library',
       'live',
+      'library',
       'process',
-      'seals',
+      'outlook',
       'day',
     ]);
     expect(packed.some((n) => n.data.nodeRole === 'lane_label')).toBe(false);
     const capitalKids = packed.filter((n) => n.parentId === 'group:capital');
     expect(capitalKids).toHaveLength(1);
     expect(capitalKids[0]?.id).toBe('capital:a');
-    const sealKids = packed.filter((n) => n.parentId === 'group:seals');
-    expect(sealKids.some((n) => n.id === 'seal_movers')).toBe(true);
+    const outlookKids = packed.filter((n) => n.parentId === 'group:outlook');
+    expect(outlookKids.some((n) => n.id === 'seal_movers')).toBe(true);
   });
 });

@@ -1851,21 +1851,27 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Extends D-175 / D-181. Docs: research-live-system-cadence, ui-spec §4. **Status: implemented.**
 
 - **D-186 (Market Posture stage-strip workspace, 2026-07-19):** Day overlay is a two-band
-  workspace: horizontal **pipeline-column stage screens** (capital → library → live →
-  process → seals → day) snap-scroll above a fixed bottom **Model diagram strip**. **Live**
-  combines APIs + adapters with structured filtered source readouts. **Process** shows
-  ingest of filtered feeds, linking, limits (thresholds/defaults), and cost basis.
-  **Day** replaces compose — movements, actions, and trends for today. Each diagram column
-  emits into the screen above it; clicking a Model node navigates to its owning screen
-  (`resolveStageScreenId`). Charts and main readouts come first; each stage ends with a
-  **Group nodes → numbers** trace (node → transform → dollar/count) for **active**
-  services/pipelines only (no missing-key / unbound idle lanes). Mid-page Model
-  section removed. ViewContext carries
-  `activeStageScreenId` + `selectedModelNodeId`. Strip Model uses **screen-group columns**
-  nesting child nodes (lane labels dropped; density capped). **Capital** stage / Model capital
-  lane = root user-controlled funds only (company pool + holding funds) plus engine allocation
-  and position/equity readouts — not all capital-bearing nodes. Extends D-131 / D-147 / D-160 /
-  D-179. Docs: ui-spec §4 Market posture. **Status: implemented.**
+  workspace: horizontal **pipeline-column stage screens** (capital → **live** → **library** →
+  process → **outlook** → day) snap-scroll above a fixed bottom **Model diagram strip**.
+  **Live precedes library** so API normalize/hydrate feeds corpus constants and built-in
+  functions. **Live ingest** shows active sources, search/filter orientation (route +
+  operation + contribution), fetch→normalize→extract chains, and **system variables**
+  (`analysisRoles`) for downstream nodes. **Library** shows sector/company constants
+  (numerical + semantic) from sectors, engines, shelves, and holdings — admission ranges
+  and market-aware positioning context. **Process** links market + news + library evidence
+  and emits **tagged trend lists** with symbols. **Outlook** (renamed from seals) shows all
+  watched symbols/values plus spark-path / heldVsCost **growth outlook** (orientation only;
+  no invented forward dollars) alongside sealed stock/news boards. **Day plan** analyzes
+  upstream stages into actionable movements, watch/plan actions, research topics
+  (sector lenses + sealed reports), and daily trends. Each diagram column emits into the
+  screen above it; clicking a Model node navigates to its owning screen
+  (`resolveStageScreenId`; legacy `group:seals` → outlook). Charts and main readouts come
+  first; each stage ends with a **Group nodes → numbers** trace for **active**
+  services/pipelines only. Mid-page Model section removed. ViewContext carries
+  `activeStageScreenId` + `selectedModelNodeId`. Strip Model uses **screen-group columns**.
+  **Capital** = root user-controlled funds only (company pool + holding funds) plus engine
+  allocation and position/equity readouts. Extends D-131 / D-147 / D-160 / D-179.
+  Docs: ui-spec §4 Market posture. **Status: implemented.**
 
 - **D-185 (left/right panel toggle + layering, 2026-07-19):** Amend D-123: re-clicking an
   already-active left/right rail (or header) tab collapses that panel. Opening the left panel

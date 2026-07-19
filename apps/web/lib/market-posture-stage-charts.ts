@@ -325,14 +325,18 @@ export function buildProcessStageCharts(hub: MarketHubResponse): ProcessStageCha
   };
 }
 
-export type SealsStageCharts = {
+export type OutlookStageCharts = {
   moverDirections: MarketHubChartSlice[];
   moverStrength: MarketHubChartSlice[];
   newsStrength: MarketHubChartSlice[];
   reportKinds: MarketHubChartSlice[];
+  watchStatus: MarketHubChartSlice[];
 };
 
-export function buildSealsStageCharts(hub: MarketHubResponse): SealsStageCharts {
+/** @deprecated alias — use OutlookStageCharts */
+export type SealsStageCharts = OutlookStageCharts;
+
+export function buildOutlookStageCharts(hub: MarketHubResponse): OutlookStageCharts {
   const strengthCounts = new Map<string, number>();
   for (const item of hub.movers.items) {
     const band = item.strengthBand ?? 'unknown';
@@ -352,6 +356,17 @@ export function buildSealsStageCharts(hub: MarketHubResponse): SealsStageCharts 
   for (const item of hub.movers.items) {
     const d = item.directionBand ?? 'unknown';
     dirFromItems.set(d, (dirFromItems.get(d) ?? 0) + 1);
+  }
+
+  const watchCounts = new Map<string, number>();
+  for (const w of hub.watchlists) {
+    if (
+      w.status === 'watching' ||
+      w.status === 'suggested_verified' ||
+      w.status === 'suggested_search'
+    ) {
+      watchCounts.set(w.status, (watchCounts.get(w.status) ?? 0) + 1);
+    }
   }
 
   return {
@@ -386,7 +401,19 @@ export function buildSealsStageCharts(hub: MarketHubResponse): SealsStageCharts 
         count,
       })),
     ),
+    watchStatus: slicesFromCounts(
+      [...watchCounts.entries()].map(([id, count]) => ({
+        id,
+        label: id.replace(/_/g, ' '),
+        count,
+      })),
+    ),
   };
+}
+
+/** @deprecated alias — use buildOutlookStageCharts */
+export function buildSealsStageCharts(hub: MarketHubResponse): OutlookStageCharts {
+  return buildOutlookStageCharts(hub);
 }
 
 export type DayStageCharts = {
@@ -415,7 +442,7 @@ export function buildDayStageCharts(hub: MarketHubResponse): DayStageCharts {
     movements:
       hub.charts.moverDirections.length > 0
         ? hub.charts.moverDirections
-        : buildSealsStageCharts(hub).moverDirections,
+        : buildOutlookStageCharts(hub).moverDirections,
     actions:
       actionStatuses.size > 0
         ? slicesFromCounts(
@@ -714,11 +741,75 @@ export function buildProcessEntityCharts(hub: MarketHubResponse): {
   return { steps, links, costBasis, limits };
 }
 
-export function buildSealsEntityCharts(hub: MarketHubResponse): {
+export function buildOutlookEntityCharts(hub: MarketHubResponse): {
+  watched: StageEntityChartRow[];
+  growth: StageEntityChartRow[];
   movers: StageEntityChartRow[];
   news: StageEntityChartRow[];
   reports: StageEntityChartRow[];
 } {
+  const recBySymbol = new Map(
+    (hub.awarenessAnalysis?.recommendations ?? []).map((r) => [r.symbol, r]),
+  );
+
+  const watched: StageEntityChartRow[] = hub.watchlists
+    .filter(
+      (w) =>
+        w.status === 'watching' ||
+        w.status === 'suggested_verified' ||
+        w.status === 'suggested_search',
+    )
+    .slice(0, 24)
+    .map((w) => {
+      const mark = w.viz?.markCents != null ? dollarsLabel(parseCents(w.viz.markCents) ?? 0) : null;
+      const rec = recBySymbol.get(w.symbol);
+      return {
+        id: w.id,
+        label: w.symbol,
+        valueLabel:
+          [mark, w.viz?.heldVsCost, w.status].filter(Boolean).join(' · ') || w.status,
+        shareBps:
+          w.status === 'watching'
+            ? 9_000
+            : w.status === 'suggested_verified'
+              ? 7_000
+              : 4_500,
+        detail: [
+          w.bias,
+          rec ? `rec news ${rec.newsLinkBand ?? '—'} trend ${rec.trendLinkBand ?? '—'}` : null,
+          w.note || w.sourceClass,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        viz: w.viz ?? null,
+      };
+    });
+
+  /** Orientation-only growth outlook from spark path + heldVsCost (no invented forward $). */
+  const growth: StageEntityChartRow[] = [...watched]
+    .filter((row) => row.viz?.spark?.points?.length || row.viz?.heldVsCost)
+    .map((row) => {
+      const pts = row.viz?.spark?.points ?? [];
+      const first = pts[0]?.valueCents;
+      const last = pts[pts.length - 1]?.valueCents;
+      const path =
+        first != null && last != null
+          ? `${dollarsLabel(parseCents(first) ?? 0)} → ${dollarsLabel(parseCents(last) ?? 0)}`
+          : row.viz?.heldVsCost ?? 'orientation';
+      return {
+        ...row,
+        id: `growth:${row.id}`,
+        valueLabel: path,
+        detail: [
+          row.viz?.spark?.feedClass ?? 'no spark',
+          row.viz?.direction,
+          row.viz?.heldVsCost ? `vsCost ${row.viz.heldVsCost}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      };
+    });
+
   const movers: StageEntityChartRow[] = hub.movers.items.slice(0, 24).map((item, i) => {
     const symbol = item.symbolOrSector?.trim().replace(/^\$/, '').toUpperCase() ?? null;
     const viz =
@@ -751,6 +842,16 @@ export function buildSealsEntityCharts(hub: MarketHubResponse): {
     viz: null,
   }));
 
+  return { watched, growth, movers, news, reports };
+}
+
+/** @deprecated alias — use buildOutlookEntityCharts */
+export function buildSealsEntityCharts(hub: MarketHubResponse): {
+  movers: StageEntityChartRow[];
+  news: StageEntityChartRow[];
+  reports: StageEntityChartRow[];
+} {
+  const { movers, news, reports } = buildOutlookEntityCharts(hub);
   return { movers, news, reports };
 }
 
@@ -758,8 +859,9 @@ export function buildDayEntityCharts(hub: MarketHubResponse): {
   movements: StageEntityChartRow[];
   actions: StageEntityChartRow[];
   trends: StageEntityChartRow[];
+  topics: StageEntityChartRow[];
 } {
-  const movements = buildSealsEntityCharts(hub).movers;
+  const movements = buildOutlookEntityCharts(hub).movers;
 
   const actions: StageEntityChartRow[] = [
     ...hub.watchlists
@@ -802,5 +904,32 @@ export function buildDayEntityCharts(hub: MarketHubResponse): {
     viz: t.viz ?? null,
   }));
 
-  return { movements, actions, trends };
+  const topicCounts = new Map<string, number>();
+  for (const s of hub.sectorFocuses) {
+    topicCounts.set(s, (topicCounts.get(s) ?? 0) + 1);
+  }
+  for (const r of hub.reports) {
+    topicCounts.set(r.kind, (topicCounts.get(r.kind) ?? 0) + 1);
+  }
+  const maxTopic = Math.max(1, ...topicCounts.values());
+  const topics: StageEntityChartRow[] = [
+    ...hub.sectorFocuses.map((s) => ({
+      id: `sector:${s}`,
+      label: s,
+      valueLabel: 'sector lens',
+      shareBps: Math.round(((topicCounts.get(s) ?? 1) / maxTopic) * 10_000),
+      detail: 'company seeded research topic',
+      viz: null,
+    })),
+    ...hub.reports.slice(0, 8).map((r) => ({
+      id: `report:${r.id}`,
+      label: r.title,
+      valueLabel: r.kind,
+      shareBps: 6_000,
+      detail: 'sealed daily research artifact',
+      viz: null,
+    })),
+  ];
+
+  return { movements, actions, trends, topics };
 }

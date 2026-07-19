@@ -326,7 +326,7 @@ describe('galaxy-physics', () => {
     const weightOnly = linkDistanceForWeight('typical', 'correlates');
     const simOnly = linkDistanceForSimilarity('high');
 
-    expect(blended.distance).toBeCloseTo(0.55 * weightOnly + 0.45 * simOnly);
+    expect(blended.distance).toBeCloseTo(0.4 * weightOnly + 0.6 * simOnly);
     expect(blended.strength).toBeGreaterThan(0);
     expect(blended.strength).toBeLessThanOrEqual(1);
   });
@@ -527,14 +527,14 @@ describe('galaxy-physics', () => {
       ['a', { x: 0, y: 0, z: 0, radius: 80, name: 'A' }],
       ['b', { x: 40, y: 0, z: 0, radius: 80, name: 'B' }],
     ]);
-    separateLibraryCenters(centers, 1.38, 12);
+    separateLibraryCenters(centers, 1.06, 12);
     const a = centers.get('a')!;
     const b = centers.get('b')!;
     const gap = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-    expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.38 - 1e-6);
+    expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.06 - 1e-6);
   });
 
-  it('computeLibraryCenters3D keeps hulls non-overlapping after packing', () => {
+  it('computeLibraryCenters3D keeps hulls soft-separated after packing', () => {
     const centers = computeLibraryCenters3D(
       Array.from({ length: 8 }, (_, i) => ({
         id: `11111111-1111-4111-8111-${String(i).padStart(12, '0')}`,
@@ -552,7 +552,8 @@ describe('galaxy-physics', () => {
         const a = entries[i]!;
         const b = entries[j]!;
         const gap = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-        expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.38 - 1e-3);
+        // Soft packing (D-145): allow mild envelope kiss; still not coincident.
+        expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.06 - 1e-3);
       }
     }
   });
@@ -583,7 +584,7 @@ describe('galaxy-physics', () => {
     expect(b.vx).toBeLessThan(0);
   });
 
-  it('hierarchicalLinkScale biases by membership without crushing cross-system springs', () => {
+  it('hierarchicalLinkScale biases by membership and bridges high cross-nest similarity', () => {
     expect(hierarchicalLinkScale({ sameLibrary: true, sameFolder: false, sameArticle: false })).toEqual({
       distanceMul: 1,
       strengthMul: 1,
@@ -595,13 +596,22 @@ describe('galaxy-physics', () => {
     });
     expect(article.distanceMul).toBeLessThan(1);
     expect(article.strengthMul).toBeGreaterThan(1);
-    const cross = hierarchicalLinkScale({
+    const crossHigh = hierarchicalLinkScale({
       sameLibrary: false,
       sameFolder: false,
       sameArticle: false,
+      similarityBand: 'high',
     });
-    expect(cross.distanceMul).toBeLessThan(1.5);
-    expect(cross.strengthMul).toBeGreaterThan(0.7);
+    expect(crossHigh.distanceMul).toBeLessThan(1);
+    expect(crossHigh.strengthMul).toBeGreaterThan(1);
+    const crossLow = hierarchicalLinkScale({
+      sameLibrary: false,
+      sameFolder: false,
+      sameArticle: false,
+      similarityBand: 'low',
+    });
+    expect(crossLow.distanceMul).toBeGreaterThan(crossHigh.distanceMul);
+    expect(crossLow.strengthMul).toBeLessThan(crossHigh.strengthMul);
   });
 
   it('crossLibraryLinkScale delegates to hierarchicalLinkScale', () => {

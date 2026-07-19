@@ -99,12 +99,15 @@ Result: orbit camera still looked like a **flat necklace of nests**, not a volum
 |-------|------------------|
 | Concepts / tags | Free-float celestial bodies (planet/rock/ember/comet/moon) |
 | Article | **Star hub** — soft-orbits folder system; concepts orbit live star |
+| Packing | Soft library separation (gap ~1.06) so related nests can interact (D-145) |
+| Semantic springs | Client overlap + shared display tags + membership (when DB links sparse) |
+| Cross-nest high similarity | Stronger/shorter springs — bridges systems |
 | Folder | **Orbital shelf band** + tangential spread (not core-pile); weak when article owns node |
 | Article | **Star hub** — soft-orbits folder system; concepts orbit live star + tangential ring |
+| Tags | Display-chip satellites + shared-tag bridges; system/catalog tags excluded |
+| Topics | Membership orbits + star springs to hub when hub is a concept |
 | Library | Faint framing only |
-| Cross-membership springs | `hierarchicalLinkScale` — mild bias, not crush |
-| Foreign repel | Near-off so systems can overlap |
-| Sparse links | Hierarchy orbits dominate (observed ~5 links / 100 concepts) |
+| Foreign repel | Near-off |
 | LOD | **All** folders + article stars in library scope (D-141); chips filter |
 | Live map | Research-cache invalidation + 8s overlay poll reshapes orbits |
 | QA | `layoutStats` nestMembership folder/article orbit fractions + hull counts |

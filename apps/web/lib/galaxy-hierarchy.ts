@@ -7,7 +7,7 @@ import type {
   ResearchGraphFolderStar,
   ResearchGraphNode,
 } from '@hftr/contracts';
-import { conceptSimilarityText, similarityBandBetweenTexts } from './galaxy-similarity';
+import { conceptSemanticCorpus } from './galaxy-semantic-springs';
 import { SEED_CATALOG_SHELVES } from './research-library-shelves';
 import { tagSatelliteId } from './galaxy-nest-hulls';
 
@@ -53,7 +53,7 @@ export function similarityBandForLink(
   to: ResearchGraphNode | undefined,
 ): 'high' | 'medium' | 'low' {
   if (!from || !to) return 'low';
-  return similarityBandBetweenTexts(conceptSimilarityText(from), conceptSimilarityText(to));
+  return similarityBandBetweenTexts(conceptSemanticCorpus(from), conceptSemanticCorpus(to));
 }
 
 export type TagSatelliteNode = {
@@ -72,7 +72,7 @@ export type TagSatelliteNode = {
   z?: number;
 };
 
-/** Lightweight tag satellites orbiting parent concepts (capped). */
+/** Lightweight tag satellites orbiting parent concepts (capped). Display tags only. */
 export function buildTagSatelliteNodes(
   concepts: ReadonlyArray<
     ResearchGraphNode & {
@@ -91,7 +91,14 @@ export function buildTagSatelliteNodes(
 
   for (const concept of concepts) {
     const tags = concept.tags.filter(
-      (t) => !CATALOG_KEY_SET.has(t as never) && t !== 'baseline_sector',
+      (t) =>
+        !CATALOG_KEY_SET.has(t as never) &&
+        t !== 'baseline_sector' &&
+        t !== 'catalog_seed' &&
+        t !== 'hftr:article' &&
+        !t.startsWith('hftr:') &&
+        !t.startsWith('system_') &&
+        !t.startsWith('operator_'),
     );
     let added = 0;
     for (const tag of tags) {

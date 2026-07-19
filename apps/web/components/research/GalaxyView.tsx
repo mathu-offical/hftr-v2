@@ -37,6 +37,7 @@ import {
   buildTagSatelliteNodes,
   similarityBandForLink,
 } from '@/lib/galaxy-hierarchy';
+import { buildSemanticGalaxyLinks } from '@/lib/galaxy-semantic-springs';
 import {
   buildArticleHullNodes,
   buildCompanyHullNode,
@@ -492,20 +493,26 @@ function GalaxyViewInner(props: GalaxyViewProps) {
 
     const nodes = [...conceptNodes, ...tagSatellites, ...hullNodes];
     const nodeSet = new Set(conceptNodes.map((n) => n.id));
-    const links = props.links
-      .filter((l) => nodeSet.has(l.fromConceptId) && nodeSet.has(l.toConceptId))
-      .map((l) => {
+    const persisted = props.links.filter(
+      (l) => nodeSet.has(l.fromConceptId) && nodeSet.has(l.toConceptId),
+    );
+    const semantic = buildSemanticGalaxyLinks(conceptNodes, persisted, articleOrbits);
+    const mergedLinks = [
+      ...persisted.map((l) => ({ ...l, __semantic: false as const, __semanticKind: null as null })),
+      ...semantic,
+    ];
+    const links = mergedLinks.map((l) => {
         const bothFocused =
           focusSet !== null && focusSet.has(l.fromConceptId) && focusSet.has(l.toConceptId);
         const eitherFocused =
           focusSet !== null && (focusSet.has(l.fromConceptId) || focusSet.has(l.toConceptId));
         const fromNode = nodeLookupById.get(l.fromConceptId);
         const toNode = nodeLookupById.get(l.toConceptId);
-        const layout = combineLinkLayout(
-          l.weightBand,
-          l.relation,
-          similarityBandForLink(fromNode, toNode),
-        );
+        const similarityBand =
+          'similarityBand' in l && l.similarityBand
+            ? l.similarityBand
+            : similarityBandForLink(fromNode, toNode);
+        const layout = combineLinkLayout(l.weightBand, l.relation, similarityBand);
         const fromLib = fromNode?.primaryLibraryId ?? null;
         const toLib = toNode?.primaryLibraryId ?? null;
         const fromFolder = conceptFolderIndex.get(l.fromConceptId);
@@ -520,7 +527,12 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             fromFolder.folderKey === toFolder.folderKey,
         );
         const sameLibrary = Boolean(fromLib && toLib && fromLib === toLib);
-        const hierarchy = hierarchicalLinkScale({ sameLibrary, sameFolder, sameArticle });
+        const hierarchy = hierarchicalLinkScale({
+          sameLibrary,
+          sameFolder,
+          sameArticle,
+          similarityBand,
+        });
         return {
           ...l,
           source: l.fromConceptId,
@@ -529,14 +541,17 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           __eitherFocused: eitherFocused,
           __distance: layout.distance * hierarchy.distanceMul,
           __strength: layout.strength * hierarchy.strengthMul,
+          __similarityBand: similarityBand,
           __directed:
-            l.relation === 'causes' || l.relation === 'supports' || l.relation === 'derived_from',
+            !('__semantic' in l && l.__semantic) &&
+            (l.relation === 'causes' || l.relation === 'supports' || l.relation === 'derived_from'),
         };
       });
     return { nodes, links, liveIds, hullCount: hullNodes.length };
   }, [
     props.nodes,
     props.links,
+    articleOrbits,
     filteredNodeIds,
     degreeById,
     libraryCenters,
@@ -576,7 +591,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           | undefined;
         linkForce?.distance?.((l) => l.__distance ?? 48);
         linkForce?.strength?.((l) => l.__strength ?? 0.5);
-        linkForce?.iterations?.(3);
+        linkForce?.iterations?.(4);
 
         const baseCharge = chargeStrengthForGraphSize(
           Math.max(1, graphData.nodes.length - graphData.hullCount),
@@ -1123,7 +1138,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               const a = pts[i]![1];
               const b = pts[j]![1];
               const gap = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-              const required = (a.radius + b.radius) * 1.38;
+              const required = (a.radius + b.radius) * 1.06;
               if (gap < minCenterGap) minCenterGap = gap;
               if (required > minRequiredGap) minRequiredGap = required;
             }
@@ -1662,6 +1677,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     (link: {
       __bothFocused?: boolean;
       __eitherFocused?: boolean;
+      __semantic?: boolean;
       weightBand?: string;
       fromConceptId?: string;
       toConceptId?: string;
@@ -1688,6 +1704,11 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         if (link.__bothFocused) return '#7aa2f7';
         if (link.__eitherFocused) return 'rgba(122, 162, 247, 0.28)';
         return 'rgba(80, 90, 110, 0.1)';
+      }
+      if (link.__semantic) {
+        if (link.weightBand === 'strong') return 'rgba(125, 207, 255, 0.42)';
+        if (link.weightBand === 'weak') return 'rgba(125, 207, 255, 0.12)';
+        return 'rgba(125, 207, 255, 0.22)';
       }
       if (link.weightBand === 'strong') return 'rgba(122, 162, 247, 0.55)';
       if (link.weightBand === 'weak') return 'rgba(120, 130, 150, 0.22)';
@@ -1836,7 +1857,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           aria-live="polite"
         >
           {use3dRenderer && !statusText
-            ? '3D orbital shelves · article stars · sparse-link hierarchy · live refresh'
+            ? '3D semantic springs · orbital shelves · articles · tags · live refresh'
             : null}
           {use3dRenderer && (hasTopicFocus || statusText) ? ' · ' : null}
           {hasTopicFocus && `Focused ${focusSet!.size} concepts`}

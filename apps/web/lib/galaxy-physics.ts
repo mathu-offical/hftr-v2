@@ -1,10 +1,9 @@
 /**
- * Galaxy 3D physics helpers (TD-09 / D-116 / D-136 / D-139 / D-142).
- * Concepts and tags free-float on semantic springs as distinct celestial bodies;
- * folders own orbital shelf bands (critical when concept_links are sparse);
- * articles are live star hubs that soft-orbit folder systems; concepts soft-orbit
- * those live hubs. Hierarchy may intersect — weight/similarity springs dominate
- * when dense; nest orbits dominate when links are sparse (D-142).
+ * Galaxy 3D physics helpers (TD-09 / D-116 / D-136 / D-139 / D-142 / D-145).
+ * Semantic similarity springs bridge nests; packing is soft so related libraries
+ * can interact. Folders own orbital shelf bands; articles are live star hubs.
+ * When concept_links are sparse, client semantic springs (overlap / tags /
+ * membership) carry interaction (D-145).
  */
 
 import type { ResearchGraphLibraryNest, ResearchGraphLink } from '@hftr/contracts';
@@ -214,29 +213,30 @@ export function computeLibraryCenters3D(
 
   const centers = new Map<string, LibraryCenter3D>();
   const n = Math.max(ranked.length, 1);
-  // Wide shells so post-separation still fills volume (D-116 / D-132).
-  const baseShell = 340 + Math.min(480, n * 58);
+  // Wide shells so post-separation still fills volume — softened so related
+  // libraries can interact via semantic springs (D-145; was D-132 hard separation).
+  const baseShell = 160 + Math.min(240, n * 36);
 
   ranked.forEach((id, i) => {
     const meta = libMeta.get(id);
     const conceptCount = meta?.conceptCount ?? 3;
-    const sizeBoost = Math.min(120, conceptCount * 2.4);
+    const sizeBoost = Math.min(90, conceptCount * 1.8);
     // Size tiers → concentric shells (inner = denser/larger libs, outer = sparse).
     const tier = Math.min(2, Math.floor((i / n) * 3));
-    const shellR = baseShell + tier * 190 + sizeBoost * 0.35;
+    const shellR = baseShell + tier * 95 + sizeBoost * 0.3;
     const unit = fibonacciSpherePoint(i, n);
     const pos = scaleSpherePoint(unit, shellR);
     centers.set(id, {
       x: pos.x,
       y: pos.y,
       z: pos.z,
-      // Cap radii so Fibonacci neighbors can separate cleanly after the gap pass.
-      radius: 34 + Math.min(95, conceptCount * 2.1 + sizeBoost * 0.28),
+      // Softer radii — allow soft overlap; semantic springs bridge systems (D-145).
+      radius: 28 + Math.min(72, conceptCount * 1.6 + sizeBoost * 0.22),
       name: meta?.name ?? 'Library',
     });
   });
 
-  separateLibraryCenters(centers);
+  separateLibraryCenters(centers, 1.06, 8);
   return centers;
 }
 
@@ -764,13 +764,13 @@ export function createLibraryCohereForce() {
 }
 
 /**
- * Very soft keep-out so foreign systems can intersect (D-136). Nearly off vs D-132.
+ * Near-off foreign keep-out so semantically related systems can overlap (D-145).
  */
 export function createForeignLibraryRepelForce(centers: Map<string, LibraryCenter3D>) {
   let nodes: GalaxySimNode[] = [];
 
   function force(alpha: number) {
-    const strength = alpha * 0.08;
+    const strength = alpha * 0.02;
     for (const node of nodes) {
       if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
       const home = node.primaryLibraryId;
@@ -781,7 +781,7 @@ export function createForeignLibraryRepelForce(centers: Map<string, LibraryCente
         const dy = (node.y ?? 0) - center.y;
         const dz = (node.z ?? 0) - center.z;
         const dist = Math.hypot(dx, dy, dz) || 1e-6;
-        const keepOut = center.radius * 0.55;
+        const keepOut = center.radius * 0.35;
         if (dist >= keepOut) continue;
         const k = ((keepOut - dist) / dist) * strength;
         node.vx = (node.vx ?? 0) + dx * k;
@@ -799,19 +799,27 @@ export function createForeignLibraryRepelForce(centers: Map<string, LibraryCente
 }
 
 /**
- * Hierarchy gently biases springs; semantic weight/similarity still dominate (D-136).
- * Systems and orbits may intersect via cross-membership edges.
+ * Hierarchy gently biases springs; semantic similarity can bridge systems (D-145).
+ * High cross-nest similarity pulls harder than same-library low similarity.
  */
 export function hierarchicalLinkScale(opts: {
   sameLibrary: boolean;
   sameFolder: boolean;
   sameArticle: boolean;
+  similarityBand?: SimilarityBand;
 }): { distanceMul: number; strengthMul: number } {
-  if (opts.sameArticle) return { distanceMul: 0.8, strengthMul: 1.15 };
-  if (opts.sameFolder) return { distanceMul: 0.9, strengthMul: 1.06 };
-  if (opts.sameLibrary) return { distanceMul: 1, strengthMul: 1 };
-  // Cross-library: still fully active so semantic relations can bridge systems.
-  return { distanceMul: 1.18, strengthMul: 0.88 };
+  const band = opts.similarityBand;
+  if (opts.sameArticle) return { distanceMul: 0.78, strengthMul: 1.2 };
+  if (opts.sameFolder) return { distanceMul: 0.88, strengthMul: 1.1 };
+  if (opts.sameLibrary) {
+    if (band === 'high') return { distanceMul: 0.82, strengthMul: 1.18 };
+    if (band === 'medium') return { distanceMul: 0.95, strengthMul: 1.05 };
+    return { distanceMul: 1, strengthMul: 1 };
+  }
+  // Cross-library: high/medium similarity bridges nests; low stays longer/weaker.
+  if (band === 'high') return { distanceMul: 0.8, strengthMul: 1.25 };
+  if (band === 'medium') return { distanceMul: 0.95, strengthMul: 1.08 };
+  return { distanceMul: 1.12, strengthMul: 0.92 };
 }
 
 /** @deprecated Prefer hierarchicalLinkScale — kept for call-site migration. */
@@ -986,7 +994,8 @@ export function combineLinkLayout(
   const similarityStrength = linkStrengthForSimilarity(similarityBand);
 
   return {
-    distance: 0.55 * weightDistance + 0.45 * similarityDistance,
-    strength: Math.max(weightStrength, similarityStrength * 0.85),
+    // Prefer qualitative similarity so related concepts pull across nests (D-145).
+    distance: 0.4 * weightDistance + 0.6 * similarityDistance,
+    strength: Math.max(weightStrength * 0.9, similarityStrength),
   };
 }

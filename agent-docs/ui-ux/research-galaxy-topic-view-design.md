@@ -140,6 +140,10 @@ chips drawn from visible concepts’ tags (and optionally topic-level keywords).
   forces use **radial orbital bands** + tangential ring spread (not core attract);
   seeds place on shelf shells; article stars collide/repel locally. `layoutStats`
   reports folder/article orbit membership fractions.
+- **D-145 semantic interaction:** client builds medium/high **overlap**, **shared display
+  tag**, and **membership** springs so related concepts pull across soft-packed library
+  nests; high cross-nest similarity strengthens bridges. System/catalog tags stay out of
+  satellites and tag bridges.
 - A larger **company envelope** sphere outlines the full organizational cloud.
 - **Volume packing (D-116):** library / folder / article *centers* use **Fibonacci-sphere**
   samples on concentric shells so XYZ volume is used

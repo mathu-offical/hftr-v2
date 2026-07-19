@@ -9,10 +9,9 @@ export const MarketPostureStageScreenId = [
   'capital',
   'library',
   'live',
-  'adapt',
   'process',
   'seals',
-  'compose',
+  'day',
 ] as const;
 export type MarketPostureStageScreenId = (typeof MarketPostureStageScreenId)[number];
 
@@ -51,26 +50,17 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
   },
   {
     id: 'live',
-    label: 'Live APIs',
-    summary: 'Entitled live data sources and feed honesty',
-    nodeIdPrefixes: ['live:'],
-    nodeRoles: ['live_source'],
+    label: 'Live ingest',
+    summary: 'Live APIs → adapters → filtered source readouts',
+    nodeIdPrefixes: ['live:', 'adapter:'],
+    nodeRoles: ['live_source', 'adapter'],
     stageIds: ['providers'],
-    panelSurfaceIds: [],
-  },
-  {
-    id: 'adapt',
-    label: 'Adapters',
-    summary: 'Normalize / adapt live and library feeds',
-    nodeIdPrefixes: ['adapter:'],
-    nodeRoles: ['adapter'],
-    stageIds: [],
     panelSurfaceIds: [],
   },
   {
     id: 'process',
     label: 'Process',
-    summary: 'Link, score, rank, verify — awareness levels',
+    summary: 'Ingest filtered feeds, link, set limits, cost basis',
     nodeIdPrefixes: ['process:'],
     nodeRoles: ['process'],
     stageIds: ['gather', 'thresholds', 'defaults', 'universe', 'rs', 'rank', 'verify'],
@@ -92,9 +82,9 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
     panelSurfaceIds: ['movers', 'news', 'reports'],
   },
   {
-    id: 'compose',
-    label: 'Compose',
-    summary: 'Hub projection, charts, recommendations',
+    id: 'day',
+    label: 'Day plan',
+    summary: 'Processed movements, actions, and trends for today',
     nodeIdPrefixes: ['panel:'],
     nodeRoles: ['panel_surface'],
     stageIds: ['hub_ready'],
@@ -139,7 +129,7 @@ export function resolveStageScreenId(input: {
     for (const screen of MARKET_POSTURE_STAGE_SCREENS) {
       if (screen.panelSurfaceIds.includes(surface)) return screen.id;
     }
-    return 'compose';
+    return 'day';
   }
 
   for (const screen of MARKET_POSTURE_STAGE_SCREENS) {
@@ -161,6 +151,10 @@ export function resolveStageScreenId(input: {
       if (screen.nodeRoles?.includes(role)) return screen.id;
     }
   }
+
+  // Legacy ids from earlier D-186 drafts.
+  if (nodeId.startsWith('group:adapt') || role === 'adapter') return 'live';
+  if (nodeId.startsWith('group:compose')) return 'day';
 
   return 'process';
 }

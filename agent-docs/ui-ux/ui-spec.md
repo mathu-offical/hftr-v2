@@ -318,16 +318,19 @@ are ignored. Shortcuts are suppressed in editable fields.
      `name` + inline amount
   Fund-router hops and research engine envelopes are **not** listed. Sync + **Day view**.
   Canvas overlay (**D-186**): two-band workspace — horizontal **stage screens**
-  (capital / library / live / adapt / process / seals / compose) snap-scroll above a
+  (capital / library / live / process / seals / day) snap-scroll above a
   fixed bottom **Model diagram strip**. Each pipeline column emits into the screen above
   it; clicking a Model node (or section group) navigates to that screen. Each stage
   screen opens with a **Processing now** tape of live hub/synthesis rows for that
-  column (sources, flows, steps, sealed boards, panel surfaces). **Capital** stage
+  column (sources+adapters, ingest/links/limits/cost, sealed boards, day plan). Each stage
+  opens with **hydrated graphs** derived from that column's hub/Model data (allocation,
+  entitlement, process/link/cost, seal bands, day movements/actions/trends) — not leftover
+  metrics from other screens. **Capital** stage
   shows root user-controlled funds only (company pool + holding funds), engine
   allocation splits, master equity, and open position mark/uPnL values — not every
-  capital-bearing Model node. Content below: positions/library, entitled live sources,
-  adapters, awareness + process steps, stock/news seals + reports, charts +
-  recommendations + awareness dock.
+  capital-bearing Model node. Content below: positions/library, combined live APIs +
+  adapters with filtered source readouts, process ingest + linking + limits + cost basis,
+  stock/news seals + reports, day plan movements/actions/trends.
   Analyze reseals stock compound + sector news in parallel.
   Distinct from Research (async corpus).   Hub data uses client **SWR cache**
   (`market-hub-cache` + `useMarketHub`): memory + sessionStorage, 15s fresh / 10m stale for
@@ -370,7 +373,7 @@ are ignored. Shortcuts are suppressed in editable fields.
   Overlay shows the resolved phase label after Analyze.
   Overlay **Model** is a **fixed bottom strip** (D-186) — the live synthesis hydration hub
   (D-147 / D-156 / D-160 / D-161 / D-162 / D-163 / D-165 / D-169) —
-  React Flow with **screen-column grouped nodes** (capital→compose frames) nesting live /
+  React Flow with **screen-column grouped nodes** (capital→day frames) nesting live /
   library / capital sources, adapters, process steps, stages, and panel surfaces so the
   strip aligns with the stage screens above. Strip mode drops lane labels and caps density
   per group. Click group or child → navigate owning screen.

@@ -20,6 +20,7 @@ import {
   type WatchlistTierFilter,
 } from '@/components/panels/WatchlistTierFilters';
 import {
+  dollarsFromCents,
   formatOrientation,
   reportKindLabel,
 } from '@/components/panels/market-posture-format';
@@ -36,6 +37,14 @@ import {
   buildRootUserCapitalView,
   formatCapitalCents,
 } from '@/lib/market-posture-root-capital';
+import {
+  buildCapitalStageCharts,
+  buildDayStageCharts,
+  buildLibraryStageCharts,
+  buildLiveStageCharts,
+  buildProcessStageCharts,
+  buildSealsStageCharts,
+} from '@/lib/market-posture-stage-charts';
 
 function focusRing(active: boolean): string {
   return active
@@ -286,9 +295,7 @@ function renderScreenBody(
     case 'library':
       return <LibraryScreen hub={hub} mp={mp} />;
     case 'live':
-      return <LiveScreen hub={hub} />;
-    case 'adapt':
-      return <AdaptScreen hub={hub} />;
+      return <LiveIngestScreen hub={hub} />;
     case 'process':
       return <ProcessScreen hub={hub} />;
     case 'seals':
@@ -301,9 +308,9 @@ function renderScreenBody(
           openReport={props.openReport}
         />
       );
-    case 'compose':
+    case 'day':
       return (
-        <ComposeScreen
+        <DayPlanScreen
           hub={hub}
           mp={mp}
           watchlistTierFilter={props.watchlistTierFilter}
@@ -326,6 +333,7 @@ function CapitalScreen(props: {
   companyMode: MarketPostureViewContextValue['companyMode'];
 }) {
   const view = buildRootUserCapitalView(props.hub);
+  const charts = buildCapitalStageCharts(props.hub, view);
   const poolLabel = formatCapitalCents(view.companyPool?.allocationCents);
   const equityLabel = formatCapitalCents(view.equityCents);
 
@@ -365,6 +373,24 @@ function CapitalScreen(props: {
         <SourceVerifyChips
           chips={props.hub.equity.sourceChips ?? []}
           data-testid="market-posture-equity-source-chips"
+        />
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-3">
+        <MarketPosturePieChart
+          title="Root funds split"
+          slices={charts.rootFunds}
+          empty="No root fund balances"
+        />
+        <MarketPosturePieChart
+          title="Engine allocations"
+          slices={charts.engineSplit}
+          empty="No engine desk splits"
+        />
+        <MarketPosturePieChart
+          title="Open book by mark"
+          slices={charts.bookAllocation}
+          empty="No open position notionals"
         />
       </section>
 
@@ -499,8 +525,32 @@ function LibraryScreen(props: {
 }) {
   const positions = props.hub.positions;
   const libSources = props.hub.modelHydration?.librarySources ?? [];
+  const charts = buildLibraryStageCharts(props.hub);
   return (
     <>
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <MarketPosturePieChart
+          title="Book by mark"
+          slices={charts.bookAllocation}
+          empty="No open positions"
+        />
+        <MarketPostureMetricBars
+          title="Held uPnL mix"
+          slices={charts.pnlMix}
+          empty="No position PnL yet"
+        />
+        <MarketPosturePieChart
+          title="Library shelves"
+          slices={charts.shelfMix}
+          empty="No library sources hydrated"
+        />
+        <MarketPostureMetricBars
+          title="Corpus admission"
+          slices={charts.admission}
+          empty="No admitted concepts"
+        />
+      </section>
+
       <section className="space-y-2">
         <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
           Open positions{' '}
@@ -585,106 +635,213 @@ function LibraryScreen(props: {
   );
 }
 
-function LiveScreen(props: { hub: MarketHubResponse }) {
-  const live = props.hub.modelHydration?.liveSources ?? [];
+function LiveIngestScreen(props: { hub: MarketHubResponse }) {
+  const { hub } = props;
+  const live = hub.modelHydration?.liveSources ?? [];
+  const flows = hub.modelHydration?.processingFlows ?? [];
+  const totals = hub.modelHydration?.totals;
+  const lanes = hub.sources.lanes;
+  const charts = buildLiveStageCharts(hub);
+
   return (
     <>
-      <section className="space-y-2">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <MarketPosturePieChart
+          title="Lane entitlement"
+          slices={charts.sourceReady}
+          empty="No lane inventory"
+        />
+        <MarketPosturePieChart
+          title="Source domains"
+          slices={charts.domainMix}
+          empty="No domains hydrated"
+        />
+        <MarketPostureMetricBars
+          title="Filtered into seal"
+          slices={charts.contributeMix}
+          empty="No contribution mix yet"
+        />
+        <MarketPostureMetricBars
+          title="Adapter flow status"
+          slices={charts.adapterStatus}
+          empty="No adapter flows hydrated"
+        />
+      </section>
+
+      <section className="space-y-2 rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2.5">
         <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          Entitled sources
+          Live entitlement strip
         </h3>
-        <MarketPostureSourcesStrip sources={props.hub.sources} />
+        <MarketPostureSourcesStrip sources={hub.sources} />
         <p className="text-[10px] text-[var(--color-ink-dim)]">
-          Mark feed: {props.hub.sources.markFeedClass}
-          {props.hub.sources.scannedAt
-            ? ` · scanned ${formatOrientation(props.hub.sources.scannedAt)}`
+          Mark feed: {hub.sources.markFeedClass}
+          {hub.sources.scannedAt
+            ? ` · scanned ${formatOrientation(hub.sources.scannedAt)}`
+            : ''}
+          {totals
+            ? ` · ready ${totals.liveReady} · admitted ${totals.admittedConcepts}`
             : ''}
         </p>
       </section>
-      <ul className="space-y-1.5">
-        {live.length === 0 ? (
-          <li className="text-xs text-[var(--color-ink-faint)]">
-            No live sources in Model hydration — connect research keys / broker.
-          </li>
-        ) : (
-          live.map((s) => (
-            <li
-              key={s.kind}
-              className="rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2 py-1.5 text-xs"
-            >
-              <span className="font-medium text-[var(--color-ink)]">{s.label}</span>
-              <span className="ml-2 font-mono text-[9px] uppercase text-[var(--color-ink-faint)]">
-                {s.status}
-                {s.contributed ? ' · contributed' : ''}
-              </span>
-              <p className="mt-0.5 text-[10px] text-[var(--color-ink-dim)]">
-                {s.operation} · {s.amount}
-              </p>
-            </li>
-          ))
-        )}
-      </ul>
-    </>
-  );
-}
 
-function AdaptScreen(props: { hub: MarketHubResponse }) {
-  const flows = props.hub.modelHydration?.processingFlows ?? [];
-  const totals = props.hub.modelHydration?.totals;
-  return (
-    <>
-      <p className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-        Adapter / hydrate status
-        {totals
-          ? ` · live ready ${totals.liveReady} · admitted ${totals.admittedConcepts}`
-          : ''}
-      </p>
-      {flows.length === 0 ? (
-        <p className="text-xs text-[var(--color-ink-faint)]">
-          No processing flows yet — Sync or Analyze to hydrate adapters.
-        </p>
-      ) : (
-        <ul className="space-y-1.5">
-          {flows.map((f) => (
-            <li
-              key={f.id}
-              className="rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2 py-1.5 text-xs"
-            >
-              <span className="font-medium">{f.adapterLabel}</span>
-              <span className="ml-2 font-mono text-[9px] uppercase text-[var(--color-ink-faint)]">
-                {f.status}
-                {f.contributed ? ' · contributed' : ''}
-              </span>
-              <p className="mt-0.5 text-[10px] text-[var(--color-ink-dim)]">
-                {f.operation} · {f.amount}
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
+      <section className="space-y-2">
+        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+          Source → adapter → filtered readout
+        </h3>
+        {lanes.length === 0 && live.length === 0 ? (
+          <p className="text-xs text-[var(--color-ink-faint)]">
+            No live sources — connect research keys / broker, then Sync.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {(lanes.length > 0 ? lanes : live.map((s) => ({
+              kind: s.kind,
+              label: s.label,
+              status: s.status,
+              domain: s.domain,
+              contributed: s.contributed,
+            }))).map((lane) => {
+              const hydration = live.find((s) => s.kind === lane.kind);
+              const relatedFlows = flows.filter(
+                (f) =>
+                  f.route?.toLowerCase().includes(String(lane.kind).toLowerCase()) ||
+                  f.analysisRoles.some((r) =>
+                    String(lane.domain ?? '').toLowerCase().includes(r.toLowerCase()),
+                  ) ||
+                  f.adapterLabel.toLowerCase().includes(String(lane.label).toLowerCase().slice(0, 6)),
+              );
+              const readout =
+                hydration?.amount ??
+                (lane.contributed ? 'contributed' : lane.status);
+              return (
+                <li
+                  key={String(lane.kind)}
+                  className="rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2.5 py-2"
+                >
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <div>
+                      <span className="text-xs font-medium text-[var(--color-ink)]">
+                        {lane.label}
+                      </span>
+                      <span className="ml-2 font-mono text-[9px] uppercase text-[var(--color-ink-faint)]">
+                        {lane.domain ?? hydration?.domain ?? 'live'} · {lane.status}
+                        {lane.contributed ? ' · contributed' : ''}
+                      </span>
+                    </div>
+                    <span className="font-mono text-[10px] text-[var(--color-accent)]">
+                      {readout}
+                    </span>
+                  </div>
+                  {hydration ? (
+                    <p className="mt-1 text-[10px] text-[var(--color-ink-dim)]">
+                      Filter op: {hydration.operation}
+                    </p>
+                  ) : null}
+                  {relatedFlows.length > 0 ? (
+                    <ul className="mt-1.5 space-y-1 border-t border-[var(--color-line)] pt-1.5">
+                      {relatedFlows.map((f) => (
+                        <li
+                          key={f.id}
+                          className="flex flex-wrap items-baseline justify-between gap-1 text-[10px] text-[var(--color-ink-dim)]"
+                        >
+                          <span>
+                            <span className="font-mono uppercase text-[var(--color-ink-faint)]">
+                              adapter
+                            </span>{' '}
+                            {f.adapterLabel}
+                          </span>
+                          <span className="font-mono text-[var(--color-ink-faint)]">
+                            {f.operation} · {f.amount} · {f.status}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
+                      No adapter flow matched this source yet
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      {flows.length > 0 ? (
+        <section className="space-y-1.5">
+          <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+            All adapter flows
+          </h3>
+          <ul className="grid gap-1.5 sm:grid-cols-2">
+            {flows.map((f) => (
+              <li
+                key={f.id}
+                className="rounded border border-[var(--color-line)] px-2 py-1.5 text-xs"
+              >
+                <span className="font-medium">{f.adapterLabel}</span>
+                <span className="ml-2 font-mono text-[9px] uppercase text-[var(--color-ink-faint)]">
+                  {f.status}
+                  {f.contributed ? ' · contributed' : ''}
+                </span>
+                <p className="mt-0.5 text-[10px] text-[var(--color-ink-dim)]">
+                  {f.operation} · {f.amount}
+                  {f.route ? ` · ${f.route}` : ''}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </>
   );
 }
 
 function ProcessScreen(props: { hub: MarketHubResponse }) {
-  const steps = props.hub.modelHydration?.processSteps ?? [];
+  const { hub } = props;
+  const steps = hub.modelHydration?.processSteps ?? [];
+  const stageOps = hub.modelHydration?.stageOps ?? [];
+  const limitOps = stageOps.filter(
+    (s) => s.stageId === 'thresholds' || s.stageId === 'defaults',
+  );
+  const aw = hub.awarenessAnalysis;
+  const charts = buildProcessStageCharts(hub);
+
   return (
     <>
-      {props.hub.awarenessAnalysis ? (
-        <MarketPostureAwarenessLevels analysis={props.hub.awarenessAnalysis} />
-      ) : (
-        <p className="text-xs text-[var(--color-ink-faint)]">
-          Awareness levels appear after linkage analysis is projected.
-        </p>
-      )}
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <MarketPostureMetricBars
+          title="Ingest process functions"
+          slices={charts.processFunctions}
+          empty="No process steps hydrated"
+        />
+        <MarketPosturePieChart
+          title="Link strength"
+          slices={charts.linkStrength}
+          empty="No awareness links"
+        />
+        <MarketPosturePieChart
+          title="Link sources"
+          slices={charts.linkFrom}
+          empty="No link origins"
+        />
+        <MarketPosturePieChart
+          title="Cost basis by symbol"
+          slices={charts.costBasis}
+          empty="No held cost basis"
+        />
+      </section>
+
       <section className="space-y-1.5">
         <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          Process steps
+          Ingest filtered feeds
         </h3>
         {steps.length === 0 ? (
-          <p className="text-xs text-[var(--color-ink-faint)]">No process steps in hydration</p>
+          <p className="text-xs text-[var(--color-ink-faint)]">
+            No process steps yet — Sync or Analyze to hydrate ingest.
+          </p>
         ) : (
-          <ul className="max-h-56 space-y-1 overflow-y-auto">
+          <ul className="max-h-40 space-y-1 overflow-y-auto">
             {steps.slice(0, 40).map((s) => (
               <li
                 key={s.id}
@@ -699,6 +856,108 @@ function ProcessScreen(props: { hub: MarketHubResponse }) {
           </ul>
         )}
       </section>
+
+      <section className="space-y-1.5">
+        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+          Linking
+        </h3>
+        {aw ? (
+          <>
+            <MarketPostureAwarenessLevels analysis={aw} />
+            <div className="grid gap-2 md:grid-cols-2">
+              <CategoryBlock title="Evidence" empty="No evidence" count={aw.evidence.length}>
+                {aw.evidence.slice(0, 12).map((ev) => (
+                  <li
+                    key={ev.id}
+                    className="rounded border border-[var(--color-line)] px-1.5 py-1 text-xs"
+                  >
+                    <span className="font-medium">{ev.label}</span>
+                    <span className="ml-1 font-mono text-[9px] text-[var(--color-ink-faint)]">
+                      {ev.kind} · {ev.linkedSymbolCount} symbols · {ev.strengthBand}
+                    </span>
+                  </li>
+                ))}
+              </CategoryBlock>
+              <CategoryBlock title="Links" empty="No links" count={aw.links.length}>
+                {aw.links.slice(0, 12).map((link) => (
+                  <li
+                    key={link.id}
+                    className="rounded border border-[var(--color-line)] px-1.5 py-1 text-xs"
+                  >
+                    <span className="font-medium">
+                      {link.fromLabel} → {link.toId}
+                    </span>
+                    <span className="ml-1 font-mono text-[9px] text-[var(--color-ink-faint)]">
+                      {link.fromKind}→{link.toKind} · {link.strengthBand}
+                    </span>
+                  </li>
+                ))}
+              </CategoryBlock>
+            </div>
+          </>
+        ) : (
+          <p className="text-xs text-[var(--color-ink-faint)]">
+            Awareness links appear after linkage analysis is projected.
+          </p>
+        )}
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-1.5">
+          <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+            Limits · thresholds & defaults
+          </h3>
+          {limitOps.length === 0 ? (
+            <p className="text-xs text-[var(--color-ink-faint)]">No limit stage ops hydrated</p>
+          ) : (
+            <ul className="space-y-1">
+              {limitOps.map((op) => (
+                <li
+                  key={op.stageId}
+                  className="flex flex-wrap items-baseline justify-between gap-1 rounded border border-[var(--color-line)] px-2 py-1.5 text-xs"
+                >
+                  <span className="font-mono uppercase text-[var(--color-ink-faint)]">
+                    {op.stageId}
+                  </span>
+                  <span className="text-[var(--color-ink-dim)]">
+                    {op.operation} · {op.amount}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+            Cost basis · mark vs avg
+          </h3>
+          {hub.positions.length === 0 ? (
+            <p className="text-xs text-[var(--color-ink-faint)]">No open positions</p>
+          ) : (
+            <ul className="max-h-48 space-y-1 overflow-y-auto">
+              {hub.positions.map((p) => (
+                <li
+                  key={p.id}
+                  className="rounded border border-[var(--color-line)] px-2 py-1.5 text-xs"
+                >
+                  <div className="flex flex-wrap items-baseline justify-between gap-1">
+                    <span className="font-medium">{p.symbol}</span>
+                    <span className="font-mono text-[10px] text-[var(--color-ink-faint)]">
+                      qty {String(p.qty)}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 font-mono text-[10px] text-[var(--color-ink-dim)]">
+                    cost {dollarsFromCents(p.avgCostCents)} · mark{' '}
+                    {dollarsFromCents(p.markCents)} · uPnL{' '}
+                    {dollarsFromCents(p.unrealizedPnlCents)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
     </>
   );
 }
@@ -711,8 +970,32 @@ function SealsScreen(props: {
   openReport: (conceptId: string) => void;
 }) {
   const { hub, dayLens, moversStale, openReport } = props;
+  const charts = buildSealsStageCharts(hub);
   return (
     <>
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <MarketPostureMetricBars
+          title="Sealed mover directions"
+          slices={charts.moverDirections}
+          empty="No sealed movers"
+        />
+        <MarketPosturePieChart
+          title="Mover strength bands"
+          slices={charts.moverStrength}
+          empty="No mover strength"
+        />
+        <MarketPosturePieChart
+          title="News seal bands"
+          slices={charts.newsStrength}
+          empty="No news seal items"
+        />
+        <MarketPostureMetricBars
+          title="Report kinds"
+          slices={charts.reportKinds}
+          empty="No sealed reports"
+        />
+      </section>
+
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
           Live streams
@@ -924,7 +1207,7 @@ function SealsScreen(props: {
   );
 }
 
-function ComposeScreen(props: {
+function DayPlanScreen(props: {
   hub: MarketHubResponse;
   mp: MarketPostureViewContextValue;
   watchlistTierFilter: WatchlistTierFilter;
@@ -934,36 +1217,94 @@ function ComposeScreen(props: {
   openReport: (conceptId: string) => void;
 }) {
   const { hub, mp } = props;
+  const charts = buildDayStageCharts(hub);
+  const actionWatchlists = props.filteredWatchlists.filter(
+    (w) =>
+      w.status === 'suggested_search' ||
+      w.status === 'suggested_verified' ||
+      w.status === 'watching',
+  );
+
   return (
     <>
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <MarketPosturePieChart
-          title="Watchlist tiers"
-          slices={hub.charts.watchlistTiers}
-          empty="No watchlist rows"
-        />
+      <section className="grid gap-3 sm:grid-cols-3">
         <MarketPostureMetricBars
-          title="Trend strength"
-          slices={hub.charts.trendStrength}
-          empty="No trend candidates"
-        />
-        <MarketPostureMetricBars
-          title="Mover directions"
-          slices={hub.charts.moverDirections}
+          title="Movements · sealed direction"
+          slices={charts.movements}
           empty="No sealed movers"
         />
         <MarketPosturePieChart
-          title="Provider surfaces"
-          slices={hub.charts.sourceReady}
-          empty="No lane inventory"
+          title="Actions · watch + plans"
+          slices={charts.actions}
+          empty="No suggested actions"
+        />
+        <MarketPostureMetricBars
+          title="Trends · strength"
+          slices={charts.trends}
+          empty="No trend candidates"
         />
       </section>
 
       <section className="grid gap-3 md:grid-cols-3">
         <CategoryBlock
-          title="Recommendations · watch"
-          empty="No watchlists for this tier"
-          count={props.filteredWatchlists.length}
+          title="Movements"
+          empty="No sealed movements for today"
+          count={hub.movers.items.length}
+        >
+          {hub.movers.items.slice(0, 16).map((item, i) => {
+            const symbol = item.symbolOrSector?.trim().replace(/^\$/, '').toUpperCase() ?? null;
+            const viz =
+              hub.movers.itemViz.find((v) => v.symbol === symbol) ?? null;
+            const focused = Boolean(symbol && mp.selectedSymbol === symbol);
+            return (
+              <li
+                key={`${item.symbolOrSector ?? 'm'}-${i}`}
+                className={`rounded border px-1.5 py-1 text-xs ${focusRing(focused)}`}
+              >
+                <button
+                  type="button"
+                  className="w-full text-left"
+                  onClick={() => {
+                    if (!symbol) return;
+                    mp.focusEntity({
+                      symbol,
+                      positionId: null,
+                      stageScreenId: 'day',
+                    });
+                  }}
+                >
+                  {viz ? (
+                    <SymbolTicker
+                      viz={viz}
+                      density="compact"
+                      meta={
+                        <span className="text-[10px] text-[var(--color-ink-faint)]">
+                          {[item.directionBand, item.strengthBand].filter(Boolean).join(' · ')}
+                        </span>
+                      }
+                    />
+                  ) : (
+                    <>
+                      <span className="font-medium">{item.symbolOrSector ?? '—'}</span>
+                      <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
+                        {[item.directionBand, item.strengthBand].filter(Boolean).join(' · ') ||
+                          'movement'}
+                      </span>
+                    </>
+                  )}
+                </button>
+                {item.headline ? (
+                  <p className="mt-0.5 text-[10px] text-[var(--color-ink-dim)]">{item.headline}</p>
+                ) : null}
+              </li>
+            );
+          })}
+        </CategoryBlock>
+
+        <CategoryBlock
+          title="Actions"
+          empty="No suggested actions for this tier"
+          count={actionWatchlists.length + hub.pipeline.length}
           headerExtra={
             <WatchlistTierFilterChips
               value={props.watchlistTierFilter}
@@ -972,7 +1313,7 @@ function ComposeScreen(props: {
             />
           }
         >
-          {props.filteredWatchlists.slice(0, 16).map((w) => {
+          {actionWatchlists.slice(0, 12).map((w) => {
             const focused = mp.selectedSymbol === w.symbol && mp.category === 'watchlists';
             return (
               <li
@@ -983,11 +1324,8 @@ function ComposeScreen(props: {
                 <Justification
                   sourceClass={w.sourceClass === 'operator' ? 'operator' : 'derived'}
                   lines={[
-                    w.note || 'Watchlist row',
-                    `Source: ${w.sourceClass} · status ${w.status}`,
-                    w.viz?.heldVsCost
-                      ? `Also held — P&L color wins (${w.viz.heldVsCost}).`
-                      : `Relevance ${w.viz?.relevanceBand ?? 'n/a'} (non-color ticks).`,
+                    w.note || 'Suggested action',
+                    `Status ${w.status} · bias ${w.bias}`,
                   ]}
                 >
                   <button
@@ -999,7 +1337,7 @@ function ComposeScreen(props: {
                         category: 'watchlists',
                         positionId: null,
                         openOverlay: true,
-                        stageScreenId: 'compose',
+                        stageScreenId: 'day',
                       })
                     }
                   >
@@ -1009,7 +1347,7 @@ function ComposeScreen(props: {
                         density="compact"
                         meta={
                           <span className="text-[10px] text-[var(--color-ink-faint)]">
-                            {w.bias} · {w.status} · {w.sourceClass}
+                            {w.bias} · {w.status}
                           </span>
                         }
                       />
@@ -1017,7 +1355,7 @@ function ComposeScreen(props: {
                       <>
                         <span className="font-medium">{w.symbol}</span>
                         <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
-                          {w.bias} · {w.status} · {w.sourceClass} · {w.moduleName}
+                          {w.bias} · {w.status}
                         </span>
                       </>
                     )}
@@ -1039,13 +1377,43 @@ function ComposeScreen(props: {
               </li>
             );
           })}
+          {hub.pipeline.slice(0, 8).map((row) => {
+            const focused = mp.selectedSymbol === row.symbol && mp.category === 'pipeline';
+            return (
+              <li
+                key={`pipe:${row.symbol}`}
+                data-posture-focus-symbol={row.symbol}
+                className={`rounded border px-1.5 py-1 text-xs ${focusRing(focused)}`}
+              >
+                <button
+                  type="button"
+                  className="w-full text-left"
+                  onClick={() =>
+                    mp.focusEntity({
+                      symbol: row.symbol,
+                      category: 'pipeline',
+                      positionId: null,
+                      stageScreenId: 'day',
+                    })
+                  }
+                >
+                  <span className="font-medium">{row.symbol}</span>
+                  <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
+                    plan · {row.lead?.status ?? 'no lead'}
+                    {row.tree ? ` · tree ${row.tree.status}` : ''}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </CategoryBlock>
+
         <CategoryBlock
-          title="Recommendations · trends"
+          title="Trends"
           empty="No trend candidates"
           count={hub.trendCandidates.length}
         >
-          {hub.trendCandidates.slice(0, 12).map((t) => {
+          {hub.trendCandidates.slice(0, 16).map((t) => {
             const focused = mp.selectedSymbol === t.symbol && mp.category === 'trends';
             return (
               <li
@@ -1061,7 +1429,7 @@ function ComposeScreen(props: {
                       symbol: t.symbol,
                       category: 'trends',
                       positionId: null,
-                      stageScreenId: 'compose',
+                      stageScreenId: 'day',
                     })
                   }
                 >
@@ -1071,7 +1439,7 @@ function ComposeScreen(props: {
                       density="compact"
                       meta={
                         <span className="text-[10px] text-[var(--color-ink-faint)]">
-                          {t.status}
+                          {t.direction} · {t.strengthBand} · {t.status}
                         </span>
                       }
                     />
@@ -1087,41 +1455,6 @@ function ComposeScreen(props: {
                 <div className="mt-0.5">
                   <EngineChips engines={t.engines} />
                 </div>
-              </li>
-            );
-          })}
-        </CategoryBlock>
-        <CategoryBlock
-          title="Recommendations · plans"
-          empty="No lead / tree plans"
-          count={hub.pipeline.length}
-        >
-          {hub.pipeline.slice(0, 12).map((row) => {
-            const focused = mp.selectedSymbol === row.symbol && mp.category === 'pipeline';
-            return (
-              <li
-                key={row.symbol}
-                data-posture-focus-symbol={row.symbol}
-                className={`rounded border px-1.5 py-1 text-xs ${focusRing(focused)}`}
-              >
-                <button
-                  type="button"
-                  className="w-full text-left"
-                  onClick={() =>
-                    mp.focusEntity({
-                      symbol: row.symbol,
-                      category: 'pipeline',
-                      positionId: null,
-                      stageScreenId: 'compose',
-                    })
-                  }
-                >
-                  <span className="font-medium">{row.symbol}</span>
-                  <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
-                    {row.lead?.status ?? 'no lead'}
-                    {row.tree ? ` · tree ${row.tree.status}` : ''}
-                  </span>
-                </button>
               </li>
             );
           })}

@@ -12,22 +12,23 @@ describe('resolveStageScreenId (D-186)', () => {
     expect(resolveStageScreenId({ nodeId: 'live:alpaca_bars' })).toBe('live');
   });
 
-  it('maps adapter and process nodes', () => {
-    expect(resolveStageScreenId({ nodeId: 'adapter:flow-1' })).toBe('adapt');
+  it('maps adapters onto live ingest and process nodes onto process', () => {
+    expect(resolveStageScreenId({ nodeId: 'adapter:flow-1' })).toBe('live');
+    expect(resolveStageScreenId({ nodeRole: 'adapter' })).toBe('live');
     expect(resolveStageScreenId({ nodeId: 'process:step-rs' })).toBe('process');
   });
 
-  it('maps stage milestones onto seals / compose / process', () => {
+  it('maps stage milestones onto seals / day / process', () => {
     expect(resolveStageScreenId({ stageId: 'seal_movers' })).toBe('seals');
     expect(resolveStageScreenId({ nodeId: 'narrative' })).toBe('seals');
-    expect(resolveStageScreenId({ stageId: 'hub_ready' })).toBe('compose');
+    expect(resolveStageScreenId({ stageId: 'hub_ready' })).toBe('day');
     expect(resolveStageScreenId({ stageId: 'rank' })).toBe('process');
   });
 
   it('maps panel surfaces', () => {
     expect(resolveStageScreenId({ panelSurfaceId: 'equity' })).toBe('capital');
     expect(resolveStageScreenId({ nodeId: 'panel:movers' })).toBe('seals');
-    expect(resolveStageScreenId({ nodeId: 'panel:charts' })).toBe('compose');
+    expect(resolveStageScreenId({ nodeId: 'panel:charts' })).toBe('day');
     expect(resolveStageScreenId({ panelSurfaceId: 'awareness_links' })).toBe('process');
   });
 
@@ -36,10 +37,9 @@ describe('resolveStageScreenId (D-186)', () => {
       'capital',
       'library',
       'live',
-      'adapt',
       'process',
       'seals',
-      'compose',
+      'day',
     ]);
     expect(DEFAULT_STAGE_SCREEN_ID).toBe('capital');
   });

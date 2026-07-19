@@ -158,7 +158,7 @@ export function buildStageProcessingRows(
       break;
     }
     case 'live': {
-      for (const lane of hub.sources.lanes.slice(0, 8)) {
+      for (const lane of hub.sources.lanes.slice(0, 6)) {
         pushCap(rows, {
           id: `lane:${lane.kind}`,
           kind: 'live',
@@ -181,10 +181,7 @@ export function buildStageProcessingRows(
           detail: s.domain,
         });
       }
-      break;
-    }
-    case 'adapt': {
-      for (const f of hydration?.processingFlows ?? []) {
+      for (const f of (hydration?.processingFlows ?? []).slice(0, 6)) {
         pushCap(rows, {
           id: `flow:${f.id}`,
           kind: 'adapter',
@@ -198,7 +195,7 @@ export function buildStageProcessingRows(
       break;
     }
     case 'process': {
-      for (const step of (hydration?.processSteps ?? []).slice(0, 10)) {
+      for (const step of (hydration?.processSteps ?? []).slice(0, 8)) {
         pushCap(rows, {
           id: `step:${step.id}`,
           kind: 'step',
@@ -211,16 +208,6 @@ export function buildStageProcessingRows(
       }
       const aw = hub.awarenessAnalysis;
       if (aw) {
-        for (const ev of aw.evidence.slice(0, 4)) {
-          pushCap(rows, {
-            id: `ev:${ev.id}`,
-            kind: 'link',
-            label: ev.label,
-            operation: ev.kind,
-            amount: `${ev.linkedSymbolCount} symbols`,
-            status: ev.strengthBand,
-          });
-        }
         for (const link of aw.links.slice(0, 4)) {
           pushCap(rows, {
             id: `lnk:${link.id}`,
@@ -231,6 +218,28 @@ export function buildStageProcessingRows(
             status: 'linked',
           });
         }
+      }
+      for (const op of (hydration?.stageOps ?? []).filter(
+        (s) => s.stageId === 'thresholds' || s.stageId === 'defaults',
+      )) {
+        pushCap(rows, {
+          id: `limit:${op.stageId}`,
+          kind: 'step',
+          label: op.stageId,
+          operation: op.operation,
+          amount: op.amount,
+          status: 'limit',
+        });
+      }
+      for (const p of hub.positions.slice(0, 4)) {
+        pushCap(rows, {
+          id: `cost:${p.id}`,
+          kind: 'position',
+          label: p.symbol,
+          operation: 'cost_basis',
+          amount: String(p.avgCostCents),
+          status: String(p.markCents),
+        });
       }
       break;
     }
@@ -268,24 +277,30 @@ export function buildStageProcessingRows(
       }
       break;
     }
-    case 'compose': {
-      for (const surf of hydration?.panelSurfaces ?? []) {
+    case 'day': {
+      for (const item of hub.movers.items.slice(0, 4)) {
         pushCap(rows, {
-          id: `panel:${surf.id}`,
-          kind: 'panel',
-          label: surf.label,
-          operation: surf.operation,
-          amount: surf.amount,
-          status: surf.status,
-          detail: surf.panel,
+          id: `move:${item.symbolOrSector ?? rows.length}`,
+          kind: 'board',
+          label: item.symbolOrSector ?? 'movement',
+          operation: 'movement',
+          amount: [item.directionBand, item.strengthBand].filter(Boolean).join(' · ') || '—',
+          status: hub.movers.status,
         });
       }
-      for (const w of hub.watchlists.slice(0, 4)) {
+      for (const w of hub.watchlists
+        .filter(
+          (x) =>
+            x.status === 'suggested_search' ||
+            x.status === 'suggested_verified' ||
+            x.status === 'watching',
+        )
+        .slice(0, 4)) {
         pushCap(rows, {
-          id: `wl:${w.id}`,
+          id: `act:${w.id}`,
           kind: 'rec',
           label: w.symbol,
-          operation: 'watch',
+          operation: 'action',
           amount: w.status,
           status: w.bias,
         });

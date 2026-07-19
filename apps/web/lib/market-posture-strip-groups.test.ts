@@ -37,15 +37,14 @@ describe('applyStripScreenGroups', () => {
       node('seal_movers', 'stage', 'Seal'),
     ]);
     const groups = packed.filter((n) => n.type === 'postureGroup');
-    expect(groups).toHaveLength(7);
+    expect(groups).toHaveLength(6);
     expect(groups.map((g) => g.data.stageScreenId)).toEqual([
       'capital',
       'library',
       'live',
-      'adapt',
       'process',
       'seals',
-      'compose',
+      'day',
     ]);
     expect(packed.some((n) => n.data.nodeRole === 'lane_label')).toBe(false);
     const capitalKids = packed.filter((n) => n.parentId === 'group:capital');

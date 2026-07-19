@@ -1857,9 +1857,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   ingest of filtered feeds, linking, limits (thresholds/defaults), and cost basis.
   **Day** replaces compose — movements, actions, and trends for today. Each diagram column
   emits into the screen above it; clicking a Model node navigates to its owning screen
-  (`resolveStageScreenId`). Mid-page Model section removed. ViewContext carries
-  `activeStageScreenId` + `selectedModelNodeId`. Each stage screen tops with a **Processing
-  now** tape of hub/synthesis rows for that column. Strip Model uses **screen-group columns**
+  (`resolveStageScreenId`). Each stage tops with **hydrated graphs + Processing now tape**
+  from that column's hub/Model data (not cross-screen leftover metrics). Mid-page Model
+  section removed. ViewContext carries
+  `activeStageScreenId` + `selectedModelNodeId`. Strip Model uses **screen-group columns**
   nesting child nodes (lane labels dropped; density capped). **Capital** stage / Model capital
   lane = root user-controlled funds only (company pool + holding funds) plus engine allocation
   and position/equity readouts — not all capital-bearing nodes. Extends D-131 / D-147 / D-160 /

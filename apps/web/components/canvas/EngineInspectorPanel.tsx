@@ -5,6 +5,7 @@ import {
   canvasVisibleOptionAnchors,
   getEngineTemplateById,
   type EngineSetupSnapshot,
+  type MissingEngineChildDependency,
   type ModuleSetupField,
   type OptionAnchorPosition,
   type OptionAnchorSpec,
@@ -43,6 +44,11 @@ export function EngineInspectorPanel(props: {
   engine: EngineInspectorModel;
   anchors: OptionAnchorSpec[];
   anchorPositions?: Record<string, OptionAnchorPosition>;
+  /** D-210 — full required child list for this execution template. */
+  requiredChildDependencies?: MissingEngineChildDependency[];
+  /** D-210 — missing required child engines for this execution. */
+  missingChildDependencies?: MissingEngineChildDependency[];
+  onRequestAddMissingDependencies?: (engineId: string) => void;
   onUpdated: (engineId: string, patch: Partial<EngineInspectorModel>) => void;
   onClose: () => void;
   onFocusAnchor?: (anchorId: string) => void;
@@ -259,6 +265,46 @@ export function EngineInspectorPanel(props: {
             Mimic parent:{' '}
             {engine.setupSnapshot.simulationBinding.mimicParent ? 'yes' : 'no'}
           </p>
+        </div>
+      )}
+
+      {(props.requiredChildDependencies?.length ?? 0) > 0 && (
+        <div className="space-y-2 border-t border-[var(--color-line)] pt-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-[var(--color-ink-dim)]">Child dependencies</span>
+            {(props.missingChildDependencies?.length ?? 0) > 0 &&
+              props.onRequestAddMissingDependencies && (
+                <button
+                  type="button"
+                  onClick={() => props.onRequestAddMissingDependencies?.(engine.id)}
+                  className="rounded border border-[var(--color-warn)] px-2 py-0.5 text-[10px] text-[var(--color-warn)]"
+                >
+                  Add missing
+                </button>
+              )}
+          </div>
+          <ul className="space-y-1">
+            {(props.requiredChildDependencies ?? []).map((dep) => {
+              const missing = (props.missingChildDependencies ?? []).some(
+                (item) => item.templateId === dep.templateId,
+              );
+              return (
+                <li
+                  key={`${dep.kind}-${dep.templateId}`}
+                  className={`rounded border px-2 py-1 text-[10px] ${
+                    missing
+                      ? 'border-[var(--color-warn)]/50 text-[var(--color-warn)]'
+                      : 'border-[var(--color-line)] text-[var(--color-ink-dim)]'
+                  }`}
+                >
+                  {dep.kind === 'research' ? 'Research' : 'Sim'} · {dep.label}
+                  <span className="ml-2 uppercase text-[var(--color-ink-faint)]">
+                    {missing ? 'Required' : 'Present'}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
 

@@ -18,6 +18,7 @@ import {
   expandEngineSeedsWithSimDeps,
   engineCreateSection,
   researchDependenciesForExecutionEngine,
+  resolveResearchLibraryBindingForInsert,
   simulationRoleForPlacement,
   type LayoutRect,
   type SimulationEngineBinding,
@@ -30,6 +31,7 @@ import { ApiError, parseBody, withAuth } from '@/lib/api';
 import {
   cascadeEngineSetup,
   engineSetupSnapshotFromInput,
+  persistEngineDecisionSeed,
   recordEngineSetupRefs,
 } from '@/lib/engine-setup-cascade';
 import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
@@ -282,11 +284,25 @@ export async function POST(req: Request) {
         }
       }
 
-      const setupSnapshot = engineSetupSnapshotFromInput(
-        engineSetup,
-        null,
-        simulationBinding ? { simulationBinding } : undefined,
-      );
+      const priorEnginesForBinding = createdEngineIds.map((id, index) => ({
+        id,
+        templateId: engineSeeds[index]!.templateId,
+      }));
+      const researchLibraryBinding =
+        engineCreateSection(engine) === 'research'
+          ? resolveResearchLibraryBindingForInsert({
+              ...(seed.researchLibraryBinding !== undefined
+                ? { explicit: seed.researchLibraryBinding }
+                : {}),
+              researchTemplateId: engine.id,
+              existingEngines: priorEnginesForBinding,
+            })
+          : undefined;
+
+      let setupSnapshot = engineSetupSnapshotFromInput(engineSetup, null, {
+        ...(simulationBinding ? { simulationBinding } : {}),
+        ...(researchLibraryBinding ? { researchLibraryBinding } : {}),
+      });
 
       const [engineRow] = await db
         .insert(engineInstances)
@@ -371,6 +387,18 @@ export async function POST(req: Request) {
       }
 
       await cascadeEngineSetup(db, company.id, engineRow.id, engineSetup);
+
+      setupSnapshot = await persistEngineDecisionSeed(
+        db,
+        engineRow.id,
+        engine.id,
+        created.map((row, index) => ({
+          id: row.id,
+          type: engine.modules[index]!.type,
+          config: parsedConfigs[index] as Record<string, unknown>,
+        })),
+        setupSnapshot,
+      );
 
       if (engine.links.length > 0) {
         await db.insert(moduleLinks).values(

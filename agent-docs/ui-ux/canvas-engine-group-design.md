@@ -117,6 +117,12 @@ ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles
   `post`=training + parentExecutionEngineId); adhoc sims are standalone paper desks.
   Execution create defaults to two child sims (overridable). **Family placement** (pre gate
   left of exec, post training after exec) is target layout under D-189/D-191 refinement.
+- **Child dependency validation (D-210):** execution ENGINE chrome and inspector surface
+  required research packs + default sim children from `EXECUTION_ENGINE_*_DEPENDENCIES`.
+  Missing children show text-first **Required** warn chips (not a hard create block when
+  palette insert seeds them); **Add deps** reuses attach_execution / simulationBinding
+  insert paths. Engine create persists `decisionNodes` + `decisionOptionSelections` via
+  `seedEngineDecisionSnapshot`.
 - **Company → engine cascade (D-176):** canvas insert defaults `cascadeFromCompany` on —
   topic from `sectorFocuses`, capital from paper seed — then engine→member cascade (D-035).
 - **D-089 note:** shared setup + template inputs stay in the **header** as bordered inline fields

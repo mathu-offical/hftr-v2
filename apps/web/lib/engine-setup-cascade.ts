@@ -1,13 +1,14 @@
 import { eq } from 'drizzle-orm';
 import {
   requiredModuleSetupFields,
+  seedEngineDecisionSnapshot,
   splitAllocationValues,
   type EngineSetupSnapshot,
   type ModuleSetupInput,
   type ModuleType,
 } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
-import { modules } from '@hftr/db/schema';
+import { engineInstances, modules } from '@hftr/db/schema';
 import { calcStore, createSystemClock, type Clock } from '@hftr/engine';
 import { cascadeEngineMasterTopic } from '@/lib/engine-topic-cascade';
 import { recordModuleSetup } from '@/lib/module-setup';
@@ -26,7 +27,10 @@ export { splitAllocationValues } from '@hftr/contracts';
 export function engineSetupSnapshotFromInput(
   setup: ModuleSetupInput | undefined,
   previous?: EngineSetupSnapshot | null,
-  extras?: { simulationBinding?: EngineSetupSnapshot['simulationBinding'] },
+  extras?: {
+    simulationBinding?: EngineSetupSnapshot['simulationBinding'];
+    researchLibraryBinding?: EngineSetupSnapshot['researchLibraryBinding'];
+  },
 ): EngineSetupSnapshot {
   const prev = previous ?? {
     topicSectors: [],
@@ -48,6 +52,8 @@ export function engineSetupSnapshotFromInput(
   }
   const simulationBinding =
     extras?.simulationBinding ?? previous?.simulationBinding ?? undefined;
+  const researchLibraryBinding =
+    extras?.researchLibraryBinding ?? previous?.researchLibraryBinding ?? undefined;
   return {
     topicSectors,
     allocationMode,
@@ -57,7 +63,12 @@ export function engineSetupSnapshotFromInput(
     ...(previous?.optionAnchorPositions
       ? { optionAnchorPositions: previous.optionAnchorPositions }
       : {}),
+    ...(previous?.decisionNodes ? { decisionNodes: previous.decisionNodes } : {}),
+    ...(previous?.decisionOptionSelections
+      ? { decisionOptionSelections: previous.decisionOptionSelections }
+      : {}),
     ...(simulationBinding ? { simulationBinding } : {}),
+    ...(researchLibraryBinding ? { researchLibraryBinding } : {}),
   };
 }
 
@@ -216,4 +227,25 @@ export async function cascadeEngineSetup(
   }
 
   return updated;
+}
+
+/** Persist decisionNodes + decisionOptionSelections after engine members exist (D-210). */
+export async function persistEngineDecisionSeed(
+  db: Db,
+  engineId: string,
+  templateId: string,
+  members: Array<{ id: string; type: string; config: Record<string, unknown> }>,
+  currentSnapshot: EngineSetupSnapshot,
+): Promise<EngineSetupSnapshot> {
+  const seed = seedEngineDecisionSnapshot({ engineId, templateId, members });
+  const next: EngineSetupSnapshot = {
+    ...currentSnapshot,
+    decisionNodes: seed.decisionNodes,
+    decisionOptionSelections: seed.decisionOptionSelections,
+  };
+  await db
+    .update(engineInstances)
+    .set({ setupSnapshot: next, updatedAt: new Date() })
+    .where(eq(engineInstances.id, engineId));
+  return next;
 }

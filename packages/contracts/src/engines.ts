@@ -199,6 +199,11 @@ export const EngineSetupSnapshot = z.object({
    * D-189: simulation ENGINE binding (adhoc vs child gate/training on a parent exec).
    */
   simulationBinding: SimulationEngineBinding.optional(),
+  /**
+   * D-184 / D-210: research pack library + execution-hub attach binding
+   * (persisted so parent-scoped child dependency validation can resolve presence).
+   */
+  researchLibraryBinding: ResearchLibraryBinding.optional(),
 });
 export type EngineSetupSnapshot = z.infer<typeof EngineSetupSnapshot>;
 

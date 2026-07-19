@@ -16,10 +16,9 @@ import {
   templateInputTargets,
   engineCreateSection,
   researchDependenciesForExecutionEngine,
-  EngineSetupSnapshot,
+  resolveResearchLibraryBindingForInsert,
   shouldApplyMimicParent,
   type LayoutRect,
-  type ModuleType,
 } from '@hftr/contracts';
 import {
   loadSessionConstraints,
@@ -40,6 +39,7 @@ import { ApiError, parseBody, withAuth } from '@/lib/api';
 import {
   cascadeEngineSetup,
   engineSetupSnapshotFromInput,
+  persistEngineDecisionSeed,
   recordEngineSetupRefs,
 } from '@/lib/engine-setup-cascade';
 import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
@@ -210,11 +210,20 @@ export async function POST(req: Request, ctx: Ctx) {
       cascadeFromCompany,
     );
     let masterTopicSectors = setup.topicSectors ?? [];
-    let setupSnapshot = engineSetupSnapshotFromInput(
-      setup,
-      null,
-      input.simulationBinding ? { simulationBinding: input.simulationBinding } : undefined,
-    );
+    const researchLibraryBinding =
+      engineCreateSection(engine) === 'research'
+        ? resolveResearchLibraryBindingForInsert({
+            ...(input.researchLibraryBinding !== undefined
+              ? { explicit: input.researchLibraryBinding }
+              : {}),
+            researchTemplateId: engine.id,
+            existingEngines,
+          })
+        : undefined;
+    let setupSnapshot = engineSetupSnapshotFromInput(setup, null, {
+      ...(input.simulationBinding ? { simulationBinding: input.simulationBinding } : {}),
+      ...(researchLibraryBinding ? { researchLibraryBinding } : {}),
+    });
 
     const templateInputs = input.inputs ?? {};
 
@@ -304,6 +313,19 @@ export async function POST(req: Request, ctx: Ctx) {
         console.error('mimicParentExecutionEnvelope failed', engineRow.id, err);
       }
     }
+
+    setupSnapshot = await persistEngineDecisionSeed(
+      db,
+      engineRow.id,
+      engine.id,
+      created.map((row, index) => ({
+        id: row.id,
+        type: row.type,
+        config: parsedConfigs[index] as Record<string, unknown>,
+      })),
+      setupSnapshot,
+    );
+    persistedEngine = { ...persistedEngine, setupSnapshot };
 
     const dedicatedMath = await provisionDedicatedMathTools(
       db,

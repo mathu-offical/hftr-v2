@@ -2098,6 +2098,26 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Extends D-196 / D-200 / D-203. Docs: ui-spec §2, canvas-engine-group-design.
   **Status: implemented.**
 
+- **D-210 (execution child-dependency defaults + validation, 2026-07-19):** Contracts
+  `requiredChildDependenciesForExecution` / `missingChildDependenciesForExecution` /
+  `presentChildTemplateIdsForExecution` / `seedEngineDecisionSnapshot` derive required
+  research packs + default gate/training sims from `EXECUTION_ENGINE_*_DEPENDENCIES`
+  and persist `decisionNodes` + `decisionOptionSelections` on engine create (POST +
+  company create). `setup_snapshot.researchLibraryBinding` is now stamped at insert
+  (with resolved parent id) alongside `simulationBinding` so presence is
+  **parent-scoped**, not canvas-wide template coincidence. Execution chrome shows
+  text-first **Required** warn chips for missing child engines; inspector lists
+  required vs present with **Add missing** (same bindings as palette insert).
+  Save setup stays allowed when deps missing. Docs: ui-spec §3, canvas-engine-group-design.
+  **Status: implemented.**
+
+- **D-211 (engines inventory parent-child outline, 2026-07-19):** Floating Engines
+  inventory (top-left hover chrome) nests research packs and linked sims under their
+  parent execution using attach_execution / parentExecutionEngineId bindings.
+  Nested `<ul>` with left-rule indent + └ marker; badges show Research / Sim · gate|
+  train. Orphans (no parent on canvas) stay roots. Extends D-204 / D-210.
+  Docs: ui-spec §3. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

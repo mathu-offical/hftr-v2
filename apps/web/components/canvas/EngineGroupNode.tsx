@@ -7,6 +7,7 @@ import {
   getEngineTemplateById,
   type EngineSetupSnapshot,
   type EngineUtilityBus,
+  type MissingEngineChildDependency,
   type ModuleSetupField,
 } from '@hftr/contracts';
 import { api } from '@/lib/client';
@@ -65,6 +66,9 @@ export type EngineGroupNodeData = {
   hydrationPhase?: EngineHydrationPhase;
   /** D-091 motherboard utility links bound to this engine. */
   utilityLinks?: EngineUtilityLinkView[];
+  /** D-210: required research/sim child engines not yet on canvas. */
+  missingChildDependencies?: MissingEngineChildDependency[];
+  onRequestAddMissingDependencies?: (engineId: string) => void;
   onRequestDelete: (engineId: string) => void;
   onRequestReflow: (engineId: string) => void;
   onEngineSetupSaved: (
@@ -187,6 +191,12 @@ export const EngineGroupNode = memo(function EngineGroupNode({
         ...(data.setupSnapshot?.optionAnchorPositions
           ? { optionAnchorPositions: data.setupSnapshot.optionAnchorPositions }
           : {}),
+        ...(data.setupSnapshot?.decisionNodes
+          ? { decisionNodes: data.setupSnapshot.decisionNodes }
+          : {}),
+        ...(data.setupSnapshot?.decisionOptionSelections
+          ? { decisionOptionSelections: data.setupSnapshot.decisionOptionSelections }
+          : {}),
       };
       const response = await api<{
         engine: {
@@ -224,6 +234,15 @@ export const EngineGroupNode = memo(function EngineGroupNode({
   const inboundBuses = utilityBuses.filter((b) => b !== 'data_out');
   const outboundBuses = utilityBuses.filter((b) => b === 'data_out' || b === 'system_control');
   const hydrating = data.hydrationPhase === 'loading';
+  const missingChildDeps = data.missingChildDependencies ?? [];
+  const showMissingChildDeps = missingChildDeps.length > 0;
+
+  function missingDepChipLabel(dep: MissingEngineChildDependency): string {
+    if (dep.kind === 'simulation' && dep.role) {
+      return `Missing: ${dep.role} sim`;
+    }
+    return `Missing: ${dep.label}`;
+  }
 
   return (
     <div
@@ -325,6 +344,29 @@ export const EngineGroupNode = memo(function EngineGroupNode({
               </span>
             </div>
             <div className="truncate text-sm font-medium text-[var(--color-ink)]">{data.label}</div>
+            {showMissingChildDeps && (
+              <div className="nodrag mt-1 flex flex-wrap items-center gap-1">
+                {missingChildDeps.map((dep) => (
+                  <span
+                    key={dep.templateId}
+                    className="rounded-full border border-[var(--color-warn)] px-1.5 py-0.5 text-[8px] text-[var(--color-warn)]"
+                    title={`Required child engine: ${dep.label}`}
+                  >
+                    {missingDepChipLabel(dep)}
+                  </span>
+                ))}
+                {data.onRequestAddMissingDependencies && (
+                  <button
+                    type="button"
+                    disabled={saving}
+                    className="rounded border border-[var(--color-warn)] px-1.5 py-0.5 text-[8px] text-[var(--color-warn)] disabled:opacity-50"
+                    onClick={() => data.onRequestAddMissingDependencies?.(id)}
+                  >
+                    Add deps
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           <div className="nodrag flex shrink-0 items-center gap-1">
             <button

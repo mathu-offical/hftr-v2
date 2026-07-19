@@ -35,12 +35,15 @@ import {
   LAYOUT_COLUMN_STEP,
   LAYOUT_ROW_STEP,
   missingModuleSetupFields,
+  missingChildDependenciesForExecution,
   MODULE_COLUMN,
   natureForLinkKind,
   parseEngineUtilityHandle,
   parseTrendCandidateHandle,
   placeNextEngineOrigin,
+  presentChildTemplateIdsForExecution,
   reflowEngineAtOrigin,
+  requiredChildDependenciesForExecution,
   researchDependenciesForExecutionEngine,
   simDependenciesForExecutionEngine,
   DEFAULT_EXECUTION_SIM_COUNT,
@@ -61,6 +64,7 @@ import {
   type OptionAnchorSpec,
 } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
+import { canvasEnginesToOutlineItems } from '@/lib/canvas-engine-outline';
 import type { ModuleNameUpdate } from '@/lib/module-generated-name';
 import { EngineGroupNode, type EngineGroupFlowNode } from './EngineGroupNode';
 import { EngineInspectorPanel } from './EngineInspectorPanel';
@@ -794,6 +798,55 @@ function applyLayoutToNodes(
   return withSyncedOptionAnchors(laidOut).nodes;
 }
 
+function engineChildPresenceRows(
+  nodes: CanvasFlowNode[],
+): Array<{
+  id: string;
+  templateId: string;
+  researchLibraryBinding:
+    | NonNullable<EngineGroupFlowNode['data']['setupSnapshot']>['researchLibraryBinding']
+    | null
+    | undefined;
+  simulationBinding:
+    | NonNullable<EngineGroupFlowNode['data']['setupSnapshot']>['simulationBinding']
+    | null
+    | undefined;
+}> {
+  return nodes.filter(isEngineGroupNode).map((node) => ({
+    id: node.id,
+    templateId: node.data.templateId,
+    researchLibraryBinding: node.data.setupSnapshot?.researchLibraryBinding,
+    simulationBinding: node.data.setupSnapshot?.simulationBinding,
+  }));
+}
+
+function syncMissingChildDependencies(nodes: CanvasFlowNode[]): CanvasFlowNode[] {
+  const engines = engineChildPresenceRows(nodes);
+  let changed = false;
+  const next = nodes.map((node) => {
+    if (!isEngineGroupNode(node)) return node;
+    const template = getEngineTemplateById(node.data.templateId);
+    if (!template || engineCreateSection(template) !== 'execution') {
+      if ((node.data.missingChildDependencies ?? []).length > 0) {
+        changed = true;
+        return {
+          ...node,
+          data: { ...node.data, missingChildDependencies: [] },
+        };
+      }
+      return node;
+    }
+    const present = presentChildTemplateIdsForExecution(node.id, engines);
+    const missing = missingChildDependenciesForExecution(node.data.templateId, present);
+    const prevJson = JSON.stringify(node.data.missingChildDependencies ?? []);
+    const nextJson = JSON.stringify(missing);
+    if (prevJson === nextJson) return node;
+    changed = true;
+    return { ...node, data: { ...node.data, missingChildDependencies: missing } };
+  });
+  return changed ? next : nodes;
+}
+
 /** D-209: optimistic engine envelope while POST …/engines is in flight. */
 function pendingEngineShellNode(args: {
   pendingId: string;
@@ -805,7 +858,10 @@ function pendingEngineShellNode(args: {
   templateInputs: Record<string, string>;
   callbacks: Pick<
     EngineGroupFlowNode['data'],
-    'onRequestDelete' | 'onRequestReflow' | 'onEngineSetupSaved'
+    | 'onRequestDelete'
+    | 'onRequestReflow'
+    | 'onEngineSetupSaved'
+    | 'onRequestAddMissingDependencies'
   >;
 }): EngineGroupFlowNode {
   return {
@@ -838,7 +894,10 @@ function buildInitialGraph(
   companyId: string,
   engineCallbacks: Pick<
     EngineGroupFlowNode['data'],
-    'onRequestDelete' | 'onRequestReflow' | 'onEngineSetupSaved'
+    | 'onRequestDelete'
+    | 'onRequestReflow'
+    | 'onEngineSetupSaved'
+    | 'onRequestAddMissingDependencies'
   >,
 ): CanvasFlowNode[] {
   const attachmentMap = new Map<string, { id: string; name: string }[]>();
@@ -1297,10 +1356,12 @@ export function CompanyCanvas(props: {
       },
       modules: EngineSetupModules,
     ) => void;
+    onRequestAddMissingDependencies: (engineId: string) => void;
   }>({
     onRequestDelete: () => {},
     onRequestReflow: () => {},
     onEngineSetupSaved: () => {},
+    onRequestAddMissingDependencies: () => {},
   });
 
   const stableEngineCallbacks = useMemo(
@@ -1323,6 +1384,9 @@ export function CompanyCanvas(props: {
         modules: EngineSetupModules,
       ) => {
         engineCallbacksRef.current.onEngineSetupSaved(engineId, engine, modules);
+      },
+      onRequestAddMissingDependencies: (engineId: string) => {
+        engineCallbacksRef.current.onRequestAddMissingDependencies(engineId);
       },
     }),
     [],
@@ -1349,6 +1413,20 @@ export function CompanyCanvas(props: {
     ...buildOptionAnchorArtifacts(props.initialEngines, props.initialModules).edges,
   ]);
   const ownerDragOriginRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+
+  const engineTemplateSig = useMemo(
+    () =>
+      nodes
+        .filter(isEngineGroupNode)
+        .map((n) => n.data.templateId)
+        .sort()
+        .join('\0'),
+    [nodes],
+  );
+
+  useEffect(() => {
+    setNodes((current) => syncMissingChildDependencies(current));
+  }, [engineTemplateSig, setNodes]);
 
   // D-200: when RSC soft-refresh lands new positions after family-layout heal, rebuild graph.
   const serverGraphSig = useMemo(
@@ -1615,6 +1693,7 @@ export function CompanyCanvas(props: {
     onRequestDelete: handleRequestDelete,
     onRequestReflow: handleEngineReflow,
     onEngineSetupSaved: handleEngineSetupSaved,
+    onRequestAddMissingDependencies: () => {},
   };
 
   useEffect(() => {
@@ -3056,6 +3135,268 @@ export function CompanyCanvas(props: {
     [nodes, edges, props.companyId, props.companyDefaults, setNodes, setEdges, stableEngineCallbacks],
   );
 
+  const handleAddMissingDependencies = useCallback(
+    async (executionEngineId: string) => {
+      const execNode = nodes.find(
+        (n): n is EngineGroupFlowNode =>
+          isEngineGroupNode(n) && n.id === executionEngineId,
+      );
+      if (!execNode) return;
+
+      const present = presentChildTemplateIdsForExecution(
+        executionEngineId,
+        engineChildPresenceRows(nodes),
+      );
+      const missing = missingChildDependenciesForExecution(
+        execNode.data.templateId,
+        present,
+      );
+      if (missing.length === 0) {
+        flash('All required child engines are already on the canvas.');
+        return;
+      }
+
+      const setup: ModuleSetupInput | undefined =
+        execNode.data.masterTopicSectors.length > 0
+          ? { topicSectors: execNode.data.masterTopicSectors }
+          : props.companyDefaults?.sectorFocuses.length
+            ? { topicSectors: [...props.companyDefaults.sectorFocuses] }
+            : undefined;
+
+      let workingNodes = nodes;
+      let workingEdges = edges;
+      const insertedLabels: string[] = [];
+
+      try {
+        for (const dep of missing) {
+          const depTemplate = ENGINE_TEMPLATES.find((item) => item.id === dep.templateId);
+          if (!depTemplate?.available) continue;
+
+          const occupied = workingNodes.filter(isEngineGroupNode).map(engineBounds);
+          const templatePositions = depTemplate.modules.map((module) => module.position);
+          const relativeBounds = computeEngineBoundsFromPositions(templatePositions);
+          const section = dep.kind === 'research' ? 'research' : 'simulation';
+          const execAnchor = workingNodes.find(
+            (n): n is EngineGroupFlowNode =>
+              isEngineGroupNode(n) && n.id === executionEngineId,
+          );
+          const origin = placeNextEngineOrigin(occupied, relativeBounds, {
+            originX: CANVAS_LAYOUT.originX,
+            originY: CANVAS_LAYOUT.originY,
+            section,
+            ...(dep.kind === 'research' && execAnchor
+              ? { familyAnchor: engineBounds(execAnchor) }
+              : {}),
+          });
+          const { offset } = engineCanvasOffsetForOrigin(
+            templatePositions,
+            origin,
+            ENGINE_GROUP_PADDING,
+          );
+          const pendingId = `pending-engine-${crypto.randomUUID()}`;
+          const pendingShell = pendingEngineShellNode({
+            pendingId,
+            companyId: props.companyId,
+            template: depTemplate,
+            label: depTemplate.label,
+            bounds: {
+              x: origin.x,
+              y: origin.y,
+              width: relativeBounds.width,
+              height: relativeBounds.height,
+            },
+            masterTopicSectors:
+              setup?.topicSectors ?? props.companyDefaults?.sectorFocuses ?? [],
+            templateInputs: {},
+            callbacks: stableEngineCallbacks,
+          });
+          workingNodes = [...workingNodes, pendingShell];
+          setNodes(workingNodes);
+          setEdges(workingEdges);
+
+          const response = await api<{
+            engine: {
+              id: string;
+              templateId: string;
+              label: string;
+              masterTopicSectors: string[];
+              capitalAllocationRef?: string | null;
+              targetExitRef?: string | null;
+              setupSnapshot?: CanvasEngineGroup['setupSnapshot'];
+              templateInputs?: Record<string, string>;
+              canvasBounds: { x: number; y: number; width: number; height: number } | null;
+              memberModuleIds: string[];
+            };
+            modules: Array<{
+              id: string;
+              type: ModuleType;
+              name: string;
+              generatedNameBase: string;
+              nameCustomized: boolean;
+              status: ModuleStatus;
+              canvasPosition: { x: number; y: number } | null;
+              topicSectors: string[];
+              topicSectorsOverridden?: boolean;
+              capitalAllocationRef?: string | null;
+              targetExitRef?: string | null;
+              config: unknown;
+              engineInstanceId: string | null;
+            }>;
+            links: Array<{
+              id: string;
+              fromModuleId: string;
+              toModuleId: string;
+              linkKind: LinkKind;
+            }>;
+            familyLayout?: {
+              modules: Array<{ id: string; canvasPosition: { x: number; y: number } }>;
+              engines: Array<{
+                id: string;
+                canvasBounds: { x: number; y: number; width: number; height: number };
+              }>;
+            } | null;
+            utilityLinks?: Array<{
+              id: string;
+              toEngineId: string;
+              bus: EngineUtilityBus;
+              fromEngineId?: string | null;
+              fromModuleId?: string | null;
+              streamId?: string | null;
+              streamDescriptor?: string | null;
+            }>;
+          }>(`/api/companies/${props.companyId}/engines`, {
+            method: 'POST',
+            body: {
+              templateId: depTemplate.id,
+              inputs: {},
+              setup,
+              cascadeFromCompany: true,
+              canvasOffset: offset,
+              ...(dep.kind === 'research'
+                ? {
+                    researchLibraryBinding: {
+                      mode: 'attach_execution' as const,
+                      engineInstanceId: executionEngineId,
+                    },
+                  }
+                : {
+                    simulationBinding: {
+                      role: dep.role ?? simulationRoleForPlacement(dep.placement ?? 'post'),
+                      placement: dep.placement ?? 'post',
+                      parentExecutionEngineId: executionEngineId,
+                      mimicParent: true,
+                    },
+                  }),
+            },
+          });
+
+          insertedLabels.push(response.engine.label);
+          workingNodes = workingNodes.filter((node) => node.id !== pendingId);
+          const depBounds =
+            response.engine.canvasBounds ??
+            computeEngineBoundsFromPositions(
+              response.modules
+                .filter(
+                  (m) => m.engineInstanceId === response.engine.id && m.type !== 'math',
+                )
+                .map((m) => (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number }),
+            );
+          const utilityLinks = (response.utilityLinks ?? []).map((link) => ({
+            ...link,
+            toEngineId: link.toEngineId,
+          }));
+          const newModuleEdges = response.links.map((l) => toEdge(l));
+          const insertedNodes = buildInitialGraph(
+            response.modules.map((row) =>
+              moduleRowToCanvas({
+                ...row,
+                capitalAllocationRef: row.capitalAllocationRef ?? null,
+                targetExitRef: row.targetExitRef ?? null,
+                toolOwnerModuleId: null,
+                topicSectorsOverridden: row.topicSectorsOverridden ?? false,
+                config: (row.config ?? {}) as Record<string, unknown>,
+              }),
+            ),
+            [
+              {
+                id: response.engine.id,
+                templateId: response.engine.templateId,
+                label: response.engine.label,
+                masterTopicSectors: response.engine.masterTopicSectors,
+                capitalAllocationRef: response.engine.capitalAllocationRef ?? null,
+                targetExitRef: response.engine.targetExitRef ?? null,
+                setupSnapshot: response.engine.setupSnapshot ?? null,
+                templateInputs: response.engine.templateInputs ?? {},
+                canvasBounds: depBounds,
+                memberModuleIds: response.engine.memberModuleIds,
+                utilityLinks: utilityLinks.filter((link) => link.toEngineId === response.engine.id),
+              },
+            ],
+            response.links,
+            props.companyId,
+            stableEngineCallbacks,
+          );
+          const allEdges = [...workingEdges, ...newModuleEdges];
+          workingNodes = applyUtilityLinksToEngineNodes(
+            applyMathAttachments([...workingNodes, ...insertedNodes], allEdges),
+            utilityLinks,
+          );
+          if (response.familyLayout) {
+            workingNodes = applyLayoutToNodes(workingNodes, response.familyLayout);
+          }
+          workingEdges = mergeUtilityEdgesFromNodes(allEdges, workingNodes);
+        }
+
+        const engineNodes = workingNodes.filter(isEngineGroupNode);
+        const familyLayout = layoutCanvas(
+          engineNodes.map((n) => ({
+            id: n.id,
+            memberModuleIds: n.data.memberModuleIds,
+            templateId: n.data.templateId,
+            dataHubModuleId: resolveDataHubModuleId(n.id, workingNodes),
+            ...(n.data.setupSnapshot?.simulationBinding
+              ? { simulationBinding: n.data.setupSnapshot.simulationBinding }
+              : {}),
+          })),
+          gatherLayoutModules(workingNodes),
+          gatherLayoutLinks(workingEdges),
+          ENGINE_GROUP_PADDING,
+        );
+        workingNodes = applyLayoutToNodes(workingNodes, familyLayout);
+        workingEdges = mergeUtilityEdgesFromNodes(workingEdges, workingNodes);
+        try {
+          await api(`/api/companies/${props.companyId}/canvas/layout`, {
+            method: 'PATCH',
+            body: {
+              modules: familyLayout.modules,
+              engines: familyLayout.engines,
+            },
+          });
+        } catch {
+          // Insert succeeded; layout heal can retry via Reflow.
+        }
+
+        setNodes(syncMissingChildDependencies(workingNodes));
+        setEdges(workingEdges);
+        flash(
+          insertedLabels.length > 0
+            ? `Added ${insertedLabels.join(', ')}.`
+            : 'No child engines were added.',
+        );
+      } catch {
+        setNodes((current) =>
+          current.filter(
+            (node) => !(isEngineGroupNode(node) && node.id.startsWith('pending-engine-')),
+          ),
+        );
+        flash('Could not add required child engines.');
+      }
+    },
+    [nodes, edges, props.companyId, props.companyDefaults, setNodes, setEdges, stableEngineCallbacks],
+  );
+
+  engineCallbacksRef.current.onRequestAddMissingDependencies = handleAddMissingDependencies;
+
   const confirmClearCanvas = useCallback(async () => {
     if (clearInFlightRef.current) return;
     const snapshot = nodes;
@@ -3365,6 +3706,9 @@ export function CompanyCanvas(props: {
   const selectedEngine = useMemo(() => {
     const node = nodes.find((n) => n.id === selectedId);
     if (!node || !isEngineGroupNode(node)) return null;
+    const template = getEngineTemplateById(node.data.templateId);
+    const isExecution = template ? engineCreateSection(template) === 'execution' : false;
+    const present = presentChildTemplateIdsForExecution(node.id, engineChildPresenceRows(nodes));
     return {
       id: node.id,
       label: node.data.label,
@@ -3372,6 +3716,12 @@ export function CompanyCanvas(props: {
       masterTopicSectors: node.data.masterTopicSectors,
       setupSnapshot: node.data.setupSnapshot ?? null,
       templateInputs: node.data.templateInputs ?? {},
+      requiredChildDependencies: isExecution
+        ? requiredChildDependenciesForExecution(node.data.templateId)
+        : [],
+      missingChildDependencies: isExecution
+        ? missingChildDependenciesForExecution(node.data.templateId, present)
+        : [],
     };
   }, [nodes, selectedId]);
 
@@ -3431,11 +3781,14 @@ export function CompanyCanvas(props: {
             return template ? engineCreateSection(template) === 'execution' : false;
           })
           .map((node) => ({ id: node.id, label: node.data.label }))}
-        canvasEngines={nodes.filter(isEngineGroupNode).map((node) => ({
-          id: node.id,
-          label: node.data.label,
-          templateId: node.data.templateId,
-        }))}
+        canvasEngines={canvasEnginesToOutlineItems(
+          nodes.filter(isEngineGroupNode).map((node) => ({
+            id: node.id,
+            label: node.data.label,
+            templateId: node.data.templateId,
+            setupSnapshot: node.data.setupSnapshot ?? null,
+          })),
+        )}
         canvasModules={nodes.filter(isModuleNode).map((node) => ({
           id: node.id,
           name: node.data.name,
@@ -3545,6 +3898,9 @@ export function CompanyCanvas(props: {
           companyId={props.companyId}
           engine={selectedEngine}
           anchors={anchorsByEngine.get(selectedEngine.id) ?? []}
+          requiredChildDependencies={selectedEngine.requiredChildDependencies}
+          missingChildDependencies={selectedEngine.missingChildDependencies}
+          onRequestAddMissingDependencies={handleAddMissingDependencies}
           {...(selectedEngine.setupSnapshot?.optionAnchorPositions
             ? { anchorPositions: selectedEngine.setupSnapshot.optionAnchorPositions }
             : {})}

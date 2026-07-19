@@ -21,6 +21,10 @@ import {
 } from '@hftr/contracts';
 import { api } from '@/lib/client';
 import {
+  buildCanvasEngineOutline,
+  type CanvasEngineOutlineItem,
+} from '@/lib/canvas-engine-outline';
+import {
   EMPTY_MODULE_SETUP_DRAFT,
   ModuleSetupFields,
   missingFieldsFromDraft,
@@ -195,11 +199,7 @@ export type PaletteCanvasModule = {
   type: ModuleType;
 };
 
-export type PaletteCanvasEngine = {
-  id: string;
-  label: string;
-  templateId: string;
-};
+export type PaletteCanvasEngine = CanvasEngineOutlineItem;
 
 /**
  * Floating engines/modules chrome (top-left, D-204).
@@ -240,6 +240,10 @@ export function Palette(props: {
 
   const canvasModules = props.canvasModules ?? [];
   const canvasEngines = props.canvasEngines ?? [];
+  const engineOutline = useMemo(
+    () => buildCanvasEngineOutline(canvasEngines),
+    [canvasEngines],
+  );
 
   const enginesBySection = useMemo(() => {
     const grouped: Record<EngineCreateSection, EngineTemplate[]> = {
@@ -395,25 +399,30 @@ export function Palette(props: {
                     No engines yet. Add new to open the store.
                   </p>
                 ) : (
-                  <ul className="space-y-0.5" aria-label="Canvas engines">
-                    {canvasEngines.map((engine) => (
-                      <li key={engine.id}>
-                        <button
-                          type="button"
-                          onClick={() => props.onFocusNode?.(engine.id)}
-                          className="flex w-full items-center gap-2 px-2 py-1.5 text-left hover:bg-[var(--color-surface-2)]"
-                        >
-                          <span
-                            className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]"
-                            aria-hidden
-                          />
-                          <span className="min-w-0 flex-1 truncate text-[12px] text-[var(--color-ink)]">
-                            {engine.label}
-                          </span>
-                          <span className="shrink-0 font-mono text-[8px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-                            {engineCreateSectionLabel(engine.templateId)}
-                          </span>
-                        </button>
+                  <ul className="space-y-1" aria-label="Canvas engines outline">
+                    {engineOutline.map((family) => (
+                      <li key={family.root.id}>
+                        <EngineInventoryRow
+                          engine={family.root}
+                          depth={0}
+                          {...(props.onFocusNode ? { onFocus: props.onFocusNode } : {})}
+                        />
+                        {family.children.length > 0 ? (
+                          <ul
+                            className="mt-0.5 space-y-0.5 border-l border-[var(--color-line)] ml-2.5 pl-2"
+                            aria-label={`Children of ${family.root.label}`}
+                          >
+                            {family.children.map((child) => (
+                              <li key={child.id}>
+                                <EngineInventoryRow
+                                  engine={child}
+                                  depth={1}
+                                  {...(props.onFocusNode ? { onFocus: props.onFocusNode } : {})}
+                                />
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
@@ -630,6 +639,54 @@ function engineCreateSectionLabel(templateId: string): string {
   if (section === 'execution') return 'Exec';
   if (section === 'simulation') return 'Sim';
   return 'Research';
+}
+
+function engineChildBadge(engine: PaletteCanvasEngine): string {
+  if (engine.childKind === 'research') return 'Research';
+  if (engine.childKind === 'simulation') {
+    if (engine.simRole === 'gate') return 'Sim · gate';
+    if (engine.simRole === 'training') return 'Sim · train';
+    if (engine.simRole === 'adhoc') return 'Sim · adhoc';
+    return 'Sim';
+  }
+  return engineCreateSectionLabel(engine.templateId);
+}
+
+function EngineInventoryRow(props: {
+  engine: PaletteCanvasEngine;
+  depth: number;
+  onFocus?: (id: string) => void;
+}) {
+  const { engine, depth, onFocus } = props;
+  return (
+    <button
+      type="button"
+      onClick={() => onFocus?.(engine.id)}
+      className="flex w-full items-center gap-2 px-2 py-1.5 text-left hover:bg-[var(--color-surface-2)]"
+      data-testid={depth > 0 ? 'engine-inventory-child' : 'engine-inventory-root'}
+      data-depth={depth}
+    >
+      {depth > 0 ? (
+        <span
+          className="shrink-0 font-mono text-[10px] text-[var(--color-ink-faint)]"
+          aria-hidden
+        >
+          └
+        </span>
+      ) : (
+        <span
+          className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]"
+          aria-hidden
+        />
+      )}
+      <span className="min-w-0 flex-1 truncate text-[12px] text-[var(--color-ink)]">
+        {engine.label}
+      </span>
+      <span className="shrink-0 font-mono text-[8px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+        {engineChildBadge(engine)}
+      </span>
+    </button>
+  );
 }
 
 /** Collects the engine's required user inputs before insertion. */

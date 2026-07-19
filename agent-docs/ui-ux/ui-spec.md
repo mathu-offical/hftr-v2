@@ -124,6 +124,13 @@
   the same overall deadline. Inspector/module PATCH supports **Restore engine topic**
   (`restoreEngineTopic`). Delete engine: modal offers **cascade** (remove members + links) vs
   **ungroup** (keep modules, clear membership).
+- **Execution child dependencies (D-210):** each execution template declares required
+  research packs and default gate/training sim ENGINEs (`engine-dependencies.ts`). On
+  create, `seedEngineDecisionSnapshot` writes `decisionNodes` and
+  `decisionOptionSelections` into `setup_snapshot`. Missing children on canvas show
+  warn-bordered **Required** chips on the engine header and in the inspector; **Add deps**
+  inserts via the same research attach and simulationBinding paths as palette create.
+  Engine setup Save is not blocked when children are missing (topic/capital remain required).
 - **Math tools (D-028 / D-033 / D-042):** additional Math modules may be created from the palette and
   deleted; each may `data_feed`-attach to allowed consumer types. Dedicated Math tools render as
   compact nodes with **data handles on top** (owner connection) and **fund handles left→right**.
@@ -225,12 +232,15 @@
 - Minimap + zoom controls bottom-right; fit-view on load; LOD: below zoom threshold, node bodies
   simplify to icon+status dot (perf + readability).
 - Empty state: company template picker rendered as ghost-nodes.
-- **Module / engine store (D-023, engines D-028, D-088, D-176, D-204):** unified
+- **Module / engine store (D-023, engines D-028, D-088, D-176, D-204, D-211):** unified
   top-left segmented control (**Engines** first, then **Modules**). Opening either
   shows the **on-canvas inventory** for that kind; **Add new** opens the existing
   store catalog (category modules / engine templates). Inventory rows focus the
-  matching canvas node. Engines insert from the store only. Company creation
-  auto-seeds Math hub + Master Clock.
+  matching canvas node. **Engines inventory** is an indented outline: execution
+  desks as roots, attached research packs and linked sims nested underneath
+  (parent from `researchLibraryBinding.attach_execution` /
+  `simulationBinding.parentExecutionEngineId`). Engines insert from the store only.
+  Company creation auto-seeds Math hub + Master Clock.
   Engine insert defaults **Cascade from company** on: topic/sectors from `sectorFocuses`,
   capital from paper seed; operator can turn off and edit manually. Skip setup still applies
   server-side company cascade defaults when the flag is on. Engine catalog is grouped into

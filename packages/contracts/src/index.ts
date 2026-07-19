@@ -35,6 +35,7 @@ export * from './auto-fund-policy';
 export * from './money';
 export * from './research-library-binding';
 export * from './engines';
+export * from './engine-dependencies';
 export * from './process-layers';
 export * from './canvas-layout';
 export * from './simulation-mimic';

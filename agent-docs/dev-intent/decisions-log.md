@@ -1516,6 +1516,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   enlarged with separate subtype chips + PreviewEngineGroupNode utility bus labels.
   Docs: ui-spec §3, canvas-connection-point-audit. **Status: implemented.**
 
+- **D-145 (galaxy semantic interaction springs, 2026-07-18):** Observed spheres stayed
+  separated because packing used hard D-132 gaps and graphs often have ~5 persisted
+  `concept_links`. Client now builds **semantic springs** from qualitative token overlap
+  (medium/high), shared display tags, and article/topic membership; softens library packing
+  (gap ~1.06) and foreign repel; hierarchical scale **bridges** high cross-nest similarity.
+  Tag satellites exclude system/catalog markers. Docs: galaxy-3d-volume-layout,
+  research-galaxy-topic-view-design, ui-spec. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

@@ -7,6 +7,7 @@ import type {
   ResearchGraphFolderStar,
   ResearchGraphNode,
 } from '@hftr/contracts';
+import { similarityBandBetweenTexts } from './galaxy-similarity';
 import { conceptSemanticCorpus } from './galaxy-semantic-springs';
 import { SEED_CATALOG_SHELVES } from './research-library-shelves';
 import { tagSatelliteId } from './galaxy-nest-hulls';

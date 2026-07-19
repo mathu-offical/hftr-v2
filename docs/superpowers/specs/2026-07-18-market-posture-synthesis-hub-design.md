@@ -5,13 +5,15 @@
 
 ## Intent
 
-Operator **Analyze** creates a durable synthesis **run** with ordered **stages**. Posture → **Model** is a live React Flow **hydration hub** (D-147): all live data sources and library shelves feed gather (each node shows operation + amount), then pipeline stages animate from the run. Baseline awareness dock remains (movers status, multi-seal freshness, report/narrative open). Equity live poll (D-112) stays paused during Analyze POST only; synthesis progress polls separately (~1.5s).
+Operator **Analyze** creates a durable synthesis **run** with ordered **stages**. Posture → **Model** is a live React Flow **hydration hub** (D-147 / D-156): each API service has its own adapter path into specific analysis stages (roles + pipelines), then pipeline stages animate from the run. Baseline awareness dock remains (movers status, multi-seal freshness, report/narrative open). Equity live poll (D-112) stays paused during Analyze POST only; synthesis progress polls separately (~1.5s).
 
-## Hydration graph (D-147)
+## Hydration graph (D-147 / D-156)
 
-- **Live sources** → `providers` (registry status, canvas binds, sealed contrib)
-- **Library shelves** → `gather` (admitted / concept counts by shelf)
-- Pipeline stages carry baseline ops from hub `modelHydration.stageOps`; when a run summary has counts, those override the stage amount label.
+- **Live sources** → **per-kind adapters** (not a single dump into `providers`) → distinctive analysis stages
+- Examples: GDELT/news → headline gather → `gather` / `universe` / `sector`|`seal_movers`; Alpaca bars → entitlement → `providers`/`gather` **and** OHLC fetch → `rs`/`rank`; libraries → Corpus Jaccard → `thresholds`/`rank`/`seal_movers`
+- Hub projects `modelHydration.processingFlows[]` (`adapterLabel`, `analysisRoles`, `targetStages`, `pipelines`)
+- Pipeline stages still carry baseline ops from `stageOps`; run summary counts override stage amount labels when present
+- `providers` → `gather` remains the entitlement rollup lane after adapters report ready
 
 ## Stage vocabulary
 

@@ -15,6 +15,10 @@ import {
 } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { libraries, libraryConcepts, modules } from '@hftr/db/schema';
+import {
+  buildLibraryProcessingFlows,
+  buildLiveProcessingFlows,
+} from '@/lib/market-hub-processing-flows';
 
 const INTERNAL_SOURCE_KINDS = new Set<string>(['catalog', 'library', 'operator']);
 
@@ -297,9 +301,22 @@ export async function projectMarketHubModelHydration(opts: {
     },
   ];
 
+  const processingFlows = [
+    ...buildLiveProcessingFlows(liveSources),
+    ...librarySources.flatMap((lib) =>
+      buildLibraryProcessingFlows({
+        libraryId: lib.id,
+        name: lib.name,
+        admittedCount: lib.admittedCount,
+        shelf: lib.shelf,
+      }),
+    ),
+  ].slice(0, 64);
+
   return {
     liveSources,
     librarySources,
+    processingFlows,
     stageOps,
     totals: {
       liveReady,

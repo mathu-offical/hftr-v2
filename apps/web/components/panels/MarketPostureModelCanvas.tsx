@@ -54,6 +54,8 @@ function roleLabel(role: PostureAlgoNodeData['nodeRole']): string {
   switch (role) {
     case 'live_source':
       return 'LIVE';
+    case 'adapter':
+      return 'ADAPT';
     case 'library_source':
       return 'LIB';
     case 'stage':
@@ -118,6 +120,14 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
       <p className="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-accent)]">
         {data.operation}
       </p>
+      {data.nodeRole === 'adapter' && data.analysisRoles && data.analysisRoles.length > 0 ? (
+        <p
+          className="mt-0.5 truncate font-mono text-[8px] text-[var(--color-ink-dim)]"
+          title={data.analysisRoles.join(' · ')}
+        >
+          {data.analysisRoles.join(' · ')}
+        </p>
+      ) : null}
       <Handle type="source" position={Position.Right} className="!h-1.5 !w-1.5 !bg-[var(--color-ink-faint)]" />
     </div>
   );
@@ -218,7 +228,7 @@ function NodeInspector(props: {
   if (!props.node) {
     return (
       <p className="text-[10px] text-[var(--color-ink-faint)]">
-        Select a live source, library, or stage for operation detail.
+        Select a live source, adapter, library, or stage for operation detail.
       </p>
     );
   }
@@ -232,6 +242,14 @@ function NodeInspector(props: {
       <p className="font-mono text-[11px] tabular-nums text-[var(--color-ink)]">
         {n.amount} · {n.operation}
       </p>
+      {n.nodeRole === 'adapter' && n.analysisRoles && n.analysisRoles.length > 0 ? (
+        <p className="text-[10px] text-[var(--color-ink)]">
+          Analysis: {n.analysisRoles.join(' · ')}
+          {n.pipelines && n.pipelines.length > 0
+            ? ` · pipelines ${n.pipelines.join('+')}`
+            : ''}
+        </p>
+      ) : null}
       {s?.summary ? (
         <Justification
           sourceClass={s.kind === 'llm' ? 'model_generated' : 'deterministic_scan'}
@@ -255,8 +273,8 @@ function NodeInspector(props: {
 }
 
 /**
- * Live synthesis hub canvas (D-120 / D-147).
- * Shows all live + library baseline sources hydrating into Analyze stages.
+ * Live synthesis hub canvas (D-120 / D-147 / D-156).
+ * Per-service adapters feed specific analysis stages — not a single aggregator dump.
  * Status from synthesis run; never driven by equity live poll (D-112).
  */
 export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(props: {
@@ -310,6 +328,9 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
           {hydration ? ` · ${hydration.totals.liveReady} ready` : ''}
           {` · Libraries ${libN}`}
           {hydration ? ` · ${hydration.totals.admittedConcepts} admitted` : ''}
+          {hydration && hydration.processingFlows.length > 0
+            ? ` · ${hydration.processingFlows.length} flows`
+            : ''}
         </p>
       </div>
       <div

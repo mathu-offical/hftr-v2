@@ -1427,11 +1427,11 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   **Status: implemented.**
 
 - **D-147 (synthesis Model hydration graph, 2026-07-18):** Overlay **Model** shows baseline
-  **live data sources** (full registry) and **library shelves** feeding gather, plus the
-  Analyze pipeline. Every node carries an **operation** and **amount** (counts/status —
-  never LLM dollars). Hub projects `modelHydration`; graph edges live→providers and
-  library→gather. Stage amounts prefer run summary counts when Analyze has run.
-  Docs: ui-spec §4, data-model, synthesis hub design. **Status: implemented.**
+  **live data sources** (full registry) and **library shelves** feeding the Analyze pipeline.
+  Every node carries an **operation** and **amount** (counts/status — never LLM dollars).
+  Hub projects `modelHydration`. Superseded edge shape: live→providers / library→gather —
+  refined by **D-156** (per-service adapters). Stage amounts prefer run summary counts when
+  Analyze has run. Docs: ui-spec §4, data-model, synthesis hub design. **Status: implemented.**
 
 - **D-132 (galaxy library clusters — separation + nest dominance, 2026-07-18):** Fibonacci
   volume packing (D-116) still allowed large nest hulls to overlap and cross-library springs
@@ -1603,6 +1603,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   (mark feed + ledger), and watchlists (`sourceClass`). Live mark/equity deltas **preserve**
   chips via `mergeMarketHubLive`. Multi-confirm metrics show multiple chips. UI:
   `SourceVerifyChips`. Docs: ui-spec §4, data-model. **Status: implemented.**
+
+- **D-156 (Market posture per-API Model processing flows, 2026-07-18):** Synthesis Model must
+  show **specific processing flows per API service** — distinct adapters and analysis roles —
+  not all live sources dumping into a single providers→gather aggregator. Hub projects
+  `modelHydration.processingFlows[]` (`adapterLabel`, `analysisRoles`, `targetStages`,
+  `pipelines`). Catalog mirrors movers/sector lanes (e.g. dual Alpaca `entitle` vs `ohlc`→RS;
+  news → gather/universe/sector|seal; library Jaccard → thresholds/rank/seal). Graph:
+  live|lib → adapter → distinctive stages. Docs: ui-spec §4, data-model, synthesis hub design.
+  **Status: implemented.**
 
 ## Open questions
 

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { missingModuleSetupFields } from '@hftr/contracts';
@@ -19,6 +20,7 @@ import { DataExplorerOverlay } from '@/components/panels/DataExplorerOverlay';
 import { MarketPostureOverlay } from '@/components/panels/MarketPostureOverlay';
 import { ProcessingQueueChip } from '@/components/ProcessingQueueChip';
 import { CompanySwitcher } from '@/components/shell/CompanySwitcher';
+import { CompanyWorkspaceLoading } from '@/components/shell/CompanyShellLoading';
 import { ExecutionTicker } from '@/components/shell/ExecutionTicker';
 import {
   LlmConnectionStatusProvider,
@@ -34,9 +36,12 @@ export const dynamic = 'force-dynamic';
 
 const Params = z.object({ companyId: z.string().uuid() });
 
+type OwnedCompany = Awaited<ReturnType<typeof scoping.getOwnedCompany>>;
+
 /**
- * Company workspace: top bar (identity, mode, queue status) over the module
- * canvas (ui-spec §2-3). Panels evolve with M1; the canvas is live now.
+ * Company workspace (D-196): shell header paints after a fast company identity
+ * read; canvas + panel module graph stream behind Suspense while layout
+ * mutations and full module/link/engine loads complete.
  */
 export default async function CompanyPage(props: { params: Promise<{ companyId: string }> }) {
   const userId = await getAuthUserId();
@@ -47,9 +52,66 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
   const { companyId } = parsed.data;
 
   const db = getDb();
-  let company, moduleRows, linkRows, engineRows, utilityLinkRows;
+  let company: OwnedCompany;
   try {
     company = await scoping.getOwnedCompany(db, userId, companyId);
+  } catch (err) {
+    if (err instanceof NotFoundError) notFound();
+    throw err;
+  }
+
+  return (
+    <LlmConnectionStatusProvider companyId={companyId}>
+      <div className="flex h-screen flex-col">
+        <header className="relative flex items-center justify-between border-b border-[var(--color-line)] bg-[var(--color-surface-1)] px-4 py-2">
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              href="/companies"
+              className="font-mono text-xs tracking-widest text-[var(--color-ink-dim)] hover:text-[var(--color-ink)]"
+            >
+              hftr
+            </Link>
+            <CompanySwitcher companyId={companyId} companyName={company.name} />
+            <TopDrawer
+              companyId={companyId}
+              companyName={company.name}
+              companyMode={company.mode}
+              philosophy={company.philosophyPrompt}
+              philosophyProfile={company.philosophyProfile}
+              seedCreditsCents={company.seedCreditsCents.toString()}
+              createdAt={company.createdAt.toISOString()}
+              sectorFocuses={company.sectorFocuses ?? []}
+              universeExcludes={company.universeExcludes ?? []}
+            />
+          </div>
+          <ExecutionTicker companyId={companyId} />
+          <div className="flex shrink-0 items-center gap-3">
+            <ModeSwitch companyId={companyId} mode={company.mode} />
+            <LlmRibbonStatusChip />
+            <ProcessingQueueChip companyId={companyId} />
+            <UserSettingsLauncher />
+            <UserMenu />
+          </div>
+        </header>
+
+        <Suspense fallback={<CompanyWorkspaceLoading companyName={company.name} />}>
+          <CompanyWorkspaceBody userId={userId} companyId={companyId} company={company} />
+        </Suspense>
+      </div>
+    </LlmConnectionStatusProvider>
+  );
+}
+
+async function CompanyWorkspaceBody(props: {
+  userId: string;
+  companyId: string;
+  company: OwnedCompany;
+}) {
+  const { userId, companyId, company } = props;
+  const db = getDb();
+
+  let moduleRows, linkRows, engineRows, utilityLinkRows;
+  try {
     moduleRows = await scoping.listModules(db, userId, companyId);
     linkRows = await scoping.listLinks(db, userId, companyId);
     engineRows = await scoping.listEngineInstances(db, userId, companyId);
@@ -90,172 +152,135 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
   }
 
   return (
-    <LlmConnectionStatusProvider companyId={companyId}>
-      <div className="flex h-screen flex-col">
-        <header className="relative flex items-center justify-between border-b border-[var(--color-line)] bg-[var(--color-surface-1)] px-4 py-2">
-          <div className="flex shrink-0 items-center gap-2">
-            <Link
-              href="/companies"
-              className="font-mono text-xs tracking-widest text-[var(--color-ink-dim)] hover:text-[var(--color-ink)]"
-            >
-              hftr
-            </Link>
-            <CompanySwitcher companyId={companyId} companyName={company.name} />
-            <TopDrawer
-              companyId={companyId}
-              companyName={company.name}
-              companyMode={company.mode}
-              philosophy={company.philosophyPrompt}
-              philosophyProfile={company.philosophyProfile}
-              seedCreditsCents={company.seedCreditsCents.toString()}
-              createdAt={company.createdAt.toISOString()}
-              sectorFocuses={company.sectorFocuses ?? []}
-              universeExcludes={company.universeExcludes ?? []}
-            />
-          </div>
-          <ExecutionTicker companyId={companyId} />
-          <div className="flex shrink-0 items-center gap-3">
-            <ModeSwitch companyId={companyId} mode={company.mode} />
-            <LlmRibbonStatusChip />
-            <ProcessingQueueChip companyId={companyId} />
-            <UserSettingsLauncher />
-            <UserMenu />
-          </div>
-        </header>
+    <CompanyResearchShell companyId={companyId} companyMode={company.mode}>
+      <div className="flex min-h-0 flex-1">
+        <LeftPanel
+          modules={moduleRows.map((m) => ({
+            id: m.id,
+            name: m.name,
+            type: m.type,
+            status: m.status,
+            config: (m.config ?? {}) as Record<string, unknown>,
+          }))}
+          links={linkRows.map((l) => ({
+            fromModuleId: l.fromModuleId,
+            toModuleId: l.toModuleId,
+            linkKind: l.linkKind,
+          }))}
+        />
 
-        <CompanyResearchShell companyId={companyId} companyMode={company.mode}>
-          <div className="flex min-h-0 flex-1">
-            <LeftPanel
-              modules={moduleRows.map((m) => ({
-                id: m.id,
-                name: m.name,
-                type: m.type,
-                status: m.status,
-                config: (m.config ?? {}) as Record<string, unknown>,
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="relative min-h-0 flex-1">
+            <CompanyCanvas
+              companyId={companyId}
+              initialModules={moduleRows.map((m) => {
+                const config = (m.config ?? {}) as Record<string, unknown>;
+                return {
+                  id: m.id,
+                  type: m.type,
+                  name: m.name,
+                  generatedNameBase: m.generatedNameBase,
+                  nameCustomized: m.nameCustomized,
+                  status: m.status,
+                  position: (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number },
+                  topicSectors: m.topicSectors,
+                  capitalAllocationRef: m.capitalAllocationRef,
+                  targetExitRef: m.targetExitRef,
+                  missingSetupFields: missingModuleSetupFields(m.type, {
+                    topicSectors: m.topicSectors,
+                    capitalAllocationRef: m.capitalAllocationRef,
+                    targetExitRef: m.targetExitRef,
+                  }),
+                  engineInstanceId: m.engineInstanceId,
+                  toolOwnerModuleId: m.toolOwnerModuleId,
+                  topicSectorsOverridden: m.topicSectorsOverridden,
+                  config,
+                };
+              })}
+              initialEngines={engineRows.map((e) => ({
+                id: e.id,
+                templateId: e.templateId,
+                label: e.label,
+                masterTopicSectors: e.masterTopicSectors,
+                capitalAllocationRef: e.capitalAllocationRef,
+                targetExitRef: e.targetExitRef,
+                setupSnapshot: (e.setupSnapshot ?? null) as {
+                  topicSectors: string[];
+                  allocationMode: 'amount' | 'percentage';
+                  allocationValue: string;
+                  targetExitLocal: string;
+                } | null,
+                templateInputs: (e.templateInputs ?? {}) as Record<string, string>,
+                canvasBounds: e.canvasBounds as {
+                  x: number;
+                  y: number;
+                  width: number;
+                  height: number;
+                } | null,
+                memberModuleIds: moduleRows
+                  .filter((m) => m.engineInstanceId === e.id)
+                  .map((m) => m.id),
+                utilityLinks: (utilityByEngine.get(e.id) ?? []).map((link) => ({
+                  id: link.id,
+                  bus: EngineUtilityBus.parse(link.bus),
+                  fromEngineId: link.fromEngineId,
+                  fromModuleId: link.fromModuleId,
+                  streamId: link.streamId,
+                  streamDescriptor: link.streamDescriptor,
+                })),
               }))}
-              links={linkRows.map((l) => ({
+              initialLinks={linkRows.map((l) => ({
+                id: l.id,
                 fromModuleId: l.fromModuleId,
                 toModuleId: l.toModuleId,
                 linkKind: l.linkKind,
               }))}
+              companyDefaults={{
+                sectorFocuses: company.sectorFocuses ?? [],
+                seedCreditsCents: Number(company.seedCreditsCents),
+              }}
             />
-
-            <div className="flex min-w-0 flex-1 flex-col">
-              <div className="relative min-h-0 flex-1">
-                <CompanyCanvas
-                  companyId={companyId}
-                  initialModules={moduleRows.map((m) => {
-                    const config = (m.config ?? {}) as Record<string, unknown>;
-                    return {
-                      id: m.id,
-                      type: m.type,
-                      name: m.name,
-                      generatedNameBase: m.generatedNameBase,
-                      nameCustomized: m.nameCustomized,
-                      status: m.status,
-                      position: (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number },
-                      topicSectors: m.topicSectors,
-                      capitalAllocationRef: m.capitalAllocationRef,
-                      targetExitRef: m.targetExitRef,
-                      missingSetupFields: missingModuleSetupFields(m.type, {
-                        topicSectors: m.topicSectors,
-                        capitalAllocationRef: m.capitalAllocationRef,
-                        targetExitRef: m.targetExitRef,
-                      }),
-                      engineInstanceId: m.engineInstanceId,
-                      toolOwnerModuleId: m.toolOwnerModuleId,
-                      topicSectorsOverridden: m.topicSectorsOverridden,
-                      config,
-                    };
-                  })}
-                  initialEngines={engineRows.map((e) => ({
-                    id: e.id,
-                    templateId: e.templateId,
-                    label: e.label,
-                    masterTopicSectors: e.masterTopicSectors,
-                    capitalAllocationRef: e.capitalAllocationRef,
-                    targetExitRef: e.targetExitRef,
-                    setupSnapshot: (e.setupSnapshot ?? null) as {
-                      topicSectors: string[];
-                      allocationMode: 'amount' | 'percentage';
-                      allocationValue: string;
-                      targetExitLocal: string;
-                    } | null,
-                    templateInputs: (e.templateInputs ?? {}) as Record<string, string>,
-                    canvasBounds: e.canvasBounds as {
-                      x: number;
-                      y: number;
-                      width: number;
-                      height: number;
-                    } | null,
-                    memberModuleIds: moduleRows
-                      .filter((m) => m.engineInstanceId === e.id)
-                      .map((m) => m.id),
-                    utilityLinks: (utilityByEngine.get(e.id) ?? []).map((link) => ({
-                      id: link.id,
-                      bus: EngineUtilityBus.parse(link.bus),
-                      fromEngineId: link.fromEngineId,
-                      fromModuleId: link.fromModuleId,
-                      streamId: link.streamId,
-                      streamDescriptor: link.streamDescriptor,
-                    })),
-                  }))}
-                  initialLinks={linkRows.map((l) => ({
-                    id: l.id,
-                    fromModuleId: l.fromModuleId,
-                    toModuleId: l.toModuleId,
-                    linkKind: l.linkKind,
-                  }))}
-                  companyDefaults={{
-                    sectorFocuses: company.sectorFocuses ?? [],
-                    seedCreditsCents: Number(company.seedCreditsCents),
-                  }}
-                />
-                <ResearchOverlay />
-                <MarketPostureOverlay />
-                <DataExplorerOverlay />
-                <ShellInspectorLayer />
-              </div>
-              <BottomPanel
-                companyId={companyId}
-                companyMode={company.mode}
-                modules={moduleRows.map((m) => {
-                  const config = (m.config ?? {}) as Record<string, unknown>;
-                  const maxActive =
-                    m.type === 'trend' && typeof config.maxActiveTrends === 'number'
-                      ? config.maxActiveTrends
-                      : undefined;
-                  const policyEnvelopeRef =
-                    m.type === 'policy' && typeof config.policyEnvelopeRef === 'string'
-                      ? config.policyEnvelopeRef
-                      : undefined;
-                  const policyNotes =
-                    m.type === 'policy' && typeof config.notes === 'string'
-                      ? config.notes
-                      : undefined;
-                  return {
-                    id: m.id,
-                    name: m.name,
-                    type: m.type,
-                    status: m.status,
-                    engineInstanceId: m.engineInstanceId,
-                    ...(maxActive !== undefined ? { maxActiveTrends: maxActive } : {}),
-                    ...(policyEnvelopeRef !== undefined ? { policyEnvelopeRef } : {}),
-                    ...(policyNotes !== undefined ? { policyNotes } : {}),
-                  };
-                })}
-                engines={engineRows.map((e) => ({
-                  id: e.id,
-                  label: e.label,
-                  templateId: e.templateId,
-                }))}
-              />
-            </div>
-
-            <RightPanel companyId={companyId} companyMode={company.mode} />
+            <ResearchOverlay />
+            <MarketPostureOverlay />
+            <DataExplorerOverlay />
+            <ShellInspectorLayer />
           </div>
-        </CompanyResearchShell>
+          <BottomPanel
+            companyId={companyId}
+            companyMode={company.mode}
+            modules={moduleRows.map((m) => {
+              const config = (m.config ?? {}) as Record<string, unknown>;
+              const maxActive =
+                m.type === 'trend' && typeof config.maxActiveTrends === 'number'
+                  ? config.maxActiveTrends
+                  : undefined;
+              const policyEnvelopeRef =
+                m.type === 'policy' && typeof config.policyEnvelopeRef === 'string'
+                  ? config.policyEnvelopeRef
+                  : undefined;
+              const policyNotes =
+                m.type === 'policy' && typeof config.notes === 'string' ? config.notes : undefined;
+              return {
+                id: m.id,
+                name: m.name,
+                type: m.type,
+                status: m.status,
+                engineInstanceId: m.engineInstanceId,
+                ...(maxActive !== undefined ? { maxActiveTrends: maxActive } : {}),
+                ...(policyEnvelopeRef !== undefined ? { policyEnvelopeRef } : {}),
+                ...(policyNotes !== undefined ? { policyNotes } : {}),
+              };
+            })}
+            engines={engineRows.map((e) => ({
+              id: e.id,
+              label: e.label,
+              templateId: e.templateId,
+            }))}
+          />
+        </div>
+
+        <RightPanel companyId={companyId} companyMode={company.mode} />
       </div>
-    </LlmConnectionStatusProvider>
+    </CompanyResearchShell>
   );
 }

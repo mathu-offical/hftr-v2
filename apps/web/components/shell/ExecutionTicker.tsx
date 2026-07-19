@@ -37,6 +37,7 @@ function amount(cents: string): string {
  */
 export function ExecutionTicker(props: { companyId: string }) {
   const [rows, setRows] = useState<ExecutionRow[]>([]);
+  const [loadState, setLoadState] = useState<'loading' | 'ready'>('loading');
 
   useEffect(() => {
     let stopped = false;
@@ -45,9 +46,16 @@ export function ExecutionTicker(props: { companyId: string }) {
         const r = await api<{ executions: ExecutionRow[] }>(
           `/api/companies/${props.companyId}/executions`,
         );
-        if (!stopped) setRows(r.executions.slice(0, 20));
+        if (!stopped) {
+          setRows(r.executions.slice(0, 20));
+          setLoadState('ready');
+        }
       } catch {
-        // route may not exist yet during rollout; ticker stays empty
+        // route may not exist yet during rollout; treat as empty ready
+        if (!stopped) {
+          setRows([]);
+          setLoadState('ready');
+        }
       }
     }
     void load();
@@ -57,6 +65,18 @@ export function ExecutionTicker(props: { companyId: string }) {
       clearInterval(interval);
     };
   }, [props.companyId]);
+
+  if (loadState === 'loading') {
+    return (
+      <div
+        className="hidden min-w-0 flex-1 items-center overflow-hidden px-4 md:flex"
+        aria-busy="true"
+        data-testid="execution-ticker-loading"
+      >
+        <span className="text-[11px] text-[var(--color-ink-faint)]">Loading executions…</span>
+      </div>
+    );
+  }
 
   if (rows.length === 0) {
     return (

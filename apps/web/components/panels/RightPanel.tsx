@@ -163,6 +163,7 @@ export function RightPanel(props: { companyId: string; companyMode?: string }) {
   const [simulations, setSimulations] = useState<SimulationRow[]>([]);
   const [simComparison, setSimComparison] = useState<string | null>(null);
   const [focusedValueRef, setFocusedValueRef] = useState<string | null>(null);
+  const [dataLoadState, setDataLoadState] = useState<'loading' | 'ready'>('loading');
 
   useEffect(() => {
     if (!storageKey) {
@@ -270,9 +271,11 @@ export function RightPanel(props: { companyId: string; companyMode?: string }) {
       setSimulations(results[5].value.runs);
       setSimComparison(results[5].value.comparison?.deltaSummary ?? null);
     }
+    setDataLoadState('ready');
   }, [props.companyId]);
 
   useEffect(() => {
+    setDataLoadState('loading');
     void load();
     const interval = setInterval(load, 20_000);
     window.addEventListener(ACTIVITY_REFRESH_EVENT, load);
@@ -324,28 +327,45 @@ export function RightPanel(props: { companyId: string; companyMode?: string }) {
         data-testid="right-panel-paper-balance"
       >
         <div className="text-xs text-[var(--color-ink-dim)]">{balanceLabel(companyMode)}</div>
-        <div className="font-mono text-lg">{balance ? dollars(balance) : '—'}</div>
+        <div className="font-mono text-lg">
+          {dataLoadState === 'loading' && balance === null
+            ? 'Loading…'
+            : balance
+              ? dollars(balance)
+              : '—'}
+        </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 text-sm">
-        {tab === 'verification' && (
-          <VerificationTab verifications={verifications} executions={executions} />
-        )}
-        {tab === 'executions' && <ExecutionsTab executions={executions} />}
-        {tab === 'positions' && (
-          <PositionsTab companyId={props.companyId} executions={executions} />
-        )}
-        {tab === 'ledger' && <LedgerTab ledger={ledger} companyMode={companyMode} />}
-        {tab === 'simulation' && (
-          <SimulationTab runs={simulations} comparisonSummary={simComparison} />
-        )}
-        {tab === 'values' && (
-          <ValuesTab
-            companyId={props.companyId}
-            values={values}
-            focusedRef={focusedValueRef}
-            onFocusedRefConsumed={() => setFocusedValueRef(null)}
-          />
+      <div
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 text-sm"
+        aria-busy={dataLoadState === 'loading'}
+      >
+        {dataLoadState === 'loading' ? (
+          <p className="px-1 text-xs text-[var(--color-ink-faint)]" data-testid="right-panel-loading">
+            Loading panel data…
+          </p>
+        ) : (
+          <>
+            {tab === 'verification' && (
+              <VerificationTab verifications={verifications} executions={executions} />
+            )}
+            {tab === 'executions' && <ExecutionsTab executions={executions} />}
+            {tab === 'positions' && (
+              <PositionsTab companyId={props.companyId} executions={executions} />
+            )}
+            {tab === 'ledger' && <LedgerTab ledger={ledger} companyMode={companyMode} />}
+            {tab === 'simulation' && (
+              <SimulationTab runs={simulations} comparisonSummary={simComparison} />
+            )}
+            {tab === 'values' && (
+              <ValuesTab
+                companyId={props.companyId}
+                values={values}
+                focusedRef={focusedValueRef}
+                onFocusedRefConsumed={() => setFocusedValueRef(null)}
+              />
+            )}
+          </>
         )}
       </div>
     </>

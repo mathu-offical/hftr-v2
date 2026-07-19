@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { getDb, scoping } from '@hftr/db';
 import { summarizeCompanyServiceCoverage } from '@hftr/engine';
 import { CompanyCard } from '@/components/CompanyCard';
@@ -9,31 +10,22 @@ import { ensureProfile, getAuthUserId } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
+type DirectoryCompany = Awaited<ReturnType<typeof scoping.listCompaniesDirectory>>[number];
+
 /**
- * Company directory — the signed-in home. Server component; data flows
- * through the same ownership-scoped helpers as the API.
+ * Company directory — shell paints after the company list; per-card service
+ * coverage streams behind Suspense (D-196).
  */
 export default async function CompaniesPage() {
   const userId = await getAuthUserId();
-  if (!userId) return null; // middleware guarantees auth; defensive only
+  if (!userId) return null;
 
-  let companies: Awaited<ReturnType<typeof scoping.listCompaniesDirectory>> = [];
-  let coverageByCompany = new Map<
-    string,
-    Awaited<ReturnType<typeof summarizeCompanyServiceCoverage>>
-  >();
+  let companies: DirectoryCompany[] = [];
   let dbError = false;
   try {
     await ensureProfile(userId);
     const db = getDb();
     companies = await scoping.listCompaniesDirectory(db, userId);
-    const summaries = await Promise.all(
-      companies.map(async (c) => {
-        const summary = await summarizeCompanyServiceCoverage(db, c.id);
-        return [c.id, summary] as const;
-      }),
-    );
-    coverageByCompany = new Map(summaries);
   } catch {
     dbError = true;
   }
@@ -70,39 +62,70 @@ export default async function CompaniesPage() {
             </div>
           ) : (
             <ul className="grid gap-4 sm:grid-cols-2">
-              {companies.map((c) => {
-                const coverage = coverageByCompany.get(c.id);
-                return (
-                  <li key={c.id}>
-                    <CompanyCard
-                      id={c.id}
-                      name={c.name}
-                      mode={c.mode}
-                      philosophyPrompt={c.philosophyPrompt}
-                      engines={c.engines}
-                      seedCreditsCents={c.seedCreditsCents.toString()}
-                      equity={{
-                        equityCents: c.equityCents?.toString() ?? null,
-                        status: c.equityStatus,
-                        asOfIso: c.equityAsOf?.toISOString() ?? null,
-                      }}
-                      {...(coverage
-                        ? {
-                            serviceCoverage: {
-                              modulesWithRequiredGaps: coverage.modulesWithRequiredGaps,
-                              missingRequiredCapabilities: coverage.missingRequiredCapabilities,
-                              boundCapabilityCount: coverage.boundCapabilityCount,
-                            },
-                          }
-                        : {})}
-                    />
-                  </li>
-                );
-              })}
+              {companies.map((c) => (
+                <li key={c.id}>
+                  <Suspense fallback={<DirectoryCompanyCard company={c} />}>
+                    <DirectoryCompanyCardWithCoverage company={c} />
+                  </Suspense>
+                </li>
+              ))}
             </ul>
           )}
         </div>
       )}
     </main>
+  );
+}
+
+function DirectoryCompanyCard(props: {
+  company: DirectoryCompany;
+  serviceCoverage?: {
+    modulesWithRequiredGaps: number;
+    missingRequiredCapabilities: string[];
+    boundCapabilityCount: number;
+  };
+}) {
+  const c = props.company;
+  return (
+    <CompanyCard
+      id={c.id}
+      name={c.name}
+      mode={c.mode}
+      philosophyPrompt={c.philosophyPrompt}
+      engines={c.engines}
+      seedCreditsCents={c.seedCreditsCents.toString()}
+      equity={{
+        equityCents: c.equityCents?.toString() ?? null,
+        status: c.equityStatus,
+        asOfIso: c.equityAsOf?.toISOString() ?? null,
+      }}
+      {...(props.serviceCoverage ? { serviceCoverage: props.serviceCoverage } : {})}
+    />
+  );
+}
+
+async function DirectoryCompanyCardWithCoverage(props: { company: DirectoryCompany }) {
+  const db = getDb();
+  let coverage:
+    | Awaited<ReturnType<typeof summarizeCompanyServiceCoverage>>
+    | undefined;
+  try {
+    coverage = await summarizeCompanyServiceCoverage(db, props.company.id);
+  } catch {
+    coverage = undefined;
+  }
+  return (
+    <DirectoryCompanyCard
+      company={props.company}
+      {...(coverage
+        ? {
+            serviceCoverage: {
+              modulesWithRequiredGaps: coverage.modulesWithRequiredGaps,
+              missingRequiredCapabilities: coverage.missingRequiredCapabilities,
+              boundCapabilityCount: coverage.boundCapabilityCount,
+            },
+          }
+        : {})}
+    />
   );
 }

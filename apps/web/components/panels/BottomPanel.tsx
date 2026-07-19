@@ -270,6 +270,7 @@ export function BottomPanel(props: {
   const [liveGate, setLiveGate] = useState<LiveGateStatusRow | null>(null);
   const [openTraceId, setOpenTraceId] = useState<string | null>(null);
   const [selectedLineageKey, setSelectedLineageKey] = useState<string | null>(null);
+  const [dataLoadState, setDataLoadState] = useState<'idle' | 'loading' | 'ready'>('idle');
 
   useEffect(() => {
     if (!storageKey) {
@@ -334,6 +335,7 @@ export function BottomPanel(props: {
 
   const load = useCallback(async () => {
     const base = `/api/companies/${props.companyId}`;
+    setDataLoadState((prev) => (prev === 'ready' ? 'ready' : 'loading'));
     const results = await Promise.allSettled([
       api<{ trends: TrendRow[] }>(`${base}/trends`),
       api<{ executions: ExecutionRow[] }>(`${base}/executions`),
@@ -358,10 +360,12 @@ export function BottomPanel(props: {
     if (results[8].status === 'fulfilled') setPendingJobs(results[8].value.jobs);
     if (results[9].status === 'fulfilled') setProposals(results[9].value.proposals);
     if (results[10].status === 'fulfilled') setLiveGate(results[10].value);
+    setDataLoadState('ready');
   }, [props.companyId]);
 
   useEffect(() => {
     if (!open) return;
+    setDataLoadState((prev) => (prev === 'ready' ? 'ready' : 'loading'));
     void load();
     const interval = setInterval(load, 20_000);
     return () => clearInterval(interval);
@@ -587,6 +591,15 @@ export function BottomPanel(props: {
   return (
     <section className="flex shrink-0 flex-col bg-[var(--color-surface-1)]">
       {tabRibbon}
+      {dataLoadState === 'loading' ? (
+        <p
+          className="border-b border-[var(--color-line)] px-3 py-1.5 text-[11px] text-[var(--color-ink-faint)]"
+          data-testid="bottom-panel-loading"
+          aria-busy="true"
+        >
+          Loading bottom panel data…
+        </p>
+      ) : null}
       <div className="flex h-[min(calc(70vh-1.75rem),calc(48rem-1.75rem))] min-h-[14.25rem] gap-2 overflow-x-auto overflow-y-hidden px-3 py-2 text-sm">
         {orderedOpenTabs.map((id) => {
           const meta = TABS.find((t) => t.id === id)!;

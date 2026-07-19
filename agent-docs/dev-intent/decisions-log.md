@@ -1962,12 +1962,28 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `docs/superpowers/specs/2026-07-19-processing-queue-modal-design.md`.
   Docs: ui-spec §2. **Status: implemented.**
 
+- **D-194 (paper honesty vocabulary + operator quote hydrate + limit UI, 2026-07-19):**
+  Expand `simHonestyChips` with Inline fill / No venue latency / On service.
+  Operator path hydrates ad-hoc symbols into `live_api:quote:*` ValueRefs before
+  MarketModel resolve (`hydrateOperatorQuoteValueRefs`). PaperTradeForm adds limit
+  order type + deep Playwright coverage (`paper-trade-deep.spec.ts`). Extends D-192.
+  Docs: ui-spec §4, experiment-log EXP-08.
+  **Status: implemented.**
+
 - **D-195 (derived folder hulls after semantic layout, 2026-07-19):** Restructure galaxy
   forces so **tag + semantic springs run first**; folder (and library) wire spheres are
   fitted each tick around the outermost included concepts (`createDerivedFolderHullForce`).
   Remove folderNest / folderShell / folderCohere / nestShell / articleHullOrbit as concept
   attractors. Concepts seed from library/article only — not folder shells. Docs: ui-spec §6,
   research-galaxy-topic-view-design.   **Status: implemented.**
+
+- **D-196 (shell-first company loading, 2026-07-19):** Company route paints app shell
+  (header + chrome) immediately via `loading.tsx` and streams canvas/panels behind
+  `Suspense` after a fast `getOwnedCompany` identity read. Heavy module/link/engine
+  loads + layout mutations run in the Suspense child. Directory lists companies first;
+  per-card service coverage streams. Client surfaces show text loading states
+  (ExecutionTicker, RightPanel, BottomPanel) until their fetches resolve. Docs: ui-spec §2.
+  **Status: implemented.**
 
 ## Open questions
 

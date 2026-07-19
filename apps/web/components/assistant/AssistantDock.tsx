@@ -140,11 +140,16 @@ function ToolResultsSummary({ results }: { results: AssistantToolResultSummary[]
 }
 
 /**
- * Docked read-only assistant pill (ui-spec section 5). Expands to a chat column
- * overlay; history persists via the company assistant API.
+ * Read-only assistant chat (ui-spec §5 / D-146).
+ * Open state is controlled by the right edge rail (AST); renders as a full-height
+ * column separate from the main RightPanel.
  */
-export function AssistantDock(props: { companyId: string }) {
-  const [open, setOpen] = useState(false);
+export function AssistantDock(props: {
+  companyId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { open, onOpenChange } = props;
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [proposals, setProposals] = useState<AssistantEdit[]>([]);
   const [input, setInput] = useState('');
@@ -200,11 +205,11 @@ export function AssistantDock(props: { companyId: string }) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') onOpenChange(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
+  }, [open, onOpenChange]);
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
@@ -252,27 +257,17 @@ export function AssistantDock(props: { companyId: string }) {
     [send],
   );
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-40 rounded-full border border-[var(--color-line)] bg-[var(--color-surface-1)] px-4 py-2 text-xs font-medium text-[var(--color-ink)] shadow-lg hover:bg-[var(--color-surface-2)]"
-        aria-label="Open read-only assistant"
-      >
-        Assistant
-      </button>
-    );
-  }
+  if (!open) return null;
 
   return (
-    <div
-      className="fixed bottom-4 right-4 z-40 flex max-h-[min(32rem,calc(100vh-2rem))] w-full max-w-sm flex-col overflow-hidden rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] shadow-xl"
+    <aside
+      data-testid="assistant-rail-panel"
+      className="flex h-full min-h-0 w-[min(24rem,calc(100vw-5rem))] shrink-0 flex-col overflow-hidden border-l border-[var(--color-line)] bg-[var(--color-surface-1)] shadow-[-12px_0_32px_rgba(0,0,0,0.35)]"
       role="dialog"
       aria-modal="false"
       aria-label="Read-only assistant chat"
     >
-      <header className="flex items-center justify-between border-b border-[var(--color-line)] px-3 py-2">
+      <header className="flex shrink-0 items-center justify-between border-b border-[var(--color-line)] px-3 py-2">
         <div>
           <h2 className="text-sm font-medium text-[var(--color-ink)]">Assistant</h2>
           <p className="text-[10px] text-[var(--color-ink-faint)]">Read-only · no model calls</p>
@@ -280,7 +275,7 @@ export function AssistantDock(props: { companyId: string }) {
         </div>
         <button
           type="button"
-          onClick={() => setOpen(false)}
+          onClick={() => onOpenChange(false)}
           aria-label="Close assistant"
           className="rounded px-2 py-1 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
         >
@@ -351,7 +346,7 @@ export function AssistantDock(props: { companyId: string }) {
         </p>
       )}
 
-      <form onSubmit={onSubmit} className="flex gap-2 border-t border-[var(--color-line)] p-2">
+      <form onSubmit={onSubmit} className="flex shrink-0 gap-2 border-t border-[var(--color-line)] p-2">
         <input
           ref={inputRef}
           type="text"
@@ -372,6 +367,6 @@ export function AssistantDock(props: { companyId: string }) {
           {loading ? '…' : 'Send'}
         </button>
       </form>
-    </div>
+    </aside>
   );
 }

@@ -9,7 +9,16 @@ import { Justification } from './Justification';
 import { PanelTabs } from './PanelTabs';
 import { PanelEdgeRail } from './PanelEdgeRail';
 import { PositionsTab } from './PositionsTab';
-import { Briefcase, FlaskConical, Hash, ListOrdered, ShieldCheck, Wallet } from 'lucide-react';
+import { AssistantDock } from '@/components/assistant/AssistantDock';
+import {
+  Briefcase,
+  FlaskConical,
+  Hash,
+  ListOrdered,
+  MessageSquare,
+  ShieldCheck,
+  Wallet,
+} from 'lucide-react';
 
 type Tab = 'verification' | 'executions' | 'positions' | 'ledger' | 'simulation' | 'values';
 const TABS: { id: Tab; label: string }[] = [
@@ -129,6 +138,8 @@ export function RightPanel(props: { companyId: string }) {
 
   const [tab, setTab] = useState<Tab>('executions');
   const [open, setOpen] = useState(true);
+  /** D-146: assistant is a separate floating column, not a RightPanel tab. */
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const [persistReady, setPersistReady] = useState(false);
   const [balance, setBalance] = useState<string | null>(null);
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
@@ -145,10 +156,13 @@ export function RightPanel(props: { companyId: string }) {
       setPersistReady(true);
       return;
     }
-    const stored = readPanelState<{ open?: unknown; tab?: unknown }>(storageKey);
+    const stored = readPanelState<{ open?: unknown; tab?: unknown; assistantOpen?: unknown }>(
+      storageKey,
+    );
     if (stored) {
       if (typeof stored.open === 'boolean') setOpen(stored.open);
       if (isRightTab(stored.tab)) setTab(stored.tab);
+      if (typeof stored.assistantOpen === 'boolean') setAssistantOpen(stored.assistantOpen);
     }
     setPersistReady(true);
   }, [storageKey]);
@@ -157,6 +171,7 @@ export function RightPanel(props: { companyId: string }) {
     function onFocus(e: Event) {
       const detail = (e as CustomEvent<ValueLineageFocusDetail>).detail;
       if (!detail || detail.companyId !== props.companyId) return;
+      setAssistantOpen(false);
       setOpen(true);
       setTab('values');
       setFocusedValueRef(detail.valueRef);
@@ -167,8 +182,14 @@ export function RightPanel(props: { companyId: string }) {
 
   useEffect(() => {
     if (!storageKey || !persistReady) return;
-    writePanelState(storageKey, { open, tab });
-  }, [storageKey, open, tab, persistReady]);
+    writePanelState(storageKey, { open, tab, assistantOpen });
+  }, [storageKey, open, tab, assistantOpen, persistReady]);
+
+  const selectRightTab = useCallback((id: Tab) => {
+    setAssistantOpen(false);
+    setTab(id);
+    setOpen(true);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -177,13 +198,17 @@ export function RightPanel(props: { companyId: string }) {
         setOpen((v) => !v);
         return;
       }
-      if (e.key === 'Escape' && open && !isEditableTarget(e)) {
-        setOpen(false);
+      if (e.key === 'Escape' && !isEditableTarget(e)) {
+        if (assistantOpen) {
+          setAssistantOpen(false);
+          return;
+        }
+        if (open) setOpen(false);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
+  }, [open, assistantOpen]);
 
   const load = useCallback(async () => {
     const base = `/api/companies/${props.companyId}`;
@@ -239,7 +264,7 @@ export function RightPanel(props: { companyId: string }) {
     return count > 0 ? String(count) : undefined;
   };
 
-  // D-118 / D-123: wider edge rail with per-tab symbol buttons.
+  // D-118 / D-123 / D-146: symbol rail + separate AST assistant column.
   return (
     <div className="flex h-full min-h-0 shrink-0">
       {open ? (
@@ -249,7 +274,7 @@ export function RightPanel(props: { companyId: string }) {
               aria-label="Info panel sections"
               className="min-w-0 flex-1"
               value={tab}
-              onChange={setTab}
+              onChange={selectRightTab}
               tabs={TABS.map((t) => ({
                 id: t.id,
                 label: t.label,
@@ -287,6 +312,12 @@ export function RightPanel(props: { companyId: string }) {
         </aside>
       ) : null}
 
+      <AssistantDock
+        companyId={props.companyId}
+        open={assistantOpen}
+        onOpenChange={setAssistantOpen}
+      />
+
       <PanelEdgeRail
         side="right"
         open={open}
@@ -295,10 +326,7 @@ export function RightPanel(props: { companyId: string }) {
         collapseLabel="Collapse info panel (keyboard shortcut ] or Escape)"
         expandLabel="Expand info panel (keyboard shortcut ])"
         onToggleOpen={() => setOpen((v) => !v)}
-        onSelectTab={(id) => {
-          setTab(id);
-          setOpen(true);
-        }}
+        onSelectTab={selectRightTab}
         items={[
           {
             id: 'verification',
@@ -341,6 +369,16 @@ export function RightPanel(props: { companyId: string }) {
             abbrev: 'VAL',
             icon: Hash,
             meta: rightRailMeta('values'),
+          },
+        ]}
+        railActions={[
+          {
+            id: 'assistant',
+            label: 'Open read-only assistant',
+            abbrev: 'AST',
+            icon: MessageSquare,
+            pressed: assistantOpen,
+            onClick: () => setAssistantOpen((v) => !v),
           },
         ]}
       />

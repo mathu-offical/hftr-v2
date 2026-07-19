@@ -8,7 +8,6 @@ import { eq } from 'drizzle-orm';
 import { EngineUtilityBus } from '@hftr/contracts';
 import { ensureAllInterEngineDataStreamLinks } from '@hftr/engine';
 import { repositionAllEngineTimeHubs } from '@/lib/time-provision';
-import { AssistantDock } from '@/components/assistant/AssistantDock';
 import { CompanyCanvas } from '@/components/canvas/CompanyCanvas';
 import { BottomPanel } from '@/components/panels/BottomPanel';
 import { LeftPanel } from '@/components/panels/LeftPanel';
@@ -243,7 +242,6 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
             <RightPanel companyId={companyId} />
           </div>
         </CompanyResearchShell>
-        <AssistantDock companyId={companyId} />
       </div>
     </LlmConnectionStatusProvider>
   );

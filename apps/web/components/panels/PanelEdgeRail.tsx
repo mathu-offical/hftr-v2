@@ -27,7 +27,7 @@ export type PanelEdgeRailAction = {
  * Persistent window-edge rail for left/right panels (D-118 / D-123 / D-128).
  * Prominent symbol buttons stay visible when the panel is open or collapsed;
  * activating a tab expands the panel onto that section. Optional rail actions
- * sit above the show/hide chevron (e.g. Libraries full-height).
+ * sit above the show/hide chevron (e.g. left Libraries, right Assistant).
  */
 export function PanelEdgeRail<T extends string>(props: {
   side: 'left' | 'right';

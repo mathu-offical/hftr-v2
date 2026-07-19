@@ -13,6 +13,7 @@ import {
   moduleRequiresMath,
   placeNextEngineOrigin,
   withDefaultEngineSetup,
+  templateInputTargets,
   type LayoutRect,
   type ModuleType,
 } from '@hftr/contracts';
@@ -116,8 +117,10 @@ export async function POST(req: Request, ctx: Ctx) {
     for (const engineInput of engine.inputs) {
       const value = input.inputs[engineInput.key]?.trim();
       if (!value) continue;
-      const mapKey = `${engineInput.target.moduleIndex}:${engineInput.target.configKey}`;
-      grouped.set(mapKey, [...(grouped.get(mapKey) ?? []), value]);
+      for (const target of templateInputTargets(engineInput)) {
+        const mapKey = `${target.moduleIndex}:${target.configKey}`;
+        grouped.set(mapKey, [...(grouped.get(mapKey) ?? []), value]);
+      }
     }
     for (const [mapKey, values] of grouped) {
       const [idx, configKey] = mapKey.split(':') as [string, string];

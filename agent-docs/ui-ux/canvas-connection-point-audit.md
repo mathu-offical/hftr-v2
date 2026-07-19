@@ -33,17 +33,24 @@ Info-type labels only (no peer names as primary). Distinct per nature on one car
 
 | Template | Zone fit | Link notes |
 |----------|----------|------------|
-| engine_day_trading | full spine + funds | research→librarian→library→trend→trading→policy; Day-Trade Fund Router; analyzer verify; funds via Math |
+| engine_day_trading | full spine + funds | research→librarian→library→trend→trading→policy (no research→library bypass); Day-Trade Fund Router; analyzer verify; funds via Math |
 | engine_trend_research | research/data/trend/verify | research→librarian→library→trend; Trend Research Concat to_desk_stream |
-| research_* | research packs | research→librarian→library data_feed spine; dual research subtypes distinct Fn labels; context-specific Concat names |
-| engine_crypto | execution specialty (gated) | research→librarian→library→trend→trading; Crypto Fund Router; wired even when `available:false` |
+| trend_research_lab | company starter | mirrors engine_trend_research (specialty_desk + streamDescriptor) |
+| research_* | research packs | research→librarian→library only (D-143); dual research subtypes distinct Fn labels; context-specific Concat names |
+| engine_crypto | execution specialty (gated) | research→librarian→library→trend→trading; Crypto Fund Router; philosophy targets trend focus |
 | engine_prediction | execution specialty | research→librarian→library→trend→trading; Prediction Fund Router |
-| engine_long_term | full spine + funds | dual research→librarian→library; Horizon Fund Router |
+| engine_long_term | full spine + funds | dual research→librarian→library; Paper Horizon Holding Fund |
 | engine_hft | empty stub | unchanged |
 
-**Chrome (D-110):** Fn + subtype chips, nature rails/labels, family silhouettes on dominant
-agent/control types, Math tool token parity, create-preview bus parity — operators should not
-need manual cleanup to read a default day-trading or research ENGINE insert.
+**Strict librarian spine (D-143):** When a template has both `research` and `library`,
+ingest must go `research→librarian→library`. Parallel `research→library` data_feed edges are
+forbidden (contract-tested). Research→analyzer fan-in for concat remains allowed.
+`topicScope` create/insert inputs fan out to research + librarian + library via
+`alsoTargets` so the spine stays scoped together.
+
+**Chrome (D-110 / D-143):** Fn + subtype chips, nature rails/labels, family silhouettes on
+dominant agent/control types, Math tool token parity, create-preview bus/group parity —
+operators should not need manual cleanup to read a default day-trading or research ENGINE insert.
 
 ## Nature map
 

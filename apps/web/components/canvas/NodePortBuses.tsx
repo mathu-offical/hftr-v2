@@ -190,11 +190,11 @@ export function NodePortBuses(props: {
                     }}
                   />
                   <span
-                    className={`pointer-events-none absolute text-[5px] leading-tight ${
+                    className={`pointer-events-none absolute text-[6px] leading-tight ${
                       isStream ? 'text-[var(--color-ink-dim)]' : 'text-[var(--color-ink-faint)]'
                     } ${
                       isTop
-                        ? '-top-3 max-w-[3.25rem] truncate text-center'
+                        ? '-top-3 max-w-[3.75rem] truncate text-center'
                         : isLeft
                           ? '-left-[4.2rem] w-[4rem] text-right'
                           : '-right-[4.2rem] w-[4rem] text-left'
@@ -283,7 +283,7 @@ export function NodePortBuses(props: {
                   }}
                 />
                 <span
-                  className="pointer-events-none absolute -bottom-3 max-w-[3.25rem] truncate text-[5px] text-[var(--color-ink-dim)]"
+                  className="pointer-events-none absolute -bottom-3 max-w-[3.75rem] truncate text-[6px] text-[var(--color-ink-dim)]"
                   style={{ left, transform: 'translateX(-50%)' }}
                   aria-hidden
                 >
@@ -382,7 +382,7 @@ export function MathPortBuses(props: {
               }}
             />
             <span
-              className="pointer-events-none absolute -top-3 max-w-[3.25rem] truncate text-center text-[5px] text-[var(--color-ink-dim)]"
+              className="pointer-events-none absolute -top-3 max-w-[3.75rem] truncate text-center text-[6px] text-[var(--color-ink-dim)]"
               style={{ left, transform: 'translateX(-50%)' }}
               aria-hidden
             >
@@ -414,7 +414,7 @@ export function MathPortBuses(props: {
               }}
             />
             <span
-              className="pointer-events-none absolute -left-[3.6rem] w-[3.4rem] text-right text-[5px] text-[var(--color-ink-dim)]"
+              className="pointer-events-none absolute -left-[3.6rem] w-[3.4rem] text-right text-[6px] text-[var(--color-ink-dim)]"
               style={{ top, transform: 'translateY(-50%)' }}
               aria-hidden
             >
@@ -446,7 +446,7 @@ export function MathPortBuses(props: {
               }}
             />
             <span
-              className="pointer-events-none absolute -right-[3.6rem] w-[3.4rem] text-left text-[5px] text-[var(--color-ink-dim)]"
+              className="pointer-events-none absolute -right-[3.6rem] w-[3.4rem] text-left text-[6px] text-[var(--color-ink-dim)]"
               style={{ top, transform: 'translateY(-50%)' }}
               aria-hidden
             >

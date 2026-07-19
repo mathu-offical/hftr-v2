@@ -68,6 +68,11 @@ export interface CompanyTemplate {
 // caps) before insertion; values land in module configs via `target`.
 // Unavailable engines are listed honestly with the gating milestone.
 
+export interface EngineTemplateInputTarget {
+  moduleIndex: number;
+  configKey: string;
+}
+
 export interface EngineTemplateInput {
   key: string;
   label: string;
@@ -75,7 +80,19 @@ export interface EngineTemplateInput {
   options?: string[];
   placeholder?: string;
   /** Which inserted module's config field receives the value. */
-  target: { moduleIndex: number; configKey: string };
+  target: EngineTemplateInputTarget;
+  /**
+   * Extra modules that receive the same operator value (D-143).
+   * One form field; fan-out at insert so research/librarian/library stay scoped together.
+   */
+  alsoTargets?: EngineTemplateInputTarget[];
+}
+
+/** Primary + alsoTargets for template input application. */
+export function templateInputTargets(
+  input: EngineTemplateInput,
+): EngineTemplateInputTarget[] {
+  return [input.target, ...(input.alsoTargets ?? [])];
 }
 
 export interface EngineTemplate {
@@ -208,7 +225,6 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     ],
     links: [
       { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
@@ -220,6 +236,14 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 'math', toIndex: 7, linkKind: 'fund_route' },
     ],
     inputs: [
+      {
+        key: 'topicScope',
+        label: 'Research scope',
+        kind: 'text',
+        placeholder: 'e.g. sector and theme scope',
+        target: { moduleIndex: 0, configKey: 'topicScope' },
+        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
+      },
       {
         key: 'focus',
         label: 'Sector focus',
@@ -298,7 +322,6 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     links: [
       { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 0, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
@@ -311,6 +334,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. semiconductors and AI infrastructure',
         target: { moduleIndex: 0, configKey: 'topicScope' },
+        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
       },
     ],
   },
@@ -427,7 +451,6 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     links: [
       { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 4, toIndex: 5, linkKind: 'directive' },
@@ -440,6 +463,14 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     ],
     inputs: [
       {
+        key: 'topicScope',
+        label: 'Research scope',
+        kind: 'text',
+        placeholder: 'e.g. sector and theme scope',
+        target: { moduleIndex: 0, configKey: 'topicScope' },
+        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
+      },
+      {
         key: 'focus',
         label: 'Crypto focus',
         kind: 'text',
@@ -451,7 +482,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         label: 'Trading philosophy',
         kind: 'select',
         options: ['momentum continuation', 'mean reversion', 'breakout capture'],
-        target: { moduleIndex: 3, configKey: 'focus' },
+        target: { moduleIndex: 4, configKey: 'focus' },
       },
     ],
   },
@@ -566,7 +597,6 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     links: [
       { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 4, toIndex: 5, linkKind: 'directive' },
@@ -584,6 +614,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. US elections, macro CPI releases',
         target: { moduleIndex: 0, configKey: 'topicScope' },
+        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
       },
       {
         key: 'focus',
@@ -678,7 +709,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'holding_fund',
-        name: 'Paper Seed Holding Fund',
+        name: 'Paper Horizon Holding Fund',
         config: { source: 'company_seed', allocationPolicyRef: 'paper_balanced_general_v1' },
         position: { x: 920, y: 828 },
       },
@@ -714,8 +745,6 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     links: [
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 5, linkKind: 'data_feed' },
       { fromIndex: 4, toIndex: 5, linkKind: 'data_feed' },
@@ -733,6 +762,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. defensive rotation, quality compounders',
         target: { moduleIndex: 0, configKey: 'topicScope' },
+        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }, { moduleIndex: 3, configKey: 'topicScope' }],
       },
       {
         key: 'focus',
@@ -789,7 +819,6 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     ],
     links: [
       { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
@@ -802,6 +831,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. semiconductor supply chain',
         target: { moduleIndex: 0, configKey: 'topicScope' },
+        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
       },
     ],
   },
@@ -851,7 +881,6 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     ],
     links: [
       { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
@@ -863,6 +892,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. S&P 500 10-K themes',
         target: { moduleIndex: 0, configKey: 'topicScope' },
+        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
       },
     ],
   },
@@ -914,11 +944,19 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     links: [
       { fromIndex: 1, toIndex: 0, linkKind: 'data_feed' },
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
-      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
     ],
-    inputs: [],
+    inputs: [
+      {
+        key: 'topicScope',
+        label: 'Research scope',
+        kind: 'text',
+        placeholder: 'e.g. mechanism themes',
+        target: { moduleIndex: 1, configKey: 'topicScope' },
+        alsoTargets: [{ moduleIndex: 0, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
+      },
+    ],
   },
   {
     id: 'research_event_catalyst',
@@ -966,7 +1004,6 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     ],
     links: [
       { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
@@ -978,6 +1015,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. earnings season, CPI prints',
         target: { moduleIndex: 0, configKey: 'topicScope' },
+        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
       },
     ],
   },
@@ -1001,7 +1039,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'research',
-        name: 'Desk Specialty Research',
+        name: 'Regime Desk Specialty Research',
         config: {
           topicScope: 'pending_operator_scope',
           researchSubtype: 'specialty_desk',
@@ -1030,7 +1068,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'live_api',
-        name: 'Paper Market Feed',
+        name: 'Regime Paper Market Feed',
         config: {
           venue: 'paper_sim',
           instruments: [],
@@ -1061,8 +1099,6 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 5, linkKind: 'data_feed' },
       { fromIndex: 4, toIndex: 5, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 6, linkKind: 'data_feed' },
@@ -1077,6 +1113,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. risk-on/risk-off equities',
         target: { moduleIndex: 0, configKey: 'topicScope' },
+        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }, { moduleIndex: 3, configKey: 'topicScope' }],
       },
       {
         key: 'focus',
@@ -1136,7 +1173,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'live_api',
-        name: 'Alpaca Crypto Feed',
+        name: 'Crypto Context Paper Feed',
         config: {
           venue: 'alpaca',
           instruments: ['BTC/USD'],
@@ -1167,8 +1204,6 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 5, linkKind: 'data_feed' },
       { fromIndex: 4, toIndex: 5, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 6, linkKind: 'data_feed' },
@@ -1177,6 +1212,14 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 5, toIndex: 6, linkKind: 'data_feed' },
     ],
     inputs: [
+      {
+        key: 'topicScope',
+        label: 'Research scope',
+        kind: 'text',
+        placeholder: 'e.g. crypto knowledge scope',
+        target: { moduleIndex: 0, configKey: 'topicScope' },
+        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }, { moduleIndex: 3, configKey: 'topicScope' }],
+      },
       {
         key: 'focus',
         label: 'Crypto focus',
@@ -1206,7 +1249,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'research',
-        name: 'Event Catalyst Research',
+        name: 'Prediction Catalyst Research',
         config: {
           topicScope: 'pending_operator_scope',
           researchSubtype: 'event_catalyst',
@@ -1266,8 +1309,6 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 5, linkKind: 'data_feed' },
       { fromIndex: 4, toIndex: 5, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 6, linkKind: 'data_feed' },
@@ -1282,6 +1323,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. elections, macro prints',
         target: { moduleIndex: 0, configKey: 'topicScope' },
+        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }, { moduleIndex: 3, configKey: 'topicScope' }],
       },
     ],
   },
@@ -1295,7 +1337,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     modules: [
       {
         type: 'research',
-        name: 'Desk Specialty Research',
+        name: 'Desk-Aligned Specialty Research',
         config: {
           topicScope: 'pending_operator_scope',
           researchSubtype: 'specialty_desk',
@@ -1324,7 +1366,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'live_api',
-        name: 'Paper Market Feed',
+        name: 'Desk Paper Market Feed',
         config: {
           venue: 'paper_sim',
           instruments: [],
@@ -1353,7 +1395,6 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     ],
     links: [
       { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
@@ -1368,6 +1409,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. day-trade large-cap tech',
         target: { moduleIndex: 0, configKey: 'topicScope' },
+        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }],
       },
     ],
   },
@@ -1449,9 +1491,6 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 0, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 4, linkKind: 'data_feed' },
-      { fromIndex: 1, toIndex: 4, linkKind: 'data_feed' },
-      { fromIndex: 2, toIndex: 5, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 5, linkKind: 'data_feed' },
       { fromIndex: 4, toIndex: 3, linkKind: 'data_feed' },
@@ -1468,6 +1507,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         kind: 'text',
         placeholder: 'e.g. company-wide market knowledge',
         target: { moduleIndex: 0, configKey: 'topicScope' },
+        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }, { moduleIndex: 2, configKey: 'topicScope' }, { moduleIndex: 3, configKey: 'topicScope' }, { moduleIndex: 4, configKey: 'topicScope' }, { moduleIndex: 5, configKey: 'topicScope' }],
       },
     ],
   },
@@ -1691,7 +1731,6 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
     ],
     links: [
       { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
@@ -1715,7 +1754,7 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
         name: 'Scoped Market Research',
         config: {
           topicScope: 'pending_operator_scope',
-          researchSubtype: 'external_web',
+          researchSubtype: 'specialty_desk',
           curiosity: 'balanced',
         },
         position: { x: 20, y: 240 },
@@ -1753,14 +1792,16 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
       {
         type: 'analyzer',
         name: 'Trend Research Concat',
-        config: { emitMode: 'to_desk_stream' },
+        config: {
+          emitMode: 'to_desk_stream',
+          streamDescriptor: 'trend_research_concat',
+        },
         position: { x: 800, y: 240 },
       },
     ],
     links: [
       { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
       { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
-      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 3, linkKind: 'data_feed' },
       { fromIndex: 0, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },

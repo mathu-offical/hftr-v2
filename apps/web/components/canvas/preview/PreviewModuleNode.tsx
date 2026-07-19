@@ -20,17 +20,10 @@ type PreviewModuleFlowNode = Node<PreviewModuleNodeData, 'previewModule'>;
 export const PreviewModuleNode = memo(function PreviewModuleNode({
   id,
   data,
+  selected,
 }: NodeProps<PreviewModuleFlowNode>) {
   const moduleType = data.moduleType as ModuleType;
-  const visual = MODULE_VISUALS[moduleType] ?? {
-    label: data.moduleType,
-    hue: '#a9b1d6',
-    family: 'agent' as const,
-    radiusClass: 'rounded',
-    borderStyle: 'solid' as const,
-    accent: 'bar' as const,
-    wash: 'transparent',
-  };
+  const visual = MODULE_VISUALS[moduleType] ?? MODULE_VISUALS.display;
   const config = data.config ?? null;
   const subtype = moduleSubtypeChip(moduleType, config, data.name);
   const streamPorts = useMemo(
@@ -63,24 +56,46 @@ export const PreviewModuleNode = memo(function PreviewModuleNode({
         className={`relative h-full w-full overflow-hidden border bg-[var(--color-surface-1)] ${visual.radiusClass ?? 'rounded'}`}
         style={{
           borderStyle: visual.borderStyle ?? 'solid',
-          borderColor: 'var(--color-line)',
+          borderColor: selected ? visual.hue : 'var(--color-line)',
           borderLeftWidth: 3,
           borderLeftColor: visual.hue,
+          boxShadow: selected ? `0 0 0 1px ${visual.hue}55` : undefined,
           backgroundImage: visual.wash
             ? `linear-gradient(${visual.wash}, ${visual.wash}), linear-gradient(var(--color-surface-1), var(--color-surface-1))`
             : undefined,
           minHeight: shaped ? '100%' : undefined,
         }}
       >
-        <FamilyShapeChrome shape={visual.shape} hue={visual.hue} />
+        <FamilyShapeChrome shape={visual.shape} hue={visual.hue} selected={selected} />
         <div className="relative px-1.5 py-1">
-          <p className="truncate text-[9px] font-medium leading-tight text-[var(--color-ink)]">
-            {data.name}
-          </p>
-          <p className="truncate text-[8px] uppercase tracking-wide text-[var(--color-ink-faint)]">
-            {FAMILY_LABELS[visual.family]} · {visual.label}
-            {subtype ? ` · ${subtype}` : ''}
-          </p>
+          <div className="flex items-center gap-1">
+            <span
+              className="shrink-0 rounded px-0.5 text-[7px] uppercase tracking-wide"
+              style={{
+                color: visual.hue,
+                border: `1px solid ${visual.hue}55`,
+                background: `${visual.hue}12`,
+              }}
+            >
+              {FAMILY_LABELS[visual.family]}
+            </span>
+            <p className="min-w-0 truncate text-[9px] font-medium leading-tight text-[var(--color-ink)]">
+              {data.name}
+            </p>
+          </div>
+          <div className="mt-0.5 flex items-center gap-1">
+            <p className="truncate text-[8px] uppercase tracking-wide text-[var(--color-ink-faint)]">
+              {visual.label}
+            </p>
+            {subtype ? (
+              <span
+                className="max-w-[5.5rem] truncate rounded border border-[var(--color-line)] px-0.5 text-[7px] text-[var(--color-ink-dim)]"
+                title={subtype}
+              >
+                {subtype}
+              </span>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

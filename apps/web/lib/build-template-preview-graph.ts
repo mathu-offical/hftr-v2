@@ -9,25 +9,19 @@ import {
   type ModuleType,
 } from '@hftr/contracts';
 import type { Edge, Node } from '@xyflow/react';
+import { LINK_COLORS } from '@/components/canvas/canvas-visuals';
 
-const LINK_COLORS: Record<LinkKind, string> = {
-  data_feed: '#7aa2f7',
-  directive: '#e0af68',
-  verification: '#9ece6a',
-  fund_route: '#73daca',
-};
-
-/** Compact preview card size (create-form canvas). */
-export const PREVIEW_MODULE_WIDTH = 128;
-export const PREVIEW_MODULE_HEIGHT = 48;
+/** Compact preview card size (create-form canvas) — closer to live proportions for chrome readability. */
+export const PREVIEW_MODULE_WIDTH = 168;
+export const PREVIEW_MODULE_HEIGHT = 72;
 export const PREVIEW_GROUP_PADDING = {
-  left: 20,
-  right: 20,
-  top: 32,
-  bottom: 16,
+  left: 28,
+  right: 28,
+  top: 36,
+  bottom: 20,
 } as const;
 
-const POSITION_SCALE = 0.36;
+const POSITION_SCALE = 0.42;
 const FAMILY_GAP_Y = 200;
 const DEP_GAP_Y = 160;
 const RESEARCH_TO_EXEC_GAP_X = 200;

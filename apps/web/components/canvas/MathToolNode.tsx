@@ -46,6 +46,13 @@ export const MathToolNode = memo(function MathToolNode({
       title={`Dedicated deterministic Math tool for ${data.ownerName}`}
     >
       <MathPortBuses inbound={streamPorts.inbound} outbound={streamPorts.outbound} />
+      {visual.accent === 'dot' ? (
+        <span
+          className="h-1.5 w-1.5 shrink-0 rounded-full"
+          style={{ background: visual.hue }}
+          aria-hidden
+        />
+      ) : null}
       <span
         className="shrink-0 rounded px-1 py-0.5 text-[8px] uppercase tracking-wider"
         style={{

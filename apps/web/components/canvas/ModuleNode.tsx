@@ -464,12 +464,15 @@ export const ModuleNode = memo(function ModuleNode({
           {data.attachedMathTools!.map((tool) => (
             <div
               key={tool.id}
-              className="flex items-center gap-2 rounded-md border border-dashed border-[#bb9af7]/50 bg-[var(--color-surface-0)]/80 px-2.5 py-1"
-              style={{ width: CARD_WIDTH_PX }}
+              className="flex items-center gap-2 rounded-md border border-dashed bg-[var(--color-surface-0)]/80 px-2.5 py-1"
+              style={{
+                width: CARD_WIDTH_PX,
+                borderColor: `${MODULE_VISUALS.math.hue}80`,
+              }}
             >
               <span
                 className="h-1.5 w-1.5 shrink-0 rounded-full"
-                style={{ background: '#bb9af7' }}
+                style={{ background: MODULE_VISUALS.math.hue }}
               />
               <span className="text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
                 Math tool

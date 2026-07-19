@@ -258,7 +258,7 @@ export const EngineGroupNode = memo(function EngineGroupNode({
               aria-label={`${BUS_LABELS[bus]} (${nature.label})`}
             />
             <span
-              className="pointer-events-none absolute -left-[3.8rem] w-[3.6rem] truncate text-right text-[5px]"
+              className="pointer-events-none absolute -left-[3.8rem] w-[3.6rem] truncate text-right text-[6px]"
               style={{ top, transform: 'translateY(-50%)', color: nature.color }}
               aria-hidden
             >
@@ -286,7 +286,7 @@ export const EngineGroupNode = memo(function EngineGroupNode({
               aria-label={`${BUS_LABELS[bus]} (${nature.label})`}
             />
             <span
-              className="pointer-events-none absolute -right-[3.8rem] w-[3.6rem] truncate text-left text-[5px]"
+              className="pointer-events-none absolute -right-[3.8rem] w-[3.6rem] truncate text-left text-[6px]"
               style={{ top, transform: 'translateY(-50%)', color: nature.color }}
               aria-hidden
             >

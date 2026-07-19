@@ -1511,10 +1511,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   starter templates drop parallel `research→library` data_feed bypasses so ingest is only
   `research→librarian→library`. Fixes `engine_crypto` philosophy targeting trend (not live_api),
   aligns `trend_research_lab` with `engine_trend_research`, renames long-term seed fund to
-  Paper Horizon Holding Fund. Canvas chrome: fund_router subtype prefers policy envelope;
-  Math attached-strip tokens from `MODULE_VISUALS.math`; port labels 6px; create-preview cards
-  enlarged with separate subtype chips + PreviewEngineGroupNode utility bus labels.
-  Docs: ui-spec §3, canvas-connection-point-audit. **Status: implemented.**
+  Paper Horizon Holding Fund. `topicScope` inputs fan out via `alsoTargets` to research +
+  librarian + library. Cross-template research-pack module names disambiguated. Canvas chrome:
+  fund_router subtype prefers policy envelope; Math attached-strip / MathToolNode tokens from
+  `MODULE_VISUALS.math`; port labels 6px; create-preview cards enlarged with separate subtype
+  chips + PreviewEngineGroupNode utility bus labels. Docs: ui-spec §3,
+  canvas-connection-point-audit. **Status: implemented.**
 
 - **D-145 (galaxy semantic interaction springs, 2026-07-18):** Observed spheres stayed
   separated because packing used hard D-132 gaps and graphs often have ~5 persisted

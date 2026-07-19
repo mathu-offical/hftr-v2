@@ -461,6 +461,10 @@ export function moduleSubtypeChip(
       break;
     }
     case 'fund_router': {
+      const envelope = cfg.policyEnvelopeRef;
+      if (typeof envelope === 'string' && envelope.trim()) {
+        return humanizeToken(envelope.replace(/_v\d+$/i, '').slice(0, 28));
+      }
       const mode = cfg.approvalMode;
       if (typeof mode === 'string' && mode.trim()) {
         return humanizeToken(mode);

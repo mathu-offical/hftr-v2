@@ -13,6 +13,7 @@ import {
   placeNextEngineOrigin,
   projectedModuleSlotsForCreate,
   withDefaultEngineSetup,
+  templateInputTargets,
   type LayoutRect,
 } from '@hftr/contracts';
 import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
@@ -150,8 +151,10 @@ export async function POST(req: Request) {
       for (const engineInput of engine.inputs) {
         const value = seed.inputs[engineInput.key]?.trim();
         if (!value) continue;
-        const mapKey = `${engineInput.target.moduleIndex}:${engineInput.target.configKey}`;
-        grouped.set(mapKey, [...(grouped.get(mapKey) ?? []), value]);
+        for (const target of templateInputTargets(engineInput)) {
+          const mapKey = `${target.moduleIndex}:${target.configKey}`;
+          grouped.set(mapKey, [...(grouped.get(mapKey) ?? []), value]);
+        }
       }
       for (const [mapKey, values] of grouped) {
         const [idx, configKey] = mapKey.split(':') as [string, string];

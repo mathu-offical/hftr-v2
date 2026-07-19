@@ -94,6 +94,7 @@ import {
   COMPANY_TEMPLATES,
   ENGINE_TEMPLATES,
   researchDependenciesForExecutionEngine,
+  templateInputTargets,
 } from './templates';
 import {
   CANVAS_LAYOUT,
@@ -1158,6 +1159,25 @@ describe('engine templates', () => {
     const philosophy = crypto!.inputs.find((i) => i.key === 'philosophy');
     expect(philosophy?.target).toEqual({ moduleIndex: 4, configKey: 'focus' });
     expect(crypto!.modules[4]?.type).toBe('trend');
+  });
+
+  it('fans topicScope across research librarian library (D-143)', () => {
+    for (const engine of ENGINE_TEMPLATES) {
+      if (engine.modules.length === 0) continue;
+      const types = engine.modules.map((m) => m.type);
+      if (!types.includes('research') || !types.includes('library') || !types.includes('librarian')) {
+        continue;
+      }
+      const scopeInput = engine.inputs.find((i) => i.key === 'topicScope');
+      expect(scopeInput, `${engine.id} missing topicScope input`).toBeDefined();
+      const targets = new Set(templateInputTargets(scopeInput!).map((t) => t.moduleIndex));
+      for (let i = 0; i < engine.modules.length; i++) {
+        const type = engine.modules[i]!.type;
+        if (type === 'research' || type === 'librarian' || type === 'library') {
+          expect(targets.has(i), `${engine.id} topicScope misses ${type}@${i}`).toBe(true);
+        }
+      }
+    }
   });
 
   it('keeps company starters on librarian spines (D-143)', () => {

@@ -17,7 +17,7 @@ import { ResearchOverlay } from '@/components/research/ResearchOverlay';
 import { ShellInspectorLayer } from '@/components/research/ShellInspectorLayer';
 import { DataExplorerOverlay } from '@/components/panels/DataExplorerOverlay';
 import { MarketPostureOverlay } from '@/components/panels/MarketPostureOverlay';
-import { QueueStatsChip } from '@/components/QueueStatsChip';
+import { ProcessingQueueChip } from '@/components/ProcessingQueueChip';
 import { CompanySwitcher } from '@/components/shell/CompanySwitcher';
 import { ExecutionTicker } from '@/components/shell/ExecutionTicker';
 import {
@@ -117,7 +117,7 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
           <div className="flex shrink-0 items-center gap-3">
             <ModeSwitch companyId={companyId} mode={company.mode} />
             <LlmRibbonStatusChip />
-            <QueueStatsChip />
+            <ProcessingQueueChip companyId={companyId} />
             <UserSettingsLauncher />
             <UserMenu />
           </div>

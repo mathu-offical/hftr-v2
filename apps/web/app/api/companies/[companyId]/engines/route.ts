@@ -12,7 +12,7 @@ import {
   moduleFunctionLabel,
   moduleRequiresMath,
   placeNextEngineOrigin,
-  withDefaultEngineSetup,
+  resolveEngineSetupFromCompany,
   templateInputTargets,
   engineCreateSection,
   researchDependenciesForExecutionEngine,
@@ -91,7 +91,7 @@ export async function GET(_req: Request, ctx: Ctx) {
 export async function POST(req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
     const { companyId } = Params.parse(await ctx.params);
-    await scoping.getOwnedCompany(db, clerkUserId, companyId);
+    const company = await scoping.getOwnedCompany(db, clerkUserId, companyId);
     const input = await parseBody(req, InsertEngineInput);
 
     const sessionIds = new Set(loadSessionConstraints().keys());
@@ -196,8 +196,16 @@ export async function POST(req: Request, ctx: Ctx) {
     );
     const canvasBounds = laid.canvasBounds;
     const absolutePositions = laid.modulePositions;
-    const masterTopicSectors = input.setup?.topicSectors ?? [];
-    const setup = withDefaultEngineSetup(input.setup);
+    const cascadeFromCompany = input.cascadeFromCompany !== false;
+    const setup = resolveEngineSetupFromCompany(
+      input.setup,
+      {
+        sectorFocuses: company.sectorFocuses ?? [],
+        seedCreditsCents: company.seedCreditsCents,
+      },
+      cascadeFromCompany,
+    );
+    const masterTopicSectors = setup.topicSectors ?? [];
     const setupSnapshot = engineSetupSnapshotFromInput(setup);
     const templateInputs = input.inputs ?? {};
 

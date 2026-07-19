@@ -99,10 +99,7 @@ export async function ensureEngineDataHub(
     const position =
       researchBounds.length > 0
         ? placeDataHubOrigin(researchBounds, execBounds)
-        : {
-            x: execBounds.x - 280,
-            y: execBounds.y + Math.max(40, execBounds.height / 2 - 80),
-          };
+        : placeDataHubOrigin([], execBounds);
 
     const hubConfig = {
       topicScope: ENGINE_DATA_HUB_TOPIC_SCOPE,

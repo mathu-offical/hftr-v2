@@ -37,9 +37,13 @@ export const CANVAS_LAYOUT = {
   engineFundsShelfGap: 48,
   /** Gap above the engine Time hub rail (below member/Math/funds envelopes). */
   engineTimeHubGap: 40,
-  topLevelGutter: 120,
-  /** Gap between research deps column and execution (hub sits in this band). */
-  researchToExecGap: 280,
+  /** Clearance between engine families / free modules / cadence rail (D-176). */
+  topLevelGutter: 140,
+  /**
+   * Gap between research deps column and execution (hub sits in this band).
+   * D-176: widened from 280 so hub + option-anchor chrome stay connection-safe.
+   */
+  researchToExecGap: 340,
   /**
    * Compact Data Hub footprint used for gap placement (hubs are free library
    * nodes, not full member cards).
@@ -56,6 +60,12 @@ export const CANVAS_LAYOUT = {
    * to execution. Prefer the execution side so the hub→data_in edge is short.
    */
   dataHubGapBiasTowardExec: 0.72,
+  /**
+   * Right-column reserve for D-173 option anchors (must stay ≤ ENGINE_GROUP_PADDING.right).
+   */
+  optionAnchorColumnWidth: 156,
+  /** Minimum clearance when the research→exec gap is too narrow for the hub (D-176). */
+  dataHubTightGapClearance: 48,
   originX: 40,
   originY: 40,
 } as const;
@@ -652,8 +662,9 @@ export function placeDataHubOrigin(
   if (gapWidth > hubSize.width) {
     x = gapLeft + (gapWidth - hubSize.width) * bias;
   } else {
-    // Tight gap: park immediately left of execution with a small clearance.
-    x = Math.max(researchRight + 16, executionBounds.x - hubSize.width - 24);
+    // Tight gap: keep connection-safe clearance (D-176), not flush parking.
+    const clear = CANVAS_LAYOUT.dataHubTightGapClearance;
+    x = Math.max(researchRight + clear, executionBounds.x - hubSize.width - clear);
   }
 
   const handleY =

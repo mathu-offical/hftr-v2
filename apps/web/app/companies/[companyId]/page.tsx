@@ -206,6 +206,10 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
                     toModuleId: l.toModuleId,
                     linkKind: l.linkKind,
                   }))}
+                  companyDefaults={{
+                    sectorFocuses: company.sectorFocuses ?? [],
+                    seedCreditsCents: Number(company.seedCreditsCents),
+                  }}
                 />
                 <ResearchOverlay />
                 <MarketPostureOverlay />

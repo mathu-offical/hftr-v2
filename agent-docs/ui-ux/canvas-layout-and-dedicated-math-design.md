@@ -85,8 +85,9 @@ Layout uses measured React Flow node dimensions when available and conservative 
 | Group left/right padding | 88 px (utility ports + side handles) |
 | Group header/top padding | 92 px (D-089 inline bounded header fields) |
 | Group bottom padding | 132 px (Math docks + funds + Time rail) |
-| Top-level engine gutter | 120 px — create/insert/reflow/drag-stop via `placeNextEngineOrigin` |
-| Research → exec gap | 280 px (`researchToExecGap`) — Data Hub sits in this band (D-159) |
+| Top-level engine gutter | 140 px — create/insert/reflow/drag-stop via `placeNextEngineOrigin` (D-176) |
+| Research → exec gap | 340 px (`researchToExecGap`) — Data Hub sits in this band (D-159 / D-176) |
+| Engine group right padding | 168 px — utility chrome + option-anchor column (D-173 / D-176) |
 | Canvas family stack | Research deps left → hub gap → execution right; families stack **vertically** (D-159) |
 | Math attachment | Single **Calc ref** (`math → owner` `data_feed`); info-type port labels (D-088) |
 

@@ -164,7 +164,7 @@ export async function reflowCompanyFamilyLayout(
 /**
  * Dock existing Data Hub modules into the research→exec gap without reshuffling
  * member modules. Used when engines already have intentional relative positions
- * but hubs still sit at the ad-hoc `exec.x - 280` spawn point.
+ * but hubs still sit off the family corridor. D-176: spawn uses placeDataHubOrigin.
  */
 export async function dockCompanyDataHubs(
   db: Db,

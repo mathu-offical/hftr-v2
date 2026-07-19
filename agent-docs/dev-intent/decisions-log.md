@@ -1774,7 +1774,16 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   expanded Market Posture window as four levels: Evidence → Links → Trends →
   Recommendations (primary emit). Model canvas remains secondary process chrome. Extends
   D-092 / D-169. Spec: `docs/superpowers/specs/2026-07-19-market-awareness-linkage-design.md`.
-  Docs: ui-spec §4, data-model. **Status: implemented.**
+  Docs: ui-spec §4, data-model.   **Status: implemented.**
+
+- **D-176 (engine family spacing + company cascade default, 2026-07-19):** Default canvas
+  spacing for engines and connected structures: `researchToExecGap` 340, `topLevelGutter` 140,
+  `ENGINE_GROUP_PADDING.right` 168 (option-anchor column), hub tight-gap clearance 48, hub
+  spawn always via `placeDataHubOrigin`. Canvas engine insert gains `cascadeFromCompany`
+  (default **true**): empty topic fills from `company.sectorFocuses`, capital defaults from
+  `seedCreditsCents`; engine→member cascade unchanged. Extends D-035 / D-044 / D-159 / D-173.
+  Docs: canvas-layout-and-dedicated-math-design, canvas-engine-group-design, ui-spec §3.
+  **Status: implemented.**
 
 ## Open questions
 

@@ -71,7 +71,6 @@ import {
 } from './OptionAnchorNode';
 import { OptionAnchorInspectorPanel } from './OptionAnchorInspectorPanel';
 import {
-  OPTION_ANCHOR_COLUMN_WIDTH,
   OPTION_ANCHOR_GAP,
   OPTION_ANCHOR_NODE_HEIGHT,
   anchorsForEngine,
@@ -369,6 +368,8 @@ function engineBoundsWithOptionColumn(
   memberBounds: { x: number; y: number; width: number; height: number },
   visibleAnchorCount: number,
 ): { x: number; y: number; width: number; height: number } {
+  // D-176: ENGINE_GROUP_PADDING.right already reserves the option-anchor column —
+  // only grow height when stacked anchors exceed the member envelope.
   const anchorsHeight =
     ENGINE_GROUP_PADDING.top +
     visibleAnchorCount * (OPTION_ANCHOR_NODE_HEIGHT + OPTION_ANCHOR_GAP) +
@@ -376,7 +377,7 @@ function engineBoundsWithOptionColumn(
   return {
     x: memberBounds.x,
     y: memberBounds.y,
-    width: memberBounds.width + (visibleAnchorCount > 0 ? OPTION_ANCHOR_COLUMN_WIDTH : 0),
+    width: memberBounds.width,
     height: Math.max(memberBounds.height, anchorsHeight),
   };
 }
@@ -1187,6 +1188,11 @@ export function CompanyCanvas(props: {
   initialModules: CanvasModule[];
   initialEngines: CanvasEngineGroup[];
   initialLinks: CanvasLink[];
+  /** Company-level defaults for engine insert cascade (D-176). */
+  companyDefaults?: {
+    sectorFocuses: string[];
+    seedCreditsCents: number;
+  };
 }) {
   const [deleteEngineId, setDeleteEngineId] = useState<string | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -2274,7 +2280,13 @@ export function CompanyCanvas(props: {
   );
 
   const insertEngine = useCallback(
-    async (engine: EngineTemplate, inputs: Record<string, string>, setup?: ModuleSetupInput) => {
+    async (
+      engine: EngineTemplate,
+      inputs: Record<string, string>,
+      setup?: ModuleSetupInput,
+      options?: { cascadeFromCompany?: boolean },
+    ) => {
+      const cascadeFromCompany = options?.cascadeFromCompany !== false;
       const present = new Set(
         nodes.filter(isEngineGroupNode).map((node) => node.data.templateId),
       );
@@ -2375,6 +2387,7 @@ export function CompanyCanvas(props: {
               templateId: item.template.id,
               inputs: item.inputs,
               setup,
+              cascadeFromCompany,
               canvasOffset: offset,
             },
           });
@@ -2844,7 +2857,11 @@ export function CompanyCanvas(props: {
 
   return (
     <div className="absolute inset-0 flex min-h-0">
-      <Palette onAdd={addModule} onInsertEngine={insertEngine} />
+      <Palette
+        onAdd={addModule}
+        onInsertEngine={insertEngine}
+        {...(props.companyDefaults ? { companyDefaults: props.companyDefaults } : {})}
+      />
 
       <div className="h-full min-h-0 min-w-0 flex-1">
         <ReactFlow

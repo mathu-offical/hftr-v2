@@ -89,13 +89,16 @@ ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles
 - **Engine Data Hub (D-140 / D-159 / D-168):** free library node in the research→exec gap,
   biased toward exec `data_in`; binds via motherboard utility (`fromModuleId=hub`). Nest
   libraries use `parent_hub_library_id` only — **no** hub `module_links`.
-- **Family layout (D-159):** research deps left → hub gap → execution right; families stack
-  vertically (`layoutCanvas` / `placeNextEngineOrigin` with `section`).
+- **Family layout (D-159 / D-176):** research deps left → hub gap (340px) → execution right;
+  families stack vertically with 140px top-level gutter. Engine right padding 168px reserves
+  the option-anchor column so server collision math matches client chrome.
 - **Option anchors (D-173):** catalog decision nodes parented under the engine group as a
   right-side column (`optionAnchor` React Flow type). Built from template inputs, strategy
   families, branch roles, recovery phases, and philosophy axes. Lever bands remain
   inspector-only. Visual `option_bind` edges are canvas decoration (not `module_links`).
   Positions persist on `setupSnapshot.optionAnchorPositions`.
+- **Company → engine cascade (D-176):** canvas insert defaults `cascadeFromCompany` on —
+  topic from `sectorFocuses`, capital from paper seed — then engine→member cascade (D-035).
 - **D-089 note:** shared setup + template inputs stay in the **header** as bordered inline fields
   (`ModuleSetupFields` `layout="inline"`); the utility rail is separate from setup chrome.
   Full engine setup + option-anchor tree also appear in the floating engine inspector (D-173).

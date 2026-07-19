@@ -89,6 +89,7 @@ import {
   splitAllocationValues,
   UpdateEngineInstanceInput,
   withDefaultEngineSetup,
+  resolveEngineSetupFromCompany,
 } from './engines';
 import {
   COMPANY_TEMPLATES,
@@ -839,6 +840,45 @@ describe('module inline setup', () => {
     );
     expect(skipped.capitalAllocation).toEqual({ mode: 'amount', value: '10000.00' });
     expect(skipped.targetExitAt).toBe('2026-07-24T12:00:00.000Z');
+  });
+
+  it('cascades company sector/seed into engine setup by default (D-176)', () => {
+    const cascaded = resolveEngineSetupFromCompany(
+      undefined,
+      { sectorFocuses: ['technology', 'semiconductors'], seedCreditsCents: 250_000 },
+      true,
+      Date.parse('2026-07-17T12:00:00.000Z'),
+    );
+    expect(cascaded.topicSectors).toEqual(['technology', 'semiconductors']);
+    expect(cascaded.capitalAllocation).toEqual({ mode: 'amount', value: '2500.00' });
+
+    const operatorWins = resolveEngineSetupFromCompany(
+      {
+        topicSectors: ['energy'],
+        capitalAllocation: { mode: 'percentage', value: '50' },
+      },
+      { sectorFocuses: ['technology'], seedCreditsCents: 250_000 },
+      true,
+    );
+    expect(operatorWins.topicSectors).toEqual(['energy']);
+    expect(operatorWins.capitalAllocation).toEqual({ mode: 'percentage', value: '50' });
+
+    const off = resolveEngineSetupFromCompany(
+      undefined,
+      { sectorFocuses: ['technology'], seedCreditsCents: 250_000 },
+      false,
+      Date.parse('2026-07-17T12:00:00.000Z'),
+    );
+    expect(off.topicSectors).toBeUndefined();
+    expect(off.capitalAllocation).toEqual({ mode: 'percentage', value: '100' });
+  });
+
+  it('reserves option-anchor column in engine right padding (D-176)', () => {
+    expect(ENGINE_GROUP_PADDING.right).toBeGreaterThanOrEqual(
+      CANVAS_LAYOUT.optionAnchorColumnWidth,
+    );
+    expect(CANVAS_LAYOUT.researchToExecGap).toBe(340);
+    expect(CANVAS_LAYOUT.topLevelGutter).toBe(140);
   });
 
   it('derives missing setup fields without raw numeric values', () => {

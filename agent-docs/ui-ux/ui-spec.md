@@ -192,11 +192,14 @@
 - Minimap + zoom controls bottom-right; fit-view on load; LOD: below zoom threshold, node bodies
   simplify to icon+status dot (perf + readability).
 - Empty state: company template picker rendered as ghost-nodes.
-- **Module / engine store (D-023, engines D-028, D-088):** two floating launcher buttons (top-left) —
+- **Module / engine store (D-023, engines D-028, D-088, D-176):** two floating launcher buttons (top-left) —
   **+ Modules** and **+ Engines** — open the same store on the matching tab. Modules are
   category-grouped singles (Math / Clock / Time under Tools). Engines are insertable
   end-to-end templates from `ENGINE_TEMPLATES` → persisted `engine_instances`; engines are
   browsed and inserted from this store only. Company creation auto-seeds Math hub + Master Clock.
+  Engine insert defaults **Cascade from company** on: topic/sectors from `sectorFocuses`,
+  capital from paper seed; operator can turn off and edit manually. Skip setup still applies
+  server-side company cascade defaults when the flag is on.
 - **Canvas settings (top-right):** floating **Canvas settings** menu hosts **Reflow canvas**
   (connection-safe layout) and **Clear canvas…** (confirm modal → cascade-delete every engine
   group and delete every remaining module/Math tool/link). Clear is disabled when the graph is

@@ -2,6 +2,7 @@ import type { Edge } from '@xyflow/react';
 import {
   buildOptionAnchorsForEngine,
   canvasVisibleOptionAnchors,
+  CANVAS_LAYOUT,
   ENGINE_GROUP_PADDING,
   type OptionAnchorPosition,
   type OptionAnchorSpec,
@@ -11,9 +12,9 @@ import type { CanvasEngineGroup, CanvasModule } from './types';
 
 export const OPTION_ANCHOR_NODE_WIDTH = 140;
 export const OPTION_ANCHOR_NODE_HEIGHT = 48;
-export const OPTION_ANCHOR_GAP = 6;
-/** Extra group width reserved for the right-side option-anchor column (D-169). */
-export const OPTION_ANCHOR_COLUMN_WIDTH = 156;
+export const OPTION_ANCHOR_GAP = 8;
+/** Matches CANVAS_LAYOUT / ENGINE_GROUP_PADDING.right reserve (D-176). */
+export const OPTION_ANCHOR_COLUMN_WIDTH = CANVAS_LAYOUT.optionAnchorColumnWidth;
 
 export function anchorsForEngine(
   engine: Pick<CanvasEngineGroup, 'id' | 'templateId'>,
@@ -63,7 +64,7 @@ export function placeOptionAnchorNodes(
   const nodes: OptionAnchorFlowNode[] = [];
   const baseX = Math.max(
     ENGINE_GROUP_PADDING.left,
-    groupWidth - OPTION_ANCHOR_COLUMN_WIDTH + 8,
+    groupWidth - OPTION_ANCHOR_COLUMN_WIDTH + Math.floor((ENGINE_GROUP_PADDING.right - OPTION_ANCHOR_COLUMN_WIDTH) / 2),
   );
   let cursorY = ENGINE_GROUP_PADDING.top;
 

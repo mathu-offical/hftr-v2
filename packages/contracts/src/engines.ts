@@ -180,6 +180,11 @@ export const InsertEngineInput = z.object({
   inputs: z.record(z.string(), z.string()).default({}),
   /** Master topic/sector + shared capital/exit applied per required module type. */
   setup: ModuleSetupInput.optional(),
+  /**
+   * When true (default), fill empty topic from company.sectorFocuses and capital
+   * from company.seedCreditsCents before applying withDefaultEngineSetup (D-176).
+   */
+  cascadeFromCompany: z.boolean().default(true),
   /** Absolute canvas offset applied to template module positions. */
   canvasOffset: CanvasPosition.optional(),
 });
@@ -236,7 +241,11 @@ export function isMathToolAttachment(
 export const ENGINE_GROUP_PADDING = {
   /** Clears motherboard utility ports + labeled side handles. */
   left: 88,
-  right: 88,
+  /**
+   * Clears right utility chrome + D-173 option-anchor column (D-176).
+   * Must be ≥ CANVAS_LAYOUT.optionAnchorColumnWidth.
+   */
+  right: 168,
   /** Badge + title + one wrap row of bordered setup fields (D-089). */
   top: 92,
   /** Clears Math docks + bottom-left Time hub rail (D-091). */
@@ -368,6 +377,40 @@ export function withDefaultEngineSetup(
     ...withCapital,
     targetExitAt: defaultTargetExitAt(nowMs),
   };
+}
+
+export type CompanyEngineCascadeSource = {
+  sectorFocuses: readonly string[];
+  seedCreditsCents: number | bigint | string;
+};
+
+/**
+ * Merge company-level defaults into engine setup when cascadeFromCompany is on (D-176).
+ * Operator-provided topic/capital/exit win; empty topic fills from sectorFocuses;
+ * capital defaults use seedCreditsCents instead of a bare 100% envelope.
+ */
+export function resolveEngineSetupFromCompany(
+  setup: ModuleSetupInput | undefined,
+  company: CompanyEngineCascadeSource,
+  cascadeFromCompany = true,
+  nowMs = Date.now(),
+): ModuleSetupInput {
+  if (!cascadeFromCompany) {
+    return withDefaultEngineSetup(setup, 0, nowMs);
+  }
+  const seedCents = Number(company.seedCreditsCents);
+  const topicSectors =
+    setup?.topicSectors && setup.topicSectors.length > 0
+      ? setup.topicSectors
+      : [...company.sectorFocuses];
+  return withDefaultEngineSetup(
+    {
+      ...(setup ?? {}),
+      ...(topicSectors.length > 0 ? { topicSectors } : {}),
+    },
+    Number.isFinite(seedCents) ? seedCents : 0,
+    nowMs,
+  );
 }
 
 export interface DefaultMemberSetupDraft {

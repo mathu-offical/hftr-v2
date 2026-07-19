@@ -153,6 +153,11 @@ const CATEGORIES: Array<{ label: string; types: ModuleType[] }> = [
 
 type StoreSection = 'modules' | 'engines';
 
+export type CompanyEngineDefaults = {
+  sectorFocuses: string[];
+  seedCreditsCents: number;
+};
+
 /**
  * Floating module/engine store (top-left). Two launcher buttons open the same
  * store on Modules or Engines; engines are browsed and inserted from here.
@@ -163,7 +168,9 @@ export function Palette(props: {
     engine: EngineTemplate,
     inputs: Record<string, string>,
     setup?: ModuleSetupInput,
+    options?: { cascadeFromCompany?: boolean },
   ) => Promise<void>;
+  companyDefaults?: CompanyEngineDefaults;
 }) {
   const [open, setOpen] = useState(false);
   const [section, setSection] = useState<StoreSection>('modules');
@@ -375,9 +382,10 @@ export function Palette(props: {
         {section === 'engines' && configuring && (
           <EngineConfigForm
             engine={configuring}
+            {...(props.companyDefaults ? { companyDefaults: props.companyDefaults } : {})}
             onCancel={() => setConfiguring(null)}
-            onInsert={async (inputs, setup) => {
-              await props.onInsertEngine(configuring, inputs, setup);
+            onInsert={async (inputs, setup, options) => {
+              await props.onInsertEngine(configuring, inputs, setup, options);
               setConfiguring(null);
               setOpen(false);
             }}
@@ -391,19 +399,38 @@ export function Palette(props: {
 /** Collects the engine's required user inputs before insertion. */
 function EngineConfigForm(props: {
   engine: EngineTemplate;
+  companyDefaults?: CompanyEngineDefaults;
   onCancel: () => void;
-  onInsert: (inputs: Record<string, string>, setup?: ModuleSetupInput) => Promise<void>;
+  onInsert: (
+    inputs: Record<string, string>,
+    setup?: ModuleSetupInput,
+    options?: { cascadeFromCompany?: boolean },
+  ) => Promise<void>;
 }) {
+  const [cascadeFromCompany, setCascadeFromCompany] = useState(true);
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(props.engine.inputs.map((i) => [i.key, i.options?.[0] ?? ''])),
   );
-  const envelope = defaultEngineCapitalEnvelope(0);
-  const [setupDraft, setSetupDraft] = useState<ModuleSetupDraft>(() => ({
-    ...EMPTY_MODULE_SETUP_DRAFT,
-    allocationMode: envelope.mode,
-    allocationValue: envelope.value,
-    targetExitLocal: defaultTargetExitLocal(),
-  }));
+
+  function draftFromCascade(cascade: boolean): ModuleSetupDraft {
+    const seedCents = cascade ? (props.companyDefaults?.seedCreditsCents ?? 0) : 0;
+    const envelope = defaultEngineCapitalEnvelope(seedCents);
+    const topics =
+      cascade && (props.companyDefaults?.sectorFocuses.length ?? 0) > 0
+        ? props.companyDefaults!.sectorFocuses.join(', ')
+        : '';
+    return {
+      ...EMPTY_MODULE_SETUP_DRAFT,
+      topicSectors: topics,
+      allocationMode: envelope.mode,
+      allocationValue: envelope.value,
+      targetExitLocal: defaultTargetExitLocal(),
+    };
+  }
+
+  const [setupDraft, setSetupDraft] = useState<ModuleSetupDraft>(() =>
+    draftFromCascade(true),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -416,6 +443,11 @@ function EngineConfigForm(props: {
   const missingSetupFields = missingFieldsFromDraft(requiredSetupFields, setupDraft);
   const missingEngineInputs = engineInputs.some((input) => !values[input.key]?.trim());
 
+  function handleCascadeToggle(next: boolean) {
+    setCascadeFromCompany(next);
+    setSetupDraft(draftFromCascade(next));
+  }
+
   async function insert(skipSetup: boolean) {
     setBusy(true);
     setError(null);
@@ -423,6 +455,7 @@ function EngineConfigForm(props: {
       await props.onInsert(
         values,
         skipSetup ? undefined : moduleSetupInputFromDraft(setupDraft, requiredSetupFields),
+        { cascadeFromCompany },
       );
     } catch {
       setError('Insert failed — some modules may have been created.');
@@ -438,6 +471,18 @@ function EngineConfigForm(props: {
           {props.engine.description}
         </p>
       </div>
+      <label className="flex items-start gap-2 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5">
+        <input
+          type="checkbox"
+          checked={cascadeFromCompany}
+          onChange={(event) => handleCascadeToggle(event.target.checked)}
+          className="mt-0.5"
+        />
+        <span className="text-[10px] leading-snug text-[var(--color-ink-dim)]">
+          Cascade from company (default). Prefills topic/sectors from company sector focuses and
+          capital from paper seed; then cascades to engine members.
+        </span>
+      </label>
       {engineInputs.map((input) => (
         <label key={input.key} className="block space-y-1">
           <span className="text-[11px] text-[var(--color-ink-dim)]">{input.label}</span>
@@ -464,8 +509,9 @@ function EngineConfigForm(props: {
         </label>
       ))}
       <p className="text-[10px] leading-snug text-[var(--color-ink-faint)]">
-        Master topic/sector cascades to engine nodes (overridable). Capital defaults to a 100%
-        envelope split equally across capital-bearing members; exit defaults to one week ahead.
+        Master topic/sector cascades to engine nodes (overridable). With company cascade on,
+        capital defaults from paper seed (else 100% envelope), split equally across
+        capital-bearing members; exit defaults to one week ahead.
       </p>
       <ModuleSetupFields
         requiredFields={requiredSetupFields}
@@ -491,12 +537,13 @@ function EngineConfigForm(props: {
         </button>
         <button
           onClick={props.onCancel}
+          disabled={busy}
           className="rounded-md border border-[var(--color-line)] px-2 py-1.5 text-xs text-[var(--color-ink-dim)]"
         >
           Cancel
         </button>
       </div>
-      {error && <p className="text-[10px] text-[var(--color-block)]">{error}</p>}
+      {error && <p className="text-xs text-[var(--color-block)]">{error}</p>}
     </div>
   );
 }

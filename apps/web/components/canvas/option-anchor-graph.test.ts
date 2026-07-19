@@ -110,6 +110,30 @@ describe('decision-node graph placement (D-192 / D-180)', () => {
     expect(researchRoot!.position.y).toBe(120);
   });
 
+  it('docks owners in different columns independently (per dockX cursor)', () => {
+    const all = buildOptionAnchorsForEngine({
+      engineId: engine.id,
+      templateId: engine.templateId,
+      members: modules.map((m) => ({
+        id: m.id,
+        type: m.type,
+        ...(m.config ? { config: m.config } : {}),
+      })),
+    });
+    const placed = placeOptionAnchorNodes(engine, engine.canvasBounds!.width, all, modules);
+    const researchRoot = placed.find(
+      (n) => n.data.kind === 'research_subtype' && n.data.ownerModuleId === researcherId,
+    );
+    const libraryRoot = placed.find(
+      (n) => n.data.kind === 'library_class' && n.data.ownerModuleId === libraryId,
+    );
+    expect(researchRoot).toBeTruthy();
+    expect(libraryRoot).toBeTruthy();
+    // Library is in a different column — its primary root aligns to owner.y, not pushed by research stack.
+    expect(libraryRoot!.position.y).toBe(120);
+    expect(researchRoot!.position.y).toBe(120);
+  });
+
   it('avoids vertical overlap between owner decision stacks', () => {
     const all = buildOptionAnchorsForEngine({
       engineId: engine.id,

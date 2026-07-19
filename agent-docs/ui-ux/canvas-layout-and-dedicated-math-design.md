@@ -117,8 +117,8 @@ Each `EngineGroupNode` header exposes a **Reflow** button.
 3. Return dedicated Math tools to their owners.
 4. Assign **type lanes** from `MODULE_COLUMN` (research/data left → execution/verify right),
    compress unused lanes, exclude Math from ranking (D-066).
-5. Place lanes left-to-right; stack nodes within a lane on multiple rows (`MODULE_LANE_ROW` +
-   topo + barycenter) using owner/tool envelopes.
+5. Place lanes left-to-right; stack nodes within a lane on multiple rows (`MODULE_LANE_ROW` hard
+   bands, then topo; barycenter refines **within** a band only — D-212) using owner/tool envelopes.
 6. Place each dedicated Math tool below its owner.
 7. Recompute group bounds with connection-safe padding.
 8. Persist all changed positions and bounds atomically.

@@ -179,7 +179,8 @@ export function placeOptionAnchorNodes(
   const maxDockX =
     groupWidth - ENGINE_GROUP_PADDING.right - OPTION_ANCHOR_NODE_WIDTH;
   let columnY: number = ENGINE_GROUP_PADDING.top;
-  let ownerRowCursor: number = ENGINE_GROUP_PADDING.top;
+  /** Per dock column — owners in different columns do not push each other's stacks. */
+  const dockXCursor = new Map<number, number>();
 
   const roots = visible.filter((anchor) => !anchor.parentAnchorId);
   const ownedRoots = roots.filter((anchor) => anchor.ownerModuleId);
@@ -212,22 +213,24 @@ export function placeOptionAnchorNodes(
       dockX = columnX;
       clampedToColumn = true;
     }
-    let dockY = Math.max(owner?.y ?? columnY, ownerRowCursor);
+    const stackTop = dockXCursor.get(dockX) ?? ENGINE_GROUP_PADDING.top;
+    let dockY = stackTop;
     const orderedRoots = [...ownerRoots].sort(
       (a, b) => rootKindPriority(a.kind) - rootKindPriority(b.kind),
     );
     for (const root of orderedRoots) {
       if (placed.has(root.id)) continue;
       placed.add(root.id);
+      if (rootKindPriority(root.kind) === 0 && owner) {
+        dockY = Math.max(owner.y, stackTop);
+      }
       const position = positions[root.id] ?? root.defaultPosition ?? 'typical';
       pushDecisionNode(nodes, engine, root, dockX, dockY, position, clampedToColumn);
       dockY += nodeHeightFor(root) + OPTION_ANCHOR_GAP;
     }
-    ownerRowCursor = Math.max(ownerRowCursor, dockY);
+    dockXCursor.set(dockX, dockY);
     if (!owner) columnY = Math.max(columnY, dockY);
   }
-
-  columnY = Math.max(columnY, ownerRowCursor);
 
   for (const root of freeRoots) {
     if (placed.has(root.id)) continue;

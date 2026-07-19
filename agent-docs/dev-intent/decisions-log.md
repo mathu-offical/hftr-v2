@@ -2118,6 +2118,17 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   train. Orphans (no parent on canvas) stay roots. Extends D-204 / D-210.
   Docs: ui-spec §3. **Status: implemented.**
 
+- **D-212 (engine member lane-row hard bands, 2026-07-19):** `rankEngineMembers`
+  treats `MODULE_LANE_ROW` as a hard vertical ordering constraint within a column
+  (research above librarian, library above live_api, analyzer above policy).
+  Barycenter sweeps may only reorder peers sharing the same lane row; a post-sweep
+  finalize pass stable-partitions by lane row and preserves within-band barycenter
+  order. Fixes inversion when cross-column neighbors lack median targets
+  (`median ?? Infinity`). Create-form preview uses `layoutEngineTemplateAtOrigin`
+  (not scaled template JSON positions). Option-anchor docking uses per-`dockX`
+  cursors so owners in different columns stack independently. Docs: canvas-layout-
+  and-dedicated-math-design, canvas-engine-group-design. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

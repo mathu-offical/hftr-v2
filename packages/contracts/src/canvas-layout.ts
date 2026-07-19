@@ -287,17 +287,23 @@ export function rankEngineMembers(
       : (positions[mid - 1]! + positions[mid]!) / 2;
   };
 
+  // D-212: MODULE_LANE_ROW bands are hard vertical constraints. Barycenter sweeps may
+  // only reorder peers that share the same lane row — never swap research above librarian
+  // or library above live_api when cross-column neighbors would suggest inversion.
   const reorderRank = (r: number, referenceRank: number) => {
     const list = byRank.get(r) ?? [];
     const keyed = list.map((m) => {
       const median = medianOfNeighbors(m.id, referenceRank);
       return {
         m,
+        laneRow: MODULE_LANE_ROW[m.type],
         key: median ?? Number.POSITIVE_INFINITY,
         tie: orderIndex.get(m.id) ?? 0,
       };
     });
     keyed.sort((a, b) => {
+      const laneRowDiff = a.laneRow - b.laneRow;
+      if (laneRowDiff !== 0) return laneRowDiff;
       if (a.key !== b.key) return a.key - b.key;
       if (a.tie !== b.tie) return a.tie - b.tie;
       return compareWithinLane(a.m, b.m);
@@ -316,6 +322,35 @@ export function rankEngineMembers(
     for (let i = rankKeys.length - 2; i >= 0; i -= 1) {
       reorderRank(rankKeys[i]!, rankKeys[i + 1]!);
     }
+  }
+
+  // Finalize: restore lane-row bands after sweeps; preserve barycenter order within each band.
+  for (const r of rankKeys) {
+    const list = byRank.get(r) ?? [];
+    const groups = new Map<number, LayoutModule[]>();
+    for (const m of list) {
+      const row = MODULE_LANE_ROW[m.type];
+      const group = groups.get(row) ?? [];
+      group.push(m);
+      groups.set(row, group);
+    }
+    const laneRows = [...groups.keys()].sort((a, b) => a - b);
+    const finalized: LayoutModule[] = [];
+    let index = 0;
+    for (const row of laneRows) {
+      const group = groups.get(row) ?? [];
+      group.sort((a, b) => {
+        const orderDiff = (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0);
+        if (orderDiff !== 0) return orderDiff;
+        return compareWithinLane(a, b);
+      });
+      for (const m of group) {
+        orderIndex.set(m.id, index);
+        finalized.push(m);
+        index += 1;
+      }
+    }
+    byRank.set(r, finalized);
   }
 
   const ranked: RankedMember[] = [];

@@ -4,6 +4,7 @@ import {
   engineCreateSection,
   engineUtilityTargetHandleId,
   handleIdForLink,
+  layoutEngineTemplateAtOrigin,
   placeDataHubOrigin,
   type EngineTemplate,
   type LinkKind,
@@ -154,10 +155,17 @@ function computeCompactBounds(positions: readonly { x: number; y: number }[]) {
   };
 }
 
+/** Layout via rankEngineMembers (D-212); scale for compact preview cards only. */
 function scaledModulePositions(template: EngineTemplate, origin: { x: number; y: number }) {
-  return template.modules.map((module) => ({
-    x: module.position.x * POSITION_SCALE + origin.x,
-    y: module.position.y * POSITION_SCALE + origin.y,
+  const { modulePositions } = layoutEngineTemplateAtOrigin(
+    template.modules.map((module) => ({ type: module.type })),
+    template.links,
+    { x: 0, y: 0 },
+    PREVIEW_GROUP_PADDING,
+  );
+  return modulePositions.map((pos) => ({
+    x: pos.x * POSITION_SCALE + origin.x,
+    y: pos.y * POSITION_SCALE + origin.y,
   }));
 }
 

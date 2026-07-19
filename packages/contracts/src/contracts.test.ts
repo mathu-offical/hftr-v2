@@ -2281,6 +2281,116 @@ describe('canvas layout (D-033)', () => {
     expect(orderOf(y)).toBeLessThan(orderOf(x));
   });
 
+  it('keeps MODULE_LANE_ROW when cross-column neighbors would invert research/librarian', () => {
+    const research = '00000000-0000-4000-8000-0000000000d1';
+    const librarian = '00000000-0000-4000-8000-0000000000d2';
+    const library = '00000000-0000-4000-8000-0000000000d3';
+    const live = '00000000-0000-4000-8000-0000000000d4';
+    const modulesById = new Map([
+      [research, mkModule(research, 'research')],
+      [librarian, mkModule(librarian, 'librarian')],
+      [library, mkModule(library, 'library')],
+      [live, mkModule(live, 'live_api')],
+    ]);
+    const ranked = rankEngineMembers(
+      [research, librarian, library, live],
+      modulesById,
+      [
+        { fromModuleId: research, toModuleId: librarian, linkKind: 'data_feed' },
+        { fromModuleId: librarian, toModuleId: library, linkKind: 'data_feed' },
+      ],
+    );
+    const orderOf = (id: string) => ranked.find((r) => r.id === id)!.order;
+    expect(orderOf(research)).toBeLessThan(orderOf(librarian));
+    expect(orderOf(library)).toBeLessThan(orderOf(live));
+  });
+
+  it('layoutEngineGroup places research above librarian for standard desk spine', () => {
+    const research = '00000000-0000-4000-8000-0000000000e1';
+    const librarian = '00000000-0000-4000-8000-0000000000e2';
+    const library = '00000000-0000-4000-8000-0000000000e3';
+    const live = '00000000-0000-4000-8000-0000000000e4';
+    const trend = '00000000-0000-4000-8000-0000000000e5';
+    const trading = '00000000-0000-4000-8000-0000000000e6';
+    const analyzer = '00000000-0000-4000-8000-0000000000e7';
+    const policy = '00000000-0000-4000-8000-0000000000e8';
+    const modules = [
+      mkModule(research, 'research'),
+      mkModule(librarian, 'librarian'),
+      mkModule(library, 'library'),
+      mkModule(live, 'live_api'),
+      mkModule(trend, 'trend'),
+      mkModule(trading, 'trading'),
+      mkModule(analyzer, 'analyzer'),
+      mkModule(policy, 'policy'),
+    ];
+    const links = [
+      { fromModuleId: research, toModuleId: librarian, linkKind: 'data_feed' as const },
+      { fromModuleId: librarian, toModuleId: library, linkKind: 'data_feed' as const },
+      { fromModuleId: library, toModuleId: trend, linkKind: 'data_feed' as const },
+      { fromModuleId: live, toModuleId: trend, linkKind: 'data_feed' as const },
+      { fromModuleId: trend, toModuleId: trading, linkKind: 'data_feed' as const },
+      { fromModuleId: trading, toModuleId: analyzer, linkKind: 'data_feed' as const },
+      { fromModuleId: analyzer, toModuleId: policy, linkKind: 'data_feed' as const },
+    ];
+    const laid = layoutEngineGroup(
+      engineId,
+      [research, librarian, library, live, trend, trading, analyzer, policy],
+      new Map(modules.map((m) => [m.id, m])),
+      links,
+      { x: 40, y: 40 },
+      ENGINE_GROUP_PADDING,
+    );
+    const pos = (id: string) => laid.modules.find((m) => m.id === id)!.canvasPosition;
+    expect(pos(research).y).toBeLessThan(pos(librarian).y);
+    expect(pos(library).y).toBeLessThan(pos(live).y);
+    expect(pos(analyzer).y).toBeLessThan(pos(policy).y);
+    expect(pos(research).x).toBeLessThan(pos(library).x);
+    expect(pos(library).x).toBeLessThan(pos(trend).x);
+    expect(pos(trend).x).toBeLessThan(pos(trading).x);
+    expect(pos(trading).x).toBeLessThan(pos(analyzer).x);
+  });
+
+  it('every ENGINE_TEMPLATE respects lane-row and chip-zone order after layout (D-212)', () => {
+    for (const engine of ENGINE_TEMPLATES) {
+      const { modulePositions } = layoutEngineTemplateAtOrigin(
+        engine.modules,
+        engine.links,
+        { x: 0, y: 0 },
+        ENGINE_GROUP_PADDING,
+      );
+      const byType = new Map<string, { x: number; y: number }[]>();
+      engine.modules.forEach((module, index) => {
+        const pos = modulePositions[index]!;
+        const list = byType.get(module.type) ?? [];
+        list.push(pos);
+        byType.set(module.type, list);
+      });
+      const minY = (type: string) =>
+        Math.min(...(byType.get(type) ?? [{ y: Number.POSITIVE_INFINITY }]).map((p) => p.y));
+      const minX = (type: string) =>
+        Math.min(...(byType.get(type) ?? [{ x: Number.POSITIVE_INFINITY }]).map((p) => p.x));
+      if (byType.has('research') && byType.has('librarian')) {
+        expect(minY('research'), engine.id).toBeLessThan(minY('librarian'));
+      }
+      if (byType.has('library') && byType.has('live_api')) {
+        expect(minY('library'), engine.id).toBeLessThan(minY('live_api'));
+      }
+      if (byType.has('analyzer') && byType.has('policy')) {
+        expect(minY('analyzer'), engine.id).toBeLessThan(minY('policy'));
+      }
+      if (byType.has('research') && byType.has('trend')) {
+        expect(minX('research'), engine.id).toBeLessThan(minX('trend'));
+      }
+      if (byType.has('trend') && byType.has('trading')) {
+        expect(minX('trend'), engine.id).toBeLessThan(minX('trading'));
+      }
+      if (byType.has('trading') && byType.has('analyzer')) {
+        expect(minX('trading'), engine.id).toBeLessThan(minX('analyzer'));
+      }
+    }
+  });
+
   it('pins engine Time hubs to the bottom-left of the member envelope', () => {
     const research = '00000000-0000-4000-8000-0000000000t1';
     const library = '00000000-0000-4000-8000-0000000000t2';

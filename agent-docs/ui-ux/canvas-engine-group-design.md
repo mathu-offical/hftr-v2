@@ -96,6 +96,10 @@ ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles
 - **Family layout (D-159 / D-176):** research deps left → hub gap (340px) → execution right;
   families stack vertically with 140px top-level gutter. Engine right padding 168px reserves
   the option-anchor column so server collision math matches client chrome.
+- **In-engine member order (D-212):** `rankEngineMembers` enforces `MODULE_LANE_ROW` as hard
+  vertical bands within a column (research above librarian, library above live_api, analyzer
+  above policy). Barycenter crossing reduction applies only among same-row peers; create-form
+  preview and Reflow both use `layoutEngineTemplateAtOrigin` / `layoutEngineGroup`.
 - **Dual research paths (D-191):** execution ENGINEs carry **two** research surfaces by design:
   - **Inline spine** — member `research` (+ librarian → library) at the execution spine start
     for **internal** desk gathering/processing inside the family (e.g. session `specialty_desk`,

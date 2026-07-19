@@ -256,6 +256,24 @@ export {
   type EnsureEngineDataHubResult,
 } from './engines/data-hub';
 
+export {
+  bindResearchPackToHub,
+  mergeTargetLibraryIds,
+  type BindResearchPackResult,
+} from './engines/research-hub-bind';
+
+export {
+  bindResearchEngineToHub,
+  bindResearchEngineToLibrary,
+  applyResearchLibraryBindingOnInsert,
+  type BindResearchEngineResult,
+} from './engines/research-hub-binding';
+
+export {
+  mimicParentExecutionEnvelope,
+  type MimicParentExecutionEnvelopeResult,
+} from './engines/mimic-parent';
+
 // D-159 family canvas layout persist
 export {
   reflowCompanyFamilyLayout,

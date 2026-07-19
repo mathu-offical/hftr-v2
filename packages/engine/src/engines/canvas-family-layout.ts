@@ -9,6 +9,7 @@ import {
   isEngineDataHubConfig,
   layoutCanvas,
   placeDataHubOrigin,
+  type LayoutEngine,
   type LayoutResult,
   type LinkKind,
   type ModuleType,
@@ -36,6 +37,7 @@ export async function reflowCompanyFamilyLayout(
     .select({
       id: engineInstances.id,
       templateId: engineInstances.templateId,
+      setupSnapshot: engineInstances.setupSnapshot,
     })
     .from(engineInstances)
     .where(eq(engineInstances.companyId, companyId));
@@ -95,14 +97,24 @@ export async function reflowCompanyFamilyLayout(
     }
   }
 
-  const layoutEngines = engineRows.map((row) => ({
-    id: row.id,
-    templateId: row.templateId,
-    memberModuleIds: moduleRows
-      .filter((m) => m.engineInstanceId === row.id)
-      .map((m) => m.id),
-    dataHubModuleId: hubByEngine.get(row.id) ?? null,
-  }));
+  const layoutEngines = engineRows.map((row) => {
+    const snapshot = row.setupSnapshot as { simulationBinding?: unknown } | null;
+    const simulationBinding =
+      snapshot?.simulationBinding &&
+      typeof snapshot.simulationBinding === 'object' &&
+      snapshot.simulationBinding !== null
+        ? (snapshot.simulationBinding as LayoutEngine['simulationBinding'])
+        : undefined;
+    return {
+      id: row.id,
+      templateId: row.templateId,
+      memberModuleIds: moduleRows
+        .filter((m) => m.engineInstanceId === row.id)
+        .map((m) => m.id),
+      dataHubModuleId: hubByEngine.get(row.id) ?? null,
+      ...(simulationBinding ? { simulationBinding } : {}),
+    };
+  });
 
   const layoutModules = moduleRows.map((m) => ({
     id: m.id,

@@ -387,6 +387,10 @@ async function mirrorResearchTargetsToHub(
   now: Date,
 ): Promise<void> {
   const familyIds = await resolveFamilyEngineIds(db, companyId, engineId);
+  /** D-191: inline exec research stays desk-local — only child research ENGINEs hydrate the hub. */
+  const childEngineIds = familyIds.filter((id) => id !== engineId);
+  if (childEngineIds.length === 0) return;
+
   const researchMods = await db
     .select({ id: modules.id, config: modules.config })
     .from(modules)
@@ -394,7 +398,7 @@ async function mirrorResearchTargetsToHub(
       and(
         eq(modules.companyId, companyId),
         eq(modules.type, 'research'),
-        inArray(modules.engineInstanceId, familyIds),
+        inArray(modules.engineInstanceId, childEngineIds),
       ),
     );
 
@@ -418,7 +422,7 @@ async function mirrorResearchTargetsToHub(
       and(
         eq(modules.companyId, companyId),
         eq(modules.type, 'librarian'),
-        inArray(modules.engineInstanceId, familyIds),
+        inArray(modules.engineInstanceId, childEngineIds),
       ),
     );
   for (const mod of librarianMods) {

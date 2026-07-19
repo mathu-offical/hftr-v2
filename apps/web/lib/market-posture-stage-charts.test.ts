@@ -303,9 +303,9 @@ describe('market-posture-stage-charts', () => {
     expect(charts.pnlMix.some((s) => s.id === 'gain')).toBe(true);
   });
 
-  it('builds live charts from lanes + adapters', () => {
+  it('builds live charts from active lanes + adapters only', () => {
     const charts = buildLiveStageCharts(baseHub());
-    expect(charts.domainMix.map((s) => s.id).sort()).toEqual(['equity_bars', 'news']);
+    expect(charts.domainMix.map((s) => s.id).sort()).toEqual(['equity_bars']);
     expect(charts.contributeMix.find((s) => s.id === 'contributed')?.valueLabel).toBe('1');
     expect(charts.adapterStatus[0]?.id).toBe('ready');
   });
@@ -330,7 +330,8 @@ describe('market-posture-stage-charts', () => {
     const hub = baseHub();
     expect(buildCapitalEntityCharts(hub).positions[0]?.label).toBe('AAPL');
     expect(buildLibraryEntityCharts(hub).libraries[0]?.valueLabel).toBe('12/40');
-    expect(buildLiveEntityCharts(hub).sources).toHaveLength(2);
+    expect(buildLiveEntityCharts(hub).sources).toHaveLength(1);
+    expect(buildLiveEntityCharts(hub).adapters).toHaveLength(1);
     expect(buildProcessEntityCharts(hub).steps[0]?.label).toBe('Rank');
     expect(buildSealsEntityCharts(hub).movers).toHaveLength(2);
     expect(buildDayEntityCharts(hub).trends[0]?.label).toBe('TSLA');

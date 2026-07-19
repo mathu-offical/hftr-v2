@@ -36,6 +36,26 @@ function parseCents(v: number | string | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Live lane is active when credential-ready and contributing or canvas-bound. */
+export function isActiveLiveLane(
+  lane: { status: string; contributed: boolean; kind: string },
+  live: { kind: string; canvasBoundCount: number; status: string } | undefined,
+): boolean {
+  if (lane.status !== 'ready') return false;
+  if (live && live.status !== 'ready' && live.status !== 'public') return false;
+  const bound = live?.canvasBoundCount ?? 0;
+  return lane.contributed || bound > 0;
+}
+
+/** Adapter / process flow is active when ready/public or contributed. */
+export function isActivePipelineStatus(
+  status: string,
+  contributed?: boolean,
+): boolean {
+  if (contributed) return true;
+  return status === 'ready' || status === 'public';
+}
+
 function push(
   steps: StageNodeNumberStep[],
   step: StageNodeNumberStep,
@@ -174,8 +194,10 @@ export function buildStageNodeNumberFlow(
       break;
     }
     case 'live': {
+      const liveSources = hydration?.liveSources ?? [];
       for (const lane of hub.sources.lanes) {
-        const live = (hydration?.liveSources ?? []).find((s) => s.kind === lane.kind);
+        const live = liveSources.find((s) => s.kind === lane.kind);
+        if (!isActiveLiveLane(lane, live)) continue;
         const bound = live?.canvasBoundCount ?? 0;
         push(steps, {
           id: `lane:${lane.kind}`,
@@ -183,12 +205,13 @@ export function buildStageNodeNumberFlow(
           nodeLabel: lane.label,
           transform: lane.contributed
             ? 'filter → seal contribution'
-            : 'entitle lane',
-          valueLabel: live?.amount ?? (lane.contributed ? '1 seal hit' : '0 seal hits'),
+            : 'canvas-bound entitle',
+          valueLabel: live?.amount ?? (lane.contributed ? '1 seal hit' : `${bound} bound`),
           formula: `${bound} canvas bound · ${lane.domain}`,
         });
       }
       for (const f of hydration?.processingFlows ?? []) {
+        if (!isActivePipelineStatus(f.status, f.contributed)) continue;
         push(steps, {
           id: `flow:${f.id}`,
           nodeId: `adapter:${f.id}`,
@@ -200,20 +223,30 @@ export function buildStageNodeNumberFlow(
             : f.analysisRoles.join(',') || null,
         });
       }
-      const ready = hub.sources.lanes.filter((l) => l.status === 'ready').length;
-      const contrib = hub.sources.contributedKinds.length;
-      push(steps, {
-        id: 'live-roll',
-        nodeId: 'live:rollup',
-        nodeLabel: 'Lane rollup',
-        transform: 'ready lanes · seal kinds',
-        valueLabel: `${ready} ready · ${contrib} contributed`,
-        formula: `mark feed ${hub.sources.markFeedClass}`,
-      });
+      const activeLanes = hub.sources.lanes.filter((l) =>
+        isActiveLiveLane(
+          l,
+          liveSources.find((s) => s.kind === l.kind),
+        ),
+      );
+      const activeFlows = (hydration?.processingFlows ?? []).filter((f) =>
+        isActivePipelineStatus(f.status, f.contributed),
+      );
+      if (activeLanes.length > 0 || activeFlows.length > 0) {
+        push(steps, {
+          id: 'live-roll',
+          nodeId: 'live:rollup',
+          nodeLabel: 'Active lane rollup',
+          transform: 'active lanes · seal kinds',
+          valueLabel: `${activeLanes.length} active · ${hub.sources.contributedKinds.length} contributed`,
+          formula: `mark feed ${hub.sources.markFeedClass}`,
+        });
+      }
       break;
     }
     case 'process': {
-      for (const s of (hydration?.processSteps ?? []).slice(0, 10)) {
+      for (const s of (hydration?.processSteps ?? []).slice(0, 12)) {
+        if (!isActivePipelineStatus(s.status)) continue;
         push(steps, {
           id: `step:${s.id}`,
           nodeId: `process:${s.id}`,

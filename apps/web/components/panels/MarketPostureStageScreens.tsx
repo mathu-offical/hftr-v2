@@ -67,8 +67,10 @@ function ScreenShell(props: {
         </h2>
         <p className="text-[10px] text-[var(--color-ink-faint)]">{props.summary}</p>
       </header>
-      <StageNodeNumberFlow steps={props.numberFlow} screenId={props.id} />
-      <div className="mx-auto mt-3 flex max-w-5xl flex-col gap-3">{props.children}</div>
+      <div className="mx-auto flex max-w-5xl flex-col gap-3">{props.children}</div>
+      <div className="mx-auto mt-3 max-w-5xl">
+        <StageNodeNumberFlow steps={props.numberFlow} screenId={props.id} />
+      </div>
     </section>
   );
 }
@@ -93,7 +95,7 @@ function StageNodeNumberFlow(props: {
       </div>
       {props.steps.length === 0 ? (
         <p className="text-[10px] text-[var(--color-ink-faint)]">
-          No numeric traces for this column yet — Sync to hydrate Model nodes.
+          No active services or pipelines in this column yet.
         </p>
       ) : (
         <ul className="max-h-44 space-y-1 overflow-y-auto">

@@ -100,21 +100,94 @@ describe('buildStageNodeNumberFlow', () => {
     expect(equity?.transform).toContain('ledger');
   });
 
-  it('traces day plan into counts not statuses', () => {
+  it('omits unavailable live lanes and need-key adapters', () => {
     const hub = emptyHub();
-    hub.movers = {
-      ...hub.movers,
-      status: 'ready',
-      items: [
+    hub.sources = {
+      ...hub.sources,
+      lanes: [
         {
-          symbolOrSector: 'AAPL',
-          headline: 'up',
-          directionBand: 'high',
-          strengthBand: 'high',
+          kind: 'alpaca_bars',
+          domain: 'equity_bars',
+          label: 'Alpaca bars',
+          authMode: 'broker_paper',
+          status: 'ready',
+          contributed: false,
+        },
+        {
+          kind: 'newsapi',
+          domain: 'news',
+          label: 'Market news',
+          authMode: 'research_key',
+          status: 'missing_key',
+          contributed: false,
         },
       ],
+      contributedKinds: [],
     };
-    const steps = buildStageNodeNumberFlow('day', hub);
-    expect(steps.find((s) => s.id === 'day-move')?.valueLabel).toBe('1');
+    hub.modelHydration = {
+      liveSources: [
+        {
+          kind: 'alpaca_bars',
+          label: 'Alpaca bars',
+          domain: 'equity_bars',
+          status: 'ready',
+          authMode: 'broker_paper',
+          canvasBoundCount: 0,
+          contributed: false,
+          operation: 'idle',
+          amount: '0 canvas',
+        },
+      ],
+      librarySources: [],
+      processingFlows: [
+        {
+          id: 'brave',
+          kind: 'brave_web',
+          adapterLabel: 'Brave web adapter',
+          analysisRoles: ['web_corpus'],
+          operation: 'Brave query',
+          amount: 'ready',
+          route: 'web_search',
+          processStepIds: [],
+          targetStages: ['gather'],
+          pipelines: ['movers'],
+          status: 'ready',
+          contributed: true,
+        },
+        {
+          id: 'news',
+          kind: 'newsapi',
+          adapterLabel: 'Market news adapter',
+          analysisRoles: ['news_corpus'],
+          operation: 'API/DOC pull',
+          amount: 'need key',
+          route: 'news_headline',
+          processStepIds: [],
+          targetStages: ['gather'],
+          pipelines: ['movers'],
+          status: 'missing_key',
+          contributed: false,
+        },
+      ],
+      processSteps: [],
+      stageOps: [],
+      capitalSources: [],
+      panelSurfaces: [],
+      totals: {
+        liveReady: 1,
+        liveTotal: 2,
+        libraryCount: 0,
+        admittedConcepts: 0,
+        contributedKinds: 0,
+        usedLiveMarks: 0,
+        syntheticMarks: 0,
+      },
+      asOfIso: '2026-07-19T12:00:00.000Z',
+      sealStamps: [],
+    } as unknown as MarketHubResponse['modelHydration'];
+    const steps = buildStageNodeNumberFlow('live', hub);
+    expect(steps.some((s) => s.nodeLabel === 'Alpaca bars')).toBe(false);
+    expect(steps.some((s) => s.nodeLabel.includes('Market news'))).toBe(false);
+    expect(steps.some((s) => s.nodeLabel === 'Brave web adapter')).toBe(true);
   });
 });

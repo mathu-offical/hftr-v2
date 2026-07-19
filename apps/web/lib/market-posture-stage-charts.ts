@@ -208,38 +208,37 @@ export type LiveStageCharts = {
 };
 
 export function buildLiveStageCharts(hub: MarketHubResponse): LiveStageCharts {
-  const lanes = hub.sources.lanes;
+  const live = hub.modelHydration?.liveSources ?? [];
+  const lanes = hub.sources.lanes.filter((lane) => {
+    const hydration = live.find((s) => s.kind === lane.kind);
+    if (lane.status !== 'ready') return false;
+    if (hydration && hydration.status !== 'ready' && hydration.status !== 'public') {
+      return false;
+    }
+    const bound = hydration?.canvasBoundCount ?? 0;
+    return lane.contributed || bound > 0;
+  });
   const domainCounts = new Map<string, number>();
   let contributed = 0;
-  let idle = 0;
+  let boundOnly = 0;
   for (const lane of lanes) {
     domainCounts.set(lane.domain, (domainCounts.get(lane.domain) ?? 0) + 1);
     if (lane.contributed) contributed += 1;
-    else idle += 1;
+    else boundOnly += 1;
   }
 
-  const flows = hub.modelHydration?.processingFlows ?? [];
+  const flows = (hub.modelHydration?.processingFlows ?? []).filter(
+    (f) => f.contributed || f.status === 'ready' || f.status === 'public',
+  );
   const statusCounts = new Map<string, number>();
   for (const f of flows) {
     statusCounts.set(f.status, (statusCounts.get(f.status) ?? 0) + 1);
   }
 
   return {
-    sourceReady:
-      hub.charts.sourceReady.length > 0
-        ? hub.charts.sourceReady
-        : slicesFromCounts([
-            {
-              id: 'ready',
-              label: 'ready',
-              count: lanes.filter((l) => l.status === 'ready').length,
-            },
-            {
-              id: 'missing_key',
-              label: 'need key',
-              count: lanes.filter((l) => l.status === 'missing_key').length,
-            },
-          ]),
+    sourceReady: slicesFromCounts([
+      { id: 'active', label: 'active', count: lanes.length },
+    ]),
     domainMix: slicesFromCounts(
       [...domainCounts.entries()].map(([id, count]) => ({
         id,
@@ -249,7 +248,7 @@ export function buildLiveStageCharts(hub: MarketHubResponse): LiveStageCharts {
     ),
     contributeMix: slicesFromCounts([
       { id: 'contributed', label: 'filtered in', count: contributed },
-      { id: 'idle', label: 'not in seal', count: idle },
+      { id: 'bound', label: 'canvas-bound', count: boundOnly },
     ]),
     adapterStatus: slicesFromCounts(
       [...statusCounts.entries()].map(([id, count]) => ({
@@ -612,44 +611,49 @@ export function buildLiveEntityCharts(hub: MarketHubResponse): {
   adapters: StageEntityChartRow[];
 } {
   const live = hub.modelHydration?.liveSources ?? [];
-  const lanes = hub.sources.lanes;
-  const sources: StageEntityChartRow[] = (lanes.length > 0 ? lanes : []).map((lane) => {
-    const hydration = live.find((s) => s.kind === lane.kind);
-    const readyBoost = lane.status === 'ready' ? 7_000 : 2_500;
-    const contribBoost = lane.contributed ? 3_000 : 0;
-    return {
-      id: lane.kind,
-      label: lane.label,
-      valueLabel: hydration?.amount ?? (lane.contributed ? 'filtered' : lane.status),
-      shareBps: Math.min(10_000, readyBoost + contribBoost),
-      detail: [
-        lane.domain,
-        lane.status,
-        lane.contributed ? 'in seal' : 'idle',
-        hydration?.operation,
-      ]
-        .filter(Boolean)
-        .join(' · '),
-      viz: null,
-    };
-  });
+  const sources: StageEntityChartRow[] = hub.sources.lanes
+    .filter((lane) => {
+      const hydration = live.find((s) => s.kind === lane.kind);
+      if (lane.status !== 'ready') return false;
+      if (hydration && hydration.status !== 'ready' && hydration.status !== 'public') {
+        return false;
+      }
+      const bound = hydration?.canvasBoundCount ?? 0;
+      return lane.contributed || bound > 0;
+    })
+    .map((lane) => {
+      const hydration = live.find((s) => s.kind === lane.kind);
+      const bound = hydration?.canvasBoundCount ?? 0;
+      const readyBoost = 7_000;
+      const contribBoost = lane.contributed ? 3_000 : Math.min(bound * 500, 3_000);
+      return {
+        id: lane.kind,
+        label: lane.label,
+        valueLabel: hydration?.amount ?? (lane.contributed ? 'filtered' : `${bound} bound`),
+        shareBps: Math.min(10_000, readyBoost + contribBoost),
+        detail: [
+          lane.domain,
+          lane.contributed ? 'in seal' : 'canvas-bound',
+          hydration?.operation,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        viz: null,
+      };
+    });
 
-  const flows = hub.modelHydration?.processingFlows ?? [];
-  const adapters: StageEntityChartRow[] = flows.map((f) => ({
-    id: f.id,
-    label: f.adapterLabel,
-    valueLabel: f.amount,
-    shareBps:
-      f.status === 'ready' || f.contributed
-        ? 8_500
-        : f.status === 'idle'
-          ? 2_000
-          : 4_500,
-    detail: [f.operation, f.status, f.route, f.analysisRoles.join(', ')]
-      .filter(Boolean)
-      .join(' · '),
-    viz: null,
-  }));
+  const adapters: StageEntityChartRow[] = (hub.modelHydration?.processingFlows ?? [])
+    .filter(
+      (f) => f.contributed || f.status === 'ready' || f.status === 'public',
+    )
+    .map((f) => ({
+      id: f.id,
+      label: f.adapterLabel,
+      valueLabel: f.amount,
+      shareBps: f.contributed ? 9_000 : 8_000,
+      detail: [f.operation, f.route, f.analysisRoles.join(', ')].filter(Boolean).join(' · '),
+      viz: null,
+    }));
 
   return { sources, adapters };
 }
@@ -660,14 +664,16 @@ export function buildProcessEntityCharts(hub: MarketHubResponse): {
   costBasis: StageEntityChartRow[];
   limits: StageEntityChartRow[];
 } {
-  const steps = (hub.modelHydration?.processSteps ?? []).map((s, i, arr) => ({
-    id: s.id,
-    label: s.label,
-    valueLabel: s.amount,
-    shareBps: Math.round(((arr.length - i) / Math.max(arr.length, 1)) * 10_000),
-    detail: `${s.route} · ${s.processFunction} · ${s.operation}`,
-    viz: null,
-  }));
+  const steps = (hub.modelHydration?.processSteps ?? [])
+    .filter((s) => s.status === 'ready' || s.status === 'public')
+    .map((s, i, arr) => ({
+      id: s.id,
+      label: s.label,
+      valueLabel: s.amount,
+      shareBps: Math.round(((arr.length - i) / Math.max(arr.length, 1)) * 10_000),
+      detail: `${s.route} · ${s.processFunction} · ${s.operation}`,
+      viz: null,
+    }));
 
   const links = (hub.awarenessAnalysis?.links ?? []).map((link) => ({
     id: link.id,

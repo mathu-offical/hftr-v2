@@ -1857,9 +1857,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   ingest of filtered feeds, linking, limits (thresholds/defaults), and cost basis.
   **Day** replaces compose — movements, actions, and trends for today. Each diagram column
   emits into the screen above it; clicking a Model node navigates to its owning screen
-  (`resolveStageScreenId`). Each stage tops with a **Group nodes → numbers** trace
-  (node → transform → dollar/count) plus hydrated entity charts — not a status
-  “Processing now” tape. Mid-page Model
+  (`resolveStageScreenId`). Charts and main readouts come first; each stage ends with a
+  **Group nodes → numbers** trace (node → transform → dollar/count) for **active**
+  services/pipelines only (no missing-key / unbound idle lanes). Mid-page Model
   section removed. ViewContext carries
   `activeStageScreenId` + `selectedModelNodeId`. Strip Model uses **screen-group columns**
   nesting child nodes (lane labels dropped; density capped). **Capital** stage / Model capital
@@ -1902,6 +1902,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `docs/superpowers/specs/2026-07-19-simulation-engine-templates-design.md`.
   Docs: product-spec, canvas-engine-group-design, engine-node-family-design, data-model.
   **Status: implemented (templates + create/palette/API wiring).**
+
+- **D-190 (sim subtype fix + honesty e2e hardening, 2026-07-19):** Repair D-189 sim
+  trading seeds that used invalid `subtype: 'day_trading'` (create fail-closed on
+  `TradingSubtype`). Expand `simHonestyChips` with No queue / Both-verify / Pre-block.
+  E2E picks day-trade desk over sim children (`pickPaperPipelineModules`); 
+  `waitForFilledActivity` merges executions; paper-loop asserts honesty chip testids.
+  Re-verified `paper-system-verify` **25/25**. Docs: ui-spec §4, experiment-log EXP-06.
+  **Status: implemented.**
 
 ## Open questions
 

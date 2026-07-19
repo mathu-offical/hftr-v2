@@ -321,9 +321,9 @@ are ignored. Shortcuts are suppressed in editable fields.
   (capital / library / live / process / seals / day) snap-scroll above a
   fixed bottom **Model diagram strip**. Each pipeline column emits into the screen above
   it; clicking a Model node (or section group) navigates to that screen. Each stage
-  opens with a **Group nodes → numbers** trace (Model/hydration nodes → transform →
-  dollar/count readout) plus hydrated entity charts — not a status “Processing now”
-  tape. **Capital** stage
+  opens with charts and main numeric readouts first, then a **Group nodes → numbers**
+  trace underneath (active Model/hydration nodes only — no missing-key / unbound idle
+  services). **Capital** stage
   shows root user-controlled funds only (company pool + holding funds), engine
   allocation splits, master equity, and open position mark/uPnL values — not every
   capital-bearing Model node. Content below: positions/library, combined live APIs +

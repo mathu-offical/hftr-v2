@@ -6,7 +6,7 @@ import { getDb, NotFoundError, scoping } from '@hftr/db';
 import { engineUtilityLinks } from '@hftr/db/schema';
 import { eq } from 'drizzle-orm';
 import { EngineUtilityBus } from '@hftr/contracts';
-import { ensureAllInterEngineDataStreamLinks } from '@hftr/engine';
+import { ensureAllInterEngineDataStreamLinks, reflowCompanyFamilyLayout } from '@hftr/engine';
 import { repositionAllEngineTimeHubs } from '@/lib/time-provision';
 import { CompanyCanvas } from '@/components/canvas/CompanyCanvas';
 import { BottomPanel } from '@/components/panels/BottomPanel';
@@ -59,10 +59,17 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
     } catch (err) {
       console.error('ensureAllInterEngineDataStreamLinks failed', err);
     }
+    // D-159: ensure Data Hubs + family layout (research | hub | exec) before paint.
+    try {
+      await reflowCompanyFamilyLayout(db, companyId);
+    } catch (err) {
+      console.error('reflowCompanyFamilyLayout failed', err);
+    }
     // Pin engine Time hubs to bottom-left of each ENGINE envelope.
     try {
       await repositionAllEngineTimeHubs(db, companyId);
       moduleRows = await scoping.listModules(db, userId, companyId);
+      engineRows = await scoping.listEngineInstances(db, userId, companyId);
     } catch (err) {
       console.error('repositionAllEngineTimeHubs failed', err);
     }

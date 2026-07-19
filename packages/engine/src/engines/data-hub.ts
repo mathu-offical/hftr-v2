@@ -12,6 +12,7 @@ import {
   engineCreateSection,
   getEngineTemplateById,
   isEngineDataHubConfig,
+  placeDataHubOrigin,
   researchDependenciesForExecutionEngine,
 } from '@hftr/contracts';
 
@@ -63,11 +64,45 @@ export async function ensureEngineDataHub(
   let created = false;
 
   if (!hubLibraryId) {
-    const bounds = engine.canvasBounds as { x: number; y: number; width: number; height: number } | null;
-    const position = {
-      x: (bounds?.x ?? 400) - 280,
-      y: (bounds?.y ?? 200) + Math.max(40, ((bounds?.height ?? 200) / 2) - 80),
+    const bounds = engine.canvasBounds as {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    } | null;
+    const execBounds = bounds ?? {
+      x: 400,
+      y: 200,
+      width: 600,
+      height: 400,
     };
+
+    // Prefer the research→exec gap when dependency packs already have bounds (D-159).
+    const depIds = researchDependenciesForExecutionEngine(engine.templateId);
+    const researchBounds: Array<{ x: number; y: number; width: number; height: number }> = [];
+    if (depIds.length > 0) {
+      const peers = await db
+        .select({
+          templateId: engineInstances.templateId,
+          canvasBounds: engineInstances.canvasBounds,
+        })
+        .from(engineInstances)
+        .where(eq(engineInstances.companyId, companyId));
+      for (const peer of peers) {
+        if (!depIds.includes(peer.templateId) || !peer.canvasBounds) continue;
+        researchBounds.push(
+          peer.canvasBounds as { x: number; y: number; width: number; height: number },
+        );
+      }
+    }
+
+    const position =
+      researchBounds.length > 0
+        ? placeDataHubOrigin(researchBounds, execBounds)
+        : {
+            x: execBounds.x - 280,
+            y: execBounds.y + Math.max(40, execBounds.height / 2 - 80),
+          };
 
     const hubConfig = {
       topicScope: ENGINE_DATA_HUB_TOPIC_SCOPE,

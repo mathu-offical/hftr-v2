@@ -1638,6 +1638,8 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   execution right. Hub↔exec and research↔exec I/O use motherboard `engine_utility_links` only;
   nest membership stays `parent_hub_library_id` (Library tree). Live canvas rejects
   cross-engine and hub `module_links`. Create preview mirrors eng→eng + hub→exec bridges.
+  **Auto-layout:** `reflowCompanyFamilyLayout` runs on company create, engine insert, and
+  company page load (heal); hubs spawn via `placeDataHubOrigin` when research bounds exist.
   Extends D-140 / D-091. Docs: engine-data-hub-design, canvas-layout-and-dedicated-math-design,
   canvas-engine-group-design, ui-spec. **Status: implemented.**
 

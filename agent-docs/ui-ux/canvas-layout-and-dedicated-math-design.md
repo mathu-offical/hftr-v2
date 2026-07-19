@@ -137,7 +137,8 @@ disabled when empty).
 5. Treat ungrouped owner/tool clusters and standalone modules as top-level envelopes.
 6. Arrange top-level envelopes as **vertical families** (D-159): research deps left,
    Data Hub in the gap, execution right; stack families top→bottom (not a single
-   horizontal line of all engines).
+   horizontal line of all engines). `reflowCompanyFamilyLayout` persists this on
+   company create, engine insert, and company page-load heal (not only Canvas Reflow).
 7. Persist the full layout atomically and fit the viewport to the result.
 
 Ordinary drag remains freeform. This feature does not enable always-on grid snapping.

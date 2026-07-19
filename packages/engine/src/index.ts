@@ -255,6 +255,13 @@ export {
   type EnsureEngineDataHubResult,
 } from './engines/data-hub';
 
+// D-159 family canvas layout persist
+export {
+  reflowCompanyFamilyLayout,
+  dockCompanyDataHubs,
+  type ReflowCompanyFamilyLayoutResult,
+} from './engines/canvas-family-layout';
+
 // Handlers (importing registers built-ins)
 export { registerHandler, getHandler, registeredKinds } from './handlers/registry';
 export type {

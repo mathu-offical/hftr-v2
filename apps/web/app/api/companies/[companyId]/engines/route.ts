@@ -27,6 +27,7 @@ import {
   listEngineUtilityLinks,
   ensureEngineDataHub,
   bootstrapCompanyKnowledge,
+  reflowCompanyFamilyLayout,
 } from '@hftr/engine';
 import { provisionEngineTimeHub } from '@/lib/time-provision';
 import { engineInstances, moduleLinks, modules } from '@hftr/db/schema';
@@ -140,6 +141,35 @@ export async function POST(req: Request, ctx: Ctx) {
       { x: 0, y: 0 },
       ENGINE_GROUP_PADDING,
     );
+    const section = engineCreateSection(engine);
+    let familyAnchor: LayoutRect | undefined;
+    if (section === 'execution') {
+      const depIds = researchDependenciesForExecutionEngine(engine.id);
+      const depBounds = existingEngines
+        .filter((row) => depIds.includes(row.templateId) && row.canvasBounds != null)
+        .map((row) => row.canvasBounds as LayoutRect);
+      if (depBounds.length > 0) {
+        const minX = Math.min(...depBounds.map((b) => b.x));
+        const minY = Math.min(...depBounds.map((b) => b.y));
+        const maxRight = Math.max(...depBounds.map((b) => b.x + b.width));
+        const maxBottom = Math.max(...depBounds.map((b) => b.y + b.height));
+        familyAnchor = {
+          x: minX,
+          y: minY,
+          width: maxRight - minX,
+          height: maxBottom - minY,
+        };
+      }
+    } else if (section === 'research') {
+      // Anchor left of the first execution peer that declares this pack as a dependency.
+      const execPeer = existingEngines.find((row) => {
+        if (!row.canvasBounds) return false;
+        return researchDependenciesForExecutionEngine(row.templateId).includes(engine.id);
+      });
+      if (execPeer?.canvasBounds) {
+        familyAnchor = execPeer.canvasBounds as LayoutRect;
+      }
+    }
     const origin = placeNextEngineOrigin(
       occupied,
       { width: preview.canvasBounds.width, height: preview.canvasBounds.height },
@@ -154,7 +184,8 @@ export async function POST(req: Request, ctx: Ctx) {
           : {}),
         originX: CANVAS_LAYOUT.originX,
         originY: CANVAS_LAYOUT.originY,
-        section: engineCreateSection(engine),
+        section,
+        ...(familyAnchor ? { familyAnchor } : {}),
       },
     );
     const laid = layoutEngineTemplateAtOrigin(
@@ -336,6 +367,22 @@ export async function POST(req: Request, ctx: Ctx) {
       }
     }
 
+    // D-159: reflow all families so research | hub | exec stay aligned after insert.
+    let familyLayout: Awaited<ReturnType<typeof reflowCompanyFamilyLayout>>['layout'] | null =
+      null;
+    try {
+      const reflowed = await reflowCompanyFamilyLayout(db, companyId);
+      familyLayout = reflowed.layout;
+      const [updatedEngine] = await db
+        .select()
+        .from(engineInstances)
+        .where(eq(engineInstances.id, engineRow.id))
+        .limit(1);
+      if (updatedEngine) persistedEngine = updatedEngine;
+    } catch (err) {
+      console.error('reflowCompanyFamilyLayout failed on engine insert', err);
+    }
+
     try {
       await resolveCompanyServiceBindings(db, clerkUserId, companyId);
     } catch (err) {
@@ -363,6 +410,7 @@ export async function POST(req: Request, ctx: Ctx) {
         hubLibraryId: dataHub.hubLibraryId,
         nestedModuleIds: dataHub.nestedModuleIds,
       },
+      familyLayout,
       utilityLinks: utilityLinks.map((row) => ({
         id: row.id,
         toEngineId: row.toEngineId,

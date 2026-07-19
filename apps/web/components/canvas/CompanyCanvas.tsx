@@ -103,6 +103,33 @@ function moduleConfigRecord(node: ModuleFlowNode | MathToolFlowNode): Record<str
   return (node.data.config ?? {}) as Record<string, unknown>;
 }
 
+/** Resolve Data Hub module id for an execution engine (config owner or utility bind). */
+function resolveDataHubModuleId(
+  engineId: string,
+  nodes: readonly CanvasFlowNode[],
+): string | null {
+  const byConfig = nodes.find((node) => {
+    if (!isModuleNode(node) || node.data.moduleType !== 'library') return false;
+    const cfg = moduleConfigRecord(node);
+    return (
+      isEngineDataHubConfig(cfg) &&
+      (cfg.ownerEngineInstanceId as string | undefined) === engineId
+    );
+  });
+  if (byConfig) return byConfig.id;
+
+  const engineNode = nodes.find(
+    (n): n is EngineGroupFlowNode => isEngineGroupNode(n) && n.id === engineId,
+  );
+  const utilHub = engineNode?.data.utilityLinks?.find(
+    (link) =>
+      link.bus === 'data_in' &&
+      typeof link.fromModuleId === 'string' &&
+      link.streamDescriptor === 'Data Hub',
+  );
+  return utilHub?.fromModuleId ?? null;
+}
+
 /** D-077: visual edges from trend-candidate → trading bindings (not module_links). */
 function trendBindingEdgesFromNodes(nodes: readonly CanvasFlowNode[]): Edge[] {
   const edges: Edge[] = [];
@@ -1238,22 +1265,12 @@ export function CompanyCanvas(props: {
 
     const engineNodes = workingNodes.filter(isEngineGroupNode);
     const layout = layoutCanvas(
-      engineNodes.map((n) => {
-        const hubModule = workingNodes.find((node) => {
-          if (!isModuleNode(node) || node.data.moduleType !== 'library') return false;
-          const cfg = moduleConfigRecord(node);
-          return (
-            isEngineDataHubConfig(cfg) &&
-            (cfg.ownerEngineInstanceId as string | undefined) === n.id
-          );
-        });
-        return {
-          id: n.id,
-          memberModuleIds: n.data.memberModuleIds,
-          templateId: n.data.templateId,
-          dataHubModuleId: hubModule?.id ?? null,
-        };
-      }),
+      engineNodes.map((n) => ({
+        id: n.id,
+        memberModuleIds: n.data.memberModuleIds,
+        templateId: n.data.templateId,
+        dataHubModuleId: resolveDataHubModuleId(n.id, workingNodes),
+      })),
       gatherLayoutModules(workingNodes),
       gatherLayoutLinks(workingEdges),
       ENGINE_GROUP_PADDING,
@@ -1452,8 +1469,11 @@ export function CompanyCanvas(props: {
         const others = nodes
           .filter((n): n is EngineGroupFlowNode => isEngineGroupNode(n) && n.id !== node.id)
           .map(engineBounds);
+        const template = getEngineTemplateById(node.data.templateId);
+        const section = template ? engineCreateSection(template) : undefined;
         const clearOrigin = placeNextEngineOrigin(others, rawBounds, {
           preferred: { x: rawBounds.x, y: rawBounds.y },
+          ...(section ? { section } : {}),
         });
         const bounds: LayoutRect = {
           ...rawBounds,
@@ -2147,8 +2167,16 @@ export function CompanyCanvas(props: {
               engineInstanceId: string | null;
               toolOwnerModuleId: string | null;
               topicSectorsOverridden: boolean;
+              config?: Record<string, unknown> | null;
             }>;
             links: CanvasLink[];
+            familyLayout?: {
+              modules: Array<{ id: string; canvasPosition: { x: number; y: number } }>;
+              engines: Array<{
+                id: string;
+                canvasBounds: { x: number; y: number; width: number; height: number };
+              }>;
+            } | null;
             utilityLinks?: Array<{
               id: string;
               toEngineId: string;
@@ -2209,49 +2237,48 @@ export function CompanyCanvas(props: {
             utilityLinks,
           );
 
-          let layout = reflowEngineAtOrigin(
-            {
-              id: response.engine.id,
-              memberModuleIds: response.engine.memberModuleIds,
-              templateId: response.engine.templateId,
-            },
-            gatherLayoutModules(workingNodes),
-            gatherLayoutLinks(allEdges),
-            { x: origin.x, y: origin.y },
-            ENGINE_GROUP_PADDING,
-          );
-          const reflowedBounds = layout.engines[0]?.canvasBounds;
-          if (reflowedBounds) {
-            const others = workingNodes
-              .filter(isEngineGroupNode)
-              .filter((node) => node.id !== response.engine.id)
-              .map(engineBounds);
-            const clearOrigin = placeNextEngineOrigin(others, reflowedBounds, {
-              preferred: { x: origin.x, y: origin.y },
-              section: engineCreateSection(item.template),
-            });
-            layout = translateLayoutResultToOrigin(layout, response.engine.id, clearOrigin);
+          // Prefer server D-159 family layout (already persisted); avoid fighting it
+          // with a single-engine reflow that stacks exec below research.
+          if (response.familyLayout) {
+            workingNodes = applyLayoutToNodes(workingNodes, response.familyLayout);
           }
-          workingNodes = applyLayoutToNodes(workingNodes, layout);
           workingEdges = mergeUtilityEdgesFromNodes(allEdges, workingNodes);
-
-          try {
-            await api(`/api/companies/${props.companyId}/canvas/layout`, {
-              method: 'PATCH',
-              body: {
-                modules: layout.modules,
-                engines: layout.engines,
-              },
-            });
-          } catch {
-            // Insert succeeded; operator can still Reflow to persist spacing.
-          }
 
           insertedLabels.push(item.template.label);
         }
 
+        // Final client family reflow so local node graph matches research|hub|exec.
+        const engineNodes = workingNodes.filter(isEngineGroupNode);
+        const familyLayout = layoutCanvas(
+          engineNodes.map((n) => ({
+            id: n.id,
+            memberModuleIds: n.data.memberModuleIds,
+            templateId: n.data.templateId,
+            dataHubModuleId: resolveDataHubModuleId(n.id, workingNodes),
+          })),
+          gatherLayoutModules(workingNodes),
+          gatherLayoutLinks(workingEdges),
+          ENGINE_GROUP_PADDING,
+        );
+        workingNodes = applyLayoutToNodes(workingNodes, familyLayout);
+        workingEdges = mergeUtilityEdgesFromNodes(workingEdges, workingNodes);
+        try {
+          await api(`/api/companies/${props.companyId}/canvas/layout`, {
+            method: 'PATCH',
+            body: {
+              modules: familyLayout.modules,
+              engines: familyLayout.engines,
+            },
+          });
+        } catch {
+          // Insert succeeded; Canvas Reflow can still persist spacing.
+        }
+
         setNodes(workingNodes);
         setEdges(workingEdges);
+        requestAnimationFrame(() => {
+          rfInstanceRef.current?.fitView({ padding: 0.15, maxZoom: 1, minZoom: 0.15 });
+        });
         flash(
           insertedLabels.length > 1
             ? `${insertedLabels.join(' + ')} inserted — activate modules to start.`

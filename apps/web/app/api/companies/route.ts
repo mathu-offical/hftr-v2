@@ -16,11 +16,12 @@ import {
   templateInputTargets,
   expandEngineSeedsWithResearchDeps,
   engineCreateSection,
+  researchDependenciesForExecutionEngine,
   type LayoutRect,
 } from '@hftr/contracts';
 import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
-import { bootstrapCompanyKnowledge, createSystemClock, loadSessionConstraints, resolveCompanyServiceBindings, ensureEngineMotherboardUtilities, ensureEngineDataHub } from '@hftr/engine';
+import { bootstrapCompanyKnowledge, createSystemClock, loadSessionConstraints, resolveCompanyServiceBindings, ensureEngineMotherboardUtilities, ensureEngineDataHub, reflowCompanyFamilyLayout } from '@hftr/engine';
 import { provisionEngineTimeHub } from '@/lib/time-provision';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import {
@@ -184,6 +185,31 @@ export async function POST(req: Request) {
         height: preview.canvasBounds.height,
       };
       const section = engineCreateSection(engine);
+      let familyAnchor: LayoutRect | undefined;
+      if (section === 'execution') {
+        const depIds = researchDependenciesForExecutionEngine(engine.id);
+        // Match occupied bounds to already-placed research seeds in this create pass.
+        const depTemplateIds = new Set(depIds);
+        const placedResearch: LayoutRect[] = [];
+        for (let i = 0; i < engineIndex; i += 1) {
+          const priorSeed = engineSeeds[i]!;
+          if (!depTemplateIds.has(priorSeed.templateId)) continue;
+          const priorBounds = occupiedEngineBounds[i];
+          if (priorBounds) placedResearch.push(priorBounds);
+        }
+        if (placedResearch.length > 0) {
+          const minX = Math.min(...placedResearch.map((b) => b.x));
+          const minY = Math.min(...placedResearch.map((b) => b.y));
+          const maxRight = Math.max(...placedResearch.map((b) => b.x + b.width));
+          const maxBottom = Math.max(...placedResearch.map((b) => b.y + b.height));
+          familyAnchor = {
+            x: minX,
+            y: minY,
+            width: maxRight - minX,
+            height: maxBottom - minY,
+          };
+        }
+      }
       const origin = seed.canvasOffset
         ? placeNextEngineOrigin(occupiedEngineBounds, size, {
             preferred: {
@@ -191,11 +217,13 @@ export async function POST(req: Request) {
               y: seed.canvasOffset.y,
             },
             section,
+            ...(familyAnchor ? { familyAnchor } : {}),
           })
         : placeNextEngineOrigin(occupiedEngineBounds, size, {
             originX: CANVAS_LAYOUT.originX,
             originY: CANVAS_LAYOUT.originY,
             section,
+            ...(familyAnchor ? { familyAnchor } : {}),
           });
       const laid = layoutEngineTemplateAtOrigin(
         engine.modules,
@@ -438,6 +466,13 @@ export async function POST(req: Request) {
       } catch (err) {
         console.error('ensureEngineDataHub failed on company create', err);
       }
+    }
+
+    // D-159: stack research | hub | exec families and persist before first paint.
+    try {
+      await reflowCompanyFamilyLayout(db, company.id);
+    } catch (err) {
+      console.error('reflowCompanyFamilyLayout failed on company create', err);
     }
 
     // Persist module↔service coverage from any already-verified brokers (D-090).

@@ -5,6 +5,10 @@ import {
   normalizeCapitalMode,
   type CapitalMode,
 } from '@/lib/capital-mode-label';
+import {
+  DEFAULT_STAGE_SCREEN_ID,
+  type MarketPostureStageScreenId,
+} from '@/lib/market-posture-stage-screens';
 
 /** Overlay recommendation focus (D-131). Left rail is holdings-only inventory. */
 export type MarketPostureCategory =
@@ -20,6 +24,8 @@ export interface MarketPostureFocusOpts {
   category?: MarketPostureCategory;
   /** Open day overlay when focusing. Default true. */
   openOverlay?: boolean;
+  /** Optional stage-screen jump (D-186). */
+  stageScreenId?: MarketPostureStageScreenId;
 }
 
 export interface MarketPostureViewContextValue {
@@ -30,6 +36,12 @@ export interface MarketPostureViewContextValue {
   selectedPositionId: string | null;
   selectedSymbol: string | null;
   category: MarketPostureCategory;
+  /** Active horizontal stage screen above the Model strip (D-186). */
+  activeStageScreenId: MarketPostureStageScreenId;
+  setActiveStageScreenId: (id: MarketPostureStageScreenId) => void;
+  /** Selected Model diagram node (D-186). */
+  selectedModelNodeId: string | null;
+  setSelectedModelNodeId: (id: string | null) => void;
   openOverlay: () => void;
   closeOverlay: () => void;
   /** Collapse left panel + hide overlay (edge rail / Esc). */
@@ -55,6 +67,9 @@ export function MarketPostureViewProvider(props: {
   const [selectedPositionId, setSelectedPositionId] = useState<string | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [category, setCategory] = useState<MarketPostureCategory>('watchlists');
+  const [activeStageScreenId, setActiveStageScreenId] =
+    useState<MarketPostureStageScreenId>(DEFAULT_STAGE_SCREEN_ID);
+  const [selectedModelNodeId, setSelectedModelNodeId] = useState<string | null>(null);
   const [bridge, setBridge] = useState<{
     ensurePostureOpen: () => void;
     collapse: () => void;
@@ -79,24 +94,22 @@ export function MarketPostureViewProvider(props: {
     setSelectedSymbol(symbol ?? null);
   }, []);
 
-  const focusEntity = useCallback(
-    (opts: MarketPostureFocusOpts) => {
-      if (opts.category) setCategory(opts.category);
-      if (opts.positionId !== undefined) {
-        setSelectedPositionId(opts.positionId);
+  const focusEntity = useCallback((opts: MarketPostureFocusOpts) => {
+    if (opts.category) setCategory(opts.category);
+    if (opts.stageScreenId) setActiveStageScreenId(opts.stageScreenId);
+    if (opts.positionId !== undefined) {
+      setSelectedPositionId(opts.positionId);
+    }
+    if (opts.symbol !== undefined) {
+      setSelectedSymbol(opts.symbol);
+      if (opts.positionId === undefined && opts.symbol === null) {
+        setSelectedPositionId(null);
       }
-      if (opts.symbol !== undefined) {
-        setSelectedSymbol(opts.symbol);
-        if (opts.positionId === undefined && opts.symbol === null) {
-          setSelectedPositionId(null);
-        }
-      }
-      if (opts.openOverlay !== false) {
-        setOverlayOpen(true);
-      }
-    },
-    [],
-  );
+    }
+    if (opts.openOverlay !== false) {
+      setOverlayOpen(true);
+    }
+  }, []);
 
   const value = useMemo<MarketPostureViewContextValue>(
     () => ({
@@ -106,6 +119,10 @@ export function MarketPostureViewProvider(props: {
       selectedPositionId,
       selectedSymbol,
       category,
+      activeStageScreenId,
+      setActiveStageScreenId,
+      selectedModelNodeId,
+      setSelectedModelNodeId,
       openOverlay,
       closeOverlay,
       closeWorkspace,
@@ -121,6 +138,8 @@ export function MarketPostureViewProvider(props: {
       selectedPositionId,
       selectedSymbol,
       category,
+      activeStageScreenId,
+      selectedModelNodeId,
       openOverlay,
       closeOverlay,
       closeWorkspace,

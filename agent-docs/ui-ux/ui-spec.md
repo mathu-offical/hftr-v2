@@ -308,15 +308,20 @@ are ignored. Shortcuts are suppressed in editable fields.
   separate queue from posture research (`POSTURE_RESEARCH`) and from execution/other LLM lanes
   (D-098).
 - **Market posture** tab (D-081 / D-085 / D-092 / D-101 / **D-131** / **D-138** / **D-144** /
-  **D-149**):
+  **D-149** / **D-186**):
   split inventory vs day quant. **Left rail** viewing pattern:
   1. **Open positions** (primary) — holdings list with SymbolTicker
   2. **Funds** (collapsible, **collapsed by default**) — indented outline:
      company pool → root `holding_fund` → execution desks by engine; each row is
      `name` + inline amount
   Fund-router hops and research engine envelopes are **not** listed. Sync + **Day view**.
-  Canvas overlay: **master equity**, dual **stock / news** boards, sealed reports,
-  recommendations, synthesis Model. Analyze reseals stock compound + sector news in parallel.
+  Canvas overlay (**D-186**): two-band workspace — horizontal **stage screens**
+  (capital / library / live / adapt / process / seals / compose) snap-scroll above a
+  fixed bottom **Model diagram strip**. Each pipeline column emits into the screen above
+  it; clicking a Model node navigates to that screen. Content: master equity + capital
+  chips, positions/library, entitled live sources, adapters, awareness + process steps,
+  stock/news seals + reports, charts + recommendations + awareness dock.
+  Analyze reseals stock compound + sector news in parallel.
   Distinct from Research (async corpus).   Hub data uses client **SWR cache**
   (`market-hub-cache` + `useMarketHub`): memory + sessionStorage, 15s fresh / 10m stale for
   **full hub** cache policy (used on mount/Sync/after Analyze), inflight dedupe, shell
@@ -356,11 +361,12 @@ are ignored. Shortcuts are suppressed in editable fields.
   Scheduled slots use America/New_York `et:HH:MM` triggers that enqueue full Analyze
   (`library.market_hub_analyze`). Diversified movement triggers can also auto-Analyze.
   Overlay shows the resolved phase label after Analyze.
-  Overlay **Model** section is the **live synthesis hydration hub** (D-147 / D-156 / D-160 / D-161 / D-162 / D-163 / D-165 / D-169) —
+  Overlay **Model** is a **fixed bottom strip** (D-186) — the live synthesis hydration hub
+  (D-147 / D-156 / D-160 / D-161 / D-162 / D-163 / D-165 / D-169) —
   React Flow with **active** live/library/**capital** data sources only → adapters → **route-granular process steps**
   (kind-specific fetch→normalize→extract/score/… chains; shared universe/rank/verify between
   stages) across **layers** (sources/adapters/pipeline/output) and **track-banded lanes**
-  (entitle/compound/sector/daily/compose with lane labels + wider spacing),
+  (entitle/compound/sector/daily/compose with lane labels + wider spacing in strip mode),
   then **panel surfaces** (rail positions/funds + overlay equity/movers/news/charts).
   Nodes are **function-styled**: process badges use `processFunction` chrome (FETCH/NORM/SCORE/SEAL/…);
   live SRC tint by research domain; role chrome for LIB/CAP/ADAPT/STAGE/PANEL; **track-colored top bars**.
@@ -368,7 +374,8 @@ are ignored. Shortcuts are suppressed in editable fields.
   Capital-bearing nodes show **inline dollar amount readouts** from hub-resolved cents (not LLM).
   Connections carry **type / activation / status** styling; Sync/Analyze pulse hydrate + pipeline
   edges; live equity/marks poll patches `panelSurfaces` via `livePatchedAt` without a full Sync
-  pulse. Operation + amount on every node; track + type legend + inspector; plus an **awareness dock**.
+  pulse. Operation + amount on every node; compact track chips + slim inspector; click navigates
+  the stage screen above. Awareness dock lives on the **compose** screen.
   Hub GET projects `modelHydration` (`processingFlows`, `processSteps`, `capitalSources`,
   `asOfIso`, `sealStamps`, `panelSurfaces`) and **`awarenessAnalysis` (D-175)** — multi-level
   linkage hybrid for the expanded Posture window: **Evidence → Links → Trends → Recommendations**

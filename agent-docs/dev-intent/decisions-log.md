@@ -1850,6 +1850,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   sources: sector-focus peer ETFs, broader liquid anchors, `macroLinkBand` in compound rank.
   Extends D-175 / D-181. Docs: research-live-system-cadence, ui-spec §4. **Status: implemented.**
 
+- **D-186 (Market Posture stage-strip workspace, 2026-07-19):** Day overlay is a two-band
+  workspace: horizontal **pipeline-column stage screens** (capital → library → live → adapt →
+  process → seals → compose) snap-scroll above a fixed bottom **Model diagram strip**. Each
+  diagram column emits into the screen above it; clicking a Model node navigates to its owning
+  screen (`resolveStageScreenId`). Mid-page Model section removed. ViewContext carries
+  `activeStageScreenId` + `selectedModelNodeId`. Extends D-131 / D-147 / D-160 / D-179.
+  Docs: ui-spec §4 Market posture. **Status: implemented.**
+
 - **D-185 (left/right panel toggle + layering, 2026-07-19):** Amend D-123: re-clicking an
   already-active left/right rail (or header) tab collapses that panel. Opening the left panel
   auto-collapses the right. Explicitly opening a right view while left remains open layers the

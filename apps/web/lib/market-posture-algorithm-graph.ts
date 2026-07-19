@@ -461,10 +461,16 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
   /** Edge ids that should pulse (client refresh/update signal). */
   pulsedEdgeIds?: ReadonlySet<string> | null;
   nowMs?: number;
+  /**
+   * Bottom Model strip uses wider spacing for readability (D-186).
+   * Positions are scaled after layout; edge geometry follows nodes.
+   */
+  layoutMode?: 'default' | 'stripExpanded';
 }): PostureAlgoGraph {
   const hydration = opts?.hydration ?? null;
   const pulsed = opts?.pulsedEdgeIds ?? null;
   const nowMs = opts?.nowMs ?? Date.now();
+  const layoutMode = opts?.layoutMode ?? 'default';
   const byStage = new Map<string, MarketHubSynthesisStage>();
   for (const s of opts?.stages ?? []) byStage.set(s.stageId, s);
 
@@ -1369,8 +1375,24 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
     y: LANE_Y[t.id],
   }));
 
+  if (layoutMode === 'stripExpanded') {
+    const sx = 1.35;
+    const sy = 1.22;
+    for (const n of nodes) {
+      n.position.x = Math.round(n.position.x * sx);
+      n.position.y = Math.round(n.position.y * sy);
+    }
+    for (const band of trackBands) {
+      band.y = Math.round(band.y * sy);
+    }
+  }
+
   return { nodes, edges, tracks, trackBands, asOfIso };
 }
+
+/** Re-export stage-screen resolver for Model navigation (D-186). */
+export { resolveStageScreenId } from './market-posture-stage-screens';
+export type { MarketPostureStageScreenId } from './market-posture-stage-screens';
 
 /**
  * Collect edge/node ids that changed since the previous snapshot (D-160 / D-161).

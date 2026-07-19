@@ -30,9 +30,11 @@ import { Justification } from '@/components/panels/Justification';
 import {
   buildMarketPostureAlgorithmGraph,
   collectModelPulseIds,
+  resolveStageScreenId,
   type PostureAlgoEdgeData,
   type PostureAlgoNodeData,
 } from '@/lib/market-posture-algorithm-graph';
+import type { MarketPostureStageScreenId } from '@/lib/market-posture-stage-screens';
 
 const PULSE_MS = 2_200;
 
@@ -445,6 +447,8 @@ function InnerCanvas(props: {
   pulsedEdgeIds: ReadonlySet<string>;
   selectedNodeId: string | null;
   onSelectNode: (nodeId: string | null) => void;
+  layoutMode: 'default' | 'stripExpanded';
+  onNavigate?: ((nodeId: string, screenId: MarketPostureStageScreenId) => void) | undefined;
 }) {
   const graph = useMemo(
     () =>
@@ -452,8 +456,9 @@ function InnerCanvas(props: {
         hydration: props.hydration,
         stages: props.run?.stages ?? null,
         pulsedEdgeIds: props.pulsedEdgeIds,
+        layoutMode: props.layoutMode,
       }),
-    [props.hydration, props.run, props.pulsedEdgeIds],
+    [props.hydration, props.run, props.pulsedEdgeIds, props.layoutMode],
   );
   const byStage = useMemo(() => {
     const m = new Map<string, MarketHubSynthesisStage>();
@@ -488,10 +493,12 @@ function InnerCanvas(props: {
   useEffect(() => {
     setEdges(styledEdges);
     const frame = requestAnimationFrame(() => {
-      void fitView({ padding: 0.18, maxZoom: 0.75, duration: 220 });
+      const padding = props.layoutMode === 'stripExpanded' ? 0.08 : 0.18;
+      const maxZoom = props.layoutMode === 'stripExpanded' ? 0.85 : 0.75;
+      void fitView({ padding, maxZoom, duration: 220 });
     });
     return () => cancelAnimationFrame(frame);
-  }, [styledEdges, setEdges, fitView]);
+  }, [styledEdges, setEdges, fitView, props.layoutMode]);
 
   return (
     <ReactFlow
@@ -500,8 +507,16 @@ function InnerCanvas(props: {
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onNodeClick={(_e, node) => {
-        if ((node.data as LiveNodeData).nodeRole === 'lane_label') return;
+        const data = node.data as LiveNodeData;
+        if (data.nodeRole === 'lane_label') return;
         props.onSelectNode(node.id);
+        const screenId = resolveStageScreenId({
+          nodeId: node.id,
+          nodeRole: data.nodeRole,
+          stageId: data.stageId ?? null,
+          panelSurfaceId: data.panelSurfaceId ?? null,
+        });
+        props.onNavigate?.(node.id, screenId);
       }}
       nodeTypes={nodeTypes}
       nodesDraggable={false}
@@ -598,7 +613,31 @@ function NodeInspector(props: {
 
 function TrackLegend(props: {
   tracks: Array<{ id: MarketHubModelTrack; label: string; summary: string }>;
+  compact?: boolean;
 }) {
+  if (props.compact) {
+    return (
+      <div
+        className="flex flex-wrap gap-x-2 gap-y-0.5"
+        data-testid="market-posture-model-track-legend"
+      >
+        {props.tracks.map((t) => (
+          <p
+            key={t.id}
+            className="font-mono text-[8px] uppercase tracking-wider text-[var(--color-ink-faint)]"
+            title={t.summary}
+          >
+            <span
+              className="mr-1 inline-block h-1.5 w-3 align-middle rounded-sm"
+              style={{ background: trackStroke(t.id) }}
+              aria-hidden
+            />
+            {t.label}
+          </p>
+        ))}
+      </div>
+    );
+  }
   return (
     <div className="space-y-1.5" data-testid="market-posture-model-track-legend">
       <div className="flex flex-wrap gap-x-3 gap-y-1">
@@ -662,15 +701,26 @@ function stageSignature(run: MarketHubSynthesisRun | null): string {
 }
 
 /**
- * Live synthesis hub canvas (D-120 / D-147 / D-156 / D-160 / D-165 / D-169).
+ * Live synthesis hub canvas (D-120 / D-147 / D-156 / D-160 / D-165 / D-169 / D-186).
  * Track-banded layout; typed edges; pulses on Sync/Analyze refresh.
+ * `variant="strip"` — fixed bottom dock with expanded graph + navigate callbacks.
  */
 export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(props: {
   className?: string;
   run?: MarketHubSynthesisRun | null;
   hydration?: MarketHubModelHydration | null;
+  /** embedded = mid-page card; strip = bottom Model dock (D-186). */
+  variant?: 'embedded' | 'strip';
+  /** Selected node controlled by parent when using ViewContext (D-186). */
+  selectedNodeId?: string | null;
+  onSelectNode?: (nodeId: string | null) => void;
+  onNavigate?: (nodeId: string, screenId: MarketPostureStageScreenId) => void;
 }) {
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const variant = props.variant ?? 'embedded';
+  const layoutMode = variant === 'strip' ? 'stripExpanded' : 'default';
+  const [internalSelected, setInternalSelected] = useState<string | null>(null);
+  const selectedNodeId = props.selectedNodeId ?? internalSelected;
+  const setSelectedNodeId = props.onSelectNode ?? setInternalSelected;
   const [pulsedEdgeIds, setPulsedEdgeIds] = useState<ReadonlySet<string>>(() => new Set());
   const prevAsOf = useRef<string | null>(null);
   const prevStageSig = useRef('');
@@ -683,8 +733,9 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
       buildMarketPostureAlgorithmGraph({
         hydration,
         stages: run?.stages ?? null,
+        layoutMode,
       }),
-    [hydration, run],
+    [hydration, run, layoutMode],
   );
 
   useEffect(() => {
@@ -724,10 +775,11 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
   const total = run?.stages.length ?? 0;
   const liveN = hydration?.liveSources.length ?? 0;
   const libN = hydration?.librarySources.length ?? 0;
+  const isStrip = variant === 'strip';
 
   return (
-    <div className={`space-y-2 ${props.className ?? ''}`}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
+    <div className={`flex min-h-0 flex-col ${isStrip ? 'h-full gap-1' : 'space-y-2'} ${props.className ?? ''}`}>
+      <div className="flex shrink-0 flex-wrap items-baseline justify-between gap-2">
         {run ? (
           <p
             className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]"
@@ -768,10 +820,14 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
             : ''}
         </p>
       </div>
-      <TrackLegend tracks={baselineGraph.tracks} />
+      <TrackLegend tracks={baselineGraph.tracks} compact={isStrip} />
       <div
         data-testid="market-posture-model-canvas"
-        className="h-[min(40rem,62vh)] min-h-[320px] overflow-hidden rounded border border-[var(--color-line)]"
+        className={
+          isStrip
+            ? 'min-h-0 flex-1 overflow-hidden border border-[var(--color-line)] bg-[var(--color-surface-0)]'
+            : 'h-[min(40rem,62vh)] min-h-[320px] overflow-hidden rounded border border-[var(--color-line)]'
+        }
         role="img"
         aria-label="Market posture synthesis hydration model"
       >
@@ -782,10 +838,16 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
             pulsedEdgeIds={pulsedEdgeIds}
             selectedNodeId={selectedNodeId}
             onSelectNode={setSelectedNodeId}
+            layoutMode={layoutMode}
+            onNavigate={props.onNavigate}
           />
         </ReactFlowProvider>
       </div>
-      <NodeInspector node={selectedNode} stage={selectedStage} />
+      {selectedNode ? (
+        <div className={isStrip ? 'max-h-24 shrink-0 overflow-y-auto' : undefined}>
+          <NodeInspector node={selectedNode} stage={selectedStage} />
+        </div>
+      ) : null}
     </div>
   );
 });

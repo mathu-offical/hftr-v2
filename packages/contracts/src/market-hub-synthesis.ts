@@ -224,42 +224,42 @@ export const MARKET_HUB_SYNTHESIS_STAGE_META: Record<
     kind: 'deterministic',
     track: 'compound',
     layer: 'pipeline',
-    dataRole: 'Promote / hold gates before seal',
+    dataRole: 'Promote / hold gates before board commit',
   },
   seal_movers: {
-    label: 'Seal movers board',
+    label: 'Movers board',
     kind: 'deterministic',
     track: 'compound',
     layer: 'pipeline',
-    dataRole: 'Persist movers seal + contributing kinds',
+    dataRole: 'Commit movers board + contributing kinds',
   },
   sector: {
     label: 'Sector bulletin',
     kind: 'deterministic',
     track: 'sector',
     layer: 'pipeline',
-    dataRole: 'Parallel news/sector seal from headline lanes',
+    dataRole: 'Parallel news/sector board from headline lanes',
   },
   daily: {
     label: 'Daily summary phase',
     kind: 'deterministic',
     track: 'daily',
     layer: 'pipeline',
-    dataRole: 'Calendar-phase daily summary seal',
+    dataRole: 'Calendar-phase daily summary board',
   },
   narrative: {
     label: 'Posture narrative',
     kind: 'llm',
     track: 'compose',
     layer: 'pipeline',
-    dataRole: 'Book↔tape rollup after seals terminal',
+    dataRole: 'Book↔tape rollup after boards terminal',
   },
   hub_ready: {
     label: 'Market hub ready',
     kind: 'output',
     track: 'compose',
     layer: 'output',
-    dataRole: 'Project hub boards from seals + narrative',
+    dataRole: 'Project hub boards from committed boards + narrative',
   },
 };
 
@@ -268,7 +268,7 @@ export const MARKET_HUB_MODEL_TRACK_META: Record<
   { label: string; summary: string }
 > = {
   entitle: { label: 'Entitle', summary: 'Provider readiness rollup' },
-  compound: { label: 'Compound', summary: 'Movers gather → RS → seal' },
+  compound: { label: 'Compound', summary: 'Movers gather → RS → board' },
   sector: { label: 'Sector', summary: 'News / sector bulletin lane' },
   daily: { label: 'Daily', summary: 'Calendar-phase summary lane' },
   compose: { label: 'Compose', summary: 'Narrative → hub projection' },

@@ -673,26 +673,29 @@ describe('galaxy-physics', () => {
     expect(b.vx).toBeLessThan(0);
   });
 
-  it('hierarchicalLinkScale biases by membership and bridges high cross-nest similarity', () => {
-    expect(hierarchicalLinkScale({ sameLibrary: true, sameFolder: false, sameArticle: false })).toEqual({
-      distanceMul: 1.15,
-      strengthMul: 0.85,
-    });
-    const article = hierarchicalLinkScale({
-      sameLibrary: true,
-      sameFolder: true,
-      sameArticle: true,
-    });
-    expect(article.distanceMul).toBeLessThan(1);
-    expect(article.strengthMul).toBeGreaterThan(1);
+  it('hierarchicalLinkScale biases by semantic band only (D-199)', () => {
+    expect(
+      hierarchicalLinkScale({
+        sameLibrary: true,
+        sameFolder: true,
+        sameArticle: true,
+        similarityBand: 'high',
+      }),
+    ).toEqual({ distanceMul: 0.78, strengthMul: 1.22 });
+    expect(
+      hierarchicalLinkScale({
+        sameLibrary: false,
+        sameFolder: false,
+        sameArticle: false,
+        similarityBand: 'high',
+      }),
+    ).toEqual({ distanceMul: 0.78, strengthMul: 1.22 });
     const crossHigh = hierarchicalLinkScale({
       sameLibrary: false,
       sameFolder: false,
       sameArticle: false,
       similarityBand: 'high',
     });
-    expect(crossHigh.distanceMul).toBeLessThan(1);
-    expect(crossHigh.strengthMul).toBeGreaterThan(1);
     const crossLow = hierarchicalLinkScale({
       sameLibrary: false,
       sameFolder: false,

@@ -1,9 +1,11 @@
 /**
- * Visible organizational spheres for the research galaxy (library nests + company envelope).
- * Hull markers are pinned graph nodes rendered as wireframe shells — not concept nodes.
+ * Visible organizational spheres for the research galaxy (library / folder / article /
+ * company envelopes). Hull markers are pinned graph nodes rendered as wireframe shells —
+ * not concept nodes.
  *
- * D-195: folder (and library) spheres are derived envelopes around concepts after
- * tag/semantic layout — not gravity wells that contain nodes.
+ * D-199: library, folder, and article are peer first-class membership objects. Concepts
+ * place via tag/semantic springs; each hull is fitted around its members afterward.
+ * No nested orbit packing (article-inside-folder-inside-library).
  */
 
 import { computeCompanyEnvelopeBounds, type LibraryCenter3D } from './galaxy-physics';
@@ -25,8 +27,8 @@ export type NestHullNode = {
   /** Topic uuid when __hullKind === 'article'. */
   __topicId?: string;
   /**
-   * Parent system key for article stars (`libraryId::folderKey`), matching
-   * `folderCenters` map keys — so articles soft-orbit shelf/folder space (D-139).
+   * Catalog path metadata only (libraryId::folderKey). Not used for nested orbit packing
+   * after D-199 — articles are peer envelopes.
    */
   __parentFolderKey?: string | null;
   __radius: number;
@@ -302,8 +304,8 @@ export type ArticleHullInput = {
 };
 
 /**
- * Article stars — seeded inside folder/shelf space, not pinned, so they can
- * soft-orbit the parent system (D-139). Concepts orbit these live hubs.
+ * Article membership envelopes — peer to folder/library hulls (D-199).
+ * Pinned; live pose comes from createDerivedMembershipHullForce.
  */
 export function buildArticleHullNodes(articles: readonly ArticleHullInput[]): NestHullNode[] {
   return articles.map((a, i) => {
@@ -327,7 +329,9 @@ export function buildArticleHullNodes(articles: readonly ArticleHullInput[]): Ne
       x: a.x,
       y: a.y,
       z: a.z,
-      // No fx/fy/fz — free to orbit folder system centers.
+      fx: a.x,
+      fy: a.y,
+      fz: a.z,
       primaryLibraryId: null,
     };
     if (a.libraryId) node.__libraryId = a.libraryId;
@@ -348,27 +352,49 @@ type DerivedHullSimNode = {
   __hullKind?: string;
   __radius?: number;
   __libraryId?: string;
+  __topicId?: string;
   primaryLibraryId?: string | null;
   primaryFolderKey?: string | null;
+  primaryArticleId?: string | null;
 };
 
+function pinHull(
+  hull: DerivedHullSimNode,
+  fit: { x: number; y: number; z: number; radius: number },
+): void {
+  hull.x = fit.x;
+  hull.y = fit.y;
+  hull.z = fit.z;
+  hull.fx = fit.x;
+  hull.fy = fit.y;
+  hull.fz = fit.z;
+  hull.__radius = fit.radius;
+}
+
 /**
- * After tag/semantic forces settle concepts, pin folder (+ library) hulls to the
- * sphere wrapping their outermost members (D-195). Does not pull concepts.
+ * After tag/semantic forces settle concepts, pin library / folder / article / company
+ * hulls to the sphere wrapping their outermost members (D-199). Does not move concepts.
+ * Peer envelopes — no nested orbit packing.
  */
-export function createDerivedFolderHullForce() {
+export function createDerivedMembershipHullForce() {
   let nodes: DerivedHullSimNode[] = [];
 
   function force(_alpha: number) {
     const folderMembers = new Map<string, HullMemberPoint[]>();
     const libraryMembers = new Map<string, HullMemberPoint[]>();
+    const articleMembers = new Map<string, HullMemberPoint[]>();
+    const allConcepts: HullMemberPoint[] = [];
     const folderHulls: DerivedHullSimNode[] = [];
     const libraryHulls: DerivedHullSimNode[] = [];
+    const articleHulls: DerivedHullSimNode[] = [];
+    let companyHull: DerivedHullSimNode | null = null;
 
     for (const node of nodes) {
       if (node.__kind === 'nest-hull') {
         if (node.__hullKind === 'folder') folderHulls.push(node);
         else if (node.__hullKind === 'library') libraryHulls.push(node);
+        else if (node.__hullKind === 'article') articleHulls.push(node);
+        else if (node.__hullKind === 'company') companyHull = node;
         continue;
       }
       if (node.__kind === 'tag-sat') continue;
@@ -380,6 +406,7 @@ export function createDerivedFolderHullForce() {
         z: node.z ?? 0,
         pad,
       };
+      allConcepts.push(point);
 
       const libId = node.primaryLibraryId;
       if (libId) {
@@ -395,6 +422,23 @@ export function createDerivedFolderHullForce() {
         list.push(point);
         folderMembers.set(key, list);
       }
+
+      const articleId = node.primaryArticleId;
+      if (articleId) {
+        const list = articleMembers.get(articleId) ?? [];
+        list.push(point);
+        articleMembers.set(articleId, list);
+      }
+    }
+
+    for (const hull of articleHulls) {
+      const topicId = hull.__topicId;
+      if (!topicId) continue;
+      const members = articleMembers.get(topicId);
+      if (!members || members.length === 0) continue;
+      const fit = fitSphereAroundPoints(members, { minRadius: 18, pad: 8 });
+      if (!fit) continue;
+      pinHull(hull, fit);
     }
 
     for (const hull of folderHulls) {
@@ -404,13 +448,7 @@ export function createDerivedFolderHullForce() {
       if (!members || members.length === 0) continue;
       const fit = fitSphereAroundPoints(members, { minRadius: 24, pad: 10 });
       if (!fit) continue;
-      hull.x = fit.x;
-      hull.y = fit.y;
-      hull.z = fit.z;
-      hull.fx = fit.x;
-      hull.fy = fit.y;
-      hull.fz = fit.z;
-      hull.__radius = fit.radius;
+      pinHull(hull, fit);
     }
 
     for (const hull of libraryHulls) {
@@ -420,13 +458,12 @@ export function createDerivedFolderHullForce() {
       if (!members || members.length === 0) continue;
       const fit = fitSphereAroundPoints(members, { minRadius: 40, pad: 18 });
       if (!fit) continue;
-      hull.x = fit.x;
-      hull.y = fit.y;
-      hull.z = fit.z;
-      hull.fx = fit.x;
-      hull.fy = fit.y;
-      hull.fz = fit.z;
-      hull.__radius = fit.radius;
+      pinHull(hull, fit);
+    }
+
+    if (companyHull && allConcepts.length > 0) {
+      const fit = fitSphereAroundPoints(allConcepts, { minRadius: 80, pad: 28 });
+      if (fit) pinHull(companyHull, fit);
     }
   }
 
@@ -435,4 +472,9 @@ export function createDerivedFolderHullForce() {
   };
 
   return force;
+}
+
+/** @deprecated Prefer createDerivedMembershipHullForce (D-199). */
+export function createDerivedFolderHullForce() {
+  return createDerivedMembershipHullForce();
 }

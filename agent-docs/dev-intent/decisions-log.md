@@ -1997,6 +1997,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   status labels remain primary; motion reinforces. Extends D-196. Docs: ui-spec §2 / §8.
   **Status: implemented.**
 
+- **D-199 (peer membership hulls — no nested orbit packing, 2026-07-19):** Galaxy concepts
+  place via charge + tag/semantic springs only. Library, folder, and article are **peer
+  first-class membership objects**; wire spheres are fitted each tick around their members
+  (`createDerivedMembershipHullForce`). Remove nest / articleOrbit / foreignRepel /
+  libBridge forces and nested packing seeds (article-inside-folder-inside-library).
+  `hierarchicalLinkScale` uses similarity bands only. Extends D-195. Docs: ui-spec §6,
+  research-galaxy-topic-view-design. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

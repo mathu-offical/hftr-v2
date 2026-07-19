@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   COMPANY_HULL_ID,
+  articleHullId,
   buildCompanyHullNode,
   buildLibraryHullNodes,
   buildTopicHullNode,
-  createDerivedFolderHullForce,
+  createDerivedMembershipHullForce,
   fitSphereAroundPoints,
   folderHullId,
   isNestHullNode,
@@ -75,12 +76,13 @@ describe('galaxy-nest-hulls', () => {
     expect(fit!.radius).toBeGreaterThan(30);
   });
 
-  it('derived folder hull force wraps concepts without moving them', () => {
-    const force = createDerivedFolderHullForce();
+  it('derived membership hull force wraps folder/article/library without moving concepts', () => {
+    const force = createDerivedMembershipHullForce();
     const conceptA = {
       id: 'c1',
       primaryLibraryId: 'lib',
       primaryFolderKey: 'strategy_families',
+      primaryArticleId: 'art-1',
       x: 10,
       y: 0,
       z: 0,
@@ -90,12 +92,13 @@ describe('galaxy-nest-hulls', () => {
       id: 'c2',
       primaryLibraryId: 'lib',
       primaryFolderKey: 'strategy_families',
+      primaryArticleId: 'art-1',
       x: 50,
       y: 0,
       z: 0,
       val: 2,
     };
-    const hull = {
+    const folderHull = {
       id: folderHullId('lib', 'strategy_families'),
       __kind: 'nest-hull' as const,
       __hullKind: 'folder' as const,
@@ -108,11 +111,41 @@ describe('galaxy-nest-hulls', () => {
       fy: 0,
       fz: 0,
     };
-    force.initialize([conceptA, conceptB, hull]);
+    const articleHull = {
+      id: articleHullId('art-1'),
+      __kind: 'nest-hull' as const,
+      __hullKind: 'article' as const,
+      __topicId: 'art-1',
+      __radius: 8,
+      x: 0,
+      y: 0,
+      z: 0,
+      fx: 0,
+      fy: 0,
+      fz: 0,
+    };
+    const libraryHull = {
+      id: nestHullId('lib'),
+      __kind: 'nest-hull' as const,
+      __hullKind: 'library' as const,
+      __libraryId: 'lib',
+      __radius: 20,
+      x: 0,
+      y: 0,
+      z: 0,
+      fx: 0,
+      fy: 0,
+      fz: 0,
+    };
+    force.initialize([conceptA, conceptB, folderHull, articleHull, libraryHull]);
     force(1);
     expect(conceptA.x).toBe(10);
     expect(conceptB.x).toBe(50);
-    expect(hull.fx).toBeCloseTo(30, 5);
-    expect(hull.__radius).toBeGreaterThan(20);
+    expect(folderHull.fx).toBeCloseTo(30, 5);
+    expect(folderHull.__radius).toBeGreaterThan(20);
+    expect(articleHull.fx).toBeCloseTo(30, 5);
+    expect(articleHull.__radius).toBeGreaterThan(16);
+    expect(libraryHull.fx).toBeCloseTo(30, 5);
+    expect(libraryHull.__radius).toBeGreaterThan(20);
   });
 });

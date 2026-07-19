@@ -992,8 +992,8 @@ export function createCrossLibraryBridgeForce(
 }
 
 /**
- * Hierarchy gently biases springs; semantic similarity can bridge systems (D-145 / D-151).
- * High cross-nest similarity pulls harder than same-library low similarity.
+ * Membership does not tighten springs (D-199). Semantic similarity bands alone
+ * bias rest length / strength — including cross-library bridges.
  */
 export function hierarchicalLinkScale(opts: {
   sameLibrary: boolean;
@@ -1001,18 +1001,14 @@ export function hierarchicalLinkScale(opts: {
   sameArticle: boolean;
   similarityBand?: SimilarityBand;
 }): { distanceMul: number; strengthMul: number } {
+  void opts.sameLibrary;
+  void opts.sameFolder;
+  void opts.sameArticle;
   const band = opts.similarityBand;
-  if (opts.sameArticle) return { distanceMul: 0.88, strengthMul: 1.05 };
-  if (opts.sameFolder) return { distanceMul: 0.95, strengthMul: 0.95 };
-  if (opts.sameLibrary) {
-    if (band === 'high') return { distanceMul: 0.9, strengthMul: 1.05 };
-    if (band === 'medium') return { distanceMul: 1.05, strengthMul: 0.92 };
-    return { distanceMul: 1.15, strengthMul: 0.85 };
-  }
-  // Cross-library: prefer longer rest so bridges don't crush packing (D-170).
-  if (band === 'high') return { distanceMul: 0.72, strengthMul: 1.28 };
-  if (band === 'medium') return { distanceMul: 0.95, strengthMul: 1.05 };
-  return { distanceMul: 1.22, strengthMul: 0.78 };
+  if (band === 'high') return { distanceMul: 0.78, strengthMul: 1.22 };
+  if (band === 'medium') return { distanceMul: 1.0, strengthMul: 1.0 };
+  if (band === 'low') return { distanceMul: 1.18, strengthMul: 0.82 };
+  return { distanceMul: 1.08, strengthMul: 0.9 };
 }
 
 /** @deprecated Prefer hierarchicalLinkScale — kept for call-site migration. */

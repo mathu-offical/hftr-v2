@@ -28,22 +28,24 @@ Usage and reference counters on topics and concepts exist for **system optimizat
 | **Topic** | Agent/research-module **directive** (module-side); may include many concepts; owns hybrid article; may spawn further articles/libraries | No (left panel + focus overlay only) |
 | **Concept** | Atomic curated knowledge unit (body, tags, provenance) — **library-side** | Yes (primary node) |
 | **Tag** | Cross-cutting label on concepts — **library-side** | Yes (secondary nodes / color / filter chips) |
-| **Library** | Curated membership container for concepts/tags/trends/functions; hard spatial nest in galaxy | Nest boundary (hull), not a node |
-| **Folder star** | Catalog/runtime tag cluster inside a library (D-078) | Folder hull + nest force |
-| **Article orbit** | Topic membership orbit inside a folder (D-078) | Article hull; topics still not concept hubs |
+| **Library** | Curated membership container for concepts/tags/trends/functions | Peer hull envelope around members |
+| **Folder star** | Catalog/runtime tag cluster (D-078 / D-199) | Peer folder hull around members |
+| **Article orbit** | Topic/article membership set (D-078 / D-199) | Peer article hull around members |
 | **Concept link** | Typed edge (`supports`, `contradicts`, …) | Yes (edge; springs blend weight + similarity) |
 | **Topic membership** | Join: topic ↔ concept (ordered, role optional) | Defines topic trace subgraph |
 
-### Galaxy hierarchy layout (D-078)
+### Galaxy membership envelopes (D-078 → D-199)
 
 ```
-Company hull
- └─ Library framing (faint; D-136)
-     └─ Folder system (loose bound; may intersect)
-         └─ Article orbit (soft radial band)
-             ├─ Concept nodes (free-float on semantic springs)
-             └─ Tag satellites (loose parent orbit)
+Concepts + tag satellites  ←  charge + tag/semantic springs (placement)
+     │
+     ├─ Article hull     (peer envelope around article members)
+     ├─ Folder hull      (peer envelope around folder members)
+     ├─ Library hull     (peer envelope around library members)
+     └─ Company hull     (envelope around all visible concepts)
 ```
+
+Hulls are fitted after layout — they do **not** nest-pack or pull concepts.
 
 Semantic distance uses the **same** LLM-assist regex normalize + Jaccard band path as
 librarian relevance (`low|medium|high`) — see `architecture/research-relevance-graph.md`.
@@ -168,14 +170,16 @@ chips drawn from visible concepts’ tags (and optionally topic-level keywords).
   tag/semantic springs first; folder (and library) wire spheres are fitted around the
   outermost included concepts each tick. No folder nest/shell/cohere gravity pulling
   nodes into shelves.
+- **D-199 peer membership hulls:** library, folder, and article are first-class peer
+  envelopes. Concepts free-float on semantic/tag springs only (no nest / article-orbit /
+  foreign-repel / lib-bridge forces; no nested packing seeds). Each hull is fitted around
+  its members each tick (`createDerivedMembershipHullForce`). `hierarchicalLinkScale`
+  uses similarity bands only — membership does not tighten springs.
 - A larger **company envelope** sphere outlines the full organizational cloud.
-- **Volume packing (D-116):** library / folder / article *centers* use **Fibonacci-sphere**
-  samples on concentric shells so XYZ volume is used
-  (`research/galaxy-3d-volume-layout.md`). Camera Fit + idle orbit unchanged.
-- Cross-membership links stay active (`hierarchicalLinkScale` only gently biases
-  same-article / same-folder springs) so related concepts bridge systems.
-- Concepts in multiple libraries: **primary membership** biases seed; secondary
-  memberships shown as badges / via intersecting orbits and links.
+- Cross-membership links stay active via semantic/tag springs so related concepts bridge
+  systems without reconstructing nested shelves.
+- Concepts in multiple libraries: **primary membership** is catalog metadata for hull
+  fitting; secondary memberships shown as badges / via intersecting envelopes and links.
 - Master library (if flagged) may render as the outermost company cloud —
   default: **master = company outer**, curated libraries = soft framing.
 - Reducing scope (library filter) reheats forces on the filtered subgraph without

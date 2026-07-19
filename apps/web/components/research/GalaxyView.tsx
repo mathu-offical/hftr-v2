@@ -13,19 +13,11 @@ import type {
 import {
   chargeStrengthForGraphSize,
   combineLinkLayout,
-  computeArticleOrbitCenters3D,
-  computeFolderCenters3D,
   computeLibraryCenters3D,
   computeVolumeCameraPose,
-  createArticleOrbitForce,
-  createForeignLibraryRepelForce,
-  createCrossLibraryBridgeForce,
-  createLibraryNestForce,
   createTagSatelliteForce,
   hierarchicalLinkScale,
   hashSpread3D,
-  nestPackingSignature,
-  refitLibraryPackingAfterFolders,
   type GalaxySimNode,
 } from '@/lib/galaxy-physics';
 import {
@@ -40,7 +32,8 @@ import {
   buildCompanyHullNode,
   buildFolderHullNodes,
   buildLibraryHullNodes,
-  createDerivedFolderHullForce,
+  createDerivedMembershipHullForce,
+  folderKeyFromHullId,
   isNestHullNode,
   isTagSatelliteNode,
   type NestHullNode,
@@ -223,7 +216,6 @@ function GalaxyViewInner(props: GalaxyViewProps) {
   const graphBox = useGraphDimensions();
   const graphHandleRef = useRef<ForceGraphHandle | null>(null);
   const physicsSignatureRef = useRef('');
-  const packingSignatureRef = useRef('');
   const layoutCommittedRef = useRef(new Set<string>());
   const volumeFitDoneRef = useRef(false);
   const pointerRef = useRef({ x: 0, y: 0 });
@@ -261,24 +253,15 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     };
   }, [prefer2dFallback]);
 
-  const { libraryCenters, folderCenters } = useMemo(() => {
-    const libs = computeLibraryCenters3D(
-      libraryNests,
-      props.nodes.map((n) => ({ primaryLibraryId: n.primaryLibraryId ?? null })),
-    );
-    const folders = computeFolderCenters3D({
-      libraryCenters: libs,
-      folders: folderStars.map((folder) => ({
-        folderKey: folder.folderKey,
-        libraryId: folder.libraryId,
-        label: folder.label,
-        mass: folder.mass,
-        memberCount: folder.memberConceptIds.length,
-      })),
-    });
-    refitLibraryPackingAfterFolders(libs, folders);
-    return { libraryCenters: libs, folderCenters: folders };
-  }, [libraryNests, props.nodes, folderStars]);
+  // Library centers exist only for camera framing / filter chips — not for nesting concepts.
+  const libraryCenters = useMemo(
+    () =>
+      computeLibraryCenters3D(
+        libraryNests,
+        props.nodes.map((n) => ({ primaryLibraryId: n.primaryLibraryId ?? null })),
+      ),
+    [libraryNests, props.nodes],
+  );
 
   const conceptFolderIndex = useMemo(() => buildConceptFolderIndex(folderStars), [folderStars]);
 
@@ -287,46 +270,17 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     [articleOrbits],
   );
 
-  const packingSig = useMemo(() => {
-    const libSig = nestPackingSignature(libraryCenters);
-    const folderParts: string[] = [];
-    for (const [id, c] of [...folderCenters.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
-      folderParts.push(
-        `${id}:${Math.round(c.x)}:${Math.round(c.y)}:${Math.round(c.z)}:${Math.round(c.radius)}`,
-      );
-    }
-    return `${libSig}||${folderParts.join('|')}`;
-  }, [libraryCenters, folderCenters]);
-
-  // Sync clear during render so the same frame that gets a new packing signature
-  // also reseeds concept coords (effect-only clear races after graphData commits).
-  if (packingSignatureRef.current !== packingSig) {
-    packingSignatureRef.current = packingSig;
-    layoutCommittedRef.current.clear();
-    volumeFitDoneRef.current = false;
-  }
-
-  // When Fibonacci shells move, drop stale d3 seeds so concepts re-seed into volume (D-116 P1b).
-  useEffect(() => {
-    layoutCommittedRef.current.clear();
-    volumeFitDoneRef.current = false;
-  }, [packingSig]);
-
-  const articleCenters = useMemo(
-    () =>
-      computeArticleOrbitCenters3D({
-        articles: articleOrbits.map((article) => ({
-          topicId: article.topicId,
-          title: article.title,
-          libraryId: article.libraryId,
-          folderKey: article.folderKey,
-          memberCount: article.memberConceptIds.length,
-        })),
-        libraryCenters,
-        folderCenters,
-      }),
-    [articleOrbits, libraryCenters, folderCenters],
-  );
+  // Membership inventory signature — does NOT drive nested packing or concept reseeds (D-199).
+  const membershipSig = useMemo(() => {
+    const libParts = libraryNests.map((l) => l.id).sort();
+    const folderParts = folderStars
+      .map((f) => `${f.libraryId}::${f.folderKey}:${f.memberConceptIds.length}`)
+      .sort();
+    const articleParts = articleOrbits
+      .map((a) => `${a.topicId}:${a.memberConceptIds.length}`)
+      .sort();
+    return `${libParts.join(',')}|${folderParts.join(',')}|${articleParts.join(',')}`;
+  }, [libraryNests, folderStars, articleOrbits]);
 
   const nodeLookupById = useMemo(
     () => new Map(props.nodes.map((node) => [node.id, node])),
@@ -406,14 +360,9 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         liveIds.add(n.id);
         const degree = degreeById.get(n.id) ?? 0;
         const refs = n.referenceCount ?? 0;
-        const libId = n.primaryLibraryId;
         const folderMembership = conceptFolderIndex.get(n.id);
         const primaryFolderKey = folderMembership?.folderKey ?? null;
         const primaryArticleId = conceptArticleIndex.get(n.id) ?? null;
-        const articleCenter = primaryArticleId ? articleCenters.get(primaryArticleId) : null;
-        const libCenter = libId ? libraryCenters.get(libId) : null;
-        // D-195: seed from library (or free) — never from folder shells. Folders wrap later.
-        const center = articleCenter ?? libCenter ?? null;
         const focused = !focusSet || focusSet.has(n.id);
         const base = {
           ...n,
@@ -422,20 +371,14 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           val: Math.max(1.2, degree * 0.7 + refs * 0.4 + 1),
           __focused: focused,
         };
-        // Seed near library / article for warm start; semantic + tag springs own layout.
+        // D-199: free semantic cloud seed — no article/folder/library nest shells.
         if (!layoutCommittedRef.current.has(n.id)) {
           const spread = hashSpread3D(n.id);
-          const mag = Math.hypot(spread.dx, spread.dy, spread.dz) || 1;
-          let band = 0.55;
-          for (let i = 0; i < n.id.length; i++) band = (band * 31 + n.id.charCodeAt(i)) % 100;
-          const shellR = center
-            ? Math.max(28, center.radius * (0.55 + (Math.abs(band) % 50) / 100))
-            : 72;
           return {
             ...base,
-            x: center ? center.x + (spread.dx / mag) * shellR : spread.dx * 1.8,
-            y: center ? center.y + (spread.dy / mag) * shellR : spread.dy * 1.8,
-            z: center ? center.z + (spread.dz / mag) * shellR : spread.dz * 1.8,
+            x: spread.dx * 2.4,
+            y: spread.dy * 2.4,
+            z: spread.dz * 2.4,
           };
         }
         return base;
@@ -444,35 +387,37 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     const tagSatellites = buildTagSatelliteNodes(conceptNodes);
 
     const libraryHulls = buildLibraryHullNodes(libraryCenters, libraryFilter);
-    // All folders/articles in scope — no LOD cap (D-141). Library chips still filter.
-    const folderInputs = [...folderCenters.values()]
-      .filter((center) => !libraryFilter || libraryFilter.has(center.libraryId))
-      .map((center) => ({
-        libraryId: center.libraryId,
-        folderKey: center.folderKey,
-        label: center.name,
-        x: center.x,
-        y: center.y,
-        z: center.z,
-        radius: center.radius,
-        mass: center.mass,
+    // Peer membership hulls — placeholder pose; derived force fits around members (D-199).
+    const folderInputs = folderStars
+      .filter((folder) => !libraryFilter || libraryFilter.has(folder.libraryId))
+      .map((folder) => ({
+        libraryId: folder.libraryId,
+        folderKey: folder.folderKey,
+        label: folder.label,
+        x: 0,
+        y: 0,
+        z: 0,
+        radius: 28,
+        mass: folder.mass,
       }));
     const folderHulls = buildFolderHullNodes(folderInputs);
-    const articleCandidates = [...articleCenters.values()].filter(
-      (center) => !center.libraryId || !libraryFilter || libraryFilter.has(center.libraryId),
-    );
     const articleHulls = buildArticleHullNodes(
-      articleCandidates.map((center) => ({
-        topicId: center.topicId,
-        title: center.title,
-        x: center.x,
-        y: center.y,
-        z: center.z,
-        radius: center.radius,
-        libraryId: center.libraryId,
-        folderKey: center.folderKey,
-        memberCount: Math.max(1, Math.round((center.radius - 12) / 2.4)),
-      })),
+      articleOrbits
+        .filter(
+          (article) =>
+            !article.libraryId || !libraryFilter || libraryFilter.has(article.libraryId),
+        )
+        .map((article) => ({
+          topicId: article.topicId,
+          title: article.title,
+          x: 0,
+          y: 0,
+          z: 0,
+          radius: 20,
+          libraryId: article.libraryId,
+          folderKey: article.folderKey,
+          memberCount: article.memberConceptIds.length,
+        })),
     );
     const companyHull = buildCompanyHullNode(libraryCenters, libraryFilter);
     const hullNodes: NestHullNode[] = [
@@ -543,11 +488,10 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     props.nodes,
     props.links,
     articleOrbits,
+    folderStars,
     filteredNodeIds,
     degreeById,
     libraryCenters,
-    folderCenters,
-    articleCenters,
     conceptFolderIndex,
     conceptArticleIndex,
     nodeLookupById,
@@ -593,10 +537,8 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           forceManyBody()
             .strength((node: unknown) => {
               const n = node as GalaxySimNode & { __kind?: string; __hullKind?: string };
-              if (n.__kind === 'nest-hull') {
-                // Article stars need repulsion so hubs don't stack (D-139 / D-142).
-                return n.__hullKind === 'article' ? baseCharge * 0.55 : 0;
-              }
+              // D-199: all membership hulls are passive envelopes — no charge.
+              if (n.__kind === 'nest-hull') return 0;
               if (n.__kind === 'tag-sat') return baseCharge * 0.35;
               return baseCharge;
             })
@@ -611,48 +553,27 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           'collide',
           forceCollide((node: unknown) => {
             const n = node as GalaxySimNode & { __kind?: string; __hullKind?: string; val?: number };
-            if (n.__kind === 'nest-hull') {
-              return n.__hullKind === 'article' ? Math.max(14, Math.cbrt(n.val ?? 1) * 8.5) : 0;
-            }
+            // D-199: hulls do not collide — they wrap after layout.
+            if (n.__kind === 'nest-hull') return 0;
             if (n.__kind === 'tag-sat') return Math.cbrt(n.val ?? 0.35) * 3.8;
             return Math.cbrt(n.val ?? 1) * 5.4;
           })
             .strength(0.55)
             .iterations(3),
         );
-        fg.d3Force('nest', createLibraryNestForce(libraryCenters));
-        // D-195: no folderNest / folderShell / folderCohere / nestShell — concepts
-        // layout via charge + links (semantic/tag) first; hulls derive afterward.
+        // D-199: no nest gravity / article orbits / foreign repel / lib bridge —
+        // concepts layout via charge + semantic/tag springs; peer hulls derive afterward.
+        fg.d3Force('nest', null);
         fg.d3Force('folderNest', null);
         fg.d3Force('folderShell', null);
         fg.d3Force('folderCohere', null);
         fg.d3Force('nestShell', null);
         fg.d3Force('articleHullOrbit', null);
-        fg.d3Force('foreignRepel', createForeignLibraryRepelForce(libraryCenters));
-        const crossBridges: Array<{ fromLib: string; toLib: string; weight: number }> = [];
-        for (const link of graphData.links) {
-          const fromConceptId =
-            'fromConceptId' in link && typeof link.fromConceptId === 'string'
-              ? link.fromConceptId
-              : '';
-          const toConceptId =
-            'toConceptId' in link && typeof link.toConceptId === 'string' ? link.toConceptId : '';
-          const fromNode = nodeLookupById.get(fromConceptId);
-          const toNode = nodeLookupById.get(toConceptId);
-          const fromLib = fromNode?.primaryLibraryId;
-          const toLib = toNode?.primaryLibraryId;
-          if (!fromLib || !toLib || fromLib === toLib) continue;
-          const band =
-            '__similarityBand' in link && typeof link.__similarityBand === 'string'
-              ? link.__similarityBand
-              : 'medium';
-          const weight = band === 'high' ? 1.4 : band === 'medium' ? 1 : 0.45;
-          crossBridges.push({ fromLib, toLib, weight });
-        }
-        fg.d3Force('libBridge', createCrossLibraryBridgeForce(libraryCenters, crossBridges));
-        fg.d3Force('articleOrbit', createArticleOrbitForce(articleCenters));
+        fg.d3Force('articleOrbit', null);
+        fg.d3Force('foreignRepel', null);
+        fg.d3Force('libBridge', null);
         fg.d3Force('tagSat', createTagSatelliteForce());
-        fg.d3Force('derivedHulls', createDerivedFolderHullForce());
+        fg.d3Force('derivedHulls', createDerivedMembershipHullForce());
 
         fg.d3ReheatSimulation?.();
         setPhysicsReady(true);
@@ -660,14 +581,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         setStatusText('Physics reheat deferred — layout still settling.');
       }
     },
-    [
-      graphData.nodes.length,
-      graphData.hullCount,
-      graphData.links,
-      libraryCenters,
-      articleCenters,
-      nodeLookupById,
-    ],
+    [graphData.nodes.length, graphData.hullCount, graphData.links],
   );
 
   // Stable imperative handle — configure nest forces immediately so warmup ticks
@@ -687,7 +601,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
   useEffect(() => {
     const fg = graphHandleRef.current;
     if (!fg?.d3Force) return;
-    const sig = `${graphData.nodes.length}:${graphData.links.length}:${libraryCenters.size}:${folderCenters.size}:${articleCenters.size}:${packingSig}:${use3dRenderer}`;
+    const sig = `${graphData.nodes.length}:${graphData.links.length}:${membershipSig}:${use3dRenderer}`;
     if (physicsSignatureRef.current === sig && physicsReady) return;
     physicsSignatureRef.current = sig;
     configurePhysics(fg);
@@ -695,58 +609,13 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     configurePhysics,
     graphData.links.length,
     graphData.nodes.length,
-    libraryCenters.size,
-    folderCenters.size,
-    articleCenters.size,
-    packingSig,
+    membershipSig,
     physicsReady,
     use3dRenderer,
   ]);
 
-  // When nest packing changes, push live FG coords back onto seeds (FG keeps stale x/y/z by id).
-  const lastReseedSigRef = useRef('');
-  useEffect(() => {
-    const fg = graphHandleRef.current;
-    if (!fg?.graphData || !physicsReady) return;
-    if (lastReseedSigRef.current === packingSig) return;
-    lastReseedSigRef.current = packingSig;
-    const live = fg.graphData();
-    if (!live?.nodes?.length) return;
-    let moved = 0;
-    for (const node of live.nodes) {
-      if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
-      const id = node.id === undefined ? null : String(node.id);
-      if (!id) continue;
-      const concept = nodeLookupById.get(id);
-      if (!concept) continue;
-      const primaryArticleId = conceptArticleIndex.get(id) ?? null;
-      const articleCenter = primaryArticleId ? articleCenters.get(primaryArticleId) : null;
-      const libCenter = concept.primaryLibraryId
-        ? libraryCenters.get(concept.primaryLibraryId)
-        : null;
-      // D-195: reseed without folder shells — semantic layout owns positions.
-      const center = articleCenter ?? libCenter;
-      if (!center) continue;
-      const spread = hashSpread3D(id);
-      const freeScale = 1.85;
-      node.x = center.x + spread.dx * freeScale;
-      node.y = center.y + spread.dy * freeScale;
-      node.z = center.z + spread.dz * freeScale;
-      moved += 1;
-    }
-    if (moved > 0) {
-      layoutCommittedRef.current.clear();
-      fg.d3ReheatSimulation?.();
-      volumeFitDoneRef.current = false;
-    }
-  }, [
-    packingSig,
-    physicsReady,
-    nodeLookupById,
-    conceptArticleIndex,
-    articleCenters,
-    libraryCenters,
-  ]);
+  // D-199: no nested packing reseed — concept positions stay on the semantic cloud.
+  // membershipSig changes only reconfigure hull inventory via graphData rebuild.
 
   useEffect(() => {
     const fg = graphHandleRef.current;
@@ -806,7 +675,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     use3dRenderer,
     hasTopicFocus,
     graphData.hullCount,
-    packingSig,
+    membershipSig,
     reducedMotion,
     fitVolumeCamera,
   ]);
@@ -837,7 +706,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       surface?.removeEventListener('pointerup', resume);
       surface?.removeEventListener('pointerleave', resume);
     };
-  }, [physicsReady, use3dRenderer, reducedMotion, hasTopicFocus, packingSig]);
+  }, [physicsReady, use3dRenderer, reducedMotion, hasTopicFocus]);
 
   useEffect(() => {
     const id = props.highlightConceptId;
@@ -1182,66 +1051,80 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         const concepts = liveNodes.filter(
           (n) => n.__kind !== 'nest-hull' && n.__kind !== 'tag-sat' && n.primaryLibraryId,
         );
-        const articleHullCount = liveNodes.filter(
-          (n) => n.__kind === 'nest-hull' && (n as { __hullKind?: string }).__hullKind === 'article',
-        ).length;
-        const folderHullCount = liveNodes.filter(
-          (n) => n.__kind === 'nest-hull' && (n as { __hullKind?: string }).__hullKind === 'folder',
-        ).length;
+        type LiveHull = {
+          x?: number;
+          y?: number;
+          z?: number;
+          __radius?: number;
+          __libraryId?: string;
+          __topicId?: string;
+          __hullKind?: string;
+          id?: string | number;
+        };
+        const liveLibById = new Map<string, LiveHull>();
+        const liveFolderByKey = new Map<string, LiveHull>();
+        const liveArticleByTopic = new Map<string, LiveHull>();
+        let articleHullCount = 0;
+        let folderHullCount = 0;
+        for (const n of liveNodes) {
+          const hull = n as LiveHull & { __kind?: string };
+          if (hull.__kind !== 'nest-hull') continue;
+          if (hull.__hullKind === 'article') {
+            articleHullCount += 1;
+            if (hull.__topicId) liveArticleByTopic.set(hull.__topicId, hull);
+          } else if (hull.__hullKind === 'folder') {
+            folderHullCount += 1;
+            const key = folderKeyFromHullId(String(hull.id ?? ''));
+            if (key) liveFolderByKey.set(key, hull);
+          } else if (hull.__hullKind === 'library' && hull.__libraryId) {
+            liveLibById.set(hull.__libraryId, hull);
+          }
+        }
         if (concepts.length > 0) {
           let inside = 0;
           let folderAssigned = 0;
           let insideFolder = 0;
           let articleAssigned = 0;
           let insideArticle = 0;
-          const liveHullByTopic = new Map<string, { x?: number; y?: number; z?: number }>();
-          for (const n of liveNodes) {
-            const hull = n as {
-              __kind?: string;
-              __hullKind?: string;
-              __topicId?: string;
-              x?: number;
-              y?: number;
-              z?: number;
-            };
-            if (hull.__kind === 'nest-hull' && hull.__hullKind === 'article' && hull.__topicId) {
-              liveHullByTopic.set(hull.__topicId, hull);
-            }
-          }
           for (const node of concepts) {
-            const center = libraryCenters.get(node.primaryLibraryId!);
+            const libId = node.primaryLibraryId!;
+            const liveLib = liveLibById.get(libId);
+            const center = liveLib ?? libraryCenters.get(libId);
             if (!center) continue;
+            const radius =
+              '__radius' in center && typeof center.__radius === 'number'
+                ? center.__radius
+                : (center as { radius: number }).radius;
             const dist = Math.hypot(
-              (node.x ?? 0) - center.x,
-              (node.y ?? 0) - center.y,
-              (node.z ?? 0) - center.z,
+              (node.x ?? 0) - (center.x ?? 0),
+              (node.y ?? 0) - (center.y ?? 0),
+              (node.z ?? 0) - (center.z ?? 0),
             );
-            if (dist <= center.radius * 1.05) inside += 1;
+            if (dist <= radius * 1.05) inside += 1;
             const folderKey = (node as { primaryFolderKey?: string | null }).primaryFolderKey;
             if (folderKey) {
               folderAssigned += 1;
-              const fCenter = folderCenters.get(`${node.primaryLibraryId}::${folderKey}`);
-              if (fCenter) {
+              const fCenter = liveFolderByKey.get(`${libId}::${folderKey}`);
+              if (fCenter && typeof fCenter.__radius === 'number') {
                 const fDist = Math.hypot(
-                  (node.x ?? 0) - fCenter.x,
-                  (node.y ?? 0) - fCenter.y,
-                  (node.z ?? 0) - fCenter.z,
+                  (node.x ?? 0) - (fCenter.x ?? 0),
+                  (node.y ?? 0) - (fCenter.y ?? 0),
+                  (node.z ?? 0) - (fCenter.z ?? 0),
                 );
-                // Orbital band: count inside outer envelope (D-142).
-                if (fDist <= fCenter.radius * 1.2) insideFolder += 1;
+                if (fDist <= fCenter.__radius * 1.2) insideFolder += 1;
               }
             }
             const articleId = (node as { primaryArticleId?: string | null }).primaryArticleId;
             if (articleId) {
               articleAssigned += 1;
-              const aSeed = articleCenters.get(articleId);
-              const live = liveHullByTopic.get(articleId);
-              if (aSeed) {
-                const ax = live?.x ?? aSeed.x;
-                const ay = live?.y ?? aSeed.y;
-                const az = live?.z ?? aSeed.z;
-                const aDist = Math.hypot((node.x ?? 0) - ax, (node.y ?? 0) - ay, (node.z ?? 0) - az);
-                if (aDist <= aSeed.radius * 1.5) insideArticle += 1;
+              const live = liveArticleByTopic.get(articleId);
+              if (live && typeof live.__radius === 'number') {
+                const aDist = Math.hypot(
+                  (node.x ?? 0) - (live.x ?? 0),
+                  (node.y ?? 0) - (live.y ?? 0),
+                  (node.z ?? 0) - (live.z ?? 0),
+                );
+                if (aDist <= live.__radius * 1.5) insideArticle += 1;
               }
             }
           }
@@ -1262,7 +1145,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
 
         if (pts.length === 0) {
           return {
-            packingSig,
+            packingSig: membershipSig,
             conceptCount: props.nodes.length,
             libraryCount: 0,
             aabb: null,
@@ -1279,7 +1162,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         const ySpan = span(ys);
         const zSpan = span(zs);
         return {
-          packingSig,
+          packingSig: membershipSig,
           conceptCount: props.nodes.length,
           libraryCount: pts.length,
           aabb: {
@@ -1301,18 +1184,16 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         .__hftrGalaxyHoverTest;
     };
   }, [
-    articleCenters,
     articleTitleById,
     clearHover,
     conceptArticleIndex,
     conceptFolderIndex,
     degreeById,
-    folderCenters,
     folderLabelByKey,
     libraryCenters,
     libraryNameById,
+    membershipSig,
     nodeLookupById,
-    packingSig,
     placeHoverCard,
     props.nodes.length,
   ]);
@@ -1872,7 +1753,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           aria-live="polite"
         >
           {use3dRenderer && !statusText
-            ? '3D semantic + tag springs · derived folder hulls · articles'
+            ? '3D semantic + tag springs · peer membership hulls'
             : null}
           {use3dRenderer && (hasTopicFocus || statusText) ? ' · ' : null}
           {hasTopicFocus && `Focused ${focusSet!.size} concepts`}

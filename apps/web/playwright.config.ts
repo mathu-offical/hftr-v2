@@ -25,7 +25,8 @@ export default defineConfig({
   webServer: {
     command: `PORT=${port} NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY= CLERK_SECRET_KEY= DEV_AUTH_BYPASS=1 pnpm dev`,
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    // Cursor agent shells often set CI=1; still reuse a developer Next on :3001.
+    reuseExistingServer: process.env.PW_FORCE_WEB_SERVER !== '1',
     timeout: 120_000,
   },
 });

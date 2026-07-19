@@ -35,4 +35,15 @@ describe('simHonestyChips (D-187)', () => {
       simHonestyTickerLabel(['live_market_quote', 'prior_session_mark', 'funds_only_routing']),
     ).toBe('Live mark · Prior session · Funds-only');
   });
+
+  it('labels no-queue, both-verify, and pre-block (D-189 vocabulary)', () => {
+    expect(
+      simHonestyChips(['no_queue_position', 'both_verify_linked', 'pre_dispatch_block']).map(
+        (c) => c.label,
+      ),
+    ).toEqual(['No queue', 'Both-verify', 'Pre-block']);
+    expect(simHonestyChips(['both_verify_no_provider']).map((c) => c.label)).toEqual([
+      'Both-verify (no provider)',
+    ]);
+  });
 });

@@ -33,6 +33,7 @@ export * from './templates';
 export * from './services';
 export * from './auto-fund-policy';
 export * from './money';
+export * from './research-library-binding';
 export * from './engines';
 export * from './process-layers';
 export * from './canvas-layout';

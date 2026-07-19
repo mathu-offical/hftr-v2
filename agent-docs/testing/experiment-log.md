@@ -322,7 +322,26 @@ Scoring: `intent-alignment-scoring.md`
 ### Follow-ups
 - IronBee: Executions honesty chips + ticker label when MCP available
 - RTH soak without `prior_session_mark`
-- e2e `paper-intent-alignment` accepts live_or_synthetic + impact honesty (updated; Playwright soak pending)
+- ~~e2e honesty chip testids~~ → **D-190** (`paper-loop` / `paper-intent-alignment`)
+
+---
+
+## EXP-2026-07-19-06 — Sim seed subtype fix + honesty chip e2e (D-190)
+
+| Field | Value |
+|---|---|
+| Status | unit **pass**; API paper-system-verify **25/25** (`HFTR_REQUIRE_LIVE_QUOTE=1`) |
+| Mode | paper only |
+| Hypothesis | Create with default sim children must not fail TradingSubtype; operators see expanded honesty chips |
+| Declared intent | Unblock verify after D-189 sim expansion; close gap-audit Playwright + chip vocabulary items |
+| Observed | `day_trading` → `day` on three sim templates; create succeeds; live_market_quote + prior_session_mark + multi-share impact still green. Playwright: ticker honesty stable; Executions chips observed under load (panel hydrate can race when queue is deep) |
+| Alignment | **aligned** |
+| Decisions | D-190 (extends D-188 / D-189) |
+
+### Follow-ups
+- RTH soak without `prior_session_mark`
+- IronBee when MCP available
+- paper-loop soak when queue depth is low (chips poll already in e2e)
 
 ---
 

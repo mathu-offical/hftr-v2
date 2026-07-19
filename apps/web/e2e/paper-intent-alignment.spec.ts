@@ -3,6 +3,7 @@ import {
   createCompanyApiBody,
   e2eCompanyName,
   expect,
+  pickPaperPipelineModules,
   test,
   waitForFilledActivity,
   type PaperActivityResponse,
@@ -12,6 +13,9 @@ type CompanyModule = {
   id: string;
   type: string;
   status: string;
+  name?: string | null;
+  generatedNameBase?: string | null;
+  engineInstanceId?: string | null;
 };
 
 type CompanyResponse = {
@@ -54,8 +58,7 @@ async function activatePipelineModules(
   request: APIRequestContext,
   company: CompanyResponse,
 ): Promise<{ trendId: string; tradingId: string }> {
-  const trend = company.modules.find((module) => module.type === 'trend');
-  const trading = company.modules.find((module) => module.type === 'trading');
+  const { trend, trading } = pickPaperPipelineModules(company.modules);
   expect(trend).toBeTruthy();
   expect(trading).toBeTruthy();
 
@@ -80,6 +83,18 @@ async function activatePipelineModules(
           capitalAllocation: { mode: 'percentage', value: '25' },
           targetExitAt: '2099-01-02T15:30:00.000Z',
           timezone: 'America/New_York',
+        },
+        config: {
+          subtype: 'day',
+          strategyFamilies: [],
+          exitTimelineDays: 1,
+          cadenceMinutes: 5,
+          manualControl: false,
+          executionBinding: {
+            routingMode: 'funds_only',
+            brokerConnectionId: null,
+            useProviderLedgerAsFundsSource: true,
+          },
         },
       },
     },
@@ -330,5 +345,17 @@ test.describe('Paper intent alignment', () => {
     await expect(
       page.getByText(new RegExp(`buy ${aggressiveQuantity} AAPL @ .* fill`)).first(),
     ).toBeVisible();
+
+    const expandInfo = page.getByRole('button', { name: /Expand info panel/ });
+    if (await expandInfo.isVisible()) {
+      await expandInfo.click();
+    }
+    await expect(page.getByTestId('execution-honesty-ticker').first()).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId('right-panel-paper-balance')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('execution-honesty-chips').first()).toBeVisible({
+      timeout: 30_000,
+    });
   });
 });

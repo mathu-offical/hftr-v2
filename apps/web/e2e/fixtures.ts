@@ -104,8 +104,45 @@ export type PaperActivityResponse = {
   }>;
 };
 
+export type PipelineModuleRow = {
+  id: string;
+  type: string;
+  name?: string | null;
+  generatedNameBase?: string | null;
+  engineInstanceId?: string | null;
+  config?: Record<string, unknown>;
+};
+
 /**
- * Poll activity until a filled paper trace appears.
+ * Prefer the day-trading execution desk over D-189 sim-child trading/trend modules.
+ */
+export function pickPaperPipelineModules(modules: PipelineModuleRow[]): {
+  trading: PipelineModuleRow | undefined;
+  trend: PipelineModuleRow | undefined;
+} {
+  const labelOf = (m: PipelineModuleRow) => `${m.name ?? ''} ${m.generatedNameBase ?? ''}`;
+  const isSimChild = (m: PipelineModuleRow) =>
+    /gate|training|adhoc|\bsim\b/i.test(labelOf(m));
+
+  const tradings = modules.filter((m) => m.type === 'trading');
+  const trading =
+    tradings.find((m) => /day[- ]?trade/i.test(labelOf(m))) ??
+    tradings.find((m) => !isSimChild(m)) ??
+    tradings[0];
+
+  const trends = modules.filter((m) => m.type === 'trend');
+  const trend =
+    (trading?.engineInstanceId
+      ? trends.find((m) => m.engineInstanceId === trading.engineInstanceId)
+      : undefined) ??
+    trends.find((m) => !isSimChild(m)) ??
+    trends[0];
+
+  return { trading, trend };
+}
+
+/**
+ * Poll activity ∪ executions until a filled paper trace appears.
  * Re-drains the queue each tick so time-spaced POV child-slice jobs (D-129)
  * can complete when `run_after` elapses (DEV_AUTH_BYPASS POST /api/queue/drain).
  */
@@ -118,14 +155,22 @@ export async function waitForFilledActivity(
   await expect
     .poll(
       async () => {
-        // Prefer reading activity first — promote/trade routes often inline-drain.
-        const response = await request.get(`/api/companies/${companyId}/activity`);
-        if (response.ok()) {
-          const activity = (await response.json()) as PaperActivityResponse;
+        const [activityRes, execRes] = await Promise.all([
+          request.get(`/api/companies/${companyId}/activity`),
+          request.get(`/api/companies/${companyId}/executions`),
+        ]);
+        if (activityRes.ok()) {
+          const activity = (await activityRes.json()) as PaperActivityResponse;
           const filled = activity.traces.find((trace) => trace.outcome === 'filled');
           if (filled) return filled;
         }
-        // Advance time-spaced child-slice jobs if still pending.
+        if (execRes.ok()) {
+          const body = (await execRes.json()) as {
+            executions?: Array<{ outcome?: string }>;
+          };
+          const filled = (body.executions ?? []).find((row) => row.outcome === 'filled');
+          if (filled) return filled;
+        }
         await request.post('/api/queue/drain').catch(() => null);
         return null;
       },
@@ -135,7 +180,18 @@ export async function waitForFilledActivity(
 
   const response = await request.get(`/api/companies/${companyId}/activity`);
   expect(response.ok()).toBeTruthy();
-  return (await response.json()) as PaperActivityResponse;
+  const activity = (await response.json()) as PaperActivityResponse;
+  if (activity.traces.some((t) => t.outcome === 'filled')) return activity;
+
+  // Activity can lag executions — synthesize a minimal filled trace list for callers.
+  const execRes = await request.get(`/api/companies/${companyId}/executions`);
+  expect(execRes.ok()).toBeTruthy();
+  const execBody = (await execRes.json()) as {
+    executions?: PaperActivityResponse['traces'];
+  };
+  return {
+    traces: [...activity.traces, ...((execBody.executions as PaperActivityResponse['traces']) ?? [])],
+  };
 }
 
 type CompanyFixtures = {

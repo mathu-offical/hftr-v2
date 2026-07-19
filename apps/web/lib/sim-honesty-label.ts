@@ -10,6 +10,9 @@ export type SimHonestyKind =
   | 'impact_proxy'
   | 'child_drain'
   | 'funds_only'
+  | 'no_queue'
+  | 'both_verify'
+  | 'pre_block'
   | 'other';
 
 export interface SimHonestyChip {
@@ -24,6 +27,9 @@ const CHIP_ORDER: SimHonestyKind[] = [
   'impact_proxy',
   'child_drain',
   'funds_only',
+  'no_queue',
+  'both_verify',
+  'pre_block',
 ];
 
 /**
@@ -54,6 +60,21 @@ export function simHonestyChips(tags: readonly string[] | null | undefined): Sim
 
   if (set.has('funds_only_routing')) {
     out.push({ kind: 'funds_only', label: 'Funds-only' });
+  }
+
+  if (set.has('no_queue_position')) {
+    out.push({ kind: 'no_queue', label: 'No queue' });
+  }
+
+  if (set.has('both_verify_linked') || set.has('both_verify_no_provider')) {
+    out.push({
+      kind: 'both_verify',
+      label: set.has('both_verify_linked') ? 'Both-verify' : 'Both-verify (no provider)',
+    });
+  }
+
+  if (set.has('pre_dispatch_block')) {
+    out.push({ kind: 'pre_block', label: 'Pre-block' });
   }
 
   return out.sort(

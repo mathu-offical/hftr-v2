@@ -1087,8 +1087,10 @@ export function LibraryConfigForm(props: { companyId: string; moduleId: string }
     </div>
   );
 }
+
+type MathConfig = {
   mathType: string;
-}
+};
 
 const DEFAULT_MATH_CONFIG: MathConfig = { mathType: 'company_hub' };
 

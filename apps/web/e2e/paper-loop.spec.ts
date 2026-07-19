@@ -3,11 +3,18 @@ import {
   createCompanyApiBody,
   e2eCompanyName,
   expect,
+  pickPaperPipelineModules,
   test,
   waitForFilledActivity,
 } from './fixtures';
 
-type CompanyModule = { id: string; type: string; status: string };
+type CompanyModule = {
+  id: string;
+  type: string;
+  name?: string | null;
+  generatedNameBase?: string | null;
+  engineInstanceId?: string | null;
+};
 
 type CompanyResponse = {
   company: { id: string };
@@ -38,8 +45,7 @@ async function activatePipelineModules(
   request: APIRequestContext,
   company: CompanyResponse,
 ): Promise<{ trendId: string; tradingId: string }> {
-  const trend = company.modules.find((m) => m.type === 'trend');
-  const trading = company.modules.find((m) => m.type === 'trading');
+  const { trend, trading } = pickPaperPipelineModules(company.modules);
   expect(trend).toBeTruthy();
   expect(trading).toBeTruthy();
 
@@ -64,6 +70,18 @@ async function activatePipelineModules(
           capitalAllocation: { mode: 'percentage', value: '25' },
           targetExitAt: '2099-01-02T15:30:00.000Z',
           timezone: 'America/New_York',
+        },
+        config: {
+          subtype: 'day',
+          strategyFamilies: [],
+          exitTimelineDays: 1,
+          cadenceMinutes: 5,
+          manualControl: false,
+          executionBinding: {
+            routingMode: 'funds_only',
+            brokerConnectionId: null,
+            useProviderLedgerAsFundsSource: true,
+          },
         },
       },
     },
@@ -118,27 +136,44 @@ test.describe('Paper trading loop (flow 3)', () => {
 
     await page.goto(`/companies/${company.company.id}`);
 
-    // Ribbon already surfaces paper fill provenance (fee / paper_proxy).
+    // Ribbon / ticker already surfaces paper fill provenance + honesty labels.
     await expect(page.getByText(/filled fee.*AAPL|buy AAPL/i).first()).toBeVisible({
       timeout: 30_000,
     });
+    await expect(page.getByTestId('execution-honesty-ticker').first()).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId('execution-honesty-ticker').first()).toContainText(
+      /Live mark|Prior session|Synthetic|Funds-only|No queue/i,
+    );
 
+    // Expand right info panel (default tab = Executions). Do not re-click Executions —
+    // active-tab re-click collapses the panel.
     const expandInfo = page.getByRole('button', { name: /Expand info panel/ });
     if (await expandInfo.isVisible()) {
       await expandInfo.click();
     }
-    await page.getByRole('button', { name: 'Executions', exact: true }).click();
-    await expect(page.getByText('filled').first()).toBeVisible({ timeout: 15_000 });
-    await expect(
-      page.getByText(/AAPL|paper_proxy|paper_sim|fill/i).first(),
-    ).toBeVisible();
+    await expect(page.getByTestId('right-panel-paper-balance')).toBeVisible({ timeout: 15_000 });
+    await expect
+      .poll(async () => page.getByTestId('execution-honesty-chips').count(), {
+        timeout: 60_000,
+        intervals: [500, 1_000, 2_000],
+      })
+      .toBeGreaterThan(0);
+    await expect(page.getByTestId('execution-honesty-chips').first()).toContainText(
+      /Live mark|Prior session|Synthetic|Funds-only|No queue/i,
+    );
 
     const expandBottom = page.getByRole('button', { name: /Expand bottom panel/ });
     if (await expandBottom.isVisible()) {
       await expandBottom.click();
     }
-    await page.getByRole('tab', { name: 'Decisions + traces', exact: true }).click();
-    await expect(page.getByText('filled').first()).toBeVisible();
-    await expect(page.getByText(/paper_sim|paper_proxy|AAPL/i).first()).toBeVisible();
+    await page.getByRole('button', { name: /Decisions \+ traces/ }).click();
+    await expect
+      .poll(async () => page.getByTestId('decisions-honesty-chips').count(), {
+        timeout: 60_000,
+        intervals: [500, 1_000, 2_000],
+      })
+      .toBeGreaterThan(0);
   });
 });

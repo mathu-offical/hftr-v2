@@ -8,7 +8,9 @@ import {
   type ModuleSetupField,
 } from './modules';
 import { SimulationEngineBinding } from './paper-engine';
-import { ResearchLibraryBinding } from './research-library-binding';
+import {
+  ResearchLibraryBinding,
+} from './research-library-binding';
 import {
   engineCreateSection,
   getEngineTemplateById,
@@ -185,12 +187,6 @@ export const EngineInstance = z.object({
   memberModuleIds: z.array(z.string().uuid()).optional(),
 });
 export type EngineInstance = z.infer<typeof EngineInstance>;
-
-export {
-  ResearchLibraryBinding,
-  ResearchLibraryBindingMode,
-} from './research-library-binding';
-export type { ResearchLibraryBinding, ResearchLibraryBindingMode } from './research-library-binding';
 
 /** Execution engine that declares `researchTemplateId` as a child research dependency. */
 export function findParentExecutionForResearchPack(

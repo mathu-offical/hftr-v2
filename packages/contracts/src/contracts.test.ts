@@ -1340,21 +1340,24 @@ describe('engine instances (D-028)', () => {
     const libId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
     expect(
       ResearchLibraryBinding.parse({
-        mode: 'attach_execution_hub',
-        parentExecutionEngineId: execId,
+        mode: 'attach_execution',
+        engineInstanceId: execId,
       }),
-    ).toMatchObject({ mode: 'attach_execution_hub', parentExecutionEngineId: execId });
+    ).toMatchObject({ mode: 'attach_execution', engineInstanceId: execId });
     expect(
       InsertEngineInput.parse({
         templateId: 'research_market_regime_lab',
-        researchLibraryBinding: { mode: 'existing_library', libraryId: libId },
+        researchLibraryBinding: { mode: 'connect_library', libraryId: libId },
       }),
     ).toMatchObject({
-      researchLibraryBinding: { mode: 'existing_library', libraryId: libId },
+      researchLibraryBinding: { mode: 'connect_library', libraryId: libId },
     });
     expect(() =>
-      ResearchLibraryBinding.parse({ mode: 'existing_library' }),
+      ResearchLibraryBinding.parse({ mode: 'connect_library' }),
     ).toThrow();
+    expect(ResearchLibraryBinding.parse({ mode: 'create_internal' })).toEqual({
+      mode: 'create_internal',
+    });
   });
 
   it('resolves default research binding from execution deps (D-184 §1)', () => {
@@ -1368,13 +1371,13 @@ describe('engine instances (D-028)', () => {
         researchTemplateId: 'research_market_regime_lab',
         existingEngines: existing,
       }),
-    ).toEqual({ mode: 'attach_execution_hub', parentExecutionEngineId: execId });
+    ).toEqual({ mode: 'attach_execution', engineInstanceId: execId });
     expect(
       resolveResearchLibraryBindingForInsert({
         researchTemplateId: 'research_crypto_context',
         existingEngines: [],
       }),
-    ).toEqual({ mode: 'new_internal' });
+    ).toEqual({ mode: 'create_internal' });
   });
 
   it('allows Math multi-attach tool links to consumers', () => {
@@ -2587,16 +2590,17 @@ describe('canvas layout (D-033)', () => {
       [
         {
           type: 'trading',
-          config: { strategyFamilies: ['strat-001', 'strat-007'] },
+          config: { subtype: 'hft', strategyFamilies: ['strat-001', 'strat-007'] },
         },
         { type: 'policy', config: { policyEnvelopeRef: 'paper_hft_swarm_v1' } },
       ],
       [
-        { type: 'trading', config: { strategyFamilies: [] } },
+        { type: 'trading', config: { subtype: 'day', strategyFamilies: [] } },
         { type: 'policy', config: { policyEnvelopeRef: 'paper_balanced_general_v1' } },
       ],
     );
     expect(configs[0]!.config.strategyFamilies).toEqual(['strat-001', 'strat-007']);
+    expect(configs[0]!.config.subtype).toBe('hft');
     expect(configs[1]!.config.policyEnvelopeRef).toBe('paper_hft_swarm_v1');
   });
 

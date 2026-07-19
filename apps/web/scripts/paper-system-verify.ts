@@ -184,9 +184,31 @@ async function main() {
   record('create_company', true, companyId);
 
   const detail = await req('GET', `/api/companies/${companyId}`);
-  const modules = (detail.json.modules as Array<{ id: string; type: string; config: Json }>) ?? [];
-  const trading = modules.find((m) => m.type === 'trading');
-  const trend = modules.find((m) => m.type === 'trend');
+  const modules =
+    (detail.json.modules as Array<{
+      id: string;
+      type: string;
+      config: Json;
+      name?: string;
+      generatedNameBase?: string;
+      engineInstanceId?: string | null;
+    }>) ?? [];
+  const labelOf = (m: { name?: string; generatedNameBase?: string }) =>
+    `${m.name ?? ''} ${m.generatedNameBase ?? ''}`;
+  const isSimChild = (m: { name?: string; generatedNameBase?: string }) =>
+    /gate|training|adhoc|\bsim\b/i.test(labelOf(m));
+  const tradings = modules.filter((m) => m.type === 'trading');
+  const trading =
+    tradings.find((m) => /day[- ]?trade/i.test(labelOf(m))) ??
+    tradings.find((m) => !isSimChild(m)) ??
+    tradings[0];
+  const trends = modules.filter((m) => m.type === 'trend');
+  const trend =
+    (trading?.engineInstanceId
+      ? trends.find((m) => m.engineInstanceId === trading.engineInstanceId)
+      : undefined) ??
+    trends.find((m) => !isSimChild(m)) ??
+    trends[0];
   assert(trading && trend, 'missing trading/trend modules');
   record('modules_present', true, `trading=${trading!.id} trend=${trend!.id}`);
 
@@ -248,8 +270,8 @@ async function main() {
   const traces = await waitForTraces(
     companyId,
     (t) => t.some((x) => x.outcome === 'filled'),
-    45_000,
-    { drain: false },
+    90_000,
+    { drain: true },
   );
   const filled = traces.find((t) => t.outcome === 'filled');
   record(

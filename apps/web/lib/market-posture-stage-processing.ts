@@ -263,7 +263,9 @@ export function buildStageNodeNumberFlow(
           isActivePipelineStatus(s.status) &&
           (s.processFunction === 'normalize' ||
             s.processFunction === 'extract' ||
-            s.processFunction === 'fetch'),
+            s.processFunction === 'fetch' ||
+            s.processFunction === 'corroborate' ||
+            s.processFunction === 'score'),
       );
       for (const s of normalizeSteps.slice(0, 6)) {
         push(steps, {
@@ -281,6 +283,16 @@ export function buildStageNodeNumberFlow(
           liveSources.find((s) => s.kind === l.kind),
         ),
       );
+      for (const lane of activeLanes.slice(0, 4)) {
+        push(steps, {
+          id: `analyze:${lane.kind}`,
+          nodeId: `analyze:${lane.kind}:score`,
+          nodeLabel: `${lane.label} analysis`,
+          transform: 'organize → route → score → library seed',
+          valueLabel: lane.contributed ? 'seed armed' : 'bound',
+          formula: `${lane.domain} · pre-library module`,
+        });
+      }
       const roleSet = new Set<string>();
       for (const f of hydration?.processingFlows ?? []) {
         if (!isActivePipelineStatus(f.status, f.contributed)) continue;
@@ -291,7 +303,7 @@ export function buildStageNodeNumberFlow(
           id: 'live-roll',
           nodeId: 'live:rollup',
           nodeLabel: 'System variables',
-          transform: 'roles from active normalize',
+          transform: 'roles from active normalize + analysis',
           valueLabel: `${roleSet.size} vars · ${activeLanes.length} sources`,
           formula: [...roleSet].slice(0, 6).join(',') || `mark ${hub.sources.markFeedClass}`,
         });

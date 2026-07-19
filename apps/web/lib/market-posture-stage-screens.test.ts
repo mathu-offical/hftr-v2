@@ -15,7 +15,10 @@ describe('resolveStageScreenId (D-186)', () => {
   it('maps adapters onto live ingest and process nodes onto process', () => {
     expect(resolveStageScreenId({ nodeId: 'adapter:flow-1' })).toBe('live');
     expect(resolveStageScreenId({ nodeRole: 'adapter' })).toBe('live');
-    expect(resolveStageScreenId({ nodeId: 'process:step-rs' })).toBe('process');
+    expect(resolveStageScreenId({ nodeId: 'process:step-rs' })).toBe('live');
+    expect(resolveStageScreenId({ nodeId: 'analyze:alpaca_bars:score' })).toBe('live');
+    expect(resolveStageScreenId({ nodeId: 'process:shared:rank' })).toBe('process');
+    expect(resolveStageScreenId({ nodeId: 'process:library:abc:load' })).toBe('library');
   });
 
   it('maps stage milestones onto outlook / day / process', () => {

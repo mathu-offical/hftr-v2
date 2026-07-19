@@ -278,6 +278,39 @@ describe('buildMarketPostureAlgorithmGraph (D-147 / D-156 / D-160 / D-162 / D-16
     ).toBe(false);
   });
 
+  it('wires analyze organize→route→score→library seed before corpus (D-186)', () => {
+    const graph = buildMarketPostureAlgorithmGraph({
+      hydration,
+      nowMs: Date.parse('2026-07-19T05:00:30.000Z'),
+    });
+    const analyze = graph.nodes.filter((n) => n.data.nodeRole === 'analysis');
+    expect(analyze.some((n) => n.id.endsWith(':organize'))).toBe(true);
+    expect(analyze.some((n) => n.id.endsWith(':route'))).toBe(true);
+    expect(analyze.some((n) => n.id.endsWith(':score'))).toBe(true);
+    expect(
+      graph.edges.some(
+        (e) =>
+          e.source.startsWith('analyze:') &&
+          e.source.endsWith(':organize') &&
+          e.target.endsWith(':route'),
+      ),
+    ).toBe(true);
+    expect(
+      graph.edges.some(
+        (e) =>
+          e.label === 'seed' &&
+          e.source.endsWith(':score') &&
+          e.target.startsWith('lib:'),
+      ),
+    ).toBe(true);
+    expect(
+      graph.edges.some(
+        (e) =>
+          e.id.startsWith('e-hydrate-live:') && e.target.startsWith('lib:'),
+      ),
+    ).toBe(false);
+  });
+
   it('omits sector track when no news providers are available (D-163)', () => {
     const graph = buildMarketPostureAlgorithmGraph({
       hydration,

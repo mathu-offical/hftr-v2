@@ -205,6 +205,7 @@ export type LiveStageCharts = {
   domainMix: MarketHubChartSlice[];
   contributeMix: MarketHubChartSlice[];
   adapterStatus: MarketHubChartSlice[];
+  analysisPhases: MarketHubChartSlice[];
 };
 
 export function buildLiveStageCharts(hub: MarketHubResponse): LiveStageCharts {
@@ -235,6 +236,11 @@ export function buildLiveStageCharts(hub: MarketHubResponse): LiveStageCharts {
     statusCounts.set(f.status, (statusCounts.get(f.status) ?? 0) + 1);
   }
 
+  const seedKinds = lanes.filter((l) => l.contributed || l.status === 'ready').length;
+  const admittedLibs = (hub.modelHydration?.librarySources ?? []).filter(
+    (l) => l.admittedCount > 0,
+  ).length;
+
   return {
     sourceReady: slicesFromCounts([
       { id: 'active', label: 'active', count: lanes.length },
@@ -257,6 +263,12 @@ export function buildLiveStageCharts(hub: MarketHubResponse): LiveStageCharts {
         count,
       })),
     ),
+    analysisPhases: slicesFromCounts([
+      { id: 'organize', label: 'organize', count: seedKinds },
+      { id: 'route', label: 'route', count: seedKinds },
+      { id: 'score', label: 'score', count: seedKinds },
+      { id: 'seed', label: 'library seed', count: admittedLibs },
+    ]),
   };
 }
 
@@ -616,6 +628,7 @@ export function buildCapitalEntityCharts(
 export function buildLibraryEntityCharts(hub: MarketHubResponse): {
   positions: StageEntityChartRow[];
   libraries: StageEntityChartRow[];
+  incomingSeeds: StageEntityChartRow[];
 } {
   const positions = rowsFromNotionals(
     hub.positions.map((p) => {
@@ -643,12 +656,31 @@ export function buildLibraryEntityCharts(hub: MarketHubResponse): {
     viz: null,
   }));
 
-  return { positions, libraries };
+  const seedLanes = hub.sources.lanes.filter((lane) => {
+    const hydration = hub.modelHydration?.liveSources?.find((s) => s.kind === lane.kind);
+    if (lane.status !== 'ready') return false;
+    const bound = hydration?.canvasBoundCount ?? 0;
+    return lane.contributed || bound > 0;
+  });
+  const admitted = libs.filter((l) => l.admittedCount > 0);
+  const incomingSeeds: StageEntityChartRow[] = admitted.flatMap((lib) =>
+    seedLanes.slice(0, 4).map((lane) => ({
+      id: `seed:${lane.kind}:${lib.id}`,
+      label: `${lane.label} → ${lib.name}`,
+      valueLabel: `${lib.admittedCount} admitted`,
+      shareBps: Math.round((lib.admittedCount / maxAdmitted) * 10_000),
+      detail: `scored seed · ${lane.domain} · ${lib.shelf}`,
+      viz: null,
+    })),
+  );
+
+  return { positions, libraries, incomingSeeds };
 }
 
 export function buildLiveEntityCharts(hub: MarketHubResponse): {
   sources: StageEntityChartRow[];
   adapters: StageEntityChartRow[];
+  analysis: StageEntityChartRow[];
 } {
   const live = hub.modelHydration?.liveSources ?? [];
   const sources: StageEntityChartRow[] = hub.sources.lanes
@@ -695,7 +727,47 @@ export function buildLiveEntityCharts(hub: MarketHubResponse): {
       viz: null,
     }));
 
-  return { sources, adapters };
+  const admittedLibs = (hub.modelHydration?.librarySources ?? []).filter(
+    (l) => l.admittedCount > 0,
+  );
+  const analysis: StageEntityChartRow[] = sources.flatMap((src) => {
+    const phases: Array<{ id: string; label: string; detail: string; bps: number }> = [
+      {
+        id: `organize:${src.id}`,
+        label: `${src.label} · organize`,
+        detail: 'bag packages by domain / lane',
+        bps: 6_000,
+      },
+      {
+        id: `route:${src.id}`,
+        label: `${src.label} · route`,
+        detail: 'assign movers / sector / bars pipelines',
+        bps: 7_500,
+      },
+      {
+        id: `score:${src.id}`,
+        label: `${src.label} · score`,
+        detail:
+          admittedLibs.length > 0
+            ? `seed → ${admittedLibs
+                .slice(0, 3)
+                .map((l) => l.name)
+                .join(', ')}`
+            : 'awaiting admitted library shelves',
+        bps: 9_000,
+      },
+    ];
+    return phases.map((p) => ({
+      id: p.id,
+      label: p.label,
+      valueLabel: src.valueLabel,
+      shareBps: p.bps,
+      detail: p.detail,
+      viz: null,
+    }));
+  });
+
+  return { sources, adapters, analysis };
 }
 
 export function buildProcessEntityCharts(hub: MarketHubResponse): {

@@ -421,9 +421,10 @@ function LibraryScreen(props: {
           Market-aware company positioning
         </h3>
         <p className="text-[10px] text-[var(--color-ink-dim)]">
-          Sector and company constants (numerical + semantic) seed from company sectors,
-          included engines, library shelves, and held book values — then resolve into
-          discrete ranges and context for downstream process / outlook.
+          Sector and company constants (numerical + semantic) seed from scored live
+          analysis, company sectors, included engines, library shelves, and held book
+          values — then resolve into discrete ranges and context for downstream process /
+          outlook.
         </p>
         <div className="flex flex-wrap gap-1">
           {hub.sectorFocuses.length === 0 ? (
@@ -449,6 +450,25 @@ function LibraryScreen(props: {
             </span>
           </p>
         ) : null}
+      </section>
+
+      <section
+        className="space-y-1.5 rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2.5"
+        data-testid="market-posture-library-incoming-seed"
+      >
+        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+          Incoming analysis seed
+        </h3>
+        <p className="text-[10px] text-[var(--color-ink-dim)]">
+          Scored live packages land on admitted shelves before constants are used
+          downstream. Each row is a live source → library seed edge from the Model strip.
+        </p>
+        <MarketPostureEntityChartPanel
+          title="Scored seed → shelves"
+          rows={entities.incomingSeeds}
+          empty="No scored seed yet — entitle live sources and admit library concepts"
+          testId="market-posture-library-seed-rows"
+        />
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -560,7 +580,7 @@ function LiveIngestScreen(props: { hub: MarketHubResponse }) {
 
   return (
     <>
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <MarketPosturePieChart
           title="Lane entitlement"
           slices={charts.sourceReady}
@@ -580,6 +600,11 @@ function LiveIngestScreen(props: { hub: MarketHubResponse }) {
           title="Adapter flow status"
           slices={charts.adapterStatus}
           empty="No adapter flows hydrated"
+        />
+        <MarketPostureMetricBars
+          title="Analysis → library seed"
+          slices={charts.analysisPhases}
+          empty="No analysis phases yet"
         />
       </section>
 
@@ -691,6 +716,26 @@ function LiveIngestScreen(props: { hub: MarketHubResponse }) {
           ))}
         </section>
       ) : null}
+
+      <section
+        className="space-y-1.5 rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2.5"
+        data-testid="market-posture-live-analysis"
+      >
+        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+          Analysis module · organize → route → score
+        </h3>
+        <p className="text-[10px] text-[var(--color-ink-dim)]">
+          Raw provider packages are organized by domain, routed into movers/sector/bars
+          pipelines, then scored before seeding admitted library shelves. Results appear
+          below and as analyze nodes on the Model strip.
+        </p>
+        <MarketPostureEntityChartPanel
+          title="Analysis results · per source"
+          rows={entities.analysis}
+          empty="No active sources to analyze — connect keys / Sync"
+          testId="market-posture-live-analysis-results"
+        />
+      </section>
 
       <section className="grid gap-3 lg:grid-cols-2">
         <MarketPostureEntityChartPanel

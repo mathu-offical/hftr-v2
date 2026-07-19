@@ -1854,9 +1854,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   workspace: horizontal **pipeline-column stage screens** (capital → **live** → **library** →
   process → **outlook** → day) snap-scroll above a fixed bottom **Model diagram strip**.
   **Live precedes library** so API normalize/hydrate feeds corpus constants and built-in
-  functions. **Live ingest** shows active sources, search/filter orientation (route +
-  operation + contribution), fetch→normalize→extract chains, and **system variables**
-  (`analysisRoles`) for downstream nodes. **Library** shows sector/company constants
+  functions.   **Live ingest** shows active sources, search/filter orientation (route +
+  operation + contribution), fetch→normalize→extract chains, an **analysis module**
+  (organize → route → score) before library seed, and **system variables**
+  (`analysisRoles`) for downstream nodes. Kind-specific adapter process nodes and
+  `analyze:*` nodes sit on the Live strip column; Model edges are
+  adapter/process → organize → route → score → `lib:*` (seed), not bare live→lib
+  hydrate. **Library** shows scored seed intake onto admitted shelves, then
+  sector/company constants
   (numerical + semantic) from sectors, engines, shelves, and holdings — admission ranges
   and market-aware positioning context. **Process** links market + news + library evidence
   and emits **tagged trend lists** with symbols. **Outlook** (operator name for the former
@@ -1875,11 +1880,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   with **connection-based spread**: role lanes (x) + barycenter relevance (y); **no node
   overflow cap**; **all intra-screen and inter-screen edges** retained, plus group→group
   backbone edges for cross-column flows. Process column nests **route clusters**
-  (`process_cluster`) with function-ordered chains (fetch→normalize→…→board). Every strip
+  (`process_cluster`) with function-ordered chains (fetch→normalize→…→board); Live nests
+  adapter analysis + analyze clusters. Every strip
   content node is stamped with `stageScreenId` and mapped into that screen’s emission
   traces. Strip data-flow is left→right: library adapters use `lib-adapter:` (not Live),
   `providers` lives on Process, positions panel on Outlook, panel edges skip backward
-  hops, group backbones are forward-only, and live→library hydrate edges feed corpus.
+  hops, group backbones are forward-only, and live analysis seeds libraries after score.
   **Capital** = root
   user-controlled funds only (company pool + holding funds) plus engine allocation and
   position/equity readouts. Extends D-131 / D-147 / D-160 / D-179.

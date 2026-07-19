@@ -75,6 +75,8 @@ function roleChrome(role: PostureAlgoNodeData['nodeRole']): string {
       return 'border-l-[3px] border-l-[var(--color-ink-faint)] bg-[var(--color-surface-0)]';
     case 'process':
       return 'border-l-[3px] border-l-[var(--color-accent)] border-dotted bg-[var(--color-surface-0)]';
+    case 'analysis':
+      return 'border-l-[3px] border-l-cyan-500 bg-[color-mix(in_srgb,rgb(6_182_212)_12%,var(--color-surface-0))]';
     case 'process_cluster':
       return 'border border-[var(--color-line)] border-dashed bg-[color-mix(in_srgb,var(--color-accent)_6%,var(--color-surface-0))]';
     case 'stage':
@@ -109,6 +111,12 @@ function processFunctionChrome(fn: string | undefined): string {
       return 'border-l-[3px] border-l-[var(--color-ink-dim)] border-dashed bg-[var(--color-surface-0)]';
     case 'score':
       return 'border-l-[3px] border-l-[var(--color-accent)] bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-surface-0))]';
+    case 'organize':
+      return 'border-l-[3px] border-l-cyan-400 bg-[color-mix(in_srgb,rgb(34_211_238)_10%,var(--color-surface-0))]';
+    case 'route':
+      return 'border-l-[3px] border-l-sky-500 bg-[color-mix(in_srgb,rgb(14_165_233)_10%,var(--color-surface-0))]';
+    case 'analyze':
+      return 'border-l-[3px] border-l-cyan-600 bg-[color-mix(in_srgb,rgb(8_145_178)_12%,var(--color-surface-0))]';
     case 'rank':
       return 'border-l-[3px] border-l-orange-400 bg-[color-mix(in_srgb,rgb(251_146_60)_10%,var(--color-surface-0))]';
     case 'verify':
@@ -154,6 +162,9 @@ function sourceDomainChrome(domain: string | undefined): string {
 function processFunctionLabel(fn: string | undefined): string {
   if (!fn) return 'PROC';
   if (fn === 'seal') return 'BOARD';
+  if (fn === 'organize') return 'ORG';
+  if (fn === 'route') return 'ROUTE';
+  if (fn === 'analyze') return 'ANALYZE';
   return fn.slice(0, 8).toUpperCase();
 }
 
@@ -165,6 +176,8 @@ function roleLabel(role: PostureAlgoNodeData['nodeRole']): string {
       return 'ADAPT';
     case 'process':
       return 'PROC';
+    case 'analysis':
+      return 'ANALYZE';
     case 'process_cluster':
       return 'ROUTE';
     case 'library_source':
@@ -373,7 +386,7 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
   return (
     <div
       className={`min-w-[140px] max-w-[240px] rounded border border-t-[3px] px-1.5 py-1 shadow-sm ${kindBorder(data.kind)} ${
-        data.nodeRole === 'process'
+        data.nodeRole === 'process' || data.nodeRole === 'analysis'
           ? processFunctionChrome(data.processFunction)
           : data.nodeRole === 'live_source'
             ? sourceDomainChrome(data.sourceDomain)
@@ -389,7 +402,7 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
       <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !bg-[var(--color-ink-faint)]" />
       <div className="flex items-baseline justify-between gap-1">
         <p className="font-mono text-[8px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          {data.nodeRole === 'process'
+          {data.nodeRole === 'process' || data.nodeRole === 'analysis'
             ? processFunctionLabel(data.processFunction)
             : roleLabel(data.nodeRole)}{' '}
           · {data.layer}
@@ -436,7 +449,8 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
           {data.analysisRoles.join(' · ')}
         </p>
       ) : null}
-      {data.nodeRole === 'process' && data.processRoute ? (
+      {((data.nodeRole === 'process' || data.nodeRole === 'analysis') &&
+        data.processRoute) ? (
         <p
           className="mt-0.5 truncate font-mono text-[8px] text-[var(--color-ink-dim)]"
           title={`${data.processFunction ?? ''} · ${data.processRoute}`}
@@ -658,7 +672,7 @@ function NodeInspector(props: {
             : ''}
         </p>
       ) : null}
-      {n.nodeRole === 'process' ? (
+      {(n.nodeRole === 'process' || n.nodeRole === 'analysis') ? (
         <p className="text-[10px] text-[var(--color-ink)]">
           Route {n.processRoute?.replace(/_/g, ' ') ?? '—'}
           {n.processStepId ? ` · ${n.processStepId}` : ''}

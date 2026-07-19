@@ -45,17 +45,18 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
   {
     id: 'live',
     label: 'Live ingest',
-    summary: 'Active APIs → queries/filters → normalize → system variables',
-    nodeIdPrefixes: ['live:', 'adapter:'],
-    nodeRoles: ['live_source', 'adapter'],
+    summary:
+      'Active APIs → adapters → analysis (organize/route/score) → library seed vars',
+    nodeIdPrefixes: ['live:', 'adapter:', 'analyze:'],
+    nodeRoles: ['live_source', 'adapter', 'analysis'],
     stageIds: [],
     panelSurfaceIds: [],
   },
   {
     id: 'library',
     label: 'Library',
-    summary: 'Sector/company constants → numerical ranges + positioning context',
-    nodeIdPrefixes: ['lib:', 'lib-adapter:'],
+    summary: 'Scored seed intake → sector/company constants → ranges + positioning',
+    nodeIdPrefixes: ['lib:', 'lib-adapter:', 'process:library:'],
     nodeRoles: ['library_source'],
     stageIds: [],
     panelSurfaceIds: [],
@@ -64,8 +65,8 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
     id: 'process',
     label: 'Process',
     summary: 'Link market + news + library → tagged trend lists',
-    nodeIdPrefixes: ['process:', 'cluster:'],
-    nodeRoles: ['process', 'process_cluster'],
+    nodeIdPrefixes: ['process:shared:', 'cluster:'],
+    nodeRoles: ['process_cluster'],
     stageIds: [
       'providers',
       'gather',
@@ -135,7 +136,35 @@ export function resolveStageScreenId(input: {
   }
 
   const nodeId = input.nodeId?.trim() ?? '';
-  if (nodeId.startsWith('cluster:process:') || nodeId.startsWith('cluster:')) {
+  // Pre-library analysis module (organize → route → score).
+  if (nodeId.startsWith('analyze:') || nodeId.startsWith('cluster:analysis:')) {
+    return 'live';
+  }
+  // Kind-specific adapter process chains live with Live ingest; shared compound on Process.
+  if (nodeId.startsWith('process:library:')) return 'library';
+  if (nodeId.startsWith('process:shared:')) return 'process';
+  if (nodeId.startsWith('process:') && !nodeId.startsWith('process:shared:')) {
+    return 'live';
+  }
+  if (nodeId.startsWith('cluster:process:')) {
+    const route = nodeId.slice('cluster:process:'.length);
+    if (
+      route.startsWith('shared') ||
+      route.includes('providers_entitle') ||
+      route.includes('universe') ||
+      route.includes('compound') ||
+      route.includes('verify') ||
+      route.includes('thresholds') ||
+      route.includes('defaults') ||
+      route.includes('narrative') ||
+      route.includes('sector_bulletin') ||
+      route.includes('daily_phase')
+    ) {
+      return 'process';
+    }
+    return 'live';
+  }
+  if (nodeId.startsWith('cluster:')) {
     return 'process';
   }
   if (nodeId.startsWith('panel:')) {
@@ -160,6 +189,11 @@ export function resolveStageScreenId(input: {
   }
 
   const role = input.nodeRole?.trim();
+  if (role === 'analysis') return 'live';
+  if (role === 'process') {
+    // Fallback when id missing — prefer Live for adapter analysis chrome.
+    return 'live';
+  }
   if (role) {
     for (const screen of MARKET_POSTURE_STAGE_SCREENS) {
       if (screen.nodeRoles?.includes(role)) return screen.id;

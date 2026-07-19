@@ -361,8 +361,10 @@ are ignored. Shortcuts are suppressed in editable fields.
   live is ready.
   **Capital** shows root user-controlled funds only (company pool + holding funds),
   engine allocation splits, master equity, and open position mark/uPnL values.
-  **Live ingest** shows active APIs, query/filter orientation, normalize pipeline, and
-  system variables for downstream. **Library** shows sector/company constants → discrete
+  **Live ingest** shows active APIs, query/filter orientation, normalize pipeline,
+  **analysis module** (organize → route → score → library seed), and
+  system variables for downstream. **Library** shows scored seed intake, then
+  sector/company constants → discrete
   ranges + positioning context. **Process** links market + news + library and emits
   tagged trend lists. **Outlook** shows watched symbols/values, open positions, spark-path
   growth orientation, and committed stock/news boards (operator “board/commit” language;

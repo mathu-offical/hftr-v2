@@ -51,7 +51,9 @@ export type PostureAlgoNodeRole =
   /** Strip layout section frame (D-186). */
   | 'screen_group'
   /** Nested process-route cluster inside the Process screen (D-186). */
-  | 'process_cluster';
+  | 'process_cluster'
+  /** Pre-library analysis module (organize → route → score) on Live (D-186). */
+  | 'analysis';
 
 export type PostureAlgoNodeData = {
   label: string;
@@ -1141,29 +1143,125 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
     }
   });
 
-  // Live → library hydrate: API normalize feeds corpus constants (D-186 L→R).
-  const liveNodeIds = liveSources
+  // Live → analysis module (organize → route → score) → library seed (D-186).
+  // Raw provider packages must be organized/routed/scored before corpus constants.
+  const liveNodeIdsForSeed = liveSources
     .filter((s) => s.contributed || s.status === 'ready' || s.status === 'public')
-    .map((s) => `live:${s.kind}`);
-  for (const lib of librarySources) {
-    if (lib.admittedCount <= 0) continue;
-    const libId = `lib:${lib.id}`;
-    if (!nodes.some((n) => n.id === libId)) continue;
-    for (const liveId of liveNodeIds.slice(0, 4)) {
-      if (!nodes.some((n) => n.id === liveId)) continue;
-      const edgeId = `e-hydrate-${liveId}-${libId}`;
+    .map((s) => s.kind);
+  const ANALYSIS_STEPS: Array<{
+    suffix: 'organize' | 'route' | 'score';
+    label: string;
+    operation: string;
+    processFunction: 'organize' | 'route' | 'score';
+  }> = [
+    {
+      suffix: 'organize',
+      label: 'Organize packages',
+      operation: 'bag by domain / lane',
+      processFunction: 'organize',
+    },
+    {
+      suffix: 'route',
+      label: 'Route pipelines',
+      operation: 'movers / sector / bars',
+      processFunction: 'route',
+    },
+    {
+      suffix: 'score',
+      label: 'Score for corpus',
+      operation: 'fit → library seed',
+      processFunction: 'score',
+    },
+  ];
+
+  for (const kind of liveNodeIdsForSeed) {
+    const liveId = `live:${kind}`;
+    if (!nodes.some((n) => n.id === liveId)) continue;
+    const kindAdapters = nodes.filter(
+      (n) => n.id.startsWith(`adapter:${kind}`) && n.data.nodeRole === 'adapter',
+    );
+    const kindProcess = nodes.filter(
+      (n) =>
+        n.id.startsWith(`process:${kind}:`) && n.data.nodeRole === 'process',
+    );
+    const feedFrom =
+      kindProcess[kindProcess.length - 1]?.id ??
+      kindAdapters[kindAdapters.length - 1]?.id ??
+      liveId;
+    const ready =
+      liveSources.find((s) => s.kind === kind)?.contributed ||
+      liveSources.find((s) => s.kind === kind)?.status === 'ready' ||
+      liveSources.find((s) => s.kind === kind)?.status === 'public';
+    const y = nextLaneY('compound', LANE_Y.compound + 80);
+
+    let prevId = feedFrom;
+    for (let si = 0; si < ANALYSIS_STEPS.length; si++) {
+      const step = ANALYSIS_STEPS[si]!;
+      const nodeId = `analyze:${kind}:${step.suffix}`;
+      if (!nodes.some((n) => n.id === nodeId)) {
+        nodes.push({
+          id: nodeId,
+          type: 'postureAlgo',
+          position: { x: processCol0 + si * 100, y },
+          data: {
+            label: step.label,
+            detail: `${kind} · ${step.operation}`,
+            kind: 'deterministic',
+            nodeRole: 'analysis',
+            operation: step.operation,
+            amount: ready ? 'armed' : 'idle',
+            analysisRoles: [step.suffix, kind],
+            processRoute: `analysis_${kind}`,
+            processStepId: `${kind}:${step.suffix}`,
+            processFunction: step.processFunction,
+            layer: 'pipeline',
+            track: 'compound',
+            activation: ready ? 'armed' : 'idle',
+            status: ready ? 'ready' : 'idle',
+            updatedAt: asOfIso,
+            stageScreenId: 'live',
+          },
+        });
+      }
+      const edgeId = `e-${prevId}-${nodeId}`;
+      if (!edges.some((e) => e.id === edgeId)) {
+        edges.push({
+          id: edgeId,
+          source: prevId,
+          target: nodeId,
+          label: step.suffix,
+          data: {
+            edgeType: 'pipeline',
+            track: 'compound',
+            ...resolveModelEdgeState({
+              edgeType: 'pipeline',
+              sourceReady: Boolean(ready),
+              pulsed: pulsed?.has(edgeId) ?? false,
+            }),
+          },
+        });
+      }
+      prevId = nodeId;
+    }
+
+    const scoreId = `analyze:${kind}:score`;
+    for (const lib of librarySources) {
+      if (lib.admittedCount <= 0) continue;
+      const libId = `lib:${lib.id}`;
+      if (!nodes.some((n) => n.id === libId)) continue;
+      const edgeId = `e-seed-${scoreId}-${libId}`;
       if (edges.some((e) => e.id === edgeId)) continue;
       edges.push({
         id: edgeId,
-        source: liveId,
+        source: scoreId,
         target: libId,
-        label: 'hydrate',
+        label: 'seed',
         data: {
-          edgeType: 'hydrate',
+          edgeType: 'corpus',
           track: 'compound',
           ...resolveModelEdgeState({
-            edgeType: 'hydrate',
-            sourceReady: true,
+            edgeType: 'corpus',
+            sourceReady: Boolean(ready),
             pulsed: pulsed?.has(edgeId) ?? false,
           }),
         },
@@ -1524,6 +1622,7 @@ const STRIP_ROLE_ORDER: Record<PostureAlgoNodeRole, number> = {
   library_source: 0,
   live_source: 0,
   adapter: 1,
+  analysis: 2,
   process: 2,
   stage: 3,
   panel_surface: 4,
@@ -1538,9 +1637,12 @@ const PROCESS_FN_ORDER: Record<string, number> = {
   announce: 1,
   normalize: 2,
   extract: 3,
+  organize: 3,
   context: 4,
+  route: 4,
   corroborate: 5,
   score: 6,
+  analyze: 6,
   thresholds: 6,
   defaults: 6,
   rank: 7,
@@ -1553,6 +1655,10 @@ const STRIP_CLUSTER_GAP = 10;
 const STRIP_CLUSTER_HEADER = 22;
 
 function processClusterKey(n: PostureAlgoGraphNode): string {
+  if (n.data.nodeRole === 'analysis') {
+    const kind = n.id.replace(/^analyze:/, '').split(':')[0];
+    return kind ? `analysis_${kind}` : 'analysis';
+  }
   const route = n.data.processRoute?.trim();
   if (route) return route;
   const kind = n.id.replace(/^process:/, '').split(':')[0];
@@ -1571,8 +1677,7 @@ function sortProcessStepsInCluster(a: PostureAlgoGraphNode, b: PostureAlgoGraphN
 }
 
 /**
- * Pack the Process screen: nest route clusters (fetch→… chains) and park
- * stages/panels in a side column ordered by connectivity.
+ * Pack a screen that nests route/analysis clusters (Live adapter chains + Process shared).
  */
 function packProcessScreenColumn(opts: {
   children: PostureAlgoGraphNode[];
@@ -1582,11 +1687,26 @@ function packProcessScreenColumn(opts: {
   intraEdges: number;
   interEdges: number;
   screenSummary: string;
+  screenId?: MarketPostureStageScreenId;
+  screenLabel?: string;
 }): PostureAlgoGraphNode[] {
-  const { children, edges, colIdx, globalRank, intraEdges, interEdges, screenSummary } =
-    opts;
-  const processNodes = children.filter((n) => n.data.nodeRole === 'process');
-  const otherNodes = children.filter((n) => n.data.nodeRole !== 'process');
+  const {
+    children,
+    edges,
+    colIdx,
+    globalRank,
+    intraEdges,
+    interEdges,
+    screenSummary,
+    screenId = 'process',
+    screenLabel = 'Process',
+  } = opts;
+  const processNodes = children.filter(
+    (n) => n.data.nodeRole === 'process' || n.data.nodeRole === 'analysis',
+  );
+  const otherNodes = children.filter(
+    (n) => n.data.nodeRole !== 'process' && n.data.nodeRole !== 'analysis',
+  );
 
   const byRoute = new Map<string, PostureAlgoGraphNode[]>();
   for (const n of processNodes) {
@@ -1610,7 +1730,7 @@ function packProcessScreenColumn(opts: {
     return a.localeCompare(b);
   });
 
-  const groupId = `group:process`;
+  const groupId = `group:${screenId}`;
   const out: PostureAlgoGraphNode[] = [];
   let cursorY = STRIP_HEADER + STRIP_PAD;
   let maxClusterW = STRIP_PAD * 2 + STRIP_INNER_LANE_W;
@@ -1644,7 +1764,7 @@ function packProcessScreenColumn(opts: {
         detail: fnSummary || 'process chain',
         kind: 'data',
         nodeRole: 'process_cluster',
-        stageScreenId: 'process',
+        stageScreenId: screenId,
         processRoute: route,
         operation: 'route cluster',
         amount: String(steps.length),
@@ -1668,7 +1788,7 @@ function packProcessScreenColumn(opts: {
         draggable: false,
         data: {
           ...step.data,
-          stageScreenId: 'process',
+          stageScreenId: screenId,
         },
       });
       globalRank.set(step.id, routeIdx * 100 + si);
@@ -1698,26 +1818,41 @@ function packProcessScreenColumn(opts: {
   });
   // Light barycenter refine within same stage tier.
   const refinedOther = orderLaneByConnections(orderedOther, edges, globalRank);
-  refinedOther.forEach((child, rowIdx) => {
-    out.push({
-      ...child,
-      parentId: groupId,
-      extent: 'parent',
-      position: {
-        x: otherX,
-        y: STRIP_HEADER + STRIP_PAD + rowIdx * STRIP_NODE_H,
-      },
-      draggable: false,
-      data: {
-        ...child.data,
-        stageScreenId: 'process',
-      },
+  // Role lanes for non-cluster children (Live sources vs adapters, Process stages).
+  const otherLanes: PostureAlgoGraphNode[][] = Array.from(
+    { length: STRIP_INNER_LANES },
+    () => [],
+  );
+  for (const child of refinedOther) {
+    const lane = Math.min(
+      STRIP_INNER_LANES - 1,
+      Math.max(0, STRIP_ROLE_ORDER[child.data.nodeRole] ?? 2),
+    );
+    otherLanes[lane]!.push(child);
+  }
+  const maxOtherRows = Math.max(1, ...otherLanes.map((l) => l.length));
+  otherLanes.forEach((lane, laneIdx) => {
+    lane.forEach((child, rowIdx) => {
+      out.push({
+        ...child,
+        parentId: groupId,
+        extent: 'parent',
+        position: {
+          x: otherX + laneIdx * STRIP_INNER_LANE_W,
+          y: STRIP_HEADER + STRIP_PAD + rowIdx * STRIP_NODE_H,
+        },
+        draggable: false,
+        data: {
+          ...child.data,
+          stageScreenId: screenId,
+        },
+      });
     });
   });
 
   const otherBlockH =
     refinedOther.length > 0
-      ? STRIP_PAD + refinedOther.length * STRIP_NODE_H
+      ? STRIP_PAD + maxOtherRows * STRIP_NODE_H
       : 0;
   const clustersH = Math.max(cursorY - STRIP_CLUSTER_GAP, STRIP_HEADER + STRIP_PAD);
   const height = Math.max(
@@ -1725,7 +1860,7 @@ function packProcessScreenColumn(opts: {
     STRIP_HEADER + STRIP_PAD + otherBlockH,
   ) + STRIP_PAD;
   const width = Math.max(
-    otherX + STRIP_INNER_LANE_W + STRIP_PAD,
+    otherX + STRIP_INNER_LANES * STRIP_INNER_LANE_W + STRIP_PAD,
     STRIP_COL_W - 12,
   );
 
@@ -1737,11 +1872,11 @@ function packProcessScreenColumn(opts: {
     draggable: false,
     selectable: true,
     data: {
-      label: 'Process',
+      label: screenLabel,
       detail: `${routeKeys.length} routes · ${intraEdges} in · ${interEdges} out · ${screenSummary}`,
       kind: 'data',
       nodeRole: 'screen_group',
-      stageScreenId: 'process',
+      stageScreenId: screenId,
       operation: 'section',
       amount: String(children.length),
       layer: 'sources',
@@ -1873,26 +2008,32 @@ export function applyStripScreenGroups(
       return (a || b) && !(a && b);
     }).length;
 
-    if (screen.id === 'process') {
-      const packed = packProcessScreenColumn({
-        children,
-        edges,
-        colIdx,
-        globalRank,
-        intraEdges,
-        interEdges,
-        screenSummary: screen.summary,
-      });
-      // Reposition process group to cumulative X (wider than default pitch).
-      const group = packed.find((n) => n.id === 'group:process');
-      if (group) {
-        group.position = { x: cursorX, y: 0 };
-        cursorX += (group.style?.width ?? STRIP_COL_W) + 12;
-      } else {
-        cursorX += STRIP_COL_W;
+    if (screen.id === 'process' || screen.id === 'live') {
+      const needsClusters = children.some(
+        (n) => n.data.nodeRole === 'process' || n.data.nodeRole === 'analysis',
+      );
+      if (needsClusters || screen.id === 'process') {
+        const packed = packProcessScreenColumn({
+          children,
+          edges,
+          colIdx,
+          globalRank,
+          intraEdges,
+          interEdges,
+          screenSummary: screen.summary,
+          screenId: screen.id,
+          screenLabel: screen.label,
+        });
+        const group = packed.find((n) => n.id === `group:${screen.id}`);
+        if (group) {
+          group.position = { x: cursorX, y: 0 };
+          cursorX += (group.style?.width ?? STRIP_COL_W) + 12;
+        } else {
+          cursorX += STRIP_COL_W;
+        }
+        out.push(...packed);
+        return;
       }
-      out.push(...packed);
-      return;
     }
 
     const lanes: PostureAlgoGraphNode[][] = Array.from(

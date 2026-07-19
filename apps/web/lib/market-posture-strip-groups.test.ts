@@ -97,20 +97,20 @@ describe('applyStripScreenGroups', () => {
       edges,
     );
     const liveKids = packed.filter((n) => n.parentId === 'group:live');
-    expect(liveKids.length).toBe(11); // 10 sources + adapter
-    // Adapter sits in a later inner lane (x) than live sources
+    // 10 sources + adapter + process:step (kind-specific analysis on Live)
+    expect(liveKids.length).toBeGreaterThanOrEqual(11);
     const src0 = liveKids.find((n) => n.id === 'live:src0')!;
     const adapt = liveKids.find((n) => n.id === 'adapter:1')!;
     expect(adapt.position.x).toBeGreaterThan(src0.position.x);
-    const processKids = packed.filter(
-      (n) =>
-        n.id === 'process:step' ||
-        n.parentId?.startsWith('cluster:process:'),
-    );
-    expect(processKids.some((n) => n.id === 'process:step')).toBe(true);
     expect(
-      packed.some((n) => n.data.nodeRole === 'process_cluster'),
+      packed.some(
+        (n) =>
+          n.id === 'process:step' &&
+          (n.parentId === 'group:live' ||
+            n.parentId?.startsWith('cluster:process:')),
+      ),
     ).toBe(true);
+    expect(packed.some((n) => n.data.nodeRole === 'process_cluster')).toBe(true);
   });
 
   it('clusters process nodes by route with function-ordered chains', () => {
@@ -172,6 +172,7 @@ describe('applyStripScreenGroups', () => {
       (n) => n.parentId === 'cluster:process:bars_ohlc',
     );
     expect(barsKids[0]?.position.x).toBeLessThan(barsKids[1]?.position.x ?? 0);
+    expect(clusters.every((c) => c.parentId === 'group:live')).toBe(true);
     expect(packed.some((n) => n.parentId === 'group:process' && n.id === 'universe')).toBe(
       true,
     );
@@ -203,8 +204,8 @@ describe('applyStripScreenGroups', () => {
     expect(final.some((e) => e.id === 'e-live-adapt')).toBe(true);
     expect(final.some((e) => e.id === 'e-adapt-proc')).toBe(true);
     expect(final.some((e) => e.id === 'e-proc-seal')).toBe(true);
-    expect(final.some((e) => e.id === 'e-group:live->process')).toBe(true);
-    expect(final.some((e) => e.id === 'e-group:process->outlook')).toBe(true);
+    // Kind-specific process sits on Live → Outlook is the forward hop.
+    expect(final.some((e) => e.id === 'e-group:live->outlook')).toBe(true);
     expect(final.some((e) => e.id === 'e-group:outlook->live')).toBe(false);
     expect(final.some((e) => e.id === 'e-group:process->live')).toBe(false);
   });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { BrokerConnectionSummary, LlmProvider, ResearchKeyProvider } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import { notifyLlmCredentialsChanged } from '@/components/shell/LlmConnectionStatus';
@@ -346,8 +347,6 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
     return () => window.removeEventListener('keydown', onKey);
   }, [props.open, props.onClose]);
 
-  if (!props.open) return null;
-
   async function refreshExistenceOnly(): Promise<void> {
     const data = await loadExistence();
     const merged = mergeExistenceFromServer(data);
@@ -625,7 +624,12 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
     }
   }
 
-  return (
+  if (!props.open) return null;
+  if (typeof document === 'undefined') return null;
+
+  // Portal to body so header stacking / overflow cannot trap the dialog
+  // (same pattern as AssistantDock).
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
       onClick={props.onClose}
@@ -904,7 +908,8 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

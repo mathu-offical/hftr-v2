@@ -321,6 +321,77 @@ export const MarketHubMarketModelAwareness = z.object({
 });
 export type MarketHubMarketModelAwareness = z.infer<typeof MarketHubMarketModelAwareness>;
 
+/**
+ * Synthesis Model hydration graph inputs (D-147).
+ * Live hydrators + library shelves that feed Analyze; each row carries an
+ * operator-visible operation and amount (counts/status — never LLM dollars).
+ */
+export const MarketHubModelLiveSource = z.object({
+  kind: z.string().max(40),
+  label: z.string().max(120),
+  domain: z.string().max(40),
+  status: z.enum(['ready', 'missing_key', 'stub', 'researched', 'public']),
+  authMode: z.enum(['none', 'research_key', 'broker_paper']),
+  canvasBoundCount: z.number().int().nonnegative(),
+  contributed: z.boolean(),
+  /** e.g. hydrate | idle | need key | stub */
+  operation: z.string().max(80),
+  /** e.g. "3 canvas · sealed" or "0 bound" */
+  amount: z.string().max(40),
+});
+export type MarketHubModelLiveSource = z.infer<typeof MarketHubModelLiveSource>;
+
+export const MarketHubModelLibrarySource = z.object({
+  id: z.string().uuid(),
+  name: z.string().max(120),
+  topicScope: z.string().max(80),
+  shelf: z.enum(['system', 'company', 'engine_hub', 'baseline']),
+  conceptCount: z.number().int().nonnegative(),
+  admittedCount: z.number().int().nonnegative(),
+  /** e.g. corpus feed | baseline shelf | hub nest */
+  operation: z.string().max(80),
+  /** e.g. "12 admitted / 40 concepts" */
+  amount: z.string().max(40),
+});
+export type MarketHubModelLibrarySource = z.infer<typeof MarketHubModelLibrarySource>;
+
+export const MarketHubModelStageOp = z.object({
+  stageId: z.enum([
+    'providers',
+    'gather',
+    'thresholds',
+    'defaults',
+    'universe',
+    'rs',
+    'rank',
+    'verify',
+    'seal_movers',
+    'sector',
+    'daily',
+    'narrative',
+    'hub_ready',
+  ]),
+  operation: z.string().max(80),
+  amount: z.string().max(40),
+});
+export type MarketHubModelStageOp = z.infer<typeof MarketHubModelStageOp>;
+
+export const MarketHubModelHydration = z.object({
+  liveSources: z.array(MarketHubModelLiveSource).max(64).default([]),
+  librarySources: z.array(MarketHubModelLibrarySource).max(64).default([]),
+  stageOps: z.array(MarketHubModelStageOp).max(32).default([]),
+  totals: z.object({
+    liveReady: z.number().int().nonnegative(),
+    liveTotal: z.number().int().nonnegative(),
+    libraryCount: z.number().int().nonnegative(),
+    admittedConcepts: z.number().int().nonnegative(),
+    contributedKinds: z.number().int().nonnegative(),
+    usedLiveMarks: z.number().int().nonnegative(),
+    syntheticMarks: z.number().int().nonnegative(),
+  }),
+});
+export type MarketHubModelHydration = z.infer<typeof MarketHubModelHydration>;
+
 export const MarketHubResponse = z.object({
   sectorFocuses: z.array(z.string().max(80)).max(64).default([]),
   universeExcludes: z.array(z.string().max(12)).max(200).default([]),
@@ -352,6 +423,11 @@ export const MarketHubResponse = z.object({
    * Same quote path as paper dispatch / exits — posture hub consumer.
    */
   marketModelAwareness: MarketHubMarketModelAwareness.optional(),
+  /**
+   * Baseline live + library sources for the synthesis Model graph (D-147).
+   * Each node on the Model shows operation + amount from this projection.
+   */
+  modelHydration: MarketHubModelHydration.optional(),
   sources: MarketHubSources.default({
     lanes: [],
     contributedKinds: [],

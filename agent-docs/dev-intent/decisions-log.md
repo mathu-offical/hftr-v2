@@ -1884,7 +1884,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   per-shelf chains (`shelf_{id}`: lib → lib-adapter → `process:library:*`); Process nests
   shared route clusters with **track lanes** for remaining stages; Capital lanes
   `company_root` left of `execution_split`; Outlook lanes by stage order; Day lanes by
-  panel family. Cluster click navigates via `stageScreenId` (not hard-coded Process).
+  panel family. Routes stack **top→bottom in `ROUTE_PIPELINE_ORDER`** (ingest → analysis →
+  named process); steps sit on a **shared phase column grid** (source|adapter|fetch|…|score)
+  so columns align across sequential routes; non-route nodes sit **below** the route stack.
+  Cluster click navigates via `stageScreenId` (not hard-coded Process).
   Every strip content node is stamped with `stageScreenId` and mapped into that screen’s
   emission traces. Strip data-flow is left→right: library adapters use `lib-adapter:`
   (not Live), `providers` lives on Process, positions panel on Outlook, panel edges skip

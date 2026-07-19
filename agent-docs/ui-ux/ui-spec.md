@@ -371,7 +371,9 @@ are ignored. Shortcuts are suppressed in editable fields.
   strip** packs nodes into the same six columns with connection-based layout and
   **optimized viewing groups**: Live kind bundles (source→adapter→analyze), Library
   per-shelf chains, Process route clusters + stage track lanes, Capital root vs
-  execution lanes, Outlook stage order, Day panel families. Draws all within- and
+  execution, Outlook/Day sequential stage columns. Routes stack in pipeline order with a
+  **shared phase column grid** (aligned fetch/normalize/score across rows); side nodes
+  sit below the route stack. Draws all within- and
   between-screen edges (plus **forward-only** group backbone flows) and stamps each
   node to its owning stage screen (cluster click uses that screen). Data-flow
   assignment: library adapters use `lib-adapter:` under Library; `providers` stage sits

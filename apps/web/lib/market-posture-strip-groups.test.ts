@@ -408,4 +408,88 @@ describe('applyStripScreenGroups', () => {
       'narrative_compose',
     ]);
   });
+
+  it('aligns route steps onto shared phase columns across sequential routes', () => {
+    const stamped = [
+      {
+        ...node('process:news:fetch', 'process', 'Fetch'),
+        data: {
+          ...node('process:news:fetch', 'process', 'Fetch').data,
+          processRoute: 'news_headline',
+          processFunction: 'fetch',
+        },
+      },
+      {
+        ...node('process:news:normalize', 'process', 'Norm'),
+        data: {
+          ...node('process:news:normalize', 'process', 'Norm').data,
+          processRoute: 'news_headline',
+          processFunction: 'normalize',
+        },
+      },
+      {
+        ...node('process:bars:fetch', 'process', 'Bars fetch'),
+        data: {
+          ...node('process:bars:fetch', 'process', 'Bars fetch').data,
+          processRoute: 'bars_ohlc',
+          processFunction: 'fetch',
+        },
+      },
+      {
+        ...node('process:bars:score', 'process', 'Score'),
+        data: {
+          ...node('process:bars:score', 'process', 'Score').data,
+          processRoute: 'bars_ohlc',
+          processFunction: 'score',
+        },
+      },
+    ];
+    const packed = applyStripScreenGroups(stamped, []);
+    const clusters = packed
+      .filter((n) => n.data.nodeRole === 'process_cluster')
+      .sort((a, b) => a.position.y - b.position.y);
+    expect(clusters.map((c) => c.data.processRoute)).toEqual([
+      'news_headline',
+      'bars_ohlc',
+    ]);
+    // Same width = shared phase grid.
+    expect(clusters[0]?.style?.width).toBe(clusters[1]?.style?.width);
+    const newsFetch = packed.find((n) => n.id === 'process:news:fetch')!;
+    const barsFetch = packed.find((n) => n.id === 'process:bars:fetch')!;
+    // Fetch phase aligns across route rows.
+    expect(newsFetch.position.x).toBe(barsFetch.position.x);
+    const barsScore = packed.find((n) => n.id === 'process:bars:score')!;
+    expect(barsScore.position.x).toBeGreaterThan(barsFetch.position.x);
+  });
+
+  it('places process stages below route rows in the same column grid', () => {
+    const stamped = [
+      {
+        ...node('process:shared:compose', 'process', 'Compose'),
+        data: {
+          ...node('process:shared:compose', 'process', 'Compose').data,
+          processRoute: 'narrative_compose',
+          processFunction: 'compose',
+        },
+      },
+      {
+        ...node('universe', 'stage', 'Universe'),
+        data: {
+          ...node('universe', 'stage', 'Universe').data,
+          track: 'entitle',
+        },
+      },
+    ];
+    const packed = applyStripScreenGroups(stamped, []);
+    const cluster = packed.find(
+      (n) =>
+        n.data.nodeRole === 'process_cluster' &&
+        n.parentId === 'group:process',
+    )!;
+    const universe = packed.find((n) => n.id === 'universe')!;
+    expect(universe.parentId).toBe('group:process');
+    expect(universe.position.y).toBeGreaterThan(
+      (cluster.position.y ?? 0) + ((cluster.style?.height as number) ?? 0) - 1,
+    );
+  });
 });

@@ -57,9 +57,15 @@ function allocationAmountLabel(s: MarketHubCapitalSource): string {
   }
 }
 
+type ExecutionGroup = {
+  key: string;
+  label: string;
+  desks: MarketHubCapitalSource[];
+};
+
 /**
- * Left-rail Market posture inventory (D-131 / D-138 / D-139):
- * company root funds → execution module splits → open positions.
+ * Left-rail Market posture inventory (D-131 / D-138 / D-144):
+ * company pool → root holding funds → execution desks by engine → open positions.
  */
 export function MarketPosturePanel(props: { companyId: string }) {
   const mp = useMarketPostureView();
@@ -72,14 +78,32 @@ export function MarketPosturePanel(props: { companyId: string }) {
     mp.openOverlay();
   }, [mp]);
 
-  const rootFunds = useMemo(
-    () => (hub?.capitalSources ?? []).filter((s) => s.tier === 'company_root'),
+  const companyPool = useMemo(
+    () => (hub?.capitalSources ?? []).find((s) => s.kind === 'company_pool') ?? null,
     [hub],
   );
-  const executionSplits = useMemo(
-    () => (hub?.capitalSources ?? []).filter((s) => s.tier === 'execution_split'),
+  const rootHoldingFunds = useMemo(
+    () =>
+      (hub?.capitalSources ?? []).filter(
+        (s) => s.tier === 'company_root' && s.kind === 'holding_fund',
+      ),
     [hub],
   );
+  const executionGroups = useMemo((): ExecutionGroup[] => {
+    const desks = (hub?.capitalSources ?? []).filter((s) => s.tier === 'execution_split');
+    const byKey = new Map<string, ExecutionGroup>();
+    for (const desk of desks) {
+      const key = desk.engineId ?? '__unbound__';
+      const label = desk.engineLabel ?? 'Unbound execution';
+      const existing = byKey.get(key);
+      if (existing) {
+        existing.desks.push(desk);
+      } else {
+        byKey.set(key, { key, label, desks: [desk] });
+      }
+    }
+    return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label));
+  }, [hub]);
 
   if (error && !hub) {
     return <p className="text-xs text-[var(--color-block)]">{error}</p>;
@@ -101,7 +125,7 @@ export function MarketPosturePanel(props: { companyId: string }) {
     <div className="space-y-3" data-testid="market-posture-panel">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] text-[var(--color-ink-faint)]">
-          Company funds → execution · day tape on canvas
+          Company → execution · day tape on canvas
         </p>
         <div className="flex shrink-0 items-center gap-1.5">
           {(refreshing || analyzing) && (
@@ -130,26 +154,53 @@ export function MarketPosturePanel(props: { companyId: string }) {
         </div>
       </div>
 
-      <section className="space-y-1.5">
+      <section className="space-y-1.5" data-testid="market-posture-company-roots">
         <h3 className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]">
-          Company · root funds · {rootFunds.length}
+          Company · root funds
         </h3>
-        <CapitalSourcesList
-          sources={rootFunds}
-          empty="No company pool or root holding funds"
-          testId="market-posture-root-funds"
-        />
+        {companyPool ? (
+          <CapitalSourceRow source={companyPool} emphasis />
+        ) : (
+          <p className="text-xs text-[var(--color-ink-faint)]">Company pool unavailable</p>
+        )}
+        {rootHoldingFunds.length === 0 ? (
+          <p className="pl-2 text-xs text-[var(--color-ink-faint)]">No root holding funds</p>
+        ) : (
+          <ul className="space-y-1 border-l border-[var(--color-line)] pl-2" data-testid="market-posture-root-funds">
+            {rootHoldingFunds.map((s) => (
+              <li key={s.id}>
+                <CapitalSourceRow source={s} nested />
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
-      <section className="space-y-1.5">
+      <section className="space-y-1.5" data-testid="market-posture-execution-splits">
         <h3 className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]">
-          Execution · module splits · {executionSplits.length}
+          Execution · module splits ·{' '}
+          {executionGroups.reduce((n, g) => n + g.desks.length, 0)}
         </h3>
-        <CapitalSourcesList
-          sources={executionSplits}
-          empty="No trading / execution allocations yet"
-          testId="market-posture-execution-splits"
-        />
+        {executionGroups.length === 0 ? (
+          <p className="text-xs text-[var(--color-ink-faint)]">No trading / execution allocations yet</p>
+        ) : (
+          <div className="space-y-2">
+            {executionGroups.map((group) => (
+              <div key={group.key} className="space-y-1">
+                <p className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+                  {group.label}
+                </p>
+                <ul className="space-y-1 border-l border-[var(--color-line)] pl-2">
+                  {group.desks.map((s) => (
+                    <li key={s.id}>
+                      <CapitalSourceRow source={s} nested />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="space-y-1.5">
@@ -170,59 +221,52 @@ export function MarketPosturePanel(props: { companyId: string }) {
   );
 }
 
-function CapitalSourcesList(props: {
-  sources: MarketHubCapitalSource[];
-  empty: string;
-  testId: string;
+function CapitalSourceRow(props: {
+  source: MarketHubCapitalSource;
+  emphasis?: boolean;
+  nested?: boolean;
 }) {
-  if (props.sources.length === 0) {
-    return <p className="text-xs text-[var(--color-ink-faint)]">{props.empty}</p>;
-  }
+  const { source: s, emphasis, nested } = props;
   return (
-    <ul className="space-y-1 text-xs" data-testid={props.testId}>
-      {props.sources.map((s) => (
-        <li
-          key={s.id}
-          className={`rounded border px-2 py-1.5 ${
-            s.kind === 'company_pool'
-              ? 'border-[var(--color-accent)]/40 bg-[var(--color-surface-2)]'
+    <Justification
+      sourceClass="operator"
+      block
+      lines={[
+        `${capitalKindLabel(s.kind)} · ${s.tier.replace(/_/g, ' ')}`,
+        `Source: ${s.sourceLabel}`,
+        s.engineLabel ? `Engine: ${s.engineLabel}` : 'No engine binding',
+        s.allocationRef ? `Allocation ref: ${s.allocationRef}` : 'No allocation ref',
+        `Allocation: ${allocationAmountLabel(s)} (${s.allocationStatus})`,
+        s.ledgerBalanceCents
+          ? `Ledger: ${dollarsFromCents(s.ledgerBalanceCents)}`
+          : 'No module ledger balance',
+      ]}
+    >
+      <div
+        className={`rounded border px-2 py-1.5 text-xs ${
+          emphasis
+            ? 'border-[var(--color-accent)]/40 bg-[var(--color-surface-2)]'
+            : nested
+              ? 'border-transparent bg-transparent'
               : 'border-[var(--color-line)]'
-          }`}
-        >
-          <Justification
-            sourceClass="operator"
-            block
-            lines={[
-              `${capitalKindLabel(s.kind)} · ${s.tier.replace(/_/g, ' ')}`,
-              `Source: ${s.sourceLabel}`,
-              s.engineLabel ? `Engine: ${s.engineLabel}` : 'No engine binding',
-              s.allocationRef ? `Allocation ref: ${s.allocationRef}` : 'No allocation ref',
-              `Allocation: ${allocationAmountLabel(s)} (${s.allocationStatus})`,
-              s.ledgerBalanceCents
-                ? `Ledger: ${dollarsFromCents(s.ledgerBalanceCents)}`
-                : 'No module ledger balance',
-            ]}
-          >
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="font-medium text-[var(--color-ink)]">{s.name}</span>
-              <span className="shrink-0 font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-                {capitalKindLabel(s.kind)}
-              </span>
-            </div>
-            <p className="mt-0.5 font-mono text-[10px] tabular-nums text-[var(--color-ink)]">
-              {allocationAmountLabel(s)}
-            </p>
-            <p className="mt-0.5 font-mono text-[9px] text-[var(--color-ink-faint)]">
-              {s.sourceLabel}
-              {s.engineLabel ? ` · ${s.engineLabel}` : ''}
-              {s.ledgerBalanceCents
-                ? ` · ledger ${dollarsFromCents(s.ledgerBalanceCents)}`
-                : ''}
-            </p>
-          </Justification>
-        </li>
-      ))}
-    </ul>
+        }`}
+      >
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="font-medium text-[var(--color-ink)]">{s.name}</span>
+          <span className="shrink-0 font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+            {capitalKindLabel(s.kind)}
+          </span>
+        </div>
+        <p className="mt-0.5 font-mono text-[10px] tabular-nums text-[var(--color-ink)]">
+          {allocationAmountLabel(s)}
+        </p>
+        <p className="mt-0.5 font-mono text-[9px] text-[var(--color-ink-faint)]">
+          {s.sourceLabel}
+          {s.kind === 'holding_fund' && s.engineLabel ? ` · via ${s.engineLabel}` : ''}
+          {s.ledgerBalanceCents ? ` · ledger ${dollarsFromCents(s.ledgerBalanceCents)}` : ''}
+        </p>
+      </div>
+    </Justification>
   );
 }
 

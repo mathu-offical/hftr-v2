@@ -158,7 +158,9 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   fund_router hops and research engine envelopes omitted). Hub also projects `modelHydration`
   (D-147): full live-source registry + library shelves with per-node operation/amount for the
   synthesis Model graph, plus `processingFlows` (D-156) — per-API adapter labels, analysis roles,
-  target stages, and movers/sector pipelines — and `asOfIso` + `sealStamps` (D-160) for edge
+  target stages, and movers/sector pipelines — and `processSteps` (D-162) — route-granular
+  fetch→normalize→analyze nodes per live kind plus shared compound bridges (universe/rank/verify/
+  sector/daily/narrative) — and `asOfIso` + `sealStamps` (D-160) for edge
   activation/stale/pulse, plus `panelSurfaces` + `livePatchedAt` (D-161) so Model hub_ready
   hydrates into left-rail and overlay boards with silent live mark patches.
   Hub metric boards/rows project `sourceChips` (D-155): `{ id, label,

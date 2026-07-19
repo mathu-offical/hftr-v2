@@ -27,6 +27,7 @@ function stubHub(): MarketHubResponse {
       asOfIso: null,
       version: 0,
       series: [],
+      sourceChips: [],
     },
     movers: {
       status: 'missing',
@@ -38,6 +39,7 @@ function stubHub(): MarketHubResponse {
       verifiedAt: null,
       expiresAt: null,
       reportConceptId: null,
+      sourceChips: [],
     },
     reports: [],
     watchlists: [],
@@ -54,6 +56,7 @@ function stubHub(): MarketHubResponse {
         unrealizedPnlCents: '0',
         engines: [],
         updatedAt: '2026-07-18T00:00:00.000Z',
+        sourceChips: [],
         viz: {
           symbol: 'AAPL',
           spark: {
@@ -82,6 +85,7 @@ function stubHub(): MarketHubResponse {
       verifiedAt: null,
       expiresAt: null,
       reportConceptId: null,
+      sourceChips: [],
     },
     freshness: { moversExpiresAt: null, fetchedAt: '2026-07-18T00:00:00.000Z' },
     sources: {

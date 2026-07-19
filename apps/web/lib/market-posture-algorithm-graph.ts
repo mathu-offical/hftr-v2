@@ -1,7 +1,7 @@
 /**
- * Market posture synthesis Model graph (D-120 / D-147 / D-156 / D-160).
- * Per-service adapters feed specific analysis stages; edges carry type,
- * activation, status, and track for live refresh/update styling.
+ * Market posture synthesis Model graph (D-120 / D-147 / D-156 / D-160 / D-162).
+ * Per-route process chains (live + library + shared compound) sit between
+ * adapters/stages; edges carry type, activation, status, and track.
  */
 
 import type {
@@ -10,6 +10,7 @@ import type {
   MarketHubModelEdgeType,
   MarketHubModelHydration,
   MarketHubModelLayer,
+  MarketHubModelProcessStep,
   MarketHubModelProcessingFlow,
   MarketHubModelTrack,
   MarketHubSynthesisStage,
@@ -25,6 +26,7 @@ import {
 export type PostureAlgoNodeRole =
   | 'live_source'
   | 'adapter'
+  | 'process'
   | 'library_source'
   | 'stage'
   | 'panel_surface';
@@ -39,6 +41,9 @@ export type PostureAlgoNodeData = {
   amount: string;
   analysisRoles?: string[];
   pipelines?: Array<'movers' | 'sector'>;
+  /** Process route when nodeRole is process (D-162). */
+  processRoute?: string;
+  processStepId?: string;
   /** Panel surface id when nodeRole is panel_surface (D-161). */
   panelSurfaceId?: string;
   panelKind?: 'rail' | 'overlay' | 'both';
@@ -55,7 +60,7 @@ export type PostureAlgoEdgeData = {
   activation: MarketHubModelEdgeActivation;
   status: MarketHubModelEdgeStatus;
   track: MarketHubModelTrack;
-  label?: string;
+  label?: string | undefined;
 };
 
 export type PostureAlgoGraph = {
@@ -69,7 +74,7 @@ export type PostureAlgoGraph = {
     id: string;
     source: string;
     target: string;
-    label?: string;
+    label?: string | undefined;
     data: PostureAlgoEdgeData;
   }>;
   tracks: Array<{ id: MarketHubModelTrack; label: string; summary: string }>;
@@ -81,19 +86,19 @@ const STAGE_LAYOUT: Array<{
   x: number;
   y: number;
 }> = [
-  { id: 'providers', x: 520, y: 40 },
-  { id: 'gather', x: 700, y: 200 },
-  { id: 'thresholds', x: 880, y: 80 },
-  { id: 'defaults', x: 880, y: 320 },
-  { id: 'universe', x: 1060, y: 200 },
-  { id: 'rs', x: 1240, y: 200 },
-  { id: 'rank', x: 1420, y: 200 },
-  { id: 'verify', x: 1600, y: 200 },
-  { id: 'seal_movers', x: 1780, y: 120 },
-  { id: 'sector', x: 1780, y: 280 },
-  { id: 'daily', x: 1960, y: 200 },
-  { id: 'narrative', x: 2140, y: 200 },
-  { id: 'hub_ready', x: 2320, y: 200 },
+  { id: 'providers', x: 1000, y: 40 },
+  { id: 'gather', x: 1280, y: 200 },
+  { id: 'thresholds', x: 1560, y: 80 },
+  { id: 'defaults', x: 1560, y: 320 },
+  { id: 'universe', x: 1840, y: 200 },
+  { id: 'rs', x: 2020, y: 200 },
+  { id: 'rank', x: 2300, y: 200 },
+  { id: 'verify', x: 2480, y: 200 },
+  { id: 'seal_movers', x: 2760, y: 120 },
+  { id: 'sector', x: 2760, y: 280 },
+  { id: 'daily', x: 2940, y: 200 },
+  { id: 'narrative', x: 3220, y: 200 },
+  { id: 'hub_ready', x: 3400, y: 200 },
 ];
 
 type StageEdgeSpec = {
@@ -105,39 +110,8 @@ type StageEdgeSpec = {
   track: MarketHubModelTrack;
 };
 
-const STAGE_EDGE_SPECS: StageEdgeSpec[] = [
-  {
-    id: 'e-gather-llm',
-    source: 'gather',
-    target: 'thresholds',
-    label: 'lane presence',
-    edgeType: 'pipeline',
-    track: 'compound',
-  },
-  {
-    id: 'e-gather-def',
-    source: 'gather',
-    target: 'defaults',
-    label: 'fail-closed',
-    edgeType: 'pipeline',
-    track: 'compound',
-  },
-  {
-    id: 'e-llm-uni',
-    source: 'thresholds',
-    target: 'universe',
-    label: 'presets',
-    edgeType: 'pipeline',
-    track: 'compound',
-  },
-  {
-    id: 'e-def-uni',
-    source: 'defaults',
-    target: 'universe',
-    label: 'bands',
-    edgeType: 'pipeline',
-    track: 'compound',
-  },
+/** Direct stage→stage edges that stay milestone-only (no shared process route). */
+const DIRECT_STAGE_EDGE_SPECS: StageEdgeSpec[] = [
   {
     id: 'e-uni-rs',
     source: 'universe',
@@ -147,62 +121,6 @@ const STAGE_EDGE_SPECS: StageEdgeSpec[] = [
     track: 'compound',
   },
   {
-    id: 'e-rs-rank',
-    source: 'rs',
-    target: 'rank',
-    label: 'scores',
-    edgeType: 'pipeline',
-    track: 'compound',
-  },
-  {
-    id: 'e-rank-ver',
-    source: 'rank',
-    target: 'verify',
-    label: 'board',
-    edgeType: 'pipeline',
-    track: 'compound',
-  },
-  {
-    id: 'e-ver-seal',
-    source: 'verify',
-    target: 'seal_movers',
-    label: 'gates',
-    edgeType: 'pipeline',
-    track: 'compound',
-  },
-  {
-    id: 'e-seal-sector',
-    source: 'seal_movers',
-    target: 'sector',
-    label: '∥',
-    edgeType: 'parallel',
-    track: 'sector',
-  },
-  {
-    id: 'e-seal-daily',
-    source: 'seal_movers',
-    target: 'daily',
-    label: '∥',
-    edgeType: 'parallel',
-    track: 'daily',
-  },
-  {
-    id: 'e-sector-narr',
-    source: 'sector',
-    target: 'narrative',
-    label: 'news seal',
-    edgeType: 'pipeline',
-    track: 'compose',
-  },
-  {
-    id: 'e-daily-narr',
-    source: 'daily',
-    target: 'narrative',
-    label: 'daily seal',
-    edgeType: 'pipeline',
-    track: 'compose',
-  },
-  {
     id: 'e-narr-hub',
     source: 'narrative',
     target: 'hub_ready',
@@ -210,13 +128,121 @@ const STAGE_EDGE_SPECS: StageEdgeSpec[] = [
     edgeType: 'pipeline',
     track: 'compose',
   },
+];
+
+/**
+ * Shared compound bridges — stage → route process steps → stage (D-162).
+ * Multiple sources may share one route (universe_build, narrative_compose).
+ */
+type SharedBridgeSpec = {
+  id: string;
+  route: string;
+  source: MarketHubSynthesisStageId;
+  target: MarketHubSynthesisStageId;
+  edgeType: MarketHubModelEdgeType;
+  track: MarketHubModelTrack;
+  baseY: number;
+};
+
+const SHARED_BRIDGE_SPECS: SharedBridgeSpec[] = [
   {
-    id: 'e-prov-gather',
+    id: 'bridge-prov-gather',
+    route: 'providers_entitle',
     source: 'providers',
     target: 'gather',
-    label: 'ready lanes',
     edgeType: 'entitle',
     track: 'entitle',
+    baseY: 40,
+  },
+  {
+    id: 'bridge-gather-llm',
+    route: 'thresholds_llm',
+    source: 'gather',
+    target: 'thresholds',
+    edgeType: 'pipeline',
+    track: 'compound',
+    baseY: 72,
+  },
+  {
+    id: 'bridge-gather-def',
+    route: 'defaults_catalog',
+    source: 'gather',
+    target: 'defaults',
+    edgeType: 'pipeline',
+    track: 'compound',
+    baseY: 320,
+  },
+  {
+    id: 'bridge-llm-uni',
+    route: 'universe_build',
+    source: 'thresholds',
+    target: 'universe',
+    edgeType: 'pipeline',
+    track: 'compound',
+    baseY: 120,
+  },
+  {
+    id: 'bridge-def-uni',
+    route: 'universe_build',
+    source: 'defaults',
+    target: 'universe',
+    edgeType: 'pipeline',
+    track: 'compound',
+    baseY: 280,
+  },
+  {
+    id: 'bridge-rs-rank',
+    route: 'compound_rank',
+    source: 'rs',
+    target: 'rank',
+    edgeType: 'pipeline',
+    track: 'compound',
+    baseY: 200,
+  },
+  {
+    id: 'bridge-rank-seal',
+    route: 'verify_promote',
+    source: 'rank',
+    target: 'seal_movers',
+    edgeType: 'pipeline',
+    track: 'compound',
+    baseY: 160,
+  },
+  {
+    id: 'bridge-seal-sector',
+    route: 'sector_bulletin',
+    source: 'seal_movers',
+    target: 'sector',
+    edgeType: 'parallel',
+    track: 'sector',
+    baseY: 280,
+  },
+  {
+    id: 'bridge-seal-daily',
+    route: 'daily_phase',
+    source: 'seal_movers',
+    target: 'daily',
+    edgeType: 'parallel',
+    track: 'daily',
+    baseY: 200,
+  },
+  {
+    id: 'bridge-sector-narr',
+    route: 'narrative_compose',
+    source: 'sector',
+    target: 'narrative',
+    edgeType: 'pipeline',
+    track: 'compose',
+    baseY: 260,
+  },
+  {
+    id: 'bridge-daily-narr',
+    route: 'narrative_compose',
+    source: 'daily',
+    target: 'narrative',
+    edgeType: 'pipeline',
+    track: 'compose',
+    baseY: 200,
   },
 ];
 
@@ -276,12 +302,12 @@ function isFresh(verifiedAt: string | null | undefined, nowMs: number, windowMs:
  */
 export function resolveModelEdgeState(opts: {
   edgeType: MarketHubModelEdgeType;
-  sourceStageStatus?: MarketHubSynthesisStageStatus;
-  targetStageStatus?: MarketHubSynthesisStageStatus;
-  sourceReady?: boolean;
-  sourceBlocked?: boolean;
-  targetStale?: boolean;
-  pulsed?: boolean;
+  sourceStageStatus?: MarketHubSynthesisStageStatus | undefined;
+  targetStageStatus?: MarketHubSynthesisStageStatus | undefined;
+  sourceReady?: boolean | undefined;
+  sourceBlocked?: boolean | undefined;
+  targetStale?: boolean | undefined;
+  pulsed?: boolean | undefined;
 }): Pick<PostureAlgoEdgeData, 'activation' | 'status'> {
   if (opts.sourceBlocked) {
     return { activation: 'blocked', status: 'blocked' };
@@ -354,6 +380,26 @@ function diagramTargetStages(flow: MarketHubModelProcessingFlow): MarketHubSynth
 }
 
 function trackForFlow(flow: MarketHubModelProcessingFlow): MarketHubModelTrack {
+  if (flow.route) {
+    switch (flow.route) {
+      case 'providers_entitle':
+      case 'bars_entitle':
+        return 'entitle';
+      case 'sector_bulletin':
+        return 'sector';
+      case 'daily_phase':
+        return 'daily';
+      case 'narrative_compose':
+        return 'compose';
+      case 'news_headline':
+      case 'web_search':
+        return flow.pipelines.includes('sector') && !flow.pipelines.includes('movers')
+          ? 'sector'
+          : 'compound';
+      default:
+        return 'compound';
+    }
+  }
   if (flow.analysisRoles.includes('relative_strength')) return 'compound';
   if (flow.pipelines.includes('sector') && !flow.pipelines.includes('movers')) return 'sector';
   if (flow.pipelines.includes('sector') && flow.analysisRoles.includes('news_corpus')) {
@@ -362,6 +408,18 @@ function trackForFlow(flow: MarketHubModelProcessingFlow): MarketHubModelTrack {
   if (flow.kind.startsWith('library:')) return 'compound';
   if (flow.analysisRoles.includes('bars_entitlement')) return 'entitle';
   return 'compound';
+}
+
+function processNodeState(
+  step: MarketHubModelProcessStep,
+): { activation: MarketHubModelEdgeActivation; status: MarketHubModelEdgeStatus } {
+  if (step.status === 'missing_key' || step.status === 'stub') {
+    return { activation: 'blocked', status: 'blocked' };
+  }
+  if (step.status === 'ready' || step.status === 'public') {
+    return { activation: 'armed', status: 'ready' };
+  }
+  return { activation: 'idle', status: 'idle' };
 }
 
 function flowBlocked(flow: MarketHubModelProcessingFlow): boolean {
@@ -406,11 +464,274 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
   const liveSources = hydration?.liveSources ?? [];
   const librarySources = hydration?.librarySources ?? [];
   const flows = hydration?.processingFlows ?? [];
+  const processSteps = hydration?.processSteps ?? [];
+  const stepsById = new Map(processSteps.map((s) => [s.id, s]));
   const asOfIso = hydration?.asOfIso ?? null;
 
   const gap = 72;
   const liveX = 0;
-  const adapterX = 240;
+  const adapterX = 220;
+  const processCol0 = 400;
+  const processColW = 150;
+
+  /** Ensure process nodes exist; return node id. */
+  const ensureProcessNode = (
+    step: MarketHubModelProcessStep,
+    pos: { x: number; y: number },
+  ): string => {
+    const nodeId = `process:${step.id}`;
+    if (nodes.some((n) => n.id === nodeId)) return nodeId;
+    const st = processNodeState(step);
+    nodes.push({
+      id: nodeId,
+      type: 'postureAlgo',
+      position: pos,
+      data: {
+        label: step.label,
+        detail: `${step.route} · ${step.analysisRole}`,
+        kind: 'deterministic',
+        nodeRole: 'process',
+        operation: step.operation,
+        amount: step.amount,
+        analysisRoles: [step.analysisRole],
+        processRoute: step.route,
+        processStepId: step.id,
+        layer: 'pipeline',
+        track: trackForFlow({
+          id: step.id,
+          kind: step.kind,
+          adapterLabel: step.label,
+          analysisRoles: [step.analysisRole],
+          operation: step.operation,
+          amount: step.amount,
+          route: step.route,
+          processStepIds: [],
+          targetStages: step.feedStages,
+          pipelines: step.pipelines.filter((p): p is 'movers' | 'sector' =>
+            p === 'movers' || p === 'sector',
+          ),
+          status: step.status,
+          contributed: false,
+        }),
+        activation: pulsed?.has(nodeId) ? 'pulsing' : st.activation,
+        status: st.status,
+        updatedAt: asOfIso,
+      },
+    });
+    return nodeId;
+  };
+
+  /** Wire adapter → ordered process steps → feed stages. */
+  const wireFlowProcessChain = (opts: {
+    adapterId: string;
+    flow: MarketHubModelProcessingFlow;
+    baseY: number;
+    track: MarketHubModelTrack;
+    blocked: boolean;
+    ready: boolean;
+  }) => {
+    const stepIds = opts.flow.processStepIds ?? [];
+    if (stepIds.length === 0) {
+      for (const stageId of diagramTargetStages(opts.flow)) {
+        const edgeId = `e-${opts.adapterId}-${stageId}`;
+        edges.push({
+          id: edgeId,
+          source: opts.adapterId,
+          target: stageId,
+          label: (opts.flow.route ?? opts.flow.analysisRoles[0] ?? 'adapt').slice(0, 24),
+          data: {
+            edgeType: 'adapt',
+            track: opts.track,
+            ...resolveModelEdgeState({
+              edgeType: 'adapt',
+              sourceBlocked: opts.blocked,
+              sourceReady: opts.ready,
+              targetStageStatus: byStage.get(stageId)?.status,
+              pulsed: pulsed?.has(edgeId) ?? false,
+            }),
+          },
+        });
+      }
+      return;
+    }
+
+    let prevId = opts.adapterId;
+    stepIds.forEach((sid, si) => {
+      const step = stepsById.get(sid);
+      if (!step) return;
+      const nodeId = ensureProcessNode(step, {
+        x: processCol0 + si * processColW,
+        y: opts.baseY,
+      });
+      const edgeId = `e-${prevId}-${nodeId}`;
+      edges.push({
+        id: edgeId,
+        source: prevId,
+        target: nodeId,
+        label: step.analysisRole.slice(0, 20),
+        data: {
+          edgeType: si === 0 ? 'adapt' : 'pipeline',
+          track: opts.track,
+          ...resolveModelEdgeState({
+            edgeType: si === 0 ? 'adapt' : 'pipeline',
+            sourceBlocked: opts.blocked,
+            sourceReady: opts.ready,
+            pulsed: pulsed?.has(edgeId) ?? false,
+          }),
+        },
+      });
+      prevId = nodeId;
+    });
+
+    for (const stageId of diagramTargetStages(opts.flow)) {
+      const edgeId = `e-${prevId}-${stageId}`;
+      edges.push({
+        id: edgeId,
+        source: prevId,
+        target: stageId,
+        label: stageId.slice(0, 16),
+        data: {
+          edgeType: 'pipeline',
+          track: opts.track,
+          ...resolveModelEdgeState({
+            edgeType: 'pipeline',
+            sourceBlocked: opts.blocked,
+            sourceReady: opts.ready,
+            targetStageStatus: byStage.get(stageId)?.status,
+            pulsed: pulsed?.has(edgeId) ?? false,
+          }),
+        },
+      });
+    }
+  };
+
+  /** Wire stage → shared route process steps → stage (D-162). Dedupes shared nodes. */
+  const wireSharedRouteChain = (bridge: SharedBridgeSpec) => {
+    const steps = processSteps
+      .filter((s) => s.kind === 'shared' && s.route === bridge.route)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    if (steps.length === 0) {
+      const edgeId = bridge.id;
+      if (!edges.some((e) => e.id === edgeId)) {
+        edges.push({
+          id: edgeId,
+          source: bridge.source,
+          target: bridge.target,
+          label: bridge.route.slice(0, 24),
+          data: {
+            edgeType: bridge.edgeType,
+            track: bridge.track,
+            ...resolveModelEdgeState({
+              edgeType: bridge.edgeType,
+              sourceStageStatus: byStage.get(bridge.source)?.status,
+              targetStageStatus: byStage.get(bridge.target)?.status,
+              pulsed: pulsed?.has(edgeId) ?? false,
+            }),
+          },
+        });
+      }
+      return;
+    }
+
+    const srcLayout = STAGE_LAYOUT.find((s) => s.id === bridge.source);
+    const tgtLayout = STAGE_LAYOUT.find((s) => s.id === bridge.target);
+    const x0 = (srcLayout?.x ?? 1000) + 60;
+    const xEnd = (tgtLayout?.x ?? x0 + 200) - 40;
+    const span = Math.max(90, (xEnd - x0) / Math.max(1, steps.length));
+
+    const nodeIds = steps.map((step, si) =>
+      ensureProcessNode(step, { x: x0 + si * span, y: bridge.baseY }),
+    );
+
+    for (let i = 0; i < nodeIds.length - 1; i++) {
+      const edgeId = `e-shared:${bridge.route}:${i}`;
+      if (edges.some((e) => e.id === edgeId)) continue;
+      edges.push({
+        id: edgeId,
+        source: nodeIds[i]!,
+        target: nodeIds[i + 1]!,
+        ...(steps[i + 1]?.analysisRole
+          ? { label: steps[i + 1]!.analysisRole.slice(0, 20) }
+          : {}),
+        data: {
+          edgeType: 'pipeline',
+          track: bridge.track,
+          ...resolveModelEdgeState({
+            edgeType: 'pipeline',
+            sourceStageStatus: byStage.get(bridge.source)?.status,
+            targetStageStatus: byStage.get(bridge.target)?.status,
+            pulsed: pulsed?.has(edgeId) ?? false,
+          }),
+        },
+      });
+    }
+
+    const inId = `e-${bridge.source}-${nodeIds[0]}`;
+    if (!edges.some((e) => e.id === inId)) {
+      edges.push({
+        id: inId,
+        source: bridge.source,
+        target: nodeIds[0]!,
+        label: bridge.route.slice(0, 20),
+        data: {
+          edgeType: bridge.edgeType,
+          track: bridge.track,
+          ...resolveModelEdgeState({
+            edgeType: bridge.edgeType,
+            sourceStageStatus: byStage.get(bridge.source)?.status,
+            pulsed: pulsed?.has(inId) ?? false,
+          }),
+        },
+      });
+    }
+
+    const lastId = nodeIds[nodeIds.length - 1]!;
+    const outId = `e-${lastId}-${bridge.target}`;
+    if (!edges.some((e) => e.id === outId)) {
+      edges.push({
+        id: outId,
+        source: lastId,
+        target: bridge.target,
+        label: bridge.target.slice(0, 16),
+        data: {
+          edgeType: bridge.edgeType,
+          track: bridge.track,
+          ...resolveModelEdgeState({
+            edgeType: bridge.edgeType,
+            sourceStageStatus: byStage.get(bridge.source)?.status,
+            targetStageStatus: byStage.get(bridge.target)?.status,
+            pulsed: pulsed?.has(outId) ?? false,
+          }),
+        },
+      });
+    }
+
+    if (bridge.route === 'verify_promote') {
+      const gates = steps.find((s) => s.id.endsWith(':gates'));
+      if (gates) {
+        const gid = `process:${gates.id}`;
+        const verId = `e-${gid}-verify`;
+        if (!edges.some((e) => e.id === verId)) {
+          edges.push({
+            id: verId,
+            source: gid,
+            target: 'verify',
+            label: 'gates',
+            data: {
+              edgeType: 'pipeline',
+              track: bridge.track,
+              ...resolveModelEdgeState({
+                edgeType: 'pipeline',
+                sourceStageStatus: byStage.get(bridge.source)?.status,
+                targetStageStatus: byStage.get('verify')?.status,
+                pulsed: pulsed?.has(verId) ?? false,
+              }),
+            },
+          });
+        }
+      }
+    }
+  };
 
   const flowsByKind = new Map<string, MarketHubModelProcessingFlow[]>();
   for (const f of flows) {
@@ -525,40 +846,14 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
         data: { edgeType: 'hydrate', track, ...hydrateState },
       });
 
-      for (const stageId of diagramTargetStages(flow)) {
-        const edgeId = `e-${adapterId}-${stageId}`;
-        const tgt = byStage.get(stageId);
-        const targetStale =
-          (stageId === 'seal_movers' && moversStale) ||
-          (stageId === 'sector' && newsStale) ||
-          (stageId === 'daily' && dailyStale);
-        const state = resolveModelEdgeState({
-          edgeType: 'adapt',
-          sourceBlocked: aBlocked,
-          sourceReady: aReady,
-          targetStageStatus: tgt?.status,
-          targetStale,
-          pulsed: pulsed?.has(edgeId) ?? false,
-        });
-        const activation =
-          pulsed?.has(edgeId)
-            ? 'pulsing'
-            : state.activation === 'idle' && aReady && (moversFresh || newsFresh)
-              ? 'armed'
-              : state.activation;
-        edges.push({
-          id: edgeId,
-          source: adapterId,
-          target: stageId,
-          label: (flow.analysisRoles[0] ?? flow.pipelines[0] ?? 'adapt').slice(0, 24),
-          data: {
-            edgeType: 'adapt',
-            track,
-            activation,
-            status: state.status,
-          },
-        });
-      }
+      wireFlowProcessChain({
+        adapterId,
+        flow,
+        baseY: ay,
+        track,
+        blocked: aBlocked,
+        ready: aReady,
+      });
     });
     row += Math.max(1, kindFlows.length);
   }
@@ -626,32 +921,21 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
           }),
         },
       });
-      for (const stageId of diagramTargetStages(flow)) {
-        const edgeId = `e-${adapterId}-${stageId}`;
-        edges.push({
-          id: edgeId,
-          source: adapterId,
-          target: stageId,
-          label: 'corpus',
-          data: {
-            edgeType: 'corpus',
-            track: 'compound',
-            ...resolveModelEdgeState({
-              edgeType: 'corpus',
-              sourceReady: ready,
-              targetStageStatus: byStage.get(stageId)?.status,
-              pulsed: pulsed?.has(edgeId) ?? false,
-            }),
-          },
-        });
-      }
+      wireFlowProcessChain({
+        adapterId,
+        flow,
+        baseY: y,
+        track: 'compound',
+        blocked: false,
+        ready,
+      });
     } else {
       const edgeId = `e-${liveId}-gather`;
       edges.push({
         id: edgeId,
         source: liveId,
         target: 'gather',
-        label: ready ? 'corpus' : undefined,
+        ...(ready ? { label: 'corpus' } : {}),
         data: {
           edgeType: 'corpus',
           track: 'compound',
@@ -724,7 +1008,11 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
     });
   }
 
-  for (const spec of STAGE_EDGE_SPECS) {
+  for (const bridge of SHARED_BRIDGE_SPECS) {
+    wireSharedRouteChain(bridge);
+  }
+
+  for (const spec of DIRECT_STAGE_EDGE_SPECS) {
     const src = byStage.get(spec.source);
     const tgt = byStage.get(spec.target);
     const targetStale =
@@ -743,7 +1031,7 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
       id: spec.id,
       source: spec.source,
       target: spec.target,
-      label: spec.label,
+      ...(spec.label ? { label: spec.label } : {}),
       data: {
         edgeType: spec.edgeType,
         track: spec.track,
@@ -754,7 +1042,7 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
 
   // Panel surfaces — hub_ready hydrates into operator rail/overlay boards (D-161).
   const panelSurfaces = hydration?.panelSurfaces ?? [];
-  const panelX = 2520;
+  const panelX = 3600;
   const panelGap = 56;
   const panelStartY = 40;
   panelSurfaces.forEach((surf, i) => {

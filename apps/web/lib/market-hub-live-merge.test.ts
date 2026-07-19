@@ -109,6 +109,7 @@ describe('mergeMarketHubLive', () => {
         asOfIso: '2026-07-18T12:01:00.000Z',
         version: 2,
         series: [{ t: '2026-07-18T12:01:00.000Z', equityCents: '200', positionMarkCents: null }],
+        sourceChips: [{ id: 'ledger', label: 'ledger', class: 'system' }],
       },
       positions: [
         {
@@ -158,6 +159,7 @@ describe('mergeMarketHubLive', () => {
       liveSources: [],
       librarySources: [],
       processingFlows: [],
+      processSteps: [],
       stageOps: [
         { stageId: 'narrative', operation: 'book↔tape', amount: '1 held' },
         { stageId: 'hub_ready', operation: 'project hub', amount: 'src' },

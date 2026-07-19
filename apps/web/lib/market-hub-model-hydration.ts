@@ -18,6 +18,8 @@ import { libraries, libraryConcepts, modules } from '@hftr/db/schema';
 import {
   buildLibraryProcessingFlows,
   buildLiveProcessingFlows,
+  buildProcessStepsFromFlows,
+  buildSharedCompoundProcessSteps,
 } from '@/lib/market-hub-processing-flows';
 
 const INTERNAL_SOURCE_KINDS = new Set<string>(['catalog', 'library', 'operator']);
@@ -322,10 +324,26 @@ export async function projectMarketHubModelHydration(opts: {
     ),
   ].slice(0, 64);
 
+  const processSteps = [
+    ...buildProcessStepsFromFlows(processingFlows),
+    ...buildSharedCompoundProcessSteps({
+      liveReady,
+      liveTotal: liveSources.length,
+      moversItemCount,
+      newsItemCount,
+      watchlistCount,
+      positionCount,
+      admittedConcepts,
+      usedLiveMarks,
+      syntheticMarks,
+    }),
+  ].slice(0, 128);
+
   return {
     liveSources,
     librarySources,
     processingFlows,
+    processSteps,
     stageOps,
     totals: {
       liveReady,

@@ -1655,6 +1655,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   equity/positions surfaces via `livePatchedAt` without bumping `asOfIso` (panel-only pulse).
   Extends D-160. Docs: ui-spec §4, data-model, synthesis hub design. **Status: implemented.**
 
+- **D-162 (Market posture Model route-granular process nodes, 2026-07-19):** Replace generic
+  adapter→stage fan-out with **route-specific process chains** (news_headline, bars_ohlc,
+  macro_context, library_jaccard, …) and **shared compound bridges** (providers_entitle,
+  universe_build, compound_rank, verify_promote, sector_bulletin, daily_phase,
+  narrative_compose). Hub projects `processSteps[]` + `processingFlows[].route` /
+  `processStepIds`. Stage IDs remain synthesis milestones for run polling; granular nodes are
+  Model hydration/visualization only. Extends D-156 / D-161. Docs: ui-spec §4, data-model,
+  synthesis hub design. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

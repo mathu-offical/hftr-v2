@@ -66,6 +66,8 @@ function roleLabel(role: PostureAlgoNodeData['nodeRole']): string {
       return 'LIVE';
     case 'adapter':
       return 'ADAPT';
+    case 'process':
+      return 'PROC';
     case 'library_source':
       return 'LIB';
     case 'stage':
@@ -166,7 +168,7 @@ function styleModelEdge(edge: {
   id: string;
   source: string;
   target: string;
-  label?: string;
+  label?: string | undefined;
   data: PostureAlgoEdgeData;
 }): LiveEdge {
   const { edgeType, activation, status, track } = edge.data;
@@ -256,6 +258,14 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
           title={data.analysisRoles.join(' · ')}
         >
           {data.analysisRoles.join(' · ')}
+        </p>
+      ) : null}
+      {data.nodeRole === 'process' && data.processRoute ? (
+        <p
+          className="mt-0.5 truncate font-mono text-[8px] text-[var(--color-ink-dim)]"
+          title={data.processRoute}
+        >
+          {data.processRoute.replace(/_/g, ' ')}
         </p>
       ) : null}
       <Handle type="source" position={Position.Right} className="!h-1.5 !w-1.5 !bg-[var(--color-ink-faint)]" />
@@ -350,7 +360,7 @@ function NodeInspector(props: {
   if (!props.node) {
     return (
       <p className="text-[10px] text-[var(--color-ink-faint)]">
-        Select a live source, adapter, library, stage, or panel surface.
+        Select a live source, adapter, process step, library, stage, or panel surface.
       </p>
     );
   }
@@ -373,6 +383,12 @@ function NodeInspector(props: {
           {n.pipelines && n.pipelines.length > 0
             ? ` · pipelines ${n.pipelines.join('+')}`
             : ''}
+        </p>
+      ) : null}
+      {n.nodeRole === 'process' ? (
+        <p className="text-[10px] text-[var(--color-ink)]">
+          Route {n.processRoute?.replace(/_/g, ' ') ?? '—'}
+          {n.processStepId ? ` · ${n.processStepId}` : ''}
         </p>
       ) : null}
       {n.nodeRole === 'panel_surface' ? (
@@ -534,6 +550,9 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
           {hydration ? ` · ${hydration.totals.admittedConcepts} admitted` : ''}
           {hydration && hydration.processingFlows.length > 0
             ? ` · ${hydration.processingFlows.length} flows`
+            : ''}
+          {hydration && (hydration.processSteps?.length ?? 0) > 0
+            ? ` · ${hydration.processSteps.length} steps`
             : ''}
           {hydration && (hydration.panelSurfaces?.length ?? 0) > 0
             ? ` · ${hydration.panelSurfaces.length} panels`

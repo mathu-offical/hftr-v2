@@ -1,5 +1,12 @@
 import type { APIRequestContext } from '@playwright/test';
-import { createCompanyApiBody, e2eCompanyName, expect, test } from './fixtures';
+import {
+  createCompanyApiBody,
+  e2eCompanyName,
+  expect,
+  test,
+  waitForFilledActivity,
+  type PaperActivityResponse,
+} from './fixtures';
 
 type CompanyModule = {
   id: string;
@@ -18,20 +25,6 @@ type CompanyResponse = {
   modules: CompanyModule[];
 };
 
-type ActivityResponse = {
-  traces: Array<{
-    id: string;
-    companyId: string;
-    moduleId: string;
-    venue: string;
-    mode: string;
-    outcome: string;
-    fills: Array<{ qtyInt: string }>;
-    simulatorGapTags: string[];
-    verification: { result: string } | null;
-  }>;
-};
-
 async function createPaperCompany(
   request: APIRequestContext,
   createdCompanyIds: string[],
@@ -41,13 +34,19 @@ async function createPaperCompany(
     data: createCompanyApiBody(e2eCompanyName(suffix), {
       philosophyPrompt: `E2E ${suffix} paper-only intent alignment.`,
     }),
+    timeout: 180_000,
   });
-  expect(create.ok()).toBeTruthy();
+  expect(create.ok(), `POST company failed: ${create.status()} ${await create.text()}`).toBeTruthy();
   const created = (await create.json()) as { company: { id: string } };
   createdCompanyIds.push(created.company.id);
 
-  const detail = await request.get(`/api/companies/${created.company.id}`);
-  expect(detail.ok()).toBeTruthy();
+  const detail = await request.get(`/api/companies/${created.company.id}`, {
+    timeout: 180_000,
+  });
+  expect(
+    detail.ok(),
+    `GET company detail failed: ${detail.status()} ${await detail.text()}`,
+  ).toBeTruthy();
   return (await detail.json()) as CompanyResponse;
 }
 
@@ -135,30 +134,9 @@ async function promoteUpTrend(
   expect(promote.ok()).toBeTruthy();
 }
 
-async function waitForFilledActivity(
-  request: APIRequestContext,
-  companyId: string,
-): Promise<ActivityResponse> {
-  await expect
-    .poll(
-      async () => {
-        const response = await request.get(`/api/companies/${companyId}/activity`);
-        if (!response.ok()) return null;
-        const activity = (await response.json()) as ActivityResponse;
-        return activity.traces.find((trace) => trace.outcome === 'filled') ?? null;
-      },
-      { timeout: 120_000 },
-    )
-    .not.toBeNull();
-
-  const response = await request.get(`/api/companies/${companyId}/activity`);
-  expect(response.ok()).toBeTruthy();
-  return (await response.json()) as ActivityResponse;
-}
-
 test.describe('Paper intent alignment', () => {
-  // Multi-company promote/dispatch cohort can exceed the default 30s under Next compile.
-  test.setTimeout(180_000);
+  // Neon + cold Next + multi-company promote/drain routinely exceeds 4 minutes locally.
+  test.setTimeout(600_000);
 
   test('persists philosophy axes and keeps live trading fail-closed', async ({
     page,
@@ -168,24 +146,33 @@ test.describe('Paper intent alignment', () => {
     const company = await createPaperCompany(request, createdCompanyIds, 'philosophy-ui');
 
     await page.goto(`/companies/${company.company.id}`);
-    await page.getByRole('button', { name: 'Company ▾' }).click();
-    await page.getByRole('button', { name: 'Philosophy', exact: true }).click();
+    await expect(page.getByTestId('company-profile-toggle')).toBeVisible({ timeout: 60_000 });
+    await page.getByTestId('company-profile-toggle').click();
+    const drawer = page.getByTestId('company-top-drawer');
+    await expect(drawer).toBeVisible();
+    await drawer.locator('nav[aria-label="Company sections"] button', {
+      hasText: /philosophy/i,
+    }).click();
 
-    const riskAppetite = page.getByRole('combobox', { name: /Risk appetite/ });
+    const riskAppetite = drawer.getByRole('combobox', { name: /Risk appetite/i });
     await riskAppetite.selectOption('max');
     const saveResponse = page.waitForResponse(
       (response) =>
         response.url().endsWith(`/api/companies/${company.company.id}`) &&
         response.request().method() === 'PATCH',
     );
-    await page.getByRole('button', { name: 'Save philosophy' }).click();
+    await drawer.getByRole('button', { name: /Save philosophy/i }).click();
     expect((await saveResponse).ok()).toBeTruthy();
-    await expect(page.getByText(/Philosophy saved/)).toBeVisible();
+    await expect(drawer.getByText(/Philosophy saved/i)).toBeVisible();
 
     await page.reload();
-    await page.getByRole('button', { name: 'Company ▾' }).click();
-    await page.getByRole('button', { name: 'Philosophy', exact: true }).click();
-    await expect(page.getByRole('combobox', { name: /Risk appetite/ })).toHaveValue('max');
+    await expect(page.getByTestId('company-profile-toggle')).toBeVisible({ timeout: 60_000 });
+    await page.getByTestId('company-profile-toggle').click();
+    await expect(drawer).toBeVisible();
+    await drawer.locator('nav[aria-label="Company sections"] button', {
+      hasText: /philosophy/i,
+    }).click();
+    await expect(drawer.getByRole('combobox', { name: /Risk appetite/i })).toHaveValue('max');
 
     await page.getByRole('button', { name: 'Live trading (gated)' }).click();
     await expect(page.getByText('Live trading is gated.')).toBeVisible();
@@ -303,8 +290,9 @@ test.describe('Paper intent alignment', () => {
     expect(blockedSell.ok()).toBeTruthy();
     await expect
       .poll(async () => {
+        await request.post('/api/queue/drain').catch(() => null);
         const response = await request.get(`/api/companies/${aggressive.company.id}/activity`);
-        const activity = (await response.json()) as ActivityResponse;
+        const activity = (await response.json()) as PaperActivityResponse;
         return activity.traces.find((trace) => trace.outcome === 'blocked') ?? null;
       })
       .toMatchObject({

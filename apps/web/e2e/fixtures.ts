@@ -89,6 +89,50 @@ export function createCompanyApiBody(
   };
 }
 
+/** Activity shape used by paper promote → fill polls. */
+export type PaperActivityResponse = {
+  traces: Array<{
+    id?: string;
+    companyId?: string;
+    moduleId?: string;
+    venue: string;
+    mode: string;
+    outcome: string;
+    fills: Array<{ qtyInt: string }>;
+    simulatorGapTags?: string[];
+    verification?: { result: string } | null;
+  }>;
+};
+
+/**
+ * Poll activity until a filled paper trace appears.
+ * Re-drains the queue each tick so time-spaced POV child-slice jobs (D-129)
+ * can complete when `run_after` elapses (DEV_AUTH_BYPASS POST /api/queue/drain).
+ */
+export async function waitForFilledActivity(
+  request: APIRequestContext,
+  companyId: string,
+  options?: { timeoutMs?: number },
+): Promise<PaperActivityResponse> {
+  const timeoutMs = options?.timeoutMs ?? 300_000;
+  await expect
+    .poll(
+      async () => {
+        await request.post('/api/queue/drain').catch(() => null);
+        const response = await request.get(`/api/companies/${companyId}/activity`);
+        if (!response.ok()) return null;
+        const activity = (await response.json()) as PaperActivityResponse;
+        return activity.traces.find((trace) => trace.outcome === 'filled') ?? null;
+      },
+      { timeout: timeoutMs, intervals: [500, 1_000, 2_000] },
+    )
+    .not.toBeNull();
+
+  const response = await request.get(`/api/companies/${companyId}/activity`);
+  expect(response.ok()).toBeTruthy();
+  return (await response.json()) as PaperActivityResponse;
+}
+
 type CompanyFixtures = {
   createdCompanyIds: string[];
 };

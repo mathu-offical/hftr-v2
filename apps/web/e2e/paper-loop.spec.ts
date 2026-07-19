@@ -1,20 +1,17 @@
 import type { APIRequestContext } from '@playwright/test';
-import { createCompanyApiBody, e2eCompanyName, expect, test } from './fixtures';
+import {
+  createCompanyApiBody,
+  e2eCompanyName,
+  expect,
+  test,
+  waitForFilledActivity,
+} from './fixtures';
 
 type CompanyModule = { id: string; type: string; status: string };
 
 type CompanyResponse = {
   company: { id: string };
   modules: CompanyModule[];
-};
-
-type ActivityResponse = {
-  traces: Array<{
-    outcome: string;
-    venue: string;
-    mode: string;
-    fills: Array<{ qtyInt: string }>;
-  }>;
 };
 
 async function createPaperCompany(
@@ -25,12 +22,15 @@ async function createPaperCompany(
     data: createCompanyApiBody(e2eCompanyName('paper-loop'), {
       philosophyPrompt: 'E2E flow 3 — full paper promote to fill.',
     }),
+    timeout: 180_000,
   });
-  expect(create.ok()).toBeTruthy();
+  expect(create.ok(), `POST company failed: ${create.status()} ${await create.text()}`).toBeTruthy();
   const created = (await create.json()) as { company: { id: string } };
   createdCompanyIds.push(created.company.id);
-  const detail = await request.get(`/api/companies/${created.company.id}`);
-  expect(detail.ok()).toBeTruthy();
+  const detail = await request.get(`/api/companies/${created.company.id}`, {
+    timeout: 180_000,
+  });
+  expect(detail.ok(), `GET company detail failed: ${detail.status()}`).toBeTruthy();
   return (await detail.json()) as CompanyResponse;
 }
 
@@ -97,29 +97,8 @@ async function promoteUpTrend(
   expect(promote.ok()).toBeTruthy();
 }
 
-async function waitForFilledActivity(
-  request: APIRequestContext,
-  companyId: string,
-): Promise<ActivityResponse> {
-  await expect
-    .poll(
-      async () => {
-        const response = await request.get(`/api/companies/${companyId}/activity`);
-        if (!response.ok()) return null;
-        const activity = (await response.json()) as ActivityResponse;
-        return activity.traces.find((t) => t.outcome === 'filled') ?? null;
-      },
-      { timeout: 30_000 },
-    )
-    .not.toBeNull();
-
-  const response = await request.get(`/api/companies/${companyId}/activity`);
-  expect(response.ok()).toBeTruthy();
-  return (await response.json()) as ActivityResponse;
-}
-
 test.describe('Paper trading loop (flow 3)', () => {
-  test.setTimeout(90_000);
+  test.setTimeout(600_000);
 
   test('promote AAPL through paper_sim and surfaces fill in panels', async ({
     page,

@@ -416,7 +416,14 @@ export const MarketHubModelProcessingFlow = z.object({
   analysisRoles: z.array(z.string().max(40)).max(8).default([]),
   operation: z.string().max(80),
   amount: z.string().max(40),
-  /** Pipeline stages this flow feeds. */
+  /**
+   * Route-specific process chain this adapter owns (D-162).
+   * e.g. news_headline, bars_ohlc — granular steps live on processSteps[].
+   */
+  route: z.string().max(40).optional(),
+  /** Ordered process step ids for this flow (D-162). */
+  processStepIds: z.array(z.string().max(80)).max(12).default([]),
+  /** Pipeline stages this flow feeds (milestones after route steps). */
   targetStages: z
     .array(
       z.enum([
@@ -445,6 +452,50 @@ export const MarketHubModelProcessingFlow = z.object({
   contributed: z.boolean().default(false),
 });
 export type MarketHubModelProcessingFlow = z.infer<typeof MarketHubModelProcessingFlow>;
+
+/**
+ * Granular route process step for the synthesis Model (D-162).
+ * Replaces generic gather/rs/rank blobs with route-specific processing nodes.
+ */
+export const MarketHubModelProcessStep = z.object({
+  /** Stable id (e.g. gdelt_news:tickers, compound:rank_sort). */
+  id: z.string().max(80),
+  /** Route family (news_headline, bars_ohlc, universe_build, …). */
+  route: z.string().max(40),
+  label: z.string().max(120),
+  operation: z.string().max(80),
+  amount: z.string().max(40),
+  analysisRole: z.string().max(40),
+  sortOrder: z.number().int().nonnegative(),
+  /** Owning live kind or library:{id} or "shared". */
+  kind: z.string().max(80),
+  pipelines: z.array(z.enum(['movers', 'sector', 'daily', 'compose'])).max(4),
+  /** Milestone stages this step ultimately feeds. */
+  feedStages: z
+    .array(
+      z.enum([
+        'providers',
+        'gather',
+        'thresholds',
+        'defaults',
+        'universe',
+        'rs',
+        'rank',
+        'verify',
+        'seal_movers',
+        'sector',
+        'daily',
+        'narrative',
+        'hub_ready',
+      ]),
+    )
+    .max(8)
+    .default([]),
+  status: z
+    .enum(['ready', 'missing_key', 'stub', 'researched', 'public', 'idle'])
+    .default('idle'),
+});
+export type MarketHubModelProcessStep = z.infer<typeof MarketHubModelProcessStep>;
 
 /**
  * Operator panel surface hydrated from synthesis / hub boards (D-161).
@@ -494,6 +545,11 @@ export const MarketHubModelHydration = z.object({
   librarySources: z.array(MarketHubModelLibrarySource).max(64).default([]),
   /** Per-service adapter → analysis stage flows (D-156). */
   processingFlows: z.array(MarketHubModelProcessingFlow).max(64).default([]),
+  /**
+   * Route-granular process steps (D-162) — news/bars/macro/library/compound
+   * chains, not generic gather/rs/rank blobs.
+   */
+  processSteps: z.array(MarketHubModelProcessStep).max(128).default([]),
   stageOps: z.array(MarketHubModelStageOp).max(32).default([]),
   totals: z.object({
     liveReady: z.number().int().nonnegative(),

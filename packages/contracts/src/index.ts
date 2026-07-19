@@ -36,6 +36,7 @@ export * from './money';
 export * from './engines';
 export * from './process-layers';
 export * from './canvas-layout';
+export * from './simulation-mimic';
 export * from './assistant';
 export * from './assistant-edits';
 export * from './simulations';

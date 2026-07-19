@@ -124,7 +124,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     modules: [
       {
         type: 'research',
-        name: 'Session Desk Research',
+        name: 'Desk specialty research (internal)',
         config: {
           topicScope: 'pending_operator_scope',
           researchSubtype: 'specialty_desk',
@@ -181,6 +181,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           strategyFamilies: ['strat-001', 'strat-002', 'strat-005'],
           exitTimelineDays: 1,
           cadenceMinutes: 5,
+          executionBinding: { routingMode: 'funds_only' },
         },
         position: { x: 1380, y: 276 },
       },
@@ -339,7 +340,15 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         alsoTargets: [
           { moduleIndex: 1, configKey: 'topicScope' },
           { moduleIndex: 2, configKey: 'topicScope' },
+          { moduleIndex: 3, configKey: 'focus' },
         ],
+      },
+      {
+        key: 'focus',
+        label: 'Trend focus',
+        kind: 'text',
+        placeholder: 'e.g. semiconductors and AI infrastructure',
+        target: { moduleIndex: 3, configKey: 'focus' },
       },
     ],
   },
@@ -355,7 +364,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     modules: [
       {
         type: 'research',
-        name: 'Crypto Regime Research',
+        name: 'Crypto context research (internal)',
         config: {
           topicScope: 'pending_operator_scope',
           researchSubtype: 'crypto_onchain_context',
@@ -412,6 +421,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           strategyFamilies: ['strat-001', 'strat-002', 'strat-005'],
           exitTimelineDays: 3,
           cadenceMinutes: 5,
+          executionBinding: { routingMode: 'funds_only' },
         },
         position: { x: 820, y: 500 },
       },
@@ -500,11 +510,13 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     category: 'prediction',
     description:
       'Event-probability trading on Kalshi demo — research, evidence, Kalshi feed, trend scanner, and limit execution.',
-    available: true,
+    available: false,
+    unavailableReason:
+      'Requires seeded prediction-market strategy families in seeded-strategy-catalog; none ship yet.',
     modules: [
       {
         type: 'research',
-        name: 'Event Probability Research',
+        name: 'Prediction niche research (internal)',
         config: {
           topicScope: 'pending_operator_scope',
           researchSubtype: 'prediction_niche',
@@ -561,6 +573,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           strategyFamilies: [],
           exitTimelineDays: 7,
           cadenceMinutes: 15,
+          executionBinding: { routingMode: 'funds_only' },
         },
         position: { x: 820, y: 500 },
       },
@@ -646,7 +659,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     modules: [
       {
         type: 'research',
-        name: 'Fundamentals Research',
+        name: 'Filings fundamentals research (internal)',
         config: {
           topicScope: 'pending_operator_scope',
           researchSubtype: 'external_filings',
@@ -657,7 +670,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'research',
-        name: 'Event Catalyst Research',
+        name: 'Event catalyst research (internal)',
         config: {
           topicScope: 'pending_operator_scope',
           researchSubtype: 'event_catalyst',
@@ -715,6 +728,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           strategyFamilies: ['strat-003'],
           exitTimelineDays: 180,
           cadenceMinutes: 60,
+          executionBinding: { routingMode: 'funds_only' },
         },
         position: { x: 1380, y: 276 },
       },
@@ -828,7 +842,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'analyzer',
         name: 'Web Fabric Concat',
-        config: { emitMode: 'to_desk_stream' },
+        config: { emitMode: 'to_desk_stream', streamDescriptor: 'web_fabric_concat' },
         position: { x: 920, y: 140 },
       },
     ],
@@ -893,7 +907,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'analyzer',
         name: 'Filings Fundamentals Concat',
-        config: { emitMode: 'to_desk_stream' },
+        config: { emitMode: 'to_desk_stream', streamDescriptor: 'filings_fundamentals_concat' },
         position: { x: 920, y: 140 },
       },
     ],
@@ -1022,7 +1036,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'analyzer',
         name: 'Event Catalyst Concat',
-        config: { emitMode: 'to_desk_stream' },
+        config: { emitMode: 'to_desk_stream', streamDescriptor: 'event_catalyst_concat' },
         position: { x: 920, y: 140 },
       },
     ],
@@ -1118,7 +1132,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'analyzer',
         name: 'Regime Lab Concat',
-        config: { emitMode: 'to_desk_stream' },
+        config: { emitMode: 'to_desk_stream', streamDescriptor: 'regime_lab_concat' },
         position: { x: 1380, y: 276 },
       },
     ],
@@ -1227,7 +1241,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'analyzer',
         name: 'Crypto Context Concat',
-        config: { emitMode: 'to_desk_stream' },
+        config: { emitMode: 'to_desk_stream', streamDescriptor: 'crypto_context_concat' },
         position: { x: 1380, y: 276 },
       },
     ],
@@ -1336,7 +1350,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'analyzer',
         name: 'Prediction Niche Concat',
-        config: { emitMode: 'to_desk_stream' },
+        config: { emitMode: 'to_desk_stream', streamDescriptor: 'prediction_niche_concat' },
         position: { x: 1380, y: 276 },
       },
     ],
@@ -1363,6 +1377,13 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           { moduleIndex: 2, configKey: 'topicScope' },
           { moduleIndex: 3, configKey: 'topicScope' },
         ],
+      },
+      {
+        key: 'focus',
+        label: 'Scanner focus',
+        kind: 'text',
+        placeholder: 'e.g. high-liquidity political markets',
+        target: { moduleIndex: 5, configKey: 'focus' },
       },
     ],
   },
@@ -1428,7 +1449,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'analyzer',
         name: 'Desk Aligned Concat',
-        config: { emitMode: 'to_desk_stream' },
+        config: { emitMode: 'to_desk_stream', streamDescriptor: 'desk_aligned_concat' },
         position: { x: 1380, y: 276 },
       },
     ],
@@ -1452,6 +1473,13 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           { moduleIndex: 1, configKey: 'topicScope' },
           { moduleIndex: 2, configKey: 'topicScope' },
         ],
+      },
+      {
+        key: 'focus',
+        label: 'Session focus',
+        kind: 'text',
+        placeholder: 'e.g. day-trade large-cap tech momentum',
+        target: { moduleIndex: 4, configKey: 'focus' },
       },
     ],
   },
@@ -1525,7 +1553,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'analyzer',
         name: 'Multi-curator Concat',
-        config: { emitMode: 'to_desk_stream' },
+        config: { emitMode: 'to_desk_stream', streamDescriptor: 'multi_curator_concat' },
         position: { x: 920, y: 700 },
       },
     ],
@@ -1631,7 +1659,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       {
         type: 'analyzer',
         name: 'Microstructure Lab Concat',
-        config: { emitMode: 'to_desk_stream' },
+        config: { emitMode: 'to_desk_stream', streamDescriptor: 'microstructure_lab_concat' },
         position: { x: 1380, y: 276 },
       },
     ],
@@ -1678,7 +1706,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     modules: [
       {
         type: 'research',
-        name: 'Microstructure Desk Research',
+        name: 'Microstructure research (internal)',
         config: {
           topicScope: 'pending_operator_scope',
           researchSubtype: 'microstructure_context',
@@ -1737,6 +1765,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           strategyFamilies: ['strat-007'],
           exitTimelineDays: 0,
           cadenceMinutes: 1,
+          executionBinding: { routingMode: 'funds_only' },
         },
         position: { x: 1380, y: 276 },
       },
@@ -1854,8 +1883,9 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         type: 'trading',
         name: 'Gate Spread Execution',
         config: {
-          subtype: 'day_trading',
-          strategyFamilies: ['strat-001', 'strat-002', 'strat-003'],
+          subtype: 'day',
+          // Day-horizon spread: strat-001/002/005. HFT parent should prefer strat-007 via mimicParent.
+          strategyFamilies: ['strat-001', 'strat-002', 'strat-005'],
           exitTimelineDays: 1,
           cadenceMinutes: 5,
           executionBinding: { routingMode: 'funds_only' },
@@ -1953,7 +1983,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         type: 'trading',
         name: 'Training Paper Execution',
         config: {
-          subtype: 'day_trading',
+          subtype: 'day',
           strategyFamilies: ['strat-001'],
           exitTimelineDays: 1,
           cadenceMinutes: 10,
@@ -2062,7 +2092,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         type: 'trading',
         name: 'Adhoc Paper Execution',
         config: {
-          subtype: 'day_trading',
+          subtype: 'day',
           strategyFamilies: ['strat-001', 'strat-002'],
           exitTimelineDays: 2,
           cadenceMinutes: 10,
@@ -2189,6 +2219,10 @@ const EXECUTION_CATEGORIES = new Set<EngineTemplate['category']>([
  * When an execution ENGINE is added, also seed these research ENGINE templates
  * if not already present (D-042 specialty packs + D-043 UX + D-153 defaults).
  * Packs are use-case-specific to the execution engine they support.
+ *
+ * D-191 dual path: every execution template also ships inline specialty research
+ * (internal desk gather). Child packs here feed the Engine Data Hub; overlapping
+ * researchSubtype values between inline modules and packs are intentional.
  */
 export const EXECUTION_ENGINE_RESEARCH_DEPENDENCIES: Readonly<Record<string, readonly string[]>> = {
   /** Regime/macro lab + session specialty desk feeder for intraday paper desks. */
@@ -2379,7 +2413,7 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
     modules: [
       {
         type: 'research',
-        name: 'Session Desk Research',
+        name: 'Desk specialty research (internal)',
         config: {
           topicScope: 'pending_operator_scope',
           researchSubtype: 'specialty_desk',

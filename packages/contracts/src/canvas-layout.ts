@@ -8,6 +8,7 @@ import {
   MODULE_LANE_ROW,
 } from './modules';
 import { isMathToolAttachment } from './engines';
+import type { SimulationEngineBinding } from './paper-engine';
 import {
   engineCreateSection,
   getEngineTemplateById,
@@ -132,6 +133,8 @@ export interface LayoutEngine {
   templateId?: string;
   /** Engine Data Hub module id owned by this execution engine (D-140 / D-159). */
   dataHubModuleId?: string | null;
+  /** D-189: persisted binding for simulation ENGINE family placement. */
+  simulationBinding?: SimulationEngineBinding;
 }
 
 export interface LayoutResult {
@@ -586,14 +589,27 @@ export function layoutEngineGroup(
   };
 }
 
-type EngineFamily = {
+export type EngineFamily = {
   execution: LayoutEngine;
   researchDeps: LayoutEngine[];
+  /** Linked simulation children (D-189): pre gate column, post training column. */
+  simChildren: { pre: LayoutEngine[]; post: LayoutEngine[] };
 };
 
+function simulationPlacementForEngine(
+  engine: LayoutEngine,
+): 'pre' | 'post' | null {
+  const binding = engine.simulationBinding;
+  if (!binding || binding.role === 'adhoc' || !binding.parentExecutionEngineId) {
+    return null;
+  }
+  if (binding.placement) return binding.placement;
+  return binding.role === 'gate' ? 'pre' : binding.role === 'training' ? 'post' : null;
+}
+
 /**
- * Group execution engines with their research dependency packs (D-159).
- * Orphan research engines are returned separately for the left column.
+ * Group execution engines with research dependency packs and linked sim children (D-159 / D-189).
+ * Orphans: unclaimed research, adhoc sims, and sims without a matching parent execution.
  */
 export function buildCanvasEngineFamilies(
   engines: readonly LayoutEngine[],
@@ -628,7 +644,20 @@ export function buildCanvasEngineFamilies(
       }
     }
     claimed.add(engine.id);
-    families.push({ execution: engine, researchDeps });
+    families.push({ execution: engine, researchDeps, simChildren: { pre: [], post: [] } });
+  }
+
+  const familyByExecId = new Map(families.map((family) => [family.execution.id, family]));
+
+  for (const engine of engines) {
+    if (claimed.has(engine.id)) continue;
+    const placement = simulationPlacementForEngine(engine);
+    const parentId = engine.simulationBinding?.parentExecutionEngineId;
+    if (!placement || !parentId) continue;
+    const family = familyByExecId.get(parentId);
+    if (!family) continue;
+    family.simChildren[placement].push(engine);
+    claimed.add(engine.id);
   }
 
   const orphans = engines.filter((engine) => !claimed.has(engine.id));
@@ -757,7 +786,40 @@ export function layoutCanvas(
       execOriginX = sharedExecColumnX ?? defaultExecX;
       if (sharedExecColumnX == null) sharedExecColumnX = execOriginX;
     }
+    let preColumnBottom = familyTop;
+    let postColumnBottom = familyTop;
+    let preColumnRight = depsRight;
+    if (family.simChildren.pre.length > 0) {
+      let preCursorY = familyTop;
+      const preOriginX = Math.max(
+        depsRight + CANVAS_LAYOUT.topLevelGutter,
+        execOriginX - CANVAS_LAYOUT.researchToExecGap,
+      );
+      for (const sim of family.simChildren.pre) {
+        const bounds = placeEngineAt(sim, { x: preOriginX, y: preCursorY });
+        preColumnRight = Math.max(preColumnRight, bounds.x + bounds.width);
+        preCursorY = bounds.y + bounds.height + CANVAS_LAYOUT.topLevelGutter;
+        preColumnBottom = Math.max(preColumnBottom, bounds.y + bounds.height);
+        maxFamilyRight = Math.max(maxFamilyRight, bounds.x + bounds.width);
+      }
+      if (preColumnRight + CANVAS_LAYOUT.topLevelGutter > execOriginX) {
+        execOriginX = preColumnRight + CANVAS_LAYOUT.topLevelGutter;
+        sharedExecColumnX = execOriginX;
+      }
+    }
+
     const execBounds = placeEngineAt(family.execution, { x: execOriginX, y: familyTop });
+
+    if (family.simChildren.post.length > 0) {
+      let postCursorY = familyTop;
+      const postOriginX = execBounds.x + execBounds.width + CANVAS_LAYOUT.topLevelGutter;
+      for (const sim of family.simChildren.post) {
+        const bounds = placeEngineAt(sim, { x: postOriginX, y: postCursorY });
+        postCursorY = bounds.y + bounds.height + CANVAS_LAYOUT.topLevelGutter;
+        postColumnBottom = Math.max(postColumnBottom, bounds.y + bounds.height);
+        maxFamilyRight = Math.max(maxFamilyRight, bounds.x + bounds.width);
+      }
+    }
 
     const hubId = family.execution.dataHubModuleId;
     if (hubId && modulesById.has(hubId)) {
@@ -768,6 +830,8 @@ export function layoutCanvas(
     const familyBottom = Math.max(
       depCursorY - CANVAS_LAYOUT.topLevelGutter,
       execBounds.y + execBounds.height,
+      preColumnBottom,
+      postColumnBottom,
       ...depBounds.map((b) => b.y + b.height),
     );
     cursorY = familyBottom + CANVAS_LAYOUT.topLevelGutter;

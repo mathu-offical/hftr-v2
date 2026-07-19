@@ -26,6 +26,12 @@ export const OptionAnchorKind = z.enum([
   'admission_mode',
   /** Analyzer terminal emit mode. */
   'emit_mode',
+  /** Live API feed class (iex_free / synthetic_sim / …). */
+  'feed_class',
+  /** Live API query policy mode (D-184). */
+  'query_policy',
+  /** Live API schedule policy (D-184). */
+  'schedule_policy',
 ]);
 export type OptionAnchorKind = z.infer<typeof OptionAnchorKind>;
 
@@ -174,6 +180,30 @@ function membersOfType(
   return members.filter((member) => member.type === type);
 }
 
+/**
+ * Resolve template_input owner from `target.moduleIndex` (D-191).
+ * Prefer index-aligned members when the full template set is present; otherwise
+ * pick the Nth member of that module type.
+ */
+export function ownerModuleIdForTemplateInput(
+  templateModules: readonly { type: string }[],
+  members: BuildOptionAnchorsInput['members'],
+  moduleIndex: number,
+): string | null {
+  const templateMod = templateModules[moduleIndex];
+  if (!templateMod) return null;
+  if (members.length === templateModules.length) {
+    const aligned = members[moduleIndex];
+    if (aligned && aligned.type === templateMod.type) return aligned.id;
+  }
+  let ordinal = 0;
+  for (let i = 0; i < moduleIndex; i++) {
+    if (templateModules[i]?.type === templateMod.type) ordinal += 1;
+  }
+  const ofType = membersOfType(members, templateMod.type);
+  return ofType[ordinal]?.id ?? ofType[0]?.id ?? null;
+}
+
 export function optionAnchorCatalogSlice(): {
   branchTypes: NonNullable<StrategyCatalog['decisionTreeBranchTaxonomy']>['branchTypes'];
   leverToolsByScope: NonNullable<StrategyCatalog['deterministicToolCatalog']>['leverToolsByScope'];
@@ -214,15 +244,23 @@ export function buildOptionAnchorsForEngine(
   const libraries = membersOfType(parsed.members, 'library');
   const trends = membersOfType(parsed.members, 'trend');
   const analyzers = membersOfType(parsed.members, 'analyzer');
+  const liveApis = membersOfType(parsed.members, 'live_api');
   const firstTrader = traders[0];
   const branchTypes = catalog.decisionTreeBranchTaxonomy?.branchTypes ?? [];
 
+  const hasPhilosophyInput = template.inputs.some((entry) =>
+    entry.key.toLowerCase().includes('philosophy'),
+  );
+
   for (const templateInput of template.inputs) {
     const catalogRef = templateInput.key;
-    const ownerForInput =
-      templateInput.key === 'topicScope' || templateInput.key === 'focus'
-        ? (researchers[0]?.id ?? traders[0]?.id ?? librarians[0]?.id ?? null)
-        : null;
+    // Philosophy is represented by philosophy_axis nodes — skip duplicate template_input.
+    if (catalogRef.toLowerCase().includes('philosophy')) continue;
+    const ownerForInput = ownerModuleIdForTemplateInput(
+      template.modules,
+      parsed.members,
+      templateInput.target.moduleIndex,
+    );
     pushAnchor({
       id: buildOptionAnchorId(parsed.engineId, 'template_input', catalogRef),
       kind: 'template_input',
@@ -612,9 +650,66 @@ export function buildOptionAnchorsForEngine(
     });
   }
 
-  // Strategic research levers (inspector-only) when research members exist
+  // ── Live API process anchors (D-184) ─────────────────────────────────────
+  for (const live of liveApis) {
+    const feed = readStringConfig(live.config, 'feedClass') ?? 'iex_free';
+    const feedId = buildOptionAnchorId(
+      parsed.engineId,
+      'feed_class',
+      `${live.id}/${feed}`,
+    );
+    pushAnchor({
+      id: feedId,
+      kind: 'feed_class',
+      catalogRef: `${live.id}/${feed}`,
+      label: humanizeToken(feed),
+      layer: 'execution',
+      parentAnchorId: null,
+      ownerModuleId: live.id,
+      ownerEngineId: parsed.engineId,
+    });
+    const queryPolicy =
+      readStringConfig(live.config, 'queryPolicy') ?? 'static_only';
+    pushAnchor({
+      id: buildOptionAnchorId(
+        parsed.engineId,
+        'query_policy',
+        `${live.id}/${queryPolicy}`,
+      ),
+      kind: 'query_policy',
+      catalogRef: `${live.id}/${queryPolicy}`,
+      label: humanizeToken(queryPolicy),
+      layer: 'tactical',
+      parentAnchorId: feedId,
+      ownerModuleId: live.id,
+      ownerEngineId: parsed.engineId,
+    });
+    const schedulePolicy =
+      readStringConfig(live.config, 'schedulePolicy') ?? 'module_poll';
+    pushAnchor({
+      id: buildOptionAnchorId(
+        parsed.engineId,
+        'schedule_policy',
+        `${live.id}/${schedulePolicy}`,
+      ),
+      kind: 'schedule_policy',
+      catalogRef: `${live.id}/${schedulePolicy}`,
+      label: humanizeToken(schedulePolicy),
+      layer: 'tactical',
+      parentAnchorId: feedId,
+      ownerModuleId: live.id,
+      ownerEngineId: parsed.engineId,
+    });
+  }
+
+  // Strategic research levers (inspector-only) — parent under first research discover branch
   if (researchers.length > 0) {
     const ownerId = researchers[0]!.id;
+    const discoverParentId = buildOptionAnchorId(
+      parsed.engineId,
+      'branch_role',
+      `${ownerId}/discover`,
+    );
     const strategicTools =
       catalog.deterministicToolCatalog?.leverToolsByScope?.strategic ?? [];
     for (const tool of strategicTools) {
@@ -622,12 +717,12 @@ export function buildOptionAnchorsForEngine(
       if (!bandRef || leverBandRefs.has(bandRef)) continue;
       leverBandRefs.add(bandRef);
       pushAnchor({
-        id: buildOptionAnchorId(parsed.engineId, 'lever_band', bandRef),
+        id: buildOptionAnchorId(parsed.engineId, 'lever_band', `${ownerId}/${bandRef}`),
         kind: 'lever_band',
         catalogRef: bandRef,
         label: humanizeToken(bandRef),
         layer: 'strategic',
-        parentAnchorId: null,
+        parentAnchorId: discoverParentId,
         ownerModuleId: ownerId,
         ownerEngineId: parsed.engineId,
         defaultPosition: 'typical',
@@ -635,9 +730,32 @@ export function buildOptionAnchorsForEngine(
     }
   }
 
-  const hasPhilosophyInput = template.inputs.some((entry) =>
-    entry.key.toLowerCase().includes('philosophy'),
-  );
+  // Training-scope levers (inspector-only) for simulation templates
+  const isSimulation = template.category === 'simulation';
+  if (isSimulation && firstTrader) {
+    const trainingTools =
+      catalog.deterministicToolCatalog?.researchAndTrainingTools?.filter(
+        (tool) => tool.scope === 'training',
+      ) ?? [];
+    for (const tool of trainingTools) {
+      pushAnchor({
+        id: buildOptionAnchorId(
+          parsed.engineId,
+          'lever_band',
+          `${firstTrader.id}/${tool.id}`,
+        ),
+        kind: 'lever_band',
+        catalogRef: tool.id,
+        label: humanizeToken(tool.id),
+        layer: 'policy',
+        parentAnchorId: null,
+        ownerModuleId: firstTrader.id,
+        ownerEngineId: parsed.engineId,
+        defaultPosition: 'typical',
+      });
+    }
+  }
+
   const isResearchHeavy =
     researchers.length > 0 ||
     template.category === 'research' ||
@@ -645,7 +763,11 @@ export function buildOptionAnchorsForEngine(
 
   if (hasPhilosophyInput || traders.length > 0 || isResearchHeavy) {
     for (const axis of PHILOSOPHY_AXIS_CATALOG) {
-      if (isResearchHeavy && !hasPhilosophyInput && traders.length === 0) {
+      // Research-only and simulation desks: keep the slim research axis set.
+      if (
+        (isResearchHeavy && !hasPhilosophyInput && traders.length === 0) ||
+        isSimulation
+      ) {
         if (!RESEARCH_PHILOSOPHY_AXIS_IDS.has(axis.id)) continue;
       }
       pushAnchor({
@@ -686,6 +808,9 @@ export function canvasVisibleOptionAnchors(
       anchor.kind === 'trend_posture' ||
       anchor.kind === 'cadence_band' ||
       anchor.kind === 'admission_mode' ||
-      anchor.kind === 'emit_mode',
+      anchor.kind === 'emit_mode' ||
+      anchor.kind === 'feed_class' ||
+      anchor.kind === 'query_policy' ||
+      anchor.kind === 'schedule_policy',
   );
 }

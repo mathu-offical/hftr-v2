@@ -17,6 +17,7 @@ import {
   type PortSlot,
 } from './port-channels';
 import { EngineExecutionBinding } from './paper-engine';
+import { LiveDataSourceWidgetKind } from './live-data-sources';
 
 /**
  * Company + module domain contracts (agent-docs/product/product-spec.md,
@@ -1079,14 +1080,65 @@ export const LEGACY_LIVE_API_VENUE_SOURCE_KIND: Partial<
   alpaca: 'alpaca_bars',
 };
 
+export const LiveApiQueryPolicy = z.enum([
+  'upstream_then_static',
+  'upstream_or_null',
+  'static_prefer_upstream',
+  'static_only',
+]);
+export type LiveApiQueryPolicy = z.infer<typeof LiveApiQueryPolicy>;
+
+export const LiveApiSchedulePolicy = z.enum(['module_poll', 'clock_bound', 'manual']);
+export type LiveApiSchedulePolicy = z.infer<typeof LiveApiSchedulePolicy>;
+
 export const LiveApiModuleConfig = z.object({
   sourceKind: ResearchSourceKind.optional(),
   venue: LiveApiVenue,
   instruments: z.array(z.string().min(1)).max(50),
   feedClass: z.string().default('iex_free'),
   pollSeconds: z.number().int().min(5).max(3600).default(60),
+  /** D-184: domain widget outputs (live_api emits widgets only). */
+  outputWidgetKinds: z.array(LiveDataSourceWidgetKind).min(1).default(['generic']),
+  /** D-184: how static vs upstream query wires resolve. */
+  queryPolicy: LiveApiQueryPolicy.default('static_only'),
+  staticQuery: z.string().max(2000).default(''),
+  /** D-184: schedule / clock binding policy. */
+  schedulePolicy: LiveApiSchedulePolicy.default('module_poll'),
+  scheduleRef: z.string().uuid().nullable().optional(),
 });
 
+/**
+ * Resolve the effective query string for a live_api module (D-184).
+ * Upstream query is optional graph artifact text — never a financial number.
+ */
+export function resolveLiveApiQuery(
+  config: z.infer<typeof LiveApiModuleConfig> | Record<string, unknown>,
+  upstreamQuery: string | null,
+): string | null {
+  const parsed = LiveApiModuleConfig.partial().safeParse(config);
+  const policy = parsed.success
+    ? (parsed.data.queryPolicy ?? 'static_only')
+    : 'static_only';
+  const staticQuery =
+    parsed.success && typeof parsed.data.staticQuery === 'string'
+      ? parsed.data.staticQuery.trim()
+      : '';
+  const upstream = upstreamQuery?.trim() || null;
+  switch (policy) {
+    case 'upstream_then_static':
+      return upstream ?? (staticQuery.length > 0 ? staticQuery : null);
+    case 'upstream_or_null':
+      return upstream;
+    case 'static_prefer_upstream':
+      return upstream ?? (staticQuery.length > 0 ? staticQuery : null);
+    case 'static_only':
+      return staticQuery.length > 0 ? staticQuery : null;
+    default: {
+      const _exhaustive: never = policy;
+      return _exhaustive;
+    }
+  }
+}
 /** PascalCase hydrator label for canvas identity (e.g. alpaca_bars → AlpacaBars). */
 export function humanizeResearchSourceKind(kind: ResearchSourceKindType): string {
   return kind
@@ -1623,6 +1675,8 @@ export const CreateCompanyExtraModule = z.object({
 });
 export type CreateCompanyExtraModule = z.infer<typeof CreateCompanyExtraModule>;
 
+import { ResearchLibraryBinding } from './research-library-binding';
+
 /**
  * ENGINE seed at company creation (D-043): at least one required.
  * Same shape as module-store insert (template inputs + shared setup).
@@ -1635,6 +1689,8 @@ export const CreateCompanyEngine = z.object({
   /** D-189: simulation child placement when seed is a linked sim ENGINE. */
   simulationPlacement: z.enum(['pre', 'post']).optional(),
   simulationRole: z.enum(['gate', 'training', 'adhoc']).optional(),
+  /** D-184 §1: auto research deps use attach_execution (parent resolved after exec insert). */
+  researchLibraryBinding: ResearchLibraryBinding.optional(),
 });
 export type CreateCompanyEngine = z.infer<typeof CreateCompanyEngine>;
 

@@ -57,6 +57,8 @@ import {
   LibraryModuleConfig,
   isEngineDataHubConfig,
   resolveLiveApiSourceKind,
+  resolveLiveApiQuery,
+  TradingSubtype,
 } from './modules';
 import {
   CLOCK_IN_MODULE_TYPES,
@@ -86,16 +88,22 @@ import {
   InsertEngineInput,
   isMathToolAttachment,
   mathCanAttachTo,
+  findParentExecutionForResearchPack,
+  resolveResearchLibraryBindingForInsert,
   splitAllocationValues,
   UpdateEngineInstanceInput,
   withDefaultEngineSetup,
   resolveEngineSetupFromCompany,
 } from './engines';
+import { ResearchLibraryBinding } from './research-library-binding';
 import {
   COMPANY_TEMPLATES,
+  DEFAULT_EXECUTION_SIM_COUNT,
   ENGINE_TEMPLATES,
   expandEngineSeedsWithResearchDeps,
+  expandEngineSeedsWithSimDeps,
   researchDependenciesForExecutionEngine,
+  simDependenciesForExecutionEngine,
   templateInputTargets,
 } from './templates';
 import {
@@ -104,6 +112,7 @@ import {
   LAYOUT_ROW_STEP,
   engineCanvasOffsetForOrigin,
   layoutCanvas,
+  buildCanvasEngineFamilies,
   layoutEngineGroup,
   layoutEngineTemplateAtOrigin,
   placeEngineTimeHubPosition,
@@ -114,6 +123,11 @@ import {
   rectsOverlap,
   translateLayoutResultToOrigin,
 } from './canvas-layout';
+import {
+  mimicParentEngineSetup,
+  mimicParentModuleConfigs,
+  shouldApplyMimicParent,
+} from './simulation-mimic';
 
 describe('env manifest', () => {
   it('matches .env.example exactly', () => {
@@ -722,15 +736,45 @@ describe('generated module names', () => {
         venue: 'alpaca',
         instruments: ['SPY'],
       }),
-    ).toMatchObject({ venue: 'alpaca', instruments: ['SPY'] });
+    ).toMatchObject({
+      venue: 'alpaca',
+      instruments: ['SPY'],
+      queryPolicy: 'static_only',
+      schedulePolicy: 'module_poll',
+      outputWidgetKinds: ['generic'],
+    });
 
     expect(
       LiveApiModuleConfig.parse({
         sourceKind: 'alpaca_bars',
         venue: 'alpaca',
         instruments: ['SPY'],
+        queryPolicy: 'upstream_then_static',
+        staticQuery: 'earnings',
+        outputWidgetKinds: ['headline', 'series'],
       }),
     ).toMatchObject({ sourceKind: 'alpaca_bars', venue: 'alpaca' });
+  });
+
+  it('resolveLiveApiQuery honors queryPolicy (D-184)', () => {
+    expect(
+      resolveLiveApiQuery(
+        { queryPolicy: 'static_only', staticQuery: 'desk' },
+        'upstream',
+      ),
+    ).toBe('desk');
+    expect(
+      resolveLiveApiQuery(
+        { queryPolicy: 'upstream_or_null', staticQuery: 'desk' },
+        null,
+      ),
+    ).toBeNull();
+    expect(
+      resolveLiveApiQuery(
+        { queryPolicy: 'upstream_then_static', staticQuery: 'desk' },
+        'up',
+      ),
+    ).toBe('up');
   });
 
   it('moduleFunctionLabel prefers hydrator sourceKind over venue for live_api', () => {
@@ -1289,6 +1333,48 @@ describe('engine instances (D-028)', () => {
     ).toMatchObject({ masterTopicSectors: ['energy'] });
     expect(DeleteEngineMode.parse('cascade')).toBe('cascade');
     expect(DeleteEngineMode.parse('ungroup')).toBe('ungroup');
+  });
+
+  it('parses research library binding on insert (D-184 §1)', () => {
+    const execId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const libId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    expect(
+      ResearchLibraryBinding.parse({
+        mode: 'attach_execution_hub',
+        parentExecutionEngineId: execId,
+      }),
+    ).toMatchObject({ mode: 'attach_execution_hub', parentExecutionEngineId: execId });
+    expect(
+      InsertEngineInput.parse({
+        templateId: 'research_market_regime_lab',
+        researchLibraryBinding: { mode: 'existing_library', libraryId: libId },
+      }),
+    ).toMatchObject({
+      researchLibraryBinding: { mode: 'existing_library', libraryId: libId },
+    });
+    expect(() =>
+      ResearchLibraryBinding.parse({ mode: 'existing_library' }),
+    ).toThrow();
+  });
+
+  it('resolves default research binding from execution deps (D-184 §1)', () => {
+    const execId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const existing = [{ id: execId, templateId: 'engine_day_trading' }];
+    expect(
+      findParentExecutionForResearchPack('research_market_regime_lab', existing)?.id,
+    ).toBe(execId);
+    expect(
+      resolveResearchLibraryBindingForInsert({
+        researchTemplateId: 'research_market_regime_lab',
+        existingEngines: existing,
+      }),
+    ).toEqual({ mode: 'attach_execution_hub', parentExecutionEngineId: execId });
+    expect(
+      resolveResearchLibraryBindingForInsert({
+        researchTemplateId: 'research_crypto_context',
+        existingEngines: [],
+      }),
+    ).toEqual({ mode: 'new_internal' });
   });
 
   it('allows Math multi-attach tool links to consumers', () => {
@@ -2369,6 +2455,151 @@ describe('canvas layout (D-033)', () => {
     expect(Math.abs(origin.y + CANVAS_LAYOUT.dataHubHeight / 2 - handleY)).toBeLessThan(8);
   });
 
+  it('claims linked sim children on execution families (D-189)', () => {
+    const execId = '00000000-0000-4000-8000-00000000e101';
+    const preSimId = '00000000-0000-4000-8000-00000000e201';
+    const postSimId = '00000000-0000-4000-8000-00000000e202';
+    const adhocSimId = '00000000-0000-4000-8000-00000000e203';
+    const engines = [
+      { id: execId, memberModuleIds: ['m-exec'], templateId: 'engine_day_trading' },
+      {
+        id: preSimId,
+        memberModuleIds: ['m-pre'],
+        templateId: 'sim_gate_strategy_spread',
+        simulationBinding: {
+          role: 'gate' as const,
+          placement: 'pre' as const,
+          parentExecutionEngineId: execId,
+          mimicParent: true,
+        },
+      },
+      {
+        id: postSimId,
+        memberModuleIds: ['m-post'],
+        templateId: 'sim_train_policy_replay',
+        simulationBinding: {
+          role: 'training' as const,
+          placement: 'post' as const,
+          parentExecutionEngineId: execId,
+          mimicParent: true,
+        },
+      },
+      {
+        id: adhocSimId,
+        memberModuleIds: ['m-adhoc'],
+        templateId: 'sim_adhoc_paper_desk',
+        simulationBinding: { role: 'adhoc' as const, mimicParent: false },
+      },
+    ];
+    const { families, orphans } = buildCanvasEngineFamilies(engines);
+    expect(families).toHaveLength(1);
+    expect(families[0]!.execution.id).toBe(execId);
+    expect(families[0]!.simChildren.pre.map((sim) => sim.id)).toEqual([preSimId]);
+    expect(families[0]!.simChildren.post.map((sim) => sim.id)).toEqual([postSimId]);
+    expect(orphans.map((sim) => sim.id)).toEqual([adhocSimId]);
+  });
+
+  it('places pre sim left of exec and post sim right of exec (D-189)', () => {
+    const execId = '00000000-0000-4000-8000-00000000e301';
+    const preSimId = '00000000-0000-4000-8000-00000000e302';
+    const postSimId = '00000000-0000-4000-8000-00000000e303';
+    const execMod = '00000000-0000-4000-8000-0000000000s1';
+    const preMod = '00000000-0000-4000-8000-0000000000s2';
+    const postMod = '00000000-0000-4000-8000-0000000000s3';
+    const modules = [
+      { ...mkModule(execMod, 'trading'), engineInstanceId: execId },
+      { ...mkModule(preMod, 'simulator'), engineInstanceId: preSimId },
+      { ...mkModule(postMod, 'simulator'), engineInstanceId: postSimId },
+    ];
+    const result = layoutCanvas(
+      [
+        {
+          id: execId,
+          memberModuleIds: [execMod],
+          templateId: 'engine_day_trading',
+        },
+        {
+          id: preSimId,
+          memberModuleIds: [preMod],
+          templateId: 'sim_gate_strategy_spread',
+          simulationBinding: {
+            role: 'gate',
+            placement: 'pre',
+            parentExecutionEngineId: execId,
+            mimicParent: true,
+          },
+        },
+        {
+          id: postSimId,
+          memberModuleIds: [postMod],
+          templateId: 'sim_train_policy_replay',
+          simulationBinding: {
+            role: 'training',
+            placement: 'post',
+            parentExecutionEngineId: execId,
+            mimicParent: true,
+          },
+        },
+      ],
+      modules,
+      [],
+      ENGINE_GROUP_PADDING,
+    );
+    const exec = result.engines.find((engine) => engine.id === execId)!;
+    const pre = result.engines.find((engine) => engine.id === preSimId)!;
+    const post = result.engines.find((engine) => engine.id === postSimId)!;
+    expect(pre.canvasBounds.x + pre.canvasBounds.width).toBeLessThanOrEqual(exec.canvasBounds.x);
+    expect(post.canvasBounds.x).toBeGreaterThanOrEqual(exec.canvasBounds.x + exec.canvasBounds.width);
+  });
+
+  it('mimicParent clones parent setup and module policy/strategy fields (D-189)', () => {
+    expect(
+      shouldApplyMimicParent({
+        role: 'gate',
+        placement: 'pre',
+        parentExecutionEngineId: '00000000-0000-4000-8000-00000000e001',
+        mimicParent: true,
+      }),
+    ).toBe(true);
+    expect(shouldApplyMimicParent({ role: 'adhoc', mimicParent: false })).toBe(false);
+
+    const mimicked = mimicParentEngineSetup(
+      {
+        setupSnapshot: {
+          topicSectors: ['tech'],
+          allocationMode: 'percentage',
+          allocationValue: '25',
+          targetExitLocal: '2026-12-31T16:00',
+        },
+        modules: [],
+      },
+      {
+        topicSectors: [],
+        allocationMode: 'amount',
+        allocationValue: '',
+        targetExitLocal: '',
+      },
+    );
+    expect(mimicked.topicSectors).toEqual(['tech']);
+    expect(mimicked.allocationValue).toBe('25');
+
+    const configs = mimicParentModuleConfigs(
+      [
+        {
+          type: 'trading',
+          config: { strategyFamilies: ['strat-001', 'strat-007'] },
+        },
+        { type: 'policy', config: { policyEnvelopeRef: 'paper_hft_swarm_v1' } },
+      ],
+      [
+        { type: 'trading', config: { strategyFamilies: [] } },
+        { type: 'policy', config: { policyEnvelopeRef: 'paper_balanced_general_v1' } },
+      ],
+    );
+    expect(configs[0]!.config.strategyFamilies).toEqual(['strat-001', 'strat-007']);
+    expect(configs[1]!.config.policyEnvelopeRef).toBe('paper_hft_swarm_v1');
+  });
+
   it('places the next execution engine origin below occupied envelopes (D-159)', () => {
     const first = { x: 40, y: 40, width: 800, height: 600 };
     const size = { width: 700, height: 500 };
@@ -2437,6 +2668,27 @@ describe('CreateCompanyInput (D-043)', () => {
       engines: [{ templateId: 'engine_day_trading', inputs: {} }],
     });
     expect(ok.success).toBe(true);
+  });
+
+  it('all ENGINE_TEMPLATES trading modules use valid TradingSubtype (D-189 seed fix)', () => {
+    const failures: string[] = [];
+    for (const eng of ENGINE_TEMPLATES) {
+      for (const mod of eng.modules) {
+        if (mod.type !== 'trading') continue;
+        const subtype = (mod.config as { subtype?: unknown }).subtype;
+        const parsed = TradingSubtype.safeParse(subtype);
+        if (!parsed.success) {
+          failures.push(`${eng.id}/${mod.name}: ${String(subtype)}`);
+        }
+        const schema = MODULE_CONFIG_SCHEMAS.trading.safeParse(mod.config);
+        if (!schema.success) {
+          failures.push(
+            `${eng.id}/${mod.name} schema: ${schema.error.issues.map((i) => i.message).join('; ')}`,
+          );
+        }
+      }
+    }
+    expect(failures).toEqual([]);
   });
 
   it('accepts predefined sector focuses and rejects unknown labels', () => {
@@ -2525,6 +2777,122 @@ describe('CreateCompanyInput (D-043)', () => {
     // Idempotent when deps already present
     const again = expandEngineSeedsWithResearchDeps(expanded);
     expect(again.map((s) => s.templateId)).toEqual(expanded.map((s) => s.templateId));
+  });
+
+  it('maps execution engines to default simulation children (D-189)', () => {
+    const deps = simDependenciesForExecutionEngine('engine_day_trading');
+    expect(deps).toEqual([
+      { templateId: 'sim_gate_strategy_spread', placement: 'pre' },
+      { templateId: 'sim_train_policy_replay', placement: 'post' },
+    ]);
+    for (const dep of deps) {
+      expect(ENGINE_TEMPLATES.some((engine) => engine.id === dep.templateId)).toBe(true);
+    }
+  });
+
+  it('maps each execution engine to gate + training sim packs (D-189)', () => {
+    for (const templateId of [
+      'engine_day_trading',
+      'engine_crypto',
+      'engine_prediction',
+      'engine_long_term',
+      'engine_hft',
+    ] as const) {
+      expect(simDependenciesForExecutionEngine(templateId)).toEqual([
+        { templateId: 'sim_gate_strategy_spread', placement: 'pre' },
+        { templateId: 'sim_train_policy_replay', placement: 'post' },
+      ]);
+    }
+  });
+
+  it('respects DEFAULT_EXECUTION_SIM_COUNT and simCount override (D-189)', () => {
+    expect(DEFAULT_EXECUTION_SIM_COUNT).toBe(2);
+    expect(simDependenciesForExecutionEngine('engine_day_trading', 0)).toEqual([]);
+    expect(simDependenciesForExecutionEngine('engine_day_trading', 1)).toEqual([
+      { templateId: 'sim_gate_strategy_spread', placement: 'pre' },
+    ]);
+    expect(simDependenciesForExecutionEngine('engine_day_trading', 2)).toHaveLength(2);
+    expect(simDependenciesForExecutionEngine('engine_day_trading', 99)).toHaveLength(2);
+  });
+
+  it('expands create seeds with sim deps after execution seeds (D-189)', () => {
+    const expanded = expandEngineSeedsWithSimDeps([{ templateId: 'engine_day_trading', inputs: {} }]);
+    expect(expanded.map((s) => s.templateId)).toEqual([
+      'engine_day_trading',
+      'sim_gate_strategy_spread',
+      'sim_train_policy_replay',
+    ]);
+    expect(expanded[1]).toMatchObject({
+      templateId: 'sim_gate_strategy_spread',
+      simulationPlacement: 'pre',
+      simulationRole: 'gate',
+    });
+    expect(expanded[2]).toMatchObject({
+      templateId: 'sim_train_policy_replay',
+      simulationPlacement: 'post',
+      simulationRole: 'training',
+    });
+    const again = expandEngineSeedsWithSimDeps(expanded);
+    expect(again.map((s) => s.templateId)).toEqual(expanded.map((s) => s.templateId));
+  });
+
+  it('skips sim expansion when simCount is 0 (D-189)', () => {
+    const expanded = expandEngineSeedsWithSimDeps(
+      [{ templateId: 'engine_hft', inputs: {} }],
+      { simCount: 0 },
+    );
+    expect(expanded).toEqual([{ templateId: 'engine_hft', inputs: {} }]);
+  });
+
+  it('execution trading modules use funds_only executionBinding (D-191)', () => {
+    const executionIds = [
+      'engine_day_trading',
+      'engine_crypto',
+      'engine_prediction',
+      'engine_long_term',
+      'engine_hft',
+    ] as const;
+    for (const id of executionIds) {
+      const engine = ENGINE_TEMPLATES.find((entry) => entry.id === id);
+      expect(engine).toBeDefined();
+      const trading = engine!.modules.find((mod) => mod.type === 'trading');
+      expect(trading).toBeDefined();
+      expect((trading!.config as { executionBinding?: { routingMode?: string } }).executionBinding)
+        .toEqual({ routingMode: 'funds_only' });
+    }
+  });
+
+  it('gates engine_prediction until prediction strategy families seed (D-191)', () => {
+    const prediction = ENGINE_TEMPLATES.find((engine) => engine.id === 'engine_prediction');
+    expect(prediction?.available).toBe(false);
+    expect(prediction?.unavailableReason).toMatch(/prediction/i);
+    expect(prediction?.unavailableReason).toMatch(/strategy famil/i);
+    const trading = prediction?.modules.find((mod) => mod.type === 'trading');
+    expect((trading?.config as { strategyFamilies?: string[] }).strategyFamilies).toEqual([]);
+  });
+
+  it('every research to_desk_stream analyzer has a distinct streamDescriptor (D-191)', () => {
+    const descriptors = new Set<string>();
+    for (const engine of ENGINE_TEMPLATES) {
+      for (const mod of engine.modules) {
+        if (mod.type !== 'analyzer') continue;
+        const config = mod.config as { emitMode?: string; streamDescriptor?: string };
+        if (config.emitMode !== 'to_desk_stream') continue;
+        expect(config.streamDescriptor, `${engine.id}/${mod.name}`).toBeTruthy();
+        expect(descriptors.has(config.streamDescriptor!)).toBe(false);
+        descriptors.add(config.streamDescriptor!);
+      }
+    }
+  });
+
+  it('sim_gate_strategy_spread uses day-horizon strategy families (D-191)', () => {
+    const gate = ENGINE_TEMPLATES.find((engine) => engine.id === 'sim_gate_strategy_spread');
+    const trading = gate?.modules.find((mod) => mod.type === 'trading');
+    expect((trading?.config as { strategyFamilies?: string[] }).strategyFamilies).toEqual([
+      'strat-001',
+      'strat-002',
+      'strat-005',
+    ]);
   });
 
   it('allows Engine Data Hub link pairs (D-140)', () => {

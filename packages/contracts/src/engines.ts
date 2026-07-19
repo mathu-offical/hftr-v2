@@ -8,6 +8,12 @@ import {
   type ModuleSetupField,
 } from './modules';
 import { SimulationEngineBinding } from './paper-engine';
+import { ResearchLibraryBinding } from './research-library-binding';
+import {
+  engineCreateSection,
+  getEngineTemplateById,
+  researchDependenciesForExecutionEngine,
+} from './templates';
 
 /**
  * Persisted ENGINE instance contracts (D-028 / D-035 / D-091).
@@ -180,6 +186,57 @@ export const EngineInstance = z.object({
 });
 export type EngineInstance = z.infer<typeof EngineInstance>;
 
+export {
+  ResearchLibraryBinding,
+  ResearchLibraryBindingMode,
+} from './research-library-binding';
+export type { ResearchLibraryBinding, ResearchLibraryBindingMode } from './research-library-binding';
+
+/** Execution engine that declares `researchTemplateId` as a child research dependency. */
+export function findParentExecutionForResearchPack(
+  researchTemplateId: string,
+  existingEngines: ReadonlyArray<{ id: string; templateId: string }>,
+): { id: string; templateId: string } | undefined {
+  return existingEngines.find((row) => {
+    const template = getEngineTemplateById(row.templateId);
+    if (!template || engineCreateSection(template) !== 'execution') return false;
+    return researchDependenciesForExecutionEngine(row.templateId).includes(researchTemplateId);
+  });
+}
+
+/**
+ * Default research library binding for engine insert / company create when the client
+ * omits an explicit chooser payload.
+ */
+export function resolveResearchLibraryBindingForInsert(opts: {
+  explicit?: ResearchLibraryBinding;
+  researchTemplateId: string;
+  existingEngines: ReadonlyArray<{ id: string; templateId: string }>;
+}): ResearchLibraryBinding {
+  if (opts.explicit) {
+    if (opts.explicit.mode === 'attach_execution' && !opts.explicit.engineInstanceId) {
+      const parent = findParentExecutionForResearchPack(
+        opts.researchTemplateId,
+        opts.existingEngines,
+      );
+      if (parent) {
+        return { ...opts.explicit, engineInstanceId: parent.id };
+      }
+    }
+    return opts.explicit;
+  }
+
+  const parent = findParentExecutionForResearchPack(
+    opts.researchTemplateId,
+    opts.existingEngines,
+  );
+  if (parent) {
+    return { mode: 'attach_execution', engineInstanceId: parent.id };
+  }
+
+  return { mode: 'create_internal' };
+}
+
 export const InsertEngineInput = z.object({
   templateId: z.string().min(1).max(80),
   /** Engine-specific template inputs (philosophy, etc.) keyed by EngineTemplateInput.key. */
@@ -198,6 +255,8 @@ export const InsertEngineInput = z.object({
    * Omit for adhoc sims and non-sim templates.
    */
   simulationBinding: SimulationEngineBinding.optional(),
+  /** D-184 §1 / D-191: research pack library + hub attach chooser. */
+  researchLibraryBinding: ResearchLibraryBinding.optional(),
 });
 export type InsertEngineInput = z.infer<typeof InsertEngineInput>;
 

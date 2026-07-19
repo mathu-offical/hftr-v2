@@ -177,4 +177,58 @@ describe('option-anchors', () => {
     expect(posture?.ownerModuleId).toBe('mod-trend-t');
     expect(posture?.catalogRef).toContain('research_only');
   });
+
+  it('focus template_input owns to trend via target.moduleIndex (D-191)', () => {
+    const members = [
+      { id: 'r1', type: 'research', config: { researchSubtype: 'specialty_desk' } },
+      { id: 'libn1', type: 'librarian', config: {} },
+      { id: 'lib1', type: 'library', config: { libraryClass: 'topic_runtime' } },
+      { id: 'live1', type: 'live_api', config: {} },
+      { id: 'trend1', type: 'trend', config: { trendPosture: 'session_intraday' } },
+      { id: 'trade1', type: 'trading', config: { strategyFamilies: ['strat-001'] } },
+      { id: 'fund1', type: 'holding_fund', config: {} },
+      { id: 'router1', type: 'fund_router', config: {} },
+      { id: 'an1', type: 'analyzer', config: {} },
+      { id: 'pol1', type: 'policy', config: {} },
+    ];
+    const anchors = anchorsFor('engine_day_trading', members);
+    const focus = anchors.find(
+      (a) => a.kind === 'template_input' && a.catalogRef === 'focus',
+    );
+    expect(focus?.ownerModuleId).toBe('trend1');
+    const topic = anchors.find(
+      (a) => a.kind === 'template_input' && a.catalogRef === 'topicScope',
+    );
+    expect(topic?.ownerModuleId).toBe('r1');
+    expect(
+      anchors.some((a) => a.kind === 'template_input' && a.catalogRef === 'philosophy'),
+    ).toBe(false);
+  });
+
+  it('sim_gate focus owns to trend; philosophy axes are slim', () => {
+    const members = [
+      { id: 'live', type: 'live_api', config: {} },
+      { id: 'trend', type: 'trend', config: {} },
+      { id: 'trade', type: 'trading', config: { strategyFamilies: ['strat-001'] } },
+      { id: 'fund', type: 'holding_fund', config: {} },
+      { id: 'router', type: 'fund_router', config: {} },
+      { id: 'an', type: 'analyzer', config: {} },
+      { id: 'pol', type: 'policy', config: {} },
+    ];
+    const anchors = anchorsFor('sim_gate_strategy_spread', members);
+    const focus = anchors.find(
+      (a) => a.kind === 'template_input' && a.catalogRef === 'focus',
+    );
+    expect(focus?.ownerModuleId).toBe('trend');
+    const axes = anchors.filter((a) => a.kind === 'philosophy_axis');
+    expect(axes.length).toBe(3);
+    expect(
+      anchors.some(
+        (a) =>
+          a.kind === 'lever_band' &&
+          (a.catalogRef === 'run_paper_training_replay' ||
+            a.catalogRef === 'apply_control_snapshot_delta'),
+      ),
+    ).toBe(true);
+  });
 });

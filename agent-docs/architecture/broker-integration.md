@@ -111,6 +111,8 @@ Approved design: `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-
   ValueRef sourceIds on dispatch marks; multi-share verify asserts impact proxy.
   Phase 7c (D-188): same chips on Decisions / Lineage / TraceTimeline via timeline
   `simulatorGapTags`.
+  Phase 7d (D-192): PaperTradeForm pre-trade quote honesty preview
+  (`GET …/trade/quote-preview`) using the same MarketModel resolver.
 - Company-level `broker_connections` bind remains for credentials; it no longer implies
   automatic venue submit for every paper trade (routing mode decides).
 

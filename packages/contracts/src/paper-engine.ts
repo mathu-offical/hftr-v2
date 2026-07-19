@@ -334,3 +334,22 @@ export function computeEngineSpendCapCents(args: {
     isolationActive: false,
   };
 }
+
+/**
+ * Pre-trade MarketModel honesty preview for PaperTradeForm (D-192).
+ * Mark cents are operator-display only — never sent to LLM prompts.
+ */
+export const PaperTradeQuotePreviewResponse = z.object({
+  symbol: z.string().min(1).max(12),
+  usedLive: z.boolean(),
+  priorSessionMark: z.boolean(),
+  sourceClass: z.enum(['broker_state', 'live_feed', 'synthetic_sim']),
+  feedClass: z.string().nullable(),
+  /** Mid/last mark in cents for operator display; omit when synthetic-only. */
+  markCents: z.string().nullable(),
+  /** Quote-class honesty tags (subset of simulatorGapTags vocabulary). */
+  honestyTags: z.array(z.string()),
+  /** Soft forecast: qty≥2 operator path uses √participation impact. */
+  impactProxyLikely: z.boolean(),
+});
+export type PaperTradeQuotePreviewResponse = z.infer<typeof PaperTradeQuotePreviewResponse>;

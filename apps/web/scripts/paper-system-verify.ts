@@ -254,6 +254,26 @@ async function main() {
     JSON.stringify(binding ?? null),
   );
 
+  const quotePreview = await req(
+    'GET',
+    `/api/companies/${companyId}/modules/${trading!.id}/trade/quote-preview?symbol=AAPL&quantity=5`,
+  );
+  const previewBody = quotePreview.json as {
+    usedLive?: boolean;
+    honestyTags?: string[];
+    impactProxyLikely?: boolean;
+    priorSessionMark?: boolean;
+  };
+  record(
+    'quote_preview_honesty',
+    quotePreview.status < 300 &&
+      Array.isArray(previewBody.honestyTags) &&
+      (previewBody.honestyTags.includes('live_market_quote') ||
+        previewBody.honestyTags.includes('synthetic_quote')) &&
+      previewBody.impactProxyLikely === true,
+    `status=${quotePreview.status} tags=${JSON.stringify(previewBody.honestyTags ?? [])} live=${previewBody.usedLive} prior=${previewBody.priorSessionMark}`,
+  );
+
   // qty=1 fills inline (no time-spaced drain); tags should include funds_only honesty.
   const trade = await req('POST', `/api/companies/${companyId}/modules/${trading!.id}/trade`, {
     symbol: 'AAPL',

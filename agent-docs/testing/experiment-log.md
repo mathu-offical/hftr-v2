@@ -345,6 +345,20 @@ Scoring: `intent-alignment-scoring.md`
 
 ---
 
+## EXP-2026-07-19-07 — PaperTradeForm quote honesty preview (D-192)
+
+| Field | Value |
+|---|---|
+| Status | unit **pass**; API paper-system-verify **26/26** (`quote_preview_honesty`) |
+| Mode | paper only |
+| Hypothesis | Operators see expected live/prior/synthetic + impact-likely before submit |
+| Declared intent | Close PaperTradeForm pre/post honesty gap from realism audit |
+| Observed | Preview returned `live_market_quote` + `prior_session_mark` + `funds_only_routing` with `impactProxyLikely` for qty=5; fill path unchanged |
+| Alignment | **aligned** |
+| Decisions | D-192 |
+
+---
+
 ## EXP-2026-07-19-03 — Sector × day_trading / HFT cohort (D-174)
 
 | Field | Value |

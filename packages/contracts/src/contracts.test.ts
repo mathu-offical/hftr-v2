@@ -1932,6 +1932,22 @@ describe('paper engine binding (D-122)', () => {
     expect(shouldShadowVerifyOnProvider('funds_only')).toBe(false);
   });
 
+  it('parses PaperTradeQuotePreviewResponse (D-192)', async () => {
+    const { PaperTradeQuotePreviewResponse } = await import('./paper-engine');
+    const preview = PaperTradeQuotePreviewResponse.parse({
+      symbol: 'AAPL',
+      usedLive: true,
+      priorSessionMark: true,
+      sourceClass: 'broker_state',
+      feedClass: 'alpaca_iex_paper',
+      markCents: '19025',
+      honestyTags: ['live_market_quote', 'prior_session_mark', 'funds_only_routing'],
+      impactProxyLikely: true,
+    });
+    expect(preview.impactProxyLikely).toBe(true);
+    expect(preview.honestyTags).toContain('live_market_quote');
+  });
+
   it('computes fill price delta bps', async () => {
     const { fillPriceDeltaBps, buildFillPriceBookDeltaDimension } = await import('./paper-engine');
     expect(fillPriceDeltaBps({ internalPriceCents: 10_000, referencePriceCents: 10_050 })).toBe(50);

@@ -3,6 +3,7 @@ import type { QuoteSnapshot } from '@hftr/contracts';
 import { projectMarketModelToAwareness } from './awareness-adapters';
 import {
   fuseQuoteCandidates,
+  previewHonestyTagsFromResolvedQuote,
   resolveDispatchMarketQuote,
   resolveMarketQuote,
 } from './market-model';
@@ -238,5 +239,43 @@ describe('awareness adapters (D-122 Phase 2)', () => {
     expect(projections[0]?.syntheticCount).toBe(1);
     expect(projections[0]?.symbols).toEqual(['AAPL', 'MSFT']);
     expect(projections[0]?.notes.some((n) => n.includes('Live market model'))).toBe(true);
+  });
+});
+
+describe('previewHonestyTagsFromResolvedQuote (D-192)', () => {
+  it('tags live + prior session + funds_only', () => {
+    const tags = previewHonestyTagsFromResolvedQuote(
+      {
+        quote: {
+          symbol: 'AAPL',
+          lastCents: 100,
+          asOfIso: clock.nowIso(),
+          feedClass: 'alpaca_iex_paper',
+        },
+        sourceClass: 'broker_state',
+        usedLive: true,
+        priorSessionMark: true,
+      },
+      { routingMode: 'funds_only' },
+    );
+    expect(tags).toEqual([
+      'live_market_quote',
+      'prior_session_mark',
+      'funds_only_routing',
+    ]);
+  });
+
+  it('tags synthetic without funds_only when omitted', () => {
+    const tags = previewHonestyTagsFromResolvedQuote({
+      quote: {
+        symbol: 'MSFT',
+        lastCents: 50,
+        asOfIso: clock.nowIso(),
+        feedClass: 'synthetic_sim',
+      },
+      sourceClass: 'synthetic_sim',
+      usedLive: false,
+    });
+    expect(tags).toEqual(['synthetic_quote']);
   });
 });

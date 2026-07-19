@@ -326,3 +326,23 @@ export async function resolveDispatchMarketQuote(opts: {
     ...(priorSessionMark && resolved.usedLive ? { priorSessionMark: true } : {}),
   };
 }
+
+/**
+ * Operator-facing honesty tags for a resolved MarketModel quote before dispatch (D-192).
+ * Does not invent fill/drain tags — only quote-class provenance.
+ */
+export function previewHonestyTagsFromResolvedQuote(
+  resolved: ResolvedMarketQuote,
+  opts?: { routingMode?: 'funds_only' | 'execute_on_service' | 'both_verify' },
+): string[] {
+  const tags: string[] = [
+    resolved.usedLive ? 'live_market_quote' : 'synthetic_quote',
+  ];
+  if (resolved.priorSessionMark === true) {
+    tags.push('prior_session_mark');
+  }
+  if (opts?.routingMode === 'funds_only') {
+    tags.push('funds_only_routing');
+  }
+  return tags;
+}

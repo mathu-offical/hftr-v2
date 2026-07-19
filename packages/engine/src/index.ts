@@ -361,6 +361,7 @@ export {
   fuseQuoteCandidates,
   loadAdapterMarketQuote,
   rebucketOffHoursMark,
+  previewHonestyTagsFromResolvedQuote,
   MARKET_MODEL_QUOTE_TTL_MS,
   type ResolvedMarketQuote,
   type ResolveMarketQuoteOpts,

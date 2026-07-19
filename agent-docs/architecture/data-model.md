@@ -155,7 +155,9 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   quant + recommendations + Model. Hub may also project `marketModelAwareness` (D-122) from
   the shared MarketModel quote path used by paper dispatch / exits, plus `news` (sector
   bulletin board) and `capitalSources` as **company root funds + trading execution splits** (D-144;
-  fund_router hops and research engine envelopes omitted).
+  fund_router hops and research engine envelopes omitted). Hub also projects `modelHydration`
+  (D-147): full live-source registry + library shelves with per-node operation/amount for the
+  synthesis Model graph.
 - **market_hub_synthesis_runs / market_hub_synthesis_stages** — **D-120** (migration `0042`):
   company-scoped Analyze run status + ordered stage rows (`stage_id` unique per run) for the
   live Model canvas. Stage summaries are operator text/bands only.

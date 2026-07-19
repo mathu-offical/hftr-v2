@@ -5,7 +5,13 @@
 
 ## Intent
 
-Operator **Analyze** creates a durable synthesis **run** with ordered **stages**. Posture → **Model** is a live React Flow hub **plus** a baseline awareness dock (movers status, multi-seal freshness, report/narrative open). Equity live poll (D-112) stays paused during Analyze POST only; synthesis progress polls separately (~1.5s).
+Operator **Analyze** creates a durable synthesis **run** with ordered **stages**. Posture → **Model** is a live React Flow **hydration hub** (D-147): all live data sources and library shelves feed gather (each node shows operation + amount), then pipeline stages animate from the run. Baseline awareness dock remains (movers status, multi-seal freshness, report/narrative open). Equity live poll (D-112) stays paused during Analyze POST only; synthesis progress polls separately (~1.5s).
+
+## Hydration graph (D-147)
+
+- **Live sources** → `providers` (registry status, canvas binds, sealed contrib)
+- **Library shelves** → `gather` (admitted / concept counts by shelf)
+- Pipeline stages carry baseline ops from hub `modelHydration.stageOps`; when a run summary has counts, those override the stage amount label.
 
 ## Stage vocabulary
 

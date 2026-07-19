@@ -253,15 +253,18 @@ labels use `aria-label` / `title` for full product names (e.g. Research → Rese
 Libraries). Nested category strips (Market posture) use `density="compact"`.
 
 **Keyboard + persistence (shipped 2026-07-17, D-022; engine scope D-097; edge rails D-118 /
-D-123):** `[` toggles left, `]` toggles right, `` ` `` toggles bottom; `Esc` collapses the
-active panel (bottom defers when `TraceTimeline` is open). **Edge toggles persist** at each
-panel’s window edge while expanded. Left/right use a wider **symbol rail** (`PanelEdgeRail`,
-`w-10`): Lucide icons for each tab stay visible when collapsed; clicking a symbol opens that
-tab; a bottom chevron show/hides the panel body. Bottom keeps a slim bottom-edge hide/show
-strip while the tab ribbon stays on top of the panel (D-113). Per-company `localStorage` keys
-`hftr:{companyId}:panel:{left|bottom|right}` restore open state, active tab, and bottom
-**execution-engine** filter (`engineFilter`: `all` or `engine_instances.id`) on return visits.
-Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fields.
+D-123; assistant rail D-146):** `[` toggles left, `]` toggles right, `` ` `` toggles bottom; `Esc`
+collapses the active surface (assistant column first on the right, then the main right panel;
+bottom defers when `TraceTimeline` is open). **Edge toggles persist** at each panel’s window
+edge while expanded. Left/right use a wider **symbol rail** (`PanelEdgeRail`, `w-12`): Lucide
+icons for each tab stay visible when collapsed; clicking a symbol opens that tab; a bottom
+chevron show/hides the panel body. Optional **rail actions** sit above the chevron (left
+**LIB**, right **AST**). Bottom keeps a slim bottom-edge hide/show strip while the tab ribbon
+stays on top of the panel (D-113). Per-company `localStorage` keys
+`hftr:{companyId}:panel:{left|bottom|right}` restore open state, active tab, right
+`assistantOpen`, left `librariesFull` / dock flags, and bottom **execution-engine** filter
+(`engineFilter`: `all` or `engine_instances.id`) on return visits. Legacy `moduleFilter` keys
+are ignored. Shortcuts are suppressed in editable fields.
 
 ### LEFT — Research + Market posture + Data (+ shared Libraries dock)
 - Tabs: **Research** | **Market posture** | **Data** (D-081). **Libraries** are first-class
@@ -315,10 +318,13 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   synthesis run, force-reseals `library.system_movers` (tactical LLM thresholds),
   `library.system_sector_news`, calendar-phase `library.system_daily_summaries` in parallel,
   then `library.posture_narrative` (waits for seal stages; book↔tape deterministic rollup).
-  Overlay **Model** section is the **live synthesis hub** — React Flow stage glyphs +
-  inspector, plus an **awareness dock** (movers status, multi-seal freshness, report /
-  narrative open). Overlay shows a mini run strip + Open Model while a run is active.
-  Hub GET projects `synthesis` + `posture_narrative` report link + `capitalSources`.
+  Overlay **Model** section is the **live synthesis hydration hub** (D-147) — React Flow with
+  all live hydrators + library shelves (operation + amount on every node) feeding gather,
+  then stage glyphs + inspector; plus an **awareness dock** (movers status, multi-seal
+  freshness, report / narrative open). Overlay shows a mini run strip + Open Model while a
+  run is active.
+  Hub GET projects `synthesis` + `posture_narrative` report link + `capitalSources` +
+  `modelHydration`.
   **Watchlist tiers (D-092):** `suggested_search` → `suggested_verified` → `watching`
   (+ `triggered` / `archived`). Overlay recommendation watch grid + bottom Watch lists
   filter chips (default: watching + suggested_verified). **Confirm** PATCHes to `watching`
@@ -392,6 +398,9 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   from the executions API (timeline causation walk) over symbol heuristics.
 
 ### RIGHT — Execution + Verification + Positions + Simulation results
+- **Assistant (D-146):** right edge rail **AST** (above collapse) toggles a **separate**
+  full-height floating chat column — not a RightPanel tab. Selecting Verify / Executions /
+  Positions / Ledger / Sims / Values closes the assistant column and opens the main panel.
 - **Positions (D-125 / D-129):** dedicated tab listing open holdings (market-hub live marks +
   `SymbolTicker` stability). Select a row for the inspector: held-vs-cost stability,
   automatic recovery (tree `recoveryLadder` + next model-free exit candidate from
@@ -410,13 +419,17 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
 
 ## 5. Assistant surface
 
-**M1 (shipped D-022; hardened D-023):** docked pill bottom-right of canvas → expands to a chat
-column overlay. `AssistantDock` loads/sends via `GET/POST /api/companies/:companyId/assistant`.
-History is append-only `assistant_messages` in Postgres (company + user scoped). Responses are
-**deterministic read-only lookups** — six regex-routed intents, **no model calls**. Persisted
-`tool_results` are summary cards (`tool`, `summary`, `status`); capabilities and failed lookups
-render as explicit cards. Rate limit: 20 user messages/min/company. Chrome: "Read-only · no model
-calls". `Esc` closes the dock. Retention/erasure policy unresolved (OQ-10).
+**M1 (shipped D-022; hardened D-023; rail mount D-146):** right edge rail **AST** (above
+collapse, mirrors left **LIB**) opens a **full-height floating column** beside the main
+RightPanel — not a RightPanel tab and not a bottom-right FAB. `AssistantDock` is controlled by
+`RightPanel` (`assistantOpen`, persisted). Loads/sends via
+`GET/POST /api/companies/:companyId/assistant`. History is append-only `assistant_messages` in
+Postgres (company + user scoped). Responses are **deterministic read-only lookups** — six
+regex-routed intents, **no model calls**. Persisted `tool_results` are summary cards (`tool`,
+`summary`, `status`); capabilities and failed lookups render as explicit cards. Rate limit: 20
+user messages/min/company. Chrome: "Read-only · no model calls". Selecting any main right tab
+closes the assistant column; `Esc` closes assistant first, then the main panel.
+Retention/erasure: OQ-10 / D-030 (90d hot).
 
 **Later milestones:** messages may carry structured edit-proposal cards (diff-style: field,
 old → new) with Confirm/Reject; applied edits link to `assistant_edits` audit entries (M4).

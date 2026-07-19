@@ -1425,6 +1425,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   celestial — this decision is D-144.) Docs: ui-spec §4, contracts.
   **Status: implemented.**
 
+- **D-147 (synthesis Model hydration graph, 2026-07-18):** Overlay **Model** shows baseline
+  **live data sources** (full registry) and **library shelves** feeding gather, plus the
+  Analyze pipeline. Every node carries an **operation** and **amount** (counts/status —
+  never LLM dollars). Hub projects `modelHydration`; graph edges live→providers and
+  library→gather. Stage amounts prefer run summary counts when Analyze has run.
+  Docs: ui-spec §4, data-model, synthesis hub design. **Status: implemented.**
+
 - **D-132 (galaxy library clusters — separation + nest dominance, 2026-07-18):** Fibonacci
   volume packing (D-116) still allowed large nest hulls to overlap and cross-library springs
   to blend concepts into one cloud. Refine: (1) `separateLibraryCenters` after packing so

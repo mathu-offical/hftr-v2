@@ -1,8 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { LiveDataSourceWidget } from '@hftr/contracts';
 import { buildOperatorLivePreviewWidgets } from './operator-live-preview';
+import { clearOperatorLivePreviewCache } from './operator-live-preview-cache';
 
 describe('buildOperatorLivePreviewWidgets', () => {
+  afterEach(() => {
+    clearOperatorLivePreviewCache();
+  });
+
   it('returns null for news kinds (evidence path)', async () => {
     const out = await buildOperatorLivePreviewWidgets({
       kind: 'brave_search',
@@ -38,10 +43,20 @@ describe('buildOperatorLivePreviewWidgets', () => {
         credentials: {},
       });
       expect(out).not.toBeNull();
-      expect(out!.length).toBe(1);
-      const parsed = LiveDataSourceWidget.parse(out![0]);
+      expect(out!.widgets.length).toBe(1);
+      expect(out!.fromCache).toBe(false);
+      const parsed = LiveDataSourceWidget.parse(out!.widgets[0]);
       expect(parsed.widgetKind).toBe('listing');
       expect(parsed.fields.some((f) => f.label === 'Price USD')).toBe(true);
+
+      const cached = await buildOperatorLivePreviewWidgets({
+        kind: 'coingecko_crypto',
+        query: 'bitcoin',
+        maxResults: 4,
+        credentials: {},
+      });
+      expect(cached!.fromCache).toBe(true);
+      expect(cached!.widgets.length).toBe(1);
     } finally {
       globalThis.fetch = original;
     }
@@ -54,11 +69,14 @@ describe('buildOperatorLivePreviewWidgets', () => {
       rate: 1 + i / 100,
       base: 'USD',
     }));
-    globalThis.fetch = (async () =>
-      new Response(JSON.stringify(pairs), {
+    let fetchCount = 0;
+    globalThis.fetch = (async () => {
+      fetchCount += 1;
+      return new Response(JSON.stringify(pairs), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
-      })) as typeof fetch;
+      });
+    }) as typeof fetch;
 
     try {
       const out = await buildOperatorLivePreviewWidgets({
@@ -68,7 +86,15 @@ describe('buildOperatorLivePreviewWidgets', () => {
         credentials: {},
       });
       expect(out).not.toBeNull();
-      expect(out!.length).toBe(40);
+      expect(out!.widgets.length).toBe(40);
+
+      await buildOperatorLivePreviewWidgets({
+        kind: 'frankfurter_fx',
+        query: 'USD',
+        maxResults: 12,
+        credentials: {},
+      });
+      expect(fetchCount).toBe(1);
     } finally {
       globalThis.fetch = original;
     }

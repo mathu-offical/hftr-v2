@@ -16,6 +16,10 @@ import {
 import { createAlpacaClient } from '../alpaca/client';
 import { fetchBars } from '../alpaca/bars';
 import { extractTickerFromQuery } from './alpaca-bars-evidence';
+import {
+  loadOperatorLivePreviewCached,
+  operatorLivePreviewCacheKey,
+} from './operator-live-preview-cache';
 
 export type OperatorLivePreviewCredentials = {
   alpacaKeyId?: string;
@@ -219,33 +223,86 @@ async function previewAlpacaBars(
   return widgets;
 }
 
+export type OperatorLivePreviewResult = {
+  widgets: LiveDataSourceWidgetT[];
+  fromCache: boolean;
+  /** Epoch ms when widgets were fetched from the provider (preserved on cache hit). */
+  fetchedAtMs: number;
+};
+
 /**
  * Build operator live widgets when a richer preview exists for the hydrator.
  * Returns null when this kind should keep evidence-package widgets only.
  * Complete-list hydrators return the full available catalog (up to FULL_LIST_CAP).
+ * Provider HTTP is TTL-cached so diagnostics do not over-query (D-152).
  */
 export async function buildOperatorLivePreviewWidgets(opts: {
   kind: ResearchSourceKindT;
   query: string;
   maxResults: number;
   credentials: OperatorLivePreviewCredentials;
-}): Promise<LiveDataSourceWidgetT[] | null> {
+  forceRefresh?: boolean;
+}): Promise<OperatorLivePreviewResult | null> {
   const limit = resolveLiveDataSourceMaxResults(opts.kind, opts.maxResults);
   const complete = liveDataSourceIsCompleteList(opts.kind);
+  const force = opts.forceRefresh ?? false;
 
   switch (opts.kind) {
-    case 'coingecko_crypto':
-      return previewCoingecko(complete ? LIVE_DATA_SOURCE_FULL_LIST_CAP : limit);
-    case 'frankfurter_fx':
-      return previewFrankfurter(
-        opts.query,
-        complete ? LIVE_DATA_SOURCE_FULL_LIST_CAP : limit,
+    case 'coingecko_crypto': {
+      const cap = complete ? LIVE_DATA_SOURCE_FULL_LIST_CAP : limit;
+      const key = operatorLivePreviewCacheKey({
+        kind: opts.kind,
+        query: '',
+        maxResults: cap,
+      });
+      const cached = await loadOperatorLivePreviewCached(key, () => previewCoingecko(cap), {
+        force,
+      });
+      return {
+        widgets: cached.widgets,
+        fromCache: cached.fromCache,
+        fetchedAtMs: cached.fetchedAt,
+      };
+    }
+    case 'frankfurter_fx': {
+      const cap = complete ? LIVE_DATA_SOURCE_FULL_LIST_CAP : limit;
+      const base = (opts.query.trim().toUpperCase().match(/^[A-Z]{3}/)?.[0] ?? 'USD').slice(0, 3);
+      const key = operatorLivePreviewCacheKey({
+        kind: opts.kind,
+        query: base,
+        maxResults: cap,
+      });
+      const cached = await loadOperatorLivePreviewCached(
+        key,
+        () => previewFrankfurter(base, cap),
+        { force },
       );
+      return {
+        widgets: cached.widgets,
+        fromCache: cached.fromCache,
+        fetchedAtMs: cached.fetchedAt,
+      };
+    }
     case 'alpaca_bars': {
       const keyId = opts.credentials.alpacaKeyId?.trim();
       const secret = opts.credentials.alpacaSecret?.trim();
       if (!keyId || !secret) return null;
-      return previewAlpacaBars(opts.query, { keyId, secret }, limit);
+      const key = operatorLivePreviewCacheKey({
+        kind: opts.kind,
+        query: opts.query,
+        maxResults: limit,
+        alpacaKeyHint: keyId.slice(-4),
+      });
+      const cached = await loadOperatorLivePreviewCached(
+        key,
+        () => previewAlpacaBars(opts.query, { keyId, secret }, limit),
+        { force },
+      );
+      return {
+        widgets: cached.widgets,
+        fromCache: cached.fromCache,
+        fetchedAtMs: cached.fetchedAt,
+      };
     }
     default:
       return null;

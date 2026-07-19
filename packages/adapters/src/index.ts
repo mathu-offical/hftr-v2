@@ -129,7 +129,14 @@ export {
 export {
   buildOperatorLivePreviewWidgets,
   type OperatorLivePreviewCredentials,
+  type OperatorLivePreviewResult,
 } from './research/operator-live-preview';
+export {
+  clearOperatorLivePreviewCache,
+  loadOperatorLivePreviewCached,
+  operatorLivePreviewCacheKey,
+  OPERATOR_LIVE_PREVIEW_TTL_MS,
+} from './research/operator-live-preview-cache';
 export { extractTickerSymbols } from './research/symbol-resolve';
 export { mapSectorToQueryPhrases } from './research/sector-synonyms';
 export {

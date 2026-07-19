@@ -50,6 +50,8 @@ export const LiveDataSourceQueryRequest = z.object({
    * return the full available set up to LIVE_DATA_SOURCE_FULL_LIST_CAP.
    */
   maxResults: z.number().int().min(1).max(500).default(12),
+  /** Bypass server TTL caches (operator Refresh). Default false. */
+  forceRefresh: z.boolean().default(false),
 });
 export type LiveDataSourceQueryRequest = z.infer<typeof LiveDataSourceQueryRequest>;
 
@@ -109,6 +111,8 @@ export const LiveDataSourceQueryResponse = z.object({
   form: LiveDataSourceFormHint.optional(),
   /** True when this hydrator returns a complete enumerable catalog (not a search sample). */
   completeList: z.boolean().default(false),
+  /** True when response was served from server TTL cache (diagnostics reuse). */
+  cached: z.boolean().default(false),
   errors: z
     .array(
       z.object({

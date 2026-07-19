@@ -199,7 +199,8 @@
   browsed and inserted from this store only. Company creation auto-seeds Math hub + Master Clock.
   Engine insert defaults **Cascade from company** on: topic/sectors from `sectorFocuses`,
   capital from paper seed; operator can turn off and edit manually. Skip setup still applies
-  server-side company cascade defaults when the flag is on.
+  server-side company cascade defaults when the flag is on. Engine catalog is grouped into
+  **Research** vs **Execution** sections (`engineCreateSection`).
 - **Canvas settings (top-right):** floating **Canvas settings** menu hosts **Reflow canvas**
   (connection-safe layout) and **Clear canvas…** (confirm modal → cascade-delete every engine
   group and delete every remaining module/Math tool/link). Clear is disabled when the graph is

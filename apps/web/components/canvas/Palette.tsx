@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   defaultEngineCapitalEnvelope,
   defaultTargetExitLocal,
+  engineCreateSection,
   moduleFunctionLabel,
   requiredModuleSetupFields,
+  type EngineCreateSection,
   type EngineTemplate,
   type ModuleSetupField,
   type ModuleSetupInput,
@@ -20,6 +22,23 @@ import {
   type ModuleSetupDraft,
 } from './ModuleSetupFields';
 import { MODULE_VISUALS } from './types';
+
+const ENGINE_STORE_SECTIONS: ReadonlyArray<{
+  id: EngineCreateSection;
+  label: string;
+  hint: string;
+}> = [
+  {
+    id: 'research',
+    label: 'Research',
+    hint: 'Data / evidence packs that feed execution desks.',
+  },
+  {
+    id: 'execution',
+    label: 'Execution',
+    hint: 'Trading desks — auto-queues missing research deps on insert.',
+  },
+];
 
 /** Default configs satisfying each type's contract schema (minimum viable). */
 const ADDABLE: Array<{
@@ -177,6 +196,17 @@ export function Palette(props: {
   const [configuring, setConfiguring] = useState<EngineTemplate | null>(null);
   const [engineTemplates, setEngineTemplates] = useState<EngineTemplate[]>([]);
   const [enginesLoading, setEnginesLoading] = useState(false);
+
+  const enginesBySection = useMemo(() => {
+    const grouped: Record<EngineCreateSection, EngineTemplate[]> = {
+      research: [],
+      execution: [],
+    };
+    for (const engine of engineTemplates) {
+      grouped[engineCreateSection(engine)].push(engine);
+    }
+    return grouped;
+  }, [engineTemplates]);
 
   function openStore(next: StoreSection) {
     setSection(next);
@@ -340,9 +370,10 @@ export function Palette(props: {
           ))}
 
         {section === 'engines' && !configuring && (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <p className="px-2 pb-1 text-[10px] leading-snug text-[var(--color-ink-faint)]">
-              Insertable end-to-end engine templates. Engines are added from this store only.
+              Insertable end-to-end engine templates, grouped as research packs vs execution
+              desks. Engines are added from this store only.
             </p>
             {enginesLoading && (
               <p className="px-2 py-1 text-[10px] text-[var(--color-ink-faint)]">
@@ -355,27 +386,56 @@ export function Palette(props: {
               </p>
             )}
             {!enginesLoading &&
-              engineTemplates.map((engine) => (
-                <button
-                  key={engine.id}
-                  type="button"
-                  disabled={!engine.available}
-                  onClick={() => setConfiguring(engine)}
-                  className="w-full rounded-lg border border-[var(--color-line)] px-2.5 py-2 text-left hover:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-[var(--color-ink)]">{engine.label}</span>
-                    {!engine.available && (
-                      <span className="text-[9px] uppercase tracking-wide text-[var(--color-warn)]">
-                        soon
-                      </span>
-                    )}
+              ENGINE_STORE_SECTIONS.map((group) => {
+                const engines = enginesBySection[group.id];
+                if (engines.length === 0) return null;
+                return (
+                  <div key={group.id} className="mb-1">
+                    <div className="px-2 pb-1 pt-1.5 text-[9px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+                      {group.label}
+                    </div>
+                    <p className="px-2 pb-1.5 text-[9px] leading-snug text-[var(--color-ink-faint)]">
+                      {group.hint}
+                    </p>
+                    <div className="space-y-1.5">
+                      {engines.map((engine) => (
+                        <button
+                          key={engine.id}
+                          type="button"
+                          disabled={!engine.available}
+                          onClick={() => setConfiguring(engine)}
+                          className="w-full rounded-lg border border-[var(--color-line)] px-2.5 py-2 text-left hover:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="min-w-0 truncate text-sm text-[var(--color-ink)]">
+                              {engine.label}
+                            </span>
+                            <span className="flex shrink-0 items-center gap-1">
+                              <span
+                                className="rounded px-1 py-0.5 text-[8px] uppercase tracking-wider text-[var(--color-ink-dim)]"
+                                style={{
+                                  border: '1px solid var(--color-line)',
+                                  background: 'var(--color-surface-0)',
+                                }}
+                              >
+                                {group.id === 'execution' ? 'Exec' : 'Research'}
+                              </span>
+                              {!engine.available && (
+                                <span className="text-[9px] uppercase tracking-wide text-[var(--color-warn)]">
+                                  soon
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 text-[10px] leading-snug text-[var(--color-ink-faint)]">
+                            {engine.available ? engine.description : engine.unavailableReason}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <p className="mt-0.5 text-[10px] leading-snug text-[var(--color-ink-faint)]">
-                    {engine.available ? engine.description : engine.unavailableReason}
-                  </p>
-                </button>
-              ))}
+                );
+              })}
           </div>
         )}
 

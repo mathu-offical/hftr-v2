@@ -71,7 +71,11 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
             >
               hftr
             </Link>
-            <CompanySwitcher companyId={companyId} companyName={company.name} />
+            <CompanySwitcher
+              companyId={companyId}
+              companyName={company.name}
+              companyMode={company.mode}
+            />
             <TopDrawer
               companyId={companyId}
               companyName={company.name}

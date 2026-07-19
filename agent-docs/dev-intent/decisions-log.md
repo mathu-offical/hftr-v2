@@ -1985,6 +1985,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   (ExecutionTicker, RightPanel, BottomPanel) until their fetches resolve. Docs: ui-spec §2.
   **Status: implemented.**
 
+- **D-197 (company list metadata cache, 2026-07-19):** Module-memory stale-while-revalidate
+  cache of slim company rows (`id`, `name`, `mode`) for `CompanySwitcher` and other
+  selection UIs. Warmed on switcher mount and hydrated from the companies directory;
+  create / rename / duplicate / archive upsert or remove cache rows so the dropdown
+  stays instant. Docs: ui-spec §2. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

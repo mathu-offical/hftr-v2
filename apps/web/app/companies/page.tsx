@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { getDb, scoping } from '@hftr/db';
 import { summarizeCompanyServiceCoverage } from '@hftr/engine';
 import { CompanyCard } from '@/components/CompanyCard';
+import { CompanyListCacheHydrator } from '@/components/shell/CompanyListCacheHydrator';
 import { CreateCompanyForm } from '@/components/CreateCompanyForm';
 import { CompaniesDirectoryStatus } from '@/components/shell/CompaniesDirectoryShell';
 import { UserMenu } from '@/components/UserMenu';
@@ -51,6 +52,7 @@ export default async function CompaniesPage() {
         </p>
       ) : (
         <div className="space-y-8">
+          <CompanyListCacheHydrator companies={companies} />
           <CreateCompanyForm />
 
           {companies.length === 0 ? (

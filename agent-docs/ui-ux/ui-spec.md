@@ -18,7 +18,9 @@
 ## 2. Application shell
 
 - **Top ribbon (L→R, implemented 2026-07-17 per DevSpecs/ui-ux.spec.md):** logo → company
-  switcher dropdown (`CompanySwitcher`) → top-drawer toggle (`TopDrawer`: **Desk / PnL**,
+  switcher dropdown (`CompanySwitcher`, D-197: slim id/name/mode list cache,
+  stale-while-revalidate; warmed on mount / directory hydrate; create/rename/duplicate/
+  archive keep the cache coherent) → top-drawer toggle (`TopDrawer`: **Desk / PnL**,
   **Philosophy & sectors**, LLM/operating, Settings — D-115; layered overlay under the ribbon
   with dimmed backdrop, centered `w-[min(42rem,…)]`, rounded bottom edge — not full-bleed; SWR
   per-tab cache with lazy refresh on view; ribbon toggle labeled **Company profile**) → executions ticker tape (`ExecutionTicker`,

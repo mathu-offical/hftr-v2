@@ -6,6 +6,11 @@ import { useEffect, useRef, useState } from 'react';
 import { formatUsdFromCents, type EquityStatus } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import { currentValueHeadline, normalizeCapitalMode } from '@/lib/capital-mode-label';
+import {
+  patchCompanyListMeta,
+  removeCompanyListMeta,
+  upsertCompanyListMeta,
+} from '@/lib/company-list-cache';
 
 export interface CompanyCardEngine {
   id: string;
@@ -86,6 +91,7 @@ export function CompanyCard(props: CompanyCardProps) {
         body: { name: next },
       });
       setDisplayName(next);
+      patchCompanyListMeta(props.id, { name: next });
       setRenaming(false);
       router.refresh();
     } catch (err) {
@@ -100,8 +106,14 @@ export function CompanyCard(props: CompanyCardProps) {
     setError(null);
     setMenuOpen(false);
     try {
-      await api<{ company: { id: string } }>(`/api/companies/${props.id}/duplicate`, {
-        method: 'POST',
+      const { company } = await api<{ company: { id: string; name: string; mode: string } }>(
+        `/api/companies/${props.id}/duplicate`,
+        { method: 'POST' },
+      );
+      upsertCompanyListMeta({
+        id: company.id,
+        name: company.name,
+        mode: company.mode,
       });
       router.refresh();
     } catch (err) {
@@ -121,6 +133,7 @@ export function CompanyCard(props: CompanyCardProps) {
     setMenuOpen(false);
     try {
       await api(`/api/companies/${props.id}`, { method: 'DELETE' });
+      removeCompanyListMeta(props.id);
       router.refresh();
     } catch (err) {
       setError(err instanceof RequestError ? err.code : 'delete_failed');

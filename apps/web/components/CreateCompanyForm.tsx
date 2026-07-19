@@ -36,6 +36,7 @@ import {
   type ModuleSetupDraft,
 } from '@/components/canvas/ModuleSetupFields';
 import { api, RequestError } from '@/lib/client';
+import { upsertCompanyListMeta } from '@/lib/company-list-cache';
 import { buildEngineSeedHierarchy } from '@/lib/build-template-preview-graph';
 
 function seedCentsFromDollars(seedDollars: string): number {
@@ -561,17 +562,25 @@ export function CreateCompanyForm() {
         };
       });
 
-      const { company } = await api<{ company: { id: string } }>('/api/companies', {
-        method: 'POST',
-        body: {
-          name,
-          philosophyPrompt: philosophy,
-          mode: 'paper',
-          seedCreditsCents: seed,
-          sectorFocuses,
-          engines: enginesPayload,
-          extraModules: modulesPayload.length > 0 ? modulesPayload : undefined,
+      const { company } = await api<{ company: { id: string; name?: string; mode?: string } }>(
+        '/api/companies',
+        {
+          method: 'POST',
+          body: {
+            name,
+            philosophyPrompt: philosophy,
+            mode: 'paper',
+            seedCreditsCents: seed,
+            sectorFocuses,
+            engines: enginesPayload,
+            extraModules: modulesPayload.length > 0 ? modulesPayload : undefined,
+          },
         },
+      );
+      upsertCompanyListMeta({
+        id: company.id,
+        name: company.name ?? name,
+        mode: company.mode ?? 'paper',
       });
       setOpen(false);
       router.push(`/companies/${company.id}`);

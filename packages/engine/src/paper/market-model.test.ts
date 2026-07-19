@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { QuoteSnapshot } from '@hftr/contracts';
 import { projectMarketModelToAwareness } from './awareness-adapters';
-import { fuseQuoteCandidates, resolveMarketQuote } from './market-model';
+import {
+  fuseQuoteCandidates,
+  resolveDispatchMarketQuote,
+  resolveMarketQuote,
+} from './market-model';
 
 const clock = {
   nowMs: () => Date.parse('2026-07-18T15:00:00.000Z'),
@@ -64,6 +68,97 @@ describe('resolveMarketQuote (D-122)', () => {
     });
     expect(resolved.usedLive).toBe(true);
     expect(resolved.quote.lastCents).toBe(10105);
+  });
+});
+
+describe('resolveDispatchMarketQuote (D-171)', () => {
+  const db = {} as never;
+
+  it('uses owner Alpaca teacher when adapter is paper_sim / unbound', async () => {
+    const owner: QuoteSnapshot = {
+      symbol: 'AAPL',
+      bidCents: 19000,
+      askCents: 19010,
+      lastCents: 19005,
+      asOfIso: clock.nowIso(),
+      feedClass: 'alpaca_iex_paper',
+    };
+    const loadOwnerQuote = vi.fn(async () => owner);
+    const resolved = await resolveDispatchMarketQuote({
+      db,
+      clock,
+      companyId: '00000000-0000-4000-8000-000000000001',
+      symbol: 'AAPL',
+      adapter: { venue: 'paper_sim' } as never,
+      loadOwnerQuote,
+    });
+    expect(loadOwnerQuote).toHaveBeenCalledOnce();
+    expect(resolved.usedLive).toBe(true);
+    expect(resolved.quote.lastCents).toBe(19005);
+    expect(resolved.sourceClass).toBe('broker_state');
+  });
+
+  it('skips owner teacher when bound adapter already supplied live quote', async () => {
+    const bound: QuoteSnapshot = {
+      symbol: 'AAPL',
+      bidCents: 20000,
+      askCents: 20010,
+      lastCents: 20005,
+      asOfIso: clock.nowIso(),
+      feedClass: 'alpaca_iex_paper',
+    };
+    const loadOwnerQuote = vi.fn(async () => {
+      throw new Error('should not be called');
+    });
+    const resolved = await resolveDispatchMarketQuote({
+      db,
+      clock,
+      companyId: '00000000-0000-4000-8000-000000000001',
+      symbol: 'AAPL',
+      adapter: {
+        venue: 'alpaca',
+        getQuote: async () => bound,
+      } as never,
+      loadOwnerQuote,
+    });
+    expect(loadOwnerQuote).not.toHaveBeenCalled();
+    expect(resolved.usedLive).toBe(true);
+    expect(resolved.quote.lastCents).toBe(20005);
+  });
+
+  it('fail-opens to synthetic when owner quote throws / missing', async () => {
+    const loadOwnerQuote = vi.fn(async () => {
+      throw new Error('network');
+    });
+    const resolved = await resolveDispatchMarketQuote({
+      db,
+      clock,
+      companyId: '00000000-0000-4000-8000-000000000001',
+      symbol: 'MSFT',
+      loadOwnerQuote,
+    });
+    expect(resolved.usedLive).toBe(false);
+    expect(resolved.sourceClass).toBe('synthetic_sim');
+  });
+
+  it('drops stale live teacher quotes and falls back to synthetic', async () => {
+    const stale: QuoteSnapshot = {
+      symbol: 'AAPL',
+      bidCents: 19000,
+      askCents: 19010,
+      lastCents: 19005,
+      asOfIso: '2026-07-18T14:00:00.000Z', // >90s before clock
+      feedClass: 'alpaca_iex_paper',
+    };
+    const resolved = await resolveDispatchMarketQuote({
+      db,
+      clock,
+      companyId: '00000000-0000-4000-8000-000000000001',
+      symbol: 'AAPL',
+      loadOwnerQuote: async () => stale,
+    });
+    expect(resolved.usedLive).toBe(false);
+    expect(resolved.sourceClass).toBe('synthetic_sim');
   });
 });
 

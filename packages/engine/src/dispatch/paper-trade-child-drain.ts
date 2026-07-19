@@ -78,6 +78,8 @@ export function childDrainGapTags(args: {
     args.usedLiveMarketQuote ? 'live_market_quote' : 'synthetic_quote',
     'inline_fill_model',
     'no_venue_latency',
+    'no_queue_position',
+    'no_market_impact',
     'child_slice_drain',
     'time_spaced_child_drain',
   ];

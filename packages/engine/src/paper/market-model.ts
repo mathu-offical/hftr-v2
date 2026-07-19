@@ -1,9 +1,15 @@
 import type { BrokerAdapter, QuoteSnapshot } from '@hftr/contracts';
+import { createAlpacaPaperAdapter } from '@hftr/adapters';
+import type { Db } from '@hftr/db';
 import type { Clock } from '../clock';
+import {
+  defaultLoadAlpacaPaperCredentials,
+  type AlpacaPaperCredentials,
+} from '../calc/refresh-atr-stream';
 import { getSyntheticQuote } from '../dispatch/quotes';
 
 /**
- * MarketModel quote resolution (D-122 Phase 1–2).
+ * MarketModel quote resolution (D-122 Phase 1–2 / D-171).
  * Prefer entitled live quotes; fuse multiple candidates by freshness; honest feedClass.
  * Does not submit orders — quotes / marks only.
  */
@@ -38,6 +44,18 @@ function sourceClassForFeed(feed: string): ResolvedMarketQuote['sourceClass'] {
 function quoteAsOfMs(q: QuoteSnapshot): number {
   const t = Date.parse(q.asOfIso);
   return Number.isFinite(t) ? t : 0;
+}
+
+function isLivePriced(q: QuoteSnapshot): boolean {
+  return hasPrice(q) && sourceClassForFeed(q.feedClass ?? 'live_feed') !== 'synthetic_sim';
+}
+
+/** Quotes older than this are not used as MarketModel teachers (match dispatch TTL). */
+export const MARKET_MODEL_QUOTE_TTL_MS = 90_000;
+
+function isFreshQuote(q: QuoteSnapshot, nowMs: number, ttlMs = MARKET_MODEL_QUOTE_TTL_MS): boolean {
+  const asOf = quoteAsOfMs(q);
+  return Number.isFinite(asOf) && nowMs - asOf <= ttlMs;
 }
 
 /** Prefer newest non-synthetic quote with a price; else best synthetic; else null. */
@@ -92,6 +110,44 @@ export async function loadAdapterMarketQuote(
   }
 }
 
+export type LoadOwnerAlpacaPaperQuote = (
+  db: Db,
+  companyId: string,
+  symbol: string,
+) => Promise<QuoteSnapshot | null>;
+
+/**
+ * Quote-only Alpaca paper teacher for unbound `paper_sim` companies (D-171 / D-137).
+ * Uses company bind → module bindings → owner connected paper creds.
+ * Never calls submitOrder — MarketModel teacher only; fail-open to null.
+ */
+export async function loadOwnerAlpacaPaperQuote(
+  db: Db,
+  companyId: string,
+  symbol: string,
+  deps?: {
+    loadCredentials?: (
+      db: Db,
+      companyId: string,
+    ) => Promise<AlpacaPaperCredentials | null>;
+    createQuoteAdapter?: (creds: AlpacaPaperCredentials) => BrokerAdapter;
+  },
+): Promise<QuoteSnapshot | null> {
+  try {
+    const load = deps?.loadCredentials ?? defaultLoadAlpacaPaperCredentials;
+    const creds = await load(db, companyId);
+    if (!creds) return null;
+    const create =
+      deps?.createQuoteAdapter ??
+      ((c: AlpacaPaperCredentials) =>
+        createAlpacaPaperAdapter({ keyId: c.keyId, secret: c.secret }));
+    const adapter = create(creds);
+    return await adapter.getQuote(symbol);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Resolve a mark/quote for dispatch, exits, or equity using optional live adapter.
  */
@@ -107,5 +163,54 @@ export async function resolveMarketQuoteWithAdapter(opts: {
     clock: opts.clock,
     liveQuote,
     ...(opts.candidates !== undefined ? { candidates: opts.candidates } : {}),
+  });
+}
+
+/**
+ * Dispatch/compile MarketModel resolution (D-171):
+ * 1) Bound non-`paper_sim` adapter quote
+ * 2) Owner/module Alpaca paper quote teacher (read-only)
+ * 3) Synthetic fail-open
+ *
+ * Keeps `funds_only` + `paper_sim` venue for fills while pricing from live market data
+ * when entitled credentials exist — no submitOrder on the teacher path.
+ */
+export async function resolveDispatchMarketQuote(opts: {
+  db: Db;
+  clock: Clock;
+  companyId: string;
+  symbol: string;
+  adapter?: BrokerAdapter | null;
+  candidates?: readonly QuoteSnapshot[];
+  loadOwnerQuote?: LoadOwnerAlpacaPaperQuote;
+  /** Override freshness TTL (tests). Default 90s — matches dispatch QUOTE_TTL_MS. */
+  quoteTtlMs?: number;
+}): Promise<ResolvedMarketQuote> {
+  const nowMs = opts.clock.nowMs();
+  const ttlMs = opts.quoteTtlMs ?? MARKET_MODEL_QUOTE_TTL_MS;
+  const pooled: QuoteSnapshot[] = [...(opts.candidates ?? [])];
+  const fromAdapter = await loadAdapterMarketQuote(opts.adapter, opts.symbol);
+  if (fromAdapter) pooled.push(fromAdapter);
+
+  if (!pooled.some((q) => isLivePriced(q) && isFreshQuote(q, nowMs, ttlMs))) {
+    const loadOwner = opts.loadOwnerQuote ?? loadOwnerAlpacaPaperQuote;
+    try {
+      const ownerQuote = await loadOwner(opts.db, opts.companyId, opts.symbol);
+      if (ownerQuote) pooled.push(ownerQuote);
+    } catch {
+      // Fail-open: teacher unavailable → synthetic below.
+    }
+  }
+
+  // Prefer fresh live; drop stale live so we do not trip quote_freshness fail-closed
+  // with a teacher that is already past the dispatch TTL (D-171).
+  const usable = pooled.filter(
+    (q) => !isLivePriced(q) || isFreshQuote(q, nowMs, ttlMs),
+  );
+
+  return resolveMarketQuote({
+    symbol: opts.symbol,
+    clock: opts.clock,
+    candidates: usable,
   });
 }

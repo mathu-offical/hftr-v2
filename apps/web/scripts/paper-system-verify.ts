@@ -170,6 +170,22 @@ async function main() {
       tags.includes('funds_only_routing') || tags.includes('inline_fill_model'),
       JSON.stringify(tags),
     );
+    record(
+      'gap_tags_quote_honesty',
+      tags.includes('live_market_quote') || tags.includes('synthetic_quote'),
+      tags.includes('live_market_quote') ? 'live_market_quote' : 'synthetic_quote',
+    );
+    record(
+      'gap_tags_sim_limits',
+      tags.includes('no_queue_position') && tags.includes('no_market_impact'),
+      JSON.stringify(
+        tags.filter((t) =>
+          ['no_queue_position', 'no_market_impact', 'no_venue_latency', 'inline_fill_model'].includes(
+            t,
+          ),
+        ),
+      ),
+    );
     record('mode_paper', filled.mode === 'paper', String(filled.mode));
     record('venue_paper_sim', filled.venue === 'paper_sim', String(filled.venue));
   }

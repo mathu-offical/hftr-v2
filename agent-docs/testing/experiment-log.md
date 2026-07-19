@@ -263,15 +263,16 @@ Scoring: `intent-alignment-scoring.md`
 
 | Field | Value |
 |---|---|
-| Status | unit **pass**; API paper-system-verify re-run pending below |
+| Status | unit **pass**; API paper-system-verify **20/20** |
 | Mode | paper only (`funds_only` + `paper_sim`) |
-| Quote source | Prefer Alpaca IEX paper teacher when owner/module/company paper creds exist; else `synthetic_sim` |
+| Quote source | Prefer **fresh** Alpaca IEX paper teacher (≤90s) when owner/module/company paper creds exist; else `synthetic_sim` |
 | Venues | `paper_sim` (internal fill; no submitOrder on teacher path) |
 | Hypothesis | Extending D-137 credential discovery to fill/compile/exit marks makes paper fills live-data-aware without elevating routing |
 | Declared intent | Close D-122 gap: default unbound companies priced from live market model when entitled |
-| Observed | `resolveDispatchMarketQuote` unit: owner teacher → `live_market_quote` path; fail-open synthetic; bound adapter skips owner. Honesty tags add `no_queue_position` / `no_market_impact` |
-| Alignment | **aligned** (unit) |
+| Observed | `resolveDispatchMarketQuote` unit: owner teacher → live path; stale teacher dropped → synthetic; fail-open. Stale-teacher regression fixed after first blocked verify. API **20/20** with honesty tags `no_queue_position` / `no_market_impact`; this cohort used `synthetic_quote` (no fresh Alpaca teacher for `dev_local_user`) |
+| Alignment | **aligned** |
 | Decisions | D-171 (extends D-122 / D-137) |
+| Provenance | `funds_only_routing`, `inline_fill_model`, `no_venue_latency`, `no_queue_position`, `no_market_impact`, `no_partial_fills` |
 
 ### Follow-ups
 - Finish green `paper-loop` + `paper-intent-alignment` e2e

@@ -98,6 +98,10 @@ Approved design: `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-
   `paper-sim`; module `executionBinding.brokerConnectionId` overrides company bind;
   elevate modes fail closed without a connected service; trading inspector exposes
   routing + connection controls.
+  Phase 6 (D-171): unbound `paper_sim` + `funds_only` uses **quote-only** Alpaca paper
+  teacher via `resolveDispatchMarketQuote` (company/module/owner creds, same discovery
+  as atr_stream / D-137) — live `feedClass` + `live_market_quote` tags without
+  `submitOrder`. Compile sizing + position-exit marks share the helper.
 - Company-level `broker_connections` bind remains for credentials; it no longer implies
   automatic venue submit for every paper trade (routing mode decides).
 

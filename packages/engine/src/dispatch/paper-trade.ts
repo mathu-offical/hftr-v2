@@ -59,7 +59,7 @@ import {
 import { recomputeCompanyEquity } from '../equity/recompute';
 import { shadowVerifyAndPersistBookDelta } from '../paper/book-delta';
 import { computeInternalPaperCoreFill } from '../paper/internal-paper-core';
-import { resolveMarketQuote, loadAdapterMarketQuote } from '../paper/market-model';
+import { resolveDispatchMarketQuote } from '../paper/market-model';
 
 /**
  * The deterministic paper-trade path (broker-integration.md, dispatch README):
@@ -258,14 +258,18 @@ export async function executePaperTrade(
     );
   }
 
-  let liveQuote: QuoteSnapshot | null = null;
-  if (venue !== 'paper_sim') {
-    liveQuote = await loadAdapterMarketQuote(adapter, req.symbol);
-    if (!liveQuote && primaryOnProvider) {
-      return blockedSimple(db, req, 'broker_policy_block', 'quote unavailable', venue);
-    }
+  // D-171: MarketModel teacher — bound adapter quote, else owner Alpaca paper
+  // read-only quote, else synthetic. funds_only + paper_sim stays internal fill.
+  const market = await resolveDispatchMarketQuote({
+    db,
+    clock,
+    companyId: req.companyId,
+    symbol: req.symbol,
+    adapter,
+  });
+  if (!market.usedLive && primaryOnProvider) {
+    return blockedSimple(db, req, 'broker_policy_block', 'quote unavailable', venue);
   }
-  const market = resolveMarketQuote({ symbol: req.symbol, clock, liveQuote });
   const quote = market.quote;
   const usesLiveMarketQuote = market.usedLive;
 
@@ -1250,6 +1254,8 @@ function internalPaperFillGapTags(args: {
     args.usedLiveMarketQuote ? 'live_market_quote' : 'synthetic_quote',
     'inline_fill_model',
     'no_venue_latency',
+    'no_queue_position',
+    'no_market_impact',
     args.usedChildDrain ? 'child_slice_drain' : 'no_partial_fills',
   ];
   switch (args.routingMode) {

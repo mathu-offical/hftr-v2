@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  MARKET_HUB_SYNTHESIS_STAGE_META,
   MARKET_HUB_SYNTHESIS_STAGE_ORDER,
   MarketHubSynthesisRun,
   MarketHubSynthesisStageId,
@@ -34,11 +35,15 @@ describe('MarketHubSynthesisRun', () => {
     expect(parsed.stages[0]?.stageId).toBe('gather');
   });
 
-  it('exposes full stage vocabulary for Model graph', () => {
+  it('exposes full stage vocabulary with track and layer (D-160)', () => {
     expect(MARKET_HUB_SYNTHESIS_STAGE_ORDER).toContain('narrative');
     expect(MARKET_HUB_SYNTHESIS_STAGE_ORDER).toContain('hub_ready');
     for (const id of MARKET_HUB_SYNTHESIS_STAGE_ORDER) {
       expect(MarketHubSynthesisStageId.parse(id)).toBe(id);
+      const meta = MARKET_HUB_SYNTHESIS_STAGE_META[id];
+      expect(meta.track).toBeTruthy();
+      expect(meta.layer).toBeTruthy();
+      expect(meta.dataRole.length).toBeGreaterThan(0);
     }
   });
 });

@@ -461,6 +461,27 @@ export const MarketHubModelHydration = z.object({
     usedLiveMarks: z.number().int().nonnegative(),
     syntheticMarks: z.number().int().nonnegative(),
   }),
+  /**
+   * Projection clock for Model refresh/pulse (D-160).
+   * Hub GET time — client compares across Sync/Analyze to pulse edges.
+   */
+  asOfIso: z.string().datetime(),
+  /** Seal freshness stamps for track stale/active styling (D-160). */
+  sealStamps: z
+    .object({
+      moversVerifiedAt: z.string().datetime().nullable(),
+      moversExpiresAt: z.string().datetime().nullable(),
+      newsVerifiedAt: z.string().datetime().nullable(),
+      newsExpiresAt: z.string().datetime().nullable(),
+      dailyExpiresAt: z.string().datetime().nullable(),
+    })
+    .default({
+      moversVerifiedAt: null,
+      moversExpiresAt: null,
+      newsVerifiedAt: null,
+      newsExpiresAt: null,
+      dailyExpiresAt: null,
+    }),
 });
 export type MarketHubModelHydration = z.infer<typeof MarketHubModelHydration>;
 

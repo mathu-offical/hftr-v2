@@ -655,7 +655,8 @@ export function buildOptionAnchorsForEngine(
         label: axis.label,
         layer: axis.layer,
         parentAnchorId: null,
-        ownerModuleId: researchers[0]?.id ?? traders[0]?.id ?? null,
+        // Engine-level axes live in the free right column (not a single member).
+        ownerModuleId: null,
         ownerEngineId: parsed.engineId,
         defaultPosition: 'typical',
       });

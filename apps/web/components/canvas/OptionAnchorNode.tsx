@@ -1,8 +1,12 @@
 'use client';
 
 import { memo } from 'react';
-import { type Node, type NodeProps } from '@xyflow/react';
+import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { OptionAnchorKind, OptionAnchorPosition, OptionAnchorSpec } from '@hftr/contracts';
+
+/** Handle ids for option_bind decorative edges. */
+export const OPTION_ANCHOR_HANDLE_IN = 'option-in';
+export const OPTION_ANCHOR_HANDLE_OUT = 'option-out';
 
 export type OptionAnchorNodeData = Pick<
   OptionAnchorSpec,
@@ -32,13 +36,39 @@ export const OptionAnchorNode = memo(function OptionAnchorNode({
     <div
       role="group"
       aria-label={`${data.label} anchor`}
-      className="flex h-12 w-[140px] flex-col justify-center gap-0.5 rounded-md border px-2 shadow-md"
+      className="relative flex h-12 w-[140px] flex-col justify-center gap-0.5 rounded-md border px-2 shadow-md"
       style={{
         borderColor,
         background: 'var(--color-surface-1)',
       }}
       title={data.label}
     >
+      <Handle
+        id={OPTION_ANCHOR_HANDLE_IN}
+        type="target"
+        position={Position.Left}
+        className="hftr-handle"
+        aria-label="Option bind in"
+        style={{
+          width: 6,
+          height: 6,
+          background: 'var(--color-ink-faint)',
+          border: '1px solid var(--color-surface-0)',
+        }}
+      />
+      <Handle
+        id={OPTION_ANCHOR_HANDLE_OUT}
+        type="source"
+        position={Position.Right}
+        className="hftr-handle"
+        aria-label="Option bind out"
+        style={{
+          width: 6,
+          height: 6,
+          background: 'var(--color-ink-faint)',
+          border: '1px solid var(--color-surface-0)',
+        }}
+      />
       <div className="flex items-center justify-between gap-1">
         <span className="max-w-[72px] truncate rounded border border-[var(--color-line)] px-1 py-0.5 text-[7px] uppercase tracking-wide text-[var(--color-ink-faint)]">
           {kindChipLabel(data.kind)}

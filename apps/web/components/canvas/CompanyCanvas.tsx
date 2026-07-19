@@ -74,10 +74,9 @@ import {
 } from './OptionAnchorNode';
 import { OptionAnchorInspectorPanel } from './OptionAnchorInspectorPanel';
 import {
-  OPTION_ANCHOR_GAP,
-  OPTION_ANCHOR_NODE_HEIGHT,
   anchorsForEngine,
   buildOptionAnchorArtifacts,
+  measurePlacedAnchorBottom,
 } from './option-anchor-graph';
 import { CanvasSettingsMenu } from './CanvasSettingsMenu';
 import { Palette } from './Palette';
@@ -369,14 +368,13 @@ function canvasEnginesFromNodes(nodes: readonly CanvasFlowNode[]): CanvasEngineG
 
 function engineBoundsWithOptionColumn(
   memberBounds: { x: number; y: number; width: number; height: number },
-  visibleAnchorCount: number,
+  placedAnchorBottom: number,
 ): { x: number; y: number; width: number; height: number } {
-  // D-176: ENGINE_GROUP_PADDING.right already reserves the option-anchor column —
-  // only grow height when stacked anchors exceed the member envelope.
+  // D-176/D-180: padding.right reserves the column; grow height to fit docked trees.
   const anchorsHeight =
-    ENGINE_GROUP_PADDING.top +
-    visibleAnchorCount * (OPTION_ANCHOR_NODE_HEIGHT + OPTION_ANCHOR_GAP) +
-    ENGINE_GROUP_PADDING.bottom;
+    placedAnchorBottom > 0
+      ? placedAnchorBottom + ENGINE_GROUP_PADDING.bottom
+      : memberBounds.height;
   return {
     x: memberBounds.x,
     y: memberBounds.y,
@@ -393,6 +391,12 @@ function withSyncedOptionAnchors(nodes: readonly CanvasFlowNode[]): {
 } {
   const withoutAnchors = nodes.filter((node) => !isOptionAnchorNode(node));
   const modules = canvasModulesFromNodes(withoutAnchors);
+  const relativeFromNodes = new Map<string, { x: number; y: number }>();
+  for (const node of withoutAnchors) {
+    if (!isModuleNode(node) || !node.parentId) continue;
+    relativeFromNodes.set(node.id, { x: node.position.x, y: node.position.y });
+  }
+
   const engines = withoutAnchors.filter(isEngineGroupNode).map((node) => {
     const memberBounds = resolveEngineBounds(
       {
@@ -411,14 +415,27 @@ function withSyncedOptionAnchors(nodes: readonly CanvasFlowNode[]): {
       { id: node.id, templateId: node.data.templateId },
       modules,
     );
-    const visibleCount = allAnchors.filter(
-      (anchor) =>
-        anchor.kind === 'template_input' ||
-        anchor.kind === 'strategy_family' ||
-        anchor.kind === 'branch_role' ||
-        anchor.kind === 'recovery_phase' ||
-        anchor.kind === 'philosophy_axis',
-    ).length;
+    const provisional: CanvasEngineGroup = {
+      id: node.id,
+      templateId: node.data.templateId,
+      label: node.data.label,
+      masterTopicSectors: node.data.masterTopicSectors,
+      setupSnapshot: node.data.setupSnapshot ?? null,
+      templateInputs: node.data.templateInputs ?? {},
+      canvasBounds: {
+        x: node.position.x,
+        y: node.position.y,
+        width: memberBounds.width,
+        height: memberBounds.height,
+      },
+      memberModuleIds: node.data.memberModuleIds,
+      ...(node.data.utilityLinks ? { utilityLinks: node.data.utilityLinks } : {}),
+    };
+    const placed = buildOptionAnchorArtifacts(
+      [provisional],
+      modules,
+      relativeFromNodes,
+    ).nodes.filter((anchor) => anchor.parentId === node.id);
     const expanded = engineBoundsWithOptionColumn(
       {
         x: node.position.x,
@@ -426,7 +443,7 @@ function withSyncedOptionAnchors(nodes: readonly CanvasFlowNode[]): {
         width: memberBounds.width,
         height: memberBounds.height,
       },
-      visibleCount,
+      measurePlacedAnchorBottom(placed),
     );
     return {
       id: node.id,
@@ -441,7 +458,7 @@ function withSyncedOptionAnchors(nodes: readonly CanvasFlowNode[]): {
     } satisfies CanvasEngineGroup;
   });
 
-  const artifacts = buildOptionAnchorArtifacts(engines, modules);
+  const artifacts = buildOptionAnchorArtifacts(engines, modules, relativeFromNodes);
   const engineById = new Map(engines.map((engine) => [engine.id, engine]));
 
   const syncedBase: CanvasFlowNode[] = withoutAnchors.map((node) => {
@@ -473,7 +490,16 @@ function mergeDecorativeEdges(current: Edge[], nodes: CanvasFlowNode[]): Edge[] 
   );
   const engines = canvasEnginesFromNodes(nodes);
   const modules = canvasModulesFromNodes(nodes);
-  const { edges: optionEdges } = buildOptionAnchorArtifacts(engines, modules);
+  const relativeFromNodes = new Map<string, { x: number; y: number }>();
+  for (const node of nodes) {
+    if (!isModuleNode(node) || !node.parentId) continue;
+    relativeFromNodes.set(node.id, { x: node.position.x, y: node.position.y });
+  }
+  const { edges: optionEdges } = buildOptionAnchorArtifacts(
+    engines,
+    modules,
+    relativeFromNodes,
+  );
   return [...core, ...utilityEdgesFromEngines(engines), ...optionEdges];
 }
 
@@ -1774,7 +1800,7 @@ export function CompanyCanvas(props: {
               (n): n is EngineGroupFlowNode => isEngineGroupNode(n) && n.id === targetEngineId,
             );
             const parentBounds = engineNode ? engineBounds(engineNode) : null;
-            return syncDedicatedMathParents(
+            const next = syncDedicatedMathParents(
               current.map((n) => {
                 if (!isModuleNode(n) || n.id !== node.id) return n;
                 if (!targetEngineId || !parentBounds) {
@@ -1804,13 +1830,22 @@ export function CompanyCanvas(props: {
                 };
               }),
             );
+            const synced = withSyncedOptionAnchors(next);
+            setEdges((edges) => mergeDecorativeEdges(edges, synced.nodes));
+            return synced.nodes;
+          });
+        } else {
+          setNodes((current) => {
+            const synced = withSyncedOptionAnchors(current);
+            setEdges((edges) => mergeDecorativeEdges(edges, synced.nodes));
+            return synced.nodes;
           });
         }
       } catch {
         flash('Could not save position.');
       }
     },
-    [nodes, props.companyId, setNodes],
+    [nodes, props.companyId, setNodes, setEdges],
   );
 
   const onOwnerDragStart = useCallback((_e: unknown, node: CanvasFlowNode) => {
@@ -1829,16 +1864,29 @@ export function CompanyCanvas(props: {
       ownerDragOriginRef.current.set(node.id, { x: node.position.x, y: node.position.y });
       setNodes((current) =>
         current.map((candidate) => {
-          if (!isMathToolNode(candidate) || candidate.data.ownerModuleId !== node.id) {
-            return candidate;
+          if (isMathToolNode(candidate) && candidate.data.ownerModuleId === node.id) {
+            return {
+              ...candidate,
+              position: {
+                x: candidate.position.x + dx,
+                y: candidate.position.y + dy,
+              },
+            };
           }
-          return {
-            ...candidate,
-            position: {
-              x: candidate.position.x + dx,
-              y: candidate.position.y + dy,
-            },
-          };
+          if (
+            isOptionAnchorNode(candidate) &&
+            candidate.data.ownerModuleId === node.id &&
+            candidate.parentId === node.parentId
+          ) {
+            return {
+              ...candidate,
+              position: {
+                x: candidate.position.x + dx,
+                y: candidate.position.y + dy,
+              },
+            };
+          }
+          return candidate;
         }),
       );
     },

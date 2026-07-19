@@ -95,9 +95,10 @@ ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles
 - **Option anchors (D-173 / D-180):** catalog decision nodes parented under the engine
   group. **Owned** roots dock beside their owner module (research subtype, librarian,
   library class, trend posture, trading family, analyzer emit) with `option_bind` edges
-  owner→root→children. Unowned roots stay in the right column. Research engines emit
-  subtype / curiosity / admission / cadence / discover→verify trees; lever bands remain
-  inspector-only. Positions persist on `setupSnapshot.optionAnchorPositions`.
+  owner→root→children (handles: module `data_feed-out` → `option-in` → `option-out`).
+  Unowned roots (e.g. philosophy axes) stay in the right column. Owner trees are sorted
+  and non-overlapping; chrome height grows to fit placed trees. Positions re-sync on
+  module drag. Lever bands remain inspector-only.
 - **Simulation ENGINEs (D-189):** create section alongside Research / Execution. Linked
   children of an execution use `setup_snapshot.simulationBinding` (`pre`=gate /
   `post`=training + parentExecutionEngineId); adhoc sims are standalone paper desks.

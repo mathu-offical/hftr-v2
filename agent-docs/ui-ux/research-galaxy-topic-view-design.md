@@ -131,8 +131,11 @@ chips drawn from visible concepts’ tags (and optionally topic-level keywords).
 - **D-139 celestial hierarchy:** each granular node renders as a distinct celestial body
   (`rock` / `planet` / `ember` / `comet` / `moon` by source class; article hubs = **stars**).
   Article stars are **unpinned** orbit centers inside folder/shelf systems; concepts
-  soft-orbit the **live** article-star position (not a frozen seed). Top-N article stars
-  always visible; full set under topic focus.
+  soft-orbit the **live** article-star position (not a frozen seed).
+- **D-141 full library articles + live map:** graph API emits **all** library-scoped
+  `hftr:article` hubs (merged with topic membership orbits). Galaxy shows **all** folders
+  and article stars in the active library scope (no top-N LOD). Overlay refreshes on
+  research-cache invalidation and polls while open so new resources reshape the map.
 - A larger **company envelope** sphere outlines the full organizational cloud.
 - **Volume packing (D-116):** library / folder / article *centers* use **Fibonacci-sphere**
   samples on concentric shells so XYZ volume is used

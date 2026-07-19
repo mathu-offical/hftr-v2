@@ -11,7 +11,7 @@ import {
 } from '@hftr/db/schema';
 import { bootstrapCompanyKnowledge } from '@hftr/engine';
 import { withAuth } from '@/lib/api';
-import { buildArticleOrbits, buildFolderStars } from '@/lib/galaxy-graph-nesting';
+import { buildArticleOrbits, buildFolderStars, buildLibraryArticleOrbits, mergeArticleOrbits } from '@/lib/galaxy-graph-nesting';
 import { bumpConceptQueries, listLibraryNests } from '@/lib/research-topics';
 
 export const dynamic = 'force-dynamic';
@@ -165,7 +165,7 @@ export async function GET(req: Request, ctx: Ctx) {
             )
           : and(eq(researchTopics.companyId, companyId), eq(researchTopics.status, 'active')),
       )
-      .limit(80);
+      .limit(500);
 
     const topicIds = topicRows.map((row) => row.id);
     const membershipRows =
@@ -178,9 +178,11 @@ export async function GET(req: Request, ctx: Ctx) {
             })
             .from(topicConcepts)
             .where(inArray(topicConcepts.topicId, topicIds))
-            .limit(2000);
+            .limit(8000);
 
-    const articles = buildArticleOrbits(topicRows, membershipRows, conceptsById);
+    const topicOrbits = buildArticleOrbits(topicRows, membershipRows, conceptsById);
+    const libraryArticleOrbits = buildLibraryArticleOrbits(nestingConcepts, libraryNests);
+    const articles = mergeArticleOrbits(topicOrbits, libraryArticleOrbits);
 
     return ResearchGraphResponse.parse({
       nodes,

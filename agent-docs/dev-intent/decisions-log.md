@@ -1467,10 +1467,24 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   nodes render as distinct celestial bodies (`galaxy-celestial.ts`: star / planet / rock /
   ember / moon / comet by source class and role). Article hulls are **unpinned star hubs**
   that soft-orbit parent folder/shelf systems (`createArticleHullOrbitForce`); concept
-  soft-orbits follow **live** article-hull positions (`createArticleOrbitForce`). Top-N
-  article stars always visible; full set under topic focus. Builds on D-136 free-float.
-  Docs: `research/galaxy-3d-volume-layout.md`, `ui-ux/research-galaxy-topic-view-design.md`
-  §4.1. **Status: implemented.**
+  soft-orbits follow **live** article-hull positions (`createArticleOrbitForce`).
+  Superseded LOD note: D-141 shows all library-scoped article stars. Builds on D-136
+  free-float. Docs: `research/galaxy-3d-volume-layout.md`,
+  `ui-ux/research-galaxy-topic-view-design.md` §4.1. **Status: implemented.**
+
+- **D-140 (Engine Data Hub, 2026-07-18):** Each execution engine owns a first-class shared
+  **Engine Data Hub** library (canvas module + `libraries` row). Linked research engines
+  hydrate the hub; in-family libraries nest under it in Library/Data views; query line
+  hub→execution; returns (Policies / History / Notes) execution→hub. Spec:
+  `docs/superpowers/specs/2026-07-18-engine-data-hub-design.md`. **Status: implemented.**
+
+- **D-141 (galaxy full library articles + live refresh, 2026-07-18):** Graph nests every
+  library-scoped `hftr:article` as an article-star orbit (merged with topic membership
+  orbits). Galaxy renders **all** folders and article stars in the active library filter
+  (no top-N LOD). Research overlay reloads the graph on research-cache invalidation and
+  polls every 8s while open so newly admitted articles/resources reshape the map.
+  Docs: ui-spec Galaxy tab, research-galaxy-topic-view-design §4.1,
+  galaxy-3d-volume-layout. **Status: implemented.**
 
 ## Open questions
 

@@ -3,6 +3,7 @@ import type {
   ResearchGraphFolderStar,
   ResearchGraphLibraryNest,
 } from '@hftr/contracts';
+import { isResearchArticleConcept } from '@hftr/contracts';
 import { amalgamationMassFromTexts } from './galaxy-similarity';
 import {
   isBaselineSeededLibrary,
@@ -156,7 +157,8 @@ export function buildArticleOrbits(
       .filter((c): c is GraphNestingConcept => c != null);
 
     const libraryId = majorityValue(memberConcepts.map((c) => c.primaryLibraryId));
-    const folderKey = majorityValue(memberConcepts.map((c) => seedCatalogForPage(c.tags)));
+    const catalogFolder = majorityValue(memberConcepts.map((c) => seedCatalogForPage(c.tags)));
+    const folderKey = catalogFolder ?? (libraryId ? 'runtime' : null);
 
     articles.push({
       topicId: topic.id,
@@ -168,4 +170,48 @@ export function buildArticleOrbits(
   }
 
   return articles.sort((a, b) => a.title.localeCompare(b.title));
+}
+
+/**
+ * Library-scoped research articles (D-127 / D-141): every `hftr:article` concept with a
+ * primary library becomes an article-star orbit hub inside that library/folder.
+ * `topicId` carries the concept uuid (orbit identity for the graph response).
+ */
+export function buildLibraryArticleOrbits(
+  concepts: ReadonlyArray<GraphNestingConcept>,
+  libraries: ReadonlyArray<ResearchGraphLibraryNest>,
+): ResearchGraphArticleOrbit[] {
+  const libraryById = new Map(libraries.map((lib) => [lib.id, lib]));
+  const articles: ResearchGraphArticleOrbit[] = [];
+
+  for (const concept of concepts) {
+    if (!isResearchArticleConcept(concept.tags)) continue;
+    const libraryId = concept.primaryLibraryId;
+    if (!libraryId || !libraryById.has(libraryId)) continue;
+
+    const folderKey = resolveConceptFolderKey(concept, libraryById);
+    articles.push({
+      topicId: concept.id,
+      title: concept.title,
+      libraryId,
+      folderKey,
+      memberConceptIds: [concept.id],
+    });
+  }
+
+  return articles.sort((a, b) => a.title.localeCompare(b.title));
+}
+
+/**
+ * Merge topic membership orbits + library article hubs. Library articles win on id clash
+ * (same uuid is extremely unlikely across topics vs concepts).
+ */
+export function mergeArticleOrbits(
+  topicOrbits: ReadonlyArray<ResearchGraphArticleOrbit>,
+  libraryArticleOrbits: ReadonlyArray<ResearchGraphArticleOrbit>,
+): ResearchGraphArticleOrbit[] {
+  const byId = new Map<string, ResearchGraphArticleOrbit>();
+  for (const orbit of topicOrbits) byId.set(orbit.topicId, orbit);
+  for (const orbit of libraryArticleOrbits) byId.set(orbit.topicId, orbit);
+  return [...byId.values()].sort((a, b) => a.title.localeCompare(b.title));
 }

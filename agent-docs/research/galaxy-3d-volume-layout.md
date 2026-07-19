@@ -103,7 +103,8 @@ Result: orbit camera still looked like a **flat necklace of nests**, not a volum
 | Library | Faint framing only |
 | Cross-membership springs | `hierarchicalLinkScale` — mild bias, not crush |
 | Foreign repel | Near-off so systems can overlap |
-| LOD | Top-N article stars always on; all under topic focus |
+| LOD | **All** folders + article stars in library scope (D-141); chips filter |
+| Live map | Research-cache invalidation + 8s overlay poll reshapes orbits |
 | QA | `layoutStats` still reports packing AABB / separation |
 
 ## 6. Verification

@@ -16,7 +16,9 @@ describe('galaxy-celestial', () => {
     expect(celestialKindForConcept({ sourceClass: 'model_generated', referenceCount: 12 })).toBe(
       'comet',
     );
-    expect(celestialKindForConcept({ tags: ['hftr:article'] })).toBe('star');
+    expect(celestialKindForConcept({ tags: ['hftr:article'], sourceClass: 'operator' })).toBe(
+      'planet',
+    );
   });
 
   it('uses moons for tag satellites and stars for article hulls', () => {

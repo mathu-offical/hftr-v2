@@ -17,8 +17,7 @@ export type CelestialConceptInput = {
 
 /** Map research entities onto celestial metaphors. */
 export function celestialKindForConcept(input: CelestialConceptInput): CelestialBodyKind {
-  const tags = input.tags ?? [];
-  if (tags.includes('hftr:article')) return 'star';
+  // Article hubs render as nest-hull stars (D-139/D-141); concept glyphs stay non-star.
   switch (input.sourceClass) {
     case 'catalog_seed':
       return 'rock';

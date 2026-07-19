@@ -145,13 +145,16 @@
   bottom-left under the member envelope. Port roles: Now / Authority in / Schedule / Time bus /
   Clock in. Engines receive clock authority via motherboard `clock` utility bind; Time → members
   land on clock_in.
-- **Node families (D-056 / D-068 / D-073 / D-088 / D-110):** cards distinguish **Data source**
+- **Node families (D-056 / D-068 / D-073 / D-088 / D-110 / D-140):** cards distinguish **Data source**
   (`library` shelves / book-spine silhouette; `live_api` aperture + signal bars — dashed border),
   **Agent** (solid + left bar) with low-contrast silhouettes for `research` / `librarian` /
   `trend` / `trading` / `analyzer`, **Vault** / fund (`holding_fund`, `fund_router` — vault door,
   rivets, dial chrome; double border), **Tool** (Math, Clock, Time — Math tools share
   `MODULE_VISUALS.math` tokens with hub Math; Calc-ref / Fund port labels), **Control** (`policy`
-  shield silhouette). Engine motherboard utility handles use **nature-colored** outward labels
+  shield silhouette). **Engine Data Hub** (D-140): first-class `libraryClass: engine_data_hub`
+  per execution engine — canvas node between research deps and execution; Library/Data views
+  nest in-family libraries under the hub; Query (hub→trading) and Hydrate/Policies/Notes returns.
+  Engine motherboard utility handles use **nature-colored** outward labels
   (data / time / fund / system). Subtype chips cover library class, venue, trend posture,
   analyzer emitMode, policy envelope, simulator/generator, holding_fund / fund_router so cards
   in a default ENGINE read distinctly. Create-flow preview cards reuse `NodePortBuses` +
@@ -447,10 +450,13 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
   failure or explicit toggle.
 - **Library nests (default):** faint library framing; folders = soft system/shelf spaces;
   **article stars** soft-orbit inside folders and act as live orbit centers for member
-  concepts (top-N always visible; full set under topic focus). Folder hulls use an
-  octahedron wire cue. A company envelope sphere bounds the visible nests. Cross-library
-  edges may span systems. Layout uses Fibonacci volume packing (D-116) with free-float
-  semantic springs (D-136) and celestial hierarchy (D-139).
+  concepts. **D-141:** every library-scoped `hftr:article` (plus topic membership orbits)
+  appears as an article star — **no LOD cap**; library chips fully scope folders + articles.
+  Graph reloads on research-cache invalidation and an 8s poll while the overlay is open so
+  newly admitted articles reshape the map. Folder hulls use an octahedron wire cue. A
+  company envelope sphere bounds the visible nests. Cross-library edges may span systems.
+  Layout uses Fibonacci volume packing (D-116) with free-float semantic springs (D-136) and
+  celestial hierarchy (D-139 / D-141).
 - **Rotating info-tag layer** over the graph (subtle orbit of tag chips; static under
   `prefers-reduced-motion`); chips double as filters.
 - **Topic focus** (left-panel select): dim non-member concepts/edges; stronger particles on

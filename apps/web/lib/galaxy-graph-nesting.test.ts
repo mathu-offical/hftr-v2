@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildArticleOrbits, buildFolderStars } from './galaxy-graph-nesting';
+import { buildArticleOrbits, buildFolderStars, buildLibraryArticleOrbits, mergeArticleOrbits } from './galaxy-graph-nesting';
 
 describe('galaxy-graph-nesting', () => {
   const baselineLibrary = {
@@ -109,5 +109,55 @@ describe('galaxy-graph-nesting', () => {
     expect(articles[0]?.libraryId).toBe(baselineLibrary.id);
     expect(articles[0]?.folderKey).toBe('strategy_families');
     expect(articles[0]?.memberConceptIds).toHaveLength(3);
+  });
+
+  it('builds library article orbits scoped to primary library and folder', () => {
+    const articleConcept = {
+      id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+      title: 'Macro readthrough',
+      body: 'Operator article body',
+      tags: ['hftr:article', 'macro'],
+      primaryLibraryId: runtimeLibrary.id,
+    };
+    const orbits = buildLibraryArticleOrbits(
+      [
+        articleConcept,
+        {
+          id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+          title: 'Not an article',
+          body: '',
+          tags: ['custom'],
+          primaryLibraryId: runtimeLibrary.id,
+        },
+      ],
+      [baselineLibrary, runtimeLibrary],
+    );
+    expect(orbits).toHaveLength(1);
+    expect(orbits[0]?.topicId).toBe(articleConcept.id);
+    expect(orbits[0]?.libraryId).toBe(runtimeLibrary.id);
+    expect(orbits[0]?.folderKey).toBe('runtime');
+    expect(orbits[0]?.memberConceptIds).toEqual([articleConcept.id]);
+  });
+
+  it('merges topic and library article orbits without dropping either', () => {
+    const topicOrbit = {
+      topicId: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+      title: 'Supply chain thesis',
+      libraryId: baselineLibrary.id,
+      folderKey: 'strategy_families',
+      memberConceptIds: ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'],
+    };
+    const articleOrbit = {
+      topicId: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+      title: 'Macro readthrough',
+      libraryId: runtimeLibrary.id,
+      folderKey: 'runtime',
+      memberConceptIds: ['eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'],
+    };
+    const merged = mergeArticleOrbits([topicOrbit], [articleOrbit]);
+    expect(merged).toHaveLength(2);
+    expect(merged.map((o) => o.topicId).sort()).toEqual(
+      [articleOrbit.topicId, topicOrbit.topicId].sort(),
+    );
   });
 });

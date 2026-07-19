@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import type { ResearchGraphResponse, ResearchTopic } from '@hftr/contracts';
 import { api } from '@/lib/client';
 import { shortLibraryLabel } from '@/lib/research-library-shelves';
+import { subscribeResearchCache } from '@/lib/research-resource-cache';
 import { GalaxyView } from '@/components/research/GalaxyView';
 import { ResearchEntitySearch } from '@/components/research/ResearchEntitySearch';
 import { useResearchView } from '@/components/research/ResearchViewContext';
@@ -66,9 +67,28 @@ function ResearchOverlayInner() {
     const bumpQueries = !bumpQueriesDoneRef.current;
     if (bumpQueries) bumpQueriesDoneRef.current = true;
     void loadGraph({ bumpQueries });
-    const interval = setInterval(() => void loadGraph({ bumpQueries: false }), 30_000);
+    // Poll while open so research-bus admits land without a manual refresh (D-141).
+    const interval = setInterval(() => void loadGraph({ bumpQueries: false }), 8_000);
     return () => clearInterval(interval);
   }, [rv.overlayOpen, loadGraph]);
+
+  // Shelf / article / concept mutations invalidate the research cache — reshape galaxy immediately.
+  useEffect(() => {
+    if (!rv.overlayOpen || !rv.companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const prefix = `${rv.companyId}:`;
+    const unsubscribe = subscribeResearchCache((changed) => {
+      if (!changed.startsWith(prefix)) return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        void loadGraph({ bumpQueries: false });
+      }, 250);
+    });
+    return () => {
+      unsubscribe();
+      if (timer) clearTimeout(timer);
+    };
+  }, [rv.overlayOpen, rv.companyId, loadGraph]);
 
   useEffect(() => {
     if (!rv.overlayOpen || !rv.companyId) return;

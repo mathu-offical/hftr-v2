@@ -446,8 +446,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     const tagSatellites = buildTagSatelliteNodes(conceptNodes);
 
     const libraryHulls = buildLibraryHullNodes(libraryCenters, libraryFilter);
-    // Folder shells only when a library is scoped, or the heaviest folder per library —
-    // otherwise 17+ folder spheres flatten the hierarchy into a uniform cloud.
+    // All folders/articles in scope — no LOD cap (D-141). Library chips still filter.
     const folderInputs = [...folderCenters.values()]
       .filter((center) => !libraryFilter || libraryFilter.has(center.libraryId))
       .map((center) => ({
@@ -460,40 +459,12 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         radius: center.radius,
         mass: center.mass,
       }));
-    const folderHulls = buildFolderHullNodes(
-      libraryFilter
-        ? folderInputs
-        : (() => {
-            // D-132: large mechanism libraries need multiple folder shells to read as
-            // clusters (was: one heaviest folder per lib → one uniform cloud).
-            const byLib = new Map<string, typeof folderInputs>();
-            for (const folder of folderInputs) {
-              const list = byLib.get(folder.libraryId) ?? [];
-              list.push(folder);
-              byLib.set(folder.libraryId, list);
-            }
-            const selected: typeof folderInputs = [];
-            for (const list of byLib.values()) {
-              const ranked = [...list].sort((a, b) => b.mass - a.mass || b.radius - a.radius);
-              // Prefer more folders inside large libs; keep small libs to 1–2 shells.
-              const cap = ranked.length >= 6 ? 5 : ranked.length >= 3 ? 3 : ranked.length;
-              selected.push(...ranked.slice(0, cap));
-            }
-            return selected.sort((a, b) => b.mass - a.mass).slice(0, 14);
-          })(),
+    const folderHulls = buildFolderHullNodes(folderInputs);
+    const articleCandidates = [...articleCenters.values()].filter(
+      (center) => !center.libraryId || !libraryFilter || libraryFilter.has(center.libraryId),
     );
-    // Article stars: always top-N by membership; all matching under topic focus (D-139).
-    const articleCandidates = [...articleCenters.values()]
-      .filter(
-        (center) => !center.libraryId || !libraryFilter || libraryFilter.has(center.libraryId),
-      )
-      .sort((a, b) => b.radius - a.radius || a.topicId.localeCompare(b.topicId));
-    const articleForHulls =
-      focusSet && focusSet.size > 0
-        ? articleCandidates
-        : articleCandidates.slice(0, Math.min(14, articleCandidates.length));
     const articleHulls = buildArticleHullNodes(
-      articleForHulls.map((center) => ({
+      articleCandidates.map((center) => ({
         topicId: center.topicId,
         title: center.title,
         x: center.x,
@@ -1805,7 +1776,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           aria-live="polite"
         >
           {use3dRenderer && !statusText
-            ? '3D celestial · article stars · folder systems · semantic springs'
+            ? '3D celestial · all library articles · folder systems · live refresh'
             : null}
           {use3dRenderer && (hasTopicFocus || statusText) ? ' · ' : null}
           {hasTopicFocus && `Focused ${focusSet!.size} concepts`}

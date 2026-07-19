@@ -2038,6 +2038,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `IndeterminateProgressBar` / `InlineLoadingStrip`. Extends D-201. Docs: ui-spec §8.
   **Status: implemented.**
 
+- **D-204 (palette inventory + unified engines/modules chrome, 2026-07-19):** Canvas
+  top-left launcher is one segmented control (**Engines** first, then **Modules**).
+  Default panel lists structures already on the canvas; **Add new** opens the existing
+  store catalog. Inventory click focuses the node. Extends D-023 / D-088 / D-176.
+  Docs: ui-spec §3. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

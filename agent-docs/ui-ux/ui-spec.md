@@ -222,11 +222,12 @@
 - Minimap + zoom controls bottom-right; fit-view on load; LOD: below zoom threshold, node bodies
   simplify to icon+status dot (perf + readability).
 - Empty state: company template picker rendered as ghost-nodes.
-- **Module / engine store (D-023, engines D-028, D-088, D-176):** two floating launcher buttons (top-left) —
-  **+ Modules** and **+ Engines** — open the same store on the matching tab. Modules are
-  category-grouped singles (Math / Clock / Time under Tools). Engines are insertable
-  end-to-end templates from `ENGINE_TEMPLATES` → persisted `engine_instances`; engines are
-  browsed and inserted from this store only. Company creation auto-seeds Math hub + Master Clock.
+- **Module / engine store (D-023, engines D-028, D-088, D-176, D-204):** unified
+  top-left segmented control (**Engines** first, then **Modules**). Opening either
+  shows the **on-canvas inventory** for that kind; **Add new** opens the existing
+  store catalog (category modules / engine templates). Inventory rows focus the
+  matching canvas node. Engines insert from the store only. Company creation
+  auto-seeds Math hub + Master Clock.
   Engine insert defaults **Cascade from company** on: topic/sectors from `sectorFocuses`,
   capital from paper seed; operator can turn off and edit manually. Skip setup still applies
   server-side company cascade defaults when the flag is on. Engine catalog is grouped into

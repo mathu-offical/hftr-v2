@@ -3326,6 +3326,27 @@ export function CompanyCanvas(props: {
             return template ? engineCreateSection(template) === 'execution' : false;
           })
           .map((node) => ({ id: node.id, label: node.data.label }))}
+        canvasEngines={nodes.filter(isEngineGroupNode).map((node) => ({
+          id: node.id,
+          label: node.data.label,
+          templateId: node.data.templateId,
+        }))}
+        canvasModules={nodes.filter(isModuleNode).map((node) => ({
+          id: node.id,
+          name: node.data.name,
+          type: node.data.moduleType,
+        }))}
+        onFocusNode={(id) => {
+          setSelectedId(id);
+          const node = nodes.find((n) => n.id === id);
+          if (!node || !rfInstanceRef.current) return;
+          const w = 'width' in node && typeof node.width === 'number' ? node.width : 180;
+          const h = 'height' in node && typeof node.height === 'number' ? node.height : 80;
+          rfInstanceRef.current.setCenter(node.position.x + w / 2, node.position.y + h / 2, {
+            zoom: Math.max(rfInstanceRef.current.getZoom(), 0.85),
+            duration: 280,
+          });
+        }}
       />
 
       {/*

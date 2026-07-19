@@ -6,6 +6,7 @@ import {
   defaultEngineCapitalEnvelope,
   defaultTargetExitLocal,
   engineCreateSection,
+  getEngineTemplateById,
   moduleFunctionLabel,
   requiredModuleSetupFields,
   simulationRoleForPlacement,
@@ -180,16 +181,30 @@ const CATEGORIES: Array<{ label: string; types: ModuleType[] }> = [
   { label: 'Display', types: ['display'] },
 ];
 
-type StoreSection = 'modules' | 'engines';
+type StoreSection = 'engines' | 'modules';
+type PanelView = 'inventory' | 'store';
 
 export type CompanyEngineDefaults = {
   sectorFocuses: string[];
   seedCreditsCents: number;
 };
 
+export type PaletteCanvasModule = {
+  id: string;
+  name: string;
+  type: ModuleType;
+};
+
+export type PaletteCanvasEngine = {
+  id: string;
+  label: string;
+  templateId: string;
+};
+
 /**
- * Floating module/engine store (top-left). Two launcher buttons open the same
- * store on Modules or Engines; engines are browsed and inserted from here.
+ * Floating engines/modules chrome (top-left, D-204).
+ * Unified segmented launcher (engines first). Default panel lists canvas
+ * structures; **Add new** opens the existing store catalog.
  */
 export function Palette(props: {
   onAdd: (type: ModuleType, name: string, config: unknown) => void;
@@ -209,12 +224,22 @@ export function Palette(props: {
   companyDefaults?: CompanyEngineDefaults;
   /** Existing execution engines for linking sims (D-189). */
   executionEngines?: ReadonlyArray<{ id: string; label: string }>;
+  /** Modules currently on the canvas (inventory). */
+  canvasModules?: ReadonlyArray<PaletteCanvasModule>;
+  /** Engines currently on the canvas (inventory). */
+  canvasEngines?: ReadonlyArray<PaletteCanvasEngine>;
+  /** Focus / select a canvas structure from inventory. */
+  onFocusNode?: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [section, setSection] = useState<StoreSection>('modules');
+  const [section, setSection] = useState<StoreSection>('engines');
+  const [view, setView] = useState<PanelView>('inventory');
   const [configuring, setConfiguring] = useState<EngineTemplate | null>(null);
   const [engineTemplates, setEngineTemplates] = useState<EngineTemplate[]>([]);
   const [enginesLoading, setEnginesLoading] = useState(false);
+
+  const canvasModules = props.canvasModules ?? [];
+  const canvasEngines = props.canvasEngines ?? [];
 
   const enginesBySection = useMemo(() => {
     const grouped: Record<EngineCreateSection, EngineTemplate[]> = {
@@ -228,10 +253,16 @@ export function Palette(props: {
     return grouped;
   }, [engineTemplates]);
 
-  function openStore(next: StoreSection) {
+  function openSection(next: StoreSection) {
     setSection(next);
+    setView('inventory');
     setConfiguring(null);
     setOpen(true);
+  }
+
+  function openStoreCatalog() {
+    setConfiguring(null);
+    setView('store');
   }
 
   useEffect(() => {
@@ -242,14 +273,18 @@ export function Palette(props: {
         setConfiguring(null);
         return;
       }
+      if (view === 'store') {
+        setView('inventory');
+        return;
+      }
       setOpen(false);
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, configuring]);
+  }, [open, configuring, view]);
 
   useEffect(() => {
-    if (!open || section !== 'engines') return;
+    if (!open || section !== 'engines' || view !== 'store') return;
     let cancelled = false;
     setEnginesLoading(true);
     void api<{ templates: EngineTemplate[] }>('/api/engine-templates')
@@ -265,143 +300,255 @@ export function Palette(props: {
     return () => {
       cancelled = true;
     };
-  }, [open, section]);
+  }, [open, section, view]);
+
+  const sectionTabs: ReadonlyArray<{ id: StoreSection; label: string }> = [
+    { id: 'engines', label: 'Engines' },
+    { id: 'modules', label: 'Modules' },
+  ];
 
   if (!open) {
     return (
-      <div className="absolute left-4 top-4 z-20 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => openStore('modules')}
-          aria-label="Open modules store"
-          className="flex items-center gap-2 rounded-full border border-[var(--color-line)] bg-[var(--color-surface-1)]/90 px-3.5 py-2 text-xs text-[var(--color-ink-dim)] shadow-lg backdrop-blur hover:border-[var(--color-accent)] hover:text-[var(--color-ink)]"
-        >
-          <span className="text-[var(--color-accent)]">+</span>
-          Modules
-        </button>
-        <button
-          type="button"
-          onClick={() => openStore('engines')}
-          aria-label="Open engines store"
-          className="flex items-center gap-2 rounded-full border border-[var(--color-line)] bg-[var(--color-surface-1)]/90 px-3.5 py-2 text-xs text-[var(--color-ink-dim)] shadow-lg backdrop-blur hover:border-[var(--color-accent)] hover:text-[var(--color-ink)]"
-        >
-          <span className="text-[var(--color-accent)]">+</span>
-          Engines
-        </button>
+      <div
+        className="absolute left-4 top-4 z-20 flex border border-[var(--color-line)] bg-[var(--color-surface-1)]"
+        role="group"
+        aria-label="Canvas structures"
+      >
+        {sectionTabs.map((tab, i) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => openSection(tab.id)}
+            aria-label={`Open ${tab.label.toLowerCase()} on canvas`}
+            className={`px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--color-ink-dim)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-ink)] ${
+              i > 0 ? 'border-l border-[var(--color-line)]' : ''
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
     );
   }
 
   return (
     <aside
-      className="absolute left-4 top-4 z-20 flex max-h-[calc(100%-2rem)] w-72 flex-col overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)]/95 shadow-2xl backdrop-blur"
-      aria-label={section === 'engines' ? 'Engines store' : 'Modules store'}
+      className="absolute left-4 top-4 z-20 flex max-h-[calc(100%-2rem)] w-72 flex-col overflow-hidden border border-[var(--color-line)] bg-[var(--color-surface-1)]"
+      aria-label={section === 'engines' ? 'Engines' : 'Modules'}
     >
-      <div className="flex items-center justify-between border-b border-[var(--color-line)] px-3 py-2">
-        <div className="flex gap-1">
-          {(
-            [
-              { id: 'modules', label: 'Modules' },
-              { id: 'engines', label: 'Engines' },
-            ] as const
-          ).map((s) => (
+      <div className="flex items-stretch border-b border-[var(--color-line)]">
+        <div className="flex min-w-0 flex-1" role="tablist" aria-label="Structure kind">
+          {sectionTabs.map((tab, i) => (
             <button
-              key={s.id}
+              key={tab.id}
               type="button"
+              role="tab"
+              aria-selected={section === tab.id}
               onClick={() => {
-                setSection(s.id);
+                setSection(tab.id);
+                setView('inventory');
                 setConfiguring(null);
               }}
-              className={`rounded px-2 py-0.5 text-[11px] ${
-                section === s.id
+              className={`min-w-0 flex-1 px-2 py-1.5 font-mono text-[10px] uppercase tracking-wider ${
+                i > 0 ? 'border-l border-[var(--color-line)]' : ''
+              } ${
+                section === tab.id
                   ? 'bg-[var(--color-surface-2)] text-[var(--color-ink)]'
                   : 'text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]'
               }`}
             >
-              {s.label}
+              {tab.label}
             </button>
           ))}
         </div>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          aria-label="Close store"
-          className="text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+          aria-label="Close"
+          className="border-l border-[var(--color-line)] px-2.5 font-mono text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
         >
           ×
         </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
-        {section === 'modules' &&
-          CATEGORIES.map((cat) => (
-            <div key={cat.label} className="mb-2">
-              <div className="px-2 pb-1 pt-1.5 text-[9px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                {cat.label}
-              </div>
-              {cat.types.map((type) => {
-                const entry = ADDABLE.find((a) => a.type === type);
-                if (!entry) return null;
-                const visual = MODULE_VISUALS[type];
-                return (
-                  <button
-                    key={type}
-                    onClick={() =>
-                      props.onAdd(
-                        type,
-                        moduleFunctionLabel(type, entry.defaultConfig),
-                        entry.defaultConfig,
-                      )
-                    }
-                    className="group flex w-full flex-col gap-0.5 rounded-lg px-2.5 py-1.5 text-left hover:bg-[var(--color-surface-2)]"
-                  >
-                    <span className="flex items-center gap-2 text-sm text-[var(--color-ink-dim)] group-hover:text-[var(--color-ink)]">
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ background: visual.hue }}
-                      />
-                      <span className="min-w-0 truncate">{visual.label}</span>
-                      <span
-                        className="ml-auto shrink-0 rounded px-1 py-0.5 text-[8px] uppercase tracking-wider"
-                        style={{
-                          color: visual.hue,
-                          border: `1px solid ${visual.hue}55`,
-                          background: `${visual.hue}12`,
-                        }}
-                      >
-                        {visual.family === 'data_source'
-                          ? 'Data'
-                          : visual.family === 'agent'
-                            ? 'Agent'
-                            : visual.family === 'fund'
-                              ? 'Vault'
-                              : visual.family === 'tool'
-                                ? 'Tool'
-                                : 'Ctrl'}
-                      </span>
-                    </span>
-                    <span className="pl-4 text-[10px] leading-tight text-[var(--color-ink-faint)]">
-                      {entry.hint}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-
-        {section === 'engines' && !configuring && (
+        {view === 'inventory' && !configuring && (
           <div className="space-y-2">
-            <p className="px-2 pb-1 text-[10px] leading-snug text-[var(--color-ink-faint)]">
-              Insertable end-to-end engine templates, grouped as research packs vs execution
-              desks. Engines are added from this store only.
+            <button
+              type="button"
+              onClick={openStoreCatalog}
+              className="flex w-full items-center justify-between border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--color-ink-dim)] hover:border-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+            >
+              <span>Add new</span>
+              <span className="text-[var(--color-ink-faint)]" aria-hidden>
+                +
+              </span>
+            </button>
+
+            {section === 'engines' && (
+              <>
+                <p className="px-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+                  On canvas · {canvasEngines.length}
+                </p>
+                {canvasEngines.length === 0 ? (
+                  <p className="px-0.5 text-[10px] text-[var(--color-ink-faint)]">
+                    No engines yet. Add new to open the store.
+                  </p>
+                ) : (
+                  <ul className="space-y-0.5" aria-label="Canvas engines">
+                    {canvasEngines.map((engine) => (
+                      <li key={engine.id}>
+                        <button
+                          type="button"
+                          onClick={() => props.onFocusNode?.(engine.id)}
+                          className="flex w-full items-center gap-2 px-2 py-1.5 text-left hover:bg-[var(--color-surface-2)]"
+                        >
+                          <span
+                            className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]"
+                            aria-hidden
+                          />
+                          <span className="min-w-0 flex-1 truncate text-[12px] text-[var(--color-ink)]">
+                            {engine.label}
+                          </span>
+                          <span className="shrink-0 font-mono text-[8px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+                            {engineCreateSectionLabel(engine.templateId)}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+
+            {section === 'modules' && (
+              <>
+                <p className="px-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+                  On canvas · {canvasModules.length}
+                </p>
+                {canvasModules.length === 0 ? (
+                  <p className="px-0.5 text-[10px] text-[var(--color-ink-faint)]">
+                    No modules yet. Add new to open the store.
+                  </p>
+                ) : (
+                  <ul className="space-y-0.5" aria-label="Canvas modules">
+                    {canvasModules.map((mod) => {
+                      const visual = MODULE_VISUALS[mod.type];
+                      return (
+                        <li key={mod.id}>
+                          <button
+                            type="button"
+                            onClick={() => props.onFocusNode?.(mod.id)}
+                            className="flex w-full items-center gap-2 px-2 py-1.5 text-left hover:bg-[var(--color-surface-2)]"
+                          >
+                            <span
+                              className="h-1.5 w-1.5 shrink-0 rounded-full"
+                              style={{ background: visual.hue }}
+                              aria-hidden
+                            />
+                            <span className="min-w-0 flex-1 truncate text-[12px] text-[var(--color-ink)]">
+                              {mod.name}
+                            </span>
+                            <span className="shrink-0 font-mono text-[8px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+                              {visual.label}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {view === 'store' && section === 'modules' && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setView('inventory')}
+              className="mb-2 px-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+            >
+              ← On canvas
+            </button>
+            {CATEGORIES.map((cat) => (
+              <div key={cat.label} className="mb-2">
+                <div className="px-2 pb-1 pt-1.5 font-mono text-[9px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+                  {cat.label}
+                </div>
+                {cat.types.map((type) => {
+                  const entry = ADDABLE.find((a) => a.type === type);
+                  if (!entry) return null;
+                  const visual = MODULE_VISUALS[type];
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() =>
+                        props.onAdd(
+                          type,
+                          moduleFunctionLabel(type, entry.defaultConfig),
+                          entry.defaultConfig,
+                        )
+                      }
+                      className="group flex w-full flex-col gap-0.5 px-2.5 py-1.5 text-left hover:bg-[var(--color-surface-2)]"
+                    >
+                      <span className="flex items-center gap-2 text-sm text-[var(--color-ink-dim)] group-hover:text-[var(--color-ink)]">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ background: visual.hue }}
+                        />
+                        <span className="min-w-0 truncate">{visual.label}</span>
+                        <span
+                          className="ml-auto shrink-0 px-1 py-0.5 font-mono text-[8px] uppercase tracking-wider"
+                          style={{
+                            color: visual.hue,
+                            border: `1px solid ${visual.hue}55`,
+                            background: `${visual.hue}12`,
+                          }}
+                        >
+                          {visual.family === 'data_source'
+                            ? 'Data'
+                            : visual.family === 'agent'
+                              ? 'Agent'
+                              : visual.family === 'fund'
+                                ? 'Vault'
+                                : visual.family === 'tool'
+                                  ? 'Tool'
+                                  : 'Ctrl'}
+                        </span>
+                      </span>
+                      <span className="pl-4 text-[10px] leading-tight text-[var(--color-ink-faint)]">
+                        {entry.hint}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {view === 'store' && section === 'engines' && !configuring && (
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setView('inventory')}
+              className="px-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+            >
+              ← On canvas
+            </button>
+            <p className="px-0.5 text-[10px] leading-snug text-[var(--color-ink-faint)]">
+              Insertable engine templates. Research packs vs execution desks.
             </p>
             {enginesLoading && (
-              <p className="px-2 py-1 text-[10px] text-[var(--color-ink-faint)]">
-                Loading engine catalog…
+              <p className="px-0.5 py-1 font-mono text-[10px] text-[var(--color-ink-faint)]">
+                Loading catalog…
               </p>
             )}
             {!enginesLoading && engineTemplates.length === 0 && (
-              <p className="px-2 py-2 text-[10px] text-[var(--color-warn)]">
+              <p className="px-0.5 py-2 text-[10px] text-[var(--color-warn)]">
                 No engine templates available.
               </p>
             )}
@@ -411,33 +558,27 @@ export function Palette(props: {
                 if (engines.length === 0) return null;
                 return (
                   <div key={group.id} className="mb-1">
-                    <div className="px-2 pb-1 pt-1.5 text-[9px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+                    <div className="px-2 pb-1 pt-1.5 font-mono text-[9px] uppercase tracking-widest text-[var(--color-ink-faint)]">
                       {group.label}
                     </div>
                     <p className="px-2 pb-1.5 text-[9px] leading-snug text-[var(--color-ink-faint)]">
                       {group.hint}
                     </p>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       {engines.map((engine) => (
                         <button
                           key={engine.id}
                           type="button"
                           disabled={!engine.available}
                           onClick={() => setConfiguring(engine)}
-                          className="w-full rounded-lg border border-[var(--color-line)] px-2.5 py-2 text-left hover:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="w-full border border-[var(--color-line)] px-2.5 py-2 text-left hover:border-[var(--color-ink-faint)] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="min-w-0 truncate text-sm text-[var(--color-ink)]">
                               {engine.label}
                             </span>
                             <span className="flex shrink-0 items-center gap-1">
-                              <span
-                                className="rounded px-1 py-0.5 text-[8px] uppercase tracking-wider text-[var(--color-ink-dim)]"
-                                style={{
-                                  border: '1px solid var(--color-line)',
-                                  background: 'var(--color-surface-0)',
-                                }}
-                              >
+                              <span className="border border-[var(--color-line)] bg-[var(--color-surface-0)] px-1 py-0.5 font-mono text-[8px] uppercase tracking-wider text-[var(--color-ink-dim)]">
                                 {group.id === 'execution'
                                   ? 'Exec'
                                   : group.id === 'simulation'
@@ -445,7 +586,7 @@ export function Palette(props: {
                                     : 'Research'}
                               </span>
                               {!engine.available && (
-                                <span className="text-[9px] uppercase tracking-wide text-[var(--color-warn)]">
+                                <span className="font-mono text-[9px] uppercase tracking-wide text-[var(--color-warn)]">
                                   soon
                                 </span>
                               )}
@@ -472,6 +613,7 @@ export function Palette(props: {
             onInsert={async (inputs, setup, options) => {
               await props.onInsertEngine(configuring, inputs, setup, options);
               setConfiguring(null);
+              setView('inventory');
               setOpen(false);
             }}
           />
@@ -479,6 +621,15 @@ export function Palette(props: {
       </div>
     </aside>
   );
+}
+
+function engineCreateSectionLabel(templateId: string): string {
+  const template = getEngineTemplateById(templateId);
+  if (!template) return 'Engine';
+  const section = engineCreateSection(template);
+  if (section === 'execution') return 'Exec';
+  if (section === 'simulation') return 'Sim';
+  return 'Research';
 }
 
 /** Collects the engine's required user inputs before insertion. */

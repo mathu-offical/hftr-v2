@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { MarketHubResponse } from '@hftr/contracts';
 import {
+  buildCapitalEntityCharts,
   buildCapitalStageCharts,
+  buildDayEntityCharts,
   buildDayStageCharts,
+  buildLibraryEntityCharts,
   buildLibraryStageCharts,
+  buildLiveEntityCharts,
   buildLiveStageCharts,
+  buildProcessEntityCharts,
   buildProcessStageCharts,
+  buildSealsEntityCharts,
   buildSealsStageCharts,
   formatAllocationSlices,
 } from './market-posture-stage-charts';
@@ -318,5 +324,15 @@ describe('market-posture-stage-charts', () => {
     const day = buildDayStageCharts(baseHub());
     expect(day.actions.some((s) => s.id === 'suggested_verified')).toBe(true);
     expect(day.trends.some((s) => s.id === 'moderate')).toBe(true);
+  });
+
+  it('builds entity chart rows for each stage inventory', () => {
+    const hub = baseHub();
+    expect(buildCapitalEntityCharts(hub).positions[0]?.label).toBe('AAPL');
+    expect(buildLibraryEntityCharts(hub).libraries[0]?.valueLabel).toBe('12/40');
+    expect(buildLiveEntityCharts(hub).sources).toHaveLength(2);
+    expect(buildProcessEntityCharts(hub).steps[0]?.label).toBe('Rank');
+    expect(buildSealsEntityCharts(hub).movers).toHaveLength(2);
+    expect(buildDayEntityCharts(hub).trends[0]?.label).toBe('TSLA');
   });
 });

@@ -7,23 +7,18 @@ import { MarketPostureSourcesStrip } from '@/components/panels/MarketPostureSour
 import { SourceVerifyChips } from '@/components/panels/SourceVerifyChips';
 import { MarketPostureAwarenessDock } from '@/components/panels/MarketPostureAwarenessDock';
 import { MarketPostureAwarenessLevels } from '@/components/panels/MarketPostureAwarenessLevels';
-import { SymbolTicker } from '@/components/market/SymbolTicker';
 import { MarketPosturePieChart } from '@/components/market/MarketPosturePieChart';
 import { MarketPostureMetricBars } from '@/components/market/MarketPostureMetricBars';
+import { MarketPostureEntityChartPanel } from '@/components/market/MarketPostureEntityChartPanel';
 import {
   useMarketPostureView,
   type MarketPostureViewContextValue,
 } from '@/components/panels/MarketPostureViewContext';
-import { Justification } from '@/components/panels/Justification';
 import {
   WatchlistTierFilterChips,
   type WatchlistTierFilter,
 } from '@/components/panels/WatchlistTierFilters';
-import {
-  dollarsFromCents,
-  formatOrientation,
-  reportKindLabel,
-} from '@/components/panels/market-posture-format';
+import { formatOrientation } from '@/components/panels/market-posture-format';
 import { masterEquityHeadline } from '@/lib/capital-mode-label';
 import {
   MARKET_POSTURE_STAGE_SCREENS,
@@ -38,61 +33,19 @@ import {
   formatCapitalCents,
 } from '@/lib/market-posture-root-capital';
 import {
+  buildCapitalEntityCharts,
   buildCapitalStageCharts,
+  buildDayEntityCharts,
   buildDayStageCharts,
+  buildLibraryEntityCharts,
   buildLibraryStageCharts,
+  buildLiveEntityCharts,
   buildLiveStageCharts,
+  buildProcessEntityCharts,
   buildProcessStageCharts,
+  buildSealsEntityCharts,
   buildSealsStageCharts,
 } from '@/lib/market-posture-stage-charts';
-
-function focusRing(active: boolean): string {
-  return active
-    ? 'ring-1 ring-[var(--color-accent)] border-[var(--color-accent)]'
-    : 'border-[var(--color-line)]';
-}
-
-function EngineChips(props: { engines: { id: string; label: string }[] }) {
-  if (props.engines.length === 0) {
-    return <span className="text-[10px] text-[var(--color-ink-faint)]">No engine binding</span>;
-  }
-  return (
-    <div className="flex flex-wrap gap-1">
-      {props.engines.map((e) => (
-        <span
-          key={e.id}
-          className="rounded border border-[var(--color-line)] bg-[var(--color-surface-2)] px-1.5 py-0.5 text-[10px] text-[var(--color-ink-dim)]"
-          title={e.label}
-        >
-          {e.label}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function CategoryBlock(props: {
-  title: string;
-  empty: string;
-  count: number;
-  children: ReactNode;
-  headerExtra?: ReactNode;
-}) {
-  return (
-    <div className="rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2.5">
-      <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-        {props.title}{' '}
-        <span className="tabular-nums text-[var(--color-ink-dim)]">({props.count})</span>
-      </h3>
-      {props.headerExtra}
-      {props.count === 0 ? (
-        <p className="mt-2 text-xs text-[var(--color-ink-faint)]">{props.empty}</p>
-      ) : (
-        <ul className="mt-2 space-y-2">{props.children}</ul>
-      )}
-    </div>
-  );
-}
 
 function ScreenShell(props: {
   id: MarketPostureStageScreenId;
@@ -334,6 +287,7 @@ function CapitalScreen(props: {
 }) {
   const view = buildRootUserCapitalView(props.hub);
   const charts = buildCapitalStageCharts(props.hub, view);
+  const entities = buildCapitalEntityCharts(props.hub, view);
   const poolLabel = formatCapitalCents(view.companyPool?.allocationCents);
   const equityLabel = formatCapitalCents(view.equityCents);
 
@@ -408,113 +362,31 @@ function CapitalScreen(props: {
           equityStatus={props.hub.equity.status}
           asOfIso={props.hub.equity.asOfIso}
           version={props.hub.equity.version}
+          heightPx={160}
         />
       </section>
 
-      <section className="space-y-2" data-testid="market-posture-root-holding-funds">
-        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          Root holding funds{' '}
-          <span className="tabular-nums text-[var(--color-ink-dim)]">
-            ({view.rootHoldingFunds.length})
-          </span>
-        </h3>
-        {view.rootHoldingFunds.length === 0 ? (
-          <p className="text-xs text-[var(--color-ink-faint)]">No root holding funds</p>
-        ) : (
-          <ul className="space-y-1">
-            {view.rootHoldingFunds.map((f) => (
-              <li
-                key={f.id}
-                className="flex flex-wrap items-baseline justify-between gap-2 rounded border border-[var(--color-line)] px-2 py-1.5 text-xs"
-              >
-                <span className="font-medium text-[var(--color-ink)]">{f.name}</span>
-                <span className="font-mono text-[10px] tabular-nums text-[var(--color-ink-dim)]">
-                  {formatCapitalCents(f.allocationCents ?? f.ledgerBalanceCents)}
-                  {f.allocationShareBps != null
-                    ? ` · ${(f.allocationShareBps / 100).toFixed(1)}%`
-                    : ''}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+      <section className="grid gap-3 lg:grid-cols-2">
+        <MarketPostureEntityChartPanel
+          title="Root funds · chart"
+          rows={entities.rootFunds}
+          empty="No root holding funds"
+          testId="market-posture-root-holding-funds"
+        />
+        <MarketPostureEntityChartPanel
+          title="Engine desks · chart"
+          rows={entities.engineDesks}
+          empty="No engine desk splits yet"
+          testId="market-posture-engine-allocations"
+        />
       </section>
 
-      <section className="space-y-2" data-testid="market-posture-engine-allocations">
-        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          Engine allocations{' '}
-          <span className="tabular-nums text-[var(--color-ink-dim)]">
-            ({view.engineGroups.length})
-          </span>
-        </h3>
-        {view.engineGroups.length === 0 ? (
-          <p className="text-xs text-[var(--color-ink-faint)]">
-            No engine desk splits yet — root funds are not allocated to execution desks.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {view.engineGroups.map((g) => (
-              <li
-                key={g.key}
-                className="rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2"
-              >
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="text-xs font-medium text-[var(--color-ink)]">{g.label}</span>
-                  <span className="font-mono text-[10px] tabular-nums text-[var(--color-ink-dim)]">
-                    {formatCapitalCents(g.allocationCentsTotal)} · {g.desks.length} desk
-                    {g.desks.length === 1 ? '' : 's'}
-                  </span>
-                </div>
-                <ul className="mt-1 space-y-0.5">
-                  {g.desks.map((d) => (
-                    <li
-                      key={d.id}
-                      className="flex flex-wrap items-baseline justify-between gap-1 font-mono text-[10px] text-[var(--color-ink-faint)]"
-                    >
-                      <span>{d.name}</span>
-                      <span className="tabular-nums">
-                        {formatCapitalCents(d.allocationCents ?? d.ledgerBalanceCents)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="space-y-2" data-testid="market-posture-capital-positions">
-        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          Open position values{' '}
-          <span className="tabular-nums text-[var(--color-ink-dim)]">
-            ({view.positions.length})
-          </span>
-        </h3>
-        {view.positions.length === 0 ? (
-          <p className="text-xs text-[var(--color-ink-faint)]">No open positions</p>
-        ) : (
-          <ul className="max-h-56 space-y-1 overflow-y-auto">
-            {view.positions.slice(0, 24).map((p) => (
-              <li
-                key={p.id}
-                className="flex flex-wrap items-baseline justify-between gap-2 rounded border border-[var(--color-line)] px-2 py-1 text-xs"
-              >
-                <span className="font-medium text-[var(--color-ink)]">
-                  {p.symbol}{' '}
-                  <span className="font-mono text-[9px] text-[var(--color-ink-faint)]">
-                    qty {p.qty}
-                  </span>
-                </span>
-                <span className="font-mono text-[10px] tabular-nums text-[var(--color-ink-dim)]">
-                  mark {formatCapitalCents(String(p.markCents))} · uPnL{' '}
-                  {formatCapitalCents(p.unrealizedPnlCents)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <MarketPostureEntityChartPanel
+        title="Open positions · mark chart"
+        rows={entities.positions}
+        empty="No open positions"
+        testId="market-posture-capital-positions"
+      />
     </>
   );
 }
@@ -523,9 +395,8 @@ function LibraryScreen(props: {
   hub: MarketHubResponse;
   mp: MarketPostureViewContextValue;
 }) {
-  const positions = props.hub.positions;
-  const libSources = props.hub.modelHydration?.librarySources ?? [];
   const charts = buildLibraryStageCharts(props.hub);
+  const entities = buildLibraryEntityCharts(props.hub);
   return (
     <>
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -551,97 +422,37 @@ function LibraryScreen(props: {
         />
       </section>
 
-      <section className="space-y-2">
-        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          Open positions{' '}
-          <span className="tabular-nums text-[var(--color-ink-dim)]">({positions.length})</span>
-        </h3>
-        {positions.length === 0 ? (
-          <p className="text-xs text-[var(--color-ink-faint)]">No open positions</p>
-        ) : (
-          <ul className="max-h-72 space-y-1.5 overflow-y-auto">
-            {positions.slice(0, 24).map((p) => {
-              const focused =
-                props.mp.selectedPositionId === p.id || props.mp.selectedSymbol === p.symbol;
-              return (
-                <li
-                  key={p.id}
-                  className={`rounded border px-1.5 py-1 text-xs ${focusRing(focused)}`}
-                >
-                  <button
-                    type="button"
-                    className="w-full text-left"
-                    onClick={() =>
-                      props.mp.focusEntity({
-                        symbol: p.symbol,
-                        positionId: p.id,
-                        category: 'positions',
-                        stageScreenId: 'library',
-                      })
-                    }
-                  >
-                    {p.viz ? (
-                      <SymbolTicker
-                        viz={p.viz}
-                        density="compact"
-                        meta={
-                          <span className="text-[10px] text-[var(--color-ink-faint)]">
-                            qty {p.qty} · {p.moduleName}
-                          </span>
-                        }
-                      />
-                    ) : (
-                      <>
-                        <span className="font-medium">{p.symbol}</span>
-                        <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
-                          qty {p.qty} · {p.moduleName}
-                        </span>
-                      </>
-                    )}
-                  </button>
-                  <div className="mt-0.5 flex items-center gap-1">
-                    <EngineChips engines={p.engines} />
-                    <SourceVerifyChips chips={p.sourceChips ?? []} />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+      <section className="grid gap-3 lg:grid-cols-2">
+        <MarketPostureEntityChartPanel
+          title="Positions · spark + mark"
+          rows={entities.positions}
+          empty="No open positions"
+          onSelect={(row) => {
+            const p = props.hub.positions.find((x) => x.id === row.id);
+            if (!p) return;
+            props.mp.focusEntity({
+              symbol: p.symbol,
+              positionId: p.id,
+              category: 'positions',
+              stageScreenId: 'library',
+            });
+          }}
+        />
+        <MarketPostureEntityChartPanel
+          title="Libraries · admission chart"
+          rows={entities.libraries}
+          empty="No admitted library sources on Model"
+        />
       </section>
-      <div className="flex flex-wrap gap-1.5">
-        <span className="w-full text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          Library corpus
-        </span>
-        {libSources.length === 0 ? (
-          <span className="text-[10px] text-[var(--color-ink-faint)]">
-            No admitted library sources on Model
-          </span>
-        ) : (
-          libSources.map((lib) => (
-            <span
-              key={lib.id}
-              className="rounded border border-[var(--color-line)] px-2 py-1 font-mono text-[10px] text-[var(--color-ink-dim)]"
-            >
-              {lib.name}
-              <span className="ml-1 text-[var(--color-ink-faint)]">
-                {lib.admittedCount}/{lib.conceptCount} · {lib.shelf}
-              </span>
-            </span>
-          ))
-        )}
-      </div>
     </>
   );
 }
 
 function LiveIngestScreen(props: { hub: MarketHubResponse }) {
   const { hub } = props;
-  const live = hub.modelHydration?.liveSources ?? [];
-  const flows = hub.modelHydration?.processingFlows ?? [];
   const totals = hub.modelHydration?.totals;
-  const lanes = hub.sources.lanes;
   const charts = buildLiveStageCharts(hub);
+  const entities = buildLiveEntityCharts(hub);
 
   return (
     <>
@@ -684,128 +495,27 @@ function LiveIngestScreen(props: { hub: MarketHubResponse }) {
         </p>
       </section>
 
-      <section className="space-y-2">
-        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          Source → adapter → filtered readout
-        </h3>
-        {lanes.length === 0 && live.length === 0 ? (
-          <p className="text-xs text-[var(--color-ink-faint)]">
-            No live sources — connect research keys / broker, then Sync.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {(lanes.length > 0 ? lanes : live.map((s) => ({
-              kind: s.kind,
-              label: s.label,
-              status: s.status,
-              domain: s.domain,
-              contributed: s.contributed,
-            }))).map((lane) => {
-              const hydration = live.find((s) => s.kind === lane.kind);
-              const relatedFlows = flows.filter(
-                (f) =>
-                  f.route?.toLowerCase().includes(String(lane.kind).toLowerCase()) ||
-                  f.analysisRoles.some((r) =>
-                    String(lane.domain ?? '').toLowerCase().includes(r.toLowerCase()),
-                  ) ||
-                  f.adapterLabel.toLowerCase().includes(String(lane.label).toLowerCase().slice(0, 6)),
-              );
-              const readout =
-                hydration?.amount ??
-                (lane.contributed ? 'contributed' : lane.status);
-              return (
-                <li
-                  key={String(lane.kind)}
-                  className="rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2.5 py-2"
-                >
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <div>
-                      <span className="text-xs font-medium text-[var(--color-ink)]">
-                        {lane.label}
-                      </span>
-                      <span className="ml-2 font-mono text-[9px] uppercase text-[var(--color-ink-faint)]">
-                        {lane.domain ?? hydration?.domain ?? 'live'} · {lane.status}
-                        {lane.contributed ? ' · contributed' : ''}
-                      </span>
-                    </div>
-                    <span className="font-mono text-[10px] text-[var(--color-accent)]">
-                      {readout}
-                    </span>
-                  </div>
-                  {hydration ? (
-                    <p className="mt-1 text-[10px] text-[var(--color-ink-dim)]">
-                      Filter op: {hydration.operation}
-                    </p>
-                  ) : null}
-                  {relatedFlows.length > 0 ? (
-                    <ul className="mt-1.5 space-y-1 border-t border-[var(--color-line)] pt-1.5">
-                      {relatedFlows.map((f) => (
-                        <li
-                          key={f.id}
-                          className="flex flex-wrap items-baseline justify-between gap-1 text-[10px] text-[var(--color-ink-dim)]"
-                        >
-                          <span>
-                            <span className="font-mono uppercase text-[var(--color-ink-faint)]">
-                              adapter
-                            </span>{' '}
-                            {f.adapterLabel}
-                          </span>
-                          <span className="font-mono text-[var(--color-ink-faint)]">
-                            {f.operation} · {f.amount} · {f.status}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
-                      No adapter flow matched this source yet
-                    </p>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
+      <section className="grid gap-3 lg:grid-cols-2">
+        <MarketPostureEntityChartPanel
+          title="Live sources · filtered readout chart"
+          rows={entities.sources}
+          empty="No live sources — connect research keys / broker, then Sync"
+        />
+        <MarketPostureEntityChartPanel
+          title="Adapters · hydrate chart"
+          rows={entities.adapters}
+          empty="No adapter flows hydrated"
+        />
       </section>
-
-      {flows.length > 0 ? (
-        <section className="space-y-1.5">
-          <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-            All adapter flows
-          </h3>
-          <ul className="grid gap-1.5 sm:grid-cols-2">
-            {flows.map((f) => (
-              <li
-                key={f.id}
-                className="rounded border border-[var(--color-line)] px-2 py-1.5 text-xs"
-              >
-                <span className="font-medium">{f.adapterLabel}</span>
-                <span className="ml-2 font-mono text-[9px] uppercase text-[var(--color-ink-faint)]">
-                  {f.status}
-                  {f.contributed ? ' · contributed' : ''}
-                </span>
-                <p className="mt-0.5 text-[10px] text-[var(--color-ink-dim)]">
-                  {f.operation} · {f.amount}
-                  {f.route ? ` · ${f.route}` : ''}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
     </>
   );
 }
 
 function ProcessScreen(props: { hub: MarketHubResponse }) {
   const { hub } = props;
-  const steps = hub.modelHydration?.processSteps ?? [];
-  const stageOps = hub.modelHydration?.stageOps ?? [];
-  const limitOps = stageOps.filter(
-    (s) => s.stageId === 'thresholds' || s.stageId === 'defaults',
-  );
   const aw = hub.awarenessAnalysis;
   const charts = buildProcessStageCharts(hub);
+  const entities = buildProcessEntityCharts(hub);
 
   return (
     <>
@@ -832,131 +542,32 @@ function ProcessScreen(props: { hub: MarketHubResponse }) {
         />
       </section>
 
-      <section className="space-y-1.5">
-        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          Ingest filtered feeds
-        </h3>
-        {steps.length === 0 ? (
-          <p className="text-xs text-[var(--color-ink-faint)]">
-            No process steps yet — Sync or Analyze to hydrate ingest.
-          </p>
-        ) : (
-          <ul className="max-h-40 space-y-1 overflow-y-auto">
-            {steps.slice(0, 40).map((s) => (
-              <li
-                key={s.id}
-                className="flex flex-wrap items-baseline justify-between gap-1 border-b border-[var(--color-line)] py-1 font-mono text-[10px] text-[var(--color-ink-dim)]"
-              >
-                <span>{s.label}</span>
-                <span className="uppercase text-[var(--color-ink-faint)]">
-                  {s.route} · {s.processFunction} · {s.amount}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+      {aw ? <MarketPostureAwarenessLevels analysis={aw} /> : null}
+
+      <section className="grid gap-3 lg:grid-cols-2">
+        <MarketPostureEntityChartPanel
+          title="Ingest steps · chart"
+          rows={entities.steps}
+          empty="No process steps yet — Sync or Analyze"
+        />
+        <MarketPostureEntityChartPanel
+          title="Links · chart"
+          rows={entities.links}
+          empty="No awareness links projected"
+        />
       </section>
 
-      <section className="space-y-1.5">
-        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          Linking
-        </h3>
-        {aw ? (
-          <>
-            <MarketPostureAwarenessLevels analysis={aw} />
-            <div className="grid gap-2 md:grid-cols-2">
-              <CategoryBlock title="Evidence" empty="No evidence" count={aw.evidence.length}>
-                {aw.evidence.slice(0, 12).map((ev) => (
-                  <li
-                    key={ev.id}
-                    className="rounded border border-[var(--color-line)] px-1.5 py-1 text-xs"
-                  >
-                    <span className="font-medium">{ev.label}</span>
-                    <span className="ml-1 font-mono text-[9px] text-[var(--color-ink-faint)]">
-                      {ev.kind} · {ev.linkedSymbolCount} symbols · {ev.strengthBand}
-                    </span>
-                  </li>
-                ))}
-              </CategoryBlock>
-              <CategoryBlock title="Links" empty="No links" count={aw.links.length}>
-                {aw.links.slice(0, 12).map((link) => (
-                  <li
-                    key={link.id}
-                    className="rounded border border-[var(--color-line)] px-1.5 py-1 text-xs"
-                  >
-                    <span className="font-medium">
-                      {link.fromLabel} → {link.toId}
-                    </span>
-                    <span className="ml-1 font-mono text-[9px] text-[var(--color-ink-faint)]">
-                      {link.fromKind}→{link.toKind} · {link.strengthBand}
-                    </span>
-                  </li>
-                ))}
-              </CategoryBlock>
-            </div>
-          </>
-        ) : (
-          <p className="text-xs text-[var(--color-ink-faint)]">
-            Awareness links appear after linkage analysis is projected.
-          </p>
-        )}
-      </section>
-
-      <section className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1.5">
-          <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-            Limits · thresholds & defaults
-          </h3>
-          {limitOps.length === 0 ? (
-            <p className="text-xs text-[var(--color-ink-faint)]">No limit stage ops hydrated</p>
-          ) : (
-            <ul className="space-y-1">
-              {limitOps.map((op) => (
-                <li
-                  key={op.stageId}
-                  className="flex flex-wrap items-baseline justify-between gap-1 rounded border border-[var(--color-line)] px-2 py-1.5 text-xs"
-                >
-                  <span className="font-mono uppercase text-[var(--color-ink-faint)]">
-                    {op.stageId}
-                  </span>
-                  <span className="text-[var(--color-ink-dim)]">
-                    {op.operation} · {op.amount}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="space-y-1.5">
-          <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-            Cost basis · mark vs avg
-          </h3>
-          {hub.positions.length === 0 ? (
-            <p className="text-xs text-[var(--color-ink-faint)]">No open positions</p>
-          ) : (
-            <ul className="max-h-48 space-y-1 overflow-y-auto">
-              {hub.positions.map((p) => (
-                <li
-                  key={p.id}
-                  className="rounded border border-[var(--color-line)] px-2 py-1.5 text-xs"
-                >
-                  <div className="flex flex-wrap items-baseline justify-between gap-1">
-                    <span className="font-medium">{p.symbol}</span>
-                    <span className="font-mono text-[10px] text-[var(--color-ink-faint)]">
-                      qty {String(p.qty)}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 font-mono text-[10px] text-[var(--color-ink-dim)]">
-                    cost {dollarsFromCents(p.avgCostCents)} · mark{' '}
-                    {dollarsFromCents(p.markCents)} · uPnL{' '}
-                    {dollarsFromCents(p.unrealizedPnlCents)}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+      <section className="grid gap-3 lg:grid-cols-2">
+        <MarketPostureEntityChartPanel
+          title="Limits · thresholds & defaults"
+          rows={entities.limits}
+          empty="No limit stage ops hydrated"
+        />
+        <MarketPostureEntityChartPanel
+          title="Cost basis · avg vs mark"
+          rows={entities.costBasis}
+          empty="No open positions"
+        />
       </section>
     </>
   );
@@ -971,6 +582,7 @@ function SealsScreen(props: {
 }) {
   const { hub, dayLens, moversStale, openReport } = props;
   const charts = buildSealsStageCharts(hub);
+  const entities = buildSealsEntityCharts(hub);
   return (
     <>
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -998,7 +610,7 @@ function SealsScreen(props: {
 
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-          Live streams
+          Seal lens
         </span>
         {(
           [
@@ -1021,188 +633,63 @@ function SealsScreen(props: {
             {label}
           </button>
         ))}
+        {moversStale ? (
+          <span className="font-mono text-[9px] uppercase text-[var(--color-warn,var(--color-ink-faint))]">
+            movers stale
+          </span>
+        ) : null}
+        <SourceVerifyChips chips={hub.movers.sourceChips ?? []} />
       </div>
 
       <section
         className={`grid gap-3 ${dayLens === 'both' ? 'lg:grid-cols-2' : 'grid-cols-1'}`}
       >
         {dayLens !== 'news' ? (
-          <div
-            className={`space-y-2 rounded border bg-[var(--color-surface-1)] p-2.5 ${
-              moversStale
-                ? 'border-[var(--color-warn,var(--color-ink-faint))]'
-                : 'border-[var(--color-line)]'
-            }`}
-            data-testid="market-posture-stock-board"
-          >
-            <div className="flex flex-wrap items-baseline justify-between gap-1">
-              <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                Stock · {hub.movers.title ?? 'Top movers'}
-              </h3>
-              <span className="font-mono text-[9px] uppercase text-[var(--color-ink-faint)]">
-                {hub.movers.status}
-                {hub.movers.corroborationBand ? ` · ${hub.movers.corroborationBand}` : ''}
-              </span>
-            </div>
-            <SourceVerifyChips
-              chips={hub.movers.sourceChips ?? []}
-              data-testid="market-posture-movers-source-chips"
-            />
-            <p className="font-mono text-[9px] text-[var(--color-ink-faint)]">
-              Verified {formatOrientation(hub.movers.verifiedAt)} · expires{' '}
-              {formatOrientation(hub.movers.expiresAt)}
-              {moversStale ? ' · stale' : ''}
-            </p>
-            {hub.movers.items.length === 0 ? (
-              <p className="text-xs text-[var(--color-ink-faint)]">
-                No movers seal yet — Analyze reseals stock compound (bars + news).
-              </p>
-            ) : (
-              <ul className="max-h-64 space-y-1.5 overflow-y-auto">
-                {hub.movers.items.slice(0, 12).map((item, i) => {
-                  const viz =
-                    hub.movers.itemViz.find(
-                      (v) =>
-                        v.symbol ===
-                        item.symbolOrSector?.trim().replace(/^\$/, '').toUpperCase(),
-                    ) ?? null;
-                  return (
-                    <li key={`${item.symbolOrSector ?? 'm'}-${i}`}>
-                      <Justification
-                        sourceClass="system_seal"
-                        lines={[
-                          item.headline ?? 'Sealed movers board item',
-                          `Bands: ${[item.directionBand, item.strengthBand].filter(Boolean).join(' · ') || 'n/a'}`,
-                        ]}
-                      >
-                        {viz ? (
-                          <SymbolTicker viz={viz} density="compact" />
-                        ) : (
-                          <div className="flex items-start justify-between gap-2 text-xs">
-                            <span className="font-medium text-[var(--color-ink)]">
-                              {item.symbolOrSector ?? 'Cluster'}
-                            </span>
-                            <span className="shrink-0 text-[10px] uppercase text-[var(--color-ink-faint)]">
-                              {[item.directionBand, item.strengthBand]
-                                .filter(Boolean)
-                                .join(' · ')}
-                            </span>
-                          </div>
-                        )}
-                      </Justification>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {hub.movers.reportConceptId ? (
-              <button
-                type="button"
-                onClick={() => openReport(hub.movers.reportConceptId!)}
-                className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-accent)] hover:underline"
-              >
-                Open movers report
-              </button>
-            ) : null}
-          </div>
+          <MarketPostureEntityChartPanel
+            title={`Stock seals · ${hub.movers.title ?? 'movers'} chart`}
+            rows={entities.movers}
+            empty="No movers seal yet — Analyze reseals stock compound"
+            testId="market-posture-stock-board"
+            headerExtra={
+              hub.movers.reportConceptId ? (
+                <button
+                  type="button"
+                  onClick={() => openReport(hub.movers.reportConceptId!)}
+                  className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-accent)] hover:underline"
+                >
+                  Open report
+                </button>
+              ) : null
+            }
+          />
         ) : null}
-
         {dayLens !== 'stock' ? (
-          <div
-            className="space-y-2 rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2.5"
-            data-testid="market-posture-news-board"
-          >
-            <div className="flex flex-wrap items-baseline justify-between gap-1">
-              <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                News · {hub.news.title ?? 'Sector bulletin'}
-              </h3>
-              <span className="font-mono text-[9px] uppercase text-[var(--color-ink-faint)]">
-                {hub.news.status}
-                {hub.news.corroborationBand ? ` · ${hub.news.corroborationBand}` : ''}
-              </span>
-            </div>
-            <SourceVerifyChips
-              chips={hub.news.sourceChips ?? []}
-              data-testid="market-posture-news-source-chips"
-            />
-            <p className="font-mono text-[9px] text-[var(--color-ink-faint)]">
-              Verified {formatOrientation(hub.news.verifiedAt)} · expires{' '}
-              {formatOrientation(hub.news.expiresAt)}
-            </p>
-            {hub.news.items.length === 0 ? (
-              <p className="text-xs text-[var(--color-ink-faint)]">
-                No sector news seal yet — Analyze reseals news lanes in parallel.
-              </p>
-            ) : (
-              <ul className="max-h-64 space-y-1.5 overflow-y-auto">
-                {hub.news.items.slice(0, 12).map((item, i) => (
-                  <li
-                    key={`${item.symbolOrSector ?? 'n'}-${i}`}
-                    className="rounded border border-[var(--color-line)] px-1.5 py-1 text-xs"
-                  >
-                    <Justification
-                      sourceClass="system_seal"
-                      lines={[
-                        item.headline ?? 'Sector news item',
-                        item.symbolOrSector
-                          ? `Sector/symbol: ${item.symbolOrSector}`
-                          : 'No sector label',
-                        `Bands: ${[item.directionBand, item.strengthBand].filter(Boolean).join(' · ') || 'n/a'}`,
-                      ]}
-                    >
-                      <p className="font-medium text-[var(--color-ink)]">
-                        {item.headline ?? item.symbolOrSector ?? 'Headline'}
-                      </p>
-                      <p className="mt-0.5 font-mono text-[9px] uppercase text-[var(--color-ink-faint)]">
-                        {[item.symbolOrSector, item.directionBand, item.strengthBand]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </p>
-                    </Justification>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {hub.news.reportConceptId ? (
-              <button
-                type="button"
-                onClick={() => openReport(hub.news.reportConceptId!)}
-                className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-accent)] hover:underline"
-              >
-                Open sector news report
-              </button>
-            ) : null}
-          </div>
+          <MarketPostureEntityChartPanel
+            title={`News seals · ${hub.news.title ?? 'sector'} chart`}
+            rows={entities.news}
+            empty="No news seal yet"
+            testId="market-posture-news-board"
+            headerExtra={
+              hub.news.reportConceptId ? (
+                <button
+                  type="button"
+                  onClick={() => openReport(hub.news.reportConceptId!)}
+                  className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-accent)] hover:underline"
+                >
+                  Open report
+                </button>
+              ) : null
+            }
+          />
         ) : null}
       </section>
 
-      <div className="flex flex-wrap gap-1.5">
-        <span className="w-full text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          Sealed reports
-        </span>
-        {hub.reports.length === 0 ? (
-          <span className="text-[10px] text-[var(--color-ink-faint)]">No sealed reports yet</span>
-        ) : (
-          hub.reports.map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => openReport(r.id)}
-              className="rounded border border-[var(--color-line)] px-2 py-1 text-left text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
-              title={
-                r.expiresAt
-                  ? `Expires ${formatOrientation(r.expiresAt)}`
-                  : reportKindLabel(r.kind)
-              }
-            >
-              <span className="mr-1 uppercase tracking-wider text-[var(--color-ink-faint)]">
-                {reportKindLabel(r.kind)}
-              </span>
-              {r.title}
-            </button>
-          ))
-        )}
-      </div>
+      <MarketPostureEntityChartPanel
+        title="Phase reports · chart"
+        rows={entities.reports}
+        empty="No sealed reports yet"
+        onSelect={(row) => openReport(row.id)}
+      />
     </>
   );
 }
@@ -1218,11 +705,20 @@ function DayPlanScreen(props: {
 }) {
   const { hub, mp } = props;
   const charts = buildDayStageCharts(hub);
-  const actionWatchlists = props.filteredWatchlists.filter(
-    (w) =>
-      w.status === 'suggested_search' ||
-      w.status === 'suggested_verified' ||
-      w.status === 'watching',
+  const entities = buildDayEntityCharts(hub);
+  // Prefer filtered watchlist actions when tier chips narrow the set.
+  const filteredActionIds = new Set(
+    props.filteredWatchlists
+      .filter(
+        (w) =>
+          w.status === 'suggested_search' ||
+          w.status === 'suggested_verified' ||
+          w.status === 'watching',
+      )
+      .map((w) => w.id),
+  );
+  const actionRows = entities.actions.filter(
+    (row) => row.id.startsWith('pipe:') || filteredActionIds.has(row.id),
   );
 
   return (
@@ -1245,220 +741,63 @@ function DayPlanScreen(props: {
         />
       </section>
 
-      <section className="grid gap-3 md:grid-cols-3">
-        <CategoryBlock
-          title="Movements"
-          empty="No sealed movements for today"
-          count={hub.movers.items.length}
-        >
-          {hub.movers.items.slice(0, 16).map((item, i) => {
-            const symbol = item.symbolOrSector?.trim().replace(/^\$/, '').toUpperCase() ?? null;
-            const viz =
-              hub.movers.itemViz.find((v) => v.symbol === symbol) ?? null;
-            const focused = Boolean(symbol && mp.selectedSymbol === symbol);
-            return (
-              <li
-                key={`${item.symbolOrSector ?? 'm'}-${i}`}
-                className={`rounded border px-1.5 py-1 text-xs ${focusRing(focused)}`}
-              >
-                <button
-                  type="button"
-                  className="w-full text-left"
-                  onClick={() => {
-                    if (!symbol) return;
-                    mp.focusEntity({
-                      symbol,
-                      positionId: null,
-                      stageScreenId: 'day',
-                    });
-                  }}
-                >
-                  {viz ? (
-                    <SymbolTicker
-                      viz={viz}
-                      density="compact"
-                      meta={
-                        <span className="text-[10px] text-[var(--color-ink-faint)]">
-                          {[item.directionBand, item.strengthBand].filter(Boolean).join(' · ')}
-                        </span>
-                      }
-                    />
-                  ) : (
-                    <>
-                      <span className="font-medium">{item.symbolOrSector ?? '—'}</span>
-                      <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
-                        {[item.directionBand, item.strengthBand].filter(Boolean).join(' · ') ||
-                          'movement'}
-                      </span>
-                    </>
-                  )}
-                </button>
-                {item.headline ? (
-                  <p className="mt-0.5 text-[10px] text-[var(--color-ink-dim)]">{item.headline}</p>
-                ) : null}
-              </li>
-            );
-          })}
-        </CategoryBlock>
+      <MarketPostureEntityChartPanel
+        title="Movements · chart"
+        rows={entities.movements}
+        empty="No sealed movements for today"
+        onSelect={(row) => {
+          const symbol = row.label.trim().replace(/^\$/, '').toUpperCase();
+          if (!symbol || symbol.includes(' ')) return;
+          mp.focusEntity({ symbol, positionId: null, stageScreenId: 'day' });
+        }}
+      />
 
-        <CategoryBlock
-          title="Actions"
+      <section className="grid gap-3 lg:grid-cols-2">
+        <MarketPostureEntityChartPanel
+          title="Actions · chart"
+          rows={actionRows}
           empty="No suggested actions for this tier"
-          count={actionWatchlists.length + hub.pipeline.length}
           headerExtra={
             <WatchlistTierFilterChips
               value={props.watchlistTierFilter}
               onChange={props.setWatchlistTierFilter}
-              className="mt-1 flex flex-wrap gap-1"
+              className="flex flex-wrap gap-1"
             />
           }
-        >
-          {actionWatchlists.slice(0, 12).map((w) => {
-            const focused = mp.selectedSymbol === w.symbol && mp.category === 'watchlists';
-            return (
-              <li
-                key={w.id}
-                data-posture-focus-symbol={w.symbol}
-                className={`rounded border px-1.5 py-1 text-xs ${focusRing(focused)}`}
-              >
-                <Justification
-                  sourceClass={w.sourceClass === 'operator' ? 'operator' : 'derived'}
-                  lines={[
-                    w.note || 'Suggested action',
-                    `Status ${w.status} · bias ${w.bias}`,
-                  ]}
-                >
-                  <button
-                    type="button"
-                    className="w-full text-left"
-                    onClick={() =>
-                      mp.focusEntity({
-                        symbol: w.symbol,
-                        category: 'watchlists',
-                        positionId: null,
-                        openOverlay: true,
-                        stageScreenId: 'day',
-                      })
-                    }
-                  >
-                    {w.viz ? (
-                      <SymbolTicker
-                        viz={w.viz}
-                        density="compact"
-                        meta={
-                          <span className="text-[10px] text-[var(--color-ink-faint)]">
-                            {w.bias} · {w.status}
-                          </span>
-                        }
-                      />
-                    ) : (
-                      <>
-                        <span className="font-medium">{w.symbol}</span>
-                        <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
-                          {w.bias} · {w.status}
-                        </span>
-                      </>
-                    )}
-                  </button>
-                </Justification>
-                <div className="mt-0.5 flex items-center justify-between gap-1">
-                  <EngineChips engines={w.engines} />
-                  <SourceVerifyChips chips={w.sourceChips ?? []} />
-                  {w.status === 'suggested_search' || w.status === 'suggested_verified' ? (
-                    <button
-                      type="button"
-                      className="shrink-0 text-[9px] uppercase tracking-wider text-[var(--color-accent)] hover:underline"
-                      onClick={() => void props.confirmWatchlist(w.id)}
-                    >
-                      Confirm
-                    </button>
-                  ) : null}
-                </div>
-              </li>
-            );
-          })}
-          {hub.pipeline.slice(0, 8).map((row) => {
-            const focused = mp.selectedSymbol === row.symbol && mp.category === 'pipeline';
-            return (
-              <li
-                key={`pipe:${row.symbol}`}
-                data-posture-focus-symbol={row.symbol}
-                className={`rounded border px-1.5 py-1 text-xs ${focusRing(focused)}`}
-              >
-                <button
-                  type="button"
-                  className="w-full text-left"
-                  onClick={() =>
-                    mp.focusEntity({
-                      symbol: row.symbol,
-                      category: 'pipeline',
-                      positionId: null,
-                      stageScreenId: 'day',
-                    })
-                  }
-                >
-                  <span className="font-medium">{row.symbol}</span>
-                  <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
-                    plan · {row.lead?.status ?? 'no lead'}
-                    {row.tree ? ` · tree ${row.tree.status}` : ''}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </CategoryBlock>
-
-        <CategoryBlock
-          title="Trends"
+          onSelect={(row) => {
+            if (row.id.startsWith('pipe:')) {
+              mp.focusEntity({
+                symbol: row.label,
+                category: 'pipeline',
+                positionId: null,
+                stageScreenId: 'day',
+              });
+              return;
+            }
+            const w = hub.watchlists.find((x) => x.id === row.id);
+            if (!w) return;
+            mp.focusEntity({
+              symbol: w.symbol,
+              category: 'watchlists',
+              positionId: null,
+              openOverlay: true,
+              stageScreenId: 'day',
+            });
+          }}
+        />
+        <MarketPostureEntityChartPanel
+          title="Trends · chart"
+          rows={entities.trends}
           empty="No trend candidates"
-          count={hub.trendCandidates.length}
-        >
-          {hub.trendCandidates.slice(0, 16).map((t) => {
-            const focused = mp.selectedSymbol === t.symbol && mp.category === 'trends';
-            return (
-              <li
-                key={t.id}
-                data-posture-focus-symbol={t.symbol}
-                className={`rounded border px-1.5 py-1 text-xs ${focusRing(focused)}`}
-              >
-                <button
-                  type="button"
-                  className="w-full text-left"
-                  onClick={() =>
-                    mp.focusEntity({
-                      symbol: t.symbol,
-                      category: 'trends',
-                      positionId: null,
-                      stageScreenId: 'day',
-                    })
-                  }
-                >
-                  {t.viz ? (
-                    <SymbolTicker
-                      viz={t.viz}
-                      density="compact"
-                      meta={
-                        <span className="text-[10px] text-[var(--color-ink-faint)]">
-                          {t.direction} · {t.strengthBand} · {t.status}
-                        </span>
-                      }
-                    />
-                  ) : (
-                    <>
-                      <span className="font-medium">{t.symbol}</span>
-                      <span className="ml-1 text-[10px] text-[var(--color-ink-faint)]">
-                        {t.direction} · {t.strengthBand} · {t.status}
-                      </span>
-                    </>
-                  )}
-                </button>
-                <div className="mt-0.5">
-                  <EngineChips engines={t.engines} />
-                </div>
-              </li>
-            );
-          })}
-        </CategoryBlock>
+          onSelect={(row) => {
+            mp.focusEntity({
+              symbol: row.label,
+              category: 'trends',
+              positionId: null,
+              stageScreenId: 'day',
+            });
+          }}
+        />
       </section>
 
       <MarketPostureAwarenessDock hub={hub} onOpenConcept={props.openReport} />

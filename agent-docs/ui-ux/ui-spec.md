@@ -323,9 +323,9 @@ are ignored. Shortcuts are suppressed in editable fields.
   it; clicking a Model node (or section group) navigates to that screen. Each stage
   screen opens with a **Processing now** tape of live hub/synthesis rows for that
   column (sources+adapters, ingest/links/limits/cost, sealed boards, day plan). Each stage
-  opens with **hydrated graphs** derived from that column's hub/Model data (allocation,
-  entitlement, process/link/cost, seal bands, day movements/actions/trends) — not leftover
-  metrics from other screens. **Capital** stage
+  opens with **hydrated graphs** of that column’s individual inventory (entity bar+spark
+  charts for funds, sources, adapters, process steps, seals, day suggestions) plus rollup
+  pies — not leftover metrics from other screens. **Capital** stage
   shows root user-controlled funds only (company pool + holding funds), engine
   allocation splits, master equity, and open position mark/uPnL values — not every
   capital-bearing Model node. Content below: positions/library, combined live APIs +

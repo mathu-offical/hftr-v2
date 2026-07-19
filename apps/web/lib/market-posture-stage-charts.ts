@@ -7,11 +7,22 @@
 import type {
   MarketHubChartSlice,
   MarketHubResponse,
+  MarketHubSymbolViz,
 } from '@hftr/contracts';
 import {
   buildRootUserCapitalView,
   type RootUserCapitalView,
 } from './market-posture-root-capital';
+
+/** Individual hydrated row for entity chart panels (D-186). */
+export type StageEntityChartRow = {
+  id: string;
+  label: string;
+  valueLabel: string;
+  shareBps: number;
+  detail: string | null;
+  viz: MarketHubSymbolViz | null;
+};
 
 function dollarsLabel(cents: number): string {
   if (!Number.isFinite(cents)) return '—';
@@ -434,4 +445,356 @@ export function buildDayStageCharts(hub: MarketHubResponse): DayStageCharts {
             })(),
           ),
   };
+}
+
+function strengthToBps(band: string | null | undefined): number {
+  switch (band) {
+    case 'strong':
+    case 'high':
+      return 10_000;
+    case 'moderate':
+    case 'medium':
+      return 6_500;
+    case 'weak':
+    case 'low':
+      return 3_500;
+    default:
+      return 2_000;
+  }
+}
+
+function rowsFromNotionals(
+  entries: {
+    id: string;
+    label: string;
+    notionalCents: number;
+    detail?: string | null;
+    viz?: MarketHubSymbolViz | null;
+  }[],
+): StageEntityChartRow[] {
+  const total = entries.reduce((s, e) => s + Math.abs(e.notionalCents), 0);
+  if (total <= 0) {
+    return entries
+      .filter((e) => e.label)
+      .slice(0, 24)
+      .map((e) => ({
+        id: e.id,
+        label: e.label,
+        valueLabel: dollarsLabel(Math.abs(e.notionalCents)),
+        shareBps: 0,
+        detail: e.detail ?? null,
+        viz: e.viz ?? null,
+      }));
+  }
+  return entries
+    .filter((e) => e.notionalCents !== 0 || e.viz)
+    .sort((a, b) => Math.abs(b.notionalCents) - Math.abs(a.notionalCents))
+    .slice(0, 24)
+    .map((e) => ({
+      id: e.id,
+      label: e.label,
+      valueLabel: dollarsLabel(Math.abs(e.notionalCents)),
+      shareBps: Math.round((Math.abs(e.notionalCents) / total) * 10_000),
+      detail: e.detail ?? null,
+      viz: e.viz ?? null,
+    }));
+}
+
+export function buildCapitalEntityCharts(
+  hub: MarketHubResponse,
+  view: RootUserCapitalView = buildRootUserCapitalView(hub),
+): {
+  rootFunds: StageEntityChartRow[];
+  engineDesks: StageEntityChartRow[];
+  positions: StageEntityChartRow[];
+} {
+  const rootFunds = rowsFromNotionals(
+    [
+      view.companyPool
+        ? {
+            id: view.companyPool.id,
+            label: view.companyPool.name,
+            notionalCents:
+              parseCents(view.companyPool.allocationCents) ??
+              parseCents(view.companyPool.ledgerBalanceCents) ??
+              0,
+            detail: `pool · ${view.companyPool.status}`,
+          }
+        : null,
+      ...view.rootHoldingFunds.map((f) => ({
+        id: f.id,
+        label: f.name,
+        notionalCents:
+          parseCents(f.allocationCents) ?? parseCents(f.ledgerBalanceCents) ?? 0,
+        detail:
+          f.allocationShareBps != null
+            ? `holding · ${(f.allocationShareBps / 100).toFixed(1)}% of pool`
+            : 'holding fund',
+      })),
+    ].filter((x): x is NonNullable<typeof x> => x != null),
+  );
+
+  const deskEntries: {
+    id: string;
+    label: string;
+    notionalCents: number;
+    detail?: string;
+  }[] = [];
+  for (const g of view.engineGroups) {
+    for (const d of g.desks) {
+      deskEntries.push({
+        id: d.id,
+        label: d.name,
+        notionalCents:
+          parseCents(d.allocationCents) ?? parseCents(d.ledgerBalanceCents) ?? 0,
+        detail: g.label,
+      });
+    }
+  }
+
+  const positions = rowsFromNotionals(
+    hub.positions.map((p) => {
+      const qty = Number(p.qty);
+      const mark = parseCents(p.markCents) ?? 0;
+      return {
+        id: p.id,
+        label: p.symbol,
+        notionalCents:
+          Number.isFinite(qty) && mark ? Math.round(Math.abs(qty) * mark) : 0,
+        detail: `qty ${p.qty} · uPnL ${dollarsLabel(parseCents(p.unrealizedPnlCents) ?? 0)}`,
+        viz: p.viz ?? null,
+      };
+    }),
+  );
+
+  return {
+    rootFunds,
+    engineDesks: rowsFromNotionals(deskEntries),
+    positions,
+  };
+}
+
+export function buildLibraryEntityCharts(hub: MarketHubResponse): {
+  positions: StageEntityChartRow[];
+  libraries: StageEntityChartRow[];
+} {
+  const positions = rowsFromNotionals(
+    hub.positions.map((p) => {
+      const qty = Number(p.qty);
+      const mark = parseCents(p.markCents) ?? 0;
+      return {
+        id: p.id,
+        label: p.symbol,
+        notionalCents:
+          Number.isFinite(qty) && mark ? Math.round(Math.abs(qty) * mark) : 0,
+        detail: `${p.moduleName} · cost ${dollarsLabel(parseCents(p.avgCostCents) ?? 0)}`,
+        viz: p.viz ?? null,
+      };
+    }),
+  );
+
+  const libs = hub.modelHydration?.librarySources ?? [];
+  const maxAdmitted = Math.max(1, ...libs.map((l) => l.admittedCount));
+  const libraries: StageEntityChartRow[] = libs.map((lib) => ({
+    id: lib.id,
+    label: lib.name,
+    valueLabel: `${lib.admittedCount}/${lib.conceptCount}`,
+    shareBps: Math.round((lib.admittedCount / maxAdmitted) * 10_000),
+    detail: `${lib.shelf} · ${lib.operation} · ${lib.amount}`,
+    viz: null,
+  }));
+
+  return { positions, libraries };
+}
+
+export function buildLiveEntityCharts(hub: MarketHubResponse): {
+  sources: StageEntityChartRow[];
+  adapters: StageEntityChartRow[];
+} {
+  const live = hub.modelHydration?.liveSources ?? [];
+  const lanes = hub.sources.lanes;
+  const sources: StageEntityChartRow[] = (lanes.length > 0 ? lanes : []).map((lane) => {
+    const hydration = live.find((s) => s.kind === lane.kind);
+    const readyBoost = lane.status === 'ready' ? 7_000 : 2_500;
+    const contribBoost = lane.contributed ? 3_000 : 0;
+    return {
+      id: lane.kind,
+      label: lane.label,
+      valueLabel: hydration?.amount ?? (lane.contributed ? 'filtered' : lane.status),
+      shareBps: Math.min(10_000, readyBoost + contribBoost),
+      detail: [
+        lane.domain,
+        lane.status,
+        lane.contributed ? 'in seal' : 'idle',
+        hydration?.operation,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      viz: null,
+    };
+  });
+
+  const flows = hub.modelHydration?.processingFlows ?? [];
+  const adapters: StageEntityChartRow[] = flows.map((f) => ({
+    id: f.id,
+    label: f.adapterLabel,
+    valueLabel: f.amount,
+    shareBps:
+      f.status === 'ready' || f.contributed
+        ? 8_500
+        : f.status === 'idle'
+          ? 2_000
+          : 4_500,
+    detail: [f.operation, f.status, f.route, f.analysisRoles.join(', ')]
+      .filter(Boolean)
+      .join(' · '),
+    viz: null,
+  }));
+
+  return { sources, adapters };
+}
+
+export function buildProcessEntityCharts(hub: MarketHubResponse): {
+  steps: StageEntityChartRow[];
+  links: StageEntityChartRow[];
+  costBasis: StageEntityChartRow[];
+  limits: StageEntityChartRow[];
+} {
+  const steps = (hub.modelHydration?.processSteps ?? []).map((s, i, arr) => ({
+    id: s.id,
+    label: s.label,
+    valueLabel: s.amount,
+    shareBps: Math.round(((arr.length - i) / Math.max(arr.length, 1)) * 10_000),
+    detail: `${s.route} · ${s.processFunction} · ${s.operation}`,
+    viz: null,
+  }));
+
+  const links = (hub.awarenessAnalysis?.links ?? []).map((link) => ({
+    id: link.id,
+    label: `${link.fromLabel} → ${link.toId}`,
+    valueLabel: link.strengthBand,
+    shareBps: strengthToBps(link.strengthBand),
+    detail: `${link.fromKind}→${link.toKind}`,
+    viz: null,
+  }));
+
+  const costBasis = rowsFromNotionals(
+    hub.positions.map((p) => {
+      const qty = Number(p.qty);
+      const cost = parseCents(p.avgCostCents) ?? 0;
+      const mark = parseCents(p.markCents) ?? 0;
+      return {
+        id: p.id,
+        label: p.symbol,
+        notionalCents:
+          Number.isFinite(qty) && cost ? Math.round(Math.abs(qty) * cost) : 0,
+        detail: `cost ${dollarsLabel(cost)} · mark ${dollarsLabel(mark)} · uPnL ${dollarsLabel(parseCents(p.unrealizedPnlCents) ?? 0)}`,
+        viz: p.viz ?? null,
+      };
+    }),
+  );
+
+  const limits = (hub.modelHydration?.stageOps ?? [])
+    .filter((s) => s.stageId === 'thresholds' || s.stageId === 'defaults')
+    .map((op) => ({
+      id: op.stageId,
+      label: op.stageId,
+      valueLabel: op.amount,
+      shareBps: op.stageId === 'thresholds' ? 8_000 : 5_500,
+      detail: op.operation,
+      viz: null,
+    }));
+
+  return { steps, links, costBasis, limits };
+}
+
+export function buildSealsEntityCharts(hub: MarketHubResponse): {
+  movers: StageEntityChartRow[];
+  news: StageEntityChartRow[];
+  reports: StageEntityChartRow[];
+} {
+  const movers: StageEntityChartRow[] = hub.movers.items.slice(0, 24).map((item, i) => {
+    const symbol = item.symbolOrSector?.trim().replace(/^\$/, '').toUpperCase() ?? null;
+    const viz =
+      (symbol && hub.movers.itemViz.find((v) => v.symbol === symbol)) || null;
+    return {
+      id: `${symbol ?? 'm'}-${i}`,
+      label: item.symbolOrSector ?? item.headline ?? `mover ${i + 1}`,
+      valueLabel: [item.directionBand, item.strengthBand].filter(Boolean).join(' · ') || 'sealed',
+      shareBps: strengthToBps(item.strengthBand),
+      detail: item.headline ?? null,
+      viz,
+    };
+  });
+
+  const news: StageEntityChartRow[] = hub.news.items.slice(0, 24).map((item, i) => ({
+    id: `news-${i}-${item.symbolOrSector ?? i}`,
+    label: item.headline ?? item.symbolOrSector ?? `news ${i + 1}`,
+    valueLabel: [item.directionBand, item.strengthBand].filter(Boolean).join(' · ') || 'sealed',
+    shareBps: strengthToBps(item.strengthBand ?? item.directionBand),
+    detail: item.symbolOrSector ?? null,
+    viz: null,
+  }));
+
+  const reports: StageEntityChartRow[] = hub.reports.slice(0, 16).map((r) => ({
+    id: r.id,
+    label: r.title,
+    valueLabel: r.kind,
+    shareBps: r.expiresAt ? 5_000 : 8_000,
+    detail: r.expiresAt ? 'expiring' : 'sealed',
+    viz: null,
+  }));
+
+  return { movers, news, reports };
+}
+
+export function buildDayEntityCharts(hub: MarketHubResponse): {
+  movements: StageEntityChartRow[];
+  actions: StageEntityChartRow[];
+  trends: StageEntityChartRow[];
+} {
+  const movements = buildSealsEntityCharts(hub).movers;
+
+  const actions: StageEntityChartRow[] = [
+    ...hub.watchlists
+      .filter(
+        (w) =>
+          w.status === 'suggested_search' ||
+          w.status === 'suggested_verified' ||
+          w.status === 'watching',
+      )
+      .slice(0, 16)
+      .map((w) => ({
+        id: w.id,
+        label: w.symbol,
+        valueLabel: `${w.bias} · ${w.status}`,
+        shareBps:
+          w.status === 'watching'
+            ? 9_000
+            : w.status === 'suggested_verified'
+              ? 7_000
+              : 4_500,
+        detail: w.note || w.sourceClass,
+        viz: w.viz ?? null,
+      })),
+    ...hub.pipeline.slice(0, 8).map((row) => ({
+      id: `pipe:${row.symbol}`,
+      label: row.symbol,
+      valueLabel: row.lead?.status ?? 'plan',
+      shareBps: row.lead ? 7_500 : 3_500,
+      detail: row.tree ? `tree ${row.tree.status}` : 'pipeline',
+      viz: null,
+    })),
+  ];
+
+  const trends: StageEntityChartRow[] = hub.trendCandidates.slice(0, 16).map((t) => ({
+    id: t.id,
+    label: t.symbol,
+    valueLabel: `${t.direction} · ${t.strengthBand}`,
+    shareBps: strengthToBps(t.strengthBand),
+    detail: t.status,
+    viz: t.viz ?? null,
+  }));
+
+  return { movements, actions, trends };
 }

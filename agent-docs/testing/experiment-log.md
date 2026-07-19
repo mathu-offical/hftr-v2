@@ -359,6 +359,21 @@ Scoring: `intent-alignment-scoring.md`
 
 ---
 
+## EXP-2026-07-19-08 — Honesty vocab + hydrate + limit UI (D-194)
+
+| Field | Value |
+|---|---|
+| Status | unit **pass**; paper-system-verify **26/26**; Playwright `paper-trade-deep` **pass**; `paper-loop` **pass** |
+| Mode | paper only |
+| Hypothesis | Chips name inline fill / no venue latency / on-service; ad-hoc symbols hydrate ValueRefs; limit UI + unmarketable/blocked reject; right panel recovers from hung fetches |
+| Declared intent | Close remaining honesty-vocabulary and operator-quote gaps after D-192 |
+| Observed | Hydrate unit 3/3; deep e2e: preview tags + fill chips + limit path + inspector limit $; paper-loop honesty ticker + chips after RightPanel 25s fetch timeouts; weekend live marks without prior_session in verify |
+| Alignment | **aligned** |
+| Decisions | D-194 |
+| Ops note | Host disk ~100% caused hung Next/API during first e2e attempt — cleared `.next`/worktree `node_modules`/IronBee caches |
+
+---
+
 ## EXP-2026-07-19-03 — Sector × day_trading / HFT cohort (D-174)
 
 | Field | Value |

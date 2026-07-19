@@ -9,6 +9,7 @@ import {
 import { loadQuoteCandidatesFromValueRefs } from '../calc/load-quote-value-refs';
 import { getSession, sessionPhase, venueDate } from '../calendar/calendar';
 import { getSyntheticQuote } from '../dispatch/quotes';
+import { recordPolledQuotesAsValueRefs } from '../live-api/record-poll-quotes';
 
 /**
  * MarketModel quote resolution (D-122 / D-171 / D-177).
@@ -345,4 +346,44 @@ export function previewHonestyTagsFromResolvedQuote(
     tags.push('funds_only_routing');
   }
   return tags;
+}
+
+/**
+ * Best-effort: pull adapter/owner teacher quote for an ad-hoc symbol and persist
+ * as `live_api:quote:{SYM}` ValueRefs so MarketModel fusion sees them (D-194).
+ * Fail-open — never throws.
+ */
+export async function hydrateOperatorQuoteValueRefs(opts: {
+  db: Db;
+  clock: Clock;
+  companyId: string;
+  moduleId?: string | null;
+  symbol: string;
+  adapter?: BrokerAdapter | null;
+  loadOwnerQuote?: LoadOwnerAlpacaPaperQuote;
+}): Promise<{ hydrated: boolean }> {
+  const symbol = opts.symbol.trim().toUpperCase();
+  try {
+    let quote = await loadAdapterMarketQuote(opts.adapter, symbol);
+    if (!quote) {
+      const loadOwner =
+        opts.loadOwnerQuote ??
+        ((db, companyId, sym) =>
+          loadOwnerAlpacaPaperQuote(db, companyId, sym, {
+            nowMs: () => opts.clock.nowMs(),
+          }));
+      quote = await loadOwner(opts.db, opts.companyId, symbol);
+    }
+    if (!quote) return { hydrated: false };
+    const { recorded } = await recordPolledQuotesAsValueRefs({
+      db: opts.db,
+      clock: opts.clock,
+      companyId: opts.companyId,
+      moduleId: opts.moduleId ?? null,
+      quotes: [[symbol, quote]],
+    });
+    return { hydrated: recorded > 0 };
+  } catch {
+    return { hydrated: false };
+  }
 }

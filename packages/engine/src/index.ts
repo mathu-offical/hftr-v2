@@ -362,6 +362,7 @@ export {
   loadAdapterMarketQuote,
   rebucketOffHoursMark,
   previewHonestyTagsFromResolvedQuote,
+  hydrateOperatorQuoteValueRefs,
   MARKET_MODEL_QUOTE_TTL_MS,
   type ResolvedMarketQuote,
   type ResolveMarketQuoteOpts,

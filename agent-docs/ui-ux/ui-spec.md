@@ -502,10 +502,14 @@ are ignored. Shortcuts are suppressed in editable fields.
   The same chip set appears on BottomPanel Decisions + Lineage execution rows and on
   TraceTimeline (D-188; testids `decisions-honesty-chips`, `lineage-honesty-chips`,
   `timeline-honesty-chips`). Chip vocabulary also covers No queue / Both-verify /
-  Pre-block (D-190). Playwright `paper-loop` + `paper-intent-alignment` assert
+  Pre-block (D-190) and Inline fill / No venue latency / On service (D-194).
+  Playwright `paper-loop`, `paper-intent-alignment`, and `paper-trade-deep` assert
   `execution-honesty-chips` (and Decisions chips in paper-loop).
   **PaperTradeForm** (inspector) previews expected quote-class honesty before submit
-  (`data-testid="paper-trade-honesty-preview"`; `GET …/trade/quote-preview` — D-192).
+  (`data-testid="paper-trade-honesty-preview"`; `GET …/trade/quote-preview` — D-192),
+  supports market/limit + limit $ (`paper-trade-limit-price`), and hydrates ad-hoc
+  operator symbols before MarketModel resolve (D-194). RightPanel panel loads use
+  25s per-fetch timeouts so hung APIs cannot leave "Fetching…" forever.
   Market posture left rail also lists open holdings for quick select (D-131); day quant
   lives on the canvas overlay, not as a position-centric navigator.
 - Ledger of all trades/results/responses: filterable table (module, venue, mode, outcome),

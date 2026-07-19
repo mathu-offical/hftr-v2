@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { simHonestyChips, simHonestyTickerLabel } from './sim-honesty-label';
 
-describe('simHonestyChips (D-187)', () => {
+describe('simHonestyChips (D-187 / D-194)', () => {
   it('labels live + prior session + funds-only', () => {
     const chips = simHonestyChips([
       'live_market_quote',
@@ -14,6 +14,7 @@ describe('simHonestyChips (D-187)', () => {
       'Live mark',
       'Prior session',
       'Funds-only',
+      'Inline fill',
     ]);
   });
 
@@ -30,13 +31,13 @@ describe('simHonestyChips (D-187)', () => {
     ]);
   });
 
-  it('builds ticker label', () => {
+  it('builds ticker label (top 3)', () => {
     expect(
       simHonestyTickerLabel(['live_market_quote', 'prior_session_mark', 'funds_only_routing']),
     ).toBe('Live mark · Prior session · Funds-only');
   });
 
-  it('labels no-queue, both-verify, and pre-block (D-189 vocabulary)', () => {
+  it('labels no-queue, both-verify, and pre-block', () => {
     expect(
       simHonestyChips(['no_queue_position', 'both_verify_linked', 'pre_dispatch_block']).map(
         (c) => c.label,
@@ -45,5 +46,16 @@ describe('simHonestyChips (D-187)', () => {
     expect(simHonestyChips(['both_verify_no_provider']).map((c) => c.label)).toEqual([
       'Both-verify (no provider)',
     ]);
+  });
+
+  it('labels inline fill, no venue latency, and on-service routing (D-194)', () => {
+    expect(
+      simHonestyChips([
+        'live_market_quote',
+        'inline_fill_model',
+        'no_venue_latency',
+        'execute_on_service_routing',
+      ]).map((c) => c.label),
+    ).toEqual(['Live mark', 'On service', 'Inline fill', 'No venue latency']);
   });
 });

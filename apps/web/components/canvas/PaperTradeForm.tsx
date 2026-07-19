@@ -21,11 +21,13 @@ type QuotePreview = {
  * Operator paper-trade form (inspector, trading modules only). Submits to the
  * hardened trade route; execution runs through the DISPATCH queue and the
  * deterministic engine — this form never talks to an adapter directly.
- * Pre-trade honesty preview uses the same MarketModel quote path (D-192).
+ * Pre-trade honesty preview uses the same MarketModel quote path (D-192 / D-194).
  */
 export function PaperTradeForm(props: { companyId: string; moduleId: string; disabled: boolean }) {
   const [symbol, setSymbol] = useState('AAPL');
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
+  const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
+  const [limitDollars, setLimitDollars] = useState('');
   const [quantity, setQuantity] = useState('10');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -69,6 +71,19 @@ export function PaperTradeForm(props: { companyId: string; moduleId: string; dis
       setMessage('Quantity must be a whole number.');
       return;
     }
+    let limitPriceCents: number | null = null;
+    if (orderType === 'limit') {
+      const dollarsVal = Number(limitDollars);
+      if (!Number.isFinite(dollarsVal) || dollarsVal <= 0) {
+        setMessage('Limit price must be a positive dollar amount.');
+        return;
+      }
+      limitPriceCents = Math.round(dollarsVal * 100);
+      if (limitPriceCents < 1) {
+        setMessage('Limit price must be at least $0.01.');
+        return;
+      }
+    }
     setBusy(true);
     setMessage(null);
     try {
@@ -77,17 +92,24 @@ export function PaperTradeForm(props: { companyId: string; moduleId: string; dis
         body: {
           symbol: symbol.trim().toUpperCase(),
           actionVerb: side,
-          orderType: 'market',
+          orderType,
           quantity: qty,
+          limitPriceCents,
         },
       });
-      setMessage('Order dispatched — see Activity.');
+      setMessage(
+        orderType === 'limit'
+          ? 'Limit order dispatched — see Activity / Executions.'
+          : 'Order dispatched — see Activity.',
+      );
       window.dispatchEvent(new Event(ACTIVITY_REFRESH_EVENT));
     } catch (err) {
       setMessage(
         err instanceof RequestError && err.code === 'module_not_active'
           ? 'Set the module to active first.'
-          : 'Trade rejected.',
+          : err instanceof RequestError && err.code === 'limit_price_required'
+            ? 'Limit price is required for limit orders.'
+            : 'Trade rejected.',
       );
     } finally {
       setBusy(false);
@@ -111,6 +133,7 @@ export function PaperTradeForm(props: { companyId: string; moduleId: string; dis
         {(['buy', 'sell'] as const).map((s) => (
           <button
             key={s}
+            type="button"
             onClick={() => setSide(s)}
             className={`flex-1 rounded-md border px-2 py-1 text-xs capitalize ${
               side === s
@@ -121,6 +144,23 @@ export function PaperTradeForm(props: { companyId: string; moduleId: string; dis
             }`}
           >
             {s}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-1.5" role="group" aria-label="Order type">
+        {(['market', 'limit'] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setOrderType(t)}
+            aria-pressed={orderType === t}
+            className={`flex-1 rounded-md border px-2 py-1 text-xs capitalize ${
+              orderType === t
+                ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
+                : 'border-[var(--color-line)] text-[var(--color-ink-dim)]'
+            }`}
+          >
+            {t}
           </button>
         ))}
       </div>
@@ -142,6 +182,17 @@ export function PaperTradeForm(props: { companyId: string; moduleId: string; dis
           className="w-20 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--color-accent)]"
         />
       </div>
+      {orderType === 'limit' && (
+        <input
+          value={limitDollars}
+          onChange={(e) => setLimitDollars(e.target.value)}
+          inputMode="decimal"
+          placeholder="Limit $"
+          aria-label="Limit price dollars"
+          data-testid="paper-trade-limit-price"
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--color-accent)]"
+        />
+      )}
 
       {(honesty.length > 0 || preview?.markCents || previewError) && (
         <div
@@ -177,11 +228,13 @@ export function PaperTradeForm(props: { companyId: string; moduleId: string; dis
       )}
 
       <button
+        type="button"
         onClick={submit}
         disabled={busy || props.disabled}
+        data-testid="paper-trade-submit"
         className="w-full rounded-md border border-[var(--color-accent)] px-3 py-1.5 text-sm text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
       >
-        {busy ? 'Dispatching…' : 'Submit paper order'}
+        {busy ? 'Dispatching…' : orderType === 'limit' ? 'Submit limit order' : 'Submit paper order'}
       </button>
       {props.disabled && (
         <p className="text-xs text-[var(--color-ink-faint)]">Activate the module to trade.</p>

@@ -253,29 +253,36 @@ export function RightPanel(props: { companyId: string; companyMode?: string }) {
 
   const load = useCallback(async () => {
     const base = `/api/companies/${props.companyId}`;
-    const results = await Promise.allSettled([
-      api<{ balanceCents: string; ledger: LedgerRow[] }>(`${base}/activity?view=ledger`),
-      api<{ executions: ExecutionRow[] }>(`${base}/executions`),
-      api<{ verifications: VerificationRow[] }>(`${base}/verifications`),
-      api<{ positions: PositionRow[] }>(`${base}/positions`),
-      api<{ values: ValueRow[] }>(`${base}/values`),
-      api<{ runs: SimulationRow[]; comparison?: { runIds: string[]; deltaSummary: string } }>(
-        `${base}/simulations`,
-      ),
-    ]);
-    if (results[0].status === 'fulfilled') {
-      setBalance(results[0].value.balanceCents);
-      setLedger(results[0].value.ledger);
+    // Bound each fetch so a hung route cannot leave the panel on "Fetching…" forever
+    // (common when Next is compiling or research/graph saturates the event loop).
+    const timed = <T,>(path: string) =>
+      api<T>(path, { signal: AbortSignal.timeout(25_000) });
+    try {
+      const results = await Promise.allSettled([
+        timed<{ balanceCents: string; ledger: LedgerRow[] }>(`${base}/activity?view=ledger`),
+        timed<{ executions: ExecutionRow[] }>(`${base}/executions`),
+        timed<{ verifications: VerificationRow[] }>(`${base}/verifications`),
+        timed<{ positions: PositionRow[] }>(`${base}/positions`),
+        timed<{ values: ValueRow[] }>(`${base}/values`),
+        timed<{ runs: SimulationRow[]; comparison?: { runIds: string[]; deltaSummary: string } }>(
+          `${base}/simulations`,
+        ),
+      ]);
+      if (results[0].status === 'fulfilled') {
+        setBalance(results[0].value.balanceCents);
+        setLedger(results[0].value.ledger);
+      }
+      if (results[1].status === 'fulfilled') setExecutions(results[1].value.executions);
+      if (results[2].status === 'fulfilled') setVerifications(results[2].value.verifications);
+      if (results[3].status === 'fulfilled') setPositions(results[3].value.positions);
+      if (results[4].status === 'fulfilled') setValues(results[4].value.values);
+      if (results[5].status === 'fulfilled') {
+        setSimulations(results[5].value.runs);
+        setSimComparison(results[5].value.comparison?.deltaSummary ?? null);
+      }
+    } finally {
+      setDataLoadState('ready');
     }
-    if (results[1].status === 'fulfilled') setExecutions(results[1].value.executions);
-    if (results[2].status === 'fulfilled') setVerifications(results[2].value.verifications);
-    if (results[3].status === 'fulfilled') setPositions(results[3].value.positions);
-    if (results[4].status === 'fulfilled') setValues(results[4].value.values);
-    if (results[5].status === 'fulfilled') {
-      setSimulations(results[5].value.runs);
-      setSimComparison(results[5].value.comparison?.deltaSummary ?? null);
-    }
-    setDataLoadState('ready');
   }, [props.companyId]);
 
   useEffect(() => {

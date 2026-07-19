@@ -59,7 +59,7 @@ import {
 import { recomputeCompanyEquity } from '../equity/recompute';
 import { shadowVerifyAndPersistBookDelta } from '../paper/book-delta';
 import { computeInternalPaperCoreFill } from '../paper/internal-paper-core';
-import { resolveDispatchMarketQuote } from '../paper/market-model';
+import { resolveDispatchMarketQuote, hydrateOperatorQuoteValueRefs } from '../paper/market-model';
 import { resolvePaperFillSlippage } from '../paper/resolve-slippage-bps';
 
 /**
@@ -259,8 +259,19 @@ export async function executePaperTrade(
     );
   }
 
-  // D-171: MarketModel teacher — bound adapter quote, else owner Alpaca paper
-  // read-only quote, else synthetic. funds_only + paper_sim stays internal fill.
+  // D-171 / D-194: MarketModel teacher — hydrate ad-hoc ValueRefs on operator path,
+  // then bound adapter quote, else owner Alpaca paper read-only quote, else synthetic.
+  // funds_only + paper_sim stays internal fill.
+  if (!compiled) {
+    await hydrateOperatorQuoteValueRefs({
+      db,
+      clock,
+      companyId: req.companyId,
+      moduleId: req.moduleId,
+      symbol: req.symbol,
+      adapter,
+    });
+  }
   const market = await resolveDispatchMarketQuote({
     db,
     clock,

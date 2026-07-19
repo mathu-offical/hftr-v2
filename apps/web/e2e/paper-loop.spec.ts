@@ -154,9 +154,10 @@ test.describe('Paper trading loop (flow 3)', () => {
       await expandInfo.click();
     }
     await expect(page.getByTestId('right-panel-paper-balance')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('right-panel-loading')).toBeHidden({ timeout: 90_000 });
     await expect
       .poll(async () => page.getByTestId('execution-honesty-chips').count(), {
-        timeout: 60_000,
+        timeout: 90_000,
         intervals: [500, 1_000, 2_000],
       })
       .toBeGreaterThan(0);

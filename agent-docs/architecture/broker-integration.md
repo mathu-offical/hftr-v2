@@ -113,6 +113,9 @@ Approved design: `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-
   `simulatorGapTags`.
   Phase 7d (D-192): PaperTradeForm pre-trade quote honesty preview
   (`GET …/trade/quote-preview`) using the same MarketModel resolver.
+  Phase 7e (D-194): expand chip vocab (Inline fill / No venue latency / On service);
+  `hydrateOperatorQuoteValueRefs` on operator trade + preview; limit-order UI on
+  PaperTradeForm; Playwright `paper-trade-deep.spec.ts`.
 - Company-level `broker_connections` bind remains for credentials; it no longer implies
   automatic venue submit for every paper trade (routing mode decides).
 

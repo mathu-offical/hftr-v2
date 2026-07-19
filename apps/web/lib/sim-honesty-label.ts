@@ -1,5 +1,5 @@
 /**
- * Operator-facing honesty labels for paper simulatorGapTags (D-187).
+ * Operator-facing honesty labels for paper simulatorGapTags (D-187 / D-194).
  * Text-first chips — color only reinforces.
  */
 
@@ -10,7 +10,10 @@ export type SimHonestyKind =
   | 'impact_proxy'
   | 'child_drain'
   | 'funds_only'
+  | 'execute_on_service'
   | 'no_queue'
+  | 'inline_fill'
+  | 'no_venue_latency'
   | 'both_verify'
   | 'pre_block'
   | 'other';
@@ -27,7 +30,10 @@ const CHIP_ORDER: SimHonestyKind[] = [
   'impact_proxy',
   'child_drain',
   'funds_only',
+  'execute_on_service',
   'no_queue',
+  'inline_fill',
+  'no_venue_latency',
   'both_verify',
   'pre_block',
 ];
@@ -60,10 +66,20 @@ export function simHonestyChips(tags: readonly string[] | null | undefined): Sim
 
   if (set.has('funds_only_routing')) {
     out.push({ kind: 'funds_only', label: 'Funds-only' });
+  } else if (set.has('execute_on_service_routing')) {
+    out.push({ kind: 'execute_on_service', label: 'On service' });
   }
 
   if (set.has('no_queue_position')) {
     out.push({ kind: 'no_queue', label: 'No queue' });
+  }
+
+  if (set.has('inline_fill_model')) {
+    out.push({ kind: 'inline_fill', label: 'Inline fill' });
+  }
+
+  if (set.has('no_venue_latency')) {
+    out.push({ kind: 'no_venue_latency', label: 'No venue latency' });
   }
 
   if (set.has('both_verify_linked') || set.has('both_verify_no_provider')) {

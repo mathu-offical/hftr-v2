@@ -3,6 +3,7 @@ import { EngineExecutionBinding, PaperTradeQuotePreviewResponse } from '@hftr/co
 import { scoping } from '@hftr/db';
 import {
   createSystemClock,
+  hydrateOperatorQuoteValueRefs,
   previewHonestyTagsFromResolvedQuote,
   resolveDispatchMarketQuote,
 } from '@hftr/engine';
@@ -42,8 +43,8 @@ function markCentsFromQuote(q: {
 }
 
 /**
- * Read-only MarketModel quote class for the paper trade inspector (D-192).
- * Uses the same resolveDispatchMarketQuote path as dispatch — no enqueue, no fill.
+ * Read-only MarketModel quote class for the paper trade inspector (D-192 / D-194).
+ * Hydrates ad-hoc ValueRefs then uses the same resolveDispatchMarketQuote path as dispatch.
  */
 export async function GET(req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
@@ -68,6 +69,13 @@ export async function GET(req: Request, ctx: Ctx) {
       : 'funds_only';
 
     const clock = createSystemClock();
+    await hydrateOperatorQuoteValueRefs({
+      db,
+      clock,
+      companyId,
+      moduleId,
+      symbol,
+    });
     const resolved = await resolveDispatchMarketQuote({
       db,
       clock,

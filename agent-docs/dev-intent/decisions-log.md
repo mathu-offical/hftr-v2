@@ -1533,6 +1533,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Tag satellites exclude system/catalog markers. Docs: galaxy-3d-volume-layout,
   research-galaxy-topic-view-design, ui-spec. **Status: implemented.**
 
+- **D-146 (Assistant AST right-rail floating panel, 2026-07-18):** Right edge rail gains a
+  bottom **AST** symbol (above the collapse chevron), mirroring left **LIB**. Clicking it
+  toggles a **full-height floating column** (`AssistantDock`) separate from the main
+  RightPanel — not a tab inside Verify/Executions/…. Selecting any main right tab closes the
+  assistant column and opens that tab. `assistantOpen` persists on
+  `hftr:{companyId}:panel:right`. Removes the bottom-right FAB mount from the company page.
+  Docs: ui-spec §4 / §5. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

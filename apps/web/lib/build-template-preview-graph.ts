@@ -2,9 +2,9 @@ import {
   ENGINE_TEMPLATES,
   CANVAS_LAYOUT,
   engineCreateSection,
-  engineUtilitySourceHandleId,
   engineUtilityTargetHandleId,
   handleIdForLink,
+  placeDataHubOrigin,
   type EngineTemplate,
   type LinkKind,
 } from '@hftr/contracts';
@@ -254,35 +254,9 @@ function appendEngineNodes(
   });
 }
 
-/** D-159: research eng Data out → execution eng Data in (motherboard). */
-function appendResearchToExecutionBridge(
-  edges: Edge[],
-  research: PlacedEngine,
-  execution: PlacedEngine,
-) {
-  edges.push({
-    id: `bridge:${research.seed.key}:${execution.seed.key}`,
-    source: `eng:${research.seed.key}`,
-    target: `eng:${execution.seed.key}`,
-    type: 'smoothstep',
-    animated: true,
-    sourceHandle: engineUtilitySourceHandleId('data_out'),
-    targetHandle: engineUtilityTargetHandleId('data_in'),
-    style: {
-      stroke: LINK_COLORS.data_feed,
-      strokeWidth: 1.75,
-      strokeDasharray: '6 4',
-    },
-    label: 'research → exec',
-    labelStyle: { fill: 'var(--color-accent)', fontSize: 9 },
-    labelBgStyle: { fill: 'var(--color-surface-0)' },
-    selectable: false,
-    focusable: false,
-    data: { kind: 'research_exec_bridge' },
-  });
-}
+/** D-168: no default eng↔eng preview bridges — only Data Hub → exec data_in. */
 
-/** D-159: synthetic Data Hub between research and execution, wired to exec data_in. */
+/** D-159 / D-168: synthetic Data Hub between research and execution, wired to exec data_in. */
 function appendFamilyDataHub(
   nodes: PreviewFlowNode[],
   edges: Edge[],
@@ -291,23 +265,14 @@ function appendFamilyDataHub(
   execution: PlacedEngine,
   familyActive: boolean,
 ) {
-  const researchRight =
-    researchBounds.length > 0
-      ? Math.max(...researchBounds.map((r) => r.x + r.width))
-      : CANVAS_ORIGIN.x;
-  const gapLeft = researchRight + 16;
-  const gapRight = execution.bounds.x - 16;
-  const hubX =
-    gapRight > gapLeft + HUB_WIDTH
-      ? gapLeft + (gapRight - gapLeft - HUB_WIDTH) / 2
-      : researchRight + 24;
-  const hubY = execution.bounds.y + Math.max(0, (execution.bounds.height - HUB_HEIGHT) / 2);
+  const hubSize = { width: HUB_WIDTH, height: HUB_HEIGHT };
+  const origin = placeDataHubOrigin(researchBounds, execution.bounds, hubSize);
   const hubId = `hub:${familyKey}`;
 
   nodes.push({
     id: hubId,
     type: 'previewModule',
-    position: { x: hubX, y: hubY },
+    position: { x: origin.x, y: origin.y },
     data: {
       name: 'Data Hub',
       moduleType: 'library',
@@ -350,9 +315,8 @@ function appendFamilyDataHub(
  * - Standalone research engines as orphans (left column)
  *
  * Edges:
- * - Intra-engine template links
- * - Research eng → exec eng motherboard bridges
- * - Data Hub → exec data_in
+ * - Intra-engine template links (member → member)
+ * - Data Hub → exec data_in (D-168: no default eng↔eng bridges)
  */
 export function buildTemplatePreviewGraph(input: {
   engines: PreviewEngineSeed[];
@@ -388,9 +352,6 @@ export function buildTemplatePreviewGraph(input: {
 
     for (const placed of placedDeps) {
       appendEngineNodes(nodes, edges, placed, input.selectedEngineKey, familyActiveKeys);
-      if (placed.seed.cascadedFromKey === family.root.key) {
-        appendResearchToExecutionBridge(edges, placed, placedExec);
-      }
     }
     appendEngineNodes(nodes, edges, placedExec, input.selectedEngineKey, familyActiveKeys);
 

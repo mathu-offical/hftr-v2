@@ -40,6 +40,22 @@ export const CANVAS_LAYOUT = {
   topLevelGutter: 120,
   /** Gap between research deps column and execution (hub sits in this band). */
   researchToExecGap: 280,
+  /**
+   * Compact Data Hub footprint used for gap placement (hubs are free library
+   * nodes, not full member cards).
+   */
+  dataHubWidth: 160,
+  dataHubHeight: 96,
+  /**
+   * Vertical fraction of execution chrome where the `data_in` utility handle sits
+   * (matches EngineGroupNode inbound bus stack start).
+   */
+  engineDataInHandleTopFrac: 0.18,
+  /**
+   * Horizontal bias in the research→exec gap: 0 = flush to research, 1 = flush
+   * to execution. Prefer the execution side so the hub→data_in edge is short.
+   */
+  dataHubGapBiasTowardExec: 0.72,
   originX: 40,
   originY: 40,
 } as const;
@@ -610,15 +626,17 @@ export function buildCanvasEngineFamilies(
 }
 
 /**
- * Place a Data Hub module between research right edge and execution left edge,
- * vertically centered on the execution envelope (D-159).
+ * Place a Data Hub in the research→exec corridor (D-159 / D-168).
+ * - X: biased toward the execution left edge (short motherboard edge to data_in)
+ * - Y: centered on the execution `data_in` handle (~18% from chrome top),
+ *   clamped into the family vertical corridor when research deps exist
  */
 export function placeDataHubOrigin(
   researchBounds: readonly LayoutRect[],
   executionBounds: LayoutRect,
   hubSize: { width: number; height: number } = {
-    width: CANVAS_LAYOUT.moduleWidth,
-    height: CANVAS_LAYOUT.moduleHeight,
+    width: CANVAS_LAYOUT.dataHubWidth,
+    height: CANVAS_LAYOUT.dataHubHeight,
   },
 ): { x: number; y: number } {
   const researchRight =
@@ -627,12 +645,34 @@ export function placeDataHubOrigin(
       : CANVAS_LAYOUT.originX;
   const gapLeft = researchRight + CANVAS_LAYOUT.topLevelGutter / 2;
   const gapRight = executionBounds.x - CANVAS_LAYOUT.topLevelGutter / 2;
-  const midX =
-    gapRight > gapLeft + hubSize.width
-      ? gapLeft + (gapRight - gapLeft - hubSize.width) / 2
-      : researchRight + CANVAS_LAYOUT.topLevelGutter;
-  const midY = executionBounds.y + Math.max(0, (executionBounds.height - hubSize.height) / 2);
-  return { x: midX, y: midY };
+  const gapWidth = gapRight - gapLeft;
+  const bias = CANVAS_LAYOUT.dataHubGapBiasTowardExec;
+
+  let x: number;
+  if (gapWidth > hubSize.width) {
+    x = gapLeft + (gapWidth - hubSize.width) * bias;
+  } else {
+    // Tight gap: park immediately left of execution with a small clearance.
+    x = Math.max(researchRight + 16, executionBounds.x - hubSize.width - 24);
+  }
+
+  const handleY =
+    executionBounds.y + executionBounds.height * CANVAS_LAYOUT.engineDataInHandleTopFrac;
+  let y = handleY - hubSize.height / 2;
+
+  if (researchBounds.length > 0) {
+    const familyTop = Math.min(executionBounds.y, ...researchBounds.map((r) => r.y));
+    const familyBottom = Math.max(
+      executionBounds.y + executionBounds.height,
+      ...researchBounds.map((r) => r.y + r.height),
+    );
+    const maxY = Math.max(familyTop, familyBottom - hubSize.height);
+    y = Math.min(Math.max(y, familyTop), maxY);
+  } else {
+    y = Math.max(executionBounds.y, y);
+  }
+
+  return { x, y };
 }
 
 /** Reflow every engine into vertical families (research left, hub gap, exec right). */

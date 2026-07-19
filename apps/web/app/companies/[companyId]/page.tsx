@@ -53,7 +53,7 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
     moduleRows = await scoping.listModules(db, userId, companyId);
     linkRows = await scoping.listLinks(db, userId, companyId);
     engineRows = await scoping.listEngineInstances(db, userId, companyId);
-    // D-091: heal missing engine↔engine data_out→data_in so chrome edges render.
+    // D-168: prune legacy default eng↔eng data_in mesh (hub→exec binds kept).
     try {
       await ensureAllInterEngineDataStreamLinks(db, companyId);
     } catch (err) {
@@ -104,6 +104,7 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
             <TopDrawer
               companyId={companyId}
               companyName={company.name}
+              companyMode={company.mode}
               philosophy={company.philosophyPrompt}
               philosophyProfile={company.philosophyProfile}
               seedCreditsCents={company.seedCreditsCents.toString()}
@@ -122,7 +123,7 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
           </div>
         </header>
 
-        <CompanyResearchShell companyId={companyId}>
+        <CompanyResearchShell companyId={companyId} companyMode={company.mode}>
           <div className="flex min-h-0 flex-1">
             <LeftPanel
               modules={moduleRows.map((m) => ({
@@ -213,6 +214,7 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
               </div>
               <BottomPanel
                 companyId={companyId}
+                companyMode={company.mode}
                 modules={moduleRows.map((m) => {
                   const config = (m.config ?? {}) as Record<string, unknown>;
                   const maxActive =
@@ -246,7 +248,7 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
               />
             </div>
 
-            <RightPanel companyId={companyId} />
+            <RightPanel companyId={companyId} companyMode={company.mode} />
           </div>
         </CompanyResearchShell>
       </div>

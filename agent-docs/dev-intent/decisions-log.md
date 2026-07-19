@@ -1635,13 +1635,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 
 - **D-159 (engine vertical families + Data Hub via ENGINE edges, 2026-07-19):** Canvas layout
   stacks execution families vertically: research deps left → Engine Data Hub in the gap →
-  execution right. Hub↔exec and research↔exec I/O use motherboard `engine_utility_links` only;
-  nest membership stays `parent_hub_library_id` (Library tree). Live canvas rejects
-  cross-engine and hub `module_links`. Create preview mirrors eng→eng + hub→exec bridges.
-  **Auto-layout:** `reflowCompanyFamilyLayout` runs on company create, engine insert, and
-  company page load (heal); hubs spawn via `placeDataHubOrigin` when research bounds exist.
-  Extends D-140 / D-091. Docs: engine-data-hub-design, canvas-layout-and-dedicated-math-design,
-  canvas-engine-group-design, ui-spec. **Status: implemented.**
+  execution right. Hub→exec I/O uses motherboard `engine_utility_links`; nest membership
+  stays `parent_hub_library_id` (Library tree). Live canvas rejects cross-engine and hub
+  `module_links`. **Auto-layout:** `reflowCompanyFamilyLayout` on create/insert/page load.
+  Default eng↔eng mesh **superseded by D-168**. Extends D-140 / D-091. **Status: implemented.**
 
 - **D-160 (Market posture Model edge activation + tracks/layers, 2026-07-19):** Flesh synthesis
   Model steps into **layers** (sources→adapters→pipeline→output) and **tracks**
@@ -1705,6 +1702,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   venue+mode), fund-transfer eyebrow (`Virtual fund transfers (paper)`), and broker buying
   power (`Paper broker buying power` when bound connection mode is paper). No modals.
   Docs: ui-spec §2. **Status: implemented.**
+
+- **D-168 (strategic Data Hub + no default eng↔eng mesh, 2026-07-19):** Data Hub placement
+  biases toward execution `data_in` (gap bias 0.72, Y aligned to ~18% chrome top). Engines
+  are **not** auto-connected to peer engines; default data path is hub→exec only. Page-load
+  heal **prunes** legacy `fromEngineId` `data_in` utility links. Operator may still draw
+  eng↔eng utility binds manually. Intra-engine member links and research→hub hydration via
+  `targetLibraryIds` unchanged. Extends D-159. Docs: engine-data-hub-design, canvas-layout.
+  **Status: implemented.**
 
 ## Open questions
 

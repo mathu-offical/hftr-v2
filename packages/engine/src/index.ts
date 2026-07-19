@@ -240,6 +240,7 @@ export {
   ensureEngineMotherboardUtilities,
   ensureInterEngineDataStreamLinks,
   ensureAllInterEngineDataStreamLinks,
+  pruneDefaultInterEngineDataStreamLinks,
   hydrateEngineMembersFromUtilities,
   listEngineUtilityLinks,
   createEngineUtilityLink,

@@ -42,7 +42,7 @@ describe('buildEngineSeedHierarchy', () => {
 });
 
 describe('buildTemplatePreviewGraph', () => {
-  it('places research left of execution and wires research→exec bridges', () => {
+  it('places research left of execution and wires only Data Hub → exec', () => {
     const engines = [
       {
         key: 'dep-regime',
@@ -89,15 +89,15 @@ describe('buildTemplatePreviewGraph', () => {
     );
     const hubBridges = edges.filter((edge) => String(edge.id).startsWith('bridge:hub:'));
     expect(templateLinks.length).toBeGreaterThan(0);
-    expect(researchBridges).toHaveLength(2);
-    expect(researchBridges.every((edge) => String(edge.source).startsWith('eng:dep-'))).toBe(true);
-    expect(researchBridges.every((edge) => String(edge.target).startsWith('eng:exec-day'))).toBe(
-      true,
-    );
+    expect(researchBridges).toHaveLength(0);
     expect(hubBridges).toHaveLength(1);
     expect(hubBridges[0]!.source).toBe('hub:exec-day');
     expect(hubBridges[0]!.target).toBe('eng:exec-day');
     expect(nodes.some((node) => node.id === 'hub:exec-day')).toBe(true);
+    const hubNode = nodes.find((node) => node.id === 'hub:exec-day')!;
+    // Hub biased toward execution (D-168 strategic placement).
+    expect(hubNode.position.x).toBeGreaterThan(regime.position.x);
+    expect(hubNode.position.x).toBeLessThan(exec.position.x);
     expect(edges.some((edge) => String(edge.id).startsWith('cascade:'))).toBe(false);
     expect(
       edges.every(
@@ -110,7 +110,7 @@ describe('buildTemplatePreviewGraph', () => {
     ).toBe(true);
   });
 
-  it('skips research bridges when a dependency template is missing but still hubs the exec', () => {
+  it('skips eng↔eng bridges when a dependency template is missing but still hubs the exec', () => {
     const { edges, nodes } = buildTemplatePreviewGraph({
       engines: [
         {

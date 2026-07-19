@@ -106,6 +106,7 @@ import {
   layoutEngineGroup,
   layoutEngineTemplateAtOrigin,
   placeEngineTimeHubPosition,
+  placeDataHubOrigin,
   placeNextEngineOrigin,
   rankEngineMembers,
   reflowEngineAtOrigin,
@@ -2281,10 +2282,30 @@ describe('canvas layout (D-033)', () => {
     const research = result.engines.find((e) => e.id === researchEng)!;
     const hubPos = result.modules.find((m) => m.id === hubMod)!.canvasPosition;
     expect(hubPos.x).toBeGreaterThanOrEqual(research.canvasBounds.x);
-    expect(hubPos.x + CANVAS_LAYOUT.moduleWidth).toBeLessThanOrEqual(
+    expect(hubPos.x + CANVAS_LAYOUT.dataHubWidth).toBeLessThanOrEqual(
       exec.canvasBounds.x + exec.canvasBounds.width,
     );
     expect(hubPos.x).toBeLessThan(exec.canvasBounds.x);
+    // Biased toward execution (past gap midpoint).
+    const researchRight = research.canvasBounds.x + research.canvasBounds.width;
+    const gapMid = researchRight + (exec.canvasBounds.x - researchRight) / 2;
+    expect(hubPos.x + CANVAS_LAYOUT.dataHubWidth / 2).toBeGreaterThan(gapMid);
+    // Vertically near data_in handle (~18% from exec top).
+    const handleY =
+      exec.canvasBounds.y +
+      exec.canvasBounds.height * CANVAS_LAYOUT.engineDataInHandleTopFrac;
+    expect(Math.abs(hubPos.y + CANVAS_LAYOUT.dataHubHeight / 2 - handleY)).toBeLessThan(40);
+  });
+
+  it('biases placeDataHubOrigin toward execution data_in (D-168)', () => {
+    const research = { x: 40, y: 40, width: 400, height: 300 };
+    const exec = { x: 720, y: 40, width: 600, height: 500 };
+    const origin = placeDataHubOrigin([research], exec);
+    const gapMid = research.x + research.width + (exec.x - (research.x + research.width)) / 2;
+    expect(origin.x + CANVAS_LAYOUT.dataHubWidth / 2).toBeGreaterThan(gapMid);
+    expect(origin.x + CANVAS_LAYOUT.dataHubWidth).toBeLessThanOrEqual(exec.x);
+    const handleY = exec.y + exec.height * CANVAS_LAYOUT.engineDataInHandleTopFrac;
+    expect(Math.abs(origin.y + CANVAS_LAYOUT.dataHubHeight / 2 - handleY)).toBeLessThan(8);
   });
 
   it('places the next execution engine origin below occupied envelopes (D-159)', () => {

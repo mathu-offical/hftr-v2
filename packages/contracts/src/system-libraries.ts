@@ -76,7 +76,19 @@ export const SYSTEM_DOC_SHAPE_SPECS: Record<SystemDocKind, DocumentShapeSpec> = 
   },
   daily_summary: {
     kind: 'daily_summary',
-    requiredSectionHeadings: ['Pre-open', 'Midday', 'Close', 'Post-analysis'],
+    /** D-183 ten-slot analyze cadence (ET wall + session). */
+    requiredSectionHeadings: [
+      'Overnight',
+      'Wake-up',
+      'Pre-market',
+      'Open bell',
+      'Mid-morning',
+      'Midday',
+      'Afternoon',
+      'Power hour',
+      'Market close',
+      'Evening',
+    ],
     requireWikilink: true,
     requiredTags: ['system_curated', 'daily_summaries'],
     kindTag: 'daily_summaries',

@@ -60,6 +60,7 @@ export const MarketAwarenessRecommendationRow = z.object({
   tier: z.enum(['suggested_search', 'suggested_verified', 'watching']),
   leadershipBand: QualitativeBand.optional(),
   newsLinkBand: QualitativeBand.optional(),
+  macroLinkBand: QualitativeBand.optional(),
   libraryLinkBand: QualitativeBand.optional(),
   trendLinkBand: QualitativeBand.optional(),
   note: z.string().max(300).optional(),

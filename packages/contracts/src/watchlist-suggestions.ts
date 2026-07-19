@@ -83,6 +83,8 @@ export const CompoundSymbolScore = z.object({
   corroborationDomains: z.number().int().nonnegative(),
   /** Strongest explicit news→symbol awareness link (D-175). */
   newsLinkBand: QualitativeBand,
+  /** Strongest macro→symbol awareness link (D-182). */
+  macroLinkBand: QualitativeBand,
   /** Strongest library_concept→symbol awareness link (D-175). */
   libraryLinkBand: QualitativeBand,
   /** Strongest trend→symbol awareness link (D-175). */

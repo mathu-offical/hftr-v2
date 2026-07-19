@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MarketHubAwarenessAnalysis } from './market-awareness-links';
+import { MarketHubAnalyzePhase } from './market-hub-analyze-phase';
 import { QualitativeBand } from './system-libraries';
 import { SystemNormalizedViewItem } from './verified-normalize';
 
@@ -764,6 +765,15 @@ export const MarketHubAnalyzeResponse = z.object({
   enqueued: z.boolean(),
   /** Durable synthesis run for live Model canvas (D-120). */
   runId: z.string().uuid(),
+  /**
+   * Current-moment analyze cadence slot (D-181) — resolved from injectable clock +
+   * XNYS session; drives daily seal subject key and narrative emphasis.
+   */
+  analyzePhase: MarketHubAnalyzePhase.optional(),
+  /** Human label for the resolved analyzePhase (UI chrome). */
+  analyzePhaseLabel: z.string().max(40).optional(),
+  /** Venue-local ISO orientation timestamp used for phase resolution. */
+  asOfIso: z.string().datetime().optional(),
   jobs: z
     .array(
       z.object({

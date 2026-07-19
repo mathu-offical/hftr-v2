@@ -1729,6 +1729,23 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Extends D-164 / D-151 / D-145. Docs: ui-spec §6, research-galaxy-topic-view-design.
   **Status: implemented.**
 
+- **D-171 (paper_sim funds_only live quote teacher, 2026-07-19):** Extend D-122 MarketModel +
+  D-137 credential discovery so **unbound `paper_sim` + `funds_only`** fills price from a
+  **read-only** Alpaca paper quote when company/module/owner paper creds exist — without
+  `submitOrder` and without forcing company broker bind. `resolveDispatchMarketQuote` fuses
+  bound-adapter quote → owner Alpaca teacher → synthetic fail-open. Wire into dispatch,
+  compile-select sizing, and position-exit marks; ValueRef provenance + `live_market_quote`
+  gap tags follow. Honesty tags also emit `no_queue_position` / `no_market_impact`.
+  Docs: internal-paper-trade-engine-design §5, broker-integration §7, experiment-log.
+  **Status: implemented.**
+
+- **D-172 (User settings existence + verify cache, 2026-07-19):** Settings modal caches
+  **existence** (LLM/research keyHint rows, Alpaca/Kalshi summaries) and **verify badges**
+  across open/close. Soft GET merges structures without wiping warm UI. Auto-probe only
+  unknown / failed / invalidated providers (verified + format-ok skip). Draft edit, save,
+  delete, and failed handshake invalidate that provider's verify. Never caches plaintext or
+  ciphertext. Extends D-027. Docs: ui-spec §1 shell. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

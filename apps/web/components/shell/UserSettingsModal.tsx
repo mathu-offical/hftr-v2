@@ -5,11 +5,26 @@ import type { BrokerConnectionSummary, LlmProvider, ResearchKeyProvider } from '
 import { api, RequestError } from '@/lib/client';
 import { notifyLlmCredentialsChanged } from '@/components/shell/LlmConnectionStatus';
 import { PanelTabs } from '@/components/panels/PanelTabs';
+import {
+  type KeyVerifyUiStatus,
+  type SettingsLlmKeyRow,
+  type SettingsResearchKeyRow,
+  type SettingsTab,
+  type SettingsVerifyKey,
+  invalidateKeyVerify,
+  mergeExistenceFromServer,
+  peekUserSettingsCache,
+  providersNeedingVerify,
+  removeLlmExistence,
+  removeResearchExistence,
+  setBrokerExistence,
+  setKeyVerifyStatus,
+  setSettingsTab,
+} from '@/lib/user-settings-cache';
 
 type RetentionAttested = 'none' | 'org_zdr';
-type SettingsTab = 'llm' | 'research' | 'brokers';
-/** Operator-visible verify outcome for a key row (text-first; color reinforces). */
-type KeyVerifyUiStatus = 'idle' | 'verified' | 'verified_deferred' | 'failed' | 'unknown';
+type KeyRow = SettingsLlmKeyRow;
+type ResearchKeyRow = SettingsResearchKeyRow;
 
 function formatSaveError(err: unknown): string {
   if (!(err instanceof RequestError)) return 'Save failed.';
@@ -126,19 +141,6 @@ const PROVIDERS: { id: LlmProvider; label: string; tier: string }[] = [
   { id: 'openrouter', label: 'OpenRouter', tier: 'tactical / execution (ZDR)' },
 ];
 
-interface KeyRow {
-  provider: LlmProvider;
-  keyHint: string;
-  retentionAttested: RetentionAttested;
-  updatedAt: string;
-}
-
-interface ResearchKeyRow {
-  provider: ResearchKeyProvider;
-  keyHint: string;
-  updatedAt: string;
-}
-
 /** Ribbon control that opens the user settings modal. */
 export function UserSettingsLauncher() {
   const [open, setOpen] = useState(false);
@@ -157,18 +159,23 @@ export function UserSettingsLauncher() {
 }
 
 /**
- * User settings modal (ui-ux.spec USER SETTINGS): per-user LLM API keys, research
- * gather keys, and broker credentials. Keys are stored encrypted server-side; the
- * client only ever sees a hint.
+ * User settings modal (ui-ux.spec USER SETTINGS / D-172): per-user LLM API keys,
+ * research gather keys, and broker credentials. Keys are stored encrypted
+ * server-side; the client only ever sees a hint.
+ *
+ * Existence (configured rows) and verify badges persist in a module cache across
+ * open/close. Re-open does not wipe structures or re-probe verified keys — only
+ * unknown / failed / invalidated providers are auto-probed.
  *
  * Layout: fixed dialog height (`h-[min(36rem,90vh)]`) with sticky header + tabs;
  * only the tab panel scrolls (`min-h-0 flex-1 overflow-y-auto`) so short tabs stay
  * the same chrome size and long lists do not grow the shell.
  */
 export function UserSettingsModal(props: { open: boolean; onClose: () => void }) {
-  const [tab, setTab] = useState<SettingsTab>('llm');
-  const [keys, setKeys] = useState<KeyRow[]>([]);
-  const [researchKeys, setResearchKeys] = useState<ResearchKeyRow[]>([]);
+  const cached = peekUserSettingsCache();
+  const [tab, setTab] = useState<SettingsTab>(cached.tab);
+  const [keys, setKeys] = useState<KeyRow[]>(cached.llmKeys);
+  const [researchKeys, setResearchKeys] = useState<ResearchKeyRow[]>(cached.researchKeys);
   const [drafts, setDrafts] = useState<Record<LlmProvider, string>>({
     anthropic: '',
     mistral: '',
@@ -177,7 +184,9 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
     fireworks: '',
     openrouter: '',
   });
-  const [anthropicZdr, setAnthropicZdr] = useState(false);
+  const [anthropicZdr, setAnthropicZdr] = useState(
+    cached.llmKeys.find((k) => k.provider === 'anthropic')?.retentionAttested === 'org_zdr',
+  );
   const [researchDrafts, setResearchDrafts] = useState<Record<ResearchKeyProvider, string>>({
     brave: '',
     market_news: '',
@@ -193,10 +202,18 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
   >({});
   const [verifyStatus, setVerifyStatus] = useState<
     Partial<Record<LlmProvider | ResearchKeyProvider, KeyVerifyUiStatus>>
-  >({});
+  >(cached.verify);
   const [busy, setBusy] = useState<LlmProvider | ResearchKeyProvider | 'brokers' | null>(null);
 
-  const load = useCallback(async (): Promise<{
+  const applyVerify = useCallback(
+    (provider: SettingsVerifyKey, status: KeyVerifyUiStatus) => {
+      setKeyVerifyStatus(provider, status);
+      setVerifyStatus((s) => ({ ...s, [provider]: status }));
+    },
+    [],
+  );
+
+  const loadExistence = useCallback(async (): Promise<{
     llm: KeyRow[];
     research: ResearchKeyRow[];
   }> => {
@@ -207,33 +224,22 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
           keys: [] as ResearchKeyRow[],
         })),
       ]);
-      setKeys(llm.keys);
-      setResearchKeys(research.keys);
-      const anthropic = llm.keys.find((k) => k.provider === 'anthropic');
-      setAnthropicZdr(anthropic?.retentionAttested === 'org_zdr');
       return { llm: llm.keys, research: research.keys };
     } catch {
-      setKeys([]);
-      setResearchKeys([]);
-      return { llm: [], research: [] };
+      // Keep cached existence on network failure — do not wipe structures.
+      const snap = peekUserSettingsCache();
+      return { llm: snap.llmKeys, research: snap.researchKeys };
     }
   }, []);
 
-  useEffect(() => {
-    if (!props.open) return;
-    let cancelled = false;
-
-    void (async () => {
-      const data = await load();
-      if (cancelled) return;
-
-      const seeded: Partial<Record<LlmProvider | ResearchKeyProvider, KeyVerifyUiStatus>> = {};
-      for (const row of data.llm) seeded[row.provider] = 'unknown';
-      for (const row of data.research) seeded[row.provider] = 'unknown';
-      setVerifyStatus(seeded);
-
-      const llmProviders = data.llm.map((r) => r.provider);
-      const researchProviders = data.research.map((r) => r.provider);
+  const probeProviders = useCallback(
+    async (providers: SettingsVerifyKey[], cancelled: () => boolean) => {
+      const llmProviders = providers.filter((p) =>
+        PROVIDERS.some((row) => row.id === p),
+      ) as LlmProvider[];
+      const researchProviders = providers.filter((p) =>
+        RESEARCH_KEY_PROVIDERS.some((row) => row.id === p),
+      ) as ResearchKeyProvider[];
 
       await mapPool(llmProviders, 3, async (provider) => {
         try {
@@ -241,21 +247,21 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
             `/api/settings/keys/${provider}/verify`,
             { method: 'POST' },
           );
-          if (cancelled) return;
+          if (cancelled()) return;
           if (res.ok && res.deferred) {
-            setVerifyStatus((s) => ({ ...s, [provider]: 'verified_deferred' }));
+            applyVerify(provider, 'verified_deferred');
           } else if (res.ok) {
-            setVerifyStatus((s) => ({ ...s, [provider]: 'verified' }));
+            applyVerify(provider, 'verified');
           } else {
-            setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+            applyVerify(provider, 'failed');
             setMessages((m) => ({
               ...m,
               [provider]: `Verify failed: ${formatVerifyFailure(res.failure)}`,
             }));
           }
         } catch (err) {
-          if (cancelled) return;
-          setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+          if (cancelled()) return;
+          applyVerify(provider, 'failed');
           setMessages((m) => ({
             ...m,
             [provider]: err instanceof RequestError ? formatSaveError(err) : 'Verify failed.',
@@ -269,31 +275,67 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
             `/api/settings/research-keys/${provider}/verify`,
             { method: 'POST' },
           );
-          if (cancelled) return;
+          if (cancelled()) return;
           if (res.ok) {
-            setVerifyStatus((s) => ({ ...s, [provider]: 'verified' }));
+            applyVerify(provider, 'verified');
           } else {
-            setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+            applyVerify(provider, 'failed');
             setMessages((m) => ({
               ...m,
               [provider]: `Verify failed: ${formatVerifyFailure(res.failure)}`,
             }));
           }
         } catch (err) {
-          if (cancelled) return;
-          setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+          if (cancelled()) return;
+          applyVerify(provider, 'failed');
           setMessages((m) => ({
             ...m,
             [provider]: err instanceof RequestError ? formatSaveError(err) : 'Verify failed.',
           }));
         }
       });
+    },
+    [applyVerify],
+  );
+
+  useEffect(() => {
+    if (!props.open) return;
+    let cancelled = false;
+
+    // Hydrate from cache immediately — structures + badges stay warm.
+    const warm = peekUserSettingsCache();
+    setTab(warm.tab);
+    setKeys(warm.llmKeys);
+    setResearchKeys(warm.researchKeys);
+    setVerifyStatus(warm.verify);
+    setAnthropicZdr(
+      warm.llmKeys.find((k) => k.provider === 'anthropic')?.retentionAttested === 'org_zdr',
+    );
+
+    void (async () => {
+      const data = await loadExistence();
+      if (cancelled) return;
+
+      const merged = mergeExistenceFromServer(data);
+      setKeys(merged.llm);
+      setResearchKeys(merged.research);
+      setVerifyStatus(peekUserSettingsCache().verify);
+      setAnthropicZdr(
+        merged.llm.find((k) => k.provider === 'anthropic')?.retentionAttested === 'org_zdr',
+      );
+
+      const toProbe =
+        merged.needsVerify.length > 0
+          ? merged.needsVerify
+          : providersNeedingVerify(merged.llm, merged.research);
+      if (toProbe.length === 0) return;
+      await probeProviders(toProbe, () => cancelled);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [props.open, load]);
+  }, [props.open, loadExistence, probeProviders]);
 
   useEffect(() => {
     if (!props.open) return;
@@ -306,6 +348,17 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
 
   if (!props.open) return null;
 
+  async function refreshExistenceOnly(): Promise<void> {
+    const data = await loadExistence();
+    const merged = mergeExistenceFromServer(data);
+    setKeys(merged.llm);
+    setResearchKeys(merged.research);
+    setVerifyStatus(peekUserSettingsCache().verify);
+    setAnthropicZdr(
+      merged.llm.find((k) => k.provider === 'anthropic')?.retentionAttested === 'org_zdr',
+    );
+  }
+
   async function save(provider: LlmProvider) {
     const apiKey = drafts[provider].trim();
     const hasKey = apiKey.length >= 8;
@@ -313,12 +366,12 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
 
     if (!hasKey && !saved) {
       setMessages((m) => ({ ...m, [provider]: 'Key must be at least 8 characters.' }));
-      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+      applyVerify(provider, 'failed');
       return;
     }
     if (hasKey && apiKey.length > 512) {
       setMessages((m) => ({ ...m, [provider]: 'Key must be at most 512 characters.' }));
-      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+      applyVerify(provider, 'failed');
       return;
     }
     if (hasKey && provider === 'anthropic' && !apiKey.startsWith('sk-ant-')) {
@@ -326,7 +379,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         ...m,
         [provider]: 'Anthropic keys must start with sk-ant-.',
       }));
-      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+      applyVerify(provider, 'failed');
       return;
     }
 
@@ -346,7 +399,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         { method: 'POST', body: { apiKey } },
       );
       if (!check.ok) {
-        setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+        applyVerify(provider, 'failed');
         setMessages((m) => ({
           ...m,
           [provider]: `Not saved — verify failed: ${formatVerifyFailure(check.failure)}`,
@@ -364,10 +417,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
       }
       await api('/api/settings/keys', { method: 'PUT', body });
       setDrafts((d) => ({ ...d, [provider]: '' }));
-      setVerifyStatus((s) => ({
-        ...s,
-        [provider]: check.deferred ? 'verified_deferred' : 'verified',
-      }));
+      applyVerify(provider, check.deferred ? 'verified_deferred' : 'verified');
       setMessages((m) => ({
         ...m,
         [provider]: check.deferred
@@ -375,9 +425,9 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
           : 'Saved and verified with provider.',
       }));
       notifyLlmCredentialsChanged();
-      await load();
+      await refreshExistenceOnly();
     } catch (err) {
-      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+      applyVerify(provider, 'failed');
       setMessages((m) => ({ ...m, [provider]: formatSaveError(err) }));
     } finally {
       setBusy(null);
@@ -399,7 +449,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         },
       });
       setMessages((m) => ({ ...m, anthropic: 'Attestation saved.' }));
-      await load();
+      await refreshExistenceOnly();
     } catch {
       setMessages((m) => ({ ...m, anthropic: 'Attestation save failed.' }));
       setAnthropicZdr(!checked);
@@ -414,13 +464,14 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
       await api(`/api/settings/keys/${provider}`, { method: 'DELETE' });
       if (provider === 'anthropic') setAnthropicZdr(false);
       setMessages((m) => ({ ...m, [provider]: 'Removed.' }));
+      removeLlmExistence(provider);
+      setKeys((rows) => rows.filter((k) => k.provider !== provider));
       setVerifyStatus((s) => {
         const next = { ...s };
         delete next[provider];
         return next;
       });
       notifyLlmCredentialsChanged();
-      await load();
     } catch {
       setMessages((m) => ({ ...m, [provider]: 'Delete failed.' }));
     } finally {
@@ -436,7 +487,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         ...m,
         [provider]: 'Enter a key (8+ chars) or save one before verify.',
       }));
-      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+      applyVerify(provider, 'failed');
       return;
     }
 
@@ -450,20 +501,20 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         },
       );
       if (res.ok && res.deferred) {
-        setVerifyStatus((s) => ({ ...s, [provider]: 'verified_deferred' }));
+        applyVerify(provider, 'verified_deferred');
         setMessages((m) => ({ ...m, [provider]: 'Format ok — live ping deferred.' }));
       } else if (res.ok) {
-        setVerifyStatus((s) => ({ ...s, [provider]: 'verified' }));
+        applyVerify(provider, 'verified');
         setMessages((m) => ({ ...m, [provider]: 'Verified with provider.' }));
       } else {
-        setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+        applyVerify(provider, 'failed');
         setMessages((m) => ({
           ...m,
           [provider]: `Verify failed: ${formatVerifyFailure(res.failure)}`,
         }));
       }
     } catch (err) {
-      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+      applyVerify(provider, 'failed');
       setMessages((m) => ({
         ...m,
         [provider]: err instanceof RequestError ? formatSaveError(err) : 'Verify failed.',
@@ -481,7 +532,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         ...m,
         [provider]: 'Enter a key (8+ chars) or save one before verify.',
       }));
-      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+      applyVerify(provider, 'failed');
       return;
     }
 
@@ -495,17 +546,17 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         },
       );
       if (res.ok) {
-        setVerifyStatus((s) => ({ ...s, [provider]: 'verified' }));
+        applyVerify(provider, 'verified');
         setMessages((m) => ({ ...m, [provider]: 'Verified with provider.' }));
       } else {
-        setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+        applyVerify(provider, 'failed');
         setMessages((m) => ({
           ...m,
           [provider]: `Verify failed: ${formatVerifyFailure(res.failure)}`,
         }));
       }
     } catch (err) {
-      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+      applyVerify(provider, 'failed');
       setMessages((m) => ({
         ...m,
         [provider]: err instanceof RequestError ? formatSaveError(err) : 'Verify failed.',
@@ -522,7 +573,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         ...m,
         [provider]: 'Paste a key (8+ chars) to Save & verify.',
       }));
-      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+      applyVerify(provider, 'failed');
       return;
     }
     setBusy(provider);
@@ -532,7 +583,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         { method: 'POST', body: { apiKey } },
       );
       if (!check.ok) {
-        setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+        applyVerify(provider, 'failed');
         setMessages((m) => ({
           ...m,
           [provider]: `Not saved — verify failed: ${formatVerifyFailure(check.failure)}`,
@@ -544,11 +595,11 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
         body: { provider, apiKey },
       });
       setResearchDrafts((d) => ({ ...d, [provider]: '' }));
-      setVerifyStatus((s) => ({ ...s, [provider]: 'verified' }));
+      applyVerify(provider, 'verified');
       setMessages((m) => ({ ...m, [provider]: 'Saved and verified with provider.' }));
-      await load();
+      await refreshExistenceOnly();
     } catch (err) {
-      setVerifyStatus((s) => ({ ...s, [provider]: 'failed' }));
+      applyVerify(provider, 'failed');
       setMessages((m) => ({ ...m, [provider]: formatSaveError(err) }));
     } finally {
       setBusy(null);
@@ -560,12 +611,13 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
     try {
       await api(`/api/settings/research-keys/${provider}`, { method: 'DELETE' });
       setMessages((m) => ({ ...m, [provider]: 'Removed.' }));
+      removeResearchExistence(provider);
+      setResearchKeys((rows) => rows.filter((k) => k.provider !== provider));
       setVerifyStatus((s) => {
         const next = { ...s };
         delete next[provider];
         return next;
       });
-      await load();
     } catch {
       setMessages((m) => ({ ...m, [provider]: 'Delete failed.' }));
     } finally {
@@ -609,7 +661,10 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
           aria-label="Settings sections"
           className="shrink-0 px-2"
           value={tab}
-          onChange={setTab}
+          onChange={(id) => {
+            setTab(id);
+            setSettingsTab(id);
+          }}
           tabs={[
             { id: 'llm', label: 'LLM providers' },
             { id: 'research', label: 'Research' },
@@ -685,7 +740,8 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                         value={drafts[p.id]}
                         onChange={(e) => {
                           setDrafts((d) => ({ ...d, [p.id]: e.target.value }));
-                          setVerifyStatus((s) => ({ ...s, [p.id]: 'idle' }));
+                          invalidateKeyVerify(p.id);
+                          applyVerify(p.id, 'idle');
                         }}
                         placeholder={saved ? 'Replace key…' : 'Paste API key'}
                         aria-label={`${p.label} API key`}
@@ -792,7 +848,8 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                           value={researchDrafts[p.id]}
                           onChange={(e) => {
                             setResearchDrafts((d) => ({ ...d, [p.id]: e.target.value }));
-                            setVerifyStatus((s) => ({ ...s, [p.id]: 'idle' }));
+                            invalidateKeyVerify(p.id);
+                            applyVerify(p.id, 'idle');
                           }}
                           placeholder={saved ? 'Replace key…' : 'Paste API key'}
                           aria-label={`${p.label} API key`}
@@ -871,7 +928,9 @@ function AlpacaBrokerSection(props: {
   onBusy: (v: LlmProvider | 'brokers' | null) => void;
   onMessage: (msg: string) => void;
 }) {
-  const [connection, setConnection] = useState<BrokerConnectionSummary | null>(null);
+  const [connection, setConnection] = useState<BrokerConnectionSummary | null>(
+    () => peekUserSettingsCache().alpaca,
+  );
   const [keyId, setKeyId] = useState('');
   const [secret, setSecret] = useState('');
 
@@ -881,12 +940,17 @@ function AlpacaBrokerSection(props: {
         '/api/settings/brokers/alpaca',
       );
       setConnection(r.connection);
+      setBrokerExistence('alpaca', r.connection);
     } catch {
-      setConnection(null);
+      // Keep cached existence on failure.
+      const cached = peekUserSettingsCache().alpaca;
+      setConnection(cached);
     }
   }, []);
 
   useEffect(() => {
+    const cached = peekUserSettingsCache().alpaca;
+    if (cached) setConnection(cached);
     void load();
   }, [load]);
 
@@ -943,6 +1007,7 @@ function AlpacaBrokerSection(props: {
     try {
       await api(`/api/settings/brokers/${connection.id}`, { method: 'DELETE' });
       setConnection(null);
+      setBrokerExistence('alpaca', null);
       props.onMessage('Connection revoked.');
     } catch {
       props.onMessage('Revoke failed.');
@@ -1059,7 +1124,9 @@ function KalshiBrokerSection(props: {
   onBusy: (v: LlmProvider | 'brokers' | null) => void;
   onMessage: (msg: string) => void;
 }) {
-  const [connection, setConnection] = useState<BrokerConnectionSummary | null>(null);
+  const [connection, setConnection] = useState<BrokerConnectionSummary | null>(
+    () => peekUserSettingsCache().kalshi,
+  );
   const [apiKeyId, setApiKeyId] = useState('');
   const [privateKeyPem, setPrivateKeyPem] = useState('');
   const [localMessage, setLocalMessage] = useState<string | null>(null);
@@ -1070,12 +1137,16 @@ function KalshiBrokerSection(props: {
         '/api/settings/brokers/kalshi',
       );
       setConnection(r.connection);
+      setBrokerExistence('kalshi', r.connection);
     } catch {
-      setConnection(null);
+      const cached = peekUserSettingsCache().kalshi;
+      setConnection(cached);
     }
   }, []);
 
   useEffect(() => {
+    const cached = peekUserSettingsCache().kalshi;
+    if (cached) setConnection(cached);
     void load();
   }, [load]);
 
@@ -1157,6 +1228,7 @@ function KalshiBrokerSection(props: {
     try {
       await api(`/api/settings/brokers/${connection.id}`, { method: 'DELETE' });
       setConnection(null);
+      setBrokerExistence('kalshi', null);
       setLocalMessage('Kalshi connection revoked.');
       props.onMessage('Kalshi connection revoked.');
     } catch {

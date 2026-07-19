@@ -244,22 +244,31 @@ export const MarketHubSources = z.object({
 export type MarketHubSources = z.infer<typeof MarketHubSources>;
 
 /**
- * Company capital inventory for Posture left rail (D-131 / D-138).
+ * Company capital inventory for Posture left rail (D-131 / D-138 / D-139).
+ * Root funds + execution splits only — not fund_route hop inventory.
  * Amounts are ValueRef-resolved or ledger-derived — never LLM-emitted.
  */
 export const MarketHubCapitalSource = z.object({
   id: z.string().uuid(),
   name: z.string().max(120),
-  /** Module row vs engine envelope row. */
-  entityType: z.enum(['module', 'engine']),
+  /** Module row, engine envelope, or synthetic company pool row. */
+  entityType: z.enum(['module', 'engine', 'company']),
   moduleType: z.string().max(40).nullable(),
+  /**
+   * company_pool / holding_fund = company root funds.
+   * trading_desk / engine_envelope = execution module splits.
+   * fund_router / other kept for parse compat — projector omits routers (D-139).
+   */
   kind: z.enum([
+    'company_pool',
     'holding_fund',
     'trading_desk',
     'fund_router',
     'engine_envelope',
     'other',
   ]),
+  /** company_root = pool + holding funds; execution_split = trading/engine spend. */
+  tier: z.enum(['company_root', 'execution_split']),
   /** Orientation label (fund source enum or setup state). */
   sourceLabel: z.string().max(80),
   status: z.enum(['configured', 'draft', 'unavailable']),

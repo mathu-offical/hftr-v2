@@ -471,8 +471,9 @@ export function MarketPostureOverlay() {
                 Synthesis model · hydration
               </h3>
               <p className="text-[10px] text-[var(--color-ink-dim)]">
-                All live hydrators and library shelves feed gather; each node shows an
-                operation and amount. Analyze animates pipeline stages (stock + news seals).
+                Per-service adapters feed analysis tracks; hub_ready hydrates left-rail and
+                day-overlay panel boards. Live marks patch panel surfaces without a full Sync
+                pulse. Analyze animates pipeline stages (stock + news seals).
               </p>
               <MarketPostureModelCanvas
                 run={synthesis.run}

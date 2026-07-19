@@ -337,6 +337,7 @@ export async function projectMarketHubModelHydration(opts: {
       syntheticMarks,
     },
     asOfIso: opts.asOfIso,
+    livePatchedAt: null,
     sealStamps: opts.sealStamps ?? {
       moversVerifiedAt: null,
       moversExpiresAt: null,
@@ -344,5 +345,6 @@ export async function projectMarketHubModelHydration(opts: {
       newsExpiresAt: null,
       dailyExpiresAt: null,
     },
+    panelSurfaces: [],
   };
 }

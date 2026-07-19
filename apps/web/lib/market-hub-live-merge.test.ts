@@ -151,4 +151,102 @@ describe('mergeMarketHubLive', () => {
     expect(next.freshness.fetchedAt).toBe('2026-07-18T12:01:00.000Z');
     expect(next.freshness.moversExpiresAt).toBe('2026-07-19T12:00:00.000Z');
   });
+
+  it('patches modelHydration panel surfaces without bumping asOfIso (D-161)', () => {
+    const hub = baseHub();
+    hub.modelHydration = {
+      liveSources: [],
+      librarySources: [],
+      processingFlows: [],
+      stageOps: [
+        { stageId: 'narrative', operation: 'book↔tape', amount: '1 held' },
+        { stageId: 'hub_ready', operation: 'project hub', amount: 'src' },
+      ],
+      totals: {
+        liveReady: 0,
+        liveTotal: 0,
+        libraryCount: 0,
+        admittedConcepts: 0,
+        contributedKinds: 0,
+        usedLiveMarks: 0,
+        syntheticMarks: 0,
+      },
+      asOfIso: '2026-07-18T12:00:00.000Z',
+      livePatchedAt: null,
+      sealStamps: {
+        moversVerifiedAt: null,
+        moversExpiresAt: null,
+        newsVerifiedAt: null,
+        newsExpiresAt: null,
+        dailyExpiresAt: null,
+      },
+      panelSurfaces: [
+        {
+          id: 'equity',
+          label: 'Day equity',
+          panel: 'overlay',
+          status: 'stale',
+          operation: 'live book',
+          amount: 'stale · book',
+          sourceStageId: 'hub_ready',
+          updatedAt: '2026-07-18T12:00:00.000Z',
+        },
+        {
+          id: 'positions',
+          label: 'Open positions',
+          panel: 'rail',
+          status: 'ready',
+          operation: 'rail inventory',
+          amount: '1 open',
+          sourceStageId: 'narrative',
+          updatedAt: '2026-07-18T12:00:00.000Z',
+        },
+      ],
+    };
+    const live: MarketHubLiveResponse = {
+      fetchedAt: '2026-07-18T12:01:00.000Z',
+      equity: {
+        status: 'fresh',
+        equityCents: '200',
+        asOfIso: '2026-07-18T12:01:00.000Z',
+        version: 2,
+        series: [],
+        sourceChips: [],
+      },
+      positions: [
+        {
+          id: '11111111-1111-4111-8111-111111111111',
+          symbol: 'AAPL',
+          qty: '2',
+          avgCostCents: 10000,
+          markCents: 11000,
+          unrealizedPnlCents: '2000',
+          viz: {
+            symbol: 'AAPL',
+            spark: {
+              points: [{ t: '2026-07-18T12:01:00.000Z', valueCents: '11000' }],
+              feedClass: 'synthetic_sim',
+            },
+            direction: 'up',
+            strengthBand: 'medium',
+            strengthTicks: 2,
+            relevanceBand: 'medium',
+            heldVsCost: 'up',
+            markCents: 11000,
+            avgCostCents: 10000,
+            unrealizedPnlCents: '2000',
+          },
+        },
+      ],
+    };
+    const next = mergeMarketHubLive(hub, live);
+    expect(next.modelHydration?.asOfIso).toBe('2026-07-18T12:00:00.000Z');
+    expect(next.modelHydration?.livePatchedAt).toBe('2026-07-18T12:01:00.000Z');
+    expect(next.modelHydration?.panelSurfaces.find((s) => s.id === 'equity')?.status).toBe(
+      'fresh',
+    );
+    expect(next.modelHydration?.panelSurfaces.find((s) => s.id === 'equity')?.amount).toBe(
+      'fresh · book',
+    );
+  });
 });

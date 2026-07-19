@@ -14,7 +14,8 @@ Operator **Analyze** creates a durable synthesis **run** with ordered **stages**
 - **Live sources** → **per-kind adapters** → distinctive analysis stages (not a single dump into `providers`)
 - Examples: GDELT/news → headline gather → `gather` / `universe` / `sector`|`seal_movers`; Alpaca bars → entitlement → `providers`/`gather` **and** OHLC fetch → `rs`/`rank`; libraries → Corpus Jaccard → `thresholds`/`rank`/`seal_movers`
 - Hub projects `modelHydration.processingFlows[]` plus `asOfIso` + `sealStamps` for refresh/stale detection
-- **Edges** carry `edgeType` (`hydrate`|`adapt`|`pipeline`|`entitle`|`corpus`|`parallel`), `activation` (`idle`|`armed`|`active`|`pulsing`|`blocked`|`stale`), `status`, and `track` — canvas styles stroke/dash/animation from these; Sync/Analyze pulse hydrate + pipeline edges when `asOfIso` or stage signature changes
+- **Edges** carry `edgeType` (`hydrate`|`adapt`|`pipeline`|`entitle`|`corpus`|`parallel`|`panel`), `activation` (`idle`|`armed`|`active`|`pulsing`|`blocked`|`stale`), `status`, and `track` — canvas styles stroke/dash/animation from these; Sync/Analyze pulse hydrate + pipeline edges when `asOfIso` or stage signature changes; **live poll** patches `panelSurfaces` + `livePatchedAt` without bumping `asOfIso` (panel-only pulse)
+- **Panel surfaces (D-161):** `hub_ready` / seal stages hydrate into operator boards (`positions`, `capital`, `equity`, `movers`, `news`, `watchlists`, `reports`, `charts`) with rail/overlay binding
 - Pipeline stages still carry baseline ops from `stageOps`; run summary counts override stage amount labels when present
 - `providers` → `gather` remains the entitlement rollup lane after adapters report ready
 

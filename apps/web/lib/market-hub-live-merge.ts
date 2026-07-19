@@ -1,9 +1,11 @@
 import type { MarketHubLiveResponse, MarketHubResponse } from '@hftr/contracts';
+import { patchModelHydrationFromLive } from './market-hub-panel-surfaces';
 
 /**
  * Merge live equity/marks into a full hub snapshot without replacing static
  * seals, reports, charts, sources, Model inputs (D-112).
  * Preserves D-155 sourceChips on equity / positions / watchlists across deltas.
+ * Patches modelHydration panel surfaces silently (D-161) — no asOfIso bump.
  */
 export function mergeMarketHubLive(
   hub: MarketHubResponse,
@@ -58,12 +60,27 @@ export function mergeMarketHubLive(
     };
   });
 
+  const equity = {
+    ...live.equity,
+    sourceChips: hub.equity.sourceChips ?? live.equity.sourceChips ?? [],
+  };
+
+  const modelHydration = hub.modelHydration
+    ? patchModelHydrationFromLive({
+        hydration: hub.modelHydration,
+        equity: {
+          status: equity.status,
+          asOfIso: equity.asOfIso,
+          equityCents: equity.equityCents,
+        },
+        positionCount: positions.length,
+        fetchedAt: live.fetchedAt,
+      })
+    : hub.modelHydration;
+
   return {
     ...hub,
-    equity: {
-      ...live.equity,
-      sourceChips: hub.equity.sourceChips ?? live.equity.sourceChips ?? [],
-    },
+    equity,
     positions,
     watchlists,
     trendCandidates,
@@ -71,5 +88,6 @@ export function mergeMarketHubLive(
       ...hub.freshness,
       fetchedAt: live.fetchedAt,
     },
+    modelHydration,
   };
 }

@@ -89,6 +89,7 @@ const hydration: MarketHubModelHydration = {
     syntheticMarks: 1,
   },
   asOfIso: '2026-07-19T05:00:00.000Z',
+  livePatchedAt: null,
   sealStamps: {
     moversVerifiedAt: '2026-07-19T04:59:00.000Z',
     moversExpiresAt: '2026-07-19T06:00:00.000Z',
@@ -96,6 +97,28 @@ const hydration: MarketHubModelHydration = {
     newsExpiresAt: null,
     dailyExpiresAt: null,
   },
+  panelSurfaces: [
+    {
+      id: 'positions',
+      label: 'Open positions',
+      panel: 'rail',
+      status: 'ready',
+      operation: 'rail inventory',
+      amount: '1 open',
+      sourceStageId: 'narrative',
+      updatedAt: '2026-07-19T05:00:00.000Z',
+    },
+    {
+      id: 'movers',
+      label: 'Stock movers',
+      panel: 'overlay',
+      status: 'ready',
+      operation: 'seal board',
+      amount: '5 items',
+      sourceStageId: 'seal_movers',
+      updatedAt: '2026-07-19T04:59:00.000Z',
+    },
+  ],
 };
 
 describe('resolveModelEdgeState (D-160)', () => {
@@ -169,6 +192,10 @@ describe('buildMarketPostureAlgorithmGraph (D-147 / D-156 / D-160)', () => {
 
     const pipe = graph.edges.find((e) => e.id === 'e-rs-rank');
     expect(pipe?.data.edgeType).toBe('pipeline');
+
+    const panels = graph.nodes.filter((n) => n.data.nodeRole === 'panel_surface');
+    expect(panels.length).toBe(2);
+    expect(graph.edges.some((e) => e.data.edgeType === 'panel')).toBe(true);
   });
 
   it('activates pipeline edges from running stages', () => {
@@ -249,5 +276,22 @@ describe('collectModelPulseIds (D-160)', () => {
     });
     expect(ids.has('rs')).toBe(true);
     expect(ids.has('e-rs-rank')).toBe(true);
+  });
+
+  it('pulses panel edges when livePatchedAt changes', () => {
+    const ids = collectModelPulseIds({
+      prevAsOf: 'a',
+      nextAsOf: 'a',
+      prevStageSig: '',
+      nextStageSig: '',
+      prevLivePatchedAt: null,
+      nextLivePatchedAt: '2026-07-19T05:02:00.000Z',
+      edgeIds: ['e-hub_ready-panel:equity', 'e-rs-rank'],
+      stageIds: [],
+      panelNodeIds: ['panel:equity'],
+    });
+    expect(ids.has('panel:equity')).toBe(true);
+    expect(ids.has('e-hub_ready-panel:equity')).toBe(true);
+    expect(ids.has('e-rs-rank')).toBe(false);
   });
 });

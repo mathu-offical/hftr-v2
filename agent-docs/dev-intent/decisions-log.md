@@ -1649,6 +1649,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Hub projects seal freshness stamps for stale/armed styling. Extends D-156. Docs: ui-spec §4,
   data-model, synthesis hub design. **Status: implemented.**
 
+- **D-161 (Market posture Model panel surface hydration, 2026-07-19):** Model `hub_ready` /
+  seal stages hydrate into operator **panel surfaces** (rail positions/funds; overlay equity,
+  movers, news, watchlists, reports, charts). Hub projects `panelSurfaces[]`; live poll patches
+  equity/positions surfaces via `livePatchedAt` without bumping `asOfIso` (panel-only pulse).
+  Extends D-160. Docs: ui-spec §4, data-model, synthesis hub design. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

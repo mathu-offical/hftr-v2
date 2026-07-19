@@ -329,16 +329,14 @@ are ignored. Shortcuts are suppressed in editable fields.
   synthesis run, force-reseals `library.system_movers` (tactical LLM thresholds),
   `library.system_sector_news`, calendar-phase `library.system_daily_summaries` in parallel,
   then `library.posture_narrative` (waits for seal stages; book↔tape deterministic rollup).
-  Overlay **Model** section is the **live synthesis hydration hub** (D-147 / D-156 / D-160) —
+  Overlay **Model** section is the **live synthesis hydration hub** (D-147 / D-156 / D-160 / D-161) —
   React Flow with live sources → **per-service adapters** → distinctive stages across
-  **layers** (sources/adapters/pipeline/output) and **tracks** (entitle/compound/sector/daily/compose).
-  Connections carry **type / activation / status** styling (hydrate dashed, adapt solid, corpus
-  dash, parallel dotted); edges **pulse** on Sync/Analyze when hydration `asOfIso` or stage
-  signatures change; stale seals dim. Operation + amount on every node; track legend + inspector;
-  plus an **awareness dock** (movers status, multi-seal freshness, report / narrative open).
-  Overlay shows a mini run strip + Open Model while a run is active.
-  Hub GET projects `synthesis` + `posture_narrative` report link + `capitalSources` +
-  `modelHydration` (includes `processingFlows`, `asOfIso`, `sealStamps`).
+  **layers** (sources/adapters/pipeline/output) and **tracks** (entitle/compound/sector/daily/compose),
+  then **panel surfaces** (rail positions/funds + overlay equity/movers/news/charts).
+  Connections carry **type / activation / status** styling; Sync/Analyze pulse hydrate + pipeline
+  edges; live equity/marks poll patches `panelSurfaces` via `livePatchedAt` without a full Sync
+  pulse. Operation + amount on every node; track legend + inspector; plus an **awareness dock**.
+  Hub GET projects `modelHydration` (`processingFlows`, `asOfIso`, `sealStamps`, `panelSurfaces`).
   **Watchlist tiers (D-092):** `suggested_search` → `suggested_verified` → `watching`
   (+ `triggered` / `archived`). Overlay recommendation watch grid + bottom Watch lists
   filter chips (default: watching + suggested_verified). **Confirm** PATCHes to `watching`

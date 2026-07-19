@@ -46,6 +46,7 @@ import type { MarketHubSymbolViz, QualitativeBand } from '@hftr/contracts';
 import { withAuth } from '@/lib/api';
 import { projectMarketHubCapitalSources } from '@/lib/market-hub-capital';
 import { projectMarketHubModelHydration } from '@/lib/market-hub-model-hydration';
+import { buildMarketHubModelPanelSurfaces } from '@/lib/market-hub-panel-surfaces';
 import { buildMarketHubSourceChips } from '@/lib/market-hub-source-chips';
 
 export const dynamic = 'force-dynamic';
@@ -909,7 +910,7 @@ export async function GET(_req: Request, ctx: Ctx) {
       if (marketModelAwareness.usedLiveCount > 0) markFeedClass = 'broker_paper';
     }
 
-    const modelHydration = await projectMarketHubModelHydration({
+    const modelHydrationBase = await projectMarketHubModelHydration({
       db,
       companyId,
       availability,
@@ -929,6 +930,23 @@ export async function GET(_req: Request, ctx: Ctx) {
         dailyExpiresAt: dailyExpiresAt ?? null,
       },
     });
+    const modelHydration = {
+      ...modelHydrationBase,
+      panelSurfaces: buildMarketHubModelPanelSurfaces({
+        equity: {
+          status: equityStatus,
+          asOfIso: equityRow?.equityAsOf?.toISOString() ?? null,
+          equityCents,
+        },
+        movers,
+        news,
+        positions: positionProjection,
+        watchlists: watchlistsWithViz,
+        capitalSources,
+        reports,
+        charts,
+      }),
+    };
 
     const markChipKinds =
       markFeedClass === 'broker_paper' ? ['broker_paper'] : ['synthetic_sim'];

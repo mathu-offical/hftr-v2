@@ -159,7 +159,9 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   (D-147): full live-source registry + library shelves with per-node operation/amount for the
   synthesis Model graph, plus `processingFlows` (D-156) — per-API adapter labels, analysis roles,
   target stages, and movers/sector pipelines — and `asOfIso` + `sealStamps` (D-160) for edge
-  activation/stale/pulse. Hub metric boards/rows project `sourceChips` (D-155): `{ id, label,
+  activation/stale/pulse, plus `panelSurfaces` + `livePatchedAt` (D-161) so Model hub_ready
+  hydrates into left-rail and overlay boards with silent live mark patches.
+  Hub metric boards/rows project `sourceChips` (D-155): `{ id, label,
   class: api|library|system|setting }` from seal contributing kinds, mark feed, ledger, and
   watch sourceClass — live merge preserves chips across equity/mark deltas.
 - **market_hub_synthesis_runs / market_hub_synthesis_stages** — **D-120** (migration `0042`):

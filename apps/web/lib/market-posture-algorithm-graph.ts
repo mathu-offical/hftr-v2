@@ -26,7 +26,8 @@ export type PostureAlgoNodeRole =
   | 'live_source'
   | 'adapter'
   | 'library_source'
-  | 'stage';
+  | 'stage'
+  | 'panel_surface';
 
 export type PostureAlgoNodeData = {
   label: string;
@@ -38,6 +39,9 @@ export type PostureAlgoNodeData = {
   amount: string;
   analysisRoles?: string[];
   pipelines?: Array<'movers' | 'sector'>;
+  /** Panel surface id when nodeRole is panel_surface (D-161). */
+  panelSurfaceId?: string;
+  panelKind?: 'rail' | 'overlay' | 'both';
   layer: MarketHubModelLayer;
   track: MarketHubModelTrack;
   activation: MarketHubModelEdgeActivation;
@@ -748,6 +752,59 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
     });
   }
 
+  // Panel surfaces — hub_ready hydrates into operator rail/overlay boards (D-161).
+  const panelSurfaces = hydration?.panelSurfaces ?? [];
+  const panelX = 2520;
+  const panelGap = 56;
+  const panelStartY = 40;
+  panelSurfaces.forEach((surf, i) => {
+    const nodeId = `panel:${surf.id}`;
+    const ready = surf.status !== 'empty' && surf.status !== 'missing' && surf.status !== 'unavailable';
+    const activation: MarketHubModelEdgeActivation = pulsed?.has(nodeId)
+      ? 'pulsing'
+      : ready
+        ? 'armed'
+        : 'idle';
+    nodes.push({
+      id: nodeId,
+      type: 'postureAlgo',
+      position: { x: panelX, y: panelStartY + i * panelGap },
+      data: {
+        label: surf.label,
+        detail: `${surf.panel} · ${surf.status}`,
+        kind: 'output',
+        nodeRole: 'panel_surface',
+        operation: surf.operation,
+        amount: surf.amount,
+        panelSurfaceId: surf.id,
+        panelKind: surf.panel,
+        layer: 'output',
+        track: 'compose',
+        activation,
+        status: ready ? 'ready' : 'idle',
+        updatedAt: surf.updatedAt ?? hydration?.livePatchedAt ?? asOfIso,
+      },
+    });
+    const edgeId = `e-hub_ready-${nodeId}`;
+    const fromStage = surf.sourceStageId ?? 'hub_ready';
+    edges.push({
+      id: edgeId,
+      source: fromStage === 'hub_ready' ? 'hub_ready' : fromStage,
+      target: nodeId,
+      label: surf.panel,
+      data: {
+        edgeType: 'panel',
+        track: 'compose',
+        ...resolveModelEdgeState({
+          edgeType: 'panel',
+          sourceStageStatus: byStage.get(fromStage)?.status,
+          sourceReady: ready,
+          pulsed: pulsed?.has(edgeId) ?? false,
+        }),
+      },
+    });
+  });
+
   const tracks = (Object.keys(MARKET_HUB_MODEL_TRACK_META) as MarketHubModelTrack[]).map(
     (id) => ({
       id,
@@ -760,15 +817,19 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
 }
 
 /**
- * Collect edge/node ids that changed since the previous snapshot (D-160 pulse).
+ * Collect edge/node ids that changed since the previous snapshot (D-160 / D-161).
+ * livePatchedAt pulses panel surfaces only — not full Sync hydrate storm.
  */
 export function collectModelPulseIds(opts: {
   prevAsOf: string | null;
   nextAsOf: string | null;
   prevStageSig: string;
   nextStageSig: string;
+  prevLivePatchedAt?: string | null;
+  nextLivePatchedAt?: string | null;
   edgeIds: string[];
   stageIds: string[];
+  panelNodeIds?: string[];
 }): Set<string> {
   const out = new Set<string>();
   if (opts.nextAsOf && opts.nextAsOf !== opts.prevAsOf) {
@@ -784,6 +845,15 @@ export function collectModelPulseIds(opts: {
       if (id.startsWith('e-') && !id.includes('adapter:') && !id.includes('live:')) {
         out.add(id);
       }
+    }
+  }
+  if (
+    opts.nextLivePatchedAt &&
+    opts.nextLivePatchedAt !== (opts.prevLivePatchedAt ?? null)
+  ) {
+    for (const id of opts.panelNodeIds ?? []) out.add(id);
+    for (const id of opts.edgeIds) {
+      if (id.includes('panel:') || id.startsWith('e-hub_ready-panel:')) out.add(id);
     }
   }
   return out;

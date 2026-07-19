@@ -70,6 +70,8 @@ function roleLabel(role: PostureAlgoNodeData['nodeRole']): string {
       return 'LIB';
     case 'stage':
       return 'STAGE';
+    case 'panel_surface':
+      return 'PANEL';
     default: {
       const _exhaustive: never = role;
       return _exhaustive;
@@ -151,6 +153,8 @@ function edgeTypeDash(edgeType: MarketHubModelEdgeType): string | undefined {
       return '6 3';
     case 'parallel':
       return '1 4';
+    case 'panel':
+      return '3 2';
     default: {
       const _exhaustive: never = edgeType;
       return _exhaustive;
@@ -346,7 +350,7 @@ function NodeInspector(props: {
   if (!props.node) {
     return (
       <p className="text-[10px] text-[var(--color-ink-faint)]">
-        Select a live source, adapter, library, or stage for operation detail.
+        Select a live source, adapter, library, stage, or panel surface.
       </p>
     );
   }
@@ -369,6 +373,12 @@ function NodeInspector(props: {
           {n.pipelines && n.pipelines.length > 0
             ? ` · pipelines ${n.pipelines.join('+')}`
             : ''}
+        </p>
+      ) : null}
+      {n.nodeRole === 'panel_surface' ? (
+        <p className="text-[10px] text-[var(--color-ink)]">
+          Panel {n.panelKind ?? '—'}
+          {n.panelSurfaceId ? ` · ${n.panelSurfaceId}` : ''}
         </p>
       ) : null}
       {s?.summary ? (
@@ -421,7 +431,7 @@ function TrackLegend(props: {
         </p>
       ))}
       <p className="font-mono text-[8px] text-[var(--color-ink-faint)]">
-        edges: hydrate dashed · adapt solid · corpus dash · ∥ parallel · pulse on refresh
+        edges: hydrate dashed · adapt solid · corpus dash · ∥ parallel · panel → boards · pulse on refresh
       </p>
     </div>
   );
@@ -445,6 +455,7 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
   const [pulsedEdgeIds, setPulsedEdgeIds] = useState<ReadonlySet<string>>(() => new Set());
   const prevAsOf = useRef<string | null>(null);
   const prevStageSig = useRef('');
+  const prevLivePatched = useRef<string | null>(null);
   const hydration = props.hydration ?? null;
   const run = props.run ?? null;
 
@@ -460,21 +471,28 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
   useEffect(() => {
     const nextAsOf = hydration?.asOfIso ?? null;
     const nextSig = stageSignature(run);
+    const nextLive = hydration?.livePatchedAt ?? null;
     const pulse = collectModelPulseIds({
       prevAsOf: prevAsOf.current,
       nextAsOf,
       prevStageSig: prevStageSig.current,
       nextStageSig: nextSig,
+      prevLivePatchedAt: prevLivePatched.current,
+      nextLivePatchedAt: nextLive,
       edgeIds: baselineGraph.edges.map((e) => e.id),
       stageIds: baselineGraph.nodes.filter((n) => n.data.nodeRole === 'stage').map((n) => n.id),
+      panelNodeIds: baselineGraph.nodes
+        .filter((n) => n.data.nodeRole === 'panel_surface')
+        .map((n) => n.id),
     });
     prevAsOf.current = nextAsOf;
     prevStageSig.current = nextSig;
+    prevLivePatched.current = nextLive;
     if (pulse.size === 0) return;
     setPulsedEdgeIds(pulse);
     const t = window.setTimeout(() => setPulsedEdgeIds(new Set()), PULSE_MS);
     return () => window.clearTimeout(t);
-  }, [hydration?.asOfIso, run, baselineGraph]);
+  }, [hydration?.asOfIso, hydration?.livePatchedAt, run, baselineGraph]);
 
   const selectedNode = baselineGraph.nodes.find((n) => n.id === selectedNodeId)?.data ?? null;
   const selectedStage =
@@ -517,8 +535,14 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
           {hydration && hydration.processingFlows.length > 0
             ? ` · ${hydration.processingFlows.length} flows`
             : ''}
+          {hydration && (hydration.panelSurfaces?.length ?? 0) > 0
+            ? ` · ${hydration.panelSurfaces.length} panels`
+            : ''}
           {hydration?.asOfIso
             ? ` · asOf ${new Date(hydration.asOfIso).toLocaleTimeString()}`
+            : ''}
+          {hydration?.livePatchedAt
+            ? ` · live ${new Date(hydration.livePatchedAt).toLocaleTimeString()}`
             : ''}
         </p>
       </div>

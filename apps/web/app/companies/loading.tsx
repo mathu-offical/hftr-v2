@@ -2,11 +2,13 @@ import Link from 'next/link';
 import {
   IndeterminateProgressBar,
   InlineLoadingStrip,
+  LoadingWheel,
   ShimmerBlock,
 } from '@/components/shell/LoadingChrome';
 
 /**
- * Instant directory chrome while company cards load (D-196 / D-201).
+ * Instant directory chrome while company cards load (D-196 / D-201 / D-202).
+ * Screen → top bar; card fields → slim shimmer; mode badge shape → wheel.
  */
 export default function CompaniesDirectoryLoading() {
   return (
@@ -34,7 +36,9 @@ export default function CompaniesDirectoryLoading() {
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <ShimmerBlock className="h-3 w-2/3" />
-                <ShimmerBlock className="h-3 w-10" />
+                <span className="inline-flex h-5 w-10 items-center justify-center border border-[var(--color-line)]">
+                  <LoadingWheel size="sm" label="Loading mode" />
+                </span>
               </div>
               <ShimmerBlock className="h-2.5 w-full" />
               <ShimmerBlock className="h-2.5 w-4/5" />

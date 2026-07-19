@@ -387,43 +387,42 @@ export function RightPanel(props: { companyId: string; companyMode?: string }) {
             <InlineLoadingStrip
               label="Info"
               detail="updating"
-              bar={false}
             />
           </div>
         ) : null}
         {tab === 'verification' &&
           (fieldLoading.verifications && verifications.length === 0 ? (
-            <InlineLoadingStrip label="Verify" detail="…" bar={false} />
+            <InlineLoadingStrip label="Verify" detail="…" />
           ) : (
             <VerificationTab verifications={verifications} executions={executions} />
           ))}
         {tab === 'executions' &&
           (fieldLoading.executions && executions.length === 0 ? (
-            <InlineLoadingStrip label="Executions" detail="…" bar={false} />
+            <InlineLoadingStrip label="Executions" detail="…" />
           ) : (
             <ExecutionsTab executions={executions} />
           ))}
         {tab === 'positions' &&
           (fieldLoading.positions && positions.length === 0 ? (
-            <InlineLoadingStrip label="Positions" detail="…" bar={false} />
+            <InlineLoadingStrip label="Positions" detail="…" />
           ) : (
             <PositionsTab companyId={props.companyId} executions={executions} />
           ))}
         {tab === 'ledger' &&
           (fieldLoading.ledger && ledger.length === 0 && balance === null ? (
-            <InlineLoadingStrip label="Ledger" detail="…" bar={false} />
+            <InlineLoadingStrip label="Ledger" detail="…" />
           ) : (
             <LedgerTab ledger={ledger} companyMode={companyMode} />
           ))}
         {tab === 'simulation' &&
           (fieldLoading.simulations && simulations.length === 0 ? (
-            <InlineLoadingStrip label="Sims" detail="…" bar={false} />
+            <InlineLoadingStrip label="Sims" detail="…" />
           ) : (
             <SimulationTab runs={simulations} comparisonSummary={simComparison} />
           ))}
         {tab === 'values' &&
           (fieldLoading.values && values.length === 0 ? (
-            <InlineLoadingStrip label="Values" detail="…" bar={false} />
+            <InlineLoadingStrip label="Values" detail="…" />
           ) : (
             <ValuesTab
               companyId={props.companyId}

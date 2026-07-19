@@ -99,7 +99,7 @@ export function CompanySwitcher(props: {
         >
           {loading && rows.length === 0 ? (
             <div className="px-3 py-2">
-              <InlineLoadingStrip label="Companies" detail="…" bar={false} />
+              <InlineLoadingStrip label="Companies" detail="…" />
             </div>
           ) : null}
           {rows.map((c) => (

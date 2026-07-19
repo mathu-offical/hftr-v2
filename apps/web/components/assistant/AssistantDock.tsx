@@ -6,6 +6,7 @@ import { Dock, X } from 'lucide-react';
 import type { AssistantEdit, AssistantMessage, AssistantToolResultSummary } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import { LlmAvailabilityChips } from '@/components/shell/LlmConnectionStatus';
+import { LoadingWheel } from '@/components/shell/LoadingChrome';
 
 const MIN_W = 280;
 const MIN_H = 240;
@@ -604,9 +605,9 @@ export function AssistantDock(props: {
           type="submit"
           disabled={loading || historyLoading || !input.trim()}
           aria-label="Send message"
-          className="rounded border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-1.5 text-xs font-medium text-[var(--color-ink)] hover:bg-[var(--color-surface-3)] disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-1.5 rounded border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-1.5 text-xs font-medium text-[var(--color-ink)] hover:bg-[var(--color-surface-3)] disabled:opacity-50"
         >
-          {loading ? '…' : 'Send'}
+          {loading ? <LoadingWheel size="sm" label="Sending" /> : 'Send'}
         </button>
       </form>
     </aside>,

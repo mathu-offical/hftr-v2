@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { LiveGateChecklistItem } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
+import { InlineLoadingStrip, LoadingWheel } from '@/components/shell/LoadingChrome';
 
 const ARM_PHRASE = 'ARM LIVE TRADING';
 
@@ -132,7 +133,9 @@ export function ModeSwitch(props: { companyId: string; mode: string }) {
             evidence (&lt;24h), and explicit arming — never enabled silently.
           </p>
 
-          {loading && <p className="text-[var(--color-ink-faint)]">Loading checklist…</p>}
+          {loading && (
+            <InlineLoadingStrip className="py-1" label="Checklist" detail="loading" />
+          )}
 
           {!loading && status && (
             <ul className="mb-2 space-y-1.5" aria-label="Live gate checklist">
@@ -165,8 +168,9 @@ export function ModeSwitch(props: { companyId: string; mode: string }) {
               type="button"
               disabled={busy}
               onClick={() => void runReview()}
-              className="rounded border border-[var(--color-line)] px-2 py-1 hover:bg-[var(--color-surface-2)] disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded border border-[var(--color-line)] px-2 py-1 hover:bg-[var(--color-surface-2)] disabled:opacity-50"
             >
+              {busy ? <LoadingWheel size="sm" label="Saving evidence" /> : null}
               Save evidence
             </button>
             {!armed ? (
@@ -183,8 +187,9 @@ export function ModeSwitch(props: { companyId: string; mode: string }) {
                   type="button"
                   disabled={busy || !status?.overallPass || !status.evidenceFresh}
                   onClick={() => void arm()}
-                  className="rounded border border-[var(--color-block)] px-2 py-1 text-[var(--color-block)] hover:bg-[var(--color-block)]/10 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded border border-[var(--color-block)] px-2 py-1 text-[var(--color-block)] hover:bg-[var(--color-block)]/10 disabled:opacity-50"
                 >
+                  {busy ? <LoadingWheel size="sm" label="Arming" /> : null}
                   Arm
                 </button>
               </>
@@ -193,8 +198,9 @@ export function ModeSwitch(props: { companyId: string; mode: string }) {
                 type="button"
                 disabled={busy}
                 onClick={() => void disarm()}
-                className="rounded border border-[var(--color-warn)] px-2 py-1 text-[var(--color-warn)] hover:bg-[var(--color-warn)]/10 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded border border-[var(--color-warn)] px-2 py-1 text-[var(--color-warn)] hover:bg-[var(--color-warn)]/10 disabled:opacity-50"
               >
+                {busy ? <LoadingWheel size="sm" label="Disarming" /> : null}
                 Disarm
               </button>
             )}

@@ -17,6 +17,7 @@ import {
   type LlmTier,
 } from '@hftr/contracts';
 import { api } from '@/lib/client';
+import { LoadingWheel } from '@/components/shell/LoadingChrome';
 
 /** Dispatched after User Settings mutates LLM or research keys. */
 export const LLM_CREDENTIALS_CHANGED_EVENT = 'hftr:llm-credentials-changed';
@@ -214,12 +215,13 @@ export function LlmRibbonStatusChip() {
   if (!status?.ready) {
     return (
       <span
-        className="status-chip font-mono text-[var(--color-ink-faint)]"
+        className="status-chip inline-flex items-center gap-1.5 font-mono text-[var(--color-ink-faint)]"
         title="Loading LLM connection status"
         aria-busy="true"
         data-testid="llm-ribbon-loading"
       >
-        llm: …
+        <LoadingWheel size="sm" label="Loading LLM status" />
+        llm
       </span>
     );
   }

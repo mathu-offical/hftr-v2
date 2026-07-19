@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import type { BrokerConnectionSummary, LlmProvider, ResearchKeyProvider } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import { notifyLlmCredentialsChanged } from '@/components/shell/LlmConnectionStatus';
+import { LoadingWheel } from '@/components/shell/LoadingChrome';
 import { PanelTabs } from '@/components/panels/PanelTabs';
 import {
   type KeyVerifyUiStatus,
@@ -69,6 +70,17 @@ function formatVerifyFailure(code: string | null | undefined): string {
       }
       return code;
   }
+}
+
+/** D-203: busy buttons show a wheel, not a screen bar. */
+function BusyButtonLabel(props: { busy: boolean; label: string }) {
+  if (!props.busy) return <>{props.label}</>;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <LoadingWheel size="sm" label={props.label} />
+      {props.label}
+    </span>
+  );
 }
 
 async function mapPool<T>(
@@ -712,7 +724,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                             disabled={busy === p.id}
                             className="text-[var(--color-accent)] hover:underline disabled:opacity-50"
                           >
-                            Verify
+                            <BusyButtonLabel busy={busy === p.id} label="Verify" />
                           </button>
                           <button
                             type="button"
@@ -759,7 +771,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                           disabled={busy === p.id}
                           className="shrink-0 rounded-md border border-[var(--color-line)] px-2.5 py-1.5 text-xs text-[var(--color-ink-dim)] hover:bg-[var(--color-surface-2)] disabled:opacity-50"
                         >
-                          Verify
+                          <BusyButtonLabel busy={busy === p.id} label="Verify" />
                         </button>
                       )}
                       <button
@@ -768,7 +780,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                         disabled={busy === p.id}
                         className="shrink-0 rounded-md border border-[var(--color-accent)] px-2.5 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
                       >
-                        Save & verify
+                        <BusyButtonLabel busy={busy === p.id} label="Save & verify" />
                       </button>
                     </div>
                     {messages[p.id] && (
@@ -867,7 +879,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                             disabled={busy === p.id}
                             className="shrink-0 rounded-md border border-[var(--color-line)] px-2.5 py-1.5 text-xs text-[var(--color-ink-dim)] hover:bg-[var(--color-surface-2)] disabled:opacity-50"
                           >
-                            Verify
+                            <BusyButtonLabel busy={busy === p.id} label="Verify" />
                           </button>
                         )}
                         <button
@@ -876,7 +888,7 @@ export function UserSettingsModal(props: { open: boolean; onClose: () => void })
                           disabled={busy === p.id}
                           className="shrink-0 rounded-md border border-[var(--color-accent)] px-2.5 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
                         >
-                          Save & verify
+                          <BusyButtonLabel busy={busy === p.id} label="Save & verify" />
                         </button>
                       </div>
                       {messages[p.id] && (
@@ -1068,16 +1080,16 @@ function AlpacaBrokerSection(props: {
             <button
               onClick={() => void verify()}
               disabled={props.busy || connection.status === 'revoked'}
-              className="rounded border border-[var(--color-accent)] px-2 py-1 text-[10px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded border border-[var(--color-accent)] px-2 py-1 text-[10px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
             >
-              Verify
+              <BusyButtonLabel busy={props.busy} label="Verify" />
             </button>
             <button
               onClick={() => void revoke()}
               disabled={props.busy}
-              className="rounded border border-[var(--color-line)] px-2 py-1 text-[10px] text-[var(--color-block)] hover:underline disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded border border-[var(--color-line)] px-2 py-1 text-[10px] text-[var(--color-block)] hover:underline disabled:opacity-50"
             >
-              Revoke
+              <BusyButtonLabel busy={props.busy} label="Revoke" />
             </button>
           </div>
         </div>
@@ -1111,9 +1123,9 @@ function AlpacaBrokerSection(props: {
         <button
           onClick={() => void saveAndVerify()}
           disabled={props.busy}
-          className="rounded-md border border-[var(--color-accent)] px-3 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-accent)] px-3 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
         >
-          Save & verify
+          <BusyButtonLabel busy={props.busy} label="Save & verify" />
         </button>
       </div>
 
@@ -1280,16 +1292,16 @@ function KalshiBrokerSection(props: {
             <button
               onClick={() => void verify()}
               disabled={props.busy || connection.status === 'revoked'}
-              className="rounded border border-[var(--color-accent)] px-2 py-1 text-[10px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded border border-[var(--color-accent)] px-2 py-1 text-[10px] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
             >
-              Verify
+              <BusyButtonLabel busy={props.busy} label="Verify" />
             </button>
             <button
               onClick={() => void revoke()}
               disabled={props.busy}
-              className="rounded border border-[var(--color-line)] px-2 py-1 text-[10px] text-[var(--color-block)] hover:underline disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded border border-[var(--color-line)] px-2 py-1 text-[10px] text-[var(--color-block)] hover:underline disabled:opacity-50"
             >
-              Revoke
+              <BusyButtonLabel busy={props.busy} label="Revoke" />
             </button>
           </div>
         </div>
@@ -1322,9 +1334,9 @@ function KalshiBrokerSection(props: {
         <button
           onClick={() => void saveAndVerify()}
           disabled={props.busy}
-          className="rounded-md border border-[var(--color-accent)] px-3 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-accent)] px-3 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
         >
-          Save & verify
+          <BusyButtonLabel busy={props.busy} label="Save & verify" />
         </button>
       </div>
 

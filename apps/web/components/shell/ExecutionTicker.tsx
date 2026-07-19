@@ -77,7 +77,6 @@ export function ExecutionTicker(props: { companyId: string }) {
           className="w-full max-w-md"
           label="Executions"
           detail="fetching"
-          bar={false}
         />
       </div>
     );

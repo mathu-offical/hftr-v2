@@ -127,7 +127,6 @@ export function PositionsTab(props: {
         className="px-1"
         label="Positions"
         detail="…"
-        bar={false}
         data-testid="positions-tab-loading"
       />
     );

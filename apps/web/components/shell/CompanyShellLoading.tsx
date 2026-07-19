@@ -1,14 +1,14 @@
 import {
+  ButtonLoadingSlot,
   IndeterminateProgressBar,
   InlineLoadingStrip,
   RailSkeletonSlots,
   RegionLoadingCard,
-  ShimmerBlock,
 } from '@/components/shell/LoadingChrome';
 
 /**
- * Shared company-workspace loading chrome (D-196 / D-198 / D-201).
- * Shell geometry matches the live company page so navigation paints immediately.
+ * Shared company-workspace loading chrome (D-196 / D-201 / D-202).
+ * Screens → bars; header/rail shaped controls → wheels.
  */
 
 export function CompanyShellLoadingFrame(props: {
@@ -25,16 +25,16 @@ export function CompanyShellLoadingFrame(props: {
           <span className="border border-[var(--color-line)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
             {label}
           </span>
-          <ShimmerBlock className="h-6 w-14" />
+          <ButtonLoadingSlot label="Loading drawer" />
         </div>
         <div className="hidden min-w-0 flex-1 items-center overflow-hidden px-4 md:flex">
           <InlineLoadingStrip label="Executions" detail="awaiting identity" />
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <ShimmerBlock className="h-6 w-12" />
-          <ShimmerBlock className="h-6 w-14" />
-          <ShimmerBlock className="h-6 w-24" />
-          <ShimmerBlock className="h-6 w-12" />
+          <ButtonLoadingSlot label="Loading mode" />
+          <ButtonLoadingSlot label="Loading LLM status" />
+          <ButtonLoadingSlot className="min-w-[5.5rem]" label="Loading queue" />
+          <ButtonLoadingSlot label="Loading settings" />
         </div>
       </header>
 
@@ -55,7 +55,7 @@ export function CompanyShellLoadingFrame(props: {
             />
           </div>
           <div className="flex h-9 shrink-0 items-center border-t border-[var(--color-line)] bg-[var(--color-surface-1)] px-3">
-            <InlineLoadingStrip label="Bottom" detail="deferred" bar={false} />
+            <InlineLoadingStrip label="Bottom" detail="deferred" />
           </div>
         </div>
 
@@ -93,7 +93,7 @@ export function CompanyWorkspaceLoading(props: { companyName?: string }) {
           />
         </div>
         <div className="flex h-9 shrink-0 items-center border-t border-[var(--color-line)] bg-[var(--color-surface-1)] px-3">
-          <InlineLoadingStrip label="Bottom" detail="pending" bar={false} />
+          <InlineLoadingStrip label="Bottom" detail="pending" />
         </div>
       </div>
       <aside className="flex h-full w-12 shrink-0 flex-col border-l border-[var(--color-line)] bg-[var(--color-surface-2)]">

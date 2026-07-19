@@ -134,6 +134,28 @@ export const EngineSetupSnapshot = z.object({
   allocationMode: z.enum(['amount', 'percentage']).default('amount'),
   allocationValue: z.string().default(''),
   targetExitLocal: z.string().default(''),
+  /**
+   * D-173 option-tree decoration: last-synced catalog anchors (rebuild on load;
+   * positions map is the mutable operator state).
+   */
+  optionAnchors: z
+    .array(
+      z.object({
+        id: z.string(),
+        kind: z.string(),
+        catalogRef: z.string(),
+        label: z.string(),
+        layer: z.string().optional(),
+        parentAnchorId: z.string().nullable().optional(),
+        ownerModuleId: z.string().nullable().optional(),
+        ownerEngineId: z.string(),
+        defaultPosition: z.enum(['min', 'typical', 'max']).optional(),
+      }),
+    )
+    .optional(),
+  optionAnchorPositions: z
+    .record(z.string(), z.enum(['min', 'typical', 'max']))
+    .optional(),
 });
 export type EngineSetupSnapshot = z.infer<typeof EngineSetupSnapshot>;
 

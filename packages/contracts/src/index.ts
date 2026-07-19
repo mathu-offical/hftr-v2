@@ -41,3 +41,4 @@ export * from './limits';
 export * from './guardrails';
 export * from './control-snapshot';
 export * from './weight-envelope';
+export * from './option-anchors';

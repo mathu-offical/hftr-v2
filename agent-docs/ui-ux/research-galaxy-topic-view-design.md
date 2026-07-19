@@ -69,8 +69,7 @@ share one graph.
 
 ```
 │ Research tab                       │  [ Galaxy | Page ]   filters / layout       │
-│  Topics (per research engine)      │                                               │
-│  · engine sections + origin chips  │                                               │
+│  Topics (flat list + owner chips)  │                                               │
 │  · blank if no research modules    │                                               │
 │  Articles                          │                                               │
 │  Libraries (company-wide one set)  │                                               │
@@ -84,12 +83,10 @@ share one graph.
 
 ### 3.1 Left panel — Topics primary
 
-- Research tab lists topics **per research engine** (D-166): every `type === 'research'`
-  module owns a seeded topic tree; the list is sectioned by engine with origin chips
-  (`engineLabel` / research module name). **No research modules → Topics blank.**
-  Within each engine, topics remain a tree when `parent_topic_id` is set (title, status
-  `active|archived|deferred`, priority, concept count, coverage hint, usage badges).
-- Seeded libraries stay company-wide; scrolling shelves show one shared set when engines
+- Research tab lists topics as a **simple flat list** (D-166): full title + owner chip
+  (`engineLabel` / research module name) + Research action. No Program/Group/Research-point
+  kind labels, no nested tree chrome in the list. **No research modules → Topics blank.**
+  Seeded libraries stay company-wide; scrolling shelves show one shared set when engines
   overlap (dedupe by name+topicScope; Engine Data Hubs remain distinct).
 - Next: **Concepts & tags** — company-wide searchable concept database with tag chip filters;
   Focus opens galaxy highlight for that concept.

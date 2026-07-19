@@ -1687,11 +1687,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 - **D-166 (research topics per research engine, 2026-07-19):** Seeded research topics attach to
   **every** research module/engine (not only the first). Topics GET returns empty when the
   company has no research modules; Left Research Topics list stays blank until a research
-  module exists. UI groups topics by owning engine and shows origin chips (`engineLabel` /
-  research module name). Seeded libraries remain **company-wide**; scrolling shelves dedupe
-  shared name+scope rows so overlap shows one set (engine data hubs stay distinct). Contracts
-  enrich `ResearchTopic` with `engineInstanceId` / `engineLabel` / `researchModuleName`.
-  Docs: ui-spec §6, research-galaxy-topic-view-design. **Status: implemented.**
+  module exists. UI is a **flat list** with owner chips (`engineLabel` / research module name)
+  — no Program/Group/Research-point kind labels or nested tree chrome in the list. Seeded
+  libraries remain **company-wide**; scrolling shelves dedupe shared name+scope rows so
+  overlap shows one set (engine data hubs stay distinct). Contracts enrich `ResearchTopic`
+  with `engineInstanceId` / `engineLabel` / `researchModuleName`. Docs: ui-spec §6,
+  research-galaxy-topic-view-design. **Status: implemented.**
 
 - **D-167 (paper vs live capital copy on money surfaces, 2026-07-19):** Keep paper trading
   low-friction (ModeSwitch + existing paper seed / paper trade flows) but make **dollar amounts

@@ -470,9 +470,10 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
   or seeded). They organize focus and can spawn articles or libraries; they are **not** galaxy
   nodes and are distinct from library-side concepts/tags/trends/functions. **D-166:** seeded
   topics are **per research engine** (every `type === 'research'` module gets its own seed tree);
-  the Research Topics list is grouped by owning engine with origin chips. **If no research
-  modules are on the canvas, Topics stay blank.** Seeded **libraries** remain company-wide;
-  scrolling library shelves show one set when engines share overlap (dedupe by name+scope).
+  the Research Topics list is a **flat list** with owner chips (no Program/Research-point
+  kind labels). **If no research modules are on the canvas, Topics stay blank.** Seeded
+  **libraries** remain company-wide; scrolling library shelves show one set when engines
+  share overlap (dedupe by name+scope).
   **D-126:** company bootstrap seeds **Current awareness** (regime, macro, news/event
   readthrough) plus **Sector · {label}** research points from `sectorFocuses`, and a thin
   **Seeded trading mechanisms** library overview topic — **not** catalog class mirrors (those

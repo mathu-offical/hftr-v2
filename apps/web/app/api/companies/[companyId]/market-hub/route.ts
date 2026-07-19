@@ -554,6 +554,7 @@ export async function GET(_req: Request, ctx: Ctx) {
       engineLabelById: engineById,
       moduleLedgerBalance,
       companyPoolCents,
+      companyId,
     });
 
     const series = ledgerRows.map((row) => ({

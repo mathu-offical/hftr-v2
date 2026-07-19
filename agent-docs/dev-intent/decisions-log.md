@@ -1547,6 +1547,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   the full lane list (ready / need key / contributed). Esc and outside click dismiss.
   Docs: ui-spec §4. Extends D-103. **Status: implemented.**
 
+- **D-149 (Posture funds outline collapsed; positions primary, 2026-07-18):** Left Posture
+  rail puts **open positions** first (more prominent cards). **Funds** are a single
+  collapsible block (**collapsed by default**) with a one-line summary (pool · root count ·
+  desk count). Expanded view is a short indented outline: pool → root funds → execution
+  desks by engine; each fund row shows **name + amount inline** (no multi-line cards).
+  Docs: ui-spec §4. Extends D-144. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

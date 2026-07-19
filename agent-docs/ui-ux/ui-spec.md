@@ -283,11 +283,13 @@ are ignored. Shortcuts are suppressed in editable fields.
   librarian **Curate / Verify / Refresh** (D-127). Library research (`LIBRARY_RESEARCH`) is a
   separate queue from posture research (`POSTURE_RESEARCH`) and from execution/other LLM lanes
   (D-098).
-- **Market posture** tab (D-081 / D-085 / D-092 / D-101 / **D-131** / **D-138** / **D-144**):
+- **Market posture** tab (D-081 / D-085 / D-092 / D-101 / **D-131** / **D-138** / **D-144** /
+  **D-149**):
   split inventory vs day quant. **Left rail** viewing pattern:
-  1. **Company · root funds** — company pool header + nested root `holding_fund` only
-  2. **Execution · module splits** — trading desks only, grouped by engine
-  3. **Open positions**
+  1. **Open positions** (primary) — holdings list with SymbolTicker
+  2. **Funds** (collapsible, **collapsed by default**) — indented outline:
+     company pool → root `holding_fund` → execution desks by engine; each row is
+     `name` + inline amount
   Fund-router hops and research engine envelopes are **not** listed. Sync + **Day view**.
   Canvas overlay: **master equity**, dual **stock / news** boards, sealed reports,
   recommendations, synthesis Model. Analyze reseals stock compound + sector news in parallel.

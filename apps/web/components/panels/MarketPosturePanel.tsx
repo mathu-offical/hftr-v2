@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { MarketHubCapitalSource, MarketHubResponse } from '@hftr/contracts';
 import { useMarketPostureView } from '@/components/panels/MarketPostureViewContext';
 import { SymbolTicker } from '@/components/market/SymbolTicker';
@@ -33,21 +34,16 @@ function capitalKindLabel(kind: MarketHubCapitalSource['kind']): string {
   }
 }
 
-function allocationAmountLabel(s: MarketHubCapitalSource): string {
-  if (s.allocationCents) {
-    const share =
-      s.allocationShareBps != null && s.kind !== 'company_pool'
-        ? ` · ${(s.allocationShareBps / 100).toFixed(1)}% pool`
-        : '';
-    return `${dollarsFromCents(s.allocationCents)}${share}`;
-  }
+/** Compact inline amount — dollars only (no share % clutter on the row). */
+function allocationAmountInline(s: MarketHubCapitalSource): string {
+  if (s.allocationCents) return dollarsFromCents(s.allocationCents);
   switch (s.allocationStatus) {
     case 'missing_base':
-      return 'Need company pool';
+      return 'need pool';
     case 'missing_ref':
-      return 'Ref unresolved';
+      return 'unresolved';
     case 'unconfigured':
-      return 'Not allocated';
+      return '—';
     case 'resolved':
       return '—';
     default: {
@@ -64,8 +60,8 @@ type ExecutionGroup = {
 };
 
 /**
- * Left-rail Market posture inventory (D-131 / D-138 / D-144):
- * company pool → root holding funds → execution desks by engine → open positions.
+ * Left-rail Market posture inventory (D-131 / D-144 / D-149):
+ * open positions first; funds as collapsed indented outline by default.
  */
 export function MarketPosturePanel(props: { companyId: string }) {
   const mp = useMarketPostureView();
@@ -73,6 +69,7 @@ export function MarketPosturePanel(props: { companyId: string }) {
     props.companyId,
     { poll: true },
   );
+  const [fundsOpen, setFundsOpen] = useState(false);
 
   const openDayView = useCallback(() => {
     mp.openOverlay();
@@ -105,6 +102,17 @@ export function MarketPosturePanel(props: { companyId: string }) {
     return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label));
   }, [hub]);
 
+  const deskCount = executionGroups.reduce((n, g) => n + g.desks.length, 0);
+  const fundsSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (companyPool?.allocationCents) {
+      parts.push(dollarsFromCents(companyPool.allocationCents));
+    }
+    parts.push(`${rootHoldingFunds.length} root`);
+    parts.push(`${deskCount} desk`);
+    return parts.join(' · ');
+  }, [companyPool, rootHoldingFunds.length, deskCount]);
+
   if (error && !hub) {
     return <p className="text-xs text-[var(--color-block)]">{error}</p>;
   }
@@ -122,11 +130,9 @@ export function MarketPosturePanel(props: { companyId: string }) {
   }
 
   return (
-    <div className="space-y-3" data-testid="market-posture-panel">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] text-[var(--color-ink-faint)]">
-          Company → execution · day tape on canvas
-        </p>
+    <div className="flex min-h-0 flex-col gap-3" data-testid="market-posture-panel">
+      <div className="flex shrink-0 items-center justify-between gap-2">
+        <p className="text-[10px] text-[var(--color-ink-faint)]">Holdings inventory</p>
         <div className="flex shrink-0 items-center gap-1.5">
           {(refreshing || analyzing) && (
             <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
@@ -154,63 +160,69 @@ export function MarketPosturePanel(props: { companyId: string }) {
         </div>
       </div>
 
-      <section className="space-y-1.5" data-testid="market-posture-company-roots">
-        <h3 className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]">
-          Company · root funds
-        </h3>
-        {companyPool ? (
-          <CapitalSourceRow source={companyPool} emphasis />
-        ) : (
-          <p className="text-xs text-[var(--color-ink-faint)]">Company pool unavailable</p>
-        )}
-        {rootHoldingFunds.length === 0 ? (
-          <p className="pl-2 text-xs text-[var(--color-ink-faint)]">No root holding funds</p>
-        ) : (
-          <ul className="space-y-1 border-l border-[var(--color-line)] pl-2" data-testid="market-posture-root-funds">
-            {rootHoldingFunds.map((s) => (
-              <li key={s.id}>
-                <CapitalSourceRow source={s} nested />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="space-y-1.5" data-testid="market-posture-execution-splits">
-        <h3 className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]">
-          Execution · module splits ·{' '}
-          {executionGroups.reduce((n, g) => n + g.desks.length, 0)}
-        </h3>
-        {executionGroups.length === 0 ? (
-          <p className="text-xs text-[var(--color-ink-faint)]">No trading / execution allocations yet</p>
-        ) : (
-          <div className="space-y-2">
-            {executionGroups.map((group) => (
-              <div key={group.key} className="space-y-1">
-                <p className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-                  {group.label}
-                </p>
-                <ul className="space-y-1 border-l border-[var(--color-line)] pl-2">
-                  {group.desks.map((s) => (
-                    <li key={s.id}>
-                      <CapitalSourceRow source={s} nested />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="space-y-1.5">
-        <h3 className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]">
+      <section className="min-h-0 flex-1 space-y-1.5" data-testid="market-posture-positions">
+        <h3 className="font-mono text-[10px] font-medium uppercase tracking-wider text-[var(--color-ink)]">
           Open positions · {hub.positions.length}
         </h3>
         <PositionList hub={hub} />
       </section>
 
-      <div className="border-t border-[var(--color-line)] pt-2">
+      <section
+        className="shrink-0 border-t border-[var(--color-line)] pt-2"
+        data-testid="market-posture-funds"
+      >
+        <button
+          type="button"
+          aria-expanded={fundsOpen}
+          onClick={() => setFundsOpen((v) => !v)}
+          className="flex w-full items-center gap-1.5 text-left"
+          data-testid="market-posture-funds-toggle"
+        >
+          {fundsOpen ? (
+            <ChevronDown className="h-3 w-3 shrink-0 text-[var(--color-ink-faint)]" aria-hidden />
+          ) : (
+            <ChevronRight className="h-3 w-3 shrink-0 text-[var(--color-ink-faint)]" aria-hidden />
+          )}
+          <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]">
+            Funds
+          </span>
+          <span className="min-w-0 flex-1 truncate font-mono text-[9px] tabular-nums text-[var(--color-ink-faint)]">
+            {fundsSummary}
+          </span>
+        </button>
+
+        {fundsOpen ? (
+          <div className="mt-1.5 space-y-0.5 font-mono text-[10px]" data-testid="market-posture-funds-outline">
+            {companyPool ? (
+              <FundOutlineRow source={companyPool} depth={0} />
+            ) : (
+              <p className="pl-4 text-[var(--color-ink-faint)]">No company pool</p>
+            )}
+            {rootHoldingFunds.map((s) => (
+              <FundOutlineRow key={s.id} source={s} depth={1} />
+            ))}
+            {executionGroups.length > 0 ? (
+              <>
+                <p className="pl-0 pt-1 font-mono text-[8px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+                  Execution
+                </p>
+                {executionGroups.map((group) => (
+                  <div key={group.key}>
+                    <p className="truncate pl-2 text-[9px] text-[var(--color-ink-faint)]">
+                      {group.label}
+                    </p>
+                    {group.desks.map((s) => (
+                      <FundOutlineRow key={s.id} source={s} depth={2} />
+                    ))}
+                  </div>
+                ))}
+              </>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
+
+      <div className="shrink-0 border-t border-[var(--color-line)] pt-2">
         <p className="font-mono text-[10px] tabular-nums text-[var(--color-ink-faint)]">
           Equity {equityStatusLabel(hub.equity.status)}
           {hub.equity.equityCents ? ` · ${dollarsFromCents(hub.equity.equityCents)}` : ''}
@@ -221,12 +233,9 @@ export function MarketPosturePanel(props: { companyId: string }) {
   );
 }
 
-function CapitalSourceRow(props: {
-  source: MarketHubCapitalSource;
-  emphasis?: boolean;
-  nested?: boolean;
-}) {
-  const { source: s, emphasis, nested } = props;
+function FundOutlineRow(props: { source: MarketHubCapitalSource; depth: number }) {
+  const { source: s, depth } = props;
+  const pad = 8 + depth * 12;
   return (
     <Justification
       sourceClass="operator"
@@ -236,35 +245,21 @@ function CapitalSourceRow(props: {
         `Source: ${s.sourceLabel}`,
         s.engineLabel ? `Engine: ${s.engineLabel}` : 'No engine binding',
         s.allocationRef ? `Allocation ref: ${s.allocationRef}` : 'No allocation ref',
-        `Allocation: ${allocationAmountLabel(s)} (${s.allocationStatus})`,
+        `Allocation: ${allocationAmountInline(s)} (${s.allocationStatus})`,
         s.ledgerBalanceCents
           ? `Ledger: ${dollarsFromCents(s.ledgerBalanceCents)}`
           : 'No module ledger balance',
       ]}
     >
       <div
-        className={`rounded border px-2 py-1.5 text-xs ${
-          emphasis
-            ? 'border-[var(--color-accent)]/40 bg-[var(--color-surface-2)]'
-            : nested
-              ? 'border-transparent bg-transparent'
-              : 'border-[var(--color-line)]'
-        }`}
+        className="flex items-baseline justify-between gap-2 py-0.5 text-[var(--color-ink)]"
+        style={{ paddingLeft: pad }}
+        data-testid={`market-posture-fund-row-${s.kind}`}
       >
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="font-medium text-[var(--color-ink)]">{s.name}</span>
-          <span className="shrink-0 font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-            {capitalKindLabel(s.kind)}
-          </span>
-        </div>
-        <p className="mt-0.5 font-mono text-[10px] tabular-nums text-[var(--color-ink)]">
-          {allocationAmountLabel(s)}
-        </p>
-        <p className="mt-0.5 font-mono text-[9px] text-[var(--color-ink-faint)]">
-          {s.sourceLabel}
-          {s.kind === 'holding_fund' && s.engineLabel ? ` · via ${s.engineLabel}` : ''}
-          {s.ledgerBalanceCents ? ` · ledger ${dollarsFromCents(s.ledgerBalanceCents)}` : ''}
-        </p>
+        <span className="min-w-0 truncate text-[11px]">{s.name}</span>
+        <span className="shrink-0 tabular-nums text-[var(--color-ink-dim)]">
+          {allocationAmountInline(s)}
+        </span>
       </div>
     </Justification>
   );
@@ -277,7 +272,7 @@ function PositionList(props: { hub: MarketHubResponse }) {
     return <p className="text-xs text-[var(--color-ink-faint)]">No open positions</p>;
   }
   return (
-    <ul className="space-y-1">
+    <ul className="space-y-1.5">
       {hub.positions.map((p) => (
         <li key={p.id}>
           <button
@@ -287,10 +282,10 @@ function PositionList(props: { hub: MarketHubResponse }) {
               mp.selectPosition(clear ? null : p.id, clear ? null : p.symbol);
               mp.openOverlay();
             }}
-            className={`w-full rounded border px-2 py-1.5 text-left text-xs ${
+            className={`w-full rounded border px-2.5 py-2 text-left text-xs ${
               mp.selectedPositionId === p.id
                 ? 'border-[var(--color-accent)] bg-[var(--color-surface-2)]'
-                : 'border-[var(--color-line)] hover:border-[var(--color-ink-faint)]'
+                : 'border-[var(--color-line)] bg-[var(--color-surface-1)] hover:border-[var(--color-ink-faint)]'
             }`}
           >
             <SymbolTicker

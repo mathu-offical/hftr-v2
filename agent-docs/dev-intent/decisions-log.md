@@ -1811,7 +1811,17 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   operator boards mid-pipeline — not only hub_ready→panel. Panel surfaces gain
   `emitFromStages` / `emitFromFunctions` plus awareness level boards
   (`awareness_evidence|links|trends|recommendations`) wired from D-175 analysis. Extends
-  D-161 / D-165 / D-169 / D-175. Docs: ui-spec §4, data-model. **Status: implemented.**
+  D-161 / D-165 / D-169 / D-175. Docs: ui-spec §4, data-model.   **Status: implemented.**
+
+- **D-180 (research option-tree anchors + owner docking, 2026-07-19):** Expand
+  `buildOptionAnchorsForEngine` for research engines: `research_subtype`, `curiosity_band`,
+  `admission_mode`, `cadence_band`, discover→verify `branch_role`, `librarian_subtype`,
+  `library_class`, `trend_posture`, `emit_mode`, research philosophy axes
+  (`evidence_bar` / `research_breadth` / `regime_bias`), plus strategic/research lever bands
+  (inspector-only). Canvas placement docks owned roots beside owner modules with
+  `option_bind` owner→root→child edges; unowned roots remain in the engine column. Extends
+  D-173. Docs: ui-spec §3, canvas-engine-group-design, option-anchor-nodes-design.
+  **Status: implemented.**
 
 ## Open questions
 

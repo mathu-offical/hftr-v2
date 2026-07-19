@@ -92,11 +92,12 @@ ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles
 - **Family layout (D-159 / D-176):** research deps left → hub gap (340px) → execution right;
   families stack vertically with 140px top-level gutter. Engine right padding 168px reserves
   the option-anchor column so server collision math matches client chrome.
-- **Option anchors (D-173):** catalog decision nodes parented under the engine group as a
-  right-side column (`optionAnchor` React Flow type). Built from template inputs, strategy
-  families, branch roles, recovery phases, and philosophy axes. Lever bands remain
-  inspector-only. Visual `option_bind` edges are canvas decoration (not `module_links`).
-  Positions persist on `setupSnapshot.optionAnchorPositions`.
+- **Option anchors (D-173 / D-180):** catalog decision nodes parented under the engine
+  group. **Owned** roots dock beside their owner module (research subtype, librarian,
+  library class, trend posture, trading family, analyzer emit) with `option_bind` edges
+  owner→root→children. Unowned roots stay in the right column. Research engines emit
+  subtype / curiosity / admission / cadence / discover→verify trees; lever bands remain
+  inspector-only. Positions persist on `setupSnapshot.optionAnchorPositions`.
 - **Company → engine cascade (D-176):** canvas insert defaults `cascadeFromCompany` on —
   topic from `sectorFocuses`, capital from paper seed — then engine→member cascade (D-035).
 - **D-089 note:** shared setup + template inputs stay in the **header** as bordered inline fields

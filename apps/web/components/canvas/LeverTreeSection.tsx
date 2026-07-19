@@ -14,6 +14,14 @@ const KIND_LABELS: Record<OptionAnchorKind, string> = {
   lever_band: 'Lever bands',
   recovery_phase: 'Recovery phases',
   philosophy_axis: 'Philosophy axes',
+  research_subtype: 'Research subtypes',
+  curiosity_band: 'Curiosity bands',
+  librarian_subtype: 'Librarian subtypes',
+  library_class: 'Library classes',
+  trend_posture: 'Trend postures',
+  cadence_band: 'Cadence bands',
+  admission_mode: 'Admission modes',
+  emit_mode: 'Emit modes',
 };
 
 const POSITION_OPTIONS: OptionAnchorPosition[] = ['min', 'typical', 'max'];
@@ -39,6 +47,14 @@ function anchorCatalogHint(anchor: OptionAnchorSpec): string | null {
     case 'strategy_family':
     case 'lever_band':
     case 'philosophy_axis':
+    case 'research_subtype':
+    case 'curiosity_band':
+    case 'librarian_subtype':
+    case 'library_class':
+    case 'trend_posture':
+    case 'cadence_band':
+    case 'admission_mode':
+    case 'emit_mode':
       return null;
     default: {
       const _exhaustive: never = anchor.kind;
@@ -79,7 +95,12 @@ function PositionToggle(props: {
 }
 
 function supportsPositionToggle(kind: OptionAnchorKind): boolean {
-  return kind === 'lever_band' || kind === 'philosophy_axis';
+  return (
+    kind === 'lever_band' ||
+    kind === 'philosophy_axis' ||
+    kind === 'curiosity_band' ||
+    kind === 'cadence_band'
+  );
 }
 
 export function LeverTreeSection(props: {

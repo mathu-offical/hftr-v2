@@ -2829,12 +2829,7 @@ export function CompanyCanvas(props: {
     if (!selected?.engineInstanceId) return [] as OptionAnchorSpec[];
     const all = anchorsByEngine.get(selected.engineInstanceId) ?? [];
     return all.filter(
-      (anchor) =>
-        !anchor.ownerModuleId ||
-        anchor.ownerModuleId === selected.id ||
-        selected.type === 'trading' ||
-        selected.type === 'trend' ||
-        selected.type === 'policy',
+      (anchor) => !anchor.ownerModuleId || anchor.ownerModuleId === selected.id,
     );
   }, [anchorsByEngine, selected]);
 

@@ -184,9 +184,10 @@
   `LeverTreeSection` for trading/trend/policy), engine groups (shared setup, template inputs,
   option-anchor list), and option anchors (kind, catalogRef, band position). RightPanel Config
   tab is out of scope for this completeness pass.
-- **Option-tree anchors (D-173):** engines provision compact `optionAnchor` children from
+- **Option-tree anchors (D-173 / D-180):** engines provision compact `optionAnchor` children from
   `buildOptionAnchorsForEngine` (catalog refs / band positions only — no raw financial numbers).
-  Canvas shows decision anchors; lever bands edit in the inspector.
+  Owned roots dock beside owner modules with `option_bind` edges; research engines include
+  subtype / curiosity / librarian / library / trend / emit trees. Lever bands edit in the inspector.
 - **Deferred:** old “expanded info view” (node grows ~2× with live mini-log) — replaced by
   fixed dashboard + inspector; deep jump to owning side panel remains a later affordance.
 - Minimap + zoom controls bottom-right; fit-view on load; LOD: below zoom threshold, node bodies

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  canvasVisibleOptionAnchors,
   getEngineTemplateById,
   type EngineSetupSnapshot,
   type ModuleSetupField,
@@ -140,14 +141,7 @@ export function EngineInspectorPanel(props: {
     templateInputs,
   ]);
 
-  const canvasAnchors = props.anchors.filter(
-    (anchor) =>
-      anchor.kind === 'template_input' ||
-      anchor.kind === 'strategy_family' ||
-      anchor.kind === 'branch_role' ||
-      anchor.kind === 'recovery_phase' ||
-      anchor.kind === 'philosophy_axis',
-  );
+  const canvasAnchors = canvasVisibleOptionAnchors(props.anchors);
 
   return (
     <aside

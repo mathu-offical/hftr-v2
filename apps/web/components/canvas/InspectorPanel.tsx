@@ -75,6 +75,10 @@ const LEVER_TREE_MODULE_TYPES: ReadonlySet<CanvasModule['type']> = new Set([
   'trading',
   'trend',
   'policy',
+  'research',
+  'librarian',
+  'library',
+  'analyzer',
 ]);
 
 /**

@@ -828,7 +828,7 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     tags: entry.kindTags,
     now,
   });
-  await stage('seal_movers', 'succeeded', `Sealed movers board (${bundle.corroborationBand})`, [
+  await stage('seal_movers', 'succeeded', `Movers board committed (${bundle.corroborationBand})`, [
     'Verified normalize · report concept dual-persist',
   ]);
   await maybeEnqueueMovementAnalyze();

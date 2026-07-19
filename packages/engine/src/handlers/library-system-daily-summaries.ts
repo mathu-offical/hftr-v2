@@ -335,6 +335,6 @@ registerHandler('library.system_daily_summaries', async ({ db, clock, job }) => 
   });
   await stage(
     'succeeded',
-    `Sealed daily ${phase} (${enriched.corroborationBand}) · movers ${moversSeal ? 'present' : 'stale'} · sector ${sectorSeal ? 'present' : 'stale'}`,
+    `Daily ${phase} committed (${enriched.corroborationBand}) · movers ${moversSeal ? 'present' : 'stale'} · sector ${sectorSeal ? 'present' : 'stale'}`,
   );
 });

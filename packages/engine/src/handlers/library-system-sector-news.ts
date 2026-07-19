@@ -233,6 +233,6 @@ registerHandler('library.system_sector_news', async ({ db, clock, job }) => {
   });
   await stage(
     'succeeded',
-    `Sealed sector bulletin (${bundle.corroborationBand}) · ${headlines.length} headlines · focus ${sectorLabel}`,
+    `Sector bulletin committed (${bundle.corroborationBand}) · ${headlines.length} headlines · focus ${sectorLabel}`,
   );
 });

@@ -704,6 +704,7 @@ function DayPlanScreen(props: {
   openReport: (conceptId: string) => void;
 }) {
   const { hub, mp } = props;
+  void props.confirmWatchlist;
   const charts = buildDayStageCharts(hub);
   const entities = buildDayEntityCharts(hub);
   // Prefer filtered watchlist actions when tier chips narrow the set.

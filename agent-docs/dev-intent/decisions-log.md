@@ -1763,7 +1763,18 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   (heat→valves→POV; denser HFT child slices); exit scan reads `subtype: hft` for measurable-gain
   floor + 10m time_stop; `strat-*` → recovery aliases with `strat-007`→`rec-006`. Cohort script
   `paper-sector-engine-cohort.ts` with create-cap archival. Docs: post-fill lifecycle,
-  experiment-log EXP-2026-07-19-03, HFT design spec. **Status: implemented (paper).**
+  experiment-log EXP-2026-07-19-03, HFT design spec.   **Status: implemented (paper).**
+
+- **D-175 (Market awareness linkage hybrid + Posture levels, 2026-07-19):** Linkage-first
+  compound movers: durable `MarketAwarenessLink` edges (news/library/trend/macro →
+  symbol/recommendation) built model-free during `library.system_movers`, sealed on
+  `VerifiedNormalizedBundle.awarenessLinks`, and used as scoring bands
+  (`newsLinkBand` / `libraryLinkBand` / `trendLinkBand` / `linkCoverageBand`) beside RS,
+  volume, Jaccard fallback, and corroboration. Hub projects `awarenessAnalysis` for the
+  expanded Market Posture window as four levels: Evidence → Links → Trends →
+  Recommendations (primary emit). Model canvas remains secondary process chrome. Extends
+  D-092 / D-169. Spec: `docs/superpowers/specs/2026-07-19-market-awareness-linkage-design.md`.
+  Docs: ui-spec §4, data-model. **Status: implemented.**
 
 ## Open questions
 

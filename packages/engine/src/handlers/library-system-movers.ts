@@ -23,6 +23,10 @@ import { ensureSystemLibrary } from '../libraries/ensure-system-library';
 import { ensureSectorKnowledge } from '../libraries/ensure-sector-knowledge';
 import { getSystemLibraryEntry } from '../libraries/system-library-registry';
 import {
+  buildAwarenessLinks,
+  linkBandsForSymbol,
+} from '../libraries/movers-awareness-links';
+import {
   buildMoversUniverse,
   DEFAULT_LIQUID_FALLBACK,
   extractTickerCandidates,
@@ -360,7 +364,11 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     .limit(40);
 
   const trendRows = await db
-    .select({ symbol: trendCandidates.symbol, status: trendCandidates.status })
+    .select({
+      id: trendCandidates.id,
+      symbol: trendCandidates.symbol,
+      status: trendCandidates.status,
+    })
     .from(trendCandidates)
     .where(
       and(eq(trendCandidates.companyId, payload.companyId), ne(trendCandidates.status, 'expired')),
@@ -423,6 +431,30 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
   }
 
   const spyBars = barBySymbol.get('SPY') ?? null;
+  const asOfIso = new Date(nowMs).toISOString();
+  const awarenessDraft = buildAwarenessLinks({
+    asOfIso,
+    universe,
+    newsPkgs: newsPkgs.map((p) => ({
+      digest: p.digest,
+      title: p.title,
+      summary: p.summary,
+      sourceKind: p.sourceKind,
+    })),
+    macroPkgs: macroPkgs.map((p) => ({
+      digest: p.digest,
+      title: p.title,
+      summary: p.summary,
+      sourceKind: p.sourceKind,
+    })),
+    libraryTitles: corpus.titles,
+    trends: trendRows.map((t) => ({
+      id: t.id,
+      symbol: t.symbol,
+      status: t.status,
+    })),
+  });
+
   await stage('rs', 'running', 'Computing relative strength vs SPY');
   const scores = [];
   for (const symbol of universe) {
@@ -433,6 +465,7 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     // Bars entitlement alone counts as one domain when OHLC present.
     if (barBySymbol.has(symbol)) domainSet.add('alpaca_bars');
     if (corpus.texts.length > 0) domainSet.add('library');
+    const linkBands = linkBandsForSymbol(awarenessDraft.links, symbol);
 
     scores.push(
       scoreCompoundSymbol(
@@ -448,6 +481,7 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
           macroCorpusTexts: macroCorpus,
           bookAtCap,
           inOpenBook: openBook.has(symbol),
+          linkBands,
         },
         thresholds,
       ),
@@ -455,13 +489,13 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
   }
 
   await stage('rs', 'succeeded', `Scored ${scores.length} symbols`, [
-    'Model-free bars vs SPY · synthetic marks when needed',
+    'Model-free bars vs SPY · linkage bands · Jaccard fallback',
   ]);
   await stage('rank', 'running');
   const ranked = rankCompoundScores(scores);
   const topK = ranked.slice(0, Math.min(8, thresholds.suggestionCap));
   await stage('rank', 'succeeded', `Ranked top ${topK.length} for board`, [
-    'Leadership · fit · corroboration bands',
+    'Corroboration · link coverage · leadership · fit',
   ]);
 
   // Watchlist module: prefer trading/trend for operator confirm UX.
@@ -563,7 +597,7 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
 
   // Overlay compound-ranked symbols onto sealed view items (symbolOrSector).
   bundle.view.items = topK.map((s) => ({
-    headline: `${s.symbol} leadership ${s.leadershipBand}; corroboration ${s.corroborationBand}`,
+    headline: `${s.symbol} leadership ${s.leadershipBand}; links ${s.linkCoverageBand}; news-link ${s.newsLinkBand}; corroboration ${s.corroborationBand}`,
     symbolOrSector: s.symbol,
     directionBand:
       s.direction === 'flat' ? ('low' as const) : s.leadershipBand,
@@ -577,6 +611,40 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     ]),
   ].filter((k): k is ResearchSourceKindT => ResearchSourceKind.safeParse(k).success);
   bundle.contributingSourceKinds = contributed.slice(0, 24);
+
+  const awarenessFinal = buildAwarenessLinks({
+    asOfIso,
+    universe,
+    newsPkgs: newsPkgs.map((p) => ({
+      digest: p.digest,
+      title: p.title,
+      summary: p.summary,
+      sourceKind: p.sourceKind,
+    })),
+    macroPkgs: macroPkgs.map((p) => ({
+      digest: p.digest,
+      title: p.title,
+      summary: p.summary,
+      sourceKind: p.sourceKind,
+    })),
+    libraryTitles: corpus.titles,
+    trends: trendRows.map((t) => ({
+      id: t.id,
+      symbol: t.symbol,
+      status: t.status,
+    })),
+    recommendations: ranked
+      .filter((s) => s.admitsSearch)
+      .slice(0, thresholds.suggestionCap)
+      .map((s) => ({
+        id: `movers:${s.symbol}`,
+        symbol: s.symbol,
+        tier: (verifiedSymbols.includes(s.symbol)
+          ? 'suggested_verified'
+          : 'suggested_search') as 'suggested_search' | 'suggested_verified',
+      })),
+  });
+  bundle.awarenessLinks = awarenessFinal.links;
 
   const itemHeadlines = bundle.view.items
     .map((item) => item.headline ?? item.symbolOrSector ?? '')

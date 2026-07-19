@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MarketHubAwarenessAnalysis } from './market-awareness-links';
 import { QualitativeBand } from './system-libraries';
 import { SystemNormalizedViewItem } from './verified-normalize';
 
@@ -648,6 +649,11 @@ export const MarketHubResponse = z.object({
   universeExcludes: z.array(z.string().max(12)).max(200).default([]),
   equity: MarketHubEquity,
   movers: MarketHubMovers,
+  /**
+   * Multi-level linkage analysis for expanded Posture window (D-175).
+   * Evidence → Links → Trends → Recommendations; Model is secondary.
+   */
+  awarenessAnalysis: MarketHubAwarenessAnalysis.optional(),
   reports: z.array(MarketHubReportLink).max(24).default([]),
   watchlists: z.array(MarketHubWatchlistItem).max(200),
   trendCandidates: z.array(MarketHubTrendCandidate).max(50),

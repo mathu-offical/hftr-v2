@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MarketAwarenessLink } from './market-awareness-links';
 import { ResearchSourceKind, ValidationGateResult } from './research-bus';
 import { QualitativeBand } from './system-libraries';
 
@@ -50,6 +51,11 @@ export const VerifiedNormalizedBundle = z.object({
    * Optional for seals persisted before D-103.
    */
   contributingSourceKinds: z.array(ResearchSourceKind).max(24).optional(),
+  /**
+   * Linkage-first awareness edges for Posture multi-level analysis (D-175).
+   * Optional for seals persisted before D-175.
+   */
+  awarenessLinks: z.array(MarketAwarenessLink).max(128).optional(),
 });
 export type VerifiedNormalizedBundle = z.infer<typeof VerifiedNormalizedBundle>;
 

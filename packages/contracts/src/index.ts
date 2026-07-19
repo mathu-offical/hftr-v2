@@ -25,6 +25,7 @@ export * from './market-hub';
 export * from './market-hub-synthesis';
 export * from './live-data-sources';
 export * from './watchlist-suggestions';
+export * from './market-awareness-links';
 export * from './libraries';
 export * from './env';
 export * from './templates';

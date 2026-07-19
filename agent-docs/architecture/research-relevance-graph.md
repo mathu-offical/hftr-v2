@@ -22,6 +22,9 @@ pgvector / embedding store remains deferred (**REQ-RES-005**).
   both call this path — no forked client Jaccard.
 - Gate suite in `validateEvidencePackages` (relevance, duplicate, entitlement, leak, coherence, freshness)
 - Extended gates: `sector_scope`, `source_credibility`, `corroboration` (D-070)
+- **Movers awareness links (D-175):** model-free `MarketAwarenessLink` edges
+  (news/library/trend/macro → symbol/recommendation) feed compound rank bands and
+  Posture multi-level `awarenessAnalysis` — still Jaccard/token based, not embeddings
 
 ## Operator meaning
 

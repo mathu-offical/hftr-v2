@@ -44,6 +44,7 @@ import {
 } from '@hftr/engine';
 import type { MarketHubSymbolViz, QualitativeBand } from '@hftr/contracts';
 import { withAuth } from '@/lib/api';
+import { projectMarketHubAwarenessAnalysis } from '@/lib/market-hub-awareness-analysis';
 import { projectMarketHubCapitalSources } from '@/lib/market-hub-capital';
 import { projectMarketHubModelHydration } from '@/lib/market-hub-model-hydration';
 import { buildMarketHubModelPanelSurfaces, buildMarketHubModelCapitalSources } from '@/lib/market-hub-panel-surfaces';
@@ -959,6 +960,12 @@ export async function GET(_req: Request, ctx: Ctx) {
       equityCents != null ? ['ledger'] : [],
     );
 
+    const awarenessAnalysis = projectMarketHubAwarenessAnalysis({
+      seal,
+      watchlists: watchlistsWithViz,
+      trendCandidates: trendsWithViz,
+    });
+
     const body = MarketHubResponse.parse({
       sectorFocuses,
       universeExcludes,
@@ -971,6 +978,7 @@ export async function GET(_req: Request, ctx: Ctx) {
         sourceChips: equitySourceChips,
       },
       movers,
+      awarenessAnalysis,
       reports,
       watchlists: watchlistsWithViz,
       trendCandidates: trendsWithViz,

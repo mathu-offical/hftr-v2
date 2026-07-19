@@ -83,6 +83,50 @@ describe('movers-compound', () => {
     expect(rankCompoundScores([a, b])[0]!.symbol).toBe('BBB');
   });
 
+  it('defaults link bands to low and prefers link coverage in rank order', () => {
+    const sparse = scoreCompoundSymbol(
+      {
+        symbol: 'AAA',
+        relStrengthAbsBps: 90,
+        direction: 'up',
+        volumeExpansionRatio: 2,
+        corroborationDomains: 2,
+        libraryQueryText: 'AAA',
+        corpusTexts: ['AAA'],
+        newsCorpusTexts: ['AAA'],
+        macroCorpusTexts: [],
+        bookAtCap: false,
+        inOpenBook: false,
+      },
+      thresholds,
+    );
+    const linked = scoreCompoundSymbol(
+      {
+        symbol: 'BBB',
+        relStrengthAbsBps: 10,
+        direction: 'up',
+        volumeExpansionRatio: 0.5,
+        corroborationDomains: 2,
+        libraryQueryText: 'BBB',
+        corpusTexts: ['BBB'],
+        newsCorpusTexts: ['BBB'],
+        macroCorpusTexts: [],
+        bookAtCap: false,
+        inOpenBook: false,
+        linkBands: {
+          newsLinkBand: 'high',
+          libraryLinkBand: 'high',
+          trendLinkBand: 'high',
+          linkCoverageBand: 'high',
+        },
+      },
+      thresholds,
+    );
+    expect(sparse.newsLinkBand).toBe('low');
+    expect(linked.newsLinkBand).toBe('high');
+    expect(rankCompoundScores([sparse, linked])[0]!.symbol).toBe('BBB');
+  });
+
   it('builds universe with SPY and cap', () => {
     const u = buildMoversUniverse({
       sectorPeers: ['NVDA', 'AMD'],

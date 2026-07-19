@@ -81,6 +81,14 @@ export const CompoundSymbolScore = z.object({
   bookFitBand: QualitativeBand,
   corroborationBand: QualitativeBand,
   corroborationDomains: z.number().int().nonnegative(),
+  /** Strongest explicit news→symbol awareness link (D-175). */
+  newsLinkBand: QualitativeBand,
+  /** Strongest library_concept→symbol awareness link (D-175). */
+  libraryLinkBand: QualitativeBand,
+  /** Strongest trend→symbol awareness link (D-175). */
+  trendLinkBand: QualitativeBand,
+  /** Coverage across distinct link fromKinds for this symbol (D-175). */
+  linkCoverageBand: QualitativeBand,
   relStrengthAbsBps: z.number().int().nonnegative(),
   direction: z.enum(['up', 'down', 'flat']),
   admitsSearch: z.boolean(),

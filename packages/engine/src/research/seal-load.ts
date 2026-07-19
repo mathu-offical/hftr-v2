@@ -31,7 +31,14 @@ export function trimSealBundleForParse(raw: unknown): unknown {
         : v.sourceDigests,
     };
   }
-  return { ...bundle, sourceDigests, view };
+  return {
+    ...bundle,
+    sourceDigests,
+    view,
+    awarenessLinks: Array.isArray(bundle.awarenessLinks)
+      ? bundle.awarenessLinks.slice(0, 128)
+      : bundle.awarenessLinks,
+  };
 }
 
 export function parseVerifiedSealBundle(

@@ -9,6 +9,7 @@ import { MarketPostureSourcesStrip } from '@/components/panels/MarketPostureSour
 import { SourceVerifyChips } from '@/components/panels/SourceVerifyChips';
 import { MarketPostureModelCanvas } from '@/components/panels/MarketPostureModelCanvas';
 import { MarketPostureAwarenessDock } from '@/components/panels/MarketPostureAwarenessDock';
+import { MarketPostureAwarenessLevels } from '@/components/panels/MarketPostureAwarenessLevels';
 import { SymbolTicker } from '@/components/market/SymbolTicker';
 import { MarketPosturePieChart } from '@/components/market/MarketPosturePieChart';
 import { MarketPostureMetricBars } from '@/components/market/MarketPostureMetricBars';
@@ -278,6 +279,10 @@ export function MarketPostureOverlay() {
                 </button>
               ))}
             </div>
+
+            {hub.awarenessAnalysis ? (
+              <MarketPostureAwarenessLevels analysis={hub.awarenessAnalysis} />
+            ) : null}
 
             <section
               className={`grid gap-3 ${dayLens === 'both' ? 'lg:grid-cols-2' : 'grid-cols-1'}`}

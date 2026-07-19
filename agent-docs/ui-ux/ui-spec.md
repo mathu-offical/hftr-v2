@@ -354,7 +354,10 @@ are ignored. Shortcuts are suppressed in editable fields.
   edges; live equity/marks poll patches `panelSurfaces` via `livePatchedAt` without a full Sync
   pulse. Operation + amount on every node; track + type legend + inspector; plus an **awareness dock**.
   Hub GET projects `modelHydration` (`processingFlows`, `processSteps`, `capitalSources`,
-  `asOfIso`, `sealStamps`, `panelSurfaces`).
+  `asOfIso`, `sealStamps`, `panelSurfaces`) and **`awarenessAnalysis` (D-175)** — multi-level
+  linkage hybrid for the expanded Posture window: **Evidence → Links → Trends → Recommendations**
+  (news/library/trend pre-linked to symbols and recommendation tiers; link bands feed compound
+  rank). Model stays secondary process chrome; Posture is the primary multi-level readout.
   **Watchlist tiers (D-092):** `suggested_search` → `suggested_verified` → `watching`
   (+ `triggered` / `archived`). Overlay recommendation watch grid + bottom Watch lists
   filter chips (default: watching + suggested_verified). **Confirm** PATCHes to `watching`

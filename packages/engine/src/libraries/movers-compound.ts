@@ -12,6 +12,13 @@ import {
   volumeBandFromRatio,
 } from './suggestion-thresholds';
 
+export type SymbolLinkBandsInput = {
+  newsLinkBand?: QualitativeBand;
+  libraryLinkBand?: QualitativeBand;
+  trendLinkBand?: QualitativeBand;
+  linkCoverageBand?: QualitativeBand;
+};
+
 export type CompoundLaneInput = {
   symbol: string;
   /** Absolute relative-strength vs benchmark in bps. */
@@ -31,6 +38,8 @@ export type CompoundLaneInput = {
   bookAtCap: boolean;
   /** true when symbol already in open positions (continuity). */
   inOpenBook: boolean;
+  /** Optional explicit awareness link bands (D-175); defaults low. */
+  linkBands?: SymbolLinkBandsInput;
 };
 
 function topicScopeForSymbol(symbol: string): string {
@@ -68,6 +77,11 @@ export function scoreCompoundSymbol(
 
   const corroborationBand = corroborationBandFromDomains(input.corroborationDomains);
 
+  const newsLinkBand = input.linkBands?.newsLinkBand ?? 'low';
+  const libraryLinkBand = input.linkBands?.libraryLinkBand ?? 'low';
+  const trendLinkBand = input.linkBands?.trendLinkBand ?? 'low';
+  const linkCoverageBand = input.linkBands?.linkCoverageBand ?? 'low';
+
   const admitsSearch =
     (bandAtLeast(libraryFit.band, thresholds.libraryFitMinBand) ||
       bandAtLeast(leadershipBand, 'medium')) &&
@@ -83,6 +97,10 @@ export function scoreCompoundSymbol(
     bookFitBand,
     corroborationBand,
     corroborationDomains: input.corroborationDomains,
+    newsLinkBand,
+    libraryLinkBand,
+    trendLinkBand,
+    linkCoverageBand,
     relStrengthAbsBps: input.relStrengthAbsBps,
     direction: input.direction,
     admitsSearch,
@@ -93,6 +111,8 @@ export function scoreCompoundSymbol(
 export function compareCompoundScores(a: CompoundSymbolScore, b: CompoundSymbolScore): number {
   const keys: (keyof CompoundSymbolScore)[] = [
     'corroborationBand',
+    'linkCoverageBand',
+    'newsLinkBand',
     'leadershipBand',
     'libraryFitBand',
     'newsFitBand',

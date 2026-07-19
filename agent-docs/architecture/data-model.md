@@ -165,6 +165,9 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   dollar readouts — and `asOfIso` + `sealStamps` (D-160) for edge
   activation/stale/pulse, plus `panelSurfaces` + `livePatchedAt` (D-161) so Model hub_ready
   hydrates into left-rail and overlay boards with silent live mark patches.
+  Hub also projects **`awarenessAnalysis` (D-175)**: sealed `awarenessLinks` rolled into
+  Evidence / Links / Trends / Recommendations for the Posture window; compound scores carry
+  link-coverage bands. Movers seals may persist `awarenessLinks` on the verified bundle JSON.
   Hub metric boards/rows project `sourceChips` (D-155): `{ id, label,
   class: api|library|system|setting }` from seal contributing kinds, mark feed, ledger, and
   watch sourceClass — live merge preserves chips across equity/mark deltas.

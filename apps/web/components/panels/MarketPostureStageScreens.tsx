@@ -20,7 +20,6 @@ import {
   type WatchlistTierFilter,
 } from '@/components/panels/WatchlistTierFilters';
 import {
-  dollarsFromCents,
   formatOrientation,
   reportKindLabel,
 } from '@/components/panels/market-posture-format';
@@ -33,6 +32,10 @@ import {
   buildStageProcessingRows,
   type StageProcessingRow,
 } from '@/lib/market-posture-stage-processing';
+import {
+  buildRootUserCapitalView,
+  formatCapitalCents,
+} from '@/lib/market-posture-root-capital';
 
 function focusRing(active: boolean): string {
   return active
@@ -322,29 +325,53 @@ function CapitalScreen(props: {
   equityLabel: string;
   companyMode: MarketPostureViewContextValue['companyMode'];
 }) {
-  const modelCap = props.hub.modelHydration?.capitalSources ?? [];
-  const hubCap = props.hub.capitalSources;
-  const chips: Array<{ id: string; name: string; amountLabel: string }> =
-    modelCap.length > 0
-      ? modelCap.map((c) => ({ id: c.id, name: c.name, amountLabel: c.amount }))
-      : hubCap.map((c) => ({
-          id: c.id,
-          name: c.name,
-          amountLabel:
-            c.allocationCents != null ? dollarsFromCents(c.allocationCents) : c.status,
-        }));
+  const view = buildRootUserCapitalView(props.hub);
+  const poolLabel = formatCapitalCents(view.companyPool?.allocationCents);
+  const equityLabel = formatCapitalCents(view.equityCents);
+
   return (
     <>
-      <section className="space-y-2" data-testid="market-posture-master-equity">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-            {masterEquityHeadline(props.companyMode)}
-          </h3>
-          <SourceVerifyChips
-            chips={props.hub.equity.sourceChips ?? []}
-            data-testid="market-posture-equity-source-chips"
-          />
+      <section
+        className="space-y-2 rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2.5"
+        data-testid="market-posture-capital-totals"
+      >
+        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+          User-controlled funds
+        </h3>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div>
+            <p className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+              Company pool
+            </p>
+            <p className="font-mono text-lg tabular-nums text-[var(--color-ink)]">{poolLabel}</p>
+            <p className="text-[10px] text-[var(--color-ink-dim)]">
+              {view.companyPool?.name ?? 'No company pool'} ·{' '}
+              {view.companyPool?.status ?? 'unavailable'}
+            </p>
+          </div>
+          <div>
+            <p className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+              {masterEquityHeadline(props.companyMode)}
+            </p>
+            <p className="font-mono text-lg tabular-nums text-[var(--color-ink)]">{equityLabel}</p>
+            <p className="text-[10px] text-[var(--color-ink-dim)]">
+              status {view.equityStatus}
+              {view.equityAsOfIso
+                ? ` · asOf ${new Date(view.equityAsOfIso).toLocaleTimeString()}`
+                : ''}
+            </p>
+          </div>
         </div>
+        <SourceVerifyChips
+          chips={props.hub.equity.sourceChips ?? []}
+          data-testid="market-posture-equity-source-chips"
+        />
+      </section>
+
+      <section className="space-y-2" data-testid="market-posture-master-equity">
+        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+          Equity path
+        </h3>
         <MarketPostureEquityChart
           series={props.hub.equity.series}
           selectedQty={null}
@@ -357,26 +384,111 @@ function CapitalScreen(props: {
           version={props.hub.equity.version}
         />
       </section>
-      <div className="flex flex-wrap gap-1.5">
-        <span className="w-full text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          Capital sources
-        </span>
-        {chips.length === 0 ? (
-          <span className="text-[10px] text-[var(--color-ink-faint)]">No capital sources</span>
+
+      <section className="space-y-2" data-testid="market-posture-root-holding-funds">
+        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+          Root holding funds{' '}
+          <span className="tabular-nums text-[var(--color-ink-dim)]">
+            ({view.rootHoldingFunds.length})
+          </span>
+        </h3>
+        {view.rootHoldingFunds.length === 0 ? (
+          <p className="text-xs text-[var(--color-ink-faint)]">No root holding funds</p>
         ) : (
-          chips.map((c) => (
-            <span
-              key={c.id}
-              className="rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2 py-1 font-mono text-[10px] text-[var(--color-ink-dim)]"
-            >
-              {c.name}
-              {c.amountLabel ? (
-                <span className="ml-1 text-[var(--color-ink-faint)]">{c.amountLabel}</span>
-              ) : null}
-            </span>
-          ))
+          <ul className="space-y-1">
+            {view.rootHoldingFunds.map((f) => (
+              <li
+                key={f.id}
+                className="flex flex-wrap items-baseline justify-between gap-2 rounded border border-[var(--color-line)] px-2 py-1.5 text-xs"
+              >
+                <span className="font-medium text-[var(--color-ink)]">{f.name}</span>
+                <span className="font-mono text-[10px] tabular-nums text-[var(--color-ink-dim)]">
+                  {formatCapitalCents(f.allocationCents ?? f.ledgerBalanceCents)}
+                  {f.allocationShareBps != null
+                    ? ` · ${(f.allocationShareBps / 100).toFixed(1)}%`
+                    : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
-      </div>
+      </section>
+
+      <section className="space-y-2" data-testid="market-posture-engine-allocations">
+        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+          Engine allocations{' '}
+          <span className="tabular-nums text-[var(--color-ink-dim)]">
+            ({view.engineGroups.length})
+          </span>
+        </h3>
+        {view.engineGroups.length === 0 ? (
+          <p className="text-xs text-[var(--color-ink-faint)]">
+            No engine desk splits yet — root funds are not allocated to execution desks.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {view.engineGroups.map((g) => (
+              <li
+                key={g.key}
+                className="rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="text-xs font-medium text-[var(--color-ink)]">{g.label}</span>
+                  <span className="font-mono text-[10px] tabular-nums text-[var(--color-ink-dim)]">
+                    {formatCapitalCents(g.allocationCentsTotal)} · {g.desks.length} desk
+                    {g.desks.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <ul className="mt-1 space-y-0.5">
+                  {g.desks.map((d) => (
+                    <li
+                      key={d.id}
+                      className="flex flex-wrap items-baseline justify-between gap-1 font-mono text-[10px] text-[var(--color-ink-faint)]"
+                    >
+                      <span>{d.name}</span>
+                      <span className="tabular-nums">
+                        {formatCapitalCents(d.allocationCents ?? d.ledgerBalanceCents)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-2" data-testid="market-posture-capital-positions">
+        <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+          Open position values{' '}
+          <span className="tabular-nums text-[var(--color-ink-dim)]">
+            ({view.positions.length})
+          </span>
+        </h3>
+        {view.positions.length === 0 ? (
+          <p className="text-xs text-[var(--color-ink-faint)]">No open positions</p>
+        ) : (
+          <ul className="max-h-56 space-y-1 overflow-y-auto">
+            {view.positions.slice(0, 24).map((p) => (
+              <li
+                key={p.id}
+                className="flex flex-wrap items-baseline justify-between gap-2 rounded border border-[var(--color-line)] px-2 py-1 text-xs"
+              >
+                <span className="font-medium text-[var(--color-ink)]">
+                  {p.symbol}{' '}
+                  <span className="font-mono text-[9px] text-[var(--color-ink-faint)]">
+                    qty {p.qty}
+                  </span>
+                </span>
+                <span className="font-mono text-[10px] tabular-nums text-[var(--color-ink-dim)]">
+                  mark {formatCapitalCents(String(p.markCents))} · uPnL{' '}
+                  {formatCapitalCents(p.unrealizedPnlCents)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </>
   );
 }

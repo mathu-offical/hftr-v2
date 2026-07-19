@@ -34,7 +34,7 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
   {
     id: 'capital',
     label: 'Capital',
-    summary: 'Fund sources and total equity',
+    summary: 'Root user funds, engine allocations, equity & position values',
     nodeIdPrefixes: ['capital:'],
     nodeRoles: ['capital_source'],
     stageIds: [],

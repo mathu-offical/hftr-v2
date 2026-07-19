@@ -322,9 +322,12 @@ are ignored. Shortcuts are suppressed in editable fields.
   fixed bottom **Model diagram strip**. Each pipeline column emits into the screen above
   it; clicking a Model node (or section group) navigates to that screen. Each stage
   screen opens with a **Processing now** tape of live hub/synthesis rows for that
-  column (sources, flows, steps, sealed boards, panel surfaces). Content below: master
-  equity + capital chips, positions/library, entitled live sources, adapters, awareness
-  + process steps, stock/news seals + reports, charts + recommendations + awareness dock.
+  column (sources, flows, steps, sealed boards, panel surfaces). **Capital** stage
+  shows root user-controlled funds only (company pool + holding funds), engine
+  allocation splits, master equity, and open position mark/uPnL values — not every
+  capital-bearing Model node. Content below: positions/library, entitled live sources,
+  adapters, awareness + process steps, stock/news seals + reports, charts +
+  recommendations + awareness dock.
   Analyze reseals stock compound + sector news in parallel.
   Distinct from Research (async corpus).   Hub data uses client **SWR cache**
   (`market-hub-cache` + `useMarketHub`): memory + sessionStorage, 15s fresh / 10m stale for

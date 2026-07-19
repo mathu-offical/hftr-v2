@@ -1857,7 +1857,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   screen (`resolveStageScreenId`). Mid-page Model section removed. ViewContext carries
   `activeStageScreenId` + `selectedModelNodeId`. Each stage screen tops with a **Processing
   now** tape of hub/synthesis rows for that column. Strip Model uses **screen-group columns**
-  nesting child nodes (lane labels dropped; density capped). Extends D-131 / D-147 / D-160 /
+  nesting child nodes (lane labels dropped; density capped). **Capital** stage / Model capital
+  lane = root user-controlled funds only (company pool + holding funds) plus engine allocation
+  and position/equity readouts — not all capital-bearing nodes. Extends D-131 / D-147 / D-160 /
   D-179. Docs: ui-spec §4 Market posture. **Status: implemented.**
 
 - **D-185 (left/right panel toggle + layering, 2026-07-19):** Amend D-123: re-clicking an

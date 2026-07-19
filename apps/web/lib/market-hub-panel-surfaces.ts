@@ -109,13 +109,15 @@ export function buildMarketHubModelCapitalSources(
 ): MarketHubModelCapitalSource[] {
   return sources
     .filter((s) => s.status !== 'unavailable')
+    /** Root user-controlled funds only on Model capital lane (D-186). */
+    .filter((s) => s.tier === 'company_root')
     .slice(0, 32)
     .map((s) => ({
       id: s.id,
       name: s.name.slice(0, 120),
       tier: s.tier,
       kind: s.kind,
-      operation: s.tier === 'company_root' ? 'root fund' : 'desk split',
+      operation: 'root fund',
       amount: capitalRowAmount(s).slice(0, 40),
       status: s.status,
     }));

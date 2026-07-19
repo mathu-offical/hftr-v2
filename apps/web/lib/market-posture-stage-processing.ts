@@ -10,6 +10,7 @@ import {
   MARKET_POSTURE_STAGE_SCREENS,
   type MarketPostureStageScreenId,
 } from './market-posture-stage-screens';
+import { buildRootUserCapitalView } from './market-posture-root-capital';
 
 export type StageProcessingRowKind =
   | 'capital'
@@ -77,38 +78,56 @@ export function buildStageProcessingRows(
 
   switch (screenId) {
     case 'capital': {
+      const view = buildRootUserCapitalView(hub);
       pushCap(rows, {
         id: 'equity',
         kind: 'capital',
         label: 'Master equity',
         operation: 'ledger',
-        amount: hub.equity.equityCents != null ? 'tracked' : 'unavailable',
-        status: hub.equity.status,
-        detail: hub.equity.asOfIso
-          ? `asOf ${new Date(hub.equity.asOfIso).toLocaleTimeString()}`
+        amount: view.equityCents != null ? 'tracked' : 'unavailable',
+        status: view.equityStatus,
+        detail: view.equityAsOfIso
+          ? `asOf ${new Date(view.equityAsOfIso).toLocaleTimeString()}`
           : undefined,
       });
-      const caps =
-        hydration?.capitalSources?.length
-          ? hydration.capitalSources
-          : hub.capitalSources.map((c) => ({
-              id: c.id,
-              name: c.name,
-              amount:
-                c.allocationCents != null
-                  ? c.allocationCents
-                  : c.status,
-              operation: c.kind,
-              status: c.status,
-            }));
-      for (const c of caps) {
+      if (view.companyPool) {
         pushCap(rows, {
-          id: `cap:${c.id}`,
+          id: `cap:${view.companyPool.id}`,
           kind: 'capital',
-          label: c.name,
-          operation: 'operation' in c ? String(c.operation) : 'allocate',
-          amount: String(c.amount),
-          status: String(c.status),
+          label: view.companyPool.name,
+          operation: 'company_pool',
+          amount: view.companyPool.allocationCents ?? view.companyPool.status,
+          status: view.companyPool.status,
+        });
+      }
+      for (const f of view.rootHoldingFunds) {
+        pushCap(rows, {
+          id: `cap:${f.id}`,
+          kind: 'capital',
+          label: f.name,
+          operation: 'holding_fund',
+          amount: f.allocationCents ?? f.status,
+          status: f.status,
+        });
+      }
+      for (const g of view.engineGroups) {
+        pushCap(rows, {
+          id: `eng:${g.key}`,
+          kind: 'capital',
+          label: g.label,
+          operation: 'engine_alloc',
+          amount: g.allocationCentsTotal ?? `${g.desks.length} desks`,
+          status: 'split',
+        });
+      }
+      for (const p of view.positions.slice(0, 6)) {
+        pushCap(rows, {
+          id: `pos:${p.id}`,
+          kind: 'position',
+          label: p.symbol,
+          operation: 'mark',
+          amount: String(p.markCents),
+          status: p.unrealizedPnlCents,
         });
       }
       break;

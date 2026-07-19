@@ -251,6 +251,8 @@ function edgeTypeDash(edgeType: MarketHubModelEdgeType): string | undefined {
       return '1 4';
     case 'panel':
       return '3 2';
+    case 'emit':
+      return '2 6';
     default: {
       const _exhaustive: never = edgeType;
       return _exhaustive;
@@ -268,15 +270,24 @@ function styleModelEdge(edge: {
   const { edgeType, activation, status, track } = edge.data;
   const stroke = trackStroke(track);
   const animated = activation === 'active' || activation === 'pulsing';
+  const width =
+    edgeType === 'emit'
+      ? 1
+      : activation === 'active' || activation === 'pulsing'
+        ? 2.2
+        : 1.2;
   const opacity =
     activation === 'blocked' || activation === 'stale'
       ? 0.35
-      : activation === 'idle'
-        ? 0.45
-        : activation === 'armed'
-          ? 0.75
-          : 1;
-  const width = activation === 'active' || activation === 'pulsing' ? 2.2 : 1.2;
+      : edgeType === 'emit'
+        ? activation === 'idle'
+          ? 0.4
+          : 0.65
+        : activation === 'idle'
+          ? 0.45
+          : activation === 'armed'
+            ? 0.75
+            : 1;
   const label =
     edge.label != null
       ? `${edge.label} · ${activation}/${status}`
@@ -638,7 +649,8 @@ function TrackLegend(props: {
       </div>
       <p className="font-mono text-[8px] text-[var(--color-ink-faint)]">
         Layers: sources → adapters → pipeline → output · edges: hydrate dashed · adapt solid ·
-        corpus dash · ∥ parallel · panel → boards · top bar = track color
+        corpus dash · ∥ parallel · panel → boards · emit dashed mid-pipeline metrics · top bar =
+        track color
       </p>
     </div>
   );

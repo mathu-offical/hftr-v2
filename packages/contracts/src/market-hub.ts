@@ -522,7 +522,7 @@ export const MarketHubModelProcessStep = z.object({
 export type MarketHubModelProcessStep = z.infer<typeof MarketHubModelProcessStep>;
 
 /**
- * Operator panel surface hydrated from synthesis / hub boards (D-161).
+ * Operator panel surface hydrated from synthesis / hub boards (D-161 / D-179).
  */
 export const MarketHubModelPanelSurface = z.object({
   id: z.enum([
@@ -534,6 +534,11 @@ export const MarketHubModelPanelSurface = z.object({
     'capital',
     'reports',
     'charts',
+    /** Linkage hybrid Posture levels (D-175 / D-179). */
+    'awareness_evidence',
+    'awareness_links',
+    'awareness_trends',
+    'awareness_recommendations',
   ]),
   label: z.string().max(80),
   /** Where the operator reads this surface. */
@@ -560,6 +565,32 @@ export const MarketHubModelPanelSurface = z.object({
     ])
     .nullable()
     .default(null),
+  /**
+   * Extra stages that emit metrics into this surface mid-pipeline (D-179).
+   * Model draws dashed `emit` edges from these in addition to sourceStageId.
+   */
+  emitFromStages: z
+    .array(
+      z.enum([
+        'providers',
+        'gather',
+        'thresholds',
+        'defaults',
+        'universe',
+        'rs',
+        'rank',
+        'verify',
+        'seal_movers',
+        'sector',
+        'daily',
+        'narrative',
+        'hub_ready',
+      ]),
+    )
+    .max(8)
+    .default([]),
+  /** Prefer emit edges from process nodes with these processFunction values. */
+  emitFromFunctions: z.array(MarketHubModelProcessFunction).max(8).default([]),
   updatedAt: z.string().datetime().nullable(),
   /**
    * When true, Model node emphasizes amount as an operator capital readout (D-163).

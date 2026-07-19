@@ -1803,7 +1803,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   packing gap ≥ **1.62**; stronger charge; softer nest/folder/article attractors; longer
   springs. Nest nameplates: libraries quiet; **folder/article labels hover/select or close
   zoom only** — no always-on stacked shelf chips. Concept canvas labels require higher zoom.
-  Docs: ui-spec §6, research-galaxy-topic-view-design. **Status: implemented.**
+  Docs: ui-spec §6, research-galaxy-topic-view-design.   **Status: implemented.**
+
+- **D-179 (Model spacing + mid-pipeline metric emissions, 2026-07-19):** Widen Market Posture
+  Model column/track spacing (process/stage/panel gaps, source row stack). Add edge type
+  `emit` (dashed) so calculation stages **and** process-function nodes emit metrics into
+  operator boards mid-pipeline — not only hub_ready→panel. Panel surfaces gain
+  `emitFromStages` / `emitFromFunctions` plus awareness level boards
+  (`awareness_evidence|links|trends|recommendations`) wired from D-175 analysis. Extends
+  D-161 / D-165 / D-169 / D-175. Docs: ui-spec §4, data-model. **Status: implemented.**
 
 ## Open questions
 

@@ -1,5 +1,5 @@
 /**
- * Market posture synthesis Model graph (D-120 … D-163 / D-165 / D-169).
+ * Market posture synthesis Model graph (D-120 … D-169 / D-179).
  * Available providers only; track-banded layout with clear lane spacing;
  * data sources (live/library/capital) feed route process chains.
  */
@@ -106,29 +106,29 @@ export type PostureAlgoGraph = {
   asOfIso: string | null;
 };
 
-/** Column / lane spacing — keeps sources, process chains, and stages readable (D-165). */
+/** Column / lane spacing — roomy tracks for source→process→stage→emit→panel (D-165 / D-179). */
 const COL = {
-  laneLabel: -40,
-  live: 120,
-  adapter: 360,
-  process0: 620,
-  processW: 200,
-  stage0: 1520,
-  stageW: 260,
+  laneLabel: -60,
+  live: 80,
+  adapter: 380,
+  process0: 680,
+  processW: 240,
+  stage0: 1780,
+  stageW: 300,
 } as const;
 
-/** Track lane Y baselines — vertical separation between data tracks. */
+/** Track lane Y baselines — wider vertical separation between data tracks. */
 const LANE_Y: Record<MarketHubModelTrack, number> = {
-  entitle: 48,
-  compound: 300,
-  daily: 560,
-  sector: 780,
-  compose: 300,
+  entitle: 40,
+  compound: 360,
+  daily: 680,
+  sector: 960,
+  compose: 360,
 };
 
-const CAPITAL_LANE_Y = 1000;
-const SOURCE_ROW_GAP = 112;
-const ADAPTER_STACK = 64;
+const CAPITAL_LANE_Y = 1240;
+const SOURCE_ROW_GAP = 148;
+const ADAPTER_STACK = 88;
 
 const STAGE_LAYOUT: Array<{
   id: MarketHubSynthesisStageId;
@@ -137,13 +137,13 @@ const STAGE_LAYOUT: Array<{
 }> = [
   { id: 'providers', x: COL.stage0, y: LANE_Y.entitle },
   { id: 'gather', x: COL.stage0 + COL.stageW, y: LANE_Y.compound },
-  { id: 'thresholds', x: COL.stage0 + COL.stageW * 2, y: LANE_Y.compound - 120 },
-  { id: 'defaults', x: COL.stage0 + COL.stageW * 2, y: LANE_Y.compound + 120 },
+  { id: 'thresholds', x: COL.stage0 + COL.stageW * 2, y: LANE_Y.compound - 160 },
+  { id: 'defaults', x: COL.stage0 + COL.stageW * 2, y: LANE_Y.compound + 160 },
   { id: 'universe', x: COL.stage0 + COL.stageW * 3, y: LANE_Y.compound },
   { id: 'rs', x: COL.stage0 + COL.stageW * 4, y: LANE_Y.compound },
   { id: 'rank', x: COL.stage0 + COL.stageW * 5, y: LANE_Y.compound },
   { id: 'verify', x: COL.stage0 + COL.stageW * 6, y: LANE_Y.compound },
-  { id: 'seal_movers', x: COL.stage0 + COL.stageW * 7, y: LANE_Y.compound - 80 },
+  { id: 'seal_movers', x: COL.stage0 + COL.stageW * 7, y: LANE_Y.compound - 120 },
   { id: 'sector', x: COL.stage0 + COL.stageW * 7, y: LANE_Y.sector },
   { id: 'daily', x: COL.stage0 + COL.stageW * 8, y: LANE_Y.daily },
   { id: 'narrative', x: COL.stage0 + COL.stageW * 9, y: LANE_Y.compose },
@@ -1227,17 +1227,20 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
     });
   }
 
-  // Panel surfaces — hub_ready hydrates into operator rail/overlay boards (D-161).
+  // Panel surfaces — primary stage hydrate + mid-pipeline metric emits (D-161 / D-179).
   const panelSurfaces = (hydration?.panelSurfaces ?? []).filter((surf) => {
     if (surf.id === 'news' && !caps.hasSector) return false;
+    if (surf.id.startsWith('awareness_') && !caps.hasCompound && !caps.hasSector) return false;
     return true;
   });
   const hubX =
     activeStageLayout.find((s) => s.id === 'hub_ready')?.x ??
     COL.stage0 + COL.stageW * 10;
-  const panelX = hubX + 320;
-  const panelGap = 72;
-  const panelStartY = LANE_Y.compose - 40;
+  const panelX = hubX + 420;
+  const panelGap = 96;
+  const panelStartY = LANE_Y.entitle;
+  const processNodes = nodes.filter((n) => n.data.nodeRole === 'process');
+
   panelSurfaces.forEach((surf, i) => {
     const nodeId = `panel:${surf.id}`;
     const ready = surf.status !== 'empty' && surf.status !== 'missing' && surf.status !== 'unavailable';
@@ -1268,15 +1271,16 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
         updatedAt: surf.updatedAt ?? hydration?.livePatchedAt ?? asOfIso,
       },
     });
-    const edgeId = `e-hub_ready-${nodeId}`;
+
     const fromStageRaw = surf.sourceStageId ?? 'hub_ready';
     const fromStage = activeStageLayout.some((s) => s.id === fromStageRaw)
       ? fromStageRaw
       : activeStageLayout.some((s) => s.id === 'hub_ready')
         ? 'hub_ready'
         : (activeStageLayout[activeStageLayout.length - 1]?.id ?? 'hub_ready');
+    const panelEdgeId = `e-panel-${fromStage}-${nodeId}`;
     edges.push({
-      id: edgeId,
+      id: panelEdgeId,
       source: fromStage,
       target: nodeId,
       label: surf.panel,
@@ -1287,10 +1291,63 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
           edgeType: 'panel',
           sourceStageStatus: byStage.get(fromStage)?.status,
           sourceReady: ready,
-          pulsed: pulsed?.has(edgeId) ?? false,
+          pulsed: pulsed?.has(panelEdgeId) ?? false,
         }),
       },
     });
+
+    // Mid-pipeline metric emissions (dashed) — stages named in emitFromStages.
+    const emitStages = surf.emitFromStages ?? [];
+    for (const stageId of emitStages) {
+      if (!activeStageLayout.some((s) => s.id === stageId)) continue;
+      if (stageId === fromStage) continue;
+      const emitId = `e-emit-${stageId}-${nodeId}`;
+      if (edges.some((e) => e.id === emitId)) continue;
+      edges.push({
+        id: emitId,
+        source: stageId,
+        target: nodeId,
+        label: 'emit',
+        data: {
+          edgeType: 'emit',
+          track: 'compose',
+          ...resolveModelEdgeState({
+            edgeType: 'emit',
+            sourceStageStatus: byStage.get(stageId)?.status,
+            sourceReady: ready,
+            pulsed: pulsed?.has(emitId) ?? false,
+          }),
+        },
+      });
+    }
+
+    // Process-function emissions — one representative process node per function class.
+    const emitFns = new Set(surf.emitFromFunctions ?? []);
+    if (emitFns.size > 0) {
+      const seenFn = new Set<string>();
+      for (const pn of processNodes) {
+        const fn = pn.data.processFunction;
+        if (!fn || !emitFns.has(fn) || seenFn.has(fn)) continue;
+        seenFn.add(fn);
+        const emitId = `e-emit-fn-${fn}-${nodeId}`;
+        if (edges.some((e) => e.id === emitId)) continue;
+        edges.push({
+          id: emitId,
+          source: pn.id,
+          target: nodeId,
+          label: fn,
+          data: {
+            edgeType: 'emit',
+            track: pn.data.track,
+            ...resolveModelEdgeState({
+              edgeType: 'emit',
+              sourceReady: pn.data.status === 'ready' || ready,
+              pulsed: pulsed?.has(emitId) ?? false,
+            }),
+          },
+        });
+      }
+    }
   });
 
   // Only list tracks that actually appear after availability filtering (D-163).

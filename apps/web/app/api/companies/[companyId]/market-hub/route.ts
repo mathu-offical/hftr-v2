@@ -911,6 +911,12 @@ export async function GET(_req: Request, ctx: Ctx) {
       if (marketModelAwareness.usedLiveCount > 0) markFeedClass = 'broker_paper';
     }
 
+    const awarenessAnalysis = projectMarketHubAwarenessAnalysis({
+      seal,
+      watchlists: watchlistsWithViz,
+      trendCandidates: trendsWithViz,
+    });
+
     const modelHydrationBase = await projectMarketHubModelHydration({
       db,
       companyId,
@@ -947,6 +953,7 @@ export async function GET(_req: Request, ctx: Ctx) {
         capitalSources,
         reports,
         charts,
+        awarenessAnalysis: awarenessAnalysis ?? null,
       }),
     };
 
@@ -959,12 +966,6 @@ export async function GET(_req: Request, ctx: Ctx) {
     const equitySourceChips = buildMarketHubSourceChips(
       equityCents != null ? ['ledger'] : [],
     );
-
-    const awarenessAnalysis = projectMarketHubAwarenessAnalysis({
-      seal,
-      watchlists: watchlistsWithViz,
-      trendCandidates: trendsWithViz,
-    });
 
     const body = MarketHubResponse.parse({
       sectorFocuses,

@@ -121,7 +121,7 @@ export const MarketHubModelTrack = z.enum([
 ]);
 export type MarketHubModelTrack = z.infer<typeof MarketHubModelTrack>;
 
-/** Connection semantic type for Model edges (D-160). */
+/** Connection semantic type for Model edges (D-160 / D-179). */
 export const MarketHubModelEdgeType = z.enum([
   'hydrate',
   'adapt',
@@ -130,6 +130,8 @@ export const MarketHubModelEdgeType = z.enum([
   'corpus',
   'parallel',
   'panel',
+  /** Mid-pipeline metric emission into Posture boards (D-179). */
+  'emit',
 ]);
 export type MarketHubModelEdgeType = z.infer<typeof MarketHubModelEdgeType>;
 

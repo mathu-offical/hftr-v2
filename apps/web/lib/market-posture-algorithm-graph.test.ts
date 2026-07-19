@@ -146,6 +146,8 @@ const hydration: MarketHubModelHydration = {
       operation: 'rail funds',
       amount: '$10000.00 · 0 desk',
       sourceStageId: 'hub_ready',
+      emitFromStages: [],
+      emitFromFunctions: [],
       updatedAt: '2026-07-19T05:00:00.000Z',
       capitalBearing: true,
     },
@@ -157,6 +159,8 @@ const hydration: MarketHubModelHydration = {
       operation: 'seal board',
       amount: '5 items',
       sourceStageId: 'seal_movers',
+      emitFromStages: ['rank', 'rs'],
+      emitFromFunctions: ['rank', 'score'],
       updatedAt: '2026-07-19T04:59:00.000Z',
       capitalBearing: false,
     },
@@ -298,7 +302,21 @@ describe('buildMarketPostureAlgorithmGraph (D-147 / D-156 / D-160 / D-162 / D-16
     expect(sectorLane).toBeUndefined();
     const gather = graph.nodes.find((n) => n.id === 'gather');
     expect(providers && gather && providers.position.y < gather.position.y).toBe(true);
-    expect(providers && gather && gather.position.x - providers.position.x >= 240).toBe(true);
+    expect(providers && gather && gather.position.x - providers.position.x >= 280).toBe(true);
+  });
+
+  it('emits mid-pipeline metrics to panel surfaces (D-179)', () => {
+    const graph = buildMarketPostureAlgorithmGraph({
+      hydration,
+      nowMs: Date.parse('2026-07-19T05:00:30.000Z'),
+    });
+    const moversPanel = graph.nodes.find((n) => n.id === 'panel:movers');
+    expect(moversPanel).toBeDefined();
+    const emitEdges = graph.edges.filter(
+      (e) => e.data.edgeType === 'emit' && e.target === 'panel:movers',
+    );
+    expect(emitEdges.length).toBeGreaterThan(0);
+    expect(emitEdges.some((e) => e.source === 'rank' || e.source === 'rs')).toBe(true);
   });
 
   it('activates pipeline edges from running stages', () => {

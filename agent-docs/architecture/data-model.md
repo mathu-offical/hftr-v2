@@ -168,6 +168,8 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   Hub also projects **`awarenessAnalysis` (D-175)**: sealed `awarenessLinks` rolled into
   Evidence / Links / Trends / Recommendations for the Posture window; compound scores carry
   link-coverage bands. Movers seals may persist `awarenessLinks` on the verified bundle JSON.
+  Model `panelSurfaces` (D-179) include awareness boards and `emitFromStages` /
+  `emitFromFunctions` so the Model draws mid-pipeline dashed `emit` edges into those boards.
   Hub metric boards/rows project `sourceChips` (D-155): `{ id, label,
   class: api|library|system|setting }` from seal contributing kinds, mark feed, ledger, and
   watch sourceClass — live merge preserves chips across equity/mark deltas.

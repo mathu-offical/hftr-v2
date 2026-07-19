@@ -5,6 +5,7 @@
  */
 
 import type {
+  MarketHubAwarenessAnalysis,
   MarketHubCapitalSource,
   MarketHubCharts,
   MarketHubEquity,
@@ -48,6 +49,10 @@ export type PanelSurfaceHubSlice = {
     MarketHubCharts,
     'watchlistTiers' | 'trendStrength' | 'moverDirections' | 'sourceReady'
   >;
+  awarenessAnalysis?: Pick<
+    MarketHubAwarenessAnalysis,
+    'evidence' | 'links' | 'trends' | 'recommendations' | 'asOfIso' | 'coverageSummary'
+  > | null;
 };
 
 function panelEquityAmount(equity: PanelSurfaceHubSlice['equity']): string {
@@ -170,6 +175,8 @@ export function buildMarketHubModelPanelSurfaces(
       operation: 'seal board',
       amount: `${slice.movers.items.length} items`,
       sourceStageId: 'seal_movers',
+      emitFromStages: ['rank', 'rs', 'verify'],
+      emitFromFunctions: ['rank', 'score'],
       updatedAt: slice.movers.verifiedAt,
       capitalBearing: false,
     },
@@ -181,6 +188,8 @@ export function buildMarketHubModelPanelSurfaces(
       operation: 'seal board',
       amount: `${slice.news.items.length} items`,
       sourceStageId: 'sector',
+      emitFromStages: ['gather', 'sector'],
+      emitFromFunctions: ['fetch', 'corroborate', 'seal'],
       updatedAt: slice.news.verifiedAt,
       capitalBearing: false,
     },
@@ -192,6 +201,8 @@ export function buildMarketHubModelPanelSurfaces(
       operation: 'tier board',
       amount: `${slice.watchlists.length} rows`,
       sourceStageId: 'verify',
+      emitFromStages: ['verify', 'rank'],
+      emitFromFunctions: ['verify', 'rank'],
       updatedAt: slice.movers.verifiedAt,
       capitalBearing: false,
     },
@@ -214,7 +225,61 @@ export function buildMarketHubModelPanelSurfaces(
       operation: 'chart hydrate',
       amount: `${chartSlices} slices`,
       sourceStageId: 'hub_ready',
+      emitFromStages: ['rs', 'rank'],
+      emitFromFunctions: ['score', 'rank'],
       updatedAt: slice.equity.asOfIso,
+      capitalBearing: false,
+    },
+    {
+      id: 'awareness_evidence',
+      label: 'Awareness · evidence',
+      panel: 'overlay',
+      status: (slice.awarenessAnalysis?.evidence.length ?? 0) > 0 ? 'ready' : 'empty',
+      operation: 'link evidence',
+      amount: `${slice.awarenessAnalysis?.evidence.length ?? 0} pkgs`,
+      sourceStageId: 'gather',
+      emitFromStages: ['gather', 'sector'],
+      emitFromFunctions: ['fetch', 'corroborate'],
+      updatedAt: slice.awarenessAnalysis?.asOfIso ?? slice.movers.verifiedAt,
+      capitalBearing: false,
+    },
+    {
+      id: 'awareness_links',
+      label: 'Awareness · links',
+      panel: 'overlay',
+      status: (slice.awarenessAnalysis?.links.length ?? 0) > 0 ? 'ready' : 'empty',
+      operation: 'pre-link edges',
+      amount: `${slice.awarenessAnalysis?.links.length ?? 0} edges`,
+      sourceStageId: 'universe',
+      emitFromStages: ['universe', 'gather'],
+      emitFromFunctions: ['extract', 'corroborate', 'normalize'],
+      updatedAt: slice.awarenessAnalysis?.asOfIso ?? slice.movers.verifiedAt,
+      capitalBearing: false,
+    },
+    {
+      id: 'awareness_trends',
+      label: 'Awareness · trends',
+      panel: 'overlay',
+      status: (slice.awarenessAnalysis?.trends.length ?? 0) > 0 ? 'ready' : 'empty',
+      operation: 'trend grounding',
+      amount: `${slice.awarenessAnalysis?.trends.length ?? 0} trends`,
+      sourceStageId: 'rank',
+      emitFromStages: ['rank', 'rs'],
+      emitFromFunctions: ['score', 'context'],
+      updatedAt: slice.awarenessAnalysis?.asOfIso ?? slice.movers.verifiedAt,
+      capitalBearing: false,
+    },
+    {
+      id: 'awareness_recommendations',
+      label: 'Awareness · recommendations',
+      panel: 'overlay',
+      status: (slice.awarenessAnalysis?.recommendations.length ?? 0) > 0 ? 'ready' : 'empty',
+      operation: 'promote tiers',
+      amount: `${slice.awarenessAnalysis?.recommendations.length ?? 0} recs`,
+      sourceStageId: 'verify',
+      emitFromStages: ['verify', 'seal_movers'],
+      emitFromFunctions: ['verify', 'rank'],
+      updatedAt: slice.awarenessAnalysis?.asOfIso ?? slice.movers.verifiedAt,
       capitalBearing: false,
     },
   ];

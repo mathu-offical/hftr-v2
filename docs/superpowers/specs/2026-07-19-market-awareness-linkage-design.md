@@ -64,7 +64,12 @@ All share `asOfIso` from the movers seal. Charts can slice link kinds / recommen
 
 ## Model (secondary)
 
-Hydration exposes link counts on compound_rank / gather stages; no duplicate multi-level tables.
+Hydration exposes link counts on compound_rank / gather stages; no duplicate multi-level tables
+in the Model (Posture owns the four-level tables).
+
+**D-179:** Model uses wider spacing and dashed **`emit`** edges from mid-pipeline stages /
+process-function nodes into panel boards (including awareness_* surfaces projected from
+`awarenessAnalysis`).
 
 ## Verification
 

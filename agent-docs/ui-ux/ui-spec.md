@@ -361,6 +361,9 @@ are ignored. Shortcuts are suppressed in editable fields.
   linkage hybrid for the expanded Posture window: **Evidence → Links → Trends → Recommendations**
   (news/library/trend pre-linked to symbols and recommendation tiers; link bands feed compound
   rank). Model stays secondary process chrome; Posture is the primary multi-level readout.
+  **Model metric emissions (D-179):** wider track/column spacing; dashed `emit` edges from
+  mid-pipeline stages and process-function nodes into panel boards (movers, news, watchlists,
+  charts, awareness_* levels) in addition to primary `panel` edges from `sourceStageId`.
   **Watchlist tiers (D-092):** `suggested_search` → `suggested_verified` → `watching`
   (+ `triggered` / `archived`). Overlay recommendation watch grid + bottom Watch lists
   filter chips (default: watching + suggested_verified). **Confirm** PATCHes to `watching`

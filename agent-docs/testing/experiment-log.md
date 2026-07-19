@@ -309,20 +309,20 @@ Scoring: `intent-alignment-scoring.md`
 
 | Field | Value |
 |---|---|
-| Status | unit **pass**; API **partial** (new checks green; full suite interrupted by Next hang) |
+| Status | unit **pass**; API paper-system-verify **25/25** (`HFTR_REQUIRE_LIVE_QUOTE=1`) |
 | Mode | paper only (`funds_only` + `paper_sim`) |
-| UI | Executions tab + ticker show Live mark / Prior session / Impact proxy / Child drain / Funds-only |
+| UI | Executions tab + ticker show Live mark / Prior session / Impact proxy / Child drain / Funds-only; PaperTradeForm notes paper capital + live marks |
 | Hypothesis | Operators see sim honesty without digging into raw tags; multi-share path proves impact proxy |
-| Declared intent | Close D-177 follow-ups for impact assertion + visual honesty emissions |
-| Observed | qty=1: `live_market_quote` (+ `prior_session_mark` off-hours). qty=5 partial: `square_root_impact_proxy` + `child_slice_drain` + `time_spaced_child_drain`. Executions GET returns `simulatorGapTags`. Promote/elevate soak interrupted when Next stopped responding |
-| Alignment | **aligned** for new surfaces; full 25-check suite re-soak pending stable local Next |
+| Declared intent | Close D-177 follow-ups for impact assertion + visual honesty emissions + durable verify harness |
+| Observed | qty=1: `live_market_quote` + `prior_session_mark` (weekend). qty=5 partial: `square_root_impact_proxy` + child drain. Elevate fail-closed. Verify harness: capacity archival, activity+executions merge, fail-fast on dead Next |
+| Alignment | **aligned** |
 | Decisions | D-187 (extends D-177 / D-167) |
-| Provenance | `live_market_quote`, `square_root_impact_proxy`, `child_slice_drain`, `funds_only_routing` |
+| Provenance | `live_market_quote`, `prior_session_mark`, `square_root_impact_proxy`, `child_slice_drain`, `funds_only_routing` |
 
 ### Follow-ups
-- Re-run full `paper-system-verify` on durable local Next (avoid agent-backgrounded servers)
-- IronBee: Executions honesty chips + ticker label
+- IronBee: Executions honesty chips + ticker label when MCP available
 - RTH soak without `prior_session_mark`
+- e2e `paper-intent-alignment` accepts live_or_synthetic + impact honesty (updated; Playwright soak pending)
 
 ---
 

@@ -1876,9 +1876,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   quote ValueRefs with feed-class provenance (`alpaca_iex_paper:quote:*` /
   `live_api:quote:*`) so fusion stays live-aware. Extend `paper-system-verify` for
   multi-share `square_root_impact_proxy` + child-drain tags and executions-feed tag
-  presence. Extends D-167 / D-177. Docs: experiment-log EXP-2026-07-19-05,
+  presence. Verify harness hardened (capacity archival, activity∪executions wait,
+  fail-fast on dead Next). Extends D-167 / D-177. Docs: experiment-log EXP-2026-07-19-05,
   broker-integration §7, ui-spec §1 shell / §4 panels.
-  **Status: implemented (API partial — promote soak interrupted by Next hang).**
+  **Status: implemented (API 25/25 verified).**
 
 ## Open questions
 

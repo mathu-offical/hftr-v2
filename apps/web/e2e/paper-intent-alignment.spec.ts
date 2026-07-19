@@ -255,12 +255,20 @@ test.describe('Paper intent alignment', () => {
       expect(trace.venue).toBe('paper_sim');
       expect(trace.verification?.result).toBe('pass');
       expect(trace.simulatorGapTags).toEqual(
-        expect.arrayContaining(['synthetic_quote', 'inline_fill_model', 'no_venue_latency']),
+        expect.arrayContaining([
+          expect.stringMatching(/^(live_market_quote|synthetic_quote)$/),
+          'inline_fill_model',
+          'no_venue_latency',
+        ]),
       );
+      // Live teacher (D-171/D-177) or synthetic fail-open — both honest.
+      const tags = trace.simulatorGapTags ?? [];
+      expect(
+        tags.includes('live_market_quote') || tags.includes('synthetic_quote'),
+      ).toBeTruthy();
       // Compile path may drain POV childSlices (`child_slice_drain` +
       // `time_spaced_child_drain` when async); operator one-shot fills keep
       // `no_partial_fills`. Never both drain honesty tags with `no_partial_fills`.
-      const tags = trace.simulatorGapTags ?? [];
       expect(
         tags.includes('child_slice_drain') || tags.includes('no_partial_fills'),
       ).toBeTruthy();
@@ -268,6 +276,13 @@ test.describe('Paper intent alignment', () => {
       if (tags.includes('time_spaced_child_drain')) {
         expect(tags).toContain('child_slice_drain');
       }
+      // Impact honesty: either catalog no-impact or √participation proxy (D-177).
+      expect(
+        tags.includes('no_market_impact') || tags.includes('square_root_impact_proxy'),
+      ).toBeTruthy();
+      expect(
+        tags.includes('no_market_impact') && tags.includes('square_root_impact_proxy'),
+      ).toBeFalsy();
     }
 
     const conservativeQuantity = Number(conservativeTrace.fills[0]?.qtyInt);

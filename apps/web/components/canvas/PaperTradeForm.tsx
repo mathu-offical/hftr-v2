@@ -51,7 +51,12 @@ export function PaperTradeForm(props: { companyId: string; moduleId: string; dis
 
   return (
     <div className="space-y-2.5 border-t border-[var(--color-line)] pt-4">
-      <span className="text-xs text-[var(--color-ink-dim)]">Paper trade</span>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-xs text-[var(--color-ink-dim)]">Paper trade</span>
+        <span className="text-[10px] text-[var(--color-ink-faint)]">
+          Paper capital · live marks when entitled
+        </span>
+      </div>
       <div className="flex gap-1.5">
         {(['buy', 'sell'] as const).map((s) => (
           <button

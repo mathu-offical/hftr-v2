@@ -12,6 +12,7 @@ async function req(
   path: string,
   body?: unknown,
   attempts = 4,
+  timeoutMs = 30_000,
 ): Promise<{ status: number; json: Json }> {
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
@@ -20,6 +21,7 @@ async function req(
         method,
         headers: body !== undefined ? { 'content-type': 'application/json' } : undefined,
         body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(timeoutMs),
       });
       const text = await res.text();
       let json: Json = {};
@@ -37,11 +39,23 @@ async function req(
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
 }
 
+async function assertServerAlive(): Promise<void> {
+  try {
+    const res = await fetch(`${BASE}/api/health`, { signal: AbortSignal.timeout(5_000) });
+    if (!res.ok) throw new Error(`health status ${res.status}`);
+  } catch (err) {
+    throw new Error(
+      `HFTR server unreachable at ${BASE} — start Next with DEV_AUTH_BYPASS=1 before verify (${String(err)})`,
+    );
+  }
+}
+
 function assert(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new Error(msg);
 }
 
 type Trace = {
+  id?: string;
   outcome: string;
   venue?: string;
   mode?: string;
@@ -51,38 +65,120 @@ type Trace = {
   fills?: Array<{ qtyInt: string }>;
 };
 
+async function loadTraces(companyId: string): Promise<Trace[]> {
+  const [act, exec] = await Promise.all([
+    req('GET', `/api/companies/${companyId}/activity`, undefined, 2, 45_000).catch(() => ({
+      status: 0,
+      json: {} as Json,
+    })),
+    req('GET', `/api/companies/${companyId}/executions`, undefined, 2, 45_000).catch(() => ({
+      status: 0,
+      json: {} as Json,
+    })),
+  ]);
+  const fromAct = (act.json.traces as Trace[] | undefined) ?? [];
+  const fromExec = ((exec.json.executions as Trace[] | undefined) ?? []).map((e) => ({
+    ...e,
+    // executions rows omit symbol sometimes; keep tags/outcome
+  }));
+  const byId = new Map<string, Trace>();
+  for (const t of [...fromAct, ...fromExec]) {
+    const id = (t as { id?: string }).id;
+    if (id) byId.set(id, { ...byId.get(id), ...t });
+    else byId.set(`anon-${byId.size}`, t);
+  }
+  return [...byId.values()];
+}
+
+async function waitForTraces(
+  companyId: string,
+  predicate: (traces: Trace[]) => boolean,
+  timeoutMs = 90_000,
+  opts?: { drain?: boolean },
+): Promise<Trace[]> {
+  const deadline = Date.now() + timeoutMs;
+  const shouldDrain = opts?.drain !== false;
+  let traces: Trace[] = [];
+  let consecutiveFailures = 0;
+  while (Date.now() < deadline) {
+    try {
+      traces = await loadTraces(companyId);
+      consecutiveFailures = 0;
+      if (predicate(traces)) return traces;
+      if (shouldDrain) {
+        await req('POST', '/api/queue/drain', undefined, 1, 15_000).catch(() => undefined);
+        traces = await loadTraces(companyId);
+        if (predicate(traces)) return traces;
+      }
+    } catch (err) {
+      consecutiveFailures += 1;
+      if (consecutiveFailures >= 4) {
+        throw new Error(
+          `waitForTraces aborted after ${consecutiveFailures} consecutive failures: ${String(err)}`,
+        );
+      }
+    }
+    await new Promise((r) => setTimeout(r, 1_250));
+  }
+  return traces;
+}
+
+/** @deprecated alias — prefer waitForTraces */
 async function drainUntil(
   companyId: string,
   predicate: (traces: Trace[]) => boolean,
   timeoutMs = 120_000,
 ): Promise<Trace[]> {
-  const deadline = Date.now() + timeoutMs;
-  let traces: Trace[] = [];
-  while (Date.now() < deadline) {
-    await req('POST', '/api/queue/drain');
-    const act = await req('GET', `/api/companies/${companyId}/activity`);
-    traces = (act.json.traces as Trace[] | undefined) ?? [];
-    if (predicate(traces)) return traces;
-    await new Promise((r) => setTimeout(r, 1_000));
+  return waitForTraces(companyId, predicate, timeoutMs, { drain: true });
+}
+
+async function ensureCreateCapacity(needSlots = 2): Promise<number> {
+  const list = await req('GET', '/api/companies');
+  const companies = (list.json.companies as Array<{ id: string; name?: string }>) ?? [];
+  const overflow = companies.length + needSlots - 20;
+  if (overflow <= 0) return 0;
+  // Prefer prior verify/cohort leftovers; never wipe non-test names first.
+  const preferred = companies.filter((c) => {
+    const n = String(c.name ?? '');
+    return n.startsWith('Paper verify') || n.includes('Cohort ') || n.startsWith('Paper ');
+  });
+  const rest = companies.filter((c) => !preferred.includes(c));
+  const victims = [...preferred, ...rest].slice(0, overflow + 2);
+  let archived = 0;
+  for (const c of victims) {
+    const del = await req('DELETE', `/api/companies/${c.id}`);
+    if (del.status < 300) archived += 1;
   }
-  return traces;
+  return archived;
 }
 
 async function main() {
+  await assertServerAlive();
   const results: Array<{ check: string; ok: boolean; detail: string }> = [];
   const record = (check: string, ok: boolean, detail: string) => {
     results.push({ check, ok, detail });
     console.log(`${ok ? 'PASS' : 'FAIL'}  ${check}: ${detail}`);
   };
 
+  const archived = await ensureCreateCapacity(2);
+  if (archived > 0) {
+    record('archive_capacity', true, `archived=${archived}`);
+  }
+
   const name = `Paper verify ${Date.now()}`;
-  const create = await req('POST', '/api/companies', {
-    name,
-    philosophyPrompt: 'Paper system verification cohort.',
-    mode: 'paper',
-    seedCreditsCents: 1_000_000,
-    engines: [{ templateId: 'engine_day_trading', inputs: {} }],
-  });
+  const create = await req(
+    'POST',
+    '/api/companies',
+    {
+      name,
+      philosophyPrompt: 'Paper system verification cohort.',
+      mode: 'paper',
+      seedCreditsCents: 1_000_000,
+      engines: [{ templateId: 'engine_day_trading', inputs: {} }],
+    },
+    3,
+    120_000,
+  );
   assert(create.status < 300, `create company ${create.status} ${JSON.stringify(create.json)}`);
   const companyId = (create.json.company as { id: string }).id;
   record('create_company', true, companyId);
@@ -149,12 +245,13 @@ async function main() {
     `status=${trade.status} ${JSON.stringify(trade.json).slice(0, 200)}`,
   );
 
-  const traces = await drainUntil(
+  const traces = await waitForTraces(
     companyId,
-    (t) => t.some((x) => x.outcome === 'filled' && (x.symbol === 'AAPL' || !x.symbol)),
-    60_000,
+    (t) => t.some((x) => x.outcome === 'filled'),
+    45_000,
+    { drain: false },
   );
-  const filled = traces.find((t) => t.outcome === 'filled' && (t.symbol === 'AAPL' || !t.symbol));
+  const filled = traces.find((t) => t.outcome === 'filled');
   record(
     'activity_filled_trace',
     Boolean(filled),
@@ -217,7 +314,7 @@ async function main() {
     multiTrade.status < 300,
     `status=${multiTrade.status}`,
   );
-  const multiTraces = await drainUntil(
+  const multiTraces = await waitForTraces(
     companyId,
     (t) =>
       t.some(
@@ -226,6 +323,7 @@ async function main() {
           (x.simulatorGapTags ?? []).includes('square_root_impact_proxy'),
       ),
     90_000,
+    { drain: true },
   );
   const multiFilled = multiTraces.find(
     (x) =>

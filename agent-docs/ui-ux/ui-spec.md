@@ -278,14 +278,14 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   librarian **Curate / Verify / Refresh** (D-127). Library research (`LIBRARY_RESEARCH`) is a
   separate queue from posture research (`POSTURE_RESEARCH`) and from execution/other LLM lanes
   (D-098).
-- **Market posture** tab (D-081 / D-085 / D-092 / D-101 / **D-131** / **D-138**): split
-  inventory vs day quant. **Left rail (D-131/D-138)** lists **funds** (holding funds, desks,
-  fund routers, engine envelopes) with **resolved allocation amounts** (USD cents + pool share
-  bps + optional module ledger) and **open positions**; Sync + **Day view**. Position select
-  opens day overlay focus. Opening Day view opens the **canvas overlay** that aggregates live
-  streams: **master equity** chart, dual **stock movers / sector news** boards (lens: both /
-  stock / news), sealed reports, recommendation grids, synthesis Model. Analyze reseals stock
-  compound (bars+news) and sector news in parallel.
+- **Market posture** tab (D-081 / D-085 / D-092 / D-101 / **D-131** / **D-138** / **D-139**):
+  split inventory vs day quant. **Left rail** viewing pattern:
+  1. **Company · root funds** — company pool + root `holding_fund` only (resolved amounts)
+  2. **Execution · module splits** — trading desks (engine envelope only if no desk)
+  3. **Open positions**
+  Fund-router hops are **not** listed (route topology ≠ capital source). Sync + **Day view**.
+  Canvas overlay: **master equity**, dual **stock / news** boards, sealed reports,
+  recommendations, synthesis Model. Analyze reseals stock compound + sector news in parallel.
   Distinct from Research (async corpus).   Hub data uses client **SWR cache**
   (`market-hub-cache` + `useMarketHub`): memory + sessionStorage, 15s fresh / 10m stale for
   **full hub** cache policy (used on mount/Sync/after Analyze), inflight dedupe, shell

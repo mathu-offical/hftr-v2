@@ -1411,7 +1411,17 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   LLM-emitted dollars. Day overlay shows **master equity**, dual **stock movers / sector news**
   boards (lens toggle), and recommendations; Analyze already reseals movers compound + sector
   news in parallel — UI and hub `news` board make both streams first-class. Docs: ui-spec §4,
-  data-model, contracts `MarketHubCapitalSource` / `MarketHubNews`. **Status: implemented.**
+  data-model, contracts `MarketHubCapitalSource` / `MarketHubNews`. **Status: implemented**
+  (refined by D-139 — root funds only).
+
+- **D-139 (Posture capital = company roots + execution splits, 2026-07-18):** Left Posture
+  capital inventory is **not** the fund_route graph. Viewing pattern:
+  1. **Company · root funds** — synthetic company pool + `holding_fund` modules only
+  2. **Execution · module splits** — `trading` desks (and engine envelopes only when no desk)
+  3. **Open positions**
+  `fund_router` hops are omitted (topology, not sources). `MarketHubCapitalSource.tier`
+  discriminates `company_root` vs `execution_split`. Docs: ui-spec §4, contracts.
+  **Status: implemented.**
 
 - **D-132 (galaxy library clusters — separation + nest dominance, 2026-07-18):** Fibonacci
   volume packing (D-116) still allowed large nest hulls to overlap and cross-library springs

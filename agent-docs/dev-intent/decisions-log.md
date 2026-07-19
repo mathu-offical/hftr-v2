@@ -1851,10 +1851,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Extends D-175 / D-181. Docs: research-live-system-cadence, ui-spec §4. **Status: implemented.**
 
 - **D-186 (Market Posture stage-strip workspace, 2026-07-19):** Day overlay is a two-band
-  workspace: horizontal **pipeline-column stage screens** (capital → library → live → adapt →
-  process → seals → compose) snap-scroll above a fixed bottom **Model diagram strip**. Each
-  diagram column emits into the screen above it; clicking a Model node navigates to its owning
-  screen (`resolveStageScreenId`). Mid-page Model section removed. ViewContext carries
+  workspace: horizontal **pipeline-column stage screens** (capital → library → live →
+  process → seals → day) snap-scroll above a fixed bottom **Model diagram strip**. **Live**
+  combines APIs + adapters with structured filtered source readouts. **Process** shows
+  ingest of filtered feeds, linking, limits (thresholds/defaults), and cost basis.
+  **Day** replaces compose — movements, actions, and trends for today. Each diagram column
+  emits into the screen above it; clicking a Model node navigates to its owning screen
+  (`resolveStageScreenId`). Mid-page Model section removed. ViewContext carries
   `activeStageScreenId` + `selectedModelNodeId`. Each stage screen tops with a **Processing
   now** tape of hub/synthesis rows for that column. Strip Model uses **screen-group columns**
   nesting child nodes (lane labels dropped; density capped). **Capital** stage / Model capital
@@ -1887,6 +1890,16 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   timeline-honesty-chips). Timeline API returns optional `simulatorGapTags` on
   `TraceTimelineResponse`. Docs: ui-spec §4 panels.
   **Status: implemented.**
+
+- **D-189 (simulation ENGINE templates + exec family placement, 2026-07-19):** New
+  create section `simulation` with bespoke templates `sim_gate_strategy_spread` (pre/gate),
+  `sim_train_policy_replay` (post/training), `sim_adhoc_paper_desk` (standalone). Execution
+  create defaults to **2** child sims (overridable none..N); linked sims require parent
+  execution + placement; binding on `setup_snapshot.simulationBinding`. Integrates with
+  paper spine (D-122); live remains fail-closed. Spec:
+  `docs/superpowers/specs/2026-07-19-simulation-engine-templates-design.md`.
+  Docs: product-spec, canvas-engine-group-design, engine-node-family-design, data-model.
+  **Status: implemented (templates + create/palette/API wiring).**
 
 ## Open questions
 

@@ -98,6 +98,10 @@ ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles
   owner→root→children. Unowned roots stay in the right column. Research engines emit
   subtype / curiosity / admission / cadence / discover→verify trees; lever bands remain
   inspector-only. Positions persist on `setupSnapshot.optionAnchorPositions`.
+- **Simulation ENGINEs (D-189):** create section alongside Research / Execution. Linked
+  children of an execution use `setup_snapshot.simulationBinding` (`pre`=gate /
+  `post`=training + parentExecutionEngineId); adhoc sims are standalone paper desks.
+  Execution create defaults to two child sims (overridable).
 - **Company → engine cascade (D-176):** canvas insert defaults `cascadeFromCompany` on —
   topic from `sectorFocuses`, capital from paper seed — then engine→member cascade (D-035).
 - **D-089 note:** shared setup + template inputs stay in the **header** as bordered inline fields

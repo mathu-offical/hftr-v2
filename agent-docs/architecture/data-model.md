@@ -47,7 +47,9 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   `companies.auto_fund_policy` shape: `{ mode: off|propose_on_equity_refresh, amountBps }`
   — equity.refresh may propose inbox transfers only.
 - **engine_instances** (D-028, migration `0014_engine_instances`) — company_id, template_id,
-  label, master_topic_sectors text[], canvas_bounds jsonb `{x,y,width,height}` nullable.
+  label, master_topic_sectors text[], canvas_bounds jsonb `{x,y,width,height}` nullable,
+  setup_snapshot jsonb (operator draft + D-173 option anchors + **D-189**
+  `simulationBinding`: `{ role, placement?, parentExecutionEngineId?, mimicParent }`).
   Member modules reference via `modules.engine_instance_id`; Math modules never join.
 - **engine_utility_links** (D-091, migration `0037`) — company_id, to_engine_id FK
   → engine_instances, bus `data_in|data_out|clock|funds|system_control`, from_engine_id FK

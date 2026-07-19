@@ -205,8 +205,14 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   `fund_route` edges to Math and fund router. **Topology only** — no ledger transfers yet.
 - **Module generator:** conversational/spec-driven creation of any module type (assistant
   tool-calls under the hood; outputs a draft module the user confirms).
-- **Simulator:** parallel paper runs of a trading module config; results comparable side-by-side;
-  user can wire results to feed a trend/research module (config field `feed_target`).
+- **Simulator / simulation ENGINEs (D-189):** first-class ENGINE templates in create section
+  **Simulation** — hybrid like research: children of an execution ENGINE (`pre` = gate,
+  `post` = training) or standalone adhoc paper desks. Execution create defaults to two child
+  sims (count overridable). Gate sims run strategy spreads in paper to influence parent
+  settings; training sims replay parent policy and feed the parent Engine Data Hub.
+  Legacy `simulator` module + `simulation_runs` remain for thin parallel runs; prefer sim
+  ENGINEs for process-visible strategy refinement. See
+  `docs/superpowers/specs/2026-07-19-simulation-engine-templates-design.md`.
 - **Analyzer:** model-free inbound package concatenator with auto-detected input shape; serves
   verification loopback on execution ENGINEs and qualitative export on research ENGINEs.
   **D-091:** research ENGINE templates terminate with an analyzer (`emitMode: to_desk_stream` or

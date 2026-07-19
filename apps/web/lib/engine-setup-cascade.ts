@@ -26,6 +26,7 @@ export { splitAllocationValues } from '@hftr/contracts';
 export function engineSetupSnapshotFromInput(
   setup: ModuleSetupInput | undefined,
   previous?: EngineSetupSnapshot | null,
+  extras?: { simulationBinding?: EngineSetupSnapshot['simulationBinding'] },
 ): EngineSetupSnapshot {
   const prev = previous ?? {
     topicSectors: [],
@@ -45,6 +46,8 @@ export function engineSetupSnapshotFromInput(
       targetExitLocal = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
   }
+  const simulationBinding =
+    extras?.simulationBinding ?? previous?.simulationBinding ?? undefined;
   return {
     topicSectors,
     allocationMode,
@@ -54,6 +57,7 @@ export function engineSetupSnapshotFromInput(
     ...(previous?.optionAnchorPositions
       ? { optionAnchorPositions: previous.optionAnchorPositions }
       : {}),
+    ...(simulationBinding ? { simulationBinding } : {}),
   };
 }
 

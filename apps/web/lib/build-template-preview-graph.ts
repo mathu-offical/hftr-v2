@@ -49,7 +49,7 @@ export type PreviewEngineGroupNodeData = {
   engineKey: string;
   label: string;
   templateId: string;
-  section: 'research' | 'execution';
+  section: 'research' | 'execution' | 'simulation';
   autoDependency: boolean;
   selected: boolean;
   /** True when this engine is in the same cascade family as the selection. */
@@ -73,7 +73,7 @@ function templateFor(templateId: string): EngineTemplate | undefined {
   return ENGINE_TEMPLATES.find((item) => item.id === templateId);
 }
 
-function sectionFor(seed: PreviewEngineSeed): 'research' | 'execution' {
+function sectionFor(seed: PreviewEngineSeed): 'research' | 'execution' | 'simulation' {
   const template = templateFor(seed.templateId);
   return template ? engineCreateSection(template) : 'research';
 }

@@ -206,7 +206,11 @@ export async function POST(req: Request, ctx: Ctx) {
       cascadeFromCompany,
     );
     const masterTopicSectors = setup.topicSectors ?? [];
-    const setupSnapshot = engineSetupSnapshotFromInput(setup);
+    const setupSnapshot = engineSetupSnapshotFromInput(
+      setup,
+      null,
+      input.simulationBinding ? { simulationBinding: input.simulationBinding } : undefined,
+    );
     const templateInputs = input.inputs ?? {};
 
     const clock = createSystemClock();

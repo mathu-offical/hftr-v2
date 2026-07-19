@@ -15,7 +15,9 @@ Balance operator visual flexibility with hardened verified execution:
 2. v1 pipeline stages surface in a **per-node detail modal** (observe + bounded tune).
 3. **One shared control plane** for user overrides and LLM picks — fail-closed envelopes.
 4. User owns high-level directives by default; may opt into manual control of any in-envelope lever.
-5. Execution ENGINEs use the **full spine**; research ENGINEs are specialized by research type; Math is typed by consumer need.
+5. Execution ENGINEs use the **full spine**; research ENGINEs are specialized by research type;
+   **simulation ENGINEs (D-189)** are bespoke paper gate/train/adhoc desks; Math is typed by
+   consumer need.
 
 ## Architecture split
 
@@ -140,6 +142,17 @@ never share the same default function identity. Libraries use `libraryClass` →
 | `session_calendar` | Clock/calendar session math | company / policy-adjacent |
 
 Dedicated Math ownership (D-033) maps owner → preferred `mathType` when provisioning tools.
+
+## Simulation ENGINE specializations (D-189)
+
+| Template | Placement / role | Purpose |
+|----------|------------------|---------|
+| `sim_gate_strategy_spread` | `pre` / gate | Parallel strategy-spread paper runs → influence parent |
+| `sim_train_policy_replay` | `post` / training | Parent policy replay → hub feedback |
+| `sim_adhoc_paper_desk` | adhoc | Standalone paper desk; promotable later via live gates |
+
+Create section: `simulation`. Defaults: execution add seeds two children (overridable).
+Binding: `setup_snapshot.simulationBinding`. Paper/funds_only by default.
 
 ## Execution ENGINE specialties (full spine)
 

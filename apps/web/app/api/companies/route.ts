@@ -15,9 +15,12 @@ import {
   withDefaultEngineSetup,
   templateInputTargets,
   expandEngineSeedsWithResearchDeps,
+  expandEngineSeedsWithSimDeps,
   engineCreateSection,
   researchDependenciesForExecutionEngine,
+  simulationRoleForPlacement,
   type LayoutRect,
+  type SimulationEngineBinding,
 } from '@hftr/contracts';
 import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
@@ -64,7 +67,11 @@ export async function POST(req: Request) {
       engineCatalog.filter((item) => item.available).map((item) => item.id),
     );
     // D-153: expand execution seeds with use-case research packs (idempotent if UI already sent them).
-    const engineSeeds = expandEngineSeedsWithResearchDeps(input.engines, {
+    // D-189: append default simulation ENGINE children (gate pre + train post; idempotent).
+    const afterResearch = expandEngineSeedsWithResearchDeps(input.engines, {
+      availableTemplateIds: availableIds,
+    });
+    const engineSeeds = expandEngineSeedsWithSimDeps(afterResearch, {
       availableTemplateIds: availableIds,
     });
     if (engineSeeds.length > 10) {
@@ -245,7 +252,41 @@ export async function POST(req: Request) {
         },
         Number(input.seedCreditsCents),
       );
-      const setupSnapshot = engineSetupSnapshotFromInput(engineSetup);
+
+      let simulationBinding: SimulationEngineBinding | undefined;
+      if (engineCreateSection(engine) === 'simulation') {
+        const placement = seed.simulationPlacement;
+        if (placement) {
+          let parentExecutionEngineId: string | undefined;
+          for (let prior = engineIndex - 1; prior >= 0; prior -= 1) {
+            const priorSeed = engineSeeds[prior]!;
+            const priorTemplate = engineCatalog.find((item) => item.id === priorSeed.templateId);
+            if (priorTemplate && engineCreateSection(priorTemplate) === 'execution') {
+              parentExecutionEngineId = createdEngineIds[prior];
+              break;
+            }
+          }
+          if (parentExecutionEngineId) {
+            simulationBinding = {
+              role: seed.simulationRole ?? simulationRoleForPlacement(placement),
+              placement,
+              parentExecutionEngineId,
+              mimicParent: true,
+            };
+          }
+        } else {
+          simulationBinding = {
+            role: seed.simulationRole ?? 'adhoc',
+            mimicParent: false,
+          };
+        }
+      }
+
+      const setupSnapshot = engineSetupSnapshotFromInput(
+        engineSetup,
+        null,
+        simulationBinding ? { simulationBinding } : undefined,
+      );
 
       const [engineRow] = await db
         .insert(engineInstances)

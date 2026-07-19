@@ -42,6 +42,9 @@ import {
   placeNextEngineOrigin,
   reflowEngineAtOrigin,
   researchDependenciesForExecutionEngine,
+  simDependenciesForExecutionEngine,
+  DEFAULT_EXECUTION_SIM_COUNT,
+  simulationRoleForPlacement,
   translateLayoutResultToOrigin,
   type DeleteEngineMode,
   type EngineTemplate,
@@ -2284,13 +2287,20 @@ export function CompanyCanvas(props: {
       engine: EngineTemplate,
       inputs: Record<string, string>,
       setup?: ModuleSetupInput,
-      options?: { cascadeFromCompany?: boolean },
+      options?: {
+        cascadeFromCompany?: boolean;
+        simulationBinding?: import('@hftr/contracts').SimulationEngineBinding;
+      },
     ) => {
       const cascadeFromCompany = options?.cascadeFromCompany !== false;
       const present = new Set(
         nodes.filter(isEngineGroupNode).map((node) => node.data.templateId),
       );
-      const queue: Array<{ template: EngineTemplate; inputs: Record<string, string> }> = [];
+      const queue: Array<{
+        template: EngineTemplate;
+        inputs: Record<string, string>;
+        simulationBinding?: import('@hftr/contracts').SimulationEngineBinding;
+      }> = [];
       if (engineCreateSection(engine) === 'execution') {
         for (const depId of researchDependenciesForExecutionEngine(engine.id)) {
           if (present.has(depId)) continue;
@@ -2300,11 +2310,30 @@ export function CompanyCanvas(props: {
           present.add(depId);
         }
       }
-      queue.push({ template: engine, inputs });
+      queue.push({
+        template: engine,
+        inputs,
+        ...(options?.simulationBinding
+          ? { simulationBinding: options.simulationBinding }
+          : {}),
+      });
+
+      // After the parent exec is inserted, child sims are queued with its id.
+      const pendingSimDeps =
+        engineCreateSection(engine) === 'execution'
+          ? simDependenciesForExecutionEngine(engine.id, DEFAULT_EXECUTION_SIM_COUNT).filter(
+              (dep) => {
+                if (present.has(dep.templateId)) return false;
+                const depTemplate = ENGINE_TEMPLATES.find((item) => item.id === dep.templateId);
+                return Boolean(depTemplate?.available);
+              },
+            )
+          : [];
 
       let workingNodes = nodes;
       let workingEdges = edges;
       const insertedLabels: string[] = [];
+      let insertedExecutionId: string | null = null;
 
       try {
         for (const item of queue) {
@@ -2357,14 +2386,18 @@ export function CompanyCanvas(props: {
               status: ModuleStatus;
               canvasPosition: { x: number; y: number } | null;
               topicSectors: string[];
-              capitalAllocationRef: string | null;
-              targetExitRef: string | null;
+              topicSectorsOverridden?: boolean;
+              capitalAllocationRef?: string | null;
+              targetExitRef?: string | null;
+              config: unknown;
               engineInstanceId: string | null;
-              toolOwnerModuleId: string | null;
-              topicSectorsOverridden: boolean;
-              config?: Record<string, unknown> | null;
             }>;
-            links: CanvasLink[];
+            links: Array<{
+              id: string;
+              fromModuleId: string;
+              toModuleId: string;
+              linkKind: LinkKind;
+            }>;
             familyLayout?: {
               modules: Array<{ id: string; canvasPosition: { x: number; y: number } }>;
               engines: Array<{
@@ -2389,8 +2422,16 @@ export function CompanyCanvas(props: {
               setup,
               cascadeFromCompany,
               canvasOffset: offset,
+              ...(item.simulationBinding
+                ? { simulationBinding: item.simulationBinding }
+                : {}),
             },
           });
+
+          if (engineCreateSection(item.template) === 'execution') {
+            insertedExecutionId = response.engine.id;
+          }
+          insertedLabels.push(response.engine.label);
 
           const bounds =
             response.engine.canvasBounds ??
@@ -2406,7 +2447,16 @@ export function CompanyCanvas(props: {
           }));
           const newModuleEdges = response.links.map((l) => toEdge(l));
           const insertedNodes = buildInitialGraph(
-            response.modules.map((row) => moduleRowToCanvas(row)),
+            response.modules.map((row) =>
+              moduleRowToCanvas({
+                ...row,
+                capitalAllocationRef: row.capitalAllocationRef ?? null,
+                targetExitRef: row.targetExitRef ?? null,
+                toolOwnerModuleId: null,
+                topicSectorsOverridden: row.topicSectorsOverridden ?? false,
+                config: (row.config ?? {}) as Record<string, unknown>,
+              }),
+            ),
             [
               {
                 id: response.engine.id,
@@ -2439,8 +2489,149 @@ export function CompanyCanvas(props: {
             workingNodes = applyLayoutToNodes(workingNodes, response.familyLayout);
           }
           workingEdges = mergeUtilityEdgesFromNodes(allEdges, workingNodes);
+        }
 
-          insertedLabels.push(item.template.label);
+        // D-189: default child sims after parent execution is known.
+        if (insertedExecutionId && pendingSimDeps.length > 0) {
+          for (const simDep of pendingSimDeps) {
+            const simTemplate = ENGINE_TEMPLATES.find((item) => item.id === simDep.templateId);
+            if (!simTemplate?.available) continue;
+            const occupied = workingNodes.filter(isEngineGroupNode).map(engineBounds);
+            const templatePositions = simTemplate.modules.map((module) => module.position);
+            const relativeBounds = computeEngineBoundsFromPositions(templatePositions);
+            const origin = placeNextEngineOrigin(occupied, relativeBounds, {
+              originX: CANVAS_LAYOUT.originX,
+              originY: CANVAS_LAYOUT.originY,
+              section: 'simulation',
+            });
+            const { offset } = engineCanvasOffsetForOrigin(
+              templatePositions,
+              origin,
+              ENGINE_GROUP_PADDING,
+            );
+            const simResponse = await api<{
+              engine: {
+                id: string;
+                templateId: string;
+                label: string;
+                masterTopicSectors: string[];
+                capitalAllocationRef?: string | null;
+                targetExitRef?: string | null;
+                setupSnapshot?: CanvasEngineGroup['setupSnapshot'];
+                templateInputs?: Record<string, string>;
+                canvasBounds: { x: number; y: number; width: number; height: number } | null;
+                memberModuleIds: string[];
+              };
+              modules: Array<{
+                id: string;
+                type: ModuleType;
+                name: string;
+                generatedNameBase: string;
+                nameCustomized: boolean;
+                status: ModuleStatus;
+                canvasPosition: { x: number; y: number } | null;
+                topicSectors: string[];
+                topicSectorsOverridden?: boolean;
+                capitalAllocationRef?: string | null;
+                targetExitRef?: string | null;
+                config: unknown;
+                engineInstanceId: string | null;
+              }>;
+              links: Array<{
+                id: string;
+                fromModuleId: string;
+                toModuleId: string;
+                linkKind: LinkKind;
+              }>;
+              familyLayout?: {
+                modules: Array<{ id: string; canvasPosition: { x: number; y: number } }>;
+                engines: Array<{
+                  id: string;
+                  canvasBounds: { x: number; y: number; width: number; height: number };
+                }>;
+              } | null;
+              utilityLinks?: Array<{
+                id: string;
+                toEngineId: string;
+                bus: EngineUtilityBus;
+                fromEngineId?: string | null;
+                fromModuleId?: string | null;
+                streamId?: string | null;
+                streamDescriptor?: string | null;
+              }>;
+            }>(`/api/companies/${props.companyId}/engines`, {
+              method: 'POST',
+              body: {
+                templateId: simTemplate.id,
+                inputs: {},
+                setup,
+                cascadeFromCompany,
+                canvasOffset: offset,
+                simulationBinding: {
+                  role: simulationRoleForPlacement(simDep.placement),
+                  placement: simDep.placement,
+                  parentExecutionEngineId: insertedExecutionId,
+                  mimicParent: true,
+                },
+              },
+            });
+            insertedLabels.push(simResponse.engine.label);
+            const simBounds =
+              simResponse.engine.canvasBounds ??
+              computeEngineBoundsFromPositions(
+                simResponse.modules
+                  .filter(
+                    (m) => m.engineInstanceId === simResponse.engine.id && m.type !== 'math',
+                  )
+                  .map((m) => (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number }),
+              );
+            const utilityLinks = (simResponse.utilityLinks ?? []).map((link) => ({
+              ...link,
+              toEngineId: link.toEngineId,
+            }));
+            const newModuleEdges = simResponse.links.map((l) => toEdge(l));
+            const insertedNodes = buildInitialGraph(
+              simResponse.modules.map((row) =>
+                moduleRowToCanvas({
+                  ...row,
+                  capitalAllocationRef: row.capitalAllocationRef ?? null,
+                  targetExitRef: row.targetExitRef ?? null,
+                  toolOwnerModuleId: null,
+                  topicSectorsOverridden: row.topicSectorsOverridden ?? false,
+                  config: (row.config ?? {}) as Record<string, unknown>,
+                }),
+              ),
+              [
+                {
+                  id: simResponse.engine.id,
+                  templateId: simResponse.engine.templateId,
+                  label: simResponse.engine.label,
+                  masterTopicSectors: simResponse.engine.masterTopicSectors,
+                  capitalAllocationRef: simResponse.engine.capitalAllocationRef ?? null,
+                  targetExitRef: simResponse.engine.targetExitRef ?? null,
+                  setupSnapshot: simResponse.engine.setupSnapshot ?? null,
+                  templateInputs: simResponse.engine.templateInputs ?? {},
+                  canvasBounds: simBounds,
+                  memberModuleIds: simResponse.engine.memberModuleIds,
+                  utilityLinks: utilityLinks.filter(
+                    (link) => link.toEngineId === simResponse.engine.id,
+                  ),
+                },
+              ],
+              simResponse.links,
+              props.companyId,
+              stableEngineCallbacks,
+            );
+            const allEdges = [...workingEdges, ...newModuleEdges];
+            workingNodes = applyUtilityLinksToEngineNodes(
+              applyMathAttachments([...workingNodes, ...insertedNodes], allEdges),
+              utilityLinks,
+            );
+            if (simResponse.familyLayout) {
+              workingNodes = applyLayoutToNodes(workingNodes, simResponse.familyLayout);
+            }
+            workingEdges = mergeUtilityEdgesFromNodes(allEdges, workingNodes);
+          }
         }
 
         // Final client family reflow so local node graph matches research|hub|exec.
@@ -2856,6 +3047,13 @@ export function CompanyCanvas(props: {
         onAdd={addModule}
         onInsertEngine={insertEngine}
         {...(props.companyDefaults ? { companyDefaults: props.companyDefaults } : {})}
+        executionEngines={nodes
+          .filter(isEngineGroupNode)
+          .filter((node) => {
+            const template = getEngineTemplateById(node.data.templateId);
+            return template ? engineCreateSection(template) === 'execution' : false;
+          })
+          .map((node) => ({ id: node.id, label: node.data.label }))}
       />
 
       {/*

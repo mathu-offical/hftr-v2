@@ -7,11 +7,14 @@ import {
   engineCreateSection,
   moduleFunctionLabel,
   requiredModuleSetupFields,
+  simulationRoleForPlacement,
   type EngineCreateSection,
   type EngineTemplate,
   type ModuleSetupField,
   type ModuleSetupInput,
   type ModuleType,
+  type SimulationEngineBinding,
+  type SimulationPlacement,
 } from '@hftr/contracts';
 import { api } from '@/lib/client';
 import {
@@ -36,7 +39,12 @@ const ENGINE_STORE_SECTIONS: ReadonlyArray<{
   {
     id: 'execution',
     label: 'Execution',
-    hint: 'Trading desks — auto-queues missing research deps on insert.',
+    hint: 'Trading desks — auto-queues research deps + default sim children.',
+  },
+  {
+    id: 'simulation',
+    label: 'Simulation',
+    hint: 'Paper gate (pre), training (post), or adhoc sim desks.',
   },
 ];
 
@@ -187,9 +195,14 @@ export function Palette(props: {
     engine: EngineTemplate,
     inputs: Record<string, string>,
     setup?: ModuleSetupInput,
-    options?: { cascadeFromCompany?: boolean },
+    options?: {
+      cascadeFromCompany?: boolean;
+      simulationBinding?: SimulationEngineBinding;
+    },
   ) => Promise<void>;
   companyDefaults?: CompanyEngineDefaults;
+  /** Existing execution engines for linking sims (D-189). */
+  executionEngines?: ReadonlyArray<{ id: string; label: string }>;
 }) {
   const [open, setOpen] = useState(false);
   const [section, setSection] = useState<StoreSection>('modules');
@@ -201,6 +214,7 @@ export function Palette(props: {
     const grouped: Record<EngineCreateSection, EngineTemplate[]> = {
       research: [],
       execution: [],
+      simulation: [],
     };
     for (const engine of engineTemplates) {
       grouped[engineCreateSection(engine)].push(engine);
@@ -418,7 +432,11 @@ export function Palette(props: {
                                   background: 'var(--color-surface-0)',
                                 }}
                               >
-                                {group.id === 'execution' ? 'Exec' : 'Research'}
+                                {group.id === 'execution'
+                                  ? 'Exec'
+                                  : group.id === 'simulation'
+                                    ? 'Sim'
+                                    : 'Research'}
                               </span>
                               {!engine.available && (
                                 <span className="text-[9px] uppercase tracking-wide text-[var(--color-warn)]">
@@ -443,6 +461,7 @@ export function Palette(props: {
           <EngineConfigForm
             engine={configuring}
             {...(props.companyDefaults ? { companyDefaults: props.companyDefaults } : {})}
+            executionEngines={props.executionEngines ?? []}
             onCancel={() => setConfiguring(null)}
             onInsert={async (inputs, setup, options) => {
               await props.onInsertEngine(configuring, inputs, setup, options);
@@ -460,14 +479,29 @@ export function Palette(props: {
 function EngineConfigForm(props: {
   engine: EngineTemplate;
   companyDefaults?: CompanyEngineDefaults;
+  executionEngines?: ReadonlyArray<{ id: string; label: string }>;
   onCancel: () => void;
   onInsert: (
     inputs: Record<string, string>,
     setup?: ModuleSetupInput,
-    options?: { cascadeFromCompany?: boolean },
+    options?: {
+      cascadeFromCompany?: boolean;
+      simulationBinding?: SimulationEngineBinding;
+    },
   ) => Promise<void>;
 }) {
+  const isSimulation = engineCreateSection(props.engine) === 'simulation';
+  const isAdhocTemplate = props.engine.id === 'sim_adhoc_paper_desk';
   const [cascadeFromCompany, setCascadeFromCompany] = useState(true);
+  const [linkMode, setLinkMode] = useState<'adhoc' | 'linked'>(
+    isAdhocTemplate || !isSimulation ? 'adhoc' : 'linked',
+  );
+  const [parentExecutionId, setParentExecutionId] = useState(
+    () => props.executionEngines?.[0]?.id ?? '',
+  );
+  const [placement, setPlacement] = useState<SimulationPlacement>(() =>
+    props.engine.id === 'sim_train_policy_replay' ? 'post' : 'pre',
+  );
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(props.engine.inputs.map((i) => [i.key, i.options?.[0] ?? ''])),
   );
@@ -512,10 +546,31 @@ function EngineConfigForm(props: {
     setBusy(true);
     setError(null);
     try {
+      let simulationBinding: SimulationEngineBinding | undefined;
+      if (isSimulation) {
+        if (linkMode === 'linked') {
+          if (!parentExecutionId) {
+            setError('Select a parent execution engine for linked sims.');
+            setBusy(false);
+            return;
+          }
+          simulationBinding = {
+            role: simulationRoleForPlacement(placement),
+            placement,
+            parentExecutionEngineId: parentExecutionId,
+            mimicParent: true,
+          };
+        } else {
+          simulationBinding = { role: 'adhoc', mimicParent: false };
+        }
+      }
       await props.onInsert(
         values,
         skipSetup ? undefined : moduleSetupInputFromDraft(setupDraft, requiredSetupFields),
-        { cascadeFromCompany },
+        {
+          cascadeFromCompany,
+          ...(simulationBinding ? { simulationBinding } : {}),
+        },
       );
     } catch {
       setError('Insert failed — some modules may have been created.');
@@ -531,6 +586,67 @@ function EngineConfigForm(props: {
           {props.engine.description}
         </p>
       </div>
+      {isSimulation && (
+        <div className="space-y-2 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-ink-dim)]">
+            Placement (D-189)
+          </p>
+          <div className="flex flex-wrap gap-2 text-[10px]">
+            <label className="flex items-center gap-1">
+              <input
+                type="radio"
+                name="sim-link-mode"
+                checked={linkMode === 'adhoc'}
+                onChange={() => setLinkMode('adhoc')}
+              />
+              Adhoc (standalone)
+            </label>
+            <label className="flex items-center gap-1">
+              <input
+                type="radio"
+                name="sim-link-mode"
+                checked={linkMode === 'linked'}
+                onChange={() => setLinkMode('linked')}
+                disabled={(props.executionEngines?.length ?? 0) === 0}
+              />
+              Link to execution
+            </label>
+          </div>
+          {linkMode === 'linked' && (
+            <div className="space-y-1.5">
+              <label className="block space-y-1">
+                <span className="text-[10px] text-[var(--color-ink-dim)]">Parent execution</span>
+                <select
+                  className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2 py-1 text-xs"
+                  value={parentExecutionId}
+                  onChange={(event) => setParentExecutionId(event.target.value)}
+                >
+                  {(props.executionEngines ?? []).map((engine) => (
+                    <option key={engine.id} value={engine.id}>
+                      {engine.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[10px] text-[var(--color-ink-dim)]">
+                  Process placement
+                </span>
+                <select
+                  className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2 py-1 text-xs"
+                  value={placement}
+                  onChange={(event) =>
+                    setPlacement(event.target.value as SimulationPlacement)
+                  }
+                >
+                  <option value="pre">Pre / parallel (gate)</option>
+                  <option value="post">Post (training)</option>
+                </select>
+              </label>
+            </div>
+          )}
+        </div>
+      )}
       <label className="flex items-start gap-2 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5">
         <input
           type="checkbox"

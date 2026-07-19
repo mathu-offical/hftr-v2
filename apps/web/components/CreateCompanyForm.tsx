@@ -15,6 +15,8 @@ import {
   listEngineTemplatesForCreateSection,
   projectedModuleSlotsForCreate,
   researchDependenciesForExecutionEngine,
+  simDependenciesForExecutionEngine,
+  DEFAULT_EXECUTION_SIM_COUNT,
   requiredModuleSetupFields,
   sectorFocusDraftString,
   type EngineCreateSection,
@@ -22,6 +24,7 @@ import {
   type ModuleSetupField,
   type ModuleType,
   type SectorFocusGroupId,
+  type SimulationPlacement,
 } from '@hftr/contracts';
 import { EngineCanvasPreview } from '@/components/canvas/EngineCanvasPreview';
 import {
@@ -86,10 +89,13 @@ type EngineSeed = {
   description: string;
   inputs: Record<string, string>;
   draft: ModuleSetupDraft;
-  /** True when auto-added as a research dependency of an execution engine. */
+  /** True when auto-added as a research/sim dependency of an execution engine. */
   autoDependency?: boolean;
-  /** Execution seed key that caused this research dep (live cascade source). */
+  /** Execution seed key that caused this research/sim dep (live cascade source). */
   cascadedFromKey?: string;
+  /** D-189: linked simulation placement (pre=gate, post=training). */
+  simulationPlacement?: SimulationPlacement;
+  simulationRole?: 'gate' | 'training' | 'adhoc';
 };
 
 type ModuleSeed = {
@@ -203,11 +209,14 @@ export function CreateCompanyForm() {
   const [error, setError] = useState<string | null>(null);
   /** Expanded until name + philosophy are confirmed; Edit re-opens. */
   const [identityExpanded, setIdentityExpanded] = useState(true);
+  /** D-189: default child sims per execution add (0 = none). */
+  const [simCountPerExecution, setSimCountPerExecution] = useState(DEFAULT_EXECUTION_SIM_COUNT);
 
   const availableEngines = ENGINE_TEMPLATES.filter((engine) => engine.available);
   // Include gated templates so Research/Execution show locked add buttons with reasons.
   const researchCatalog = listEngineTemplatesForCreateSection('research');
   const executionCatalog = listEngineTemplatesForCreateSection('execution');
+  const simulationCatalog = listEngineTemplatesForCreateSection('simulation');
   const atEngineLimit = engines.length >= MAX_ENGINES_PER_COMPANY;
   const selectedEngine = engines.find((item) => item.key === selectedEngineKey) ?? null;
   const previewEngines = engines.map((item) => ({
@@ -224,6 +233,8 @@ export function CreateCompanyForm() {
       cascadedFromKey?: string;
       key?: string;
       draft?: ModuleSetupDraft;
+      simulationPlacement?: SimulationPlacement;
+      simulationRole?: 'gate' | 'training' | 'adhoc';
     },
   ): EngineSeed | null {
     const engine = availableEngines.find((item) => item.id === templateId);
@@ -247,6 +258,12 @@ export function CreateCompanyForm() {
     }
     if (options?.cascadedFromKey) {
       seed.cascadedFromKey = options.cascadedFromKey;
+    }
+    if (options?.simulationPlacement) {
+      seed.simulationPlacement = options.simulationPlacement;
+    }
+    if (options?.simulationRole) {
+      seed.simulationRole = options.simulationRole;
     }
     return seed;
   }
@@ -312,10 +329,13 @@ export function CreateCompanyForm() {
     const depIds = researchDependenciesForExecutionEngine(templateId).filter((depId) =>
       availableEngines.some((engine) => engine.id === depId),
     );
-    const slotsNeeded = 1 + depIds.length;
+    const simDeps = simDependenciesForExecutionEngine(templateId, simCountPerExecution).filter(
+      (dep) => availableEngines.some((engine) => engine.id === dep.templateId),
+    );
+    const slotsNeeded = 1 + depIds.length + simDeps.length;
     if (engines.length + slotsNeeded > MAX_ENGINES_PER_COMPANY) {
       setError(
-        `Need ${slotsNeeded} free engine slots (execution + research deps). Remove engines first.`,
+        `Need ${slotsNeeded} free engine slots (execution + research + sims). Remove engines first.`,
       );
       return;
     }
@@ -337,9 +357,35 @@ export function CreateCompanyForm() {
         next.push(dep);
       }
       next.push(execSeed);
+      for (const simDep of simDeps) {
+        const role = simDep.placement === 'pre' ? 'gate' : 'training';
+        const sim = makeEngineSeed(simDep.templateId, cents, {
+          autoDependency: true,
+          cascadedFromKey: execKey,
+          draft: { ...execSeed.draft },
+          simulationPlacement: simDep.placement,
+          simulationRole: role,
+        });
+        if (!sim) continue;
+        next.push(sim);
+      }
       return next;
     });
     setSelectedEngineKey(execKey);
+  }
+
+  function addSimulationEngine(templateId: string) {
+    if (atEngineLimit) {
+      setError(`Engine limit reached (${MAX_ENGINES_PER_COMPANY}). Remove one to add another.`);
+      return;
+    }
+    const seed = makeEngineSeed(templateId, seedCentsFromDollars(seedDollars), {
+      simulationRole: 'adhoc',
+    });
+    if (!seed) return;
+    setError(null);
+    setEngines((prev) => [...prev, seed]);
+    setSelectedEngineKey(seed.key);
   }
 
   function removeEngine(key: string) {
@@ -490,6 +536,10 @@ export function CreateCompanyForm() {
           templateId: item.templateId,
           inputs: item.inputs,
           setup: skipSetup ? undefined : moduleSetupInputFromDraft(item.draft, required),
+          ...(item.simulationPlacement
+            ? { simulationPlacement: item.simulationPlacement }
+            : {}),
+          ...(item.simulationRole ? { simulationRole: item.simulationRole } : {}),
         };
       });
 
@@ -576,7 +626,8 @@ export function CreateCompanyForm() {
                 New company
               </h2>
               <p className="mt-0.5 text-[10px] text-[var(--color-ink-faint)]">
-                ≥1 engine required. Execution add auto-seeds research dependencies.
+                ≥1 engine required. Execution add auto-seeds research deps + default sim children
+                (count below). Adhoc sims via Simulation.
               </p>
             </header>
 
@@ -691,13 +742,38 @@ export function CreateCompanyForm() {
                       />
                       <EngineStoreMenu
                         title="Execution"
-                        description="Full-spine · cascades research deps"
+                        description="Full-spine · cascades research + sims"
                         catalog={executionCatalog}
                         addDisabled={atEngineLimit}
                         onAdd={addExecutionEngine}
                         testId="engine-section-execution"
                       />
+                      <EngineStoreMenu
+                        title="Simulation"
+                        description="Paper gate / train / adhoc desks"
+                        catalog={simulationCatalog}
+                        addDisabled={atEngineLimit}
+                        onAdd={addSimulationEngine}
+                        testId="engine-section-simulation"
+                      />
                     </div>
+                    <label className="flex items-center gap-1.5 text-[10px] text-[var(--color-ink-dim)]">
+                      Sims / exec
+                      <select
+                        className="rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] px-1 py-0.5 text-[10px] text-[var(--color-ink)]"
+                        value={simCountPerExecution}
+                        onChange={(event) =>
+                          setSimCountPerExecution(Number.parseInt(event.target.value, 10) || 0)
+                        }
+                        data-testid="sim-count-per-execution"
+                      >
+                        {[0, 1, 2, 3, 4].map((count) => (
+                          <option key={count} value={count}>
+                            {count === 0 ? 'none' : count}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </div>
                   {engines.length === 0 && (
                     <p

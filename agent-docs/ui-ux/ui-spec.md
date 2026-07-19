@@ -403,10 +403,11 @@ are ignored. Shortcuts are suppressed in editable fields.
   from the executions API (timeline causation walk) over symbol heuristics.
 
 ### RIGHT — Execution + Verification + Positions + Simulation results
-- **Assistant (D-146 / D-150):** right edge rail **AST** (above collapse) toggles a
+- **Assistant (D-146 / D-150 / D-154):** right edge rail **AST** (above collapse) toggles a
   **viewport-fixed overlay** layered on top of the main RightPanel — not a tab and not an
   in-flow column. Drag the header; resize via edges/corners; geometry persists per company.
-  Selecting Verify / Executions / … leaves the assistant open over the underlying panel.
+  Shell **Dock** snaps to the far-right bottom anchor (rail gutter). Selecting Verify /
+  Executions / … leaves the assistant open over the underlying panel.
 - **Positions (D-125 / D-129):** dedicated tab listing open holdings (market-hub live marks +
   `SymbolTicker` stability). Select a row for the inspector: held-vs-cost stability,
   automatic recovery (tree `recoveryLadder` + next model-free exit candidate from
@@ -425,19 +426,20 @@ are ignored. Shortcuts are suppressed in editable fields.
 
 ## 5. Assistant surface
 
-**M1 (shipped D-022; hardened D-023; rail mount D-146; overlay D-150):** right edge rail
-**AST** (above collapse, mirrors left **LIB**) opens a **viewport-fixed** chat overlay
-layered above the main RightPanel — not a RightPanel tab, not an in-flow column, and not a
-bottom-right FAB. `AssistantDock` is controlled by `RightPanel` (`assistantOpen`, persisted)
-and portals to `document.body` (`z-50`). Drag the header; resize edges/corners; bounds
-persist at `hftr:{companyId}:assistant:geometry`. Loads/sends via
+**M1 (shipped D-022; hardened D-023; rail mount D-146; overlay D-150; dock D-154):** right
+edge rail **AST** (above collapse, mirrors left **LIB**) opens a **viewport-fixed** chat
+overlay layered above the main RightPanel — not a RightPanel tab, not an in-flow column, and
+not a bottom-right FAB. `AssistantDock` is controlled by `RightPanel` (`assistantOpen`,
+persisted) and portals to `document.body` (`z-50`). Drag the header; resize edges/corners;
+bounds persist at `hftr:{companyId}:assistant:geometry`. Header **Dock** restores the
+far-right bottom anchor (preserves current size; leaves right-rail gutter). Loads/sends via
 `GET/POST /api/companies/:companyId/assistant`. History is append-only `assistant_messages` in
 Postgres (company + user scoped). Responses are **deterministic read-only lookups** — six
 regex-routed intents, **no model calls**. Persisted `tool_results` are summary cards (`tool`,
 `summary`, `status`); capabilities and failed lookups render as explicit cards. Rate limit: 20
-user messages/min/company. Chrome: "Read-only · drag header · resize edges". Selecting a main
-right tab does **not** close the overlay; `Esc` / AST / × closes it (then Esc can collapse the
-main panel). Retention/erasure: OQ-10 / D-030 (90d hot).
+user messages/min/company. Chrome: "Read-only · drag · resize · dock". Selecting a main right
+tab does **not** close the overlay; `Esc` / AST / × closes it (then Esc can collapse the main
+panel). Retention/erasure: OQ-10 / D-030 (90d hot).
 
 **Later milestones:** messages may carry structured edit-proposal cards (diff-style: field,
 old → new) with Confirm/Reject; applied edits link to `assistant_edits` audit entries (M4).

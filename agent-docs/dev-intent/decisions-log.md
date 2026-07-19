@@ -1590,6 +1590,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   (D-140 nests/hydrate/query/returns). Docs: product-spec company create, templates.
   **Status: implemented.**
 
+- **D-154 (Assistant shell Dock to bottom-right anchor, 2026-07-18):** Assistant overlay
+  chrome gains a **Dock** control (Lucide `Dock`) that snaps the panel to the canonical
+  far-right bottom anchor (right-rail gutter + bottom inset), preserving current size.
+  Default open geometry uses the same anchor. Extends D-150. Docs: ui-spec §4 / §5.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

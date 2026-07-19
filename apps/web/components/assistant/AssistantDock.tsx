@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Dock, X } from 'lucide-react';
 import type { AssistantEdit, AssistantMessage, AssistantToolResultSummary } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import { LlmAvailabilityChips } from '@/components/shell/LlmConnectionStatus';
@@ -9,23 +10,32 @@ import { LlmAvailabilityChips } from '@/components/shell/LlmConnectionStatus';
 const MIN_W = 280;
 const MIN_H = 240;
 const VIEW_PAD = 8;
+/** Leave room for the right edge rail (w-12) + gutter. */
+const RIGHT_RAIL_GUTTER = 56;
+/** Match historic FAB inset (bottom-4). */
+const BOTTOM_GUTTER = 16;
 
 type AssistantGeometry = { x: number; y: number; w: number; h: number };
 
 type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
-function defaultGeometry(): AssistantGeometry {
+/** Canonical far-right, bottom-of-window anchor (D-150 / D-154). */
+function dockedGeometry(size?: Pick<AssistantGeometry, 'w' | 'h'>): AssistantGeometry {
   if (typeof window === 'undefined') {
-    return { x: 80, y: 80, w: 384, h: 480 };
+    return { x: 80, y: 80, w: size?.w ?? 384, h: size?.h ?? 480 };
   }
-  const w = Math.min(384, Math.max(MIN_W, window.innerWidth - 72));
-  const h = Math.min(560, Math.max(MIN_H, Math.round(window.innerHeight * 0.7)));
-  return {
-    x: Math.max(VIEW_PAD, window.innerWidth - w - 56),
-    y: Math.max(VIEW_PAD, 56),
+  const w = size?.w ?? Math.min(384, Math.max(MIN_W, window.innerWidth - 72));
+  const h = size?.h ?? Math.min(480, Math.max(MIN_H, Math.round(window.innerHeight * 0.55)));
+  return clampGeometry({
+    x: window.innerWidth - w - RIGHT_RAIL_GUTTER,
+    y: window.innerHeight - h - BOTTOM_GUTTER,
     w,
     h,
-  };
+  });
+}
+
+function defaultGeometry(): AssistantGeometry {
+  return dockedGeometry();
 }
 
 function clampGeometry(g: AssistantGeometry): AssistantGeometry {
@@ -203,9 +213,10 @@ function ToolResultsSummary({ results }: { results: AssistantToolResultSummary[]
 }
 
 /**
- * Read-only assistant chat (ui-spec §5 / D-146 / D-150).
+ * Read-only assistant chat (ui-spec §5 / D-146 / D-150 / D-154).
  * AST rail opens a fixed overlay layered above the main RightPanel; panel is
  * draggable (header) and resizable (edges/corners) within the viewport.
+ * Shell **Dock** snaps back to the far-right bottom anchor.
  */
 export function AssistantDock(props: {
   companyId: string;
@@ -306,6 +317,12 @@ export function AssistantDock(props: {
   useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
+
+  const dockToAnchor = useCallback(() => {
+    // Preserve current size; snap position to far-right bottom (leave rail gutter).
+    const { w, h } = geometryRef.current;
+    setGeometry(dockedGeometry({ w, h }));
+  }, []);
 
   const beginDrag = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -478,21 +495,34 @@ export function AssistantDock(props: {
         <div className="pointer-events-none">
           <h2 className="text-sm font-medium text-[var(--color-ink)]">Assistant</h2>
           <p className="text-[10px] text-[var(--color-ink-faint)]">
-            Read-only · drag header · resize edges
+            Read-only · drag · resize · dock
           </p>
           <div className="pointer-events-auto">
             <LlmAvailabilityChips tiers={['assistant']} className="mt-1" />
           </div>
         </div>
-        <button
-          type="button"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => onOpenChange(false)}
-          aria-label="Close assistant"
-          className="rounded px-2 py-1 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-        >
-          ×
-        </button>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={dockToAnchor}
+            aria-label="Dock assistant to bottom-right"
+            title="Dock to bottom-right"
+            className="rounded p-1.5 text-[var(--color-ink-faint)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-ink)]"
+          >
+            <Dock size={14} strokeWidth={1.85} aria-hidden />
+          </button>
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => onOpenChange(false)}
+            aria-label="Close assistant"
+            title="Close"
+            className="rounded p-1.5 text-[var(--color-ink-faint)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-ink)]"
+          >
+            <X size={14} strokeWidth={1.85} aria-hidden />
+          </button>
+        </div>
       </header>
 
       <div

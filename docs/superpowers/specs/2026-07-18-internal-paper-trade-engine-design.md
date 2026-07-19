@@ -126,6 +126,7 @@ fail-closed; NRA/ValueRefs; `simulatorGapTags` honesty.
 | **5** | Unify InternalPaperCore with `paper-sim` adapter; UI binding controls — **done** (`computeInternalPaperFill` shared; trading inspector execution binding) |
 | **6** | Owner/module Alpaca **quote-only teacher** for unbound `paper_sim` + `funds_only` (D-171) — **done** (`resolveDispatchMarketQuote`; compile + exits wired) |
 | **7** | ValueRef / `live_api` mark fusion + catalog slippage / participation impact (D-177) — **done** (`loadQuoteCandidatesFromValueRefs`, `recordPolledQuotesAsValueRefs`, `resolvePaperFillSlippage`) |
+| **7b** | Operator honesty chips + multi-share impact proof (D-187) — **done** (UI emissions; verify harness extended; full suite re-soak pending) |
 
 ## 9. Non-goals (this design)
 

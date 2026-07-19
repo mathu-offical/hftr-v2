@@ -23,7 +23,9 @@
   with dimmed backdrop, centered `w-[min(42rem,…)]`, rounded bottom edge — not full-bleed; SWR
   per-tab cache with lazy refresh on view; ribbon toggle labeled **Company profile**) → executions ticker tape (`ExecutionTicker`,
   marquee of recent fills/blocks with amounts + **paper/live capital chips** on fill dollars
-  (D-167; venue honesty e.g. `paper sim`), pauses on hover) → paper/live master switch
+  (D-167; venue honesty e.g. `paper sim`) + **sim honesty ticker labels** from
+  `simulatorGapTags` (Live mark / Prior session / Impact proxy / Child drain / Funds-only —
+  D-187), pauses on hover) → paper/live master switch
   (`ModeSwitch`, live gated with an explanation popover — fails closed until the broker
   milestone) → **LLM connection chip** (`LlmRibbonStatusChip`: `llm: n/6` from shell
   `LlmConnectionStatusProvider`, refreshed on settings save — not re-fetched per panel) →
@@ -318,9 +320,11 @@ are ignored. Shortcuts are suppressed in editable fields.
   Canvas overlay (**D-186**): two-band workspace — horizontal **stage screens**
   (capital / library / live / adapt / process / seals / compose) snap-scroll above a
   fixed bottom **Model diagram strip**. Each pipeline column emits into the screen above
-  it; clicking a Model node navigates to that screen. Content: master equity + capital
-  chips, positions/library, entitled live sources, adapters, awareness + process steps,
-  stock/news seals + reports, charts + recommendations + awareness dock.
+  it; clicking a Model node (or section group) navigates to that screen. Each stage
+  screen opens with a **Processing now** tape of live hub/synthesis rows for that
+  column (sources, flows, steps, sealed boards, panel surfaces). Content below: master
+  equity + capital chips, positions/library, entitled live sources, adapters, awareness
+  + process steps, stock/news seals + reports, charts + recommendations + awareness dock.
   Analyze reseals stock compound + sector news in parallel.
   Distinct from Research (async corpus).   Hub data uses client **SWR cache**
   (`market-hub-cache` + `useMarketHub`): memory + sessionStorage, 15s fresh / 10m stale for
@@ -363,19 +367,10 @@ are ignored. Shortcuts are suppressed in editable fields.
   Overlay shows the resolved phase label after Analyze.
   Overlay **Model** is a **fixed bottom strip** (D-186) — the live synthesis hydration hub
   (D-147 / D-156 / D-160 / D-161 / D-162 / D-163 / D-165 / D-169) —
-  React Flow with **active** live/library/**capital** data sources only → adapters → **route-granular process steps**
-  (kind-specific fetch→normalize→extract/score/… chains; shared universe/rank/verify between
-  stages) across **layers** (sources/adapters/pipeline/output) and **track-banded lanes**
-  (entitle/compound/sector/daily/compose with lane labels + wider spacing in strip mode),
-  then **panel surfaces** (rail positions/funds + overlay equity/movers/news/charts).
-  Nodes are **function-styled**: process badges use `processFunction` chrome (FETCH/NORM/SCORE/SEAL/…);
-  live SRC tint by research domain; role chrome for LIB/CAP/ADAPT/STAGE/PANEL; **track-colored top bars**.
-  Process chains feed a **single primary milestone** (not multi-stage fan-out); stage bridges carry the rest.
-  Capital-bearing nodes show **inline dollar amount readouts** from hub-resolved cents (not LLM).
-  Connections carry **type / activation / status** styling; Sync/Analyze pulse hydrate + pipeline
-  edges; live equity/marks poll patches `panelSurfaces` via `livePatchedAt` without a full Sync
-  pulse. Operation + amount on every node; compact track chips + slim inspector; click navigates
-  the stage screen above. Awareness dock lives on the **compose** screen.
+  React Flow with **screen-column grouped nodes** (capital→compose frames) nesting live /
+  library / capital sources, adapters, process steps, stages, and panel surfaces so the
+  strip aligns with the stage screens above. Strip mode drops lane labels and caps density
+  per group. Click group or child → navigate owning screen.
   Hub GET projects `modelHydration` (`processingFlows`, `processSteps`, `capitalSources`,
   `asOfIso`, `sealStamps`, `panelSurfaces`) and **`awarenessAnalysis` (D-175)** — multi-level
   linkage hybrid for the expanded Posture window: **Evidence → Links → Trends → Recommendations**
@@ -468,7 +463,8 @@ are ignored. Shortcuts are suppressed in editable fields.
   automatic recovery (tree `recoveryLadder` + next model-free exit candidate from
   `GET …/positions`), lead/tree status, and recent agent executions (open `TraceTimeline`).
   Operator lifecycle: `POST …/positions/exits` runs model-free exit scan + drain.
-  Executions expose `simulatorGapTags` (`child_slice_drain` vs `no_partial_fills`).
+  Executions expose `simulatorGapTags` as text-first honesty chips (Live mark / Prior
+  session / Impact proxy / Child drain / Funds-only — D-187; raw tags still on the API).
   Market posture left rail also lists open holdings for quick select (D-131); day quant
   lives on the canvas overlay, not as a position-centric navigator.
 - Ledger of all trades/results/responses: filterable table (module, venue, mode, outcome),

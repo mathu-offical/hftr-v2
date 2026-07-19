@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/client';
 import { executionCapitalChip } from '@/lib/capital-mode-label';
+import { simHonestyTickerLabel } from '@/lib/sim-honesty-label';
 import styles from './ticker.module.css';
 
 interface ExecutionRow {
@@ -13,6 +14,7 @@ interface ExecutionRow {
   mode: string;
   venue: string;
   createdAt: string;
+  simulatorGapTags?: string[];
 }
 
 const OUTCOME_COLOR: Record<string, string> = {
@@ -69,7 +71,9 @@ export function ExecutionTicker(props: { companyId: string }) {
       className={`${styles.viewport} hidden min-w-0 flex-1 items-center overflow-hidden px-4 md:flex`}
     >
       <div className={`${styles.track} flex items-center gap-6 whitespace-nowrap`}>
-        {[...rows, ...rows].map((r, i) => (
+        {[...rows, ...rows].map((r, i) => {
+          const honesty = simHonestyTickerLabel(r.simulatorGapTags);
+          return (
           <span key={`${r.id}-${i}`} className="flex items-center gap-1.5 text-[11px]">
             <span
               className="font-medium capitalize"
@@ -78,6 +82,14 @@ export function ExecutionTicker(props: { companyId: string }) {
               {r.outcome}
             </span>
             {r.description && <span className="text-[var(--color-ink-dim)]">{r.description}</span>}
+            {honesty && (
+              <span
+                className="text-[10px] text-[var(--color-ink-faint)]"
+                data-testid="execution-honesty-ticker"
+              >
+                {honesty}
+              </span>
+            )}
             {r.amountCents && (
               <span className="flex items-center gap-1 font-mono text-[var(--color-ink-faint)]">
                 <span
@@ -90,7 +102,8 @@ export function ExecutionTicker(props: { companyId: string }) {
               </span>
             )}
           </span>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

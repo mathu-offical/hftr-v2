@@ -205,6 +205,60 @@ async function main() {
     record('venue_paper_sim', filled.venue === 'paper_sim', String(filled.venue));
   }
 
+  // Multi-share operator path: POV child drain + square-root impact proxy (D-177/D-187).
+  const multiTrade = await req('POST', `/api/companies/${companyId}/modules/${trading!.id}/trade`, {
+    symbol: 'AAPL',
+    actionVerb: 'buy',
+    orderType: 'market',
+    quantity: 5,
+  });
+  record(
+    'enqueue_multi_share_trade',
+    multiTrade.status < 300,
+    `status=${multiTrade.status}`,
+  );
+  const multiTraces = await drainUntil(
+    companyId,
+    (t) =>
+      t.some(
+        (x) =>
+          (x.outcome === 'filled' || x.outcome === 'partial') &&
+          (x.simulatorGapTags ?? []).includes('square_root_impact_proxy'),
+      ),
+    90_000,
+  );
+  const multiFilled = multiTraces.find(
+    (x) =>
+      (x.outcome === 'filled' || x.outcome === 'partial') &&
+      (x.simulatorGapTags ?? []).includes('square_root_impact_proxy'),
+  );
+  const multiTags = multiFilled?.simulatorGapTags ?? [];
+  record(
+    'multi_share_impact_or_drain',
+    multiTags.includes('square_root_impact_proxy') &&
+      (multiTags.includes('child_slice_drain') ||
+        multiTags.includes('time_spaced_child_drain')),
+    `outcome=${multiFilled?.outcome ?? 'none'} tags=${JSON.stringify(multiTags)}`,
+  );
+  record(
+    'multi_share_impact_proxy',
+    multiTags.includes('square_root_impact_proxy'),
+    multiTags.includes('square_root_impact_proxy')
+      ? 'square_root_impact_proxy'
+      : `missing impact tag in ${JSON.stringify(multiTags)}`,
+  );
+
+  const execFeed = await req('GET', `/api/companies/${companyId}/executions`);
+  const execRows = (execFeed.json.executions as Array<{ simulatorGapTags?: string[] }> | undefined) ?? [];
+  const execWithTags = execRows.some(
+    (e) => Array.isArray(e.simulatorGapTags) && e.simulatorGapTags.length > 0,
+  );
+  record(
+    'executions_feed_gap_tags',
+    execFeed.status < 300 && execWithTags,
+    `status=${execFeed.status} rows=${execRows.length} withTags=${execWithTags}`,
+  );
+
   // Promote path: trend → trading compile/dispatch → filled (may use child-slice drain).
   const trendCreate = await req('POST', `/api/companies/${companyId}/trends`, {
     moduleId: trend!.id,
@@ -230,7 +284,7 @@ async function main() {
             (tag) => tag === 'child_slice_drain' || tag === 'no_partial_fills' || tag === 'funds_only_routing',
           ),
       ) || t.filter((x) => x.outcome === 'filled').length >= 2,
-    180_000,
+    90_000,
   );
   const promoteFilled = promoteTraces.filter((t) => t.outcome === 'filled');
   record(

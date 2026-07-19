@@ -303,6 +303,7 @@ export {
   executePaperTradeFromInstruction,
   finalizeRecoveredVenueFill,
   buildFillVerificationFields,
+  marketModelQuoteSourceId,
   type PaperTradeRequest,
   type PaperTradeResult,
   type FinalizeRecoveredVenueFillArgs,

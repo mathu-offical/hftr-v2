@@ -300,8 +300,29 @@ Scoring: `intent-alignment-scoring.md`
 
 ### Follow-ups
 - RTH soak: fresh ≤90s `live_market_quote` without `prior_session_mark`
-- Multi-share path: assert `square_root_impact_proxy` when POV participation known
+- ~~Multi-share path: assert `square_root_impact_proxy`~~ → **D-187 / EXP-2026-07-19-05**
 - IronBee UI when MCP available
+
+---
+
+## EXP-2026-07-19-05 — Paper honesty emissions + multi-share impact (D-187)
+
+| Field | Value |
+|---|---|
+| Status | unit **pass**; API **partial** (new checks green; full suite interrupted by Next hang) |
+| Mode | paper only (`funds_only` + `paper_sim`) |
+| UI | Executions tab + ticker show Live mark / Prior session / Impact proxy / Child drain / Funds-only |
+| Hypothesis | Operators see sim honesty without digging into raw tags; multi-share path proves impact proxy |
+| Declared intent | Close D-177 follow-ups for impact assertion + visual honesty emissions |
+| Observed | qty=1: `live_market_quote` (+ `prior_session_mark` off-hours). qty=5 partial: `square_root_impact_proxy` + `child_slice_drain` + `time_spaced_child_drain`. Executions GET returns `simulatorGapTags`. Promote/elevate soak interrupted when Next stopped responding |
+| Alignment | **aligned** for new surfaces; full 25-check suite re-soak pending stable local Next |
+| Decisions | D-187 (extends D-177 / D-167) |
+| Provenance | `live_market_quote`, `square_root_impact_proxy`, `child_slice_drain`, `funds_only_routing` |
+
+### Follow-ups
+- Re-run full `paper-system-verify` on durable local Next (avoid agent-backgrounded servers)
+- IronBee: Executions honesty chips + ticker label
+- RTH soak without `prior_session_mark`
 
 ---
 

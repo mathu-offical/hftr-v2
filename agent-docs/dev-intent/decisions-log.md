@@ -1855,8 +1855,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   process → seals → compose) snap-scroll above a fixed bottom **Model diagram strip**. Each
   diagram column emits into the screen above it; clicking a Model node navigates to its owning
   screen (`resolveStageScreenId`). Mid-page Model section removed. ViewContext carries
-  `activeStageScreenId` + `selectedModelNodeId`. Extends D-131 / D-147 / D-160 / D-179.
-  Docs: ui-spec §4 Market posture. **Status: implemented.**
+  `activeStageScreenId` + `selectedModelNodeId`. Each stage screen tops with a **Processing
+  now** tape of hub/synthesis rows for that column. Strip Model uses **screen-group columns**
+  nesting child nodes (lane labels dropped; density capped). Extends D-131 / D-147 / D-160 /
+  D-179. Docs: ui-spec §4 Market posture. **Status: implemented.**
 
 - **D-185 (left/right panel toggle + layering, 2026-07-19):** Amend D-123: re-clicking an
   already-active left/right rail (or header) tab collapses that panel. Opening the left panel
@@ -1864,8 +1866,17 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   right panel body over the left (`absolute`/`z-[45]`, rail stays docked; below AST `z-50`).
   Any click on the left rail/body hides the right again. Coordinated via `PanelShellContext`
   inside `CompanyResearchShell`. LIB re-click exits full-height and collapses left; AST
-  remains an independent toggle (D-150). Docs: ui-spec §4.   **Status: implemented.**
+  remains an independent toggle (D-150).   Docs: ui-spec §4.   **Status: implemented.**
 
+- **D-187 (paper honesty UI + multi-share impact proof, 2026-07-19):** Surface
+  `simulatorGapTags` as text-first chips on Executions (right panel) and the shell
+  ticker (`simHonestyChips` / `simHonestyTickerLabel`). Dispatch records MarketModel
+  quote ValueRefs with feed-class provenance (`alpaca_iex_paper:quote:*` /
+  `live_api:quote:*`) so fusion stays live-aware. Extend `paper-system-verify` for
+  multi-share `square_root_impact_proxy` + child-drain tags and executions-feed tag
+  presence. Extends D-167 / D-177. Docs: experiment-log EXP-2026-07-19-05,
+  broker-integration §7, ui-spec §1 shell / §4 panels.
+  **Status: implemented (API partial — promote soak interrupted by Next hang).**
 
 ## Open questions
 

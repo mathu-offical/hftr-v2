@@ -281,9 +281,12 @@ export async function executePaperTrade(
     scale: 0,
     valueInt: BigInt(quote.lastCents ?? quote.askCents ?? 0),
     sourceClass: market.sourceClass,
-    sourceId: usesLiveMarketQuote
-      ? `${venue}:quote:${quote.symbol}`
-      : `synthetic_sim:${quote.symbol}`,
+    sourceId: marketModelQuoteSourceId({
+      venue,
+      symbol: quote.symbol,
+      usedLive: usesLiveMarketQuote,
+      feedClass: quote.feedClass,
+    }),
     ttlMs: QUOTE_TTL_MS,
     companyId: req.companyId,
     moduleId: req.moduleId,
@@ -1269,6 +1272,28 @@ function computeFill(
   return computeInternalPaperCoreFill(task, quote, {
     ...(slippageBps !== undefined ? { slippageBps } : {}),
   });
+}
+
+/**
+ * ValueRef sourceId for MarketModel fusion (D-177/D-187).
+ * Prefer feed-class provenance over venue alone so alpaca teachers fuse as live marks.
+ */
+export function marketModelQuoteSourceId(args: {
+  venue: Venue;
+  symbol: string;
+  usedLive: boolean;
+  feedClass?: string | null;
+}): string {
+  const sym = args.symbol.trim().toUpperCase();
+  if (!args.usedLive) return `synthetic_sim:${sym}`;
+  const feed = (args.feedClass ?? '').toLowerCase();
+  if (feed.includes('alpaca') || feed.includes('iex')) {
+    return `alpaca_iex_paper:quote:${sym}`;
+  }
+  if (feed.includes('live_api') || feed === 'live_api_mark') {
+    return `live_api:quote:${sym}`;
+  }
+  return `${args.venue}:quote:${sym}`;
 }
 
 function internalPaperFillGapTags(args: {

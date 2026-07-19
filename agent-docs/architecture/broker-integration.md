@@ -107,6 +107,8 @@ Approved design: `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-
   + optional square-root participation impact on InternalPaperCore fills; honesty
   tags `square_root_impact_proxy` vs `no_market_impact`; off-hours prior-session
   rebucket (`prior_session_mark`) so weekend paper can use venue last prints.
+  Phase 7b (D-187): operator-visible honesty chips (Executions + ticker); feed-class
+  ValueRef sourceIds on dispatch marks; multi-share verify asserts impact proxy.
 - Company-level `broker_connections` bind remains for credentials; it no longer implies
   automatic venue submit for every paper trade (routing mode decides).
 

@@ -273,6 +273,7 @@ export async function executePaperTrade(
   }
   const quote = market.quote;
   const usesLiveMarketQuote = market.usedLive;
+  const usedPriorSessionMark = market.priorSessionMark === true;
 
   const quoteRef = await record(db, clock, {
     kind: 'price',
@@ -595,9 +596,32 @@ export async function executePaperTrade(
     });
   }
 
+  const compilePlan = compiled ? await loadCompileDrainPlan(db, instructionId) : null;
+  const compileSlices = compilePlan?.slices ?? null;
+  const urgencyScalar = compilePlan?.urgencyScalar ?? 1.2;
+  const operatorParticipationPct = 40;
+  // Operator path: when no compile plan, still POV-slice qty≥2 so multi-share
+  // opportunistic entries get honest partial-fill legs (same planner as compile).
+  const slicesForDrain =
+    compileSlices ??
+    (req.quantity >= 2 && !compiled
+      ? planChildSlices({
+          parentQty: req.quantity,
+          participationPct: operatorParticipationPct,
+          urgencyScalar: 1.2,
+          childSliceFraction: 0.6,
+        }).slices
+      : null);
+  const participationForImpact =
+    compilePlan?.participationPct ??
+    (slicesForDrain != null && req.quantity >= 2 && !compiled
+      ? operatorParticipationPct
+      : undefined);
   const fillSlippage = resolvePaperFillSlippage({
     slippagePosition: 'typical',
-    ...(req.quantity >= 2 ? { participationPct: 40 } : {}),
+    ...(participationForImpact !== undefined
+      ? { participationPct: participationForImpact }
+      : {}),
   });
   const fill = computeFill(task, quote, fillSlippage.totalSlippageBps);
   if (!fill.ok) {
@@ -633,21 +657,6 @@ export async function executePaperTrade(
     };
   }
 
-  const compilePlan = compiled ? await loadCompileDrainPlan(db, instructionId) : null;
-  const compileSlices = compilePlan?.slices ?? null;
-  const urgencyScalar = compilePlan?.urgencyScalar ?? 1.2;
-  // Operator path: when no compile plan, still POV-slice qty≥2 so multi-share
-  // opportunistic entries get honest partial-fill legs (same planner as compile).
-  const slicesForDrain =
-    compileSlices ??
-    (req.quantity >= 2 && !compiled
-      ? planChildSlices({
-          parentQty: req.quantity,
-          participationPct: 40,
-          urgencyScalar: 1.2,
-          childSliceFraction: 0.6,
-        }).slices
-      : null);
   const normalizedSlices = normalizeChildSlicesForDrain(req.quantity, slicesForDrain);
 
   if (normalizedSlices && normalizedSlices.length >= 2) {
@@ -667,6 +676,8 @@ export async function executePaperTrade(
       usedLiveMarketQuote: usesLiveMarketQuote,
       routingMode,
       shadowVerify: shadowVerify && venue !== 'paper_sim',
+      usedMarketImpactProxy: fillSlippage.usedMarketImpactProxy,
+      usedPriorSessionMark,
     });
   }
 
@@ -698,6 +709,8 @@ export async function executePaperTrade(
       routingMode,
       usedChildDrain: childMaterialized.usedChildDrain,
       shadowVerifyAttempted: shadowVerify && venue !== 'paper_sim',
+      usedMarketImpactProxy: fillSlippage.usedMarketImpactProxy,
+      usedPriorSessionMark,
     }),
   });
 
@@ -732,7 +745,7 @@ export async function executePaperTrade(
 async function loadCompileDrainPlan(
   db: Db,
   instructionId: string,
-): Promise<{ slices: unknown; urgencyScalar: number }> {
+): Promise<{ slices: unknown; urgencyScalar: number; participationPct?: number }> {
   const rows = await db
     .select({ lineage: compileEvents.lineage })
     .from(compileEvents)
@@ -742,12 +755,24 @@ async function loadCompileDrainPlan(
   if (!lineage || typeof lineage !== 'object' || Array.isArray(lineage)) {
     return { slices: null, urgencyScalar: 1.2 };
   }
-  const record = lineage as { childSlices?: unknown; urgencyScalar?: unknown };
+  const record = lineage as {
+    childSlices?: unknown;
+    urgencyScalar?: unknown;
+    participationPct?: unknown;
+  };
   const urgencyScalar =
     typeof record.urgencyScalar === 'number' && Number.isFinite(record.urgencyScalar)
       ? record.urgencyScalar
       : 1.2;
-  return { slices: record.childSlices ?? null, urgencyScalar };
+  const participationPct =
+    typeof record.participationPct === 'number' && Number.isFinite(record.participationPct)
+      ? record.participationPct
+      : undefined;
+  return {
+    slices: record.childSlices ?? null,
+    urgencyScalar,
+    ...(participationPct !== undefined ? { participationPct } : {}),
+  };
 }
 
 interface VenueTradeContext {
@@ -1253,6 +1278,7 @@ function internalPaperFillGapTags(args: {
   usedChildDrain?: boolean;
   shadowVerifyAttempted?: boolean;
   usedMarketImpactProxy?: boolean;
+  usedPriorSessionMark?: boolean;
 }): string[] {
   if (args.outcome !== 'filled') {
     return args.usedLiveMarketQuote
@@ -1267,6 +1293,9 @@ function internalPaperFillGapTags(args: {
     args.usedMarketImpactProxy ? 'square_root_impact_proxy' : 'no_market_impact',
     args.usedChildDrain ? 'child_slice_drain' : 'no_partial_fills',
   ];
+  if (args.usedPriorSessionMark) {
+    tags.push('prior_session_mark');
+  }
   switch (args.routingMode) {
     case 'funds_only':
       tags.push('funds_only_routing');

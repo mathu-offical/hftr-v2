@@ -102,6 +102,11 @@ Approved design: `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-
   teacher via `resolveDispatchMarketQuote` (company/module/owner creds, same discovery
   as atr_stream / D-137) — live `feedClass` + `live_market_quote` tags without
   `submitOrder`. Compile sizing + position-exit marks share the helper.
+  Phase 7 (D-177): fuse company price ValueRefs (`live_api:quote:*` from trend poll,
+  alpaca quote marks) into MarketModel candidates; catalog `max_slippage_bps_band`
+  + optional square-root participation impact on InternalPaperCore fills; honesty
+  tags `square_root_impact_proxy` vs `no_market_impact`; off-hours prior-session
+  rebucket (`prior_session_mark`) so weekend paper can use venue last prints.
 - Company-level `broker_connections` bind remains for credentials; it no longer implies
   automatic venue submit for every paper trade (routing mode decides).
 

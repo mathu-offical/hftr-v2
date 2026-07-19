@@ -1,4 +1,4 @@
-import type { BrokerAdapter, QuoteSnapshot } from '@hftr/contracts';
+import type { BrokerAdapter, QuoteSnapshot, SessionPhase } from '@hftr/contracts';
 import { createAlpacaPaperAdapter } from '@hftr/adapters';
 import type { Db } from '@hftr/db';
 import type { Clock } from '../clock';
@@ -7,16 +7,22 @@ import {
   type AlpacaPaperCredentials,
 } from '../calc/refresh-atr-stream';
 import { loadQuoteCandidatesFromValueRefs } from '../calc/load-quote-value-refs';
+import { getSession, sessionPhase, venueDate } from '../calendar/calendar';
 import { getSyntheticQuote } from '../dispatch/quotes';
 
 /**
- * MarketModel quote resolution (D-122 / D-171 / D-172).
+ * MarketModel quote resolution (D-122 / D-171 / D-177).
  * Prefer entitled live quotes; fuse ValueRef marks + adapter + owner teacher; honest feedClass.
  * Does not submit orders — quotes / marks only.
  */
 
 export { MARKET_MODEL_QUOTE_TTL_MS } from '../calc/load-quote-value-refs';
 import { MARKET_MODEL_QUOTE_TTL_MS } from '../calc/load-quote-value-refs';
+
+/** Reject off-hours prior-session marks older than this (weekend/holiday paper). */
+const MAX_PRIOR_SESSION_MARK_AGE_MS = 5 * 24 * 60 * 60 * 1000;
+
+const NY_TZ = 'America/New_York';
 
 export interface ResolveMarketQuoteOpts {
   symbol: string;
@@ -31,6 +37,11 @@ export interface ResolvedMarketQuote {
   quote: QuoteSnapshot;
   sourceClass: 'broker_state' | 'live_feed' | 'synthetic_sim';
   usedLive: boolean;
+  /**
+   * True when a venue/ValueRef mark was rebucketed to now because the session is
+   * off-hours (D-177). Price provenance remains live; asOf refreshed for gauntlet.
+   */
+  priorSessionMark?: boolean;
 }
 
 function hasPrice(q: QuoteSnapshot): boolean {
@@ -57,6 +68,59 @@ function isLivePriced(q: QuoteSnapshot): boolean {
 function isFreshQuote(q: QuoteSnapshot, nowMs: number, ttlMs = MARKET_MODEL_QUOTE_TTL_MS): boolean {
   const asOf = quoteAsOfMs(q);
   return Number.isFinite(asOf) && nowMs - asOf <= ttlMs;
+}
+
+function isOffHoursPhase(phase: SessionPhase): boolean {
+  switch (phase) {
+    case 'closed':
+    case 'pre_market':
+    case 'overnight':
+      return true;
+    case 'open':
+    case 'midday':
+    case 'power_hour':
+      return false;
+    default: {
+      const _exhaustive: never = phase;
+      void _exhaustive;
+      return true;
+    }
+  }
+}
+
+/**
+ * Off-hours: accept a stale venue/ValueRef mark by stamping asOf=now for the
+ * paper gauntlet while keeping venue prices (honest prior-session mark).
+ */
+export function rebucketOffHoursMark(
+  q: QuoteSnapshot,
+  opts: { nowMs: number; nowIso: string; ttlMs?: number; phase: SessionPhase },
+): { quote: QuoteSnapshot; priorSessionMark: boolean } | null {
+  if (!isLivePriced(q)) return null;
+  const ttlMs = opts.ttlMs ?? MARKET_MODEL_QUOTE_TTL_MS;
+  if (isFreshQuote(q, opts.nowMs, ttlMs)) {
+    return { quote: q, priorSessionMark: false };
+  }
+  if (!isOffHoursPhase(opts.phase)) return null;
+  const age = opts.nowMs - quoteAsOfMs(q);
+  if (!Number.isFinite(age) || age > MAX_PRIOR_SESSION_MARK_AGE_MS || age < 0) return null;
+  return {
+    quote: { ...q, asOfIso: opts.nowIso },
+    priorSessionMark: true,
+  };
+}
+
+async function loadSessionPhaseForMarketModel(
+  db: Db,
+  clock: Clock,
+): Promise<SessionPhase> {
+  try {
+    const nowMs = clock.nowMs();
+    const session = await getSession(db, 'XNYS', venueDate(nowMs, NY_TZ));
+    return sessionPhase(session, nowMs);
+  } catch {
+    return 'closed';
+  }
 }
 
 /** Prefer newest non-synthetic quote with a price; else best synthetic; else null. */
@@ -171,11 +235,12 @@ export async function resolveMarketQuoteWithAdapter(opts: {
 }
 
 /**
- * Dispatch/compile MarketModel resolution (D-171 / D-172):
+ * Dispatch/compile MarketModel resolution (D-171 / D-177):
  * 1) Bound non-`paper_sim` adapter quote
  * 2) Fresh company ValueRef marks (live_api / prior quotes)
  * 3) Owner/module Alpaca paper quote teacher (read-only)
- * 4) Synthetic fail-open
+ * 4) Off-hours: rebucket stale venue marks to now (prior_session_mark)
+ * 5) Synthetic fail-open
  *
  * Keeps `funds_only` + `paper_sim` venue for fills while pricing from live market data
  * when entitled credentials / marks exist — no submitOrder on the teacher path.
@@ -192,9 +257,13 @@ export async function resolveDispatchMarketQuote(opts: {
   quoteTtlMs?: number;
   /** Skip ValueRef load (tests). */
   skipValueRefs?: boolean;
+  /** Inject session phase (tests). */
+  sessionPhaseOverride?: SessionPhase;
 }): Promise<ResolvedMarketQuote> {
   const nowMs = opts.clock.nowMs();
   const ttlMs = opts.quoteTtlMs ?? MARKET_MODEL_QUOTE_TTL_MS;
+  const phase =
+    opts.sessionPhaseOverride ?? (await loadSessionPhaseForMarketModel(opts.db, opts.clock));
   const pooled: QuoteSnapshot[] = [...(opts.candidates ?? [])];
   const fromAdapter = await loadAdapterMarketQuote(opts.adapter, opts.symbol);
   if (fromAdapter) pooled.push(fromAdapter);
@@ -223,15 +292,37 @@ export async function resolveDispatchMarketQuote(opts: {
     }
   }
 
-  // Prefer fresh live; drop stale live so we do not trip quote_freshness fail-closed
-  // with a teacher that is already past the dispatch TTL (D-171).
-  const usable = pooled.filter(
-    (q) => !isLivePriced(q) || isFreshQuote(q, nowMs, ttlMs),
-  );
+  let priorSessionMark = false;
+  const usable: QuoteSnapshot[] = [];
+  for (const q of pooled) {
+    if (!isLivePriced(q)) {
+      usable.push(q);
+      continue;
+    }
+    if (isFreshQuote(q, nowMs, ttlMs)) {
+      usable.push(q);
+      continue;
+    }
+    const rebucketed = rebucketOffHoursMark(q, {
+      nowMs,
+      nowIso: opts.clock.nowIso(),
+      ttlMs,
+      phase,
+    });
+    if (rebucketed) {
+      usable.push(rebucketed.quote);
+      if (rebucketed.priorSessionMark) priorSessionMark = true;
+    }
+    // Else drop stale live during RTH so we do not trip quote_freshness (D-171).
+  }
 
-  return resolveMarketQuote({
+  const resolved = resolveMarketQuote({
     symbol: opts.symbol,
     clock: opts.clock,
     candidates: usable,
   });
+  return {
+    ...resolved,
+    ...(priorSessionMark && resolved.usedLive ? { priorSessionMark: true } : {}),
+  };
 }

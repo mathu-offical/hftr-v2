@@ -278,7 +278,30 @@ Scoring: `intent-alignment-scoring.md`
 - Finish green `paper-loop` + `paper-intent-alignment` e2e
 - IronBee: TradingConfigForm routing mode + broker bind when MCP available
 - After backup quota resets (~2026-08-01), optional `pg_dump`/`pg_restore` if historical rows needed
-- Next realism: fuse canvas `live_api` / Data Hub ValueRef marks into MarketModel candidates; band-catalog slippage / participation impact
+- ~~Next realism: fuse canvas `live_api` / Data Hub ValueRef marks~~ → **D-177 / EXP-2026-07-19-04**
+
+---
+
+## EXP-2026-07-19-04 — ValueRef fusion + catalog slippage (D-177)
+
+| Field | Value |
+|---|---|
+| Status | unit **pass**; API paper-system-verify **21/21** (`HFTR_REQUIRE_LIVE_QUOTE=1`) |
+| Mode | paper only (`funds_only` + `paper_sim`) |
+| Quote source | Adapter → ValueRef marks (`live_api` / alpaca) → owner Alpaca teacher → off-hours rebucket → synthetic |
+| Fill model | Catalog `max_slippage_bps_band` + optional √participation impact proxy |
+| Venues | `paper_sim` (internal fill; no submitOrder on teacher path) |
+| Hypothesis | Persisting trend poll marks and catalog slippage makes paper fills more live-aware and realistically costly without elevating routing |
+| Declared intent | Close D-171 follow-ups: ValueRef fusion + honest impact tags + weekend live mark |
+| Observed | Owner Alpaca teacher returned IEX last print; weekend stale asOf rebucketed → `live_market_quote` + `prior_session_mark`. `paper-system-verify` **21/21**. Unit: ValueRef helpers, slippage band, off-hours rebucket, RTH stale drop |
+| Alignment | **aligned** |
+| Decisions | D-177 (extends D-171 / D-122) |
+| Provenance | `live_market_quote`, `prior_session_mark`, `no_market_impact` (qty=1), `funds_only_routing` |
+
+### Follow-ups
+- RTH soak: fresh ≤90s `live_market_quote` without `prior_session_mark`
+- Multi-share path: assert `square_root_impact_proxy` when POV participation known
+- IronBee UI when MCP available
 
 ---
 

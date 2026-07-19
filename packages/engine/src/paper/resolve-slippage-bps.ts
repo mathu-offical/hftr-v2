@@ -1,5 +1,5 @@
 /**
- * Resolve InternalPaperCore slippage from catalog max_slippage_bps_band (D-172).
+ * Resolve InternalPaperCore slippage from catalog max_slippage_bps_band (D-177).
  * Optional participation → square-root impact proxy (honest tags when applied).
  */
 

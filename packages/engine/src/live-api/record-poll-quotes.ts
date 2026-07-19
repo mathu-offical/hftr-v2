@@ -1,5 +1,5 @@
 /**
- * Persist live_api / trend poll quotes as price ValueRefs for MarketModel fusion (D-172).
+ * Persist live_api / trend poll quotes as price ValueRefs for MarketModel fusion (D-177).
  */
 
 import type { QuoteSnapshot } from '@hftr/contracts';

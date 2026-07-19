@@ -71,7 +71,7 @@ describe('resolveMarketQuote (D-122)', () => {
   });
 });
 
-describe('resolveDispatchMarketQuote (D-171)', () => {
+describe('resolveDispatchMarketQuote (D-171 / D-177)', () => {
   const db = {} as never;
 
   it('uses owner Alpaca teacher when adapter is paper_sim / unbound', async () => {
@@ -91,6 +91,7 @@ describe('resolveDispatchMarketQuote (D-171)', () => {
       symbol: 'AAPL',
       adapter: { venue: 'paper_sim' } as never,
       loadOwnerQuote,
+      skipValueRefs: true,
     });
     expect(loadOwnerQuote).toHaveBeenCalledOnce();
     expect(resolved.usedLive).toBe(true);
@@ -120,6 +121,7 @@ describe('resolveDispatchMarketQuote (D-171)', () => {
         getQuote: async () => bound,
       } as never,
       loadOwnerQuote,
+      skipValueRefs: true,
     });
     expect(loadOwnerQuote).not.toHaveBeenCalled();
     expect(resolved.usedLive).toBe(true);
@@ -136,12 +138,13 @@ describe('resolveDispatchMarketQuote (D-171)', () => {
       companyId: '00000000-0000-4000-8000-000000000001',
       symbol: 'MSFT',
       loadOwnerQuote,
+      skipValueRefs: true,
     });
     expect(resolved.usedLive).toBe(false);
     expect(resolved.sourceClass).toBe('synthetic_sim');
   });
 
-  it('drops stale live teacher quotes and falls back to synthetic', async () => {
+  it('drops stale live teacher quotes during RTH and falls back to synthetic', async () => {
     const stale: QuoteSnapshot = {
       symbol: 'AAPL',
       bidCents: 19000,
@@ -156,9 +159,58 @@ describe('resolveDispatchMarketQuote (D-171)', () => {
       companyId: '00000000-0000-4000-8000-000000000001',
       symbol: 'AAPL',
       loadOwnerQuote: async () => stale,
+      skipValueRefs: true,
+      sessionPhaseOverride: 'open',
     });
     expect(resolved.usedLive).toBe(false);
     expect(resolved.sourceClass).toBe('synthetic_sim');
+  });
+
+  it('rebuckets stale venue marks off-hours as prior_session_mark (D-177)', async () => {
+    const stale: QuoteSnapshot = {
+      symbol: 'AAPL',
+      bidCents: 19000,
+      askCents: 19010,
+      lastCents: 19005,
+      asOfIso: '2026-07-17T20:00:00.000Z',
+      feedClass: 'alpaca_iex_paper',
+    };
+    const resolved = await resolveDispatchMarketQuote({
+      db,
+      clock,
+      companyId: '00000000-0000-4000-8000-000000000001',
+      symbol: 'AAPL',
+      loadOwnerQuote: async () => stale,
+      skipValueRefs: true,
+      sessionPhaseOverride: 'closed',
+    });
+    expect(resolved.usedLive).toBe(true);
+    expect(resolved.priorSessionMark).toBe(true);
+    expect(resolved.quote.lastCents).toBe(19005);
+    expect(resolved.quote.asOfIso).toBe(clock.nowIso());
+  });
+
+  it('prefers fresh live_api ValueRef candidates over synthetic (skip owner)', async () => {
+    const mark: QuoteSnapshot = {
+      symbol: 'NVDA',
+      bidCents: 120_000,
+      askCents: 120_020,
+      lastCents: 120_010,
+      asOfIso: clock.nowIso(),
+      feedClass: 'live_api_mark',
+    };
+    const resolved = await resolveDispatchMarketQuote({
+      db,
+      clock,
+      companyId: '00000000-0000-4000-8000-000000000001',
+      symbol: 'NVDA',
+      candidates: [mark],
+      skipValueRefs: true,
+      loadOwnerQuote: async () => null,
+    });
+    expect(resolved.usedLive).toBe(true);
+    expect(resolved.quote.lastCents).toBe(120_010);
+    expect(resolved.quote.feedClass).toBe('live_api_mark');
   });
 });
 

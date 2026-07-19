@@ -69,7 +69,7 @@ registerHandler('trend.scan', async ({ db, clock, job }) => {
     maxSymbols: 8,
   });
 
-  // D-172: persist poll marks so MarketModel can fuse live_api / adapter quotes on dispatch.
+  // D-177: persist poll marks so MarketModel can fuse live_api / adapter quotes on dispatch.
   await recordPolledQuotesAsValueRefs({
     db,
     clock,

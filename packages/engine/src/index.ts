@@ -337,11 +337,26 @@ export { getSyntheticQuote } from './dispatch/quotes';
 export {
   resolveMarketQuote,
   resolveMarketQuoteWithAdapter,
+  resolveDispatchMarketQuote,
   fuseQuoteCandidates,
   loadAdapterMarketQuote,
+  rebucketOffHoursMark,
+  MARKET_MODEL_QUOTE_TTL_MS,
   type ResolvedMarketQuote,
   type ResolveMarketQuoteOpts,
 } from './paper/market-model';
+export {
+  resolvePaperFillSlippage,
+  participationImpactBps,
+  type ResolvePaperFillSlippageOpts,
+  type ResolvedPaperFillSlippage,
+} from './paper/resolve-slippage-bps';
+export {
+  loadQuoteCandidatesFromValueRefs,
+  quoteSourceIdsForSymbol,
+  valueRefPriceToQuoteSnapshot,
+} from './calc/load-quote-value-refs';
+export { recordPolledQuotesAsValueRefs } from './live-api/record-poll-quotes';
 export {
   persistBookDelta,
   shadowVerifyAndPersistBookDelta,

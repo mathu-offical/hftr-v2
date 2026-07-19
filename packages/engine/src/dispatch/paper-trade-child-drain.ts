@@ -58,6 +58,10 @@ export interface ChildDrainState {
   shadowVerify?: boolean;
   /** Serialized task for shadow submit (no secrets). */
   shadowTask?: DeterministicActionTask | null;
+  /** D-177: square-root participation impact applied on parent fill price. */
+  usedMarketImpactProxy?: boolean;
+  /** D-177: off-hours venue mark rebucketed for gauntlet freshness. */
+  usedPriorSessionMark?: boolean;
 }
 
 export interface ChildSliceDrainPayload {
@@ -73,16 +77,23 @@ export function childDrainGapTags(args: {
   shadowVerifyAttempted?: boolean;
   /** Mid-drain append-only partial traces. */
   inProgress?: boolean;
+  /** D-177: catalog + participation impact proxy applied. */
+  usedMarketImpactProxy?: boolean;
+  /** D-177: off-hours venue mark rebucketed for gauntlet freshness. */
+  usedPriorSessionMark?: boolean;
 }): string[] {
   const tags = [
     args.usedLiveMarketQuote ? 'live_market_quote' : 'synthetic_quote',
     'inline_fill_model',
     'no_venue_latency',
     'no_queue_position',
-    'no_market_impact',
+    args.usedMarketImpactProxy ? 'square_root_impact_proxy' : 'no_market_impact',
     'child_slice_drain',
     'time_spaced_child_drain',
   ];
+  if (args.usedPriorSessionMark) {
+    tags.push('prior_session_mark');
+  }
   if (args.inProgress) {
     tags.push('time_spaced_drain_in_progress');
   }
@@ -211,6 +222,8 @@ async function writePartialDrainTrace(
         routingMode: state.routingMode,
         shadowVerifyAttempted: state.shadowVerify === true,
         inProgress: true,
+        usedMarketImpactProxy: state.usedMarketImpactProxy === true,
+        usedPriorSessionMark: state.usedPriorSessionMark === true,
       }),
       sessionLegalitySnapshot: state.sessionSnapshot,
       policyEnvelopeVersion: POLICY_ENVELOPE_VERSION,
@@ -239,6 +252,8 @@ async function finalizeTimeSpacedChildDrain(
     usedLiveMarketQuote: state.usedLiveMarketQuote,
     routingMode: state.routingMode,
     shadowVerifyAttempted: state.shadowVerify === true,
+    usedMarketImpactProxy: state.usedMarketImpactProxy === true,
+    usedPriorSessionMark: state.usedPriorSessionMark === true,
   });
 
   await db
@@ -392,6 +407,10 @@ export interface StartTimeSpacedChildDrainContext {
   routingMode: PaperRoutingMode;
   /** D-122 Phase 4: shadow-verify on drain complete. */
   shadowVerify?: boolean;
+  /** D-177: square-root participation impact applied on parent fill price. */
+  usedMarketImpactProxy?: boolean;
+  /** D-177: off-hours venue mark rebucketed for gauntlet freshness. */
+  usedPriorSessionMark?: boolean;
 }
 
 /** Fill slice[0], persist drain_state, enqueue slice[1] with runAfterMs. */
@@ -433,6 +452,8 @@ export async function startTimeSpacedChildDrain(
     routingMode: ctx.routingMode,
     shadowVerify: ctx.shadowVerify === true,
     shadowTask: ctx.shadowVerify === true ? ctx.task : null,
+    usedMarketImpactProxy: ctx.usedMarketImpactProxy === true,
+    usedPriorSessionMark: ctx.usedPriorSessionMark === true,
   };
 
   const sliceArgs = {

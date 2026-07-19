@@ -175,14 +175,29 @@ async function main() {
       tags.includes('live_market_quote') || tags.includes('synthetic_quote'),
       tags.includes('live_market_quote') ? 'live_market_quote' : 'synthetic_quote',
     );
+    // Soft signal: prefer live when owner Alpaca teacher is connected (D-171/D-177).
+    // Hard-fail only when HFTR_REQUIRE_LIVE_QUOTE=1.
+    const requireLive = process.env.HFTR_REQUIRE_LIVE_QUOTE === '1';
+    record(
+      'gap_tags_live_quote_preferred',
+      requireLive ? tags.includes('live_market_quote') : true,
+      tags.includes('live_market_quote')
+        ? 'live_market_quote'
+        : `synthetic_quote (requireLive=${requireLive})`,
+    );
     record(
       'gap_tags_sim_limits',
-      tags.includes('no_queue_position') && tags.includes('no_market_impact'),
+      tags.includes('no_queue_position') &&
+        (tags.includes('no_market_impact') || tags.includes('square_root_impact_proxy')),
       JSON.stringify(
         tags.filter((t) =>
-          ['no_queue_position', 'no_market_impact', 'no_venue_latency', 'inline_fill_model'].includes(
-            t,
-          ),
+          [
+            'no_queue_position',
+            'no_market_impact',
+            'square_root_impact_proxy',
+            'no_venue_latency',
+            'inline_fill_model',
+          ].includes(t),
         ),
       ),
     );

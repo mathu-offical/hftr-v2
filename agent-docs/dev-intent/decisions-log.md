@@ -1791,7 +1791,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   marks via `recordPolledQuotesAsValueRefs`. InternalPaperCore fills resolve slippage from
   catalog `max_slippage_bps_band` (typical) and optional square-root participation impact
   when POV participation is known (compile lineage or operator multi-share plan). Honesty
-  tags: `square_root_impact_proxy` vs `no_market_impact`. No secrets in payloads; quote
+  tags: `square_root_impact_proxy` vs `no_market_impact`. Off-hours: stale venue marks are
+  rebucketed to clock-now for the paper gauntlet with `prior_session_mark` (prices stay
+  venue-sourced; RTH still drops stale teachers per D-171). No secrets in payloads; quote
   teacher remains read-only. Docs: internal-paper-trade-engine-design Phase 7,
   broker-integration §7, experiment-log EXP-2026-07-19-04.
   **Status: implemented.**

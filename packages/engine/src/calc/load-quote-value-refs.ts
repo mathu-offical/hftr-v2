@@ -1,5 +1,5 @@
 /**
- * Load recent price ValueRefs as MarketModel quote candidates (D-172).
+ * Load recent price ValueRefs as MarketModel quote candidates (D-177).
  * Complements adapter / owner Alpaca teachers with entitled live_api / prior fill marks.
  */
 

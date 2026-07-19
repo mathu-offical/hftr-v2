@@ -329,14 +329,16 @@ are ignored. Shortcuts are suppressed in editable fields.
   synthesis run, force-reseals `library.system_movers` (tactical LLM thresholds),
   `library.system_sector_news`, calendar-phase `library.system_daily_summaries` in parallel,
   then `library.posture_narrative` (waits for seal stages; book↔tape deterministic rollup).
-  Overlay **Model** section is the **live synthesis hydration hub** (D-147 / D-156) — React Flow with
-  live sources → **per-service adapters** (analysis roles + pipelines) → distinctive stages
-  (not all APIs dumping into one aggregator); libraries via Corpus Jaccard; operation + amount on
-  every node; stage glyphs + inspector; plus an **awareness dock** (movers status, multi-seal
-  freshness, report / narrative open). Overlay shows a mini run strip + Open Model while a
-  run is active.
+  Overlay **Model** section is the **live synthesis hydration hub** (D-147 / D-156 / D-160) —
+  React Flow with live sources → **per-service adapters** → distinctive stages across
+  **layers** (sources/adapters/pipeline/output) and **tracks** (entitle/compound/sector/daily/compose).
+  Connections carry **type / activation / status** styling (hydrate dashed, adapt solid, corpus
+  dash, parallel dotted); edges **pulse** on Sync/Analyze when hydration `asOfIso` or stage
+  signatures change; stale seals dim. Operation + amount on every node; track legend + inspector;
+  plus an **awareness dock** (movers status, multi-seal freshness, report / narrative open).
+  Overlay shows a mini run strip + Open Model while a run is active.
   Hub GET projects `synthesis` + `posture_narrative` report link + `capitalSources` +
-  `modelHydration` (includes `processingFlows`).
+  `modelHydration` (includes `processingFlows`, `asOfIso`, `sealStamps`).
   **Watchlist tiers (D-092):** `suggested_search` → `suggested_verified` → `watching`
   (+ `triggered` / `archived`). Overlay recommendation watch grid + bottom Watch lists
   filter chips (default: watching + suggested_verified). **Confirm** PATCHes to `watching`

@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Background,
   Controls,
@@ -11,13 +11,17 @@ import {
   useEdgesState,
   useNodesState,
   useReactFlow,
+  type Edge,
   type Node,
   type NodeProps,
   type NodeTypes,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type {
+  MarketHubModelEdgeActivation,
+  MarketHubModelEdgeType,
   MarketHubModelHydration,
+  MarketHubModelTrack,
   MarketHubSynthesisRun,
   MarketHubSynthesisStage,
   MarketHubSynthesisStageStatus,
@@ -25,13 +29,19 @@ import type {
 import { Justification } from '@/components/panels/Justification';
 import {
   buildMarketPostureAlgorithmGraph,
+  collectModelPulseIds,
+  type PostureAlgoEdgeData,
   type PostureAlgoNodeData,
 } from '@/lib/market-posture-algorithm-graph';
+
+const PULSE_MS = 2_200;
 
 type LiveNodeData = PostureAlgoNodeData & {
   stageStatus?: MarketHubSynthesisStageStatus;
   selected?: boolean;
 };
+
+type LiveEdge = Edge<PostureAlgoEdgeData>;
 
 function kindBorder(kind: PostureAlgoNodeData['kind']): string {
   switch (kind) {
@@ -88,28 +98,144 @@ function statusWord(status: MarketHubSynthesisStageStatus | undefined): string {
   return status ?? 'idle';
 }
 
+function activationRing(activation: MarketHubModelEdgeActivation): string {
+  switch (activation) {
+    case 'active':
+      return 'ring-1 ring-[var(--color-accent)]';
+    case 'pulsing':
+      return 'ring-2 ring-[var(--color-ok)] animate-pulse';
+    case 'blocked':
+      return 'opacity-60';
+    case 'stale':
+      return 'opacity-70';
+    case 'armed':
+    case 'idle':
+      return '';
+    default: {
+      const _exhaustive: never = activation;
+      return _exhaustive;
+    }
+  }
+}
+
+function trackStroke(track: MarketHubModelTrack): string {
+  switch (track) {
+    case 'entitle':
+      return 'var(--color-ink-faint)';
+    case 'compound':
+      return 'var(--color-accent)';
+    case 'sector':
+      return 'var(--color-ok)';
+    case 'daily':
+      return 'var(--color-ink-dim)';
+    case 'compose':
+      return 'var(--color-ink)';
+    default: {
+      const _exhaustive: never = track;
+      return _exhaustive;
+    }
+  }
+}
+
+function edgeTypeDash(edgeType: MarketHubModelEdgeType): string | undefined {
+  switch (edgeType) {
+    case 'hydrate':
+      return '4 3';
+    case 'adapt':
+      return undefined;
+    case 'pipeline':
+      return undefined;
+    case 'entitle':
+      return '2 2';
+    case 'corpus':
+      return '6 3';
+    case 'parallel':
+      return '1 4';
+    default: {
+      const _exhaustive: never = edgeType;
+      return _exhaustive;
+    }
+  }
+}
+
+function styleModelEdge(edge: {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+  data: PostureAlgoEdgeData;
+}): LiveEdge {
+  const { edgeType, activation, status, track } = edge.data;
+  const stroke = trackStroke(track);
+  const animated = activation === 'active' || activation === 'pulsing';
+  const opacity =
+    activation === 'blocked' || activation === 'stale'
+      ? 0.35
+      : activation === 'idle'
+        ? 0.45
+        : activation === 'armed'
+          ? 0.75
+          : 1;
+  const width = activation === 'active' || activation === 'pulsing' ? 2.2 : 1.2;
+  const label =
+    edge.label != null
+      ? `${edge.label} · ${activation}/${status}`
+      : `${edgeType} · ${activation}`;
+
+  return {
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    label,
+    data: edge.data,
+    animated,
+    style: {
+      stroke,
+      strokeWidth: width,
+      opacity,
+      strokeDasharray: edgeTypeDash(edgeType),
+    },
+    labelStyle: {
+      fill: 'var(--color-ink-faint)',
+      fontSize: 8,
+      fontFamily: 'ui-monospace, monospace',
+    },
+    labelBgStyle: { fill: 'var(--color-surface-0)', fillOpacity: 0.85 },
+  };
+}
+
 const PostureAlgoNode = memo(function PostureAlgoNode({
   data,
 }: NodeProps<Node<LiveNodeData>>) {
-  const ring = data.selected ? 'ring-1 ring-[var(--color-accent)]' : '';
+  const ring = data.selected
+    ? 'ring-1 ring-[var(--color-accent)]'
+    : activationRing(data.activation);
   return (
     <div
       className={`min-w-[152px] max-w-[176px] rounded border bg-[var(--color-surface-1)] px-2 py-1.5 shadow-sm ${kindBorder(data.kind)} ${ring}`}
       data-testid={`market-posture-model-node-${data.nodeRole}`}
+      data-activation={data.activation}
+      data-track={data.track}
+      data-layer={data.layer}
     >
       <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !bg-[var(--color-ink-faint)]" />
       <div className="flex items-baseline justify-between gap-1">
         <p className="font-mono text-[8px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          {roleLabel(data.nodeRole)}
+          {roleLabel(data.nodeRole)} · {data.track}
         </p>
-        {data.nodeRole === 'stage' ? (
-          <p
-            className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]"
-            title={statusWord(data.stageStatus)}
-          >
-            <span aria-hidden>{statusGlyph(data.stageStatus)}</span> {statusWord(data.stageStatus)}
-          </p>
-        ) : null}
+        <p
+          className="font-mono text-[8px] uppercase tracking-wider text-[var(--color-ink-dim)]"
+          title={`${data.activation} / ${data.status}`}
+        >
+          {data.nodeRole === 'stage' ? (
+            <>
+              <span aria-hidden>{statusGlyph(data.stageStatus)}</span>{' '}
+              {statusWord(data.stageStatus)}
+            </>
+          ) : (
+            data.activation
+          )}
+        </p>
       </div>
       <p className="truncate text-[11px] font-medium text-[var(--color-ink)]" title={data.label}>
         {data.label}
@@ -138,6 +264,7 @@ const nodeTypes: NodeTypes = { postureAlgo: PostureAlgoNode };
 function InnerCanvas(props: {
   run: MarketHubSynthesisRun | null;
   hydration: MarketHubModelHydration | null;
+  pulsedEdgeIds: ReadonlySet<string>;
   selectedNodeId: string | null;
   onSelectNode: (nodeId: string | null) => void;
 }) {
@@ -146,8 +273,9 @@ function InnerCanvas(props: {
       buildMarketPostureAlgorithmGraph({
         hydration: props.hydration,
         stages: props.run?.stages ?? null,
+        pulsedEdgeIds: props.pulsedEdgeIds,
       }),
-    [props.hydration, props.run],
+    [props.hydration, props.run, props.pulsedEdgeIds],
   );
   const byStage = useMemo(() => {
     const m = new Map<string, MarketHubSynthesisStage>();
@@ -169,14 +297,10 @@ function InnerCanvas(props: {
     [graph.nodes, byStage, props.selectedNodeId],
   );
 
+  const styledEdges = useMemo(() => graph.edges.map(styleModelEdge), [graph.edges]);
+
   const [nodes, setNodes, onNodesChange] = useNodesState(liveNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(
-    graph.edges.map((e) => ({
-      ...e,
-      style: { stroke: 'var(--color-line)' },
-      labelStyle: { fill: 'var(--color-ink-faint)', fontSize: 9 },
-    })),
-  );
+  const [edges, setEdges, onEdgesChange] = useEdgesState(styledEdges);
   const { fitView } = useReactFlow();
 
   useEffect(() => {
@@ -184,18 +308,12 @@ function InnerCanvas(props: {
   }, [liveNodes, setNodes]);
 
   useEffect(() => {
-    setEdges(
-      graph.edges.map((e) => ({
-        ...e,
-        style: { stroke: 'var(--color-line)' },
-        labelStyle: { fill: 'var(--color-ink-faint)', fontSize: 9 },
-      })),
-    );
+    setEdges(styledEdges);
     const frame = requestAnimationFrame(() => {
       void fitView({ padding: 0.1, maxZoom: 0.85, duration: 200 });
     });
     return () => cancelAnimationFrame(frame);
-  }, [graph, setEdges, fitView]);
+  }, [styledEdges, setEdges, fitView]);
 
   return (
     <ReactFlow
@@ -239,6 +357,9 @@ function NodeInspector(props: {
       <p className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]">
         {roleLabel(n.nodeRole)} · {n.label}
       </p>
+      <p className="font-mono text-[10px] text-[var(--color-ink-dim)]">
+        layer {n.layer} · track {n.track} · {n.activation}/{n.status}
+      </p>
       <p className="font-mono text-[11px] tabular-nums text-[var(--color-ink)]">
         {n.amount} · {n.operation}
       </p>
@@ -262,6 +383,11 @@ function NodeInspector(props: {
       ) : (
         <p className="text-[10px] text-[var(--color-ink-faint)]">{n.detail}</p>
       )}
+      {n.updatedAt ? (
+        <p className="font-mono text-[8px] text-[var(--color-ink-faint)]">
+          updated {new Date(n.updatedAt).toLocaleTimeString()}
+        </p>
+      ) : null}
       {s ? (
         <p className="font-mono text-[8px] text-[var(--color-ink-faint)]">
           {s.startedAt ? `start ${new Date(s.startedAt).toLocaleTimeString()}` : '—'}
@@ -272,10 +398,43 @@ function NodeInspector(props: {
   );
 }
 
+function TrackLegend(props: {
+  tracks: Array<{ id: MarketHubModelTrack; label: string; summary: string }>;
+}) {
+  return (
+    <div
+      className="flex flex-wrap gap-x-3 gap-y-1"
+      data-testid="market-posture-model-track-legend"
+    >
+      {props.tracks.map((t) => (
+        <p
+          key={t.id}
+          className="font-mono text-[8px] uppercase tracking-wider text-[var(--color-ink-faint)]"
+          title={t.summary}
+        >
+          <span
+            className="mr-1 inline-block h-1.5 w-3 align-middle"
+            style={{ background: trackStroke(t.id) }}
+            aria-hidden
+          />
+          {t.label}
+        </p>
+      ))}
+      <p className="font-mono text-[8px] text-[var(--color-ink-faint)]">
+        edges: hydrate dashed · adapt solid · corpus dash · ∥ parallel · pulse on refresh
+      </p>
+    </div>
+  );
+}
+
+function stageSignature(run: MarketHubSynthesisRun | null): string {
+  if (!run) return '';
+  return run.stages.map((s) => `${s.stageId}:${s.status}:${s.finishedAt ?? ''}`).join('|');
+}
+
 /**
- * Live synthesis hub canvas (D-120 / D-147 / D-156).
- * Per-service adapters feed specific analysis stages — not a single aggregator dump.
- * Status from synthesis run; never driven by equity live poll (D-112).
+ * Live synthesis hub canvas (D-120 / D-147 / D-156 / D-160).
+ * Typed edges with activation/status; pulses on Sync/Analyze refresh.
  */
 export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(props: {
   className?: string;
@@ -283,41 +442,68 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
   hydration?: MarketHubModelHydration | null;
 }) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [pulsedEdgeIds, setPulsedEdgeIds] = useState<ReadonlySet<string>>(() => new Set());
+  const prevAsOf = useRef<string | null>(null);
+  const prevStageSig = useRef('');
   const hydration = props.hydration ?? null;
-  const graph = useMemo(
+  const run = props.run ?? null;
+
+  const baselineGraph = useMemo(
     () =>
       buildMarketPostureAlgorithmGraph({
         hydration,
-        stages: props.run?.stages ?? null,
+        stages: run?.stages ?? null,
       }),
-    [hydration, props.run],
+    [hydration, run],
   );
-  const selectedNode = graph.nodes.find((n) => n.id === selectedNodeId)?.data ?? null;
+
+  useEffect(() => {
+    const nextAsOf = hydration?.asOfIso ?? null;
+    const nextSig = stageSignature(run);
+    const pulse = collectModelPulseIds({
+      prevAsOf: prevAsOf.current,
+      nextAsOf,
+      prevStageSig: prevStageSig.current,
+      nextStageSig: nextSig,
+      edgeIds: baselineGraph.edges.map((e) => e.id),
+      stageIds: baselineGraph.nodes.filter((n) => n.data.nodeRole === 'stage').map((n) => n.id),
+    });
+    prevAsOf.current = nextAsOf;
+    prevStageSig.current = nextSig;
+    if (pulse.size === 0) return;
+    setPulsedEdgeIds(pulse);
+    const t = window.setTimeout(() => setPulsedEdgeIds(new Set()), PULSE_MS);
+    return () => window.clearTimeout(t);
+  }, [hydration?.asOfIso, run, baselineGraph]);
+
+  const selectedNode = baselineGraph.nodes.find((n) => n.id === selectedNodeId)?.data ?? null;
   const selectedStage =
     selectedNode?.stageId != null
-      ? (props.run?.stages.find((s) => s.stageId === selectedNode.stageId) ?? null)
+      ? (run?.stages.find((s) => s.stageId === selectedNode.stageId) ?? null)
       : null;
-  const done = props.run?.stages.filter(
+  const done = run?.stages.filter(
     (s) => s.status === 'succeeded' || s.status === 'skipped' || s.status === 'failed',
   ).length;
-  const total = props.run?.stages.length ?? 0;
+  const total = run?.stages.length ?? 0;
   const liveN = hydration?.liveSources.length ?? 0;
   const libN = hydration?.librarySources.length ?? 0;
 
   return (
     <div className={`space-y-2 ${props.className ?? ''}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        {props.run ? (
+        {run ? (
           <p
             className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]"
             data-testid="market-posture-synthesis-strip"
           >
-            Run {props.run.status}
+            Run {run.status}
             {total > 0 ? ` · ${done ?? 0}/${total} stages` : ''}
+            {pulsedEdgeIds.size > 0 ? ' · refreshing' : ''}
           </p>
         ) : (
           <p className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
             Baseline hydration — Analyze to animate stages
+            {pulsedEdgeIds.size > 0 ? ' · refreshed' : ''}
           </p>
         )}
         <p
@@ -331,8 +517,12 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
           {hydration && hydration.processingFlows.length > 0
             ? ` · ${hydration.processingFlows.length} flows`
             : ''}
+          {hydration?.asOfIso
+            ? ` · asOf ${new Date(hydration.asOfIso).toLocaleTimeString()}`
+            : ''}
         </p>
       </div>
+      <TrackLegend tracks={baselineGraph.tracks} />
       <div
         data-testid="market-posture-model-canvas"
         className="h-[min(32rem,55vh)] min-h-[280px] overflow-hidden rounded border border-[var(--color-line)]"
@@ -341,8 +531,9 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
       >
         <ReactFlowProvider>
           <InnerCanvas
-            run={props.run ?? null}
+            run={run}
             hydration={hydration}
+            pulsedEdgeIds={pulsedEdgeIds}
             selectedNodeId={selectedNodeId}
             onSelectNode={setSelectedNodeId}
           />

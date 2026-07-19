@@ -158,7 +158,8 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   fund_router hops and research engine envelopes omitted). Hub also projects `modelHydration`
   (D-147): full live-source registry + library shelves with per-node operation/amount for the
   synthesis Model graph, plus `processingFlows` (D-156) — per-API adapter labels, analysis roles,
-  target stages, and movers/sector pipelines. Hub metric boards/rows project `sourceChips` (D-155): `{ id, label,
+  target stages, and movers/sector pipelines — and `asOfIso` + `sealStamps` (D-160) for edge
+  activation/stale/pulse. Hub metric boards/rows project `sourceChips` (D-155): `{ id, label,
   class: api|library|system|setting }` from seal contributing kinds, mark feed, ledger, and
   watch sourceClass — live merge preserves chips across equity/mark deltas.
 - **market_hub_synthesis_runs / market_hub_synthesis_stages** — **D-120** (migration `0042`):

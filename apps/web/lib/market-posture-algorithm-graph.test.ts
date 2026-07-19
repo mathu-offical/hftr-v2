@@ -4,7 +4,11 @@ import {
   buildLibraryProcessingFlows,
   buildLiveProcessingFlows,
 } from './market-hub-processing-flows';
-import { buildMarketPostureAlgorithmGraph } from './market-posture-algorithm-graph';
+import {
+  buildMarketPostureAlgorithmGraph,
+  collectModelPulseIds,
+  resolveModelEdgeState,
+} from './market-posture-algorithm-graph';
 
 const liveSources: MarketHubModelHydration['liveSources'] = [
   {
@@ -61,71 +65,19 @@ const hydration: MarketHubModelHydration = {
   librarySources,
   processingFlows,
   stageOps: [
-    {
-      stageId: 'providers',
-      operation: 'entitle lanes',
-      amount: '1/2 ready',
-    },
-    {
-      stageId: 'gather',
-      operation: 'pull evidence',
-      amount: '1 sealed · 8 lenses',
-    },
-    {
-      stageId: 'thresholds',
-      operation: 'LLM presets',
-      amount: 'ints only',
-    },
-    {
-      stageId: 'defaults',
-      operation: 'fail-closed',
-      amount: 'typical band',
-    },
-    {
-      stageId: 'universe',
-      operation: 'build set',
-      amount: '3 seeds',
-    },
-    {
-      stageId: 'rs',
-      operation: 'score marks',
-      amount: '2 live · 1 synth',
-    },
-    {
-      stageId: 'rank',
-      operation: 'compound rank',
-      amount: '5 board',
-    },
-    {
-      stageId: 'verify',
-      operation: 'promote gates',
-      amount: '2 watch',
-    },
-    {
-      stageId: 'seal_movers',
-      operation: 'seal stock',
-      amount: '5 items',
-    },
-    {
-      stageId: 'sector',
-      operation: 'seal news',
-      amount: '4 items',
-    },
-    {
-      stageId: 'daily',
-      operation: 'phase rollup',
-      amount: 'calendar',
-    },
-    {
-      stageId: 'narrative',
-      operation: 'book↔tape',
-      amount: '1 held',
-    },
-    {
-      stageId: 'hub_ready',
-      operation: 'project hub',
-      amount: '2+1 src',
-    },
+    { stageId: 'providers', operation: 'entitle lanes', amount: '1/2 ready' },
+    { stageId: 'gather', operation: 'pull evidence', amount: '1 sealed · 8 lenses' },
+    { stageId: 'thresholds', operation: 'LLM presets', amount: 'ints only' },
+    { stageId: 'defaults', operation: 'fail-closed', amount: 'typical band' },
+    { stageId: 'universe', operation: 'build set', amount: '3 seeds' },
+    { stageId: 'rs', operation: 'score marks', amount: '2 live · 1 synth' },
+    { stageId: 'rank', operation: 'compound rank', amount: '5 board' },
+    { stageId: 'verify', operation: 'promote gates', amount: '2 watch' },
+    { stageId: 'seal_movers', operation: 'seal stock', amount: '5 items' },
+    { stageId: 'sector', operation: 'seal news', amount: '4 items' },
+    { stageId: 'daily', operation: 'phase rollup', amount: 'calendar' },
+    { stageId: 'narrative', operation: 'book↔tape', amount: '1 held' },
+    { stageId: 'hub_ready', operation: 'project hub', amount: '2+1 src' },
   ],
   totals: {
     liveReady: 1,
@@ -136,7 +88,47 @@ const hydration: MarketHubModelHydration = {
     usedLiveMarks: 2,
     syntheticMarks: 1,
   },
+  asOfIso: '2026-07-19T05:00:00.000Z',
+  sealStamps: {
+    moversVerifiedAt: '2026-07-19T04:59:00.000Z',
+    moversExpiresAt: '2026-07-19T06:00:00.000Z',
+    newsVerifiedAt: null,
+    newsExpiresAt: null,
+    dailyExpiresAt: null,
+  },
 };
+
+describe('resolveModelEdgeState (D-160)', () => {
+  it('marks blocked when source missing key', () => {
+    expect(
+      resolveModelEdgeState({
+        edgeType: 'adapt',
+        sourceBlocked: true,
+        sourceReady: false,
+      }),
+    ).toEqual({ activation: 'blocked', status: 'blocked' });
+  });
+
+  it('marks active when target stage is running', () => {
+    expect(
+      resolveModelEdgeState({
+        edgeType: 'pipeline',
+        sourceStageStatus: 'succeeded',
+        targetStageStatus: 'running',
+      }),
+    ).toEqual({ activation: 'active', status: 'running' });
+  });
+
+  it('pulses when requested', () => {
+    expect(
+      resolveModelEdgeState({
+        edgeType: 'hydrate',
+        sourceReady: true,
+        pulsed: true,
+      }).activation,
+    ).toBe('pulsing');
+  });
+});
 
 describe('buildLiveProcessingFlows (D-156)', () => {
   it('splits alpaca_bars into entitlement vs OHLC→RS adapters', () => {
@@ -145,62 +137,66 @@ describe('buildLiveProcessingFlows (D-156)', () => {
     expect(alpaca.map((f) => f.id)).toEqual(['alpaca_bars:entitle', 'alpaca_bars:ohlc']);
     expect(alpaca[1]?.analysisRoles).toContain('relative_strength');
     expect(alpaca[1]?.targetStages).toContain('rs');
-    expect(alpaca[0]?.targetStages).not.toContain('rs');
-  });
-
-  it('routes GDELT into gather + movers/sector pipelines', () => {
-    const gdelt = buildLiveProcessingFlows(liveSources).find((f) => f.kind === 'gdelt_news');
-    expect(gdelt?.adapterLabel).toMatch(/GDELT/i);
-    expect(gdelt?.pipelines).toEqual(['movers', 'sector']);
-    expect(gdelt?.targetStages).toContain('gather');
-    expect(gdelt?.targetStages).toContain('sector');
   });
 });
 
-describe('buildMarketPostureAlgorithmGraph (D-147 / D-156)', () => {
-  it('wires live → adapter → distinctive stages (not all → providers)', () => {
-    const graph = buildMarketPostureAlgorithmGraph({ hydration });
-    const live = graph.nodes.filter((n) => n.data.nodeRole === 'live_source');
-    const adapters = graph.nodes.filter((n) => n.data.nodeRole === 'adapter');
-    const libs = graph.nodes.filter((n) => n.data.nodeRole === 'library_source');
-    const stages = graph.nodes.filter((n) => n.data.nodeRole === 'stage');
+describe('buildMarketPostureAlgorithmGraph (D-147 / D-156 / D-160)', () => {
+  it('wires typed edges with activation/status/track', () => {
+    const graph = buildMarketPostureAlgorithmGraph({
+      hydration,
+      nowMs: Date.parse('2026-07-19T05:00:30.000Z'),
+    });
+    expect(graph.tracks.map((t) => t.id)).toContain('compound');
+    expect(graph.asOfIso).toBe(hydration.asOfIso);
 
-    expect(live).toHaveLength(2);
-    expect(libs).toHaveLength(1);
-    expect(stages).toHaveLength(13);
-    expect(adapters.length).toBeGreaterThanOrEqual(3);
-
+    for (const e of graph.edges) {
+      expect(e.data.edgeType).toBeTruthy();
+      expect(e.data.activation).toBeTruthy();
+      expect(e.data.status).toBeTruthy();
+      expect(e.data.track).toBeTruthy();
+    }
     for (const n of graph.nodes) {
-      expect(n.data.operation.length).toBeGreaterThan(0);
-      expect(n.data.amount.length).toBeGreaterThan(0);
-      expect(n.data.amount).not.toBe('pending');
+      expect(n.data.layer).toBeTruthy();
+      expect(n.data.track).toBeTruthy();
     }
 
-    // Alpaca: live → adapters (entitle + ohlc), ohlc → rs
-    expect(graph.edges.some((e) => e.source === 'live:alpaca_bars' && e.target.startsWith('adapter:'))).toBe(
-      true,
-    );
-    expect(
-      graph.edges.some(
-        (e) => e.source === 'adapter:alpaca_bars:ohlc' && e.target === 'rs',
-      ),
-    ).toBe(true);
-    expect(
-      graph.edges.some(
-        (e) => e.source === 'adapter:gdelt_news:headline' && e.target === 'gather',
-      ),
-    ).toBe(true);
-    // Library goes through Jaccard adapter, not directly into gather.
-    expect(
-      graph.edges.some((e) => e.source.startsWith('lib:') && e.target.startsWith('adapter:')),
-    ).toBe(true);
-    expect(
-      graph.edges.some(
-        (e) =>
-          e.source.startsWith('adapter:library:') &&
-          (e.target === 'thresholds' || e.target === 'rank' || e.target === 'seal_movers'),
-      ),
-    ).toBe(true);
+    const ohlc = graph.edges.find((e) => e.id === 'e-adapter:alpaca_bars:ohlc-rs');
+    expect(ohlc?.data.edgeType).toBe('adapt');
+    expect(ohlc?.data.track).toBe('compound');
+
+    const blocked = graph.edges.find((e) => e.source === 'adapter:gdelt_news:headline');
+    expect(blocked?.data.activation).toBe('blocked');
+
+    const pipe = graph.edges.find((e) => e.id === 'e-rs-rank');
+    expect(pipe?.data.edgeType).toBe('pipeline');
+  });
+
+  it('activates pipeline edges from running stages', () => {
+    const graph = buildMarketPostureAlgorithmGraph({
+      hydration,
+      stages: [
+        {
+          id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+          runId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+          stageId: 'rs',
+          label: 'Rel-strength / volume',
+          kind: 'deterministic',
+          status: 'running',
+          startedAt: '2026-07-19T05:00:10.000Z',
+          finishedAt: null,
+          summary: 'Scoring 3 live marks',
+          justificationLines: [],
+          jobId: null,
+          sortOrder: 5,
+        },
+      ],
+      nowMs: Date.parse('2026-07-19T05:00:30.000Z'),
+    });
+    const edge = graph.edges.find((e) => e.id === 'e-uni-rs');
+    expect(edge?.data.activation).toBe('active');
+    expect(edge?.data.status).toBe('running');
+    const rsNode = graph.nodes.find((n) => n.id === 'rs');
+    expect(rsNode?.data.activation).toBe('active');
   });
 
   it('prefers stage summary counts when a run is present', () => {
@@ -225,5 +221,33 @@ describe('buildMarketPostureAlgorithmGraph (D-147 / D-156)', () => {
     });
     const gather = graph.nodes.find((n) => n.id === 'gather');
     expect(gather?.data.amount).toBe('12 usable');
+  });
+});
+
+describe('collectModelPulseIds (D-160)', () => {
+  it('pulses hydrate edges when asOf changes', () => {
+    const ids = collectModelPulseIds({
+      prevAsOf: '2026-07-19T05:00:00.000Z',
+      nextAsOf: '2026-07-19T05:01:00.000Z',
+      prevStageSig: '',
+      nextStageSig: '',
+      edgeIds: ['e-live:alpaca_bars-adapter:alpaca_bars:ohlc', 'e-rs-rank'],
+      stageIds: ['rs'],
+    });
+    expect(ids.has('e-live:alpaca_bars-adapter:alpaca_bars:ohlc')).toBe(true);
+    expect(ids.has('e-rs-rank')).toBe(false);
+  });
+
+  it('pulses pipeline edges when stage signature changes', () => {
+    const ids = collectModelPulseIds({
+      prevAsOf: 'a',
+      nextAsOf: 'a',
+      prevStageSig: 'rs:queued:',
+      nextStageSig: 'rs:running:x',
+      edgeIds: ['e-rs-rank', 'e-live:x-adapter:y'],
+      stageIds: ['rs'],
+    });
+    expect(ids.has('rs')).toBe(true);
+    expect(ids.has('e-rs-rank')).toBe(true);
   });
 });

@@ -7,11 +7,14 @@
 
 Operator **Analyze** creates a durable synthesis **run** with ordered **stages**. Posture → **Model** is a live React Flow **hydration hub** (D-147 / D-156): each API service has its own adapter path into specific analysis stages (roles + pipelines), then pipeline stages animate from the run. Baseline awareness dock remains (movers status, multi-seal freshness, report/narrative open). Equity live poll (D-112) stays paused during Analyze POST only; synthesis progress polls separately (~1.5s).
 
-## Hydration graph (D-147 / D-156)
+## Hydration graph (D-147 / D-156 / D-160)
 
-- **Live sources** → **per-kind adapters** (not a single dump into `providers`) → distinctive analysis stages
+- **Layers:** `sources` → `adapters` → `pipeline` → `output`
+- **Tracks:** `entitle` | `compound` | `sector` | `daily` | `compose` — distinct data-handling lanes
+- **Live sources** → **per-kind adapters** → distinctive analysis stages (not a single dump into `providers`)
 - Examples: GDELT/news → headline gather → `gather` / `universe` / `sector`|`seal_movers`; Alpaca bars → entitlement → `providers`/`gather` **and** OHLC fetch → `rs`/`rank`; libraries → Corpus Jaccard → `thresholds`/`rank`/`seal_movers`
-- Hub projects `modelHydration.processingFlows[]` (`adapterLabel`, `analysisRoles`, `targetStages`, `pipelines`)
+- Hub projects `modelHydration.processingFlows[]` plus `asOfIso` + `sealStamps` for refresh/stale detection
+- **Edges** carry `edgeType` (`hydrate`|`adapt`|`pipeline`|`entitle`|`corpus`|`parallel`), `activation` (`idle`|`armed`|`active`|`pulsing`|`blocked`|`stale`), `status`, and `track` — canvas styles stroke/dash/animation from these; Sync/Analyze pulse hydrate + pipeline edges when `asOfIso` or stage signature changes
 - Pipeline stages still carry baseline ops from `stageOps`; run summary counts override stage amount labels when present
 - `providers` → `gather` remains the entitlement rollup lane after adapters report ready
 

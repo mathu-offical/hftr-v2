@@ -112,6 +112,15 @@ export async function projectMarketHubModelHydration(opts: {
   newsItemCount: number;
   watchlistCount: number;
   positionCount: number;
+  /** Hub GET clock — Model refresh pulse (D-160). */
+  asOfIso: string;
+  sealStamps?: {
+    moversVerifiedAt: string | null;
+    moversExpiresAt: string | null;
+    newsVerifiedAt: string | null;
+    newsExpiresAt: string | null;
+    dailyExpiresAt: string | null;
+  };
 }): Promise<MarketHubModelHydration> {
   const {
     db,
@@ -326,6 +335,14 @@ export async function projectMarketHubModelHydration(opts: {
       contributedKinds: contributedKinds.length,
       usedLiveMarks,
       syntheticMarks,
+    },
+    asOfIso: opts.asOfIso,
+    sealStamps: opts.sealStamps ?? {
+      moversVerifiedAt: null,
+      moversExpiresAt: null,
+      newsVerifiedAt: null,
+      newsExpiresAt: null,
+      dailyExpiresAt: null,
     },
   };
 }

@@ -1641,6 +1641,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Extends D-140 / D-091. Docs: engine-data-hub-design, canvas-layout-and-dedicated-math-design,
   canvas-engine-group-design, ui-spec. **Status: implemented.**
 
+- **D-160 (Market posture Model edge activation + tracks/layers, 2026-07-19):** Flesh synthesis
+  Model steps into **layers** (sources→adapters→pipeline→output) and **tracks**
+  (entitle/compound/sector/daily/compose) with per-stage `dataRole`. Graph edges carry
+  `edgeType`, `activation`, `status`, `track`; canvas styles stroke/dash/animation and
+  **pulses** on Sync/Analyze when `modelHydration.asOfIso` or stage signatures change.
+  Hub projects seal freshness stamps for stale/armed styling. Extends D-156. Docs: ui-spec §4,
+  data-model, synthesis hub design. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

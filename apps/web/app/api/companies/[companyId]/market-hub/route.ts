@@ -920,6 +920,14 @@ export async function GET(_req: Request, ctx: Ctx) {
       newsItemCount: news.items.length,
       watchlistCount: watchlistsWithViz.length,
       positionCount: positionProjection.length,
+      asOfIso: fetchedAt,
+      sealStamps: {
+        moversVerifiedAt: movers.verifiedAt,
+        moversExpiresAt: movers.expiresAt,
+        newsVerifiedAt: news.verifiedAt,
+        newsExpiresAt: news.expiresAt,
+        dailyExpiresAt: dailyExpiresAt ?? null,
+      },
     });
 
     const markChipKinds =

@@ -1681,6 +1681,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   related shelves place closer and unrelated farther. Bridge force respects the packing gap.
   Docs: galaxy-3d-volume-layout, research-galaxy-topic-view-design, ui-spec. **Status: implemented.**
 
+- **D-165 (Market posture Model track-banded spacing + type legend, 2026-07-19):** Model layout
+  uses **track lanes** (entitle/compound/daily/sector/compose) with wider column gaps, lane
+  labels, and source stacking by primary track. Nodes show **track-colored top bars** + layer
+  badges; legend lists tracks and node types (SRC/LIB/CAP/ADAPT/PROC/STAGE/PANEL). Extends
+  D-163. Docs: ui-spec §4, synthesis hub design. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

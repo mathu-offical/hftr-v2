@@ -329,17 +329,17 @@ are ignored. Shortcuts are suppressed in editable fields.
   synthesis run, force-reseals `library.system_movers` (tactical LLM thresholds),
   `library.system_sector_news`, calendar-phase `library.system_daily_summaries` in parallel,
   then `library.posture_narrative` (waits for seal stages; book↔tape deterministic rollup).
-  Overlay **Model** section is the **live synthesis hydration hub** (D-147 / D-156 / D-160 / D-161 / D-162 / D-163) —
+  Overlay **Model** section is the **live synthesis hydration hub** (D-147 / D-156 / D-160 / D-161 / D-162 / D-163 / D-165) —
   React Flow with **available** live/library/**capital** data sources → adapters → **route-granular process steps**
   (fetch→normalize→analyze per API family; shared universe/rank/verify chains between
-  stages) across **layers** (sources/adapters/pipeline/output) and **tracks that are present**
-  (entitle/compound/sector/daily/compose filtered by provider capabilities),
+  stages) across **layers** (sources/adapters/pipeline/output) and **track-banded lanes**
+  (entitle/compound/sector/daily/compose with lane labels + wider spacing),
   then **panel surfaces** (rail positions/funds + overlay equity/movers/news/charts).
-  Nodes are **role-styled** (SRC/LIB/CAP/ADAPT/PROC/STAGE/PANEL); capital-bearing nodes
-  show **inline dollar amount readouts** from hub-resolved cents (not LLM).
+  Nodes are **role-styled** (SRC/LIB/CAP/ADAPT/PROC/STAGE/PANEL) with **track-colored top bars**;
+  capital-bearing nodes show **inline dollar amount readouts** from hub-resolved cents (not LLM).
   Connections carry **type / activation / status** styling; Sync/Analyze pulse hydrate + pipeline
   edges; live equity/marks poll patches `panelSurfaces` via `livePatchedAt` without a full Sync
-  pulse. Operation + amount on every node; track legend + inspector; plus an **awareness dock**.
+  pulse. Operation + amount on every node; track + type legend + inspector; plus an **awareness dock**.
   Hub GET projects `modelHydration` (`processingFlows`, `processSteps`, `capitalSources`,
   `asOfIso`, `sealStamps`, `panelSurfaces`).
   **Watchlist tiers (D-092):** `suggested_search` → `suggested_verified` → `watching`

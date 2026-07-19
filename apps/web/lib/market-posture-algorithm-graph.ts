@@ -1,7 +1,7 @@
 /**
- * Market posture synthesis Model graph (D-120 / D-147 / D-156 / D-160 / D-162 / D-163).
- * Shows only available provider tracks; data sources (live/library/capital)
- * feed route process chains into synthesis milestones and panel surfaces.
+ * Market posture synthesis Model graph (D-120 … D-163 / D-165).
+ * Available providers only; track-banded layout with clear lane spacing;
+ * data sources (live/library/capital) feed route process chains.
  */
 
 import type {
@@ -25,6 +25,7 @@ import {
 import {
   isAvailableLibrarySource,
   isAvailableLiveSource,
+  primaryTrackForLiveKind,
   resolveModelTrackCapabilities,
   tracksFromCapabilities,
 } from './market-hub-model-availability';
@@ -36,7 +37,8 @@ export type PostureAlgoNodeRole =
   | 'library_source'
   | 'capital_source'
   | 'stage'
-  | 'panel_surface';
+  | 'panel_surface'
+  | 'lane_label';
 
 export type PostureAlgoNodeData = {
   label: string;
@@ -72,6 +74,13 @@ export type PostureAlgoEdgeData = {
   label?: string | undefined;
 };
 
+export type PostureAlgoTrackBand = {
+  id: MarketHubModelTrack;
+  label: string;
+  summary: string;
+  y: number;
+};
+
 export type PostureAlgoGraph = {
   nodes: Array<{
     id: string;
@@ -87,27 +96,53 @@ export type PostureAlgoGraph = {
     data: PostureAlgoEdgeData;
   }>;
   tracks: Array<{ id: MarketHubModelTrack; label: string; summary: string }>;
+  /** Vertical lane anchors for track separation (D-165). */
+  trackBands: PostureAlgoTrackBand[];
   asOfIso: string | null;
 };
+
+/** Column / lane spacing — keeps sources, process chains, and stages readable (D-165). */
+const COL = {
+  laneLabel: -40,
+  live: 120,
+  adapter: 360,
+  process0: 620,
+  processW: 200,
+  stage0: 1520,
+  stageW: 260,
+} as const;
+
+/** Track lane Y baselines — vertical separation between data tracks. */
+const LANE_Y: Record<MarketHubModelTrack, number> = {
+  entitle: 48,
+  compound: 300,
+  daily: 560,
+  sector: 780,
+  compose: 300,
+};
+
+const CAPITAL_LANE_Y = 1000;
+const SOURCE_ROW_GAP = 112;
+const ADAPTER_STACK = 64;
 
 const STAGE_LAYOUT: Array<{
   id: MarketHubSynthesisStageId;
   x: number;
   y: number;
 }> = [
-  { id: 'providers', x: 1000, y: 40 },
-  { id: 'gather', x: 1280, y: 200 },
-  { id: 'thresholds', x: 1560, y: 80 },
-  { id: 'defaults', x: 1560, y: 320 },
-  { id: 'universe', x: 1840, y: 200 },
-  { id: 'rs', x: 2020, y: 200 },
-  { id: 'rank', x: 2300, y: 200 },
-  { id: 'verify', x: 2480, y: 200 },
-  { id: 'seal_movers', x: 2760, y: 120 },
-  { id: 'sector', x: 2760, y: 280 },
-  { id: 'daily', x: 2940, y: 200 },
-  { id: 'narrative', x: 3220, y: 200 },
-  { id: 'hub_ready', x: 3400, y: 200 },
+  { id: 'providers', x: COL.stage0, y: LANE_Y.entitle },
+  { id: 'gather', x: COL.stage0 + COL.stageW, y: LANE_Y.compound },
+  { id: 'thresholds', x: COL.stage0 + COL.stageW * 2, y: LANE_Y.compound - 120 },
+  { id: 'defaults', x: COL.stage0 + COL.stageW * 2, y: LANE_Y.compound + 120 },
+  { id: 'universe', x: COL.stage0 + COL.stageW * 3, y: LANE_Y.compound },
+  { id: 'rs', x: COL.stage0 + COL.stageW * 4, y: LANE_Y.compound },
+  { id: 'rank', x: COL.stage0 + COL.stageW * 5, y: LANE_Y.compound },
+  { id: 'verify', x: COL.stage0 + COL.stageW * 6, y: LANE_Y.compound },
+  { id: 'seal_movers', x: COL.stage0 + COL.stageW * 7, y: LANE_Y.compound - 80 },
+  { id: 'sector', x: COL.stage0 + COL.stageW * 7, y: LANE_Y.sector },
+  { id: 'daily', x: COL.stage0 + COL.stageW * 8, y: LANE_Y.daily },
+  { id: 'narrative', x: COL.stage0 + COL.stageW * 9, y: LANE_Y.compose },
+  { id: 'hub_ready', x: COL.stage0 + COL.stageW * 10, y: LANE_Y.compose },
 ];
 
 type StageEdgeSpec = {
@@ -161,7 +196,7 @@ const SHARED_BRIDGE_SPECS: SharedBridgeSpec[] = [
     target: 'gather',
     edgeType: 'entitle',
     track: 'entitle',
-    baseY: 40,
+    baseY: LANE_Y.entitle,
   },
   {
     id: 'bridge-gather-llm',
@@ -170,7 +205,7 @@ const SHARED_BRIDGE_SPECS: SharedBridgeSpec[] = [
     target: 'thresholds',
     edgeType: 'pipeline',
     track: 'compound',
-    baseY: 72,
+    baseY: LANE_Y.compound - 80,
   },
   {
     id: 'bridge-gather-def',
@@ -179,7 +214,7 @@ const SHARED_BRIDGE_SPECS: SharedBridgeSpec[] = [
     target: 'defaults',
     edgeType: 'pipeline',
     track: 'compound',
-    baseY: 320,
+    baseY: LANE_Y.compound + 140,
   },
   {
     id: 'bridge-llm-uni',
@@ -188,7 +223,7 @@ const SHARED_BRIDGE_SPECS: SharedBridgeSpec[] = [
     target: 'universe',
     edgeType: 'pipeline',
     track: 'compound',
-    baseY: 120,
+    baseY: LANE_Y.compound - 40,
   },
   {
     id: 'bridge-def-uni',
@@ -197,7 +232,7 @@ const SHARED_BRIDGE_SPECS: SharedBridgeSpec[] = [
     target: 'universe',
     edgeType: 'pipeline',
     track: 'compound',
-    baseY: 280,
+    baseY: LANE_Y.compound + 100,
   },
   {
     id: 'bridge-rs-rank',
@@ -206,7 +241,7 @@ const SHARED_BRIDGE_SPECS: SharedBridgeSpec[] = [
     target: 'rank',
     edgeType: 'pipeline',
     track: 'compound',
-    baseY: 200,
+    baseY: LANE_Y.compound,
   },
   {
     id: 'bridge-rank-seal',
@@ -215,7 +250,7 @@ const SHARED_BRIDGE_SPECS: SharedBridgeSpec[] = [
     target: 'seal_movers',
     edgeType: 'pipeline',
     track: 'compound',
-    baseY: 160,
+    baseY: LANE_Y.compound - 60,
   },
   {
     id: 'bridge-seal-sector',
@@ -224,7 +259,7 @@ const SHARED_BRIDGE_SPECS: SharedBridgeSpec[] = [
     target: 'sector',
     edgeType: 'parallel',
     track: 'sector',
-    baseY: 280,
+    baseY: LANE_Y.sector,
   },
   {
     id: 'bridge-seal-daily',
@@ -233,7 +268,7 @@ const SHARED_BRIDGE_SPECS: SharedBridgeSpec[] = [
     target: 'daily',
     edgeType: 'parallel',
     track: 'daily',
-    baseY: 200,
+    baseY: LANE_Y.daily,
   },
   {
     id: 'bridge-sector-narr',
@@ -242,7 +277,7 @@ const SHARED_BRIDGE_SPECS: SharedBridgeSpec[] = [
     target: 'narrative',
     edgeType: 'pipeline',
     track: 'compose',
-    baseY: 260,
+    baseY: LANE_Y.sector - 40,
   },
   {
     id: 'bridge-daily-narr',
@@ -251,7 +286,7 @@ const SHARED_BRIDGE_SPECS: SharedBridgeSpec[] = [
     target: 'narrative',
     edgeType: 'pipeline',
     track: 'compose',
-    baseY: 200,
+    baseY: LANE_Y.daily,
   },
 ];
 
@@ -552,11 +587,11 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
     return true;
   });
 
-  const gap = 72;
-  const liveX = 0;
-  const adapterX = 220;
-  const processCol0 = 400;
-  const processColW = 150;
+  const gap = SOURCE_ROW_GAP;
+  const liveX = COL.live;
+  const adapterX = COL.adapter;
+  const processCol0 = COL.process0;
+  const processColW = COL.processW;
 
   /** Ensure process nodes exist; return node id. */
   const ensureProcessNode = (
@@ -825,10 +860,41 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
     flowsByKind.set(f.kind, list);
   }
 
-  let row = 0;
+  /** Stack sources inside each track lane (D-165). */
+  const laneRow = new Map<MarketHubModelTrack, number>();
+  const nextLaneY = (track: MarketHubModelTrack, baseY: number): number => {
+    const i = laneRow.get(track) ?? 0;
+    laneRow.set(track, i + 1);
+    return baseY + i * gap;
+  };
+
+  // Lane labels — left rail markers for track separation
+  for (const trackId of tracksFromCapabilities(caps)) {
+    const meta = MARKET_HUB_MODEL_TRACK_META[trackId];
+    nodes.push({
+      id: `lane:${trackId}`,
+      type: 'postureAlgo',
+      position: { x: COL.laneLabel, y: LANE_Y[trackId] },
+      data: {
+        label: meta.label,
+        detail: meta.summary,
+        kind: 'deterministic',
+        nodeRole: 'lane_label',
+        operation: 'track',
+        amount: trackId,
+        layer: 'sources',
+        track: trackId,
+        activation: 'armed',
+        status: 'ready',
+        updatedAt: asOfIso,
+      },
+    });
+  }
+
   for (const src of liveSources) {
     const liveId = `live:${src.kind}`;
-    const y = row * gap;
+    const srcTrack = primaryTrackForLiveKind(src.kind);
+    const y = nextLaneY(srcTrack, LANE_Y[srcTrack]);
     const blocked = src.status === 'missing_key' || src.status === 'stub';
     const ready = src.status === 'ready' || src.status === 'public' || src.contributed;
     const liveActivation: MarketHubModelEdgeActivation = blocked
@@ -856,7 +922,7 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
         operation: src.operation,
         amount: src.amount,
         layer: 'sources',
-        track: 'entitle',
+        track: srcTrack,
         activation: liveActivation,
         status: liveStatus,
         updatedAt: asOfIso,
@@ -884,13 +950,12 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
           ...state,
         },
       });
-      row += 1;
       continue;
     }
 
     kindFlows.forEach((flow, fi) => {
       const adapterId = `adapter:${flow.id}`;
-      const ay = y + fi * Math.min(40, gap / Math.max(kindFlows.length, 1));
+      const ay = y + fi * ADAPTER_STACK;
       const track = trackForFlow(flow);
       const aBlocked = flowBlocked(flow);
       const aReady = flowReady(flow);
@@ -939,14 +1004,12 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
         ready: aReady,
       });
     });
-    row += Math.max(1, kindFlows.length);
   }
 
   const libFlows = flows.filter((f) => f.kind.startsWith('library:'));
-  const libStartY = row * gap + 48;
-  librarySources.forEach((lib, i) => {
+  librarySources.forEach((lib) => {
     const liveId = `lib:${lib.id}`;
-    const y = libStartY + i * gap;
+    const y = nextLaneY('compound', LANE_Y.compound + 40);
     const ready = lib.admittedCount > 0;
     nodes.push({
       id: liveId,
@@ -1127,17 +1190,14 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
   }
 
   // Capital data sources (D-163) — fund rows with inline amount readouts.
-  const capitalStartY =
-    librarySources.length > 0
-      ? libStartY + librarySources.length * gap + 24
-      : row * gap + 48;
   capitalSources.forEach((cap, i) => {
     const nodeId = `capital:${cap.id}`;
     const ready = cap.status === 'configured';
+    const y = CAPITAL_LANE_Y + i * gap;
     nodes.push({
       id: nodeId,
       type: 'postureAlgo',
-      position: { x: liveX, y: capitalStartY + i * gap },
+      position: { x: liveX, y },
       data: {
         label: cap.name,
         detail: `${cap.tier} · ${cap.kind}`,
@@ -1171,14 +1231,38 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
     });
   });
 
+  if (capitalSources.length > 0 && caps.hasCompose) {
+    nodes.push({
+      id: 'lane:capital',
+      type: 'postureAlgo',
+      position: { x: COL.laneLabel, y: CAPITAL_LANE_Y },
+      data: {
+        label: 'Capital',
+        detail: 'Fund rows · allocation readouts',
+        kind: 'data',
+        nodeRole: 'lane_label',
+        operation: 'funds',
+        amount: 'compose',
+        layer: 'sources',
+        track: 'compose',
+        activation: 'armed',
+        status: 'ready',
+        updatedAt: asOfIso,
+      },
+    });
+  }
+
   // Panel surfaces — hub_ready hydrates into operator rail/overlay boards (D-161).
   const panelSurfaces = (hydration?.panelSurfaces ?? []).filter((surf) => {
     if (surf.id === 'news' && !caps.hasSector) return false;
     return true;
   });
-  const panelX = 3600;
-  const panelGap = 56;
-  const panelStartY = 40;
+  const hubX =
+    activeStageLayout.find((s) => s.id === 'hub_ready')?.x ??
+    COL.stage0 + COL.stageW * 10;
+  const panelX = hubX + 320;
+  const panelGap = 72;
+  const panelStartY = LANE_Y.compose - 40;
   panelSurfaces.forEach((surf, i) => {
     const nodeId = `panel:${surf.id}`;
     const ready = surf.status !== 'empty' && surf.status !== 'missing' && surf.status !== 'unavailable';
@@ -1246,7 +1330,14 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
       summary: MARKET_HUB_MODEL_TRACK_META[id].summary,
     }));
 
-  return { nodes, edges, tracks, asOfIso };
+  const trackBands: PostureAlgoTrackBand[] = tracks.map((t) => ({
+    id: t.id,
+    label: t.label,
+    summary: t.summary,
+    y: LANE_Y[t.id],
+  }));
+
+  return { nodes, edges, tracks, trackBands, asOfIso };
 }
 
 /**

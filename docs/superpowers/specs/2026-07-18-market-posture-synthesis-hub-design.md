@@ -10,8 +10,9 @@ Operator **Analyze** creates a durable synthesis **run** with ordered **stages**
 ## Hydration graph (D-147 / D-156 / D-160 / D-162 / D-163)
 
 - **Layers:** `sources` → `adapters` → `pipeline` → `output`
-- **Tracks:** `entitle` | `compound` | `sector` | `daily` | `compose` — **filtered to capabilities** of available providers (missing-key/stub lanes omitted from the diagram)
+- **Tracks:** `entitle` | `compound` | `sector` | `daily` | `compose` — **filtered to capabilities** of available providers (missing-key/stub lanes omitted from the diagram); laid out as **vertical lanes** with labels and wider column gaps (D-165)
 - **Data sources:** live SRC + library LIB + capital CAP nodes (fund allocation readouts)
+- **Node chrome:** track-colored top bar + role badge + layer id; legend lists tracks and types
 - **Live sources** → **per-kind adapters** → **route-granular process steps** → stage milestones (not a single dump into `gather`)
 - Examples: GDELT → `news_headline` fetch/normalize/tickers/corroborate → `gather`/`universe`/`sector`; Alpaca bars → `bars_entitle` **and** `bars_ohlc` (fetch/RS/volume) → `rs`/`rank`; libraries → `library_jaccard` load/fit → `thresholds`/`rank`/`seal_movers`
 - **Shared compound bridges (D-162):** stage → `providers_entitle` / `thresholds_llm` / `universe_build` / `compound_rank` / `verify_promote` / `sector_bulletin` / `daily_phase` / `narrative_compose` → stage (sector/daily bridges only when those tracks are active)

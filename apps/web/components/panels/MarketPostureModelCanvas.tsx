@@ -60,7 +60,7 @@ function kindBorder(kind: PostureAlgoNodeData['kind']): string {
   }
 }
 
-/** Per-role chrome — distinct fills/borders so node types read at a glance (D-163). */
+/** Per-role chrome — distinct fills/borders so node types read at a glance (D-163 / D-165). */
 function roleChrome(role: PostureAlgoNodeData['nodeRole']): string {
   switch (role) {
     case 'live_source':
@@ -77,6 +77,8 @@ function roleChrome(role: PostureAlgoNodeData['nodeRole']): string {
       return 'border-[var(--color-line)] bg-[var(--color-surface-1)]';
     case 'panel_surface':
       return 'border-[var(--color-ok)] bg-[color-mix(in_srgb,var(--color-ok)_6%,var(--color-surface-1))]';
+    case 'lane_label':
+      return 'border-transparent bg-transparent shadow-none';
     default: {
       const _exhaustive: never = role;
       return _exhaustive;
@@ -100,6 +102,8 @@ function roleLabel(role: PostureAlgoNodeData['nodeRole']): string {
       return 'STAGE';
     case 'panel_surface':
       return 'PANEL';
+    case 'lane_label':
+      return 'LANE';
     default: {
       const _exhaustive: never = role;
       return _exhaustive;
@@ -239,12 +243,38 @@ function styleModelEdge(edge: {
 const PostureAlgoNode = memo(function PostureAlgoNode({
   data,
 }: NodeProps<Node<LiveNodeData>>) {
+  if (data.nodeRole === 'lane_label') {
+    return (
+      <div
+        className="pointer-events-none w-[88px] select-none"
+        data-testid="market-posture-model-node-lane_label"
+        data-track={data.track}
+      >
+        <div
+          className="mb-1 h-0.5 w-full rounded-full"
+          style={{ background: trackStroke(data.track) }}
+          aria-hidden
+        />
+        <p
+          className="font-mono text-[10px] font-semibold uppercase tracking-widest"
+          style={{ color: trackStroke(data.track) }}
+        >
+          {data.label}
+        </p>
+        <p className="mt-0.5 font-mono text-[7px] leading-tight text-[var(--color-ink-faint)]">
+          {data.detail}
+        </p>
+      </div>
+    );
+  }
+
   const ring = data.selected
     ? 'ring-1 ring-[var(--color-accent)]'
     : activationRing(data.activation);
   return (
     <div
-      className={`min-w-[152px] max-w-[176px] rounded border px-2 py-1.5 shadow-sm ${kindBorder(data.kind)} ${roleChrome(data.nodeRole)} ${ring}`}
+      className={`min-w-[160px] max-w-[188px] rounded border border-t-[3px] px-2.5 py-2 shadow-sm ${kindBorder(data.kind)} ${roleChrome(data.nodeRole)} ${ring}`}
+      style={{ borderTopColor: trackStroke(data.track) }}
       data-testid={`market-posture-model-node-${data.nodeRole}`}
       data-activation={data.activation}
       data-track={data.track}
@@ -254,20 +284,14 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
       <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !bg-[var(--color-ink-faint)]" />
       <div className="flex items-baseline justify-between gap-1">
         <p className="font-mono text-[8px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          {roleLabel(data.nodeRole)} · {data.track}
+          {roleLabel(data.nodeRole)} · {data.layer}
         </p>
         <p
-          className="font-mono text-[8px] uppercase tracking-wider text-[var(--color-ink-dim)]"
-          title={`${data.activation} / ${data.status}`}
+          className="font-mono text-[8px] uppercase tracking-wider"
+          style={{ color: trackStroke(data.track) }}
+          title={`track ${data.track} · ${data.activation} / ${data.status}`}
         >
-          {data.nodeRole === 'stage' ? (
-            <>
-              <span aria-hidden>{statusGlyph(data.stageStatus)}</span>{' '}
-              {statusWord(data.stageStatus)}
-            </>
-          ) : (
-            data.activation
-          )}
+          {data.track}
         </p>
       </div>
       <p className="truncate text-[11px] font-medium text-[var(--color-ink)]" title={data.label}>
@@ -287,6 +311,15 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
       <p className="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-accent)]">
         {data.operation}
       </p>
+      {data.nodeRole === 'stage' ? (
+        <p className="mt-0.5 font-mono text-[8px] text-[var(--color-ink-dim)]">
+          <span aria-hidden>{statusGlyph(data.stageStatus)}</span> {statusWord(data.stageStatus)}
+        </p>
+      ) : (
+        <p className="mt-0.5 font-mono text-[8px] uppercase text-[var(--color-ink-faint)]">
+          {data.activation}
+        </p>
+      )}
       {data.nodeRole === 'adapter' && data.analysisRoles && data.analysisRoles.length > 0 ? (
         <p
           className="mt-0.5 truncate font-mono text-[8px] text-[var(--color-ink-dim)]"
@@ -352,7 +385,7 @@ function InnerCanvas(props: {
           stageStatus: n.data.stageId ? byStage.get(n.data.stageId)?.status : undefined,
           selected: props.selectedNodeId === n.id,
         },
-        selectable: true,
+        selectable: n.data.nodeRole !== 'lane_label',
       })),
     [graph.nodes, byStage, props.selectedNodeId],
   );
@@ -370,7 +403,7 @@ function InnerCanvas(props: {
   useEffect(() => {
     setEdges(styledEdges);
     const frame = requestAnimationFrame(() => {
-      void fitView({ padding: 0.1, maxZoom: 0.85, duration: 200 });
+      void fitView({ padding: 0.18, maxZoom: 0.75, duration: 220 });
     });
     return () => cancelAnimationFrame(frame);
   }, [styledEdges, setEdges, fitView]);
@@ -381,7 +414,10 @@ function InnerCanvas(props: {
       edges={edges}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
-      onNodeClick={(_e, node) => props.onSelectNode(node.id)}
+      onNodeClick={(_e, node) => {
+        if ((node.data as LiveNodeData).nodeRole === 'lane_label') return;
+        props.onSelectNode(node.id);
+      }}
       nodeTypes={nodeTypes}
       nodesDraggable={false}
       nodesConnectable={false}
@@ -479,26 +515,53 @@ function TrackLegend(props: {
   tracks: Array<{ id: MarketHubModelTrack; label: string; summary: string }>;
 }) {
   return (
-    <div
-      className="flex flex-wrap gap-x-3 gap-y-1"
-      data-testid="market-posture-model-track-legend"
-    >
-      {props.tracks.map((t) => (
-        <p
-          key={t.id}
-          className="font-mono text-[8px] uppercase tracking-wider text-[var(--color-ink-faint)]"
-          title={t.summary}
-        >
-          <span
-            className="mr-1 inline-block h-1.5 w-3 align-middle"
-            style={{ background: trackStroke(t.id) }}
-            aria-hidden
-          />
-          {t.label}
+    <div className="space-y-1.5" data-testid="market-posture-model-track-legend">
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        <p className="font-mono text-[8px] uppercase tracking-widest text-[var(--color-ink-dim)]">
+          Tracks
         </p>
-      ))}
+        {props.tracks.map((t) => (
+          <p
+            key={t.id}
+            className="font-mono text-[8px] uppercase tracking-wider text-[var(--color-ink-faint)]"
+            title={t.summary}
+          >
+            <span
+              className="mr-1 inline-block h-1.5 w-4 align-middle rounded-sm"
+              style={{ background: trackStroke(t.id) }}
+              aria-hidden
+            />
+            {t.label}
+          </p>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        <p className="font-mono text-[8px] uppercase tracking-widest text-[var(--color-ink-dim)]">
+          Types
+        </p>
+        {(
+          [
+            ['SRC', 'live API'],
+            ['LIB', 'library'],
+            ['CAP', 'capital'],
+            ['ADAPT', 'adapter'],
+            ['PROC', 'process'],
+            ['STAGE', 'milestone'],
+            ['PANEL', 'board'],
+          ] as const
+        ).map(([code, hint]) => (
+          <p
+            key={code}
+            className="font-mono text-[8px] uppercase tracking-wider text-[var(--color-ink-faint)]"
+            title={hint}
+          >
+            {code}
+          </p>
+        ))}
+      </div>
       <p className="font-mono text-[8px] text-[var(--color-ink-faint)]">
-        edges: hydrate dashed · adapt solid · corpus dash · ∥ parallel · panel → boards · pulse on refresh
+        Layers: sources → adapters → pipeline → output · edges: hydrate dashed · adapt solid ·
+        corpus dash · ∥ parallel · panel → boards · top bar = track color
       </p>
     </div>
   );
@@ -510,8 +573,8 @@ function stageSignature(run: MarketHubSynthesisRun | null): string {
 }
 
 /**
- * Live synthesis hub canvas (D-120 / D-147 / D-156 / D-160).
- * Typed edges with activation/status; pulses on Sync/Analyze refresh.
+ * Live synthesis hub canvas (D-120 / D-147 / D-156 / D-160 / D-165).
+ * Track-banded layout; typed edges; pulses on Sync/Analyze refresh.
  */
 export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(props: {
   className?: string;
@@ -619,7 +682,7 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
       <TrackLegend tracks={baselineGraph.tracks} />
       <div
         data-testid="market-posture-model-canvas"
-        className="h-[min(32rem,55vh)] min-h-[280px] overflow-hidden rounded border border-[var(--color-line)]"
+        className="h-[min(40rem,62vh)] min-h-[320px] overflow-hidden rounded border border-[var(--color-line)]"
         role="img"
         aria-label="Market posture synthesis hydration model"
       >

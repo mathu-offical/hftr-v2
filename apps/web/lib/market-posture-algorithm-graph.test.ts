@@ -283,6 +283,24 @@ describe('buildMarketPostureAlgorithmGraph (D-147 / D-156 / D-160 / D-162 / D-16
     expect(graph.tracks.map((t) => t.id)).toContain('compound');
   });
 
+  it('spaces sources into track lanes with lane labels (D-165)', () => {
+    const graph = buildMarketPostureAlgorithmGraph({
+      hydration,
+      nowMs: Date.parse('2026-07-19T05:00:30.000Z'),
+    });
+    expect(graph.trackBands.length).toBeGreaterThan(0);
+    expect(graph.nodes.some((n) => n.data.nodeRole === 'lane_label')).toBe(true);
+    const alpaca = graph.nodes.find((n) => n.id === 'live:alpaca_bars');
+    expect(alpaca?.data.track).toBe('entitle');
+    const providers = graph.nodes.find((n) => n.id === 'providers');
+    const sectorLane = graph.nodes.find((n) => n.id === 'lane:sector');
+    // Sector lane absent when no news; entitle providers above compound gather
+    expect(sectorLane).toBeUndefined();
+    const gather = graph.nodes.find((n) => n.id === 'gather');
+    expect(providers && gather && providers.position.y < gather.position.y).toBe(true);
+    expect(providers && gather && gather.position.x - providers.position.x >= 240).toBe(true);
+  });
+
   it('activates pipeline edges from running stages', () => {
     const graph = buildMarketPostureAlgorithmGraph({
       hydration,

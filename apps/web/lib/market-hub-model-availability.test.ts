@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { MarketHubModelLiveSource } from '@hftr/contracts';
 import {
   isAvailableLiveSource,
+  primaryTrackForLiveKind,
   resolveModelTrackCapabilities,
   tracksFromCapabilities,
 } from './market-hub-model-availability';
@@ -21,7 +22,7 @@ function src(
   };
 }
 
-describe('market-hub-model-availability (D-163)', () => {
+describe('market-hub-model-availability (D-163 / D-165)', () => {
   it('treats ready/public/contributed/bound as available', () => {
     expect(isAvailableLiveSource(src({ kind: 'alpaca_bars', status: 'ready' }))).toBe(true);
     expect(isAvailableLiveSource(src({ kind: 'gdelt_news', status: 'public' }))).toBe(true);
@@ -52,5 +53,11 @@ describe('market-hub-model-availability (D-163)', () => {
     });
     expect(caps.hasSector).toBe(true);
     expect(tracksFromCapabilities(caps)).toContain('sector');
+  });
+
+  it('maps live kinds onto primary track lanes', () => {
+    expect(primaryTrackForLiveKind('alpaca_bars')).toBe('entitle');
+    expect(primaryTrackForLiveKind('gdelt_news')).toBe('sector');
+    expect(primaryTrackForLiveKind('fred_macro')).toBe('compound');
   });
 });

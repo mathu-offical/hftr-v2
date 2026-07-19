@@ -102,3 +102,10 @@ export function isSectorCapableKind(kind: string): boolean {
 export function isEntitleCapableKind(kind: string): boolean {
   return ENTITLE_SOURCE_KINDS.has(kind);
 }
+
+/** Primary Model track lane for a live source kind (D-165). */
+export function primaryTrackForLiveKind(kind: string): MarketHubModelTrack {
+  if (isEntitleCapableKind(kind)) return 'entitle';
+  if (isSectorCapableKind(kind)) return 'sector';
+  return 'compound';
+}

@@ -193,6 +193,7 @@ describe('mergeMarketHubLive', () => {
           amount: 'stale · book',
           sourceStageId: 'hub_ready',
           updatedAt: '2026-07-18T12:00:00.000Z',
+          capitalBearing: true,
         },
         {
           id: 'positions',
@@ -203,6 +204,7 @@ describe('mergeMarketHubLive', () => {
           amount: '1 open',
           sourceStageId: 'narrative',
           updatedAt: '2026-07-18T12:00:00.000Z',
+          capitalBearing: true,
         },
       ],
     };

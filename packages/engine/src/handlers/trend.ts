@@ -11,6 +11,7 @@ import {
 } from '../graph/module-links';
 import { resolveLookbackQuotes } from '../live-api/lookback-quotes';
 import { pollQuotes } from '../live-api/poll-quotes';
+import { recordPolledQuotesAsValueRefs } from '../live-api/record-poll-quotes';
 import { enqueueLinkedResearchCurate } from '../research/enqueue-linked';
 import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
@@ -66,6 +67,15 @@ registerHandler('trend.scan', async ({ db, clock, job }) => {
     clock,
     adapter: quoteAdapter,
     maxSymbols: 8,
+  });
+
+  // D-172: persist poll marks so MarketModel can fuse live_api / adapter quotes on dispatch.
+  await recordPolledQuotesAsValueRefs({
+    db,
+    clock,
+    companyId: payload.companyId,
+    moduleId: payload.moduleId,
+    quotes: quotePoll.quotes,
   });
 
   const nowMs = clock.nowMs();

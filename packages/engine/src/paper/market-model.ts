@@ -6,13 +6,17 @@ import {
   defaultLoadAlpacaPaperCredentials,
   type AlpacaPaperCredentials,
 } from '../calc/refresh-atr-stream';
+import { loadQuoteCandidatesFromValueRefs } from '../calc/load-quote-value-refs';
 import { getSyntheticQuote } from '../dispatch/quotes';
 
 /**
- * MarketModel quote resolution (D-122 Phase 1–2 / D-171).
- * Prefer entitled live quotes; fuse multiple candidates by freshness; honest feedClass.
+ * MarketModel quote resolution (D-122 / D-171 / D-172).
+ * Prefer entitled live quotes; fuse ValueRef marks + adapter + owner teacher; honest feedClass.
  * Does not submit orders — quotes / marks only.
  */
+
+export { MARKET_MODEL_QUOTE_TTL_MS } from '../calc/load-quote-value-refs';
+import { MARKET_MODEL_QUOTE_TTL_MS } from '../calc/load-quote-value-refs';
 
 export interface ResolveMarketQuoteOpts {
   symbol: string;
@@ -49,9 +53,6 @@ function quoteAsOfMs(q: QuoteSnapshot): number {
 function isLivePriced(q: QuoteSnapshot): boolean {
   return hasPrice(q) && sourceClassForFeed(q.feedClass ?? 'live_feed') !== 'synthetic_sim';
 }
-
-/** Quotes older than this are not used as MarketModel teachers (match dispatch TTL). */
-export const MARKET_MODEL_QUOTE_TTL_MS = 90_000;
 
 function isFreshQuote(q: QuoteSnapshot, nowMs: number, ttlMs = MARKET_MODEL_QUOTE_TTL_MS): boolean {
   const asOf = quoteAsOfMs(q);
@@ -131,16 +132,19 @@ export async function loadOwnerAlpacaPaperQuote(
       companyId: string,
     ) => Promise<AlpacaPaperCredentials | null>;
     createQuoteAdapter?: (creds: AlpacaPaperCredentials) => BrokerAdapter;
+    /** Injectable clock read for adapter `asOfIso` (D-009). */
+    nowMs?: () => number;
   },
 ): Promise<QuoteSnapshot | null> {
   try {
     const load = deps?.loadCredentials ?? defaultLoadAlpacaPaperCredentials;
     const creds = await load(db, companyId);
     if (!creds) return null;
+    const nowMs = deps?.nowMs ?? (() => Date.now());
     const create =
       deps?.createQuoteAdapter ??
       ((c: AlpacaPaperCredentials) =>
-        createAlpacaPaperAdapter({ keyId: c.keyId, secret: c.secret }));
+        createAlpacaPaperAdapter({ keyId: c.keyId, secret: c.secret, nowMs }));
     const adapter = create(creds);
     return await adapter.getQuote(symbol);
   } catch {
@@ -167,13 +171,14 @@ export async function resolveMarketQuoteWithAdapter(opts: {
 }
 
 /**
- * Dispatch/compile MarketModel resolution (D-171):
+ * Dispatch/compile MarketModel resolution (D-171 / D-172):
  * 1) Bound non-`paper_sim` adapter quote
- * 2) Owner/module Alpaca paper quote teacher (read-only)
- * 3) Synthetic fail-open
+ * 2) Fresh company ValueRef marks (live_api / prior quotes)
+ * 3) Owner/module Alpaca paper quote teacher (read-only)
+ * 4) Synthetic fail-open
  *
  * Keeps `funds_only` + `paper_sim` venue for fills while pricing from live market data
- * when entitled credentials exist — no submitOrder on the teacher path.
+ * when entitled credentials / marks exist — no submitOrder on the teacher path.
  */
 export async function resolveDispatchMarketQuote(opts: {
   db: Db;
@@ -185,6 +190,8 @@ export async function resolveDispatchMarketQuote(opts: {
   loadOwnerQuote?: LoadOwnerAlpacaPaperQuote;
   /** Override freshness TTL (tests). Default 90s — matches dispatch QUOTE_TTL_MS. */
   quoteTtlMs?: number;
+  /** Skip ValueRef load (tests). */
+  skipValueRefs?: boolean;
 }): Promise<ResolvedMarketQuote> {
   const nowMs = opts.clock.nowMs();
   const ttlMs = opts.quoteTtlMs ?? MARKET_MODEL_QUOTE_TTL_MS;
@@ -192,8 +199,22 @@ export async function resolveDispatchMarketQuote(opts: {
   const fromAdapter = await loadAdapterMarketQuote(opts.adapter, opts.symbol);
   if (fromAdapter) pooled.push(fromAdapter);
 
+  if (!opts.skipValueRefs) {
+    const fromRefs = await loadQuoteCandidatesFromValueRefs(opts.db, opts.clock, {
+      companyId: opts.companyId,
+      symbol: opts.symbol,
+      ttlMs,
+    });
+    pooled.push(...fromRefs);
+  }
+
   if (!pooled.some((q) => isLivePriced(q) && isFreshQuote(q, nowMs, ttlMs))) {
-    const loadOwner = opts.loadOwnerQuote ?? loadOwnerAlpacaPaperQuote;
+    const loadOwner =
+      opts.loadOwnerQuote ??
+      ((db, companyId, symbol) =>
+        loadOwnerAlpacaPaperQuote(db, companyId, symbol, {
+          nowMs: () => opts.clock.nowMs(),
+        }));
     try {
       const ownerQuote = await loadOwner(opts.db, opts.companyId, opts.symbol);
       if (ownerQuote) pooled.push(ownerQuote);

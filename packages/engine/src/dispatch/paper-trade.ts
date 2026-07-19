@@ -60,6 +60,7 @@ import { recomputeCompanyEquity } from '../equity/recompute';
 import { shadowVerifyAndPersistBookDelta } from '../paper/book-delta';
 import { computeInternalPaperCoreFill } from '../paper/internal-paper-core';
 import { resolveDispatchMarketQuote } from '../paper/market-model';
+import { resolvePaperFillSlippage } from '../paper/resolve-slippage-bps';
 
 /**
  * The deterministic paper-trade path (broker-integration.md, dispatch README):
@@ -594,7 +595,11 @@ export async function executePaperTrade(
     });
   }
 
-  const fill = computeFill(task, quote);
+  const fillSlippage = resolvePaperFillSlippage({
+    slippagePosition: 'typical',
+    ...(req.quantity >= 2 ? { participationPct: 40 } : {}),
+  });
+  const fill = computeFill(task, quote, fillSlippage.totalSlippageBps);
   if (!fill.ok) {
     await db
       .update(deterministicTasks)
@@ -1234,8 +1239,11 @@ export { buildFillVerificationFields } from './fill-verification';
 function computeFill(
   task: DeterministicActionTask,
   quote: QuoteSnapshot,
+  slippageBps?: number,
 ): { ok: true; priceCents: number; venueOrderId: string } | { ok: false; reason: string } {
-  return computeInternalPaperCoreFill(task, quote);
+  return computeInternalPaperCoreFill(task, quote, {
+    ...(slippageBps !== undefined ? { slippageBps } : {}),
+  });
 }
 
 function internalPaperFillGapTags(args: {
@@ -1244,6 +1252,7 @@ function internalPaperFillGapTags(args: {
   routingMode: PaperRoutingMode;
   usedChildDrain?: boolean;
   shadowVerifyAttempted?: boolean;
+  usedMarketImpactProxy?: boolean;
 }): string[] {
   if (args.outcome !== 'filled') {
     return args.usedLiveMarketQuote
@@ -1255,7 +1264,7 @@ function internalPaperFillGapTags(args: {
     'inline_fill_model',
     'no_venue_latency',
     'no_queue_position',
-    'no_market_impact',
+    args.usedMarketImpactProxy ? 'square_root_impact_proxy' : 'no_market_impact',
     args.usedChildDrain ? 'child_slice_drain' : 'no_partial_fills',
   ];
   switch (args.routingMode) {

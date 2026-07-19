@@ -138,7 +138,7 @@ export function RightPanel(props: { companyId: string }) {
 
   const [tab, setTab] = useState<Tab>('executions');
   const [open, setOpen] = useState(true);
-  /** D-146: assistant is a separate floating column, not a RightPanel tab. */
+  /** D-146 / D-150: assistant is a layered floating overlay, not a RightPanel tab. */
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [persistReady, setPersistReady] = useState(false);
   const [balance, setBalance] = useState<string | null>(null);
@@ -171,7 +171,6 @@ export function RightPanel(props: { companyId: string }) {
     function onFocus(e: Event) {
       const detail = (e as CustomEvent<ValueLineageFocusDetail>).detail;
       if (!detail || detail.companyId !== props.companyId) return;
-      setAssistantOpen(false);
       setOpen(true);
       setTab('values');
       setFocusedValueRef(detail.valueRef);
@@ -186,7 +185,6 @@ export function RightPanel(props: { companyId: string }) {
   }, [storageKey, open, tab, assistantOpen, persistReady]);
 
   const selectRightTab = useCallback((id: Tab) => {
-    setAssistantOpen(false);
     setTab(id);
     setOpen(true);
   }, []);
@@ -264,7 +262,7 @@ export function RightPanel(props: { companyId: string }) {
     return count > 0 ? String(count) : undefined;
   };
 
-  // D-118 / D-123 / D-146: symbol rail + separate AST assistant column.
+  // D-118 / D-123 / D-146 / D-150: symbol rail + layered AST overlay.
   return (
     <div className="flex h-full min-h-0 shrink-0">
       {open ? (

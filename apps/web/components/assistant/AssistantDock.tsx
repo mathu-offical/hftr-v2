@@ -1,9 +1,72 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { AssistantEdit, AssistantMessage, AssistantToolResultSummary } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import { LlmAvailabilityChips } from '@/components/shell/LlmConnectionStatus';
+
+const MIN_W = 280;
+const MIN_H = 240;
+const VIEW_PAD = 8;
+
+type AssistantGeometry = { x: number; y: number; w: number; h: number };
+
+type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
+
+function defaultGeometry(): AssistantGeometry {
+  if (typeof window === 'undefined') {
+    return { x: 80, y: 80, w: 384, h: 480 };
+  }
+  const w = Math.min(384, Math.max(MIN_W, window.innerWidth - 72));
+  const h = Math.min(560, Math.max(MIN_H, Math.round(window.innerHeight * 0.7)));
+  return {
+    x: Math.max(VIEW_PAD, window.innerWidth - w - 56),
+    y: Math.max(VIEW_PAD, 56),
+    w,
+    h,
+  };
+}
+
+function clampGeometry(g: AssistantGeometry): AssistantGeometry {
+  if (typeof window === 'undefined') return g;
+  const maxW = Math.max(MIN_W, window.innerWidth - VIEW_PAD * 2);
+  const maxH = Math.max(MIN_H, window.innerHeight - VIEW_PAD * 2);
+  const w = Math.min(maxW, Math.max(MIN_W, g.w));
+  const h = Math.min(maxH, Math.max(MIN_H, g.h));
+  const x = Math.min(window.innerWidth - VIEW_PAD - w, Math.max(VIEW_PAD, g.x));
+  const y = Math.min(window.innerHeight - VIEW_PAD - h, Math.max(VIEW_PAD, g.y));
+  return { x, y, w, h };
+}
+
+function readGeometry(key: string): AssistantGeometry | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
+    const o = parsed as Record<string, unknown>;
+    if (
+      typeof o.x !== 'number' ||
+      typeof o.y !== 'number' ||
+      typeof o.w !== 'number' ||
+      typeof o.h !== 'number'
+    ) {
+      return null;
+    }
+    return clampGeometry({ x: o.x, y: o.y, w: o.w, h: o.h });
+  } catch {
+    return null;
+  }
+}
+
+function writeGeometry(key: string, value: AssistantGeometry): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // quota / private mode
+  }
+}
 
 function formatTime(iso: string): string {
   try {
@@ -140,9 +203,9 @@ function ToolResultsSummary({ results }: { results: AssistantToolResultSummary[]
 }
 
 /**
- * Read-only assistant chat (ui-spec §5 / D-146).
- * Open state is controlled by the right edge rail (AST); renders as a full-height
- * column separate from the main RightPanel.
+ * Read-only assistant chat (ui-spec §5 / D-146 / D-150).
+ * AST rail opens a fixed overlay layered above the main RightPanel; panel is
+ * draggable (header) and resizable (edges/corners) within the viewport.
  */
 export function AssistantDock(props: {
   companyId: string;
@@ -150,14 +213,45 @@ export function AssistantDock(props: {
   onOpenChange: (open: boolean) => void;
 }) {
   const { open, onOpenChange } = props;
+  const geometryKey = props.companyId ? `hftr:${props.companyId}:assistant:geometry` : null;
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [proposals, setProposals] = useState<AssistantEdit[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [geometry, setGeometry] = useState<AssistantGeometry>(defaultGeometry);
+  const [geometryReady, setGeometryReady] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const geometryRef = useRef(geometry);
+  geometryRef.current = geometry;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!geometryKey) {
+      setGeometry(clampGeometry(defaultGeometry()));
+      setGeometryReady(true);
+      return;
+    }
+    setGeometry(readGeometry(geometryKey) ?? clampGeometry(defaultGeometry()));
+    setGeometryReady(true);
+  }, [geometryKey]);
+
+  useEffect(() => {
+    if (!geometryKey || !geometryReady) return;
+    writeGeometry(geometryKey, geometry);
+  }, [geometryKey, geometry, geometryReady]);
+
+  useEffect(() => {
+    const onResize = () => setGeometry((g) => clampGeometry(g));
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const loadProposals = useCallback(async () => {
     try {
@@ -190,17 +284,15 @@ export function AssistantDock(props: {
   }, [props.companyId]);
 
   useEffect(() => {
-    if (open) {
-      void loadHistory();
-      void loadProposals();
-    }
+    if (!open) return;
+    void loadHistory();
+    void loadProposals();
   }, [open, loadHistory, loadProposals]);
 
   useEffect(() => {
-    if (open) {
-      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-    }
-  }, [messages, open]);
+    if (!open || !scrollRef.current) return;
+    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages, open, proposals]);
 
   useEffect(() => {
     if (!open) return;
@@ -214,6 +306,92 @@ export function AssistantDock(props: {
   useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
+
+  const beginDrag = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origin = geometryRef.current;
+    const target = e.currentTarget as HTMLElement;
+    try {
+      target.setPointerCapture(e.pointerId);
+    } catch {
+      // some environments reject capture on synthetic events
+    }
+
+    const onMove = (ev: PointerEvent) => {
+      setGeometry(
+        clampGeometry({
+          ...origin,
+          x: origin.x + (ev.clientX - startX),
+          y: origin.y + (ev.clientY - startY),
+        }),
+      );
+    };
+    const onUp = (ev: PointerEvent) => {
+      try {
+        target.releasePointerCapture(ev.pointerId);
+      } catch {
+        // ignore
+      }
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, []);
+
+  const beginResize = useCallback((edge: ResizeEdge, e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origin = geometryRef.current;
+    const target = e.currentTarget as HTMLElement;
+    try {
+      target.setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+
+    const onMove = (ev: PointerEvent) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      let { x, y, w, h } = origin;
+      if (edge.includes('e')) w = origin.w + dx;
+      if (edge.includes('s')) h = origin.h + dy;
+      if (edge.includes('w')) {
+        w = origin.w - dx;
+        x = origin.x + dx;
+      }
+      if (edge.includes('n')) {
+        h = origin.h - dy;
+        y = origin.y + dy;
+      }
+      if (w < MIN_W) {
+        if (edge.includes('w')) x = origin.x + origin.w - MIN_W;
+        w = MIN_W;
+      }
+      if (h < MIN_H) {
+        if (edge.includes('n')) y = origin.y + origin.h - MIN_H;
+        h = MIN_H;
+      }
+      setGeometry(clampGeometry({ x, y, w, h }));
+    };
+    const onUp = (ev: PointerEvent) => {
+      try {
+        target.releasePointerCapture(ev.pointerId);
+      } catch {
+        // ignore
+      }
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, []);
 
   const send = useCallback(async () => {
     const text = input.trim();
@@ -247,7 +425,7 @@ export function AssistantDock(props: {
     } finally {
       setLoading(false);
     }
-  }, [historyLoading, input, loading, props.companyId]);
+  }, [historyLoading, input, loading, loadProposals, props.companyId]);
 
   const onSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -257,24 +435,58 @@ export function AssistantDock(props: {
     [send],
   );
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  const resizeHandle = (edge: ResizeEdge, className: string) => (
+    <div
+      key={edge}
+      role="separator"
+      aria-orientation={edge === 'n' || edge === 's' ? 'horizontal' : 'vertical'}
+      aria-label={`Resize assistant ${edge}`}
+      onPointerDown={(e) => beginResize(edge, e)}
+      className={`absolute z-10 touch-none ${className}`}
+    />
+  );
+
+  return createPortal(
     <aside
       data-testid="assistant-rail-panel"
-      className="flex h-full min-h-0 w-[min(24rem,calc(100vw-5rem))] shrink-0 flex-col overflow-hidden border-l border-[var(--color-line)] bg-[var(--color-surface-1)] shadow-[-12px_0_32px_rgba(0,0,0,0.35)]"
+      className="fixed z-50 flex flex-col overflow-hidden rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] shadow-2xl"
+      style={{
+        left: geometry.x,
+        top: geometry.y,
+        width: geometry.w,
+        height: geometry.h,
+      }}
       role="dialog"
       aria-modal="false"
       aria-label="Read-only assistant chat"
     >
-      <header className="flex shrink-0 items-center justify-between border-b border-[var(--color-line)] px-3 py-2">
-        <div>
+      {resizeHandle('n', 'left-2 right-2 top-0 h-1.5 cursor-ns-resize')}
+      {resizeHandle('s', 'left-2 right-2 bottom-0 h-1.5 cursor-ns-resize')}
+      {resizeHandle('e', 'top-2 bottom-2 right-0 w-1.5 cursor-ew-resize')}
+      {resizeHandle('w', 'top-2 bottom-2 left-0 w-1.5 cursor-ew-resize')}
+      {resizeHandle('ne', 'right-0 top-0 h-3 w-3 cursor-nesw-resize')}
+      {resizeHandle('nw', 'left-0 top-0 h-3 w-3 cursor-nwse-resize')}
+      {resizeHandle('se', 'bottom-0 right-0 h-3 w-3 cursor-nwse-resize')}
+      {resizeHandle('sw', 'bottom-0 left-0 h-3 w-3 cursor-nesw-resize')}
+
+      <header
+        onPointerDown={beginDrag}
+        className="flex shrink-0 cursor-grab items-center justify-between border-b border-[var(--color-line)] px-3 py-2 active:cursor-grabbing"
+      >
+        <div className="pointer-events-none">
           <h2 className="text-sm font-medium text-[var(--color-ink)]">Assistant</h2>
-          <p className="text-[10px] text-[var(--color-ink-faint)]">Read-only · no model calls</p>
-          <LlmAvailabilityChips tiers={['assistant']} className="mt-1" />
+          <p className="text-[10px] text-[var(--color-ink-faint)]">
+            Read-only · drag header · resize edges
+          </p>
+          <div className="pointer-events-auto">
+            <LlmAvailabilityChips tiers={['assistant']} className="mt-1" />
+          </div>
         </div>
         <button
           type="button"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={() => onOpenChange(false)}
           aria-label="Close assistant"
           className="rounded px-2 py-1 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
@@ -367,6 +579,7 @@ export function AssistantDock(props: {
           {loading ? '…' : 'Send'}
         </button>
       </form>
-    </aside>
+    </aside>,
+    document.body,
   );
 }

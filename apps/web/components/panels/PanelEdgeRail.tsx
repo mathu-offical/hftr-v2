@@ -19,6 +19,8 @@ export type PanelEdgeRailAction = {
   abbrev: string;
   icon: LucideIcon;
   pressed?: boolean;
+  /** When pressed, tab symbols unpress (e.g. left Libraries full-height). */
+  exclusive?: boolean;
   meta?: string | undefined;
   onClick: () => void;
 };
@@ -117,7 +119,10 @@ export function PanelEdgeRail<T extends string>(props: {
             label: item.label,
             abbrev: item.abbrev,
             icon: item.icon,
-            pressed: props.open && props.activeTab === item.id && !(props.railActions?.some((a) => a.pressed) ?? false),
+            pressed:
+              props.open &&
+              props.activeTab === item.id &&
+              !(props.railActions?.some((a) => a.exclusive && a.pressed) ?? false),
             meta: item.meta,
             onClick: () => props.onSelectTab(item.id),
           }),

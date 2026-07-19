@@ -254,7 +254,7 @@ Libraries). Nested category strips (Market posture) use `density="compact"`.
 
 **Keyboard + persistence (shipped 2026-07-17, D-022; engine scope D-097; edge rails D-118 /
 D-123; assistant rail D-146):** `[` toggles left, `]` toggles right, `` ` `` toggles bottom; `Esc`
-collapses the active surface (assistant column first on the right, then the main right panel;
+collapses the active surface (assistant overlay first on the right, then the main right panel;
 bottom defers when `TraceTimeline` is open). **Edge toggles persist** at each panel’s window
 edge while expanded. Left/right use a wider **symbol rail** (`PanelEdgeRail`, `w-12`): Lucide
 icons for each tab stay visible when collapsed; clicking a symbol opens that tab; a bottom
@@ -403,9 +403,10 @@ are ignored. Shortcuts are suppressed in editable fields.
   from the executions API (timeline causation walk) over symbol heuristics.
 
 ### RIGHT — Execution + Verification + Positions + Simulation results
-- **Assistant (D-146):** right edge rail **AST** (above collapse) toggles a **separate**
-  full-height floating chat column — not a RightPanel tab. Selecting Verify / Executions /
-  Positions / Ledger / Sims / Values closes the assistant column and opens the main panel.
+- **Assistant (D-146 / D-150):** right edge rail **AST** (above collapse) toggles a
+  **viewport-fixed overlay** layered on top of the main RightPanel — not a tab and not an
+  in-flow column. Drag the header; resize via edges/corners; geometry persists per company.
+  Selecting Verify / Executions / … leaves the assistant open over the underlying panel.
 - **Positions (D-125 / D-129):** dedicated tab listing open holdings (market-hub live marks +
   `SymbolTicker` stability). Select a row for the inspector: held-vs-cost stability,
   automatic recovery (tree `recoveryLadder` + next model-free exit candidate from
@@ -424,17 +425,19 @@ are ignored. Shortcuts are suppressed in editable fields.
 
 ## 5. Assistant surface
 
-**M1 (shipped D-022; hardened D-023; rail mount D-146):** right edge rail **AST** (above
-collapse, mirrors left **LIB**) opens a **full-height floating column** beside the main
-RightPanel — not a RightPanel tab and not a bottom-right FAB. `AssistantDock` is controlled by
-`RightPanel` (`assistantOpen`, persisted). Loads/sends via
+**M1 (shipped D-022; hardened D-023; rail mount D-146; overlay D-150):** right edge rail
+**AST** (above collapse, mirrors left **LIB**) opens a **viewport-fixed** chat overlay
+layered above the main RightPanel — not a RightPanel tab, not an in-flow column, and not a
+bottom-right FAB. `AssistantDock` is controlled by `RightPanel` (`assistantOpen`, persisted)
+and portals to `document.body` (`z-50`). Drag the header; resize edges/corners; bounds
+persist at `hftr:{companyId}:assistant:geometry`. Loads/sends via
 `GET/POST /api/companies/:companyId/assistant`. History is append-only `assistant_messages` in
 Postgres (company + user scoped). Responses are **deterministic read-only lookups** — six
 regex-routed intents, **no model calls**. Persisted `tool_results` are summary cards (`tool`,
 `summary`, `status`); capabilities and failed lookups render as explicit cards. Rate limit: 20
-user messages/min/company. Chrome: "Read-only · no model calls". Selecting any main right tab
-closes the assistant column; `Esc` closes assistant first, then the main panel.
-Retention/erasure: OQ-10 / D-030 (90d hot).
+user messages/min/company. Chrome: "Read-only · drag header · resize edges". Selecting a main
+right tab does **not** close the overlay; `Esc` / AST / × closes it (then Esc can collapse the
+main panel). Retention/erasure: OQ-10 / D-030 (90d hot).
 
 **Later milestones:** messages may carry structured edit-proposal cards (diff-style: field,
 old → new) with Confirm/Reject; applied edits link to `assistant_edits` audit entries (M4).
@@ -480,9 +483,8 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
   company envelope sphere bounds the visible nests. Cross-library edges may span systems.
   Layout uses Fibonacci volume packing (D-116) with free-float
   semantic springs (D-136), celestial hierarchy (D-139 / D-141), orbital shelf
-  bands (D-142), and **client semantic springs** (overlap / shared display tags /
-  article-topic membership) so related nests interact instead of staying hard-separated
-  (D-145).
+  bands (D-142), **client semantic springs** (D-145), and **physical library bridges**
+  from shared display tags / overlap so related spheres drift into interaction (D-151).
 - **Rotating info-tag layer** over the graph (subtle orbit of tag chips; static under
   `prefers-reduced-motion`); chips double as filters.
 - **Topic focus** (left-panel select): dim non-member concepts/edges; stronger particles on

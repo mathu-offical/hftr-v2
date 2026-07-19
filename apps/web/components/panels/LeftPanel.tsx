@@ -438,6 +438,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
             abbrev: 'LIB',
             icon: LibraryIcon,
             pressed: open && librariesFull,
+            exclusive: true,
             meta: librariesLoaded && libraries.length > 0 ? String(libraries.length) : undefined,
             onClick: openLibrariesFull,
           },

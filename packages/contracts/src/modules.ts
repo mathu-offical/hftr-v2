@@ -1632,6 +1632,9 @@ export const CreateCompanyEngine = z.object({
   inputs: z.record(z.string(), z.string()).default({}),
   setup: ModuleSetupInput.optional(),
   canvasOffset: CanvasPosition.optional(),
+  /** D-189: simulation child placement when seed is a linked sim ENGINE. */
+  simulationPlacement: z.enum(['pre', 'post']).optional(),
+  simulationRole: z.enum(['gate', 'training', 'adhoc']).optional(),
 });
 export type CreateCompanyEngine = z.infer<typeof CreateCompanyEngine>;
 

@@ -7,6 +7,7 @@ import {
   requiredModuleSetupFields,
   type ModuleSetupField,
 } from './modules';
+import { SimulationEngineBinding } from './paper-engine';
 
 /**
  * Persisted ENGINE instance contracts (D-028 / D-035 / D-091).
@@ -40,6 +41,7 @@ export function engineUtilityBusesForCategory(
     case 'hft':
     case 'high_frequency':
     case 'execution':
+    case 'simulation':
       return ['data_in', 'data_out', 'clock', 'funds', 'system_control'];
     default:
       return ['data_in', 'data_out', 'clock', 'system_control'];
@@ -156,6 +158,10 @@ export const EngineSetupSnapshot = z.object({
   optionAnchorPositions: z
     .record(z.string(), z.enum(['min', 'typical', 'max']))
     .optional(),
+  /**
+   * D-189: simulation ENGINE binding (adhoc vs child gate/training on a parent exec).
+   */
+  simulationBinding: SimulationEngineBinding.optional(),
 });
 export type EngineSetupSnapshot = z.infer<typeof EngineSetupSnapshot>;
 
@@ -187,6 +193,11 @@ export const InsertEngineInput = z.object({
   cascadeFromCompany: z.boolean().default(true),
   /** Absolute canvas offset applied to template module positions. */
   canvasOffset: CanvasPosition.optional(),
+  /**
+   * D-189: when inserting a linked simulation ENGINE, stamp setup_snapshot.simulationBinding.
+   * Omit for adhoc sims and non-sim templates.
+   */
+  simulationBinding: SimulationEngineBinding.optional(),
 });
 export type InsertEngineInput = z.infer<typeof InsertEngineInput>;
 

@@ -64,6 +64,77 @@ export const BookDelta = z.object({
 });
 export type BookDelta = z.infer<typeof BookDelta>;
 
+/**
+ * Simulation ENGINE process placement relative to a parent execution ENGINE (D-189).
+ * Placement IS the role in the process: pre = gate, post = training.
+ */
+export const SimulationPlacement = z.enum(['pre', 'post']);
+export type SimulationPlacement = z.infer<typeof SimulationPlacement>;
+
+/** Bespoke sim ENGINE role (adhoc standalone, or linked gate/training). */
+export const SimulationEngineRole = z.enum(['gate', 'training', 'adhoc']);
+export type SimulationEngineRole = z.infer<typeof SimulationEngineRole>;
+
+/**
+ * Persisted on engine_instances.setup_snapshot when template is a simulation ENGINE.
+ * Linked sims require parentExecutionEngineId + placement; adhoc omits both.
+ */
+export const SimulationEngineBinding = z
+  .object({
+    role: SimulationEngineRole,
+    placement: SimulationPlacement.optional(),
+    parentExecutionEngineId: z.string().uuid().optional(),
+    /** When linked, clone parent capital/policy/strategy envelope by default. */
+    mimicParent: z.boolean().default(true),
+  })
+  .superRefine((value, ctx) => {
+    if (value.role === 'adhoc') return;
+    if (!value.placement) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Linked simulation engines require placement (pre|post)',
+        path: ['placement'],
+      });
+    }
+    if (!value.parentExecutionEngineId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Linked simulation engines require parentExecutionEngineId',
+        path: ['parentExecutionEngineId'],
+      });
+    }
+    if (value.role === 'gate' && value.placement && value.placement !== 'pre') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Gate role requires placement pre',
+        path: ['placement'],
+      });
+    }
+    if (value.role === 'training' && value.placement && value.placement !== 'post') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Training role requires placement post',
+        path: ['placement'],
+      });
+    }
+  });
+export type SimulationEngineBinding = z.infer<typeof SimulationEngineBinding>;
+
+export function simulationRoleForPlacement(
+  placement: SimulationPlacement,
+): Exclude<SimulationEngineRole, 'adhoc'> {
+  switch (placement) {
+    case 'pre':
+      return 'gate';
+    case 'post':
+      return 'training';
+    default: {
+      const _exhaustive: never = placement;
+      return _exhaustive;
+    }
+  }
+}
+
 /** Resolve binding from trading module config; missing → funds_only defaults. */
 export function resolveTradingExecutionBinding(
   config: { executionBinding?: EngineExecutionBinding | null } | null | undefined,

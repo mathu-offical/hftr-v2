@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ModuleType } from './modules';
+import { ModuleType, type CreateCompanyEngine } from './modules';
 
 /**
  * Company templates: preset module graphs created with a new company.
@@ -103,7 +103,8 @@ export interface EngineTemplate {
     | 'prediction'
     | 'high_frequency'
     | 'long_term'
-    | 'research';
+    | 'research'
+    | 'simulation';
   description: string;
   available: boolean;
   unavailableReason?: string;
@@ -1818,6 +1819,316 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
     ],
   },
+  // ── Simulation ENGINEs (D-189) — paper_sim / funds_only by default ─────────
+  {
+    id: 'sim_gate_strategy_spread',
+    label: 'Strategy-spread gate sim',
+    category: 'simulation',
+    description:
+      'Pre/parallel execution GATE: runs multiple strategy families in a testable paper spread to glean optimized settings that influence the parent execution engine. Paper-only (funds_only).',
+    available: true,
+    modules: [
+      {
+        type: 'live_api',
+        name: 'Gate Market Feed',
+        config: {
+          venue: 'paper_sim',
+          instruments: [],
+          feedClass: 'synthetic_sim',
+          pollSeconds: 30,
+        },
+        position: { x: 0, y: 0 },
+      },
+      {
+        type: 'trend',
+        name: 'Gate Strategy Scanner',
+        config: {
+          focus: 'pending_operator_scope',
+          trendPosture: 'session_intraday',
+          maxActiveTrends: 12,
+          cadenceMinutes: 15,
+        },
+        position: { x: 460, y: 0 },
+      },
+      {
+        type: 'trading',
+        name: 'Gate Spread Execution',
+        config: {
+          subtype: 'day_trading',
+          strategyFamilies: ['strat-001', 'strat-002', 'strat-003'],
+          exitTimelineDays: 1,
+          cadenceMinutes: 5,
+          executionBinding: { routingMode: 'funds_only' },
+        },
+        position: { x: 920, y: 0 },
+      },
+      {
+        type: 'holding_fund',
+        name: 'Gate Sim Holding',
+        config: {
+          source: 'company_seed',
+          allocationPolicyRef: 'paper_balanced_general_v1',
+        },
+        position: { x: 460, y: 460 },
+      },
+      {
+        type: 'fund_router',
+        name: 'Gate Sim Router',
+        config: {
+          policyEnvelopeRef: 'paper_balanced_general_v1',
+          approvalMode: 'manual',
+          targetModuleIds: [],
+        },
+        position: { x: 920, y: 460 },
+      },
+      {
+        type: 'analyzer',
+        name: 'Gate Score Concat',
+        config: {
+          emitMode: 'to_desk_stream',
+          streamDescriptor: 'gate_optimized_settings',
+        },
+        position: { x: 1380, y: 0 },
+      },
+      {
+        type: 'policy',
+        name: 'Gate Sim Policy',
+        config: {
+          policyEnvelopeRef: 'paper_balanced_general_v1',
+          notes: 'Paper gate sim — influences parent via gleaned settings; not live.',
+        },
+        position: { x: 1380, y: 460 },
+      },
+    ],
+    links: [
+      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'directive' },
+      { fromIndex: 2, toIndex: 5, linkKind: 'verification' },
+      { fromIndex: 5, toIndex: 6, linkKind: 'verification' },
+      { fromIndex: 2, toIndex: 6, linkKind: 'directive' },
+      { fromIndex: 3, toIndex: 'math', linkKind: 'fund_route' },
+      { fromIndex: 'math', toIndex: 4, linkKind: 'fund_route' },
+    ],
+    inputs: [
+      {
+        key: 'focus',
+        label: 'Gate focus',
+        kind: 'text',
+        placeholder: 'e.g. session liquid large-cap spread',
+        target: { moduleIndex: 1, configKey: 'focus' },
+      },
+    ],
+  },
+  {
+    id: 'sim_train_policy_replay',
+    label: 'Policy-replay training sim',
+    category: 'simulation',
+    description:
+      'Post-execution TRAINING: replays the parent engine policy in paper, runs additional trades, and feeds tag/concept-enriched results back to the parent Engine Data Hub. Paper-only.',
+    available: true,
+    modules: [
+      {
+        type: 'live_api',
+        name: 'Training Market Feed',
+        config: {
+          venue: 'paper_sim',
+          instruments: [],
+          feedClass: 'synthetic_sim',
+          pollSeconds: 60,
+        },
+        position: { x: 0, y: 0 },
+      },
+      {
+        type: 'trend',
+        name: 'Training Replay Scanner',
+        config: {
+          focus: 'pending_operator_scope',
+          trendPosture: 'session_intraday',
+          maxActiveTrends: 8,
+          cadenceMinutes: 30,
+        },
+        position: { x: 460, y: 0 },
+      },
+      {
+        type: 'trading',
+        name: 'Training Paper Execution',
+        config: {
+          subtype: 'day_trading',
+          strategyFamilies: ['strat-001'],
+          exitTimelineDays: 1,
+          cadenceMinutes: 10,
+          executionBinding: { routingMode: 'funds_only' },
+        },
+        position: { x: 920, y: 0 },
+      },
+      {
+        type: 'holding_fund',
+        name: 'Training Sim Holding',
+        config: {
+          source: 'company_seed',
+          allocationPolicyRef: 'paper_balanced_general_v1',
+        },
+        position: { x: 460, y: 460 },
+      },
+      {
+        type: 'fund_router',
+        name: 'Training Sim Router',
+        config: {
+          policyEnvelopeRef: 'paper_balanced_general_v1',
+          approvalMode: 'manual',
+          targetModuleIds: [],
+        },
+        position: { x: 920, y: 460 },
+      },
+      {
+        type: 'analyzer',
+        name: 'Training Hub Feedback',
+        config: {
+          emitMode: 'to_desk_stream',
+          streamDescriptor: 'training_hub_feedback',
+        },
+        position: { x: 1380, y: 0 },
+      },
+      {
+        type: 'policy',
+        name: 'Training Sim Policy',
+        config: {
+          policyEnvelopeRef: 'paper_balanced_general_v1',
+          notes: 'Paper training sim — feeds parent hub; not live.',
+        },
+        position: { x: 1380, y: 460 },
+      },
+    ],
+    links: [
+      { fromIndex: 0, toIndex: 1, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'directive' },
+      { fromIndex: 2, toIndex: 5, linkKind: 'verification' },
+      { fromIndex: 5, toIndex: 6, linkKind: 'verification' },
+      { fromIndex: 2, toIndex: 6, linkKind: 'directive' },
+      { fromIndex: 3, toIndex: 'math', linkKind: 'fund_route' },
+      { fromIndex: 'math', toIndex: 4, linkKind: 'fund_route' },
+    ],
+    inputs: [
+      {
+        key: 'focus',
+        label: 'Training focus',
+        kind: 'text',
+        placeholder: 'e.g. parent policy replay universe',
+        target: { moduleIndex: 1, configKey: 'focus' },
+      },
+    ],
+  },
+  {
+    id: 'sim_adhoc_paper_desk',
+    label: 'Adhoc paper sim desk',
+    category: 'simulation',
+    description:
+      'Standalone simulation ENGINE in the paper world: own lifecycle, strategy self-learning, and optional later promotion to a real execution ENGINE. Not linked to a parent by default.',
+    available: true,
+    modules: [
+      {
+        type: 'live_api',
+        name: 'Adhoc Sim Feed',
+        config: {
+          venue: 'paper_sim',
+          instruments: [],
+          feedClass: 'synthetic_sim',
+          pollSeconds: 60,
+        },
+        position: { x: 0, y: 0 },
+      },
+      {
+        type: 'library',
+        name: 'Adhoc Sim Notes Library',
+        config: {
+          topicScope: 'pending_operator_scope',
+          masterLibrary: false,
+          libraryClass: 'specialty_evidence',
+        },
+        position: { x: 0, y: 460 },
+      },
+      {
+        type: 'trend',
+        name: 'Adhoc Sim Scanner',
+        config: {
+          focus: 'pending_operator_scope',
+          trendPosture: 'session_intraday',
+          maxActiveTrends: 10,
+          cadenceMinutes: 20,
+        },
+        position: { x: 460, y: 0 },
+      },
+      {
+        type: 'trading',
+        name: 'Adhoc Paper Execution',
+        config: {
+          subtype: 'day_trading',
+          strategyFamilies: ['strat-001', 'strat-002'],
+          exitTimelineDays: 2,
+          cadenceMinutes: 10,
+          executionBinding: { routingMode: 'funds_only' },
+        },
+        position: { x: 920, y: 0 },
+      },
+      {
+        type: 'holding_fund',
+        name: 'Adhoc Sim Holding',
+        config: {
+          source: 'company_seed',
+          allocationPolicyRef: 'paper_balanced_general_v1',
+        },
+        position: { x: 460, y: 460 },
+      },
+      {
+        type: 'fund_router',
+        name: 'Adhoc Sim Router',
+        config: {
+          policyEnvelopeRef: 'paper_balanced_general_v1',
+          approvalMode: 'manual',
+          targetModuleIds: [],
+        },
+        position: { x: 920, y: 460 },
+      },
+      {
+        type: 'analyzer',
+        name: 'Adhoc Sim Monitor',
+        config: {
+          emitMode: 'verify_loopback',
+          streamDescriptor: 'adhoc_sim_verify',
+        },
+        position: { x: 1380, y: 0 },
+      },
+      {
+        type: 'policy',
+        name: 'Adhoc Sim Policy',
+        config: {
+          policyEnvelopeRef: 'paper_balanced_general_v1',
+          notes: 'Standalone paper sim desk — promotable later via live-gate ceremony.',
+        },
+        position: { x: 1380, y: 460 },
+      },
+    ],
+    links: [
+      { fromIndex: 0, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 1, toIndex: 2, linkKind: 'data_feed' },
+      { fromIndex: 2, toIndex: 3, linkKind: 'directive' },
+      { fromIndex: 3, toIndex: 6, linkKind: 'verification' },
+      { fromIndex: 6, toIndex: 7, linkKind: 'verification' },
+      { fromIndex: 3, toIndex: 7, linkKind: 'directive' },
+      { fromIndex: 4, toIndex: 'math', linkKind: 'fund_route' },
+      { fromIndex: 'math', toIndex: 5, linkKind: 'fund_route' },
+    ],
+    inputs: [
+      {
+        key: 'focus',
+        label: 'Sim desk focus',
+        kind: 'text',
+        placeholder: 'e.g. experimental mean-reversion cohort',
+        target: { moduleIndex: 2, configKey: 'focus' },
+        alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }],
+      },
+    ],
+  },
 ];
 
 /** Session envelope id that unlocks engine_crypto when present in session-constraint-catalog. */
@@ -1863,8 +2174,8 @@ export function getEngineTemplateById(id: string): EngineTemplate | undefined {
   return alreadyOrdered ? template : { ...template, links };
 }
 
-/** Create-form sections: research engines vs execution (full-spine) engines. */
-export type EngineCreateSection = 'research' | 'execution';
+/** Create-form sections: research, execution, simulation (D-189). */
+export type EngineCreateSection = 'research' | 'execution' | 'simulation';
 
 const EXECUTION_CATEGORIES = new Set<EngineTemplate['category']>([
   'day_trading',
@@ -1892,7 +2203,47 @@ export const EXECUTION_ENGINE_RESEARCH_DEPENDENCIES: Readonly<Record<string, rea
   engine_hft: ['research_microstructure_lab'],
 };
 
+/** Default child sim count when adding an execution ENGINE (D-189). Operator may set 0..N. */
+export const DEFAULT_EXECUTION_SIM_COUNT = 2;
+
+export type ExecutionSimDependency = {
+  templateId: string;
+  placement: 'pre' | 'post';
+};
+
+/**
+ * Default simulation ENGINE children for each execution template (D-189).
+ * pre = gate, post = training. Create-form trims to `simCount` (default 2).
+ */
+export const EXECUTION_ENGINE_SIM_DEPENDENCIES: Readonly<
+  Record<string, readonly ExecutionSimDependency[]>
+> = {
+  engine_day_trading: [
+    { templateId: 'sim_gate_strategy_spread', placement: 'pre' },
+    { templateId: 'sim_train_policy_replay', placement: 'post' },
+  ],
+  engine_crypto: [
+    { templateId: 'sim_gate_strategy_spread', placement: 'pre' },
+    { templateId: 'sim_train_policy_replay', placement: 'post' },
+  ],
+  engine_prediction: [
+    { templateId: 'sim_gate_strategy_spread', placement: 'pre' },
+    { templateId: 'sim_train_policy_replay', placement: 'post' },
+  ],
+  engine_long_term: [
+    { templateId: 'sim_gate_strategy_spread', placement: 'pre' },
+    { templateId: 'sim_train_policy_replay', placement: 'post' },
+  ],
+  engine_hft: [
+    { templateId: 'sim_gate_strategy_spread', placement: 'pre' },
+    { templateId: 'sim_train_policy_replay', placement: 'post' },
+  ],
+};
+
 export function engineCreateSection(template: EngineTemplate): EngineCreateSection {
+  if (template.category === 'simulation') {
+    return 'simulation';
+  }
   if (template.category === 'research' || template.category === 'trend_research') {
     return 'research';
   }
@@ -1915,11 +2266,23 @@ export function researchDependenciesForExecutionEngine(templateId: string): stri
   return [...(EXECUTION_ENGINE_RESEARCH_DEPENDENCIES[templateId] ?? [])];
 }
 
+export function simDependenciesForExecutionEngine(
+  templateId: string,
+  simCount: number = DEFAULT_EXECUTION_SIM_COUNT,
+): ExecutionSimDependency[] {
+  const all = EXECUTION_ENGINE_SIM_DEPENDENCIES[templateId] ?? [];
+  if (simCount <= 0) return [];
+  return all.slice(0, simCount).map((dep) => ({ ...dep }));
+}
+
 export type EngineSeedRef = {
   templateId: string;
   inputs?: Record<string, string>;
   setup?: Record<string, unknown>;
   canvasOffset?: { x: number; y: number };
+  /** D-189: carried on expanded sim seeds for create/API. */
+  simulationPlacement?: 'pre' | 'post';
+  simulationRole?: 'gate' | 'training' | 'adhoc';
 };
 
 /**
@@ -1950,6 +2313,50 @@ export function expandEngineSeedsWithResearchDeps<T extends { templateId: string
     if (!seen.has(seed.templateId)) {
       seen.add(seed.templateId);
       out.push(seed);
+    }
+  }
+  return out;
+}
+
+/**
+ * After research expansion, append default simulation ENGINE children for each
+ * execution seed (D-189). Idempotent when sim template ids already present.
+ */
+export function expandEngineSeedsWithSimDeps(
+  seeds: readonly CreateCompanyEngine[],
+  options?: {
+    availableTemplateIds?: ReadonlySet<string>;
+    /** Override default count (2). Use 0 to skip sims. */
+    simCount?: number;
+  },
+): CreateCompanyEngine[] {
+  const available = options?.availableTemplateIds;
+  const simCount = options?.simCount ?? DEFAULT_EXECUTION_SIM_COUNT;
+  const existingSimIds = new Set(
+    seeds
+      .filter((seed) => {
+        const template = ENGINE_TEMPLATES.find((entry) => entry.id === seed.templateId);
+        return template ? engineCreateSection(template) === 'simulation' : false;
+      })
+      .map((seed) => seed.templateId),
+  );
+  const out: CreateCompanyEngine[] = [...seeds];
+
+  for (const seed of seeds) {
+    const template = ENGINE_TEMPLATES.find((entry) => entry.id === seed.templateId);
+    if (!template || engineCreateSection(template) !== 'execution') continue;
+    for (const dep of simDependenciesForExecutionEngine(seed.templateId, simCount)) {
+      if (existingSimIds.has(dep.templateId)) continue;
+      if (available && !available.has(dep.templateId)) continue;
+      if (!ENGINE_TEMPLATES.some((entry) => entry.id === dep.templateId)) continue;
+      const role = dep.placement === 'pre' ? 'gate' : 'training';
+      existingSimIds.add(dep.templateId);
+      out.push({
+        templateId: dep.templateId,
+        inputs: {},
+        simulationPlacement: dep.placement,
+        simulationRole: role,
+      });
     }
   }
   return out;

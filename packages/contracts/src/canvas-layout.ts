@@ -931,8 +931,8 @@ export function placeNextEngineOrigin(
     originX?: number;
     originY?: number;
     preferred?: { x: number; y: number };
-    /** D-159: research packs left; execution stacks vertically. */
-    section?: 'research' | 'execution';
+    /** D-159/D-189: research packs left; execution stacks; simulation stacks like research. */
+    section?: 'research' | 'execution' | 'simulation';
     /** Anchor envelope for family placement (exec for research, or research stack for exec). */
     familyAnchor?: LayoutRect;
   },
@@ -959,7 +959,10 @@ export function placeNextEngineOrigin(
 
   const candidates: Array<{ x: number; y: number }> = [];
 
-  if (options?.section === 'research' && options.familyAnchor) {
+  if (
+    (options?.section === 'research' || options?.section === 'simulation') &&
+    options.familyAnchor
+  ) {
     candidates.push({
       x: originX,
       y: options.familyAnchor.y,

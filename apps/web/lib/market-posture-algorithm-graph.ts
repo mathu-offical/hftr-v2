@@ -1659,21 +1659,181 @@ function processClusterKey(n: PostureAlgoGraphNode): string {
     const kind = n.id.replace(/^analyze:/, '').split(':')[0];
     return kind ? `analysis_${kind}` : 'analysis';
   }
+  // Per-shelf library chains (process:library:{uuid}:…).
+  const libMatch = n.id.match(/^process:library:([^:]+)/);
+  if (libMatch?.[1]) return `shelf_${libMatch[1]}`;
   const route = n.data.processRoute?.trim();
+  if (route === 'library_jaccard') {
+    const fromId = n.id.match(/^process:library:([^:]+)/);
+    if (fromId?.[1]) return `shelf_${fromId[1]}`;
+  }
   if (route) return route;
   const kind = n.id.replace(/^process:/, '').split(':')[0];
   return kind || 'shared';
 }
 
 function formatRouteLabel(route: string): string {
+  if (route.startsWith('analysis_')) {
+    return `Analyze · ${route.slice('analysis_'.length).replace(/_/g, ' ')}`;
+  }
+  if (route.startsWith('shelf_')) {
+    return 'Shelf chain';
+  }
+  if (route.startsWith('ingest_')) {
+    return `Ingest · ${route.slice('ingest_'.length).replace(/_/g, ' ')}`;
+  }
   return route.replace(/_/g, ' ');
 }
 
+/** Sort key: canonical routes first; analysis_* nest after related ingest routes. */
+function routeClusterSortIndex(route: string): number {
+  const direct = ROUTE_PIPELINE_ORDER.indexOf(route);
+  if (direct >= 0) return direct;
+  if (route.startsWith('analysis_')) {
+    const kind = route.slice('analysis_'.length);
+    // Place after bars_ohlc / news family when possible.
+    if (kind.includes('news') || kind.includes('gdelt') || kind.includes('alpha')) {
+      return ROUTE_PIPELINE_ORDER.indexOf('news_headline') + 0.5;
+    }
+    if (kind.includes('bars') || kind.includes('alpaca') || kind.includes('twelve')) {
+      return ROUTE_PIPELINE_ORDER.indexOf('bars_ohlc') + 0.5;
+    }
+    return 12.5;
+  }
+  if (route.startsWith('shelf_') || route.startsWith('ingest_')) return 11.5;
+  return 50;
+}
+
 function sortProcessStepsInCluster(a: PostureAlgoGraphNode, b: PostureAlgoGraphNode): number {
+  // Prefer source → adapter → analysis/process function order inside a bundle.
+  const roleRank = (n: PostureAlgoGraphNode): number => {
+    switch (n.data.nodeRole) {
+      case 'live_source':
+      case 'library_source':
+      case 'capital_source':
+        return 0;
+      case 'adapter':
+        return 1;
+      case 'analysis':
+        return 2;
+      case 'process':
+        return 3;
+      default:
+        return 4;
+    }
+  };
+  const ra = roleRank(a);
+  const rb = roleRank(b);
+  if (ra !== rb) return ra - rb;
   const fa = PROCESS_FN_ORDER[a.data.processFunction ?? ''] ?? 50;
   const fb = PROCESS_FN_ORDER[b.data.processFunction ?? ''] ?? 50;
   if (fa !== fb) return fa - fb;
   return a.data.label.localeCompare(b.data.label);
+}
+
+/**
+ * Pull live/library peers into a route cluster so ingest→analyze or shelf→adapter
+ * chains read as one visual group.
+ */
+function pullClusterPeers(opts: {
+  route: string;
+  steps: PostureAlgoGraphNode[];
+  otherNodes: PostureAlgoGraphNode[];
+  screenId: MarketPostureStageScreenId;
+}): { steps: PostureAlgoGraphNode[]; remaining: PostureAlgoGraphNode[] } {
+  const { route, steps, otherNodes, screenId } = opts;
+  if (screenId === 'live') {
+    let kind: string | null = null;
+    if (route.startsWith('analysis_')) kind = route.slice('analysis_'.length);
+    else {
+      const fromStep = steps.find((s) => s.id.startsWith('process:') || s.id.startsWith('analyze:'));
+      if (fromStep?.id.startsWith('analyze:')) {
+        kind = fromStep.id.split(':')[1] ?? null;
+      } else if (fromStep?.id.startsWith('process:')) {
+        const seg = fromStep.id.split(':')[1] ?? null;
+        if (seg && seg !== 'shared') kind = seg;
+      }
+    }
+    if (!kind) return { steps, remaining: otherNodes };
+    const peers: PostureAlgoGraphNode[] = [];
+    const remaining: PostureAlgoGraphNode[] = [];
+    for (const n of otherNodes) {
+      if (n.id === `live:${kind}` || n.id.startsWith(`adapter:${kind}`)) {
+        peers.push(n);
+      } else {
+        remaining.push(n);
+      }
+    }
+    return { steps: [...peers, ...steps], remaining };
+  }
+  if (screenId === 'library') {
+    const shelfId = route.startsWith('shelf_')
+      ? route.slice('shelf_'.length)
+      : (steps[0]?.id.match(/^process:library:([^:]+)/)?.[1] ?? null);
+    if (!shelfId) return { steps, remaining: otherNodes };
+    const peers: PostureAlgoGraphNode[] = [];
+    const remaining: PostureAlgoGraphNode[] = [];
+    for (const n of otherNodes) {
+      const isShelf =
+        n.id === `lib:${shelfId}` ||
+        n.id.includes(`library:${shelfId}`) ||
+        (n.id.startsWith('lib-adapter:') && n.id.includes(shelfId));
+      if (isShelf) peers.push(n);
+      else remaining.push(n);
+    }
+    return { steps: [...peers, ...steps], remaining };
+  }
+  return { steps, remaining: otherNodes };
+}
+
+/** Stage track → lane for Process side-column (entitle/compound/sector/daily/compose). */
+function stageTrackLane(n: PostureAlgoGraphNode): number {
+  const track = n.data.track;
+  switch (track) {
+    case 'entitle':
+      return 0;
+    case 'compound':
+      return 1;
+    case 'sector':
+      return 2;
+    case 'daily':
+      return 3;
+    case 'compose':
+      return 4;
+    default:
+      return Math.min(
+        STRIP_INNER_LANES - 1,
+        Math.max(0, STRIP_ROLE_ORDER[n.data.nodeRole] ?? 2),
+      );
+  }
+}
+
+function capitalTierLane(n: PostureAlgoGraphNode): number {
+  const detail = `${n.data.detail} ${n.id}`.toLowerCase();
+  if (detail.includes('execution_split') || detail.includes('trading_desk')) return 1;
+  if (detail.includes('company_root') || detail.includes('pool') || detail.includes('holding')) {
+    return 0;
+  }
+  return 0;
+}
+
+function outlookStageLane(n: PostureAlgoGraphNode): number {
+  const order =
+    MARKET_POSTURE_STAGE_SCREENS.find((s) => s.id === 'outlook')?.stageIds ?? [];
+  const sid = n.data.stageId ?? (order.includes(n.id as (typeof order)[number]) ? n.id : null);
+  if (!sid) return 3;
+  const idx = order.indexOf(sid as (typeof order)[number]);
+  if (idx < 0) return 3;
+  return Math.min(STRIP_INNER_LANES - 1, idx);
+}
+
+function dayPanelLane(n: PostureAlgoGraphNode): number {
+  if (n.data.nodeRole === 'stage') return 0;
+  const id = n.data.panelSurfaceId ?? n.id.replace(/^panel:/, '');
+  if (id.startsWith('awareness_')) return 1;
+  if (id === 'charts' || id === 'reports') return 2;
+  if (id === 'capital' || id === 'equity' || id === 'positions') return 3;
+  return 4;
 }
 
 /**
@@ -1717,10 +1877,8 @@ function packProcessScreenColumn(opts: {
   }
 
   const routeKeys = [...byRoute.keys()].sort((a, b) => {
-    const ia = ROUTE_PIPELINE_ORDER.indexOf(a);
-    const ib = ROUTE_PIPELINE_ORDER.indexOf(b);
-    const oa = ia >= 0 ? ia : 50;
-    const ob = ib >= 0 ? ib : 50;
+    const oa = routeClusterSortIndex(a);
+    const ob = routeClusterSortIndex(b);
     if (oa !== ob) return oa - ob;
     const membersA = byRoute.get(a) ?? [];
     const membersB = byRoute.get(b) ?? [];
@@ -1734,10 +1892,15 @@ function packProcessScreenColumn(opts: {
   const out: PostureAlgoGraphNode[] = [];
   let cursorY = STRIP_HEADER + STRIP_PAD;
   let maxClusterW = STRIP_PAD * 2 + STRIP_INNER_LANE_W;
+  let remainingOther = [...otherNodes];
+  let clusterSeq = 0;
 
-  routeKeys.forEach((route, routeIdx) => {
-    const steps = [...(byRoute.get(route) ?? [])].sort(sortProcessStepsInCluster);
+  const pushCluster = (
+    route: string,
+    steps: PostureAlgoGraphNode[],
+  ): void => {
     if (steps.length === 0) return;
+    const routeIdx = clusterSeq++;
     const clusterId = `cluster:process:${route}`;
     const clusterW =
       STRIP_PAD * 2 + Math.max(steps.length, 1) * STRIP_INNER_LANE_W;
@@ -1745,10 +1908,20 @@ function packProcessScreenColumn(opts: {
     maxClusterW = Math.max(maxClusterW, clusterW);
 
     const fnSummary = [
-      ...new Set(steps.map((s) => s.data.processFunction).filter(Boolean)),
+      ...new Set(
+        steps
+          .map((s) => s.data.processFunction)
+          .filter((fn): fn is string => Boolean(fn)),
+      ),
     ]
       .slice(0, 4)
       .join(' → ');
+    const roleBits = [
+      ...new Set(steps.map((s) => s.data.nodeRole).filter(Boolean)),
+    ];
+    const detail =
+      fnSummary ||
+      (roleBits.length > 1 ? roleBits.join(' → ') : 'process chain');
 
     out.push({
       id: clusterId,
@@ -1761,7 +1934,7 @@ function packProcessScreenColumn(opts: {
       selectable: true,
       data: {
         label: formatRouteLabel(route),
-        detail: fnSummary || 'process chain',
+        detail,
         kind: 'data',
         nodeRole: 'process_cluster',
         stageScreenId: screenId,
@@ -1795,12 +1968,86 @@ function packProcessScreenColumn(opts: {
     });
 
     cursorY += clusterH + STRIP_CLUSTER_GAP;
-  });
+  };
+
+  for (const route of routeKeys) {
+    const base = [...(byRoute.get(route) ?? [])].sort(sortProcessStepsInCluster);
+    const pulled = pullClusterPeers({
+      route,
+      steps: base,
+      otherNodes: remainingOther,
+      screenId,
+    });
+    remainingOther = pulled.remaining;
+    pushCluster(route, pulled.steps.sort(sortProcessStepsInCluster));
+  }
+
+  // Orphan live ingest bundles (source + adapter without process/analysis).
+  if (screenId === 'live') {
+    const byKind = new Map<string, PostureAlgoGraphNode[]>();
+    const leftover: PostureAlgoGraphNode[] = [];
+    for (const n of remainingOther) {
+      let kind: string | null = null;
+      if (n.id.startsWith('live:')) kind = n.id.slice('live:'.length);
+      else if (n.id.startsWith('adapter:')) {
+        kind = n.id.slice('adapter:'.length).split(':')[0] ?? null;
+      }
+      if (!kind) {
+        leftover.push(n);
+        continue;
+      }
+      const list = byKind.get(kind) ?? [];
+      list.push(n);
+      byKind.set(kind, list);
+    }
+    remainingOther = leftover;
+    const kindKeys = [...byKind.keys()].sort((a, b) => a.localeCompare(b));
+    for (const kind of kindKeys) {
+      const members = (byKind.get(kind) ?? []).sort(sortProcessStepsInCluster);
+      if (members.length === 0) continue;
+      const hasSource = members.some((m) => m.data.nodeRole === 'live_source');
+      const hasAdapter = members.some((m) => m.data.nodeRole === 'adapter');
+      // Only bundle when source+adapter share a kind; lone sources stay in role lanes.
+      if (hasSource && hasAdapter) pushCluster(`ingest_${kind}`, members);
+      else remainingOther.push(...members);
+    }
+  }
+
+  // Orphan library shelf bundles (shelf ± adapter without process steps).
+  if (screenId === 'library') {
+    const byShelf = new Map<string, PostureAlgoGraphNode[]>();
+    const leftover: PostureAlgoGraphNode[] = [];
+    for (const n of remainingOther) {
+      let shelf: string | null = null;
+      if (n.id.startsWith('lib:') && !n.id.startsWith('lib-adapter:')) {
+        shelf = n.id.slice('lib:'.length);
+      } else if (n.id.startsWith('lib-adapter:')) {
+        const m =
+          n.id.match(/library:([^:]+)/) ??
+          n.id.match(/^lib-adapter:(.+)$/);
+        shelf = m?.[1] ?? null;
+      }
+      if (!shelf) {
+        leftover.push(n);
+        continue;
+      }
+      const list = byShelf.get(shelf) ?? [];
+      list.push(n);
+      byShelf.set(shelf, list);
+    }
+    remainingOther = leftover;
+    const shelfKeys = [...byShelf.keys()].sort((a, b) => a.localeCompare(b));
+    for (const shelf of shelfKeys) {
+      const members = (byShelf.get(shelf) ?? []).sort(sortProcessStepsInCluster);
+      if (members.length === 0) continue;
+      pushCluster(`shelf_${shelf}`, members);
+    }
+  }
 
   const otherX = maxClusterW + STRIP_PAD * 2;
   const processStageOrder =
     MARKET_POSTURE_STAGE_SCREENS.find((s) => s.id === 'process')?.stageIds ?? [];
-  const orderedOther = [...otherNodes].sort((a, b) => {
+  const orderedOther = [...remainingOther].sort((a, b) => {
     const ia = a.data.stageId
       ? processStageOrder.indexOf(a.data.stageId)
       : a.id && processStageOrder.includes(a.id as (typeof processStageOrder)[number])
@@ -1818,16 +2065,19 @@ function packProcessScreenColumn(opts: {
   });
   // Light barycenter refine within same stage tier.
   const refinedOther = orderLaneByConnections(orderedOther, edges, globalRank);
-  // Role lanes for non-cluster children (Live sources vs adapters, Process stages).
+  // Track / role lanes for non-cluster children (Process stages by track).
   const otherLanes: PostureAlgoGraphNode[][] = Array.from(
     { length: STRIP_INNER_LANES },
     () => [],
   );
   for (const child of refinedOther) {
-    const lane = Math.min(
-      STRIP_INNER_LANES - 1,
-      Math.max(0, STRIP_ROLE_ORDER[child.data.nodeRole] ?? 2),
-    );
+    const lane =
+      screenId === 'process' && child.data.nodeRole === 'stage'
+        ? stageTrackLane(child)
+        : Math.min(
+            STRIP_INNER_LANES - 1,
+            Math.max(0, STRIP_ROLE_ORDER[child.data.nodeRole] ?? 2),
+          );
     otherLanes[lane]!.push(child);
   }
   const maxOtherRows = Math.max(1, ...otherLanes.map((l) => l.length));
@@ -2008,11 +2258,22 @@ export function applyStripScreenGroups(
       return (a || b) && !(a && b);
     }).length;
 
-    if (screen.id === 'process' || screen.id === 'live') {
-      const needsClusters = children.some(
-        (n) => n.data.nodeRole === 'process' || n.data.nodeRole === 'analysis',
-      );
-      if (needsClusters || screen.id === 'process') {
+    if (
+      screen.id === 'process' ||
+      screen.id === 'live' ||
+      screen.id === 'library'
+    ) {
+      const needsClusters =
+        screen.id === 'process' ||
+        children.some(
+          (n) =>
+            n.data.nodeRole === 'process' ||
+            n.data.nodeRole === 'analysis' ||
+            n.data.nodeRole === 'adapter' ||
+            n.data.nodeRole === 'library_source' ||
+            n.data.nodeRole === 'live_source',
+        );
+      if (needsClusters) {
         const packed = packProcessScreenColumn({
           children,
           edges,
@@ -2041,10 +2302,13 @@ export function applyStripScreenGroups(
       () => [],
     );
     for (const child of children) {
-      const lane = Math.min(
+      let lane = Math.min(
         STRIP_INNER_LANES - 1,
         Math.max(0, STRIP_ROLE_ORDER[child.data.nodeRole] ?? 2),
       );
+      if (screen.id === 'capital') lane = capitalTierLane(child);
+      else if (screen.id === 'outlook') lane = outlookStageLane(child);
+      else if (screen.id === 'day') lane = dayPanelLane(child);
       lanes[lane]!.push(child);
     }
 

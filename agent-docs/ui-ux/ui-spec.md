@@ -365,13 +365,14 @@ are ignored. Shortcuts are suppressed in editable fields.
   and main numeric readouts first, then a **Group nodes → numbers** trace underneath
   (active Model/hydration nodes only — no missing-key / unbound idle services; every
   strip graph node on the screen is mapped into the emission list). The bottom **Model
-  strip** packs nodes into the same six columns with connection-based layout (role lanes
-  + relevance order), draws all within- and between-screen edges (plus **forward-only**
-  group backbone flows), nests **process route clusters** with function-ordered chains
-  (fetch→normalize→…), and stamps each node to its owning stage screen. Data-flow
+  strip** packs nodes into the same six columns with connection-based layout and
+  **optimized viewing groups**: Live kind bundles (source→adapter→analyze), Library
+  per-shelf chains, Process route clusters + stage track lanes, Capital root vs
+  execution lanes, Outlook stage order, Day panel families. Draws all within- and
+  between-screen edges (plus **forward-only** group backbone flows) and stamps each
+  node to its owning stage screen (cluster click uses that screen). Data-flow
   assignment: library adapters use `lib-adapter:` under Library; `providers` stage sits
-  on Process; positions panel on Outlook; live→library hydrate edges feed corpus when
-  live is ready.
+  on Process; positions panel on Outlook; live analysis seeds library after score.
   **Capital** shows root user-controlled funds only (company pool + holding funds),
   engine allocation splits, master equity, and open position mark/uPnL values.
   **Live ingest** shows active APIs, query/filter orientation, normalize pipeline,

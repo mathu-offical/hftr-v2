@@ -612,7 +612,10 @@ function InnerCanvas(props: {
           return;
         }
         if (data.nodeRole === 'process_cluster') {
-          props.onNavigate?.(node.id, 'process');
+          const clusterScreen =
+            (data.stageScreenId as MarketPostureStageScreenId | undefined) ??
+            'process';
+          props.onNavigate?.(node.id, clusterScreen);
           return;
         }
         const screenId = resolveStageScreenId({

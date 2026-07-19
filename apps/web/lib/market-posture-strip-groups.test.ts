@@ -224,14 +224,151 @@ describe('applyStripScreenGroups', () => {
     ]);
     expect(
       packed.some(
-        (n) => n.id === 'lib-adapter:jaccard' && n.parentId === 'group:library',
+        (n) =>
+          n.id === 'lib-adapter:jaccard' &&
+          (n.parentId === 'group:library' ||
+            n.parentId?.startsWith('cluster:process:')),
       ),
     ).toBe(true);
     expect(
       packed.some(
-        (n) => n.id === 'adapter:live-flow' && n.parentId === 'group:live',
+        (n) =>
+          n.id === 'adapter:live-flow' &&
+          (n.parentId === 'group:live' ||
+            n.parentId?.startsWith('cluster:process:')),
       ),
     ).toBe(true);
+  });
+
+  it('bundles live source + adapter + analysis into one ingest cluster', () => {
+    const nodes = [
+      node('live:bars_ohlc', 'live_source', 'Bars'),
+      node('adapter:bars_ohlc:alpaca', 'adapter', 'Alpaca'),
+      {
+        ...node('analyze:bars_ohlc:organize', 'analysis', 'Organize'),
+        data: {
+          ...node('analyze:bars_ohlc:organize', 'analysis', 'Organize').data,
+          processFunction: 'organize',
+        },
+      },
+      {
+        ...node('analyze:bars_ohlc:route', 'analysis', 'Route'),
+        data: {
+          ...node('analyze:bars_ohlc:route', 'analysis', 'Route').data,
+          processFunction: 'route',
+        },
+      },
+    ];
+    const packed = applyStripScreenGroups(nodes, [
+      edge('e1', 'live:bars_ohlc', 'adapter:bars_ohlc:alpaca'),
+      edge('e2', 'adapter:bars_ohlc:alpaca', 'analyze:bars_ohlc:organize'),
+      edge('e3', 'analyze:bars_ohlc:organize', 'analyze:bars_ohlc:route'),
+    ]);
+    const cluster = packed.find(
+      (n) =>
+        n.data.nodeRole === 'process_cluster' &&
+        n.data.processRoute === 'analysis_bars_ohlc',
+    );
+    expect(cluster?.parentId).toBe('group:live');
+    const kids = packed
+      .filter((n) => n.parentId === 'cluster:process:analysis_bars_ohlc')
+      .sort((a, b) => a.position.x - b.position.x);
+    expect(kids.map((k) => k.id)).toEqual([
+      'live:bars_ohlc',
+      'adapter:bars_ohlc:alpaca',
+      'analyze:bars_ohlc:organize',
+      'analyze:bars_ohlc:route',
+    ]);
+  });
+
+  it('clusters library shelf + adapter + per-shelf process chain', () => {
+    const shelf = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+    const nodes = [
+      node(`lib:${shelf}`, 'library_source', 'Shelf A'),
+      node(`lib-adapter:library:${shelf}:jaccard`, 'adapter', 'Jaccard'),
+      {
+        ...node(`process:library:${shelf}:normalize`, 'process', 'Normalize'),
+        data: {
+          ...node(`process:library:${shelf}:normalize`, 'process', 'Normalize')
+            .data,
+          processRoute: 'library_jaccard',
+          processFunction: 'normalize',
+        },
+      },
+      {
+        ...node(`process:library:${shelf}:score`, 'process', 'Score'),
+        data: {
+          ...node(`process:library:${shelf}:score`, 'process', 'Score').data,
+          processRoute: 'library_jaccard',
+          processFunction: 'score',
+        },
+      },
+      node('lib:other-shelf', 'library_source', 'Shelf B'),
+    ];
+    const packed = applyStripScreenGroups(nodes, []);
+    const shelfCluster = packed.find(
+      (n) =>
+        n.data.nodeRole === 'process_cluster' &&
+        n.data.processRoute === `shelf_${shelf}`,
+    );
+    expect(shelfCluster?.parentId).toBe('group:library');
+    const kids = packed
+      .filter((n) => n.parentId === `cluster:process:shelf_${shelf}`)
+      .sort((a, b) => a.position.x - b.position.x);
+    expect(kids.map((k) => k.id)).toEqual([
+      `lib:${shelf}`,
+      `lib-adapter:library:${shelf}:jaccard`,
+      `process:library:${shelf}:normalize`,
+      `process:library:${shelf}:score`,
+    ]);
+    expect(
+      packed.some(
+        (n) =>
+          n.id === 'lib:other-shelf' &&
+          (n.parentId === 'group:library' ||
+            n.parentId === 'cluster:process:shelf_other-shelf'),
+      ),
+    ).toBe(true);
+  });
+
+  it('lanes capital by tier and outlook by stage order', () => {
+    const packed = applyStripScreenGroups([
+      {
+        ...node('capital:pool', 'capital_source', 'Pool'),
+        data: {
+          ...node('capital:pool', 'capital_source', 'Pool').data,
+          detail: 'company_root · pool',
+        },
+      },
+      {
+        ...node('capital:desk', 'capital_source', 'Desk'),
+        data: {
+          ...node('capital:desk', 'capital_source', 'Desk').data,
+          detail: 'execution_split · desk',
+        },
+      },
+      {
+        ...node('seal_movers', 'stage', 'Movers'),
+        data: {
+          ...node('seal_movers', 'stage', 'Movers').data,
+          stageId: 'seal_movers',
+        },
+      },
+      {
+        ...node('narrative', 'stage', 'Narrative'),
+        data: {
+          ...node('narrative', 'stage', 'Narrative').data,
+          stageId: 'narrative',
+        },
+      },
+    ]);
+    const pool = packed.find((n) => n.id === 'capital:pool')!;
+    const desk = packed.find((n) => n.id === 'capital:desk')!;
+    expect(desk.position.x).toBeGreaterThan(pool.position.x);
+    const movers = packed.find((n) => n.id === 'seal_movers')!;
+    const narrative = packed.find((n) => n.id === 'narrative')!;
+    // stageIds order in outlook screen: earlier stages left of later ones
+    expect(movers.position.x).toBeLessThan(narrative.position.x);
   });
 
   it('orders process route clusters by pipeline order', () => {

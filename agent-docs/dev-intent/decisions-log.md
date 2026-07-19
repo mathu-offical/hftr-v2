@@ -1879,16 +1879,18 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `activeStageScreenId` + `selectedModelNodeId`. Strip Model uses **screen-group columns**
   with **connection-based spread**: role lanes (x) + barycenter relevance (y); **no node
   overflow cap**; **all intra-screen and inter-screen edges** retained, plus group→group
-  backbone edges for cross-column flows. Process column nests **route clusters**
-  (`process_cluster`) with function-ordered chains (fetch→normalize→…→board); Live nests
-  adapter analysis + analyze clusters. Every strip
-  content node is stamped with `stageScreenId` and mapped into that screen’s emission
-  traces. Strip data-flow is left→right: library adapters use `lib-adapter:` (not Live),
-  `providers` lives on Process, positions panel on Outlook, panel edges skip backward
-  hops, group backbones are forward-only, and live analysis seeds libraries after score.
-  **Capital** = root
-  user-controlled funds only (company pool + holding funds) plus engine allocation and
-  position/equity readouts. Extends D-131 / D-147 / D-160 / D-179.
+  backbone edges for cross-column flows. Strip **viewing groups** (`process_cluster`):
+  Live bundles source→adapter→analyze (organize/route/score) per kind; Library nests
+  per-shelf chains (`shelf_{id}`: lib → lib-adapter → `process:library:*`); Process nests
+  shared route clusters with **track lanes** for remaining stages; Capital lanes
+  `company_root` left of `execution_split`; Outlook lanes by stage order; Day lanes by
+  panel family. Cluster click navigates via `stageScreenId` (not hard-coded Process).
+  Every strip content node is stamped with `stageScreenId` and mapped into that screen’s
+  emission traces. Strip data-flow is left→right: library adapters use `lib-adapter:`
+  (not Live), `providers` lives on Process, positions panel on Outlook, panel edges skip
+  backward hops, group backbones are forward-only, and live analysis seeds libraries after
+  score. **Capital** = root user-controlled funds only (company pool + holding funds) plus
+  engine allocation and position/equity readouts. Extends D-131 / D-147 / D-160 / D-179.
   Docs: ui-spec §4 Market posture. **Status: implemented.**
 
 - **D-185 (left/right panel toggle + layering, 2026-07-19):** Amend D-123: re-clicking an

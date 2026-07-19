@@ -66,7 +66,16 @@ function focusRing(active: boolean): string {
 export function MarketPostureOverlay() {
   const mp = useMarketPostureView();
   const research = useResearchView();
-  const { data: hub, loading, refreshing, analyzing, error, refresh, analyze } = useMarketHub(
+  const {
+    data: hub,
+    loading,
+    refreshing,
+    analyzing,
+    lastAnalyzePhaseLabel,
+    error,
+    refresh,
+    analyze,
+  } = useMarketHub(
     mp.companyId,
     {
       enabled: true,
@@ -166,11 +175,19 @@ export function MarketPostureOverlay() {
               type="button"
               onClick={() => void onAnalyze()}
               disabled={analyzing || refreshing}
-              title="Analyze reseals stock movers (bars+news compound) and sector news in parallel, then daily + narrative"
+              title={
+                lastAnalyzePhaseLabel
+                  ? `Analyze for current moment (${lastAnalyzePhaseLabel}). Reseals stock movers, sector news, daily, narrative.`
+                  : 'Analyze for current market moment (clock + session). Reseals stock movers, sector news, daily, narrative.'
+              }
               className="border border-[var(--color-accent)] bg-[var(--color-accent)]/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/20 disabled:opacity-50"
               data-testid="market-posture-analyze"
             >
-              {analyzing ? 'Analyze…' : 'Analyze'}
+              {analyzing
+                ? 'Analyze…'
+                : lastAnalyzePhaseLabel
+                  ? `Analyze · ${lastAnalyzePhaseLabel}`
+                  : 'Analyze'}
             </button>
             <button
               type="button"

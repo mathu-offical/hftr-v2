@@ -26,6 +26,8 @@ export type UseMarketHubResult = {
   refreshing: boolean;
   /** Master Analyze POST in flight — live poll paused (shared across panel/overlay). */
   analyzing: boolean;
+  /** Last resolved analyze cadence slot label (D-181), if Analyze succeeded. */
+  lastAnalyzePhaseLabel: string | null;
   error: string | null;
   /** Full hub GET (mount / manual Sync). */
   refresh: (force?: boolean) => Promise<void>;
@@ -63,6 +65,7 @@ export function useMarketHub(
   const [analyzing, setAnalyzing] = useState(() =>
     companyId ? isMarketHubAnalyzeBusy(companyId) : false,
   );
+  const [lastAnalyzePhaseLabel, setLastAnalyzePhaseLabel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const analyzeBusy = useRef(false);
 
@@ -105,6 +108,7 @@ export function useMarketHub(
         `/api/companies/${companyId}/market-hub/analyze`,
         { method: 'POST' },
       );
+      if (res.analyzePhaseLabel) setLastAnalyzePhaseLabel(res.analyzePhaseLabel);
       // Hub seals may still be finishing via poll — soft invalidate only.
       invalidateMarketHub(key);
       return res.runId;
@@ -148,5 +152,15 @@ export function useMarketHub(
     return acquireMarketHubLivePoll(companyId);
   }, [companyId, enabled, poll]);
 
-  return { data, loading, refreshing, analyzing, error, refresh, refreshMovers, analyze };
+  return {
+    data,
+    loading,
+    refreshing,
+    analyzing,
+    lastAnalyzePhaseLabel,
+    error,
+    refresh,
+    refreshMovers,
+    analyze,
+  };
 }

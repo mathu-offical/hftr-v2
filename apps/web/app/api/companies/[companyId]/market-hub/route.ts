@@ -3,6 +3,9 @@ import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   RESEARCH_SOURCE_REGISTRY,
+  MARKET_HUB_ANALYZE_PHASES,
+  MARKET_HUB_ANALYZE_PHASE_META,
+  analyzePhaseSubjectKey,
   MarketHubResponse,
   MarketHubRefreshResponse,
   type MarketHubEngineChip,
@@ -90,7 +93,8 @@ function uniqEngines(chips: MarketHubEngineChip[]): MarketHubEngineChip[] {
   return out.slice(0, 12);
 }
 
-/** Report seals projected into Market posture hub (D-085 / D-101). */
+/** Report seals projected into Market posture hub (D-085 / D-101 / D-181). */
+/** Report seals projected into Market posture hub (D-085 / D-101 / D-183). */
 const REPORT_SEAL_LOOKUPS: Array<{
   kind: 'movers_board' | 'sector_bulletin' | 'daily_summary_phase';
   subjectKey: string;
@@ -109,31 +113,14 @@ const REPORT_SEAL_LOOKUPS: Array<{
     reportKind: 'sector_bulletin',
     fallbackTitle: 'Sector bulletin',
   },
-  {
-    kind: 'daily_summary_phase',
-    subjectKey: 'phase_pre_open',
-    reportKind: 'daily_summary',
-    fallbackTitle: 'Daily summary · pre-open',
-  },
-  {
-    kind: 'daily_summary_phase',
-    subjectKey: 'phase_midday',
-    reportKind: 'daily_summary',
-    fallbackTitle: 'Daily summary · midday',
-  },
-  {
-    kind: 'daily_summary_phase',
-    subjectKey: 'phase_close',
-    reportKind: 'daily_summary',
-    fallbackTitle: 'Daily summary · close',
-  },
-  {
-    kind: 'daily_summary_phase',
-    subjectKey: 'phase_post_analysis',
-    reportKind: 'daily_summary',
-    fallbackTitle: 'Daily summary · post',
-  },
+  ...MARKET_HUB_ANALYZE_PHASES.map((phase) => ({
+    kind: 'daily_summary_phase' as const,
+    subjectKey: analyzePhaseSubjectKey(phase),
+    reportKind: 'daily_summary' as const,
+    fallbackTitle: `Daily summary · ${MARKET_HUB_ANALYZE_PHASE_META[phase].label}`,
+  })),
 ];
+
 
 /**
  * Market posture hub (D-081 / D-085 / D-101): equity series, movers, positions with

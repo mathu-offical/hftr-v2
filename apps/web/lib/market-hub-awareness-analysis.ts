@@ -110,7 +110,12 @@ function projectRecommendations(
 ): MarketAwarenessRecommendationRow[] {
   const linkBySym = new Map<
     string,
-    { news?: QualitativeBand; library?: QualitativeBand; trend?: QualitativeBand }
+    {
+      news?: QualitativeBand;
+      macro?: QualitativeBand;
+      library?: QualitativeBand;
+      trend?: QualitativeBand;
+    }
   >();
   for (const link of links) {
     const symbol =
@@ -122,6 +127,7 @@ function projectRecommendations(
     if (!symbol) continue;
     const cur = linkBySym.get(symbol) ?? {};
     if (link.fromKind === 'news') cur.news = link.strengthBand;
+    if (link.fromKind === 'macro') cur.macro = link.strengthBand;
     if (link.fromKind === 'library_concept') cur.library = link.strengthBand;
     if (link.fromKind === 'trend') cur.trend = link.strengthBand;
     linkBySym.set(symbol, cur);
@@ -148,6 +154,7 @@ function projectRecommendations(
       symbol: w.symbol.toUpperCase(),
       tier,
       newsLinkBand: bands.news,
+      macroLinkBand: bands.macro,
       libraryLinkBand: bands.library,
       trendLinkBand: bands.trend,
       note: w.note ? w.note.slice(0, 300) : undefined,

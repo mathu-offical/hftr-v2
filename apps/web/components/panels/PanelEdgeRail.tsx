@@ -26,10 +26,11 @@ export type PanelEdgeRailAction = {
 };
 
 /**
- * Persistent window-edge rail for left/right panels (D-118 / D-123 / D-128).
+ * Persistent window-edge rail for left/right panels (D-118 / D-123 / D-128 / D-185).
  * Prominent symbol buttons stay visible when the panel is open or collapsed;
- * activating a tab expands the panel onto that section. Optional rail actions
- * sit above the show/hide chevron (e.g. left Libraries, right Assistant).
+ * activating a tab expands the panel onto that section. Clicking the already
+ * active tab collapses the panel. Optional rail actions sit above the
+ * show/hide chevron (e.g. left Libraries, right Assistant).
  */
 export function PanelEdgeRail<T extends string>(props: {
   side: 'left' | 'right';
@@ -57,6 +58,9 @@ export function PanelEdgeRail<T extends string>(props: {
       : props.open
         ? ChevronRight
         : ChevronLeft;
+
+  const exclusiveActionPressed =
+    props.railActions?.some((a) => a.exclusive && a.pressed) ?? false;
 
   function renderSymbolButton(opts: {
     key: string;
@@ -120,11 +124,16 @@ export function PanelEdgeRail<T extends string>(props: {
             abbrev: item.abbrev,
             icon: item.icon,
             pressed:
-              props.open &&
-              props.activeTab === item.id &&
-              !(props.railActions?.some((a) => a.exclusive && a.pressed) ?? false),
+              props.open && props.activeTab === item.id && !exclusiveActionPressed,
             meta: item.meta,
-            onClick: () => props.onSelectTab(item.id),
+            onClick: () => {
+              // D-185: re-click active tab collapses the panel (retain click interactivity).
+              if (props.open && props.activeTab === item.id && !exclusiveActionPressed) {
+                props.onToggleOpen();
+                return;
+              }
+              props.onSelectTab(item.id);
+            },
           }),
         )}
       </div>

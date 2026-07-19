@@ -27,6 +27,7 @@ import { LiveDataSourcesList } from '@/components/panels/LiveDataSourcesList';
 import { CompanyLibrarySourcesList } from '@/components/panels/CompanyLibrarySourcesList';
 import { PanelTabs } from '@/components/panels/PanelTabs';
 import { PanelEdgeRail } from '@/components/panels/PanelEdgeRail';
+import { usePanelShell } from '@/components/panels/PanelShellContext';
 import { Activity, Database, Library as LibraryIcon, Orbit } from 'lucide-react';
 
 type Tab = 'research' | 'market_posture' | 'data';
@@ -124,6 +125,8 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
   const researchView = useResearchView();
   const marketPostureView = useMarketPostureView();
   const dataView = useDataView();
+  const panelShell = usePanelShell();
+  const prevLeftOpenRef = useRef(false);
 
   useEffect(() => {
     if (!storageKey) {
@@ -153,6 +156,19 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
     if (!storageKey || !persistReady) return;
     writePanelState(storageKey, { open, tab, librariesDockOpen, librariesFull });
   }, [storageKey, open, tab, librariesDockOpen, librariesFull, persistReady]);
+
+  // D-185: sync left open to shell; opening left collapses right.
+  useEffect(() => {
+    panelShell.setLeftOpenShared(open);
+  }, [open, panelShell.setLeftOpenShared]);
+
+  useEffect(() => {
+    if (!persistReady) return;
+    if (open && !prevLeftOpenRef.current) {
+      panelShell.notifyLeftOpened();
+    }
+    prevLeftOpenRef.current = open;
+  }, [open, persistReady, panelShell.notifyLeftOpened]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -286,35 +302,38 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
   useEffect(() => {
     researchView.registerLeftPanelBridge({
       ensureResearchOpen: () => {
+        panelShell.notifyLeftOpened();
         setOpen(true);
         setTab('research');
       },
       collapse: () => setOpen(false),
     });
     return () => researchView.registerLeftPanelBridge(null);
-  }, [researchView.registerLeftPanelBridge]);
+  }, [researchView.registerLeftPanelBridge, panelShell.notifyLeftOpened]);
 
   useEffect(() => {
     marketPostureView.registerLeftPanelBridge({
       ensurePostureOpen: () => {
+        panelShell.notifyLeftOpened();
         setOpen(true);
         setTab('market_posture');
       },
       collapse: () => setOpen(false),
     });
     return () => marketPostureView.registerLeftPanelBridge(null);
-  }, [marketPostureView.registerLeftPanelBridge]);
+  }, [marketPostureView.registerLeftPanelBridge, panelShell.notifyLeftOpened]);
 
   useEffect(() => {
     dataView.registerLeftPanelBridge({
       ensureDataOpen: () => {
+        panelShell.notifyLeftOpened();
         setOpen(true);
         setTab('data');
       },
       collapse: () => setOpen(false),
     });
     return () => dataView.registerLeftPanelBridge(null);
-  }, [dataView.registerLeftPanelBridge]);
+  }, [dataView.registerLeftPanelBridge, panelShell.notifyLeftOpened]);
 
   // Mutual exclusion: Galaxy | Market posture | Data Explorer (D-120).
   useEffect(() => {
@@ -390,20 +409,37 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
   }
 
   function selectLeftTab(id: Tab) {
+    // Header tabs: re-click active collapses (rail handled in PanelEdgeRail).
+    if (open && tab === id && !librariesFull) {
+      panelShell.notifyLeftInteract();
+      setOpen(false);
+      return;
+    }
+    panelShell.notifyLeftInteract();
     setLibrariesFull(false);
     setTab(id);
     setOpen(true);
   }
 
   function openLibrariesFull() {
+    if (open && librariesFull) {
+      panelShell.notifyLeftInteract();
+      setLibrariesFull(false);
+      setOpen(false);
+      return;
+    }
+    panelShell.notifyLeftInteract();
     setLibrariesDockOpen(true);
     setLibrariesFull(true);
     setOpen(true);
   }
 
-  // D-118 / D-123 / D-128: wider edge rail with tab symbols + Libraries full-height action.
+  // D-118 / D-123 / D-128 / D-185: wider edge rail with tab symbols + Libraries full-height action.
   return (
-    <div className="flex h-full min-h-0 shrink-0">
+    <div
+      className="flex h-full min-h-0 shrink-0"
+      onClickCapture={() => panelShell.notifyLeftInteract()}
+    >
       <PanelEdgeRail
         side="left"
         open={open}

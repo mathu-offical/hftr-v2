@@ -1850,6 +1850,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   sources: sector-focus peer ETFs, broader liquid anchors, `macroLinkBand` in compound rank.
   Extends D-175 / D-181. Docs: research-live-system-cadence, ui-spec §4. **Status: implemented.**
 
+- **D-185 (left/right panel toggle + layering, 2026-07-19):** Amend D-123: re-clicking an
+  already-active left/right rail (or header) tab collapses that panel. Opening the left panel
+  auto-collapses the right. Explicitly opening a right view while left remains open layers the
+  right panel body over the left (`absolute`/`z-[45]`, rail stays docked; below AST `z-50`).
+  Any click on the left rail/body hides the right again. Coordinated via `PanelShellContext`
+  inside `CompanyResearchShell`. LIB re-click exits full-height and collapses left; AST
+  remains an independent toggle (D-150). Docs: ui-spec §4.   **Status: implemented.**
+
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

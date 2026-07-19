@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/client';
 import {
   balanceLabel,
@@ -8,12 +8,14 @@ import {
   normalizeCapitalMode,
   type CapitalMode,
 } from '@/lib/capital-mode-label';
+import { simHonestyChips } from '@/lib/sim-honesty-label';
 import { ACTIVITY_REFRESH_EVENT } from '../canvas/PaperTradeForm';
 import { VALUE_LINEAGE_FOCUS_EVENT, type ValueLineageFocusDetail } from '@/lib/value-lineage-focus';
 import { dollars, scaled, toneFor } from './format';
 import { Justification } from './Justification';
 import { PanelTabs } from './PanelTabs';
 import { PanelEdgeRail } from './PanelEdgeRail';
+import { usePanelShell } from '@/components/panels/PanelShellContext';
 import { PositionsTab } from './PositionsTab';
 import { AssistantDock } from '@/components/assistant/AssistantDock';
 import {
@@ -91,6 +93,7 @@ interface ExecutionRow {
   createdAt: string;
   leadId?: string | null;
   treeId?: string | null;
+  simulatorGapTags?: string[];
 }
 
 interface VerificationRow {
@@ -142,6 +145,9 @@ interface SimulationRow {
 export function RightPanel(props: { companyId: string; companyMode?: string }) {
   const companyMode = normalizeCapitalMode(props.companyMode);
   const storageKey = props.companyId ? `hftr:${props.companyId}:panel:right` : null;
+  const panelShell = usePanelShell();
+  const lastCollapseGenRef = useRef(0);
+  const prevRightOpenRef = useRef(false);
 
   const [tab, setTab] = useState<Tab>('executions');
   const [open, setOpen] = useState(true);
@@ -181,20 +187,45 @@ export function RightPanel(props: { companyId: string; companyMode?: string }) {
       setOpen(true);
       setTab('values');
       setFocusedValueRef(detail.valueRef);
+      panelShell.notifyRightOpenedExplicit();
     }
     window.addEventListener(VALUE_LINEAGE_FOCUS_EVENT, onFocus);
     return () => window.removeEventListener(VALUE_LINEAGE_FOCUS_EVENT, onFocus);
-  }, [props.companyId]);
+  }, [props.companyId, panelShell.notifyRightOpenedExplicit]);
 
   useEffect(() => {
     if (!storageKey || !persistReady) return;
     writePanelState(storageKey, { open, tab, assistantOpen });
   }, [storageKey, open, tab, assistantOpen, persistReady]);
 
-  const selectRightTab = useCallback((id: Tab) => {
-    setTab(id);
-    setOpen(true);
-  }, []);
+  // D-185: left open/interact requests collapse this panel.
+  useEffect(() => {
+    if (panelShell.rightCollapseGeneration === lastCollapseGenRef.current) return;
+    lastCollapseGenRef.current = panelShell.rightCollapseGeneration;
+    if (panelShell.rightCollapseGeneration > 0) setOpen(false);
+  }, [panelShell.rightCollapseGeneration]);
+
+  // Explicit open (tab / chevron / lineage) while left is open → layer on top.
+  useEffect(() => {
+    if (!persistReady) return;
+    if (open && !prevRightOpenRef.current) {
+      panelShell.notifyRightOpenedExplicit();
+    }
+    prevRightOpenRef.current = open;
+  }, [open, persistReady, panelShell.notifyRightOpenedExplicit]);
+
+  const selectRightTab = useCallback(
+    (id: Tab) => {
+      // Header tabs: re-click active collapses (rail handled in PanelEdgeRail).
+      if (open && tab === id) {
+        setOpen(false);
+        return;
+      }
+      setTab(id);
+      setOpen(true);
+    },
+    [open, tab],
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -269,54 +300,62 @@ export function RightPanel(props: { companyId: string; companyMode?: string }) {
     return count > 0 ? String(count) : undefined;
   };
 
-  // D-118 / D-123 / D-146 / D-150: symbol rail + layered AST overlay.
+  // D-118 / D-123 / D-146 / D-150 / D-185: symbol rail + layered AST; right may overlay left.
+  const layered = open && panelShell.rightLayered;
+
+  const panelBody = (
+    <>
+      <div className="flex items-stretch border-b border-[var(--color-line)]">
+        <PanelTabs
+          aria-label="Info panel sections"
+          className="min-w-0 flex-1"
+          value={tab}
+          onChange={selectRightTab}
+          tabs={TABS.map((t) => ({
+            id: t.id,
+            label: t.label,
+            meta: rightRailMeta(t.id),
+          }))}
+        />
+      </div>
+
+      <div
+        className="border-b border-[var(--color-line)] px-4 py-2.5"
+        data-testid="right-panel-paper-balance"
+      >
+        <div className="text-xs text-[var(--color-ink-dim)]">{balanceLabel(companyMode)}</div>
+        <div className="font-mono text-lg">{balance ? dollars(balance) : '—'}</div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 text-sm">
+        {tab === 'verification' && (
+          <VerificationTab verifications={verifications} executions={executions} />
+        )}
+        {tab === 'executions' && <ExecutionsTab executions={executions} />}
+        {tab === 'positions' && (
+          <PositionsTab companyId={props.companyId} executions={executions} />
+        )}
+        {tab === 'ledger' && <LedgerTab ledger={ledger} companyMode={companyMode} />}
+        {tab === 'simulation' && (
+          <SimulationTab runs={simulations} comparisonSummary={simComparison} />
+        )}
+        {tab === 'values' && (
+          <ValuesTab
+            companyId={props.companyId}
+            values={values}
+            focusedRef={focusedValueRef}
+            onFocusedRefConsumed={() => setFocusedValueRef(null)}
+          />
+        )}
+      </div>
+    </>
+  );
+
   return (
-    <div className="flex h-full min-h-0 shrink-0">
-      {open ? (
+    <div className="relative flex h-full min-h-0 shrink-0">
+      {open && !layered ? (
         <aside className="flex h-full min-h-0 w-96 shrink-0 flex-col overflow-hidden border-l border-[var(--color-line)] bg-[var(--color-surface-1)]">
-          <div className="flex items-stretch border-b border-[var(--color-line)]">
-            <PanelTabs
-              aria-label="Info panel sections"
-              className="min-w-0 flex-1"
-              value={tab}
-              onChange={selectRightTab}
-              tabs={TABS.map((t) => ({
-                id: t.id,
-                label: t.label,
-                meta: rightRailMeta(t.id),
-              }))}
-            />
-          </div>
-
-          <div
-            className="border-b border-[var(--color-line)] px-4 py-2.5"
-            data-testid="right-panel-paper-balance"
-          >
-            <div className="text-xs text-[var(--color-ink-dim)]">{balanceLabel(companyMode)}</div>
-            <div className="font-mono text-lg">{balance ? dollars(balance) : '—'}</div>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 text-sm">
-            {tab === 'verification' && (
-              <VerificationTab verifications={verifications} executions={executions} />
-            )}
-            {tab === 'executions' && <ExecutionsTab executions={executions} />}
-            {tab === 'positions' && (
-              <PositionsTab companyId={props.companyId} executions={executions} />
-            )}
-            {tab === 'ledger' && <LedgerTab ledger={ledger} companyMode={companyMode} />}
-            {tab === 'simulation' && (
-              <SimulationTab runs={simulations} comparisonSummary={simComparison} />
-            )}
-            {tab === 'values' && (
-              <ValuesTab
-                companyId={props.companyId}
-                values={values}
-                focusedRef={focusedValueRef}
-                onFocusedRefConsumed={() => setFocusedValueRef(null)}
-              />
-            )}
-          </div>
+          {panelBody}
         </aside>
       ) : null}
 
@@ -390,6 +429,16 @@ export function RightPanel(props: { companyId: string; companyMode?: string }) {
           },
         ]}
       />
+
+      {open && layered ? (
+        <aside
+          data-testid="right-panel-layered"
+          className="absolute right-full top-0 z-[45] flex h-full w-96 flex-col overflow-hidden border-l border-[var(--color-line)] bg-[var(--color-surface-1)] shadow-2xl"
+          aria-label="Info panel (layered over left)"
+        >
+          {panelBody}
+        </aside>
+      ) : null}
     </div>
   );
 }
@@ -447,32 +496,51 @@ function ExecutionsTab(props: { executions: ExecutionRow[] }) {
     return <Empty text="No executions yet. Submit a paper order from a trading module." />;
   return (
     <ul className="space-y-2">
-      {props.executions.map((e) => (
-        <li key={e.id} className="rounded-lg border border-[var(--color-line)] p-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium capitalize" style={{ color: toneFor(e.outcome) }}>
-              {e.outcome}
-            </span>
-            <span className="text-[10px] text-[var(--color-ink-faint)]">
-              {new Date(e.createdAt).toLocaleTimeString()}
-            </span>
-          </div>
-          <div className="mt-1 text-xs text-[var(--color-ink-dim)]">
-            {e.description ?? e.failureCode ?? `${e.venue} · ${e.mode}`}
-          </div>
-          {e.amountCents && (
-            <div className="mt-1 flex items-center gap-1.5 font-mono text-xs">
-              <span
-                className="rounded border border-[var(--color-line)] px-1 text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]"
-                data-testid="execution-mode-chip"
-              >
-                {executionCapitalChip(e.mode, e.venue)}
+      {props.executions.map((e) => {
+        const honesty = simHonestyChips(e.simulatorGapTags);
+        return (
+          <li key={e.id} className="rounded-lg border border-[var(--color-line)] p-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium capitalize" style={{ color: toneFor(e.outcome) }}>
+                {e.outcome}
               </span>
-              {dollars(e.amountCents)}
+              <span className="text-[10px] text-[var(--color-ink-faint)]">
+                {new Date(e.createdAt).toLocaleTimeString()}
+              </span>
             </div>
-          )}
-        </li>
-      ))}
+            <div className="mt-1 text-xs text-[var(--color-ink-dim)]">
+              {e.description ?? e.failureCode ?? `${e.venue} · ${e.mode}`}
+            </div>
+            {honesty.length > 0 && (
+              <div
+                className="mt-1.5 flex flex-wrap gap-1"
+                data-testid="execution-honesty-chips"
+                aria-label={`Simulation honesty: ${honesty.map((c) => c.label).join(', ')}`}
+              >
+                {honesty.map((chip) => (
+                  <span
+                    key={chip.kind}
+                    className="rounded border border-[var(--color-line)] px-1 text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]"
+                  >
+                    {chip.label}
+                  </span>
+                ))}
+              </div>
+            )}
+            {e.amountCents && (
+              <div className="mt-1 flex items-center gap-1.5 font-mono text-xs">
+                <span
+                  className="rounded border border-[var(--color-line)] px-1 text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]"
+                  data-testid="execution-mode-chip"
+                >
+                  {executionCapitalChip(e.mode, e.venue)}
+                </span>
+                {dollars(e.amountCents)}
+              </div>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }

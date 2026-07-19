@@ -274,13 +274,16 @@ labels use `aria-label` / `title` for full product names (e.g. Research → Rese
 Libraries). Nested category strips (Market posture) use `density="compact"`.
 
 **Keyboard + persistence (shipped 2026-07-17, D-022; engine scope D-097; edge rails D-118 /
-D-123; assistant rail D-146):** `[` toggles left, `]` toggles right, `` ` `` toggles bottom; `Esc`
+D-123 / D-185; assistant rail D-146):** `[` toggles left, `]` toggles right, `` ` `` toggles bottom; `Esc`
 collapses the active surface (assistant overlay first on the right, then the main right panel;
 bottom defers when `TraceTimeline` is open). **Edge toggles persist** at each panel’s window
 edge while expanded. Left/right use a wider **symbol rail** (`PanelEdgeRail`, `w-12`): Lucide
-icons for each tab stay visible when collapsed; clicking a symbol opens that tab; a bottom
-chevron show/hides the panel body. Optional **rail actions** sit above the chevron (left
-**LIB**, right **AST**). Bottom keeps a slim bottom-edge hide/show strip while the tab ribbon
+icons for each tab stay visible when collapsed; clicking a symbol opens that tab; **re-clicking
+the active symbol collapses the panel**; a bottom chevron show/hides the panel body. Optional
+**rail actions** sit above the chevron (left **LIB**, right **AST**). **D-185 panel pairing:**
+opening the left panel collapses the right; explicitly opening a right view while left is open
+layers the right panel on top of the left (`z-[45]`, below AST `z-50`); any click on the left
+rail/body hides the right again. Bottom keeps a slim bottom-edge hide/show strip while the tab ribbon
 stays on top of the panel (D-113). Per-company `localStorage` keys
 `hftr:{companyId}:panel:{left|bottom|right}` restore open state, active tab, right
 `assistantOpen`, left `librariesFull` / dock flags, and bottom **execution-engine** filter

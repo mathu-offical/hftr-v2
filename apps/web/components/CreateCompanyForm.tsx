@@ -239,6 +239,7 @@ export function CreateCompanyForm() {
       draft?: ModuleSetupDraft;
       simulationPlacement?: SimulationPlacement;
       simulationRole?: 'gate' | 'training' | 'adhoc';
+      researchLibraryBinding?: ResearchLibraryBinding;
     },
   ): EngineSeed | null {
     const engine = availableEngines.find((item) => item.id === templateId);
@@ -268,6 +269,9 @@ export function CreateCompanyForm() {
     }
     if (options?.simulationRole) {
       seed.simulationRole = options.simulationRole;
+    }
+    if (options?.researchLibraryBinding) {
+      seed.researchLibraryBinding = options.researchLibraryBinding;
     }
     return seed;
   }

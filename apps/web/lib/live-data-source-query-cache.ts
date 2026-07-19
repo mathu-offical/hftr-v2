@@ -1,11 +1,18 @@
 /**
- * Client SWR cache for live data source **inventory** (existence + readiness metadata).
- * Query/browse payloads use `live-data-source-query-cache.ts` (D-152).
+ * Client SWR cache for live-data-source **query** responses (Data Explorer service tabs).
+ * Inventory metadata stays in `live-data-sources-cache.ts`.
+ * Provider HTTP is also TTL-cached server-side — this layer avoids re-POSTing on remount.
  */
 
-import type { LiveDataSourcesResponse } from '@hftr/contracts';
+import type { LiveDataSourceQueryResponse } from '@hftr/contracts';
 
-export type LiveDataSourcesCacheKey = { companyId: string };
+export type LiveDataSourceQueryCacheKey = {
+  companyId: string;
+  kind: string;
+  mode: 'search' | 'browse';
+  query: string;
+  maxResults: number;
+};
 
 type CachePolicy = {
   freshMs: number;
@@ -13,7 +20,7 @@ type CachePolicy = {
   persistSession: boolean;
 };
 
-/** Metadata changes rarely (keys / canvas binds); long fresh window. */
+/** Diagnostics TTL — prefer cached widgets; background-refresh when stale. */
 const POLICY: CachePolicy = {
   freshMs: 5 * 60_000,
   staleMs: 30 * 60_000,
@@ -21,20 +28,21 @@ const POLICY: CachePolicy = {
 };
 
 type CacheEntry = {
-  data: LiveDataSourcesResponse;
+  data: LiveDataSourceQueryResponse;
   fetchedAt: number;
 };
 
 const memory = new Map<string, CacheEntry>();
-const inflight = new Map<string, Promise<LiveDataSourcesResponse>>();
+const inflight = new Map<string, Promise<LiveDataSourceQueryResponse>>();
 const listeners = new Set<(key: string) => void>();
 
-export function liveDataSourcesKeyString(key: LiveDataSourcesCacheKey): string {
-  return `${key.companyId}:live-data-sources`;
+export function liveDataSourceQueryKeyString(key: LiveDataSourceQueryCacheKey): string {
+  const q = key.query.trim().toLowerCase();
+  return `${key.companyId}:live-query:${key.kind}:${key.mode}:${q}:${key.maxResults}`;
 }
 
 function sessionStorageKey(keyStr: string): string {
-  return `hftr:live-data-sources-cache:v1:${keyStr}`;
+  return `hftr:live-data-query-cache:v1:${keyStr}`;
 }
 
 function readSession(keyStr: string): CacheEntry | null {
@@ -63,7 +71,7 @@ function writeSession(keyStr: string, entry: CacheEntry): void {
   try {
     sessionStorage.setItem(sessionStorageKey(keyStr), JSON.stringify(entry));
   } catch {
-    // quota / private mode
+    // quota / private mode — memory cache still works
   }
 }
 
@@ -80,8 +88,8 @@ function notify(keyStr: string): void {
   for (const listener of listeners) listener(keyStr);
 }
 
-function getEntry(key: LiveDataSourcesCacheKey): CacheEntry | null {
-  const keyStr = liveDataSourcesKeyString(key);
+function getEntry(key: LiveDataSourceQueryCacheKey): CacheEntry | null {
+  const keyStr = liveDataSourceQueryKeyString(key);
   const mem = memory.get(keyStr);
   if (mem) return mem;
   if (!POLICY.persistSession) return null;
@@ -93,8 +101,11 @@ function getEntry(key: LiveDataSourcesCacheKey): CacheEntry | null {
   return null;
 }
 
-function putEntry(key: LiveDataSourcesCacheKey, data: LiveDataSourcesResponse): CacheEntry {
-  const keyStr = liveDataSourcesKeyString(key);
+function putEntry(
+  key: LiveDataSourceQueryCacheKey,
+  data: LiveDataSourceQueryResponse,
+): CacheEntry {
+  const keyStr = liveDataSourceQueryKeyString(key);
   const entry: CacheEntry = { data, fetchedAt: Date.now() };
   memory.set(keyStr, entry);
   if (POLICY.persistSession) writeSession(keyStr, entry);
@@ -102,37 +113,58 @@ function putEntry(key: LiveDataSourcesCacheKey, data: LiveDataSourcesResponse): 
   return entry;
 }
 
-export function peekLiveDataSources(key: LiveDataSourcesCacheKey): LiveDataSourcesResponse | null {
+export function peekLiveDataSourceQuery(
+  key: LiveDataSourceQueryCacheKey,
+): LiveDataSourceQueryResponse | null {
   return getEntry(key)?.data ?? null;
 }
 
-export function subscribeLiveDataSourcesCache(listener: (key: string) => void): () => void {
+export function subscribeLiveDataSourceQueryCache(
+  listener: (key: string) => void,
+): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
 
-export function invalidateLiveDataSources(key: LiveDataSourcesCacheKey): void {
-  const keyStr = liveDataSourcesKeyString(key);
-  memory.delete(keyStr);
-  removeSession(keyStr);
-  notify(keyStr);
+export function invalidateLiveDataSourceQuery(opts: {
+  companyId: string;
+  kind?: string;
+}): void {
+  const needle = opts.kind
+    ? `${opts.companyId}:live-query:${opts.kind}:`
+    : `${opts.companyId}:live-query:`;
+  for (const keyStr of [...memory.keys()]) {
+    if (!keyStr.startsWith(needle)) continue;
+    memory.delete(keyStr);
+    removeSession(keyStr);
+    notify(keyStr);
+  }
 }
 
-export type LoadLiveDataSourcesResult = {
-  data: LiveDataSourcesResponse;
+/** Clear all query caches (tests). */
+export function clearLiveDataSourceQueryCache(): void {
+  for (const keyStr of [...memory.keys()]) {
+    removeSession(keyStr);
+  }
+  memory.clear();
+  inflight.clear();
+}
+
+export type LoadLiveDataSourceQueryResult = {
+  data: LiveDataSourceQueryResponse;
   fromCache: boolean;
 };
 
-export async function loadLiveDataSources(
-  key: LiveDataSourcesCacheKey,
-  fetcher: () => Promise<LiveDataSourcesResponse>,
+export async function loadLiveDataSourceQuery(
+  key: LiveDataSourceQueryCacheKey,
+  fetcher: () => Promise<LiveDataSourceQueryResponse>,
   opts?: {
     force?: boolean;
     allowStale?: boolean;
-    onUpdate?: (data: LiveDataSourcesResponse) => void;
+    onUpdate?: (data: LiveDataSourceQueryResponse) => void;
   },
-): Promise<LoadLiveDataSourcesResult> {
-  const keyStr = liveDataSourcesKeyString(key);
+): Promise<LoadLiveDataSourceQueryResult> {
+  const keyStr = liveDataSourceQueryKeyString(key);
   const force = opts?.force ?? false;
   const allowStale = opts?.allowStale ?? true;
   const now = Date.now();
@@ -150,15 +182,18 @@ export async function loadLiveDataSources(
     }
   }
 
-  return { data: await revalidate(key, keyStr, fetcher, opts?.onUpdate), fromCache: false };
+  return {
+    data: await revalidate(key, keyStr, fetcher, opts?.onUpdate),
+    fromCache: false,
+  };
 }
 
 async function revalidate(
-  key: LiveDataSourcesCacheKey,
+  key: LiveDataSourceQueryCacheKey,
   keyStr: string,
-  fetcher: () => Promise<LiveDataSourcesResponse>,
-  onUpdate?: (data: LiveDataSourcesResponse) => void,
-): Promise<LiveDataSourcesResponse> {
+  fetcher: () => Promise<LiveDataSourceQueryResponse>,
+  onUpdate?: (data: LiveDataSourceQueryResponse) => void,
+): Promise<LiveDataSourceQueryResponse> {
   const pending = inflight.get(keyStr);
   if (pending) return pending;
 

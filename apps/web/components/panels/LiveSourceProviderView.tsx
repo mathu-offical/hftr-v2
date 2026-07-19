@@ -18,6 +18,11 @@ import {
 } from '@hftr/contracts';
 import { api } from '@/lib/client';
 import { loadLiveDataSources } from '@/lib/live-data-sources-cache';
+import {
+  loadLiveDataSourceQuery,
+  peekLiveDataSourceQuery,
+  type LiveDataSourceQueryCacheKey,
+} from '@/lib/live-data-source-query-cache';
 
 function widgetKindLabel(kind: LiveDataSourceWidget['widgetKind']): string {
   switch (kind) {
@@ -105,46 +110,72 @@ export function LiveSourceProviderView(props: {
   const [presets, setPresets] = useState<LiveDataSourceQueryPreset[]>([]);
   const [form, setForm] = useState<LiveDataSourceFormHint | null>(null);
   const [completeList, setCompleteList] = useState(false);
+  const [fromCache, setFromCache] = useState(false);
   const [queryBusy, setQueryBusy] = useState(false);
   const [queryError, setQueryError] = useState<string | null>(null);
   const [lastQuery, setLastQuery] = useState<string | null>(null);
   const [queriedStatus, setQueriedStatus] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
 
-  const applyResponse = useCallback((res: LiveDataSourceQueryResponse) => {
-    setWidgets(res.widgets);
-    setLastQuery(res.query);
-    setQueriedStatus(res.status);
-    setFetchedAt(res.fetchedAt);
-    setCompleteList(res.completeList);
-    if (res.presets.length > 0) setPresets(res.presets);
-    if (res.form) setForm(res.form);
-    if (res.errors.length > 0 && res.widgets.length === 0) {
-      setQueryError(res.errors.map((e) => e.code).join(' · '));
-    } else {
-      setQueryError(null);
-    }
-  }, []);
+  const applyResponse = useCallback(
+    (res: LiveDataSourceQueryResponse, opts?: { fromCache?: boolean }) => {
+      setWidgets(res.widgets);
+      setLastQuery(res.query);
+      setQueriedStatus(res.status);
+      setFetchedAt(res.fetchedAt);
+      setCompleteList(res.completeList);
+      setFromCache(opts?.fromCache === true || res.cached === true);
+      if (res.presets.length > 0) setPresets(res.presets);
+      if (res.form) setForm(res.form);
+      if (res.errors.length > 0 && res.widgets.length === 0) {
+        setQueryError(res.errors.map((e) => e.code).join(' · '));
+      } else {
+        setQueryError(null);
+      }
+    },
+    [],
+  );
 
   const runQuery = useCallback(
-    async (opts: { mode: 'search' | 'browse'; query: string }) => {
+    async (opts: {
+      mode: 'search' | 'browse';
+      query: string;
+      force?: boolean;
+    }) => {
       setQueryBusy(true);
       setQueryError(null);
       const kind = props.kind as ResearchSourceKind;
       const maxResults = resolveLiveDataSourceMaxResults(kind);
+      const cacheKey: LiveDataSourceQueryCacheKey = {
+        companyId: props.companyId,
+        kind: props.kind,
+        mode: opts.mode,
+        query: opts.query,
+        maxResults,
+      };
       try {
-        const res = await api<LiveDataSourceQueryResponse>(
-          `/api/companies/${props.companyId}/live-data-sources/${props.kind}/query`,
+        const result = await loadLiveDataSourceQuery(
+          cacheKey,
+          () =>
+            api<LiveDataSourceQueryResponse>(
+              `/api/companies/${props.companyId}/live-data-sources/${props.kind}/query`,
+              {
+                method: 'POST',
+                body: {
+                  mode: opts.mode,
+                  query: opts.query,
+                  maxResults,
+                  forceRefresh: opts.force === true,
+                },
+              },
+            ),
           {
-            method: 'POST',
-            body: {
-              mode: opts.mode,
-              query: opts.query,
-              maxResults,
-            },
+            force: opts.force === true,
+            allowStale: true,
+            onUpdate: (data) => applyResponse(data, { fromCache: false }),
           },
         );
-        applyResponse(res);
+        applyResponse(result.data, { fromCache: result.fromCache });
       } catch {
         setQueryError(opts.mode === 'browse' ? 'Browse failed' : 'Query failed');
       } finally {
@@ -158,11 +189,27 @@ export function LiveSourceProviderView(props: {
     let cancelled = false;
     setMetaLoading(true);
     setMetaError(null);
-    setWidgets([]);
     setQueryError(null);
-    setLastQuery(null);
+
+    // Hydrate widgets from client cache immediately when remounting a service tab.
+    const kind = props.kind as ResearchSourceKind;
+    const maxResults = resolveLiveDataSourceMaxResults(kind);
+    const peek = peekLiveDataSourceQuery({
+      companyId: props.companyId,
+      kind: props.kind,
+      mode: 'browse',
+      query: '',
+      maxResults,
+    });
+    if (peek) {
+      applyResponse(peek, { fromCache: true });
+    } else {
+      setWidgets([]);
+      setLastQuery(null);
+      setFetchedAt(null);
+      setFromCache(false);
+    }
     setQueryText('');
-    setFetchedAt(null);
 
     void loadLiveDataSources(
       { companyId: props.companyId },
@@ -200,20 +247,21 @@ export function LiveSourceProviderView(props: {
     return () => {
       cancelled = true;
     };
-  }, [props.companyId, props.kind, props.label]);
+  }, [props.companyId, props.kind, props.label, applyResponse]);
 
   useEffect(() => {
     if (!row) return;
     if (row.status === 'missing_key' || row.status === 'stub' || row.status === 'researched') {
       return;
     }
-    void runQuery({ mode: 'browse', query: '' });
+    // SWR: serve cache if fresh; background revalidate when stale — no force.
+    void runQuery({ mode: 'browse', query: '', force: false });
   }, [row, runQuery]);
 
   async function onSearch(e?: FormEvent) {
     e?.preventDefault();
     if (!row) return;
-    await runQuery({ mode: 'search', query: queryText.trim() });
+    await runQuery({ mode: 'search', query: queryText.trim(), force: false });
   }
 
   if (metaLoading) {
@@ -294,7 +342,7 @@ export function LiveSourceProviderView(props: {
               data-testid={`live-source-preset-${p.id}`}
               onClick={() => {
                 setQueryText(p.query);
-                void runQuery({ mode: p.mode, query: p.query });
+                void runQuery({ mode: p.mode, query: p.query, force: false });
               }}
               className="rounded-full border border-[var(--color-line)] px-2 py-0.5 text-[9px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50"
             >
@@ -336,7 +384,7 @@ export function LiveSourceProviderView(props: {
           data-testid="data-explorer-live-browse"
           onClick={() => {
             setQueryText('');
-            void runQuery({ mode: 'browse', query: '' });
+            void runQuery({ mode: 'browse', query: '', force: true });
           }}
           className="rounded border border-[var(--color-line)] px-2 py-1 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] disabled:opacity-50"
         >
@@ -348,6 +396,7 @@ export function LiveSourceProviderView(props: {
         <span>
           {lastQuery ? `Query · ${lastQuery}` : '—'}
           {queriedStatus ? ` · ${queriedStatus}` : ''}
+          {fromCache ? ' · cached' : ''}
           {widgets.length > 0
             ? completeList
               ? ` · full list · ${widgets.length}`

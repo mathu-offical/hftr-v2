@@ -1244,15 +1244,16 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   (`ready` / `public` via `isActiveLiveDataSource`; missing-key / stub / researched hidden)
   from `GET …/live-data-sources`. Company canvas `library` modules appear under dock
   **Company**. Center **Data Explorer** browses live hydrators and library contents
-  (markdown / JSON). Live-source **inventory** is client SWR-cached (metadata only);
-  **Search / Browse current** lazy-loads service widgets via
-  `POST …/live-data-sources/[kind]/query`. Canvas `live_api` identity uses optional
-  `sourceKind` hydrator (legacy venue map). Galaxy stays Research-owned for topic/connection
-  **trace**; Explorer is content **read**. Spec:
+  (markdown / JSON). Live-source **inventory** is client SWR-cached (metadata only).
+  Service-tab **query/browse** widgets are also client SWR-cached (5m fresh / 30m stale)
+  with server TTL + provider preview TTL (D-152) so diagnostics do not over-query
+  external APIs; **Refresh live** force-bypasses caches. Canvas `live_api` identity uses
+  optional `sourceKind` hydrator (legacy venue map). Galaxy stays Research-owned for
+  topic/connection **trace**; Explorer is content **read**. Spec:
   `docs/superpowers/specs/2026-07-18-data-tab-libraries-dock-explorer-design.md`.
   Docs: ui-spec §4, research-tab-shelves-inspector-design, product-spec §Data modules.
-  **Status: implemented** (active-only DATA list; elevated Libraries sheet; inventory cache +
-  query widgets).
+  **Status: implemented** (active-only DATA list; elevated Libraries sheet; inventory +
+  query caches).
 
 - **D-122 (dual paper books + engine→service binding + delta training, 2026-07-18):**
   Paper execution uses **explicit dual books** with linked delta resolution, plus a
@@ -1553,6 +1554,41 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   desk count). Expanded view is a short indented outline: pool → root funds → execution
   desks by engine; each fund row shows **name + amount inline** (no multi-line cards).
   Docs: ui-spec §4. Extends D-144. **Status: implemented.**
+
+- **D-150 (Assistant layered drag/resize overlay, 2026-07-18):** AST assistant is a
+  **viewport-fixed overlay** (`createPortal` → `document.body`, `z-50`) layered **on top of**
+  the main RightPanel (and other chrome) — not an in-flow sibling column. Header drag and
+  edge/corner resize; geometry persists at `hftr:{companyId}:assistant:geometry`. Selecting
+  right tabs no longer closes the assistant (underlying panel stays visible beneath).
+  Extends D-146. Docs: ui-spec §4 / §5. **Status: implemented.**
+
+- **D-151 (galaxy physical semantic bridging, 2026-07-18):** Spheres stayed separated
+  because packing + foreign keep-out dominated sparse springs, and articles/seeds lacked
+  shared display tags / persisted correlates. Now: `normalizeGalaxyDisplayTag` vocabulary;
+  seed tag refresh + shared-tag `concept_links`; deterministic synthesis emits correlates;
+  article orbits include co-tagged peers; denser topic membership cliques; closer packing
+  (gap ~1.0); **`createCrossLibraryBridgeForce`** drifts library centers toward semantic
+  pairs; stronger cross-nest spring scale. Docs: galaxy-3d-volume-layout,
+  research-galaxy-topic-view-design, ui-spec. **Status: implemented.**
+
+- **D-152 (live-data query/provider TTL caches for diagnostics, 2026-07-18):** DATA
+  Explorer service-tab queries must not re-hit external providers on every remount.
+  Layers: (1) client SWR for `POST …/live-data-sources/[kind]/query` (5m fresh / 30m
+  stale, session-persisted); (2) API in-process TTL (5m) with inflight dedupe; (3)
+  operator-preview provider TTL (5m) for CoinGecko / Frankfurter / Alpaca OHLC keyed
+  without secrets. `forceRefresh` / **Refresh live** bypasses all layers. Response
+  carries `cached` + preserved `fetchedAt`. Extends D-121. Docs: ui-spec §4.
+  **Status: implemented.**
+
+- **D-153 (use-case research deps + Data Hub family, 2026-07-18):** Default execution
+  engines seed **specific** research packs (not generic fabric): day-trading → session
+  regime lab + desk specialty; long-term → filings + event catalysts (not desk-aligned);
+  crypto/prediction keep domain packs; HFT has no pack until microstructure ships.
+  Day-trading inline research is session specialty (regime lab owns market news).
+  `expandEngineSeedsWithResearchDeps` runs on company create; module-store execution
+  insert seeds missing packs first; research insert re-syncs dependent Engine Data Hubs
+  (D-140 nests/hydrate/query/returns). Docs: product-spec company create, templates.
+  **Status: implemented.**
 
 ## Open questions
 

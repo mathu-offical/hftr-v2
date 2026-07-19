@@ -358,9 +358,10 @@ are ignored. Shortcuts are suppressed in editable fields.
   `POST …/live-data-sources/[kind]/query`; crypto/FX/Alpaca bars use operator live
   previews with display fields). Complete enumerable catalogs (`frankfurter_fx` all pairs for
   base; `coingecko_crypto` markets up to full-list cap) always request the full available set
-  (`completeList` / `resolveLiveDataSourceMaxResults`) — not sample truncation. Canvas `live_api`
-  uses `config.sourceKind`. Overlays mutually exclusive for backgrounds; inspector persists
-  (D-133).
+  (`completeList` / `resolveLiveDataSourceMaxResults`) — not sample truncation. Query/browse
+  responses are SWR-cached client-side and TTL-cached server/provider-side (D-152); Refresh
+  live force-bypasses. Canvas `live_api` uses `config.sourceKind`. Overlays mutually exclusive
+  for backgrounds; inspector persists (D-133).
 
 ### MIDDLE BOTTOM — Exploration + Analysis + Choice (the main control panel)
 - **Persistent ribbon (D-097 / D-113 / D-114 / D-118):** collapsed view keeps tab buttons +

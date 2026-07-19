@@ -246,7 +246,8 @@ export function TradingConfigForm(props: { companyId: string; moduleId: string }
         ]);
         if (stopped) return;
         setFamilies(cat.entries);
-        const rawBinding = mod.module.config.executionBinding ?? {};
+        const rawBinding: Partial<ExecutionBindingConfig> =
+          mod.module.config.executionBinding ?? {};
         setConfig({
           ...DEFAULT_TRADING_CONFIG,
           ...mod.module.config,

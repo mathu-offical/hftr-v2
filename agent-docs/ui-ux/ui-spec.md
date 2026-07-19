@@ -304,10 +304,12 @@ are ignored. Shortcuts are suppressed in editable fields.
   Visible surfaces: live equity/marks refresh on the live cadence; seals/reports/charts
   stay stable until Sync or a terminal synthesis run; **Model** tracks synthesis stages live
   on the overlay.
-  **Provider surfaces (D-103):** movers compound gathers only credential-ready / public kinds
-  from the operator's research keys + Alpaca paper broker (via `selectReadySourceKinds`).
-  Overlay lists each movers-lane provider as ready / need key / contributed on last seal.
-  Position marks remain synthetic until live broker marks.
+  **Provider surfaces (D-103 / D-148):** movers compound gathers only credential-ready /
+  public kinds from the operator's research keys + Alpaca paper broker
+  (`selectReadySourceKinds`). Overlay **Provider status** header button opens a dropdown
+  modal listing each movers-lane provider as ready / need key / contributed on last seal
+  (compact ready/N count on the button). Position marks remain synthetic until live broker
+  marks.
   **SymbolTicker + charts (D-109):** Symbol rows on overlay recommendations + left position
   inventory use shared `SymbolTicker` — synthetic spark, direction glyph, strength ticks + band
   word, mark/held/uPnL text. Held vs cost **ok/block spark + PnL tone always wins** when cost

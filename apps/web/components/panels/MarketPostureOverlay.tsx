@@ -149,6 +149,7 @@ export function MarketPostureOverlay() {
                 {analyzing || synthesis.activeRunId ? 'Analyzing…' : 'Syncing…'}
               </span>
             )}
+            {hub ? <MarketPostureSourcesStrip sources={hub.sources} /> : null}
             <button
               type="button"
               onClick={() => void refresh(true)}
@@ -213,11 +214,6 @@ export function MarketPostureOverlay() {
           </div>
         ) : null}
         {hub ? <MarketPostureFreshnessStrip freshness={hub.freshness} /> : null}
-        {hub ? (
-          <div className="px-3 pb-2">
-            <MarketPostureSourcesStrip sources={hub.sources} />
-          </div>
-        ) : null}
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">

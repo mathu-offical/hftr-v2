@@ -1541,6 +1541,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `hftr:{companyId}:panel:right`. Removes the bottom-right FAB mount from the company page.
   Docs: ui-spec §4 / §5. **Status: implemented.**
 
+- **D-148 (Provider status dropdown on day overlay, 2026-07-18):** Market posture day
+  overlay moves provider surfaces out of the always-visible header strip into a top
+  **Provider status** button (ready/N + missing-key hint) that opens a dropdown dialog with
+  the full lane list (ready / need key / contributed). Esc and outside click dismiss.
+  Docs: ui-spec §4. Extends D-103. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

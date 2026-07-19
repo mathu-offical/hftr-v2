@@ -586,9 +586,9 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               iterations?: (n: number) => unknown;
             }
           | undefined;
-        linkForce?.distance?.((l) => l.__distance ?? 48);
-        linkForce?.strength?.((l) => l.__strength ?? 0.5);
-        linkForce?.iterations?.(4);
+        linkForce?.distance?.((l) => l.__distance ?? 72);
+        linkForce?.strength?.((l) => l.__strength ?? 0.38);
+        linkForce?.iterations?.(3);
 
         const baseCharge = chargeStrengthForGraphSize(
           Math.max(1, graphData.nodes.length - graphData.hullCount),
@@ -601,29 +601,29 @@ function GalaxyViewInner(props: GalaxyViewProps) {
               const n = node as GalaxySimNode & { __kind?: string; __hullKind?: string };
               if (n.__kind === 'nest-hull') {
                 // Article stars need repulsion so hubs don't stack (D-139 / D-142).
-                return n.__hullKind === 'article' ? baseCharge * 0.45 : 0;
+                return n.__hullKind === 'article' ? baseCharge * 0.55 : 0;
               }
-              if (n.__kind === 'tag-sat') return baseCharge * 0.28;
+              if (n.__kind === 'tag-sat') return baseCharge * 0.35;
               return baseCharge;
             })
-            .distanceMax(240),
+            .distanceMax(420),
         );
 
         const center = fg.d3Force('center') as { strength?: (n: number) => unknown } | undefined;
-        // Near-zero — free-float cloud; Fit frames the envelope (D-136).
-        center?.strength?.(0.0015);
+        // Near-zero — free-float cloud; Fit frames the envelope (D-136 / D-170).
+        center?.strength?.(0.0008);
 
         fg.d3Force(
           'collide',
           forceCollide((node: unknown) => {
             const n = node as GalaxySimNode & { __kind?: string; __hullKind?: string; val?: number };
             if (n.__kind === 'nest-hull') {
-              return n.__hullKind === 'article' ? Math.max(10, Math.cbrt(n.val ?? 1) * 5.5) : 0;
+              return n.__hullKind === 'article' ? Math.max(12, Math.cbrt(n.val ?? 1) * 7) : 0;
             }
-            if (n.__kind === 'tag-sat') return Math.cbrt(n.val ?? 0.35) * 2.4;
-            return Math.cbrt(n.val ?? 1) * 3.2;
+            if (n.__kind === 'tag-sat') return Math.cbrt(n.val ?? 0.35) * 3.1;
+            return Math.cbrt(n.val ?? 1) * 4.2;
           })
-            .strength(0.75)
+            .strength(0.62)
             .iterations(2),
         );
         fg.d3Force('nest', createLibraryNestForce(libraryCenters));

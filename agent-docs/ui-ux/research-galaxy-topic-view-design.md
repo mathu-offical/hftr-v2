@@ -155,6 +155,9 @@ chips drawn from visible concepts’ tags (and optionally topic-level keywords).
   to co-tagged peers, and `normalizeGalaxyDisplayTag` shared vocabulary.
 - **D-164 independent sphere growth + seeded folder similarity:** library/folder radii grow
   from content independently; packing gap ≥ 1.28; parent hulls refit around folders.
+- **D-170 looser gravity / more volume:** longer link rest lengths, weaker nest attractors,
+  stronger many-body charge, packing gap ≥ 1.48, larger library/folder radii and shell
+  spacing so galaxy elements spread instead of huddling.
   Seeded catalog folders use system-defined similarity bands for placement (related closer,
   unrelated farther) via `galaxy-folder-similarity.ts`.
 - A larger **company envelope** sphere outlines the full organizational cloud.

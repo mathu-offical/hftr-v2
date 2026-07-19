@@ -1722,6 +1722,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   spaghetti); stage→stage bridges still carry the compound path. Extends D-162 / D-163 / D-165.
   Docs: ui-spec §4. **Status: implemented.**
 
+- **D-170 (galaxy looser gravity / more volume, 2026-07-19):** Continue spreading the research
+  galaxy: longer weight/similarity spring rest lengths, weaker nest/folder/article attractors
+  and cohesion, stronger many-body charge with longer `distanceMax`, packing gap ≥ **1.48**,
+  larger library/folder radii and Fibonacci shell spacing, softer collide, farther Fit camera.
+  Extends D-164 / D-151 / D-145. Docs: ui-spec §6, research-galaxy-topic-view-design.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

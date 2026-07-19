@@ -73,11 +73,11 @@ export function seedFolderSimilarityBand(leftKey: string, rightKey: string): Sim
 export function folderSimilarityRestMul(band: SimilarityBand): number {
   switch (band) {
     case 'high':
-      return 1.08;
+      return 1.22;
     case 'medium':
-      return 1.65;
+      return 1.9;
     case 'low':
-      return 2.55;
+      return 3.05;
     default: {
       const _exhaustive: never = band;
       return _exhaustive;
@@ -89,11 +89,11 @@ export function folderSimilarityRestMul(band: SimilarityBand): number {
 export function folderSimilaritySpringStrength(band: SimilarityBand): number {
   switch (band) {
     case 'high':
-      return 0.55;
+      return 0.4;
     case 'medium':
-      return 0.28;
+      return 0.2;
     case 'low':
-      return 0.12;
+      return 0.08;
     default: {
       const _exhaustive: never = band;
       return _exhaustive;

@@ -166,7 +166,7 @@ describe('galaxy-physics', () => {
     const b = libraryCenters.get('b')!;
     const gap = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
     expect(a.radius).toBeGreaterThan(40);
-    expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.28 - 1e-3);
+    expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.48 - 1e-3);
   });
 
   it('soft folder nest force pulls outliers inward', () => {
@@ -641,8 +641,8 @@ describe('galaxy-physics', () => {
         const a = entries[i]!;
         const b = entries[j]!;
         const gap = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-        // Soft packing (D-164): independent growth with gap ≥ 1.28.
-        expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.28 - 1e-3);
+        // Soft packing (D-170): independent growth with gap ≥ 1.48.
+        expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.48 - 1e-3);
       }
     }
   });
@@ -675,8 +675,8 @@ describe('galaxy-physics', () => {
 
   it('hierarchicalLinkScale biases by membership and bridges high cross-nest similarity', () => {
     expect(hierarchicalLinkScale({ sameLibrary: true, sameFolder: false, sameArticle: false })).toEqual({
-      distanceMul: 1,
-      strengthMul: 1,
+      distanceMul: 1.15,
+      strengthMul: 0.85,
     });
     const article = hierarchicalLinkScale({
       sameLibrary: true,

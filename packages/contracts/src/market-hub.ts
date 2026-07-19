@@ -19,6 +19,20 @@ export const MarketHubEngineChip = z.object({
 export type MarketHubEngineChip = z.infer<typeof MarketHubEngineChip>;
 
 /**
+ * Lightweight provenance chip for a metric / board (D-155).
+ * `class` must say how the source verifies: api | library | system | setting.
+ */
+export const MarketHubSourceChipClass = z.enum(['api', 'library', 'system', 'setting']);
+export type MarketHubSourceChipClass = z.infer<typeof MarketHubSourceChipClass>;
+
+export const MarketHubSourceChip = z.object({
+  id: z.string().max(40),
+  label: z.string().max(40),
+  class: MarketHubSourceChipClass,
+});
+export type MarketHubSourceChip = z.infer<typeof MarketHubSourceChip>;
+
+/**
  * Universal symbol visualization payload (D-109).
  * Seeded by baseline market-awareness (synthetic quote walk + qualitative bands).
  * Held rows set heldVsCost; non-held leave it null so relevance cues may apply.
@@ -85,6 +99,8 @@ export const MarketHubMovers = z.object({
   verifiedAt: z.string().datetime().nullable(),
   expiresAt: z.string().datetime().nullable(),
   reportConceptId: z.string().uuid().nullable(),
+  /** Board-level sources that verified this seal (D-155). */
+  sourceChips: z.array(MarketHubSourceChip).max(12).default([]),
 });
 export type MarketHubMovers = z.infer<typeof MarketHubMovers>;
 
@@ -101,6 +117,8 @@ export const MarketHubWatchlistItem = z.object({
   updatedAt: z.string().datetime(),
   engines: z.array(MarketHubEngineChip).max(12).default([]),
   viz: MarketHubSymbolViz.optional(),
+  /** Provenance chips — must say api / library / system / setting (D-155). */
+  sourceChips: z.array(MarketHubSourceChip).max(8).default([]),
 });
 export type MarketHubWatchlistItem = z.infer<typeof MarketHubWatchlistItem>;
 
@@ -135,6 +153,8 @@ export const MarketHubPosition = z.object({
   engines: z.array(MarketHubEngineChip).max(12).default([]),
   updatedAt: z.string().datetime(),
   viz: MarketHubSymbolViz,
+  /** Mark / ledger provenance chips (D-155). */
+  sourceChips: z.array(MarketHubSourceChip).max(8).default([]),
 });
 export type MarketHubPosition = z.infer<typeof MarketHubPosition>;
 
@@ -180,6 +200,8 @@ export const MarketHubEquity = z.object({
   version: z.number().int().nonnegative(),
   /** Company equity (ledger balance-after) time series for chart. */
   series: z.array(MarketHubEquityPoint).max(120),
+  /** Ledger / seed provenance (D-155). */
+  sourceChips: z.array(MarketHubSourceChip).max(8).default([]),
 });
 export type MarketHubEquity = z.infer<typeof MarketHubEquity>;
 
@@ -304,6 +326,8 @@ export const MarketHubNews = z.object({
   verifiedAt: z.string().datetime().nullable(),
   expiresAt: z.string().datetime().nullable(),
   reportConceptId: z.string().uuid().nullable(),
+  /** Board-level sources that verified this seal (D-155). */
+  sourceChips: z.array(MarketHubSourceChip).max(12).default([]),
 });
 export type MarketHubNews = z.infer<typeof MarketHubNews>;
 
@@ -414,6 +438,7 @@ export const MarketHubResponse = z.object({
     verifiedAt: null,
     expiresAt: null,
     reportConceptId: null,
+    sourceChips: [],
   }),
   freshness: MarketHubFreshness,
   /** Latest Analyze synthesis run for Model awareness dock (D-120). */

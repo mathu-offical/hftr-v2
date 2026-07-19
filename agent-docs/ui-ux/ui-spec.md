@@ -69,7 +69,6 @@
   `overscroll-behavior: none` on the React Flow pane (plus wrapper `overscroll-none`)
   so horizontal swipe does not trigger browser back/forward while navigating the
   graph. OS/browser edge swipes outside page content remain browser-controlled.
-
 - Modules as nodes, laid out left→right by **engine chip zones** (research → data →
   trend → execution → verification; funds shelf + clock bus below). See
   `canvas-layout-and-dedicated-math-design.md` and
@@ -346,10 +345,14 @@ are ignored. Shortcuts are suppressed in editable fields.
   basis exists; non-held may tint strength ticks orange→lime by relevance while glyphs/ticks
   remain readable without color. Overlay pies/bars emphasize day quant / provider honesty.
   Sparks are labeled `synthetic_sim` (baseline algorithm), not broker history.
-  **Analyze vs Sync (D-111 / D-120):** **Sync** forces full hub GET. **Analyze** (overlay) creates a
-  synthesis run, force-reseals `library.system_movers` (tactical LLM thresholds),
-  `library.system_sector_news`, calendar-phase `library.system_daily_summaries` in parallel,
+  **Analyze vs Sync (D-111 / D-120 / D-181 / D-183):** **Sync** forces full hub GET. **Analyze** (overlay)
+  resolves the **current-moment** analyze slot (`overnight` → `evening` via injectable clock + XNYS
+  session), creates a synthesis run, force-reseals `library.system_movers` (tactical LLM thresholds),
+  `library.system_sector_news`, phase-tagged `library.system_daily_summaries` in parallel,
   then `library.posture_narrative` (waits for seal stages; book↔tape deterministic rollup).
+  Scheduled slots use America/New_York `et:HH:MM` triggers that enqueue full Analyze
+  (`library.market_hub_analyze`). Diversified movement triggers can also auto-Analyze.
+  Overlay shows the resolved phase label after Analyze.
   Overlay **Model** section is the **live synthesis hydration hub** (D-147 / D-156 / D-160 / D-161 / D-162 / D-163 / D-165 / D-169) —
   React Flow with **active** live/library/**capital** data sources only → adapters → **route-granular process steps**
   (kind-specific fetch→normalize→extract/score/… chains; shared universe/rank/verify between

@@ -295,6 +295,7 @@ import './handlers/library-system-movers';
 import './handlers/library-system-sector-news';
 import './handlers/library-system-daily-summaries';
 import './handlers/library-posture-narrative';
+import './handlers/library-market-hub-analyze';
 
 // Dispatch
 export {
@@ -518,8 +519,25 @@ export {
   type SessionInfo,
 } from './calendar/calendar';
 export {
+  resolveAnalyzePhase,
+  analyzePhaseLabel,
+  venueMinutesOfDay,
+  venueLocalTimeToUtcMs,
+} from './calendar/analyze-phase';
+export {
   dailySummaryPhaseFromSession,
 } from './handlers/library-system-daily-summaries';
+export {
+  enqueueMarketHubAnalyze,
+  runScheduledMarketHubAnalyze,
+} from './posture/enqueue-analyze';
+export {
+  evaluateMovementTrigger,
+} from './posture/movement-trigger';
+export {
+  sectorPeersForFocuses,
+  DIVERSIFIED_MARKET_ANCHORS,
+} from './libraries/market-state-peers';
 
 // Dynamic safety foundation (D-028)
 export { computeOperatingLimits } from './limits/compute';

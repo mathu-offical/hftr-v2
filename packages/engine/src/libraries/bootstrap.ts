@@ -1,11 +1,16 @@
 import { and, eq, ilike, inArray } from 'drizzle-orm';
-import { galaxyDisplayTagsFromList } from '@hftr/contracts';
+import {
+  galaxyDisplayTagsFromList,
+  MARKET_HUB_ANALYZE_PHASES,
+  MARKET_HUB_ANALYZE_PHASE_META,
+} from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import {
   catalogEntries,
   companies,
   conceptLinks,
   concepts,
+  jobSchedules,
   libraries,
   libraryConcepts,
   modules,
@@ -636,23 +641,33 @@ export async function bootstrapCompanyKnowledge(opts: {
   await ensureAllSystemLibraries(opts.db, opts.companyId, now);
 
   const clock = createFixedClock(now.getTime());
-  const dailyPhases = ['pre_open', 'midday', 'close', 'post_analysis'] as const;
+  // D-181: seven ET wall-clock analyze slots (replaces D-070 four every:1440).
+  const legacyDailyPhases = ['pre_open', 'midday', 'close', 'post_analysis'] as const;
   for (const entry of SYSTEM_LIBRARY_REGISTRY) {
     if (!entry.scheduleKind || !entry.cadenceMinutes) continue;
-    // D-070: daily summaries get one schedule per session phase (distinct subject keys).
     if (entry.scheduleKind === 'library.system_daily_summaries') {
-      for (const phase of dailyPhases) {
+      for (const phase of MARKET_HUB_ANALYZE_PHASES) {
+        const meta = MARKET_HUB_ANALYZE_PHASE_META[phase];
         await ensureSystemLibrarySchedule(opts.db, clock, {
           companyId: opts.companyId,
           scheduleName: `system-daily_summaries-${phase}-${opts.companyId}`,
-          kind: entry.scheduleKind,
-          cadenceMinutes: entry.cadenceMinutes,
+          // D-183: full Analyze at each ET slot (movers+sector+daily+narrative).
+          kind: 'library.market_hub_analyze',
+          cronExpr: meta.etCron,
           payloadTemplate: {
             companyId: opts.companyId,
             topicScope: entry.topicScope,
             phase,
           },
         });
+      }
+      // Disable legacy four-slot every:1440 schedules when present.
+      for (const legacy of legacyDailyPhases) {
+        const name = `system-daily_summaries-${legacy}-${opts.companyId}`;
+        await opts.db
+          .update(jobSchedules)
+          .set({ enabled: false, updatedAt: now })
+          .where(and(eq(jobSchedules.companyId, opts.companyId), eq(jobSchedules.name, name)));
       }
       continue;
     }

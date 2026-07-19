@@ -1,5 +1,5 @@
 /**
- * Deterministic position↔tape rollup for posture narrative (D-120).
+ * Deterministic position↔tape rollup for posture narrative (D-120 / D-183).
  * Bands/symbols/status words only — no raw marks, qty, or cents.
  */
 
@@ -15,6 +15,10 @@ export type PostureContextRollupInput = {
   dailyTitle: string | null;
   dailyBand: string | null;
   phase: string;
+  phaseLabel?: string;
+  phaseSummary?: string;
+  phaseFocusAreas?: string[];
+  gatherBias?: string;
 };
 
 export type PostureContextRollup = {
@@ -55,7 +59,14 @@ export function buildPostureContextRollup(input: PostureContextRollupInput): Pos
   const pipelineOnTape = pipeline.filter((s) => moverSet.has(s));
   const heldOffTape = held.filter((s) => !moverSet.has(s));
 
+  const phaseLabel = input.phaseLabel ?? input.phase.replace(/_/g, ' ');
+  const focus =
+    input.phaseFocusAreas && input.phaseFocusAreas.length > 0
+      ? input.phaseFocusAreas.join('; ')
+      : null;
+
   const summaryLines = [
+    `Phase ${phaseLabel}${input.gatherBias ? ` · bias ${input.gatherBias}` : ''}`,
     input.moversTitle
       ? `Movers «${input.moversTitle}» band ${input.moversBand ?? 'unknown'}`
       : 'Movers seal missing',
@@ -74,6 +85,7 @@ export function buildPostureContextRollup(input: PostureContextRollupInput): Pos
     'Deterministic seal + book crosswalk — no model judgment',
     'Symbols listed as orientation only; marks/qty omitted (D-008)',
     `Phase ${input.phase}`,
+    ...(input.phaseSummary ? [`Timing: ${input.phaseSummary}`] : []),
   ];
 
   const body = [
@@ -81,6 +93,13 @@ export function buildPostureContextRollup(input: PostureContextRollupInput): Pos
     '',
     'Qualitative rollup of sealed posture views plus book/watch overlap with the movers board.',
     'Bands and symbols only — no raw marks or quantities.',
+    '',
+    '## Timing focus',
+    '',
+    `Active slot **${phaseLabel}** (${input.phase}).`,
+    input.phaseSummary ? `${input.phaseSummary}.` : '',
+    input.gatherBias ? `Gather bias: **${input.gatherBias}**.` : '',
+    focus ? `Focus areas: ${focus}.` : '',
     '',
     '## Movers board',
     '',
@@ -123,13 +142,12 @@ export function buildPostureContextRollup(input: PostureContextRollupInput): Pos
       ? `Watchlist symbols: ${formatList(watch)}. On movers board: ${formatList(watchOnTape)}.`
       : 'No active watchlist symbols.',
     pipeline.length > 0
-      ? `Pipeline symbols: ${formatList(pipeline)}. On movers board: ${formatList(pipelineOnTape)}.`
-      : 'No pipeline leads/trees for this company.',
+      ? `Pipeline / lead symbols: ${formatList(pipeline)}. On movers board: ${formatList(pipelineOnTape)}.`
+      : 'No pipeline lead symbols.',
     '',
     '## Operator note',
     '',
-    'Open Market posture Model for stage detail; Sync reloads the hub projection.',
-    'Live equity/marks poll separately (D-112). Continuation/exit plans stay in Plans / pipeline stubs.',
+    'This narrative is seal-grounded and timing-aware. Re-run Analyze for the current moment or wait for the next ET schedule / diversified movement trigger.',
   ]
     .filter((line, i, arr) => !(line === '' && arr[i - 1] === ''))
     .join('\n');

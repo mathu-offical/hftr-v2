@@ -1,6 +1,7 @@
-import { and, eq, ne } from 'drizzle-orm';
 import {
+  analyzePhaseQueryText,
   EvidencePackage,
+  normalizeAnalyzePhase,
   ResearchSourceKind,
   SystemTopicScope,
   type SuggestionThresholdProfile,
@@ -18,7 +19,9 @@ import {
   modules,
   positions,
   trendCandidates,
+  marketHubSynthesisRuns,
 } from '@hftr/db/schema';
+import { and, desc, eq, ne } from 'drizzle-orm';
 import { ensureSystemLibrary } from '../libraries/ensure-system-library';
 import { ensureSectorKnowledge } from '../libraries/ensure-sector-knowledge';
 import { getSystemLibraryEntry } from '../libraries/system-library-registry';
@@ -33,10 +36,16 @@ import {
   rankCompoundScores,
   scoreCompoundSymbol,
 } from '../libraries/movers-compound';
+import { sectorPeersForFocuses } from '../libraries/market-state-peers';
 import { listCompanyLibraryIds, loadMoversLibraryCorpus } from '../libraries/movers-corpus';
 import { computeRelStrength } from '../libraries/movers-rel-strength';
 import { proposeThresholdProfileHeuristic } from '../libraries/suggestion-threshold-propose';
 import { resolveSuggestionThresholds } from '../libraries/suggestion-thresholds';
+import { enqueueMarketHubAnalyze } from '../posture/enqueue-analyze';
+import {
+  evaluateMovementTrigger,
+  type MovementSignalSnapshot,
+} from '../posture/movement-trigger';
 import {
   evaluateSuggestionVerifyGates,
   suggestionVerifyPasses,
@@ -66,6 +75,11 @@ const SystemMoversPayload = z.object({
   forceReseal: z.boolean().optional(),
   /** Live Model synthesis run (D-120). */
   synthesisRunId: z.string().uuid().optional(),
+  /** Timing-tailored gather bias (D-183). */
+  analyzePhase: z.string().max(40).optional(),
+  analyzeReason: z.enum(['manual', 'schedule', 'movement']).optional(),
+  /** When true, skip movement auto-analyze (avoid loops). */
+  suppressMovementTrigger: z.boolean().optional(),
 });
 
 const NEWS_KINDS: ResearchSourceKindT[] = [
@@ -98,6 +112,8 @@ function buildMoversReportBody(opts: {
   feedClass: string;
   thresholdSource: string;
   sourceKinds: string[];
+  analyzePhaseLabel?: string | undefined;
+  phaseFocus?: string | undefined;
 }): string {
   const notes =
     opts.itemHeadlines.length > 0
@@ -109,9 +125,20 @@ function buildMoversReportBody(opts: {
       ? opts.sourceKinds.map((k) => `- ${k.replace(/_/g, ' ')}`).join('\n')
       : '- No entitled provider surfaces contributed this window.';
 
+  const phaseBlock = opts.analyzePhaseLabel
+    ? [
+        '## Analyze timing',
+        '',
+        `Slot: ${opts.analyzePhaseLabel}.`,
+        opts.phaseFocus ? `Focus: ${opts.phaseFocus}.` : null,
+        '',
+      ].filter((line): line is string => line !== null)
+    : [];
+
   return [
     '# Daily movers report',
     '',
+    ...phaseBlock,
     '## Scan window',
     '',
     `Paper scan via ${opts.feedClass} with corroboration band ${opts.corroborationBand}.`,
@@ -142,6 +169,75 @@ function packagesForSymbol(pkgs: EvidencePackage[], symbol: string): EvidencePac
       p.summary.toUpperCase().includes(u) ||
       (p.externalRef?.toUpperCase().includes(u) ?? false),
   );
+}
+
+function movementSnapshotFromScores(
+  scores: Array<{
+    symbol: string;
+    leadershipBand: 'low' | 'medium' | 'high';
+    volumeBand: 'low' | 'medium' | 'high';
+    newsLinkBand: 'low' | 'medium' | 'high';
+    macroLinkBand: 'low' | 'medium' | 'high';
+    libraryLinkBand: 'low' | 'medium' | 'high';
+    trendLinkBand: 'low' | 'medium' | 'high';
+    corroborationBand: 'low' | 'medium' | 'high';
+    linkCoverageBand: 'low' | 'medium' | 'high';
+    direction: 'up' | 'down' | 'flat';
+    relStrengthAbsBps: number;
+  }>,
+  asOfIso: string,
+): MovementSignalSnapshot {
+  return {
+    asOfIso,
+    symbols: scores.map((s) => ({
+      symbol: s.symbol,
+      leadershipBand: s.leadershipBand,
+      volumeBand: s.volumeBand,
+      newsLinkBand: s.newsLinkBand,
+      macroLinkBand: s.macroLinkBand,
+      libraryLinkBand: s.libraryLinkBand,
+      trendLinkBand: s.trendLinkBand,
+      corroborationBand: s.corroborationBand,
+      linkCoverageBand: s.linkCoverageBand,
+      direction: s.direction,
+      relStrengthAbsBps: s.relStrengthAbsBps,
+    })),
+  };
+}
+
+function movementSnapshotFromSeal(opts: {
+  asOfIso: string;
+  items: Array<{
+    symbolOrSector?: string | null | undefined;
+    strengthBand?: 'low' | 'medium' | 'high' | null | undefined;
+    directionBand?: 'low' | 'medium' | 'high' | null | undefined;
+  }>;
+  links: Parameters<typeof linkBandsForSymbol>[0];
+}): MovementSignalSnapshot {
+  const symbols = [];
+  for (const item of opts.items) {
+    const symbol = (item.symbolOrSector ?? '').toUpperCase();
+    if (!symbol) continue;
+    const links = linkBandsForSymbol(opts.links, symbol);
+    const leadership = item.strengthBand ?? 'low';
+    symbols.push({
+      symbol,
+      leadershipBand: leadership,
+      volumeBand: 'low' as const,
+      newsLinkBand: links.newsLinkBand,
+      macroLinkBand: links.macroLinkBand,
+      libraryLinkBand: links.libraryLinkBand,
+      trendLinkBand: links.trendLinkBand,
+      corroborationBand: 'low' as const,
+      linkCoverageBand: links.linkCoverageBand,
+      direction:
+        item.directionBand && item.directionBand !== 'low'
+          ? ('up' as const)
+          : ('flat' as const),
+      relStrengthAbsBps: 0,
+    });
+  }
+  return { asOfIso: opts.asOfIso, symbols };
 }
 
 registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }) => {
@@ -222,6 +318,7 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     .select({
       philosophyProfile: companies.philosophyProfile,
       clerkUserId: companies.clerkUserId,
+      sectorFocuses: companies.sectorFocuses,
     })
     .from(companies)
     .where(eq(companies.id, payload.companyId))
@@ -234,10 +331,15 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
 
   const gatherCredentials = await resolveResearchGatherCredentials(db, payload.companyId);
 
+  const analyzePhase = normalizeAnalyzePhase(payload.analyzePhase);
+  const queryText = analyzePhase
+    ? analyzePhaseQueryText(analyzePhase)
+    : 'cross sectional leadership movers relative strength breadth sector etf';
+
   const plan = buildResearchQueryPlan({
     topicScope: SystemTopicScope.MOVERS,
     topicSectors,
-    queryText: 'cross sectional leadership movers relative strength',
+    queryText,
     cadence: 'every:1440',
   });
 
@@ -379,8 +481,12 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
   const evidenceSymbols = extractTickerCandidates(evidenceTexts, 16);
 
   await stage('universe', 'running');
+  const sectorPeers = sectorPeersForFocuses([
+    ...topicSectors,
+    ...((company?.sectorFocuses as string[] | null) ?? []),
+  ]);
   const universe = buildMoversUniverse({
-    sectorPeers: [],
+    sectorPeers,
     evidenceSymbols,
     trendSymbols: trendRows.map((t) => t.symbol),
     positionSymbols: positionRows.map((p) => p.symbol),
@@ -390,8 +496,8 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
   await stage(
     'universe',
     'succeeded',
-    `Universe size ${universe.length} (cap ${thresholds.universeCap})`,
-    ['Evidence + trends + book + liquid fallback'],
+    `Universe size ${universe.length} (cap ${thresholds.universeCap}; peers ${sectorPeers.length})`,
+    ['Evidence + trends + book + sector peers + diversified liquid anchors'],
   );
 
   const openBook = new Set(positionRows.map((p) => p.symbol.toUpperCase()));
@@ -498,6 +604,47 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     'Corroboration · link coverage · leadership · fit',
   ]);
 
+  const currentMovementSnap = movementSnapshotFromScores(ranked, asOfIso);
+  const priorMovementSnap = existingSeal
+    ? movementSnapshotFromSeal({
+        asOfIso: existingSeal.expiresAt ?? asOfIso,
+        items: existingSeal.view.items ?? [],
+        links: existingSeal.awarenessLinks ?? [],
+      })
+    : null;
+
+  const maybeEnqueueMovementAnalyze = async () => {
+    if (
+      payload.synthesisRunId ||
+      payload.suppressMovementTrigger ||
+      payload.analyzeReason === 'movement' ||
+      payload.analyzeReason === 'schedule' ||
+      payload.analyzeReason === 'manual'
+    ) {
+      return;
+    }
+    const [lastRun] = await db
+      .select({ startedAt: marketHubSynthesisRuns.startedAt })
+      .from(marketHubSynthesisRuns)
+      .where(eq(marketHubSynthesisRuns.companyId, payload.companyId))
+      .orderBy(desc(marketHubSynthesisRuns.startedAt))
+      .limit(1);
+    const trigger = evaluateMovementTrigger({
+      previous: priorMovementSnap,
+      current: currentMovementSnap,
+      nowMs,
+      lastTriggeredMs: lastRun?.startedAt?.getTime() ?? null,
+    });
+    if (!trigger.shouldTrigger) return;
+    await enqueueMarketHubAnalyze(db, clock, {
+      companyId: payload.companyId,
+      phase: analyzePhase ?? undefined,
+      reason: 'movement',
+      forceReseal: true,
+      movementReasons: [...trigger.familiesFired, ...trigger.reasons].slice(0, 16),
+    });
+  };
+
   // Watchlist module: prefer trading/trend for operator confirm UX.
   const watchModuleId =
     companyModules.find((m) => m.type === 'trading')?.id ??
@@ -548,6 +695,7 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
   if (existingSeal && !payload.forceReseal) {
     // Seal still valid — suggestions refreshed; skip re-seal.
     await stage('seal_movers', 'skipped', 'Valid movers seal retained; suggestions refreshed');
+    await maybeEnqueueMovementAnalyze();
     return;
   }
 
@@ -660,6 +808,12 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     feedClass,
     thresholdSource,
     sourceKinds: bundle.contributingSourceKinds ?? [],
+    analyzePhaseLabel: analyzePhase
+      ? analyzePhase.replace(/_/g, ' ')
+      : undefined,
+    phaseFocus: analyzePhase
+      ? analyzePhaseQueryText(analyzePhase)
+      : undefined,
   });
 
   await persistVerifiedBundle({
@@ -677,4 +831,5 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
   await stage('seal_movers', 'succeeded', `Sealed movers board (${bundle.corroborationBand})`, [
     'Verified normalize · report concept dual-persist',
   ]);
+  await maybeEnqueueMovementAnalyze();
 });

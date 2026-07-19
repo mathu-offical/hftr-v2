@@ -41,6 +41,7 @@ export type BuildAwarenessLinksOpts = {
 
 export type SymbolLinkBands = {
   newsLinkBand: QualitativeBand;
+  macroLinkBand: QualitativeBand;
   libraryLinkBand: QualitativeBand;
   trendLinkBand: QualitativeBand;
   linkCoverageBand: QualitativeBand;
@@ -263,6 +264,7 @@ export function linkBandsForSymbol(
   );
 
   let newsLinkBand: QualitativeBand = 'low';
+  let macroLinkBand: QualitativeBand = 'low';
   let libraryLinkBand: QualitativeBand = 'low';
   let trendLinkBand: QualitativeBand = 'low';
   const coverageKinds = new Set<MarketAwarenessFromKind>();
@@ -274,6 +276,7 @@ export function linkBandsForSymbol(
         newsLinkBand = maxBand(newsLinkBand, link.strengthBand);
         break;
       case 'macro':
+        macroLinkBand = maxBand(macroLinkBand, link.strengthBand);
         break;
       case 'library_concept':
         libraryLinkBand = maxBand(libraryLinkBand, link.strengthBand);
@@ -290,6 +293,7 @@ export function linkBandsForSymbol(
 
   return {
     newsLinkBand,
+    macroLinkBand,
     libraryLinkBand,
     trendLinkBand,
     linkCoverageBand: linkCoverageBandForKinds(coverageKinds),

@@ -5,7 +5,11 @@
  */
 
 import { and, desc, eq } from 'drizzle-orm';
-import { SystemTopicScope } from '@hftr/contracts';
+import {
+  MARKET_HUB_ANALYZE_PHASE_META,
+  normalizeAnalyzePhase,
+  SystemTopicScope,
+} from '@hftr/contracts';
 import { z } from 'zod';
 import {
   concepts,
@@ -84,7 +88,8 @@ registerHandler('library.posture_narrative', async ({ db, clock, job }) => {
     subjectKey: 'sector_daily',
     nowMs: clock.nowMs(),
   });
-  const phase = payload.phase ?? 'pre_open';
+  const phase = normalizeAnalyzePhase(payload.phase) ?? 'pre_market';
+  const phaseMeta = MARKET_HUB_ANALYZE_PHASE_META[phase];
   const daily = await loadLatestValidSeal(db, {
     companyId: payload.companyId,
     kind: 'daily_summary_phase',
@@ -132,6 +137,10 @@ registerHandler('library.posture_narrative', async ({ db, clock, job }) => {
     dailyTitle: daily?.view.title ?? null,
     dailyBand: daily?.corroborationBand ?? null,
     phase,
+    phaseLabel: phaseMeta.label,
+    phaseSummary: phaseMeta.summary,
+    phaseFocusAreas: [...phaseMeta.focusAreas],
+    gatherBias: phaseMeta.gatherBias,
   });
 
   const companyModules = await db

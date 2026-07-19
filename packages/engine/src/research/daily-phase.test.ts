@@ -1,22 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { dailySummaryPhaseFromSession } from '../handlers/library-system-daily-summaries';
-import { systemDocKindForView } from './seal-persist';
+import { normalizeAnalyzePhase } from '@hftr/contracts';
 
-describe('dailySummaryPhaseFromSession', () => {
-  it('maps calendar phases to daily summary tags', () => {
-    expect(dailySummaryPhaseFromSession('pre_market')).toBe('pre_open');
-    expect(dailySummaryPhaseFromSession('open')).toBe('midday');
+describe('dailySummaryPhaseFromSession (legacy → D-181)', () => {
+  it('maps SessionPhase onto seven-slot analyze cadence', () => {
+    expect(dailySummaryPhaseFromSession('pre_market')).toBe('pre_market');
+    expect(dailySummaryPhaseFromSession('open')).toBe('mid_morning');
     expect(dailySummaryPhaseFromSession('midday')).toBe('midday');
-    expect(dailySummaryPhaseFromSession('power_hour')).toBe('close');
-    expect(dailySummaryPhaseFromSession('closed')).toBe('post_analysis');
-    expect(dailySummaryPhaseFromSession('overnight')).toBe('post_analysis');
+    expect(dailySummaryPhaseFromSession('power_hour')).toBe('market_close');
+    expect(dailySummaryPhaseFromSession('closed')).toBe('evening');
+    expect(dailySummaryPhaseFromSession('overnight')).toBe('evening');
   });
 });
 
-describe('systemDocKindForView', () => {
-  it('maps sealed view kinds to SystemDocKind', () => {
-    expect(systemDocKindForView('movers_board')).toBe('movers_report');
-    expect(systemDocKindForView('sector_bulletin')).toBe('sector_bulletin');
-    expect(systemDocKindForView('daily_summary_phase')).toBe('daily_summary');
+describe('normalizeAnalyzePhase', () => {
+  it('accepts new slots and remaps legacy four-slot tags', () => {
+    expect(normalizeAnalyzePhase('wake_up')).toBe('wake_up');
+    expect(normalizeAnalyzePhase('pre_open')).toBe('pre_market');
+    expect(normalizeAnalyzePhase('close')).toBe('market_close');
+    expect(normalizeAnalyzePhase('post_analysis')).toBe('evening');
+    expect(normalizeAnalyzePhase('nope')).toBeNull();
   });
 });

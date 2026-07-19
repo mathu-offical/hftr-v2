@@ -123,6 +123,7 @@ describe('movers-compound', () => {
       thresholds,
     );
     expect(sparse.newsLinkBand).toBe('low');
+    expect(sparse.macroLinkBand).toBe('low');
     expect(linked.newsLinkBand).toBe('high');
     expect(rankCompoundScores([sparse, linked])[0]!.symbol).toBe('BBB');
   });

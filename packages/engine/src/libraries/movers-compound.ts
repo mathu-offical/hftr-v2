@@ -14,6 +14,7 @@ import {
 
 export type SymbolLinkBandsInput = {
   newsLinkBand?: QualitativeBand;
+  macroLinkBand?: QualitativeBand;
   libraryLinkBand?: QualitativeBand;
   trendLinkBand?: QualitativeBand;
   linkCoverageBand?: QualitativeBand;
@@ -78,13 +79,15 @@ export function scoreCompoundSymbol(
   const corroborationBand = corroborationBandFromDomains(input.corroborationDomains);
 
   const newsLinkBand = input.linkBands?.newsLinkBand ?? 'low';
+  const macroLinkBand = input.linkBands?.macroLinkBand ?? 'low';
   const libraryLinkBand = input.linkBands?.libraryLinkBand ?? 'low';
   const trendLinkBand = input.linkBands?.trendLinkBand ?? 'low';
   const linkCoverageBand = input.linkBands?.linkCoverageBand ?? 'low';
 
   const admitsSearch =
     (bandAtLeast(libraryFit.band, thresholds.libraryFitMinBand) ||
-      bandAtLeast(leadershipBand, 'medium')) &&
+      bandAtLeast(leadershipBand, 'medium') ||
+      bandAtLeast(macroFit.band, 'medium')) &&
     bookFitBand !== 'low';
 
   return {
@@ -98,6 +101,7 @@ export function scoreCompoundSymbol(
     corroborationBand,
     corroborationDomains: input.corroborationDomains,
     newsLinkBand,
+    macroLinkBand,
     libraryLinkBand,
     trendLinkBand,
     linkCoverageBand,
@@ -113,9 +117,11 @@ export function compareCompoundScores(a: CompoundSymbolScore, b: CompoundSymbolS
     'corroborationBand',
     'linkCoverageBand',
     'newsLinkBand',
+    'macroLinkBand',
     'leadershipBand',
     'libraryFitBand',
     'newsFitBand',
+    'macroAlignBand',
     'volumeBand',
   ];
   for (const k of keys) {
@@ -176,11 +182,19 @@ export const DEFAULT_LIQUID_FALLBACK = [
   'SPY',
   'QQQ',
   'IWM',
+  'DIA',
+  'XLK',
+  'XLF',
+  'XLE',
+  'XLV',
+  'XLI',
   'AAPL',
   'MSFT',
   'NVDA',
   'AMZN',
   'META',
+  'GLD',
+  'TLT',
 ] as const;
 
 /** Extract ticker-like tokens from qualitative evidence text (capped). */

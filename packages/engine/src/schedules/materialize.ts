@@ -3,22 +3,34 @@ import type { QueueClass } from '@hftr/contracts';
 import { companies, jobSchedules } from '@hftr/db/schema';
 import type { Db } from '@hftr/db';
 import type { Clock } from '../clock';
+import { venueDate } from '../calendar/calendar';
+import { venueLocalTimeToUtcMs } from '../calendar/analyze-phase';
 import { enqueue } from '../queue/queue';
 import { LIBRARY_RESEARCH_QUEUE, POSTURE_RESEARCH_QUEUE } from '../research/lanes';
 
-export interface ParsedScheduleExpr {
-  kind: 'interval';
-  minutes: number;
-}
+export type ParsedScheduleExpr =
+  | { kind: 'interval'; minutes: number }
+  | { kind: 'daily_et'; hour: number; minute: number };
 
 const EVERY_PREFIX = 'every:';
+const ET_PREFIX = 'et:';
+const ET_TZ = 'America/New_York';
 
-/** Parse cadence-driven every:<minutes> or simple minute-step cron (star-slash-N). */
+/** Parse cadence: every:<minutes>, star-slash-N cron, or et:HH:MM (America/New_York daily). */
 export function parseScheduleExpr(cronExpr: string): ParsedScheduleExpr | null {
   if (cronExpr.startsWith(EVERY_PREFIX)) {
     const minutes = Number.parseInt(cronExpr.slice(EVERY_PREFIX.length), 10);
     if (!Number.isFinite(minutes) || minutes < 1) return null;
     return { kind: 'interval', minutes };
+  }
+  if (cronExpr.startsWith(ET_PREFIX)) {
+    const match = /^et:(\d{1,2}):(\d{2})$/.exec(cronExpr.trim());
+    if (!match?.[1] || !match[2]) return null;
+    const hour = Number.parseInt(match[1], 10);
+    const minute = Number.parseInt(match[2], 10);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+    return { kind: 'daily_et', hour, minute };
   }
   const minuteCron = /^\*\/(\d+)\s+\*\s+\*\s+\*\s+\*$/;
   const match = minuteCron.exec(cronExpr.trim());
@@ -44,6 +56,20 @@ export function isScheduleDue(
   if (!parsed) {
     return { due: false, windowStartMs: nowMs };
   }
+
+  if (parsed.kind === 'daily_et') {
+    const dateStr = venueDate(nowMs, ET_TZ);
+    const windowStartMs = venueLocalTimeToUtcMs(dateStr, parsed.hour, parsed.minute, ET_TZ);
+    if (nowMs < windowStartMs) {
+      return { due: false, windowStartMs };
+    }
+    const lastMs = schedule.lastMaterializedWindow?.getTime() ?? 0;
+    if (lastMs >= windowStartMs) {
+      return { due: false, windowStartMs };
+    }
+    return { due: true, windowStartMs };
+  }
+
   const anchorMs = schedule.lastMaterializedWindow?.getTime() ?? schedule.createdAt.getTime();
   const nextDueMs = anchorMs + parsed.minutes * 60_000;
   if (nowMs < nextDueMs) {
@@ -174,12 +200,17 @@ export async function ensureSystemLibrarySchedule(
     companyId: string;
     scheduleName: string;
     kind: string;
-    cadenceMinutes: number;
+    /** Interval minutes when cronExpr omitted. */
+    cadenceMinutes?: number;
+    /** Prefer over cadenceMinutes — supports `et:HH:MM` (D-181). */
+    cronExpr?: string;
     payloadTemplate?: Record<string, unknown>;
   },
 ): Promise<void> {
   const now = new Date(clock.nowMs());
-  const cronExpr = `${EVERY_PREFIX}${opts.cadenceMinutes}`;
+  const cronExpr =
+    opts.cronExpr ??
+    `${EVERY_PREFIX}${opts.cadenceMinutes ?? SYSTEM_MOVERS_CADENCE_MINUTES}`;
   const payloadTemplate = opts.payloadTemplate ?? { companyId: opts.companyId };
 
   const existing = await db

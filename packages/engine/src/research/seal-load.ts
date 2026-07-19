@@ -1,5 +1,7 @@
 import { and, desc, eq, gt } from 'drizzle-orm';
 import {
+  MARKET_HUB_ANALYZE_PHASES,
+  analyzePhaseSubjectKey,
   NormalizedViewKind,
   VerifiedNormalizedBundle,
   type NormalizedViewKind as NormalizedViewKindType,
@@ -97,10 +99,10 @@ const DEFAULT_SEAL_LOOKUPS: Array<{
 }> = [
   { kind: 'movers_board', subjectKey: 'daily' },
   { kind: 'sector_bulletin', subjectKey: 'sector_daily' },
-  { kind: 'daily_summary_phase', subjectKey: 'phase_pre_open' },
-  { kind: 'daily_summary_phase', subjectKey: 'phase_midday' },
-  { kind: 'daily_summary_phase', subjectKey: 'phase_close' },
-  { kind: 'daily_summary_phase', subjectKey: 'phase_post_analysis' },
+  ...MARKET_HUB_ANALYZE_PHASES.map((phase) => ({
+    kind: 'daily_summary_phase' as const,
+    subjectKey: analyzePhaseSubjectKey(phase),
+  })),
 ];
 
 /**

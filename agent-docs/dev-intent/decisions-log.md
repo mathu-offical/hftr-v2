@@ -1823,11 +1823,32 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   D-173. Docs: ui-spec §3, canvas-engine-group-design, option-anchor-nodes-design.
   **Status: implemented.**
 
+- **D-181 (seven-slot Market Hub analyze cadence, 2026-07-19):** Replace the D-070 four-slot
+  daily summary tags (`pre_open` / `midday` / `close` / `post_analysis`) with
+  `MarketHubAnalyzePhase`: `wake_up`, `pre_market`, `mid_morning`, `midday`, `afternoon`,
+  `market_close`, `evening`. Operator **Analyze** resolves the current-moment slot via
+  `resolveAnalyzePhase(session, nowMs)` (America/New_York wall clock refined by XNYS
+  open/close; injectable clock only). Scheduled runs use `et:HH:MM` schedule expressions
+  (05:00 / 07:30 / 10:00 / 12:00 / 14:00 / 16:00 / 18:30 ET). Seal subject keys
+  `phase_{analyzePhase}`; document shape has seven section headings; Analyze response
+  returns `analyzePhase` + `analyzePhaseLabel`. Legacy phase tags normalize onto the new
+  vocabulary. Distinct from calendar `SessionPhase`. Extends D-070 / D-111 / D-120.
+  Docs: research-live-system-cadence, ui-spec §4. **Status: implemented.**
+
 - **D-182 (canvas block accidental swipe-back, 2026-07-19):** Main company React Flow canvas
   uses `overscroll-behavior: none` (wrapper + `.react-flow__pane`) so trackpad / touch pans
   do not trigger browser history back/forward while navigating the graph. OS/browser edge
-  swipes outside page content remain uncontrolled. Docs: ui-spec §3.   **Status: implemented.**
+  swipes outside page content remain uncontrolled.   Docs: ui-spec §3.   **Status: implemented.**
 
+- **D-183 (expanded analyze slots + movement auto-analyze + diversified posture, 2026-07-19):**
+  Grow analyze cadence to ten slots (`overnight`, `open_bell`, `power_hour` added) with
+  per-slot `gatherBias` / `focusAreas` / `queryHints`. Scheduled ET triggers enqueue full
+  Analyze via `library.market_hub_analyze` (not daily-only). Each analysis is timing-tailored
+  in movers gather query, daily section copy, and posture narrative. Auto-trigger Analyze
+  when diversified baseline signals fire (≥3 families: leadership, volume, link coverage,
+  news+macro, trend alignment, corroboration, breadth) with cooldown. Expand market-state
+  sources: sector-focus peer ETFs, broader liquid anchors, `macroLinkBand` in compound rank.
+  Extends D-175 / D-181. Docs: research-live-system-cadence, ui-spec §4. **Status: implemented.**
 
 ## Open questions
 

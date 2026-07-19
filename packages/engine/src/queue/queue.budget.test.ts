@@ -89,9 +89,10 @@ describe('budget admission helpers', () => {
 });
 
 describe('schedule materialization helpers', () => {
-  it('parses every:<minutes> and */N cron minute expressions', () => {
+  it('parses every:<minutes>, */N cron, and et:HH:MM expressions', () => {
     expect(parseScheduleExpr('every:180')).toEqual({ kind: 'interval', minutes: 180 });
     expect(parseScheduleExpr('*/15 * * * *')).toEqual({ kind: 'interval', minutes: 15 });
+    expect(parseScheduleExpr('et:07:30')).toEqual({ kind: 'daily_et', hour: 7, minute: 30 });
     expect(parseScheduleExpr('0 9 * * *')).toBeNull();
   });
 
@@ -106,6 +107,23 @@ describe('schedule materialization helpers', () => {
       due: true,
       windowStartMs: new Date('2026-07-17T13:00:00.000Z').getTime(),
     });
+  });
+
+  it('marks et:HH:MM due once per America/New_York day after the wall clock', () => {
+    // 2026-07-17 08:00 EDT = 12:00 UTC
+    const afterTrigger = new Date('2026-07-17T12:00:00.000Z').getTime();
+    const schedule = {
+      cronExpr: 'et:07:30',
+      lastMaterializedWindow: null,
+      createdAt: new Date('2026-07-16T12:00:00.000Z'),
+    };
+    const due = isScheduleDue(schedule, afterTrigger);
+    expect(due.due).toBe(true);
+    const again = isScheduleDue(
+      { ...schedule, lastMaterializedWindow: new Date(due.windowStartMs) },
+      afterTrigger,
+    );
+    expect(again.due).toBe(false);
   });
 
   it('builds stable schedule window keys', () => {

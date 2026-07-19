@@ -1962,6 +1962,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `docs/superpowers/specs/2026-07-19-processing-queue-modal-design.md`.
   Docs: ui-spec §2. **Status: implemented.**
 
+- **D-195 (derived folder hulls after semantic layout, 2026-07-19):** Restructure galaxy
+  forces so **tag + semantic springs run first**; folder (and library) wire spheres are
+  fitted each tick around the outermost included concepts (`createDerivedFolderHullForce`).
+  Remove folderNest / folderShell / folderCohere / nestShell / articleHullOrbit as concept
+  attractors. Concepts seed from library/article only — not folder shells. Docs: ui-spec §6,
+  research-galaxy-topic-view-design.   **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

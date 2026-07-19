@@ -17,15 +17,10 @@ import {
   computeFolderCenters3D,
   computeLibraryCenters3D,
   computeVolumeCameraPose,
-  createArticleHullOrbitForce,
   createArticleOrbitForce,
-  createFolderCohereForce,
-  createFolderNestForce,
-  createFolderShellRadialForce,
   createForeignLibraryRepelForce,
   createCrossLibraryBridgeForce,
   createLibraryNestForce,
-  createNestShellRadialForce,
   createTagSatelliteForce,
   hierarchicalLinkScale,
   hashSpread3D,
@@ -45,6 +40,7 @@ import {
   buildCompanyHullNode,
   buildFolderHullNodes,
   buildLibraryHullNodes,
+  createDerivedFolderHullForce,
   isNestHullNode,
   isTagSatelliteNode,
   type NestHullNode,
@@ -415,10 +411,9 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         const primaryFolderKey = folderMembership?.folderKey ?? null;
         const primaryArticleId = conceptArticleIndex.get(n.id) ?? null;
         const articleCenter = primaryArticleId ? articleCenters.get(primaryArticleId) : null;
-        const folderCenter =
-          libId && primaryFolderKey ? folderCenters.get(`${libId}::${primaryFolderKey}`) : null;
         const libCenter = libId ? libraryCenters.get(libId) : null;
-        const center = articleCenter ?? folderCenter ?? libCenter ?? null;
+        // D-195: seed from library (or free) — never from folder shells. Folders wrap later.
+        const center = articleCenter ?? libCenter ?? null;
         const focused = !focusSet || focusSet.has(n.id);
         const base = {
           ...n,
@@ -427,21 +422,20 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           val: Math.max(1.2, degree * 0.7 + refs * 0.4 + 1),
           __focused: focused,
         };
-        // Seed on a shell around article / folder / library (D-142) so sparse-link
-        // catalogs start in shelf rings instead of a coincident cloud.
+        // Seed near library / article for warm start; semantic + tag springs own layout.
         if (!layoutCommittedRef.current.has(n.id)) {
           const spread = hashSpread3D(n.id);
           const mag = Math.hypot(spread.dx, spread.dy, spread.dz) || 1;
           let band = 0.55;
           for (let i = 0; i < n.id.length; i++) band = (band * 31 + n.id.charCodeAt(i)) % 100;
           const shellR = center
-            ? Math.max(12, center.radius * (0.4 + (Math.abs(band) % 45) / 100))
-            : 48;
+            ? Math.max(28, center.radius * (0.55 + (Math.abs(band) % 50) / 100))
+            : 72;
           return {
             ...base,
-            x: center ? center.x + (spread.dx / mag) * shellR : spread.dx,
-            y: center ? center.y + (spread.dy / mag) * shellR : spread.dy,
-            z: center ? center.z + (spread.dz / mag) * shellR : spread.dz,
+            x: center ? center.x + (spread.dx / mag) * shellR : spread.dx * 1.8,
+            y: center ? center.y + (spread.dy / mag) * shellR : spread.dy * 1.8,
+            z: center ? center.z + (spread.dz / mag) * shellR : spread.dz * 1.8,
           };
         }
         return base;
@@ -627,10 +621,13 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             .iterations(3),
         );
         fg.d3Force('nest', createLibraryNestForce(libraryCenters));
-        fg.d3Force('nestShell', createNestShellRadialForce(libraryCenters));
-        fg.d3Force('folderNest', createFolderNestForce(folderCenters));
-        fg.d3Force('folderShell', createFolderShellRadialForce(folderCenters));
-        fg.d3Force('folderCohere', createFolderCohereForce());
+        // D-195: no folderNest / folderShell / folderCohere / nestShell — concepts
+        // layout via charge + links (semantic/tag) first; hulls derive afterward.
+        fg.d3Force('folderNest', null);
+        fg.d3Force('folderShell', null);
+        fg.d3Force('folderCohere', null);
+        fg.d3Force('nestShell', null);
+        fg.d3Force('articleHullOrbit', null);
         fg.d3Force('foreignRepel', createForeignLibraryRepelForce(libraryCenters));
         const crossBridges: Array<{ fromLib: string; toLib: string; weight: number }> = [];
         for (const link of graphData.links) {
@@ -654,8 +651,8 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         }
         fg.d3Force('libBridge', createCrossLibraryBridgeForce(libraryCenters, crossBridges));
         fg.d3Force('articleOrbit', createArticleOrbitForce(articleCenters));
-        fg.d3Force('articleHullOrbit', createArticleHullOrbitForce(folderCenters));
         fg.d3Force('tagSat', createTagSatelliteForce());
+        fg.d3Force('derivedHulls', createDerivedFolderHullForce());
 
         fg.d3ReheatSimulation?.();
         setPhysicsReady(true);
@@ -668,7 +665,6 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       graphData.hullCount,
       graphData.links,
       libraryCenters,
-      folderCenters,
       articleCenters,
       nodeLookupById,
     ],
@@ -723,21 +719,16 @@ function GalaxyViewInner(props: GalaxyViewProps) {
       if (!id) continue;
       const concept = nodeLookupById.get(id);
       if (!concept) continue;
-      const folderMembership = conceptFolderIndex.get(id);
-      const primaryFolderKey = folderMembership?.folderKey ?? null;
       const primaryArticleId = conceptArticleIndex.get(id) ?? null;
       const articleCenter = primaryArticleId ? articleCenters.get(primaryArticleId) : null;
-      const folderCenter =
-        concept.primaryLibraryId && primaryFolderKey
-          ? folderCenters.get(`${concept.primaryLibraryId}::${primaryFolderKey}`)
-          : null;
       const libCenter = concept.primaryLibraryId
         ? libraryCenters.get(concept.primaryLibraryId)
         : null;
-      const center = articleCenter ?? folderCenter ?? libCenter;
+      // D-195: reseed without folder shells — semantic layout owns positions.
+      const center = articleCenter ?? libCenter;
       if (!center) continue;
       const spread = hashSpread3D(id);
-      const freeScale = 1.35;
+      const freeScale = 1.85;
       node.x = center.x + spread.dx * freeScale;
       node.y = center.y + spread.dy * freeScale;
       node.z = center.z + spread.dz * freeScale;
@@ -752,10 +743,8 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     packingSig,
     physicsReady,
     nodeLookupById,
-    conceptFolderIndex,
     conceptArticleIndex,
     articleCenters,
-    folderCenters,
     libraryCenters,
   ]);
 
@@ -1883,7 +1872,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           aria-live="polite"
         >
           {use3dRenderer && !statusText
-            ? '3D semantic springs · library bridges · orbital shelves · articles · tags'
+            ? '3D semantic + tag springs · derived folder hulls · articles'
             : null}
           {use3dRenderer && (hasTopicFocus || statusText) ? ' · ' : null}
           {hasTopicFocus && `Focused ${focusSet!.size} concepts`}

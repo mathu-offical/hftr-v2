@@ -1,6 +1,9 @@
 /**
  * Visible organizational spheres for the research galaxy (library nests + company envelope).
  * Hull markers are pinned graph nodes rendered as wireframe shells — not concept nodes.
+ *
+ * D-195: folder (and library) spheres are derived envelopes around concepts after
+ * tag/semantic layout — not gravity wells that contain nodes.
  */
 
 import { computeCompanyEnvelopeBounds, type LibraryCenter3D } from './galaxy-physics';
@@ -78,6 +81,60 @@ export function tagSatelliteId(conceptId: string, tag: string): string {
 
 export function hullColorForIndex(index: number): string {
   return HULL_PALETTE[index % HULL_PALETTE.length] ?? '#7aa2f7';
+}
+
+/** Axis-aligned point used when fitting a sphere around live concept positions (D-195). */
+export type HullMemberPoint = {
+  x?: number;
+  y?: number;
+  z?: number;
+  /** Extra padding for node visual size (collide radius proxy). */
+  pad?: number;
+};
+
+/**
+ * Minimal sphere covering member points (centroid + max reach + pad).
+ * Returns null when there are no members — caller keeps prior hull pose.
+ */
+export function fitSphereAroundPoints(
+  points: readonly HullMemberPoint[],
+  opts?: { minRadius?: number; pad?: number },
+): { x: number; y: number; z: number; radius: number } | null {
+  if (points.length === 0) return null;
+  let cx = 0;
+  let cy = 0;
+  let cz = 0;
+  for (const p of points) {
+    cx += p.x ?? 0;
+    cy += p.y ?? 0;
+    cz += p.z ?? 0;
+  }
+  const n = points.length;
+  cx /= n;
+  cy /= n;
+  cz /= n;
+
+  const basePad = opts?.pad ?? 14;
+  const minRadius = opts?.minRadius ?? 28;
+  let radius = minRadius;
+  for (const p of points) {
+    const memberPad = p.pad ?? 0;
+    const d =
+      Math.hypot((p.x ?? 0) - cx, (p.y ?? 0) - cy, (p.z ?? 0) - cz) + memberPad + basePad;
+    if (d > radius) radius = d;
+  }
+  // Slight outer breath so the wireframe sits outside glyphs.
+  radius *= 1.08;
+  return { x: cx, y: cy, z: cz, radius };
+}
+
+/**
+ * Parse `libraryId::folderKey` from a folder hull node id.
+ * Returns null when the id is not a folder hull.
+ */
+export function folderKeyFromHullId(hullId: string): string | null {
+  if (!hullId.startsWith(FOLDER_HULL_PREFIX)) return null;
+  return hullId.slice(FOLDER_HULL_PREFIX.length);
 }
 
 export function buildLibraryHullNodes(
@@ -276,4 +333,106 @@ export function buildArticleHullNodes(articles: readonly ArticleHullInput[]): Ne
     if (a.libraryId) node.__libraryId = a.libraryId;
     return node;
   });
+}
+
+type DerivedHullSimNode = {
+  id?: string | number;
+  x?: number;
+  y?: number;
+  z?: number;
+  fx?: number;
+  fy?: number;
+  fz?: number;
+  val?: number;
+  __kind?: string;
+  __hullKind?: string;
+  __radius?: number;
+  __libraryId?: string;
+  primaryLibraryId?: string | null;
+  primaryFolderKey?: string | null;
+};
+
+/**
+ * After tag/semantic forces settle concepts, pin folder (+ library) hulls to the
+ * sphere wrapping their outermost members (D-195). Does not pull concepts.
+ */
+export function createDerivedFolderHullForce() {
+  let nodes: DerivedHullSimNode[] = [];
+
+  function force(_alpha: number) {
+    const folderMembers = new Map<string, HullMemberPoint[]>();
+    const libraryMembers = new Map<string, HullMemberPoint[]>();
+    const folderHulls: DerivedHullSimNode[] = [];
+    const libraryHulls: DerivedHullSimNode[] = [];
+
+    for (const node of nodes) {
+      if (node.__kind === 'nest-hull') {
+        if (node.__hullKind === 'folder') folderHulls.push(node);
+        else if (node.__hullKind === 'library') libraryHulls.push(node);
+        continue;
+      }
+      if (node.__kind === 'tag-sat') continue;
+
+      const pad = Math.cbrt(node.val ?? 1) * 5.4;
+      const point: HullMemberPoint = {
+        x: node.x ?? 0,
+        y: node.y ?? 0,
+        z: node.z ?? 0,
+        pad,
+      };
+
+      const libId = node.primaryLibraryId;
+      if (libId) {
+        const list = libraryMembers.get(libId) ?? [];
+        list.push(point);
+        libraryMembers.set(libId, list);
+      }
+
+      const folderKey = node.primaryFolderKey;
+      if (libId && folderKey) {
+        const key = `${libId}::${folderKey}`;
+        const list = folderMembers.get(key) ?? [];
+        list.push(point);
+        folderMembers.set(key, list);
+      }
+    }
+
+    for (const hull of folderHulls) {
+      const key = folderKeyFromHullId(String(hull.id ?? ''));
+      if (!key) continue;
+      const members = folderMembers.get(key);
+      if (!members || members.length === 0) continue;
+      const fit = fitSphereAroundPoints(members, { minRadius: 24, pad: 10 });
+      if (!fit) continue;
+      hull.x = fit.x;
+      hull.y = fit.y;
+      hull.z = fit.z;
+      hull.fx = fit.x;
+      hull.fy = fit.y;
+      hull.fz = fit.z;
+      hull.__radius = fit.radius;
+    }
+
+    for (const hull of libraryHulls) {
+      const libId = hull.__libraryId;
+      if (!libId) continue;
+      const members = libraryMembers.get(libId);
+      if (!members || members.length === 0) continue;
+      const fit = fitSphereAroundPoints(members, { minRadius: 40, pad: 18 });
+      if (!fit) continue;
+      hull.x = fit.x;
+      hull.y = fit.y;
+      hull.z = fit.z;
+      hull.fx = fit.x;
+      hull.fy = fit.y;
+      hull.fz = fit.z;
+      hull.__radius = fit.radius;
+    }
+  }
+
+  force.initialize = (initNodes: DerivedHullSimNode[]) => {
+    nodes = initNodes;
+  };
+
+  return force;
 }

@@ -575,7 +575,7 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
   bands (D-142), **client semantic springs** (D-145), **physical library bridges** (D-151),
   and **independent sphere growth** with system-seeded folder similarity placement (D-164),
   plus **looser gravity** (longer springs, stronger charge, wider packing — D-170 / D-178)
-  and **hover-first nest labels**. **D-194:** folder/library wire spheres are **derived
+  and **hover-first nest labels**. **D-195:** folder/library wire spheres are **derived
   envelopes** fitted around concepts after tag/semantic layout — not gravity wells that
   contain nodes.
 - **Rotating info-tag layer** over the graph (subtle orbit of tag chips; static under

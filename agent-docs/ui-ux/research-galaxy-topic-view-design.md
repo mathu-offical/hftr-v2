@@ -164,6 +164,10 @@ chips drawn from visible concepts’ tags (and optionally topic-level keywords).
   stacked chip blob.
   Seeded catalog folders use system-defined similarity bands for placement (related closer,
   unrelated farther) via `galaxy-folder-similarity.ts`.
+- **D-195 derived folder hulls after semantic layout:** concepts settle via charge +
+  tag/semantic springs first; folder (and library) wire spheres are fitted around the
+  outermost included concepts each tick. No folder nest/shell/cohere gravity pulling
+  nodes into shelves.
 - A larger **company envelope** sphere outlines the full organizational cloud.
 - **Volume packing (D-116):** library / folder / article *centers* use **Fibonacci-sphere**
   samples on concentric shells so XYZ volume is used

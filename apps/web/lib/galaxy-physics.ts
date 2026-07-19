@@ -359,15 +359,16 @@ export function createLibraryNestForce(centers: Map<string, LibraryCenter3D>) {
       if (!center) continue;
 
       const hasLocal = Boolean(node.primaryFolderKey || node.primaryArticleId);
-      const pull = alpha * (hasLocal ? 0.002 : 0.008);
-      const restore = alpha * (hasLocal ? 0.022 : 0.055);
+      // D-195: almost no library gravity — semantic/tag springs own layout; hulls derive.
+      const pull = alpha * (hasLocal ? 0.0005 : 0.002);
+      const restore = alpha * (hasLocal ? 0.008 : 0.02);
 
       const dx = (node.x ?? 0) - center.x;
       const dy = (node.y ?? 0) - center.y;
       const dz = (node.z ?? 0) - center.z;
       const dist = Math.hypot(dx, dy, dz) || 1e-6;
       // Loose envelope — allow intersection / escape for semantic links.
-      const maxR = center.radius * (hasLocal ? 1.95 : 1.65);
+      const maxR = center.radius * (hasLocal ? 2.4 : 2.1);
 
       if (dist > maxR) {
         const k = ((dist - maxR) / dist) * restore;

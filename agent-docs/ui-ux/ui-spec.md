@@ -29,9 +29,10 @@
   (`ModeSwitch`, live gated with an explanation popover — fails closed until the broker
   milestone) → **LLM connection chip** (`LlmRibbonStatusChip`: `llm: n/6` from shell
   `LlmConnectionStatusProvider`, refreshed on settings save — not re-fetched per panel) →
-  **Processing queue** button (`ProcessingQueueChip`, D-193: company-scoped depth from
-  `jobs/pending` + `jobs/dead`; opens portal modal with one column per `queueClass`,
-  pending/active/dead cards; Lineage Queue / Dead letters in the bottom panel stay) →
+  **Processing queue** button (`ProcessingQueueChip`, D-193: fixed label
+  “Processing queue”; textured ribbon control opens portal modal with one column per
+  `queueClass` from company `jobs/pending` + `jobs/dead`; Lineage Queue / Dead letters
+  in the bottom panel stay) →
   **User settings** modal (`UserSettingsLauncher`: tabs **LLM
   providers** | **Research** | **Brokers** — six LLM providers + Anthropic ZDR attestation,
   research gather keys, Alpaca paper Key ID + Secret via **Save & verify** — D-027) → Clerk
@@ -574,8 +575,9 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
   bands (D-142), **client semantic springs** (D-145), **physical library bridges** (D-151),
   and **independent sphere growth** with system-seeded folder similarity placement (D-164),
   plus **looser gravity** (longer springs, stronger charge, wider packing — D-170 / D-178)
-  and **hover-first nest labels** so catalog shelves open into readable volume instead of a
-  central label blob.
+  and **hover-first nest labels**. **D-194:** folder/library wire spheres are **derived
+  envelopes** fitted around concepts after tag/semantic layout — not gravity wells that
+  contain nodes.
 - **Rotating info-tag layer** over the graph (subtle orbit of tag chips; static under
   `prefers-reduced-motion`); chips double as filters.
 - **Topic focus** (left-panel select): dim non-member concepts/edges; stronger particles on

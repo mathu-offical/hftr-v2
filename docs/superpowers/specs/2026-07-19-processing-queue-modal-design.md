@@ -19,7 +19,7 @@ the entry point.
 
 ## UI
 
-- Button shows text-first depth: idle, or pending/active counts; dead count in block tone.
+- Button label is fixed: **Processing queue** (textured ribbon control; depth is in the modal).
 - Modal: portal to `document.body`, `z-[100]`, Escape + backdrop close.
 - Horizontally scrollable columns; each card: kind, status, attempts, truncated
   `lastError` (dead), relative/updated time.

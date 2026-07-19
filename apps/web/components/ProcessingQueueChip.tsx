@@ -1,59 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import {
-  ProcessingQueueModal,
-  countProcessingJobs,
-  fetchCompanyProcessingJobs,
-  type ProcessingQueueCounts,
-} from '@/components/ProcessingQueueModal';
+import { useState } from 'react';
+import { ListOrdered } from 'lucide-react';
+import { ProcessingQueueModal } from '@/components/ProcessingQueueModal';
 
 /**
  * Company ribbon entry for the processing queue board (D-193).
- * Text-first label from company pending/dead jobs; opens column modal.
+ * Simple textured control — depth lives in the modal, not the label.
  */
 export function ProcessingQueueChip(props: { companyId: string }) {
-  const [counts, setCounts] = useState<ProcessingQueueCounts | null>(null);
   const [open, setOpen] = useState(false);
-
-  const tick = useCallback(async () => {
-    try {
-      const data = await fetchCompanyProcessingJobs(props.companyId);
-      setCounts(countProcessingJobs(data.pending, data.dead));
-    } catch {
-      setCounts(null);
-    }
-  }, [props.companyId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function run() {
-      try {
-        const data = await fetchCompanyProcessingJobs(props.companyId);
-        if (!cancelled) setCounts(countProcessingJobs(data.pending, data.dead));
-      } catch {
-        if (!cancelled) setCounts(null);
-      }
-    }
-    void run();
-    const t = setInterval(() => void run(), 15_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [props.companyId]);
-
-  useEffect(() => {
-    if (!open) void tick();
-  }, [open, tick]);
-
-  const busy = counts ? counts.pending + counts.active : null;
-  const label =
-    counts === null
-      ? 'Processing queue'
-      : busy === 0
-        ? 'Processing queue · idle'
-        : `Processing queue · ${counts.pending} pending · ${counts.active} active`;
 
   return (
     <>
@@ -64,13 +20,23 @@ export function ProcessingQueueChip(props: { companyId: string }) {
         aria-expanded={open}
         aria-label="Open processing queue"
         data-testid="processing-queue-chip"
-        className="status-chip font-mono hover:bg-[var(--color-surface-2)]"
-        title="Processing queue for this company"
+        title="Open processing queue for this company"
+        className={[
+          'inline-flex items-center gap-1.5 rounded-md border border-[var(--color-line)]',
+          'bg-[var(--color-surface-2)] px-2.5 py-1',
+          'text-[11px] font-medium uppercase tracking-wider text-[var(--color-ink-dim)]',
+          'shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.35)]',
+          'transition-[color,background-color,border-color,box-shadow,transform] duration-150',
+          'hover:border-[var(--color-ink-faint)] hover:bg-[var(--color-surface-1)] hover:text-[var(--color-ink)]',
+          'hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_2px_5px_rgba(0,0,0,0.4)]',
+          'active:translate-y-px active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.45)]',
+          open
+            ? 'border-[var(--color-accent)] text-[var(--color-ink)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_color-mix(in_srgb,var(--color-accent)_40%,transparent)]'
+            : '',
+        ].join(' ')}
       >
-        {label}
-        {counts && counts.dead > 0 ? (
-          <span className="text-[var(--color-block)]"> · {counts.dead} dead</span>
-        ) : null}
+        <ListOrdered className="size-3.5 shrink-0 opacity-80" aria-hidden strokeWidth={1.75} />
+        Processing queue
       </button>
       <ProcessingQueueModal
         companyId={props.companyId}

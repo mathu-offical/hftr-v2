@@ -103,4 +103,78 @@ describe('option-anchors', () => {
     expect(visible.some((anchor) => anchor.kind === 'strategy_family')).toBe(true);
     expect(visible.some((anchor) => anchor.kind === 'branch_role')).toBe(true);
   });
+
+  it('research engines yield subtype / curiosity / librarian / library trees (D-178)', () => {
+    const anchors = anchorsFor('research_web_fabric', [
+      {
+        id: 'mod-research-1',
+        type: 'research',
+        config: {
+          researchSubtype: 'external_web',
+          curiosity: 'exploratory',
+          cadenceMinutes: 60,
+          admissionMode: 'auto_admit_validated',
+        },
+      },
+      {
+        id: 'mod-librarian-1',
+        type: 'librarian',
+        config: { librarianSubtype: 'librarian_relevance', cadenceMinutes: 120 },
+      },
+      {
+        id: 'mod-library-1',
+        type: 'library',
+        config: { libraryClass: 'topic_runtime' },
+      },
+      {
+        id: 'mod-analyzer-1',
+        type: 'analyzer',
+        config: { emitMode: 'to_desk_stream' },
+      },
+    ]);
+
+    const kinds = kindsPresent(anchors);
+    expect(kinds.has('template_input')).toBe(true);
+    expect(kinds.has('research_subtype')).toBe(true);
+    expect(kinds.has('curiosity_band')).toBe(true);
+    expect(kinds.has('admission_mode')).toBe(true);
+    expect(kinds.has('cadence_band')).toBe(true);
+    expect(kinds.has('librarian_subtype')).toBe(true);
+    expect(kinds.has('library_class')).toBe(true);
+    expect(kinds.has('emit_mode')).toBe(true);
+    expect(kinds.has('philosophy_axis')).toBe(true);
+    expect(kinds.has('strategy_family')).toBe(false);
+
+    const subtype = anchors.find((anchor) => anchor.kind === 'research_subtype');
+    expect(subtype?.ownerModuleId).toBe('mod-research-1');
+    expect(subtype?.catalogRef).toContain('external_web');
+
+    const discover = anchors.find(
+      (anchor) =>
+        anchor.kind === 'branch_role' && anchor.catalogRef.endsWith('/discover'),
+    );
+    expect(discover?.parentAnchorId).toBe(subtype?.id);
+
+    const visible = canvasVisibleOptionAnchors(anchors);
+    expect(visible.some((anchor) => anchor.kind === 'research_subtype')).toBe(true);
+    expect(visible.some((anchor) => anchor.kind === 'lever_band')).toBe(false);
+  });
+
+  it('trend research engine attaches trend_posture under the trend member', () => {
+    const anchors = anchorsFor('engine_trend_research', [
+      {
+        id: 'mod-research-t',
+        type: 'research',
+        config: { researchSubtype: 'specialty_desk', curiosity: 'balanced' },
+      },
+      {
+        id: 'mod-trend-t',
+        type: 'trend',
+        config: { trendPosture: 'research_only', cadenceMinutes: 90 },
+      },
+    ]);
+    const posture = anchors.find((anchor) => anchor.kind === 'trend_posture');
+    expect(posture?.ownerModuleId).toBe('mod-trend-t');
+    expect(posture?.catalogRef).toContain('research_only');
+  });
 });

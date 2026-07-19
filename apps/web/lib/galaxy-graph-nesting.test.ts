@@ -119,12 +119,20 @@ describe('galaxy-graph-nesting', () => {
       tags: ['hftr:article', 'macro'],
       primaryLibraryId: runtimeLibrary.id,
     };
+    const peerConcept = {
+      id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      title: 'Macro peer note',
+      body: '',
+      tags: ['macro', 'liquidity'],
+      primaryLibraryId: runtimeLibrary.id,
+    };
     const orbits = buildLibraryArticleOrbits(
       [
         articleConcept,
+        peerConcept,
         {
-          id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
-          title: 'Not an article',
+          id: '12121212-1212-1212-1212-121212121212',
+          title: 'Unrelated chip',
           body: '',
           tags: ['custom'],
           primaryLibraryId: runtimeLibrary.id,
@@ -136,7 +144,10 @@ describe('galaxy-graph-nesting', () => {
     expect(orbits[0]?.topicId).toBe(articleConcept.id);
     expect(orbits[0]?.libraryId).toBe(runtimeLibrary.id);
     expect(orbits[0]?.folderKey).toBe('runtime');
-    expect(orbits[0]?.memberConceptIds).toEqual([articleConcept.id]);
+    expect(orbits[0]?.memberConceptIds).toEqual(
+      expect.arrayContaining([articleConcept.id, peerConcept.id]),
+    );
+    expect(orbits[0]?.memberConceptIds).not.toContain('12121212-1212-1212-1212-121212121212');
   });
 
   it('merges topic and library article orbits without dropping either', () => {

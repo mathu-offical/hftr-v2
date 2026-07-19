@@ -1,4 +1,5 @@
 import { and, eq, ilike, inArray } from 'drizzle-orm';
+import { galaxyDisplayTagsFromList } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import {
   catalogEntries,
@@ -230,6 +231,13 @@ async function rematerializeCatalogSeedBodies(
       existing.body.includes('| Field |') &&
       existing.body.includes('[[sys:')
     ) {
+      // Body already rich — still refresh display tags so galaxy springs see
+      // shared qualitative chips (D-151).
+      await db
+        .update(concepts)
+        .set({ tags, updatedAt: now })
+        .where(eq(concepts.id, existing.id));
+      updated += 1;
       continue;
     }
 
@@ -339,6 +347,61 @@ const SEED_CONCEPT_LINKS: ReadonlyArray<{
     relation: 'supports',
   },
 ];
+
+/**
+ * Persist correlates edges for seed concepts that share galaxy display tags (D-151).
+ * Caps pairwise fan-out so bootstrap stays bounded.
+ */
+async function insertSharedDisplayTagSeedLinks(opts: {
+  db: Db;
+  companyId: string;
+  conceptRows: Array<{ id: string; title: string; tags: string[] }>;
+  now: Date;
+  maxLinks?: number;
+}): Promise<number> {
+  const maxLinks = opts.maxLinks ?? 80;
+  const byTag = new Map<string, string[]>();
+  for (const row of opts.conceptRows) {
+    for (const tag of galaxyDisplayTagsFromList(row.tags)) {
+      const key = tag.toLowerCase();
+      const list = byTag.get(key) ?? [];
+      list.push(row.id);
+      byTag.set(key, list);
+    }
+  }
+
+  let inserted = 0;
+  const seen = new Set<string>();
+  for (const ids of byTag.values()) {
+    if (inserted >= maxLinks) break;
+    if (ids.length < 2) continue;
+    const cap = Math.min(ids.length, 6);
+    for (let i = 0; i < cap && inserted < maxLinks; i++) {
+      for (let j = i + 1; j < cap && inserted < maxLinks; j++) {
+        const a = ids[i]!;
+        const b = ids[j]!;
+        const key = a < b ? `${a}::${b}` : `${b}::${a}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        await opts.db
+          .insert(conceptLinks)
+          .values({
+            companyId: opts.companyId,
+            fromConceptId: a,
+            toConceptId: b,
+            relation: 'correlates',
+            weightBand: 'typical',
+            sourceClass: 'catalog_seed',
+          })
+          .onConflictDoNothing({
+            target: [conceptLinks.fromConceptId, conceptLinks.toConceptId, conceptLinks.relation],
+          });
+        inserted += 1;
+      }
+    }
+  }
+  return inserted;
+}
 
 function parseLibraryConfig(raw: unknown): { topicScope: string; libraryClass: string | null } {
   const cfg = raw as Record<string, unknown> | null;
@@ -734,7 +797,7 @@ export async function bootstrapCompanyKnowledge(opts: {
 
   const seededTitles = seededMembers.map((m) => m.title);
   const conceptRows = await opts.db
-    .select({ id: concepts.id, title: concepts.title })
+    .select({ id: concepts.id, title: concepts.title, tags: concepts.tags })
     .from(concepts)
     .where(and(eq(concepts.moduleId, ownerModuleId), inArray(concepts.title, seededTitles)));
 
@@ -786,6 +849,17 @@ export async function bootstrapCompanyKnowledge(opts: {
         target: [conceptLinks.fromConceptId, conceptLinks.toConceptId, conceptLinks.relation],
       });
   }
+
+  await insertSharedDisplayTagSeedLinks({
+    db: opts.db,
+    companyId: opts.companyId,
+    conceptRows: conceptRows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
+    })),
+    now,
+  });
 
   const ownerModule = companyModules.find((m) => m.id === ownerModuleId);
   // Sector knowledge first so sector_seeds concepts exist for Sector / Desk focus topics.

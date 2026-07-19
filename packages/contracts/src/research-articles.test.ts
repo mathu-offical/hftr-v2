@@ -5,6 +5,7 @@ import {
   articleDisplayTags,
   isResearchArticleConcept,
   isSystemArticleTag,
+  normalizeGalaxyDisplayTag,
   withResearchArticleTag,
 } from './research-articles';
 
@@ -40,5 +41,11 @@ describe('research-articles (D-127)', () => {
       'Alpha',
       'Beta',
     ]);
+  });
+
+  it('normalizeGalaxyDisplayTag collapses chips and drops system markers', () => {
+    expect(normalizeGalaxyDisplayTag('Macro Sensitivity')).toBe('macro_sensitivity');
+    expect(normalizeGalaxyDisplayTag('hftr:article')).toBeNull();
+    expect(normalizeGalaxyDisplayTag('tier_a')).toBeNull();
   });
 });

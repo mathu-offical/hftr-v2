@@ -36,11 +36,11 @@ export function linkDistanceForSimilarity(band: RelevanceBand): number {
 export function linkStrengthForSimilarity(band: RelevanceBand): number {
   switch (band) {
     case 'high':
-      return 0.9;
+      return 1.15;
     case 'medium':
-      return 0.5;
+      return 0.7;
     case 'low':
-      return 0.2;
+      return 0.25;
     default: {
       const _exhaustive: never = band;
       return _exhaustive;

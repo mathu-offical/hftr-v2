@@ -4,6 +4,7 @@
  * Stored as markdown in concepts.body; Obsidian export reuses the same text.
  */
 
+import { normalizeGalaxyDisplayTag } from '@hftr/contracts';
 import { leakLint } from '../calc/leak-lint';
 
 export type SeededCatalogEntry = {
@@ -168,6 +169,11 @@ export function collectSeededConceptTags(entry: SeededCatalogEntry): string[] {
   if (entry.tier) tags.add(entry.tier);
   tags.add('catalog_seed');
 
+  const pushDisplay = (raw: string) => {
+    const display = normalizeGalaxyDisplayTag(raw);
+    if (display) tags.add(display);
+  };
+
   for (const key of [
     'class',
     'assetClass',
@@ -176,19 +182,25 @@ export function collectSeededConceptTags(entry: SeededCatalogEntry): string[] {
     'macroSensitivity',
   ] as const) {
     const raw = payload[key];
-    if (typeof raw === 'string' && raw.trim()) tags.add(raw.trim());
+    if (typeof raw === 'string' && raw.trim()) {
+      tags.add(raw.trim());
+      pushDisplay(raw);
+    }
   }
   for (const tag of asStringList(payload.regimeTags, 12)) {
     tags.add(tag.replace(/\s+/g, '_'));
+    pushDisplay(tag);
   }
   for (const axis of asStringList(payload.knowledgeAxes, 8)) {
     tags.add(axis.replace(/\s+/g, '_'));
+    pushDisplay(axis);
   }
   for (const session of asStringList(payload.sessions, 6)) {
     tags.add(session.replace(/\s+/g, '_'));
+    pushDisplay(session);
   }
 
-  return [...tags].filter((t) => t.length > 0 && t.length < 64).slice(0, 24);
+  return [...tags].filter((t) => t.length > 0 && t.length < 64).slice(0, 28);
 }
 
 /**

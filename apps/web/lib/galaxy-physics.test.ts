@@ -13,6 +13,7 @@ import {
   createFolderNestForce,
   createFolderShellRadialForce,
   createForeignLibraryRepelForce,
+  createCrossLibraryBridgeForce,
   createLibraryCohereForce,
   createLibraryNestForce,
   createNestShellRadialForce,
@@ -328,7 +329,7 @@ describe('galaxy-physics', () => {
 
     expect(blended.distance).toBeCloseTo(0.4 * weightOnly + 0.6 * simOnly);
     expect(blended.strength).toBeGreaterThan(0);
-    expect(blended.strength).toBeLessThanOrEqual(1);
+    expect(blended.strength).toBeLessThanOrEqual(1.2);
   });
 
   it('places libraries on concentric Fibonacci spheres with real Z depth', () => {
@@ -507,8 +508,8 @@ describe('galaxy-physics', () => {
     ]);
     const node = {
       primaryLibraryId: 'home',
-      // Inside foreign hull, offset from exact center so direction is defined.
-      x: 90,
+      // Deep inside foreign keep-out (D-151 keepOut ≈ 0.22 * radius).
+      x: 98,
       y: 0,
       z: 0,
       vx: 0,
@@ -552,8 +553,8 @@ describe('galaxy-physics', () => {
         const a = entries[i]!;
         const b = entries[j]!;
         const gap = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-        // Soft packing (D-145): allow mild envelope kiss; still not coincident.
-        expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.06 - 1e-3);
+        // Soft packing (D-151): allow envelope kiss; still not coincident.
+        expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.0 - 1e-3);
       }
     }
   });
@@ -621,5 +622,20 @@ describe('galaxy-physics', () => {
     expect(crossLibraryLinkScale(false)).toEqual(
       hierarchicalLinkScale({ sameLibrary: false, sameFolder: false, sameArticle: false }),
     );
+  });
+
+  it('createCrossLibraryBridgeForce drifts library centers toward each other', () => {
+    const centers = new Map([
+      ['a', { x: 0, y: 0, z: 0, radius: 40, name: 'A' }],
+      ['b', { x: 400, y: 0, z: 0, radius: 40, name: 'B' }],
+    ]);
+    const force = createCrossLibraryBridgeForce(centers, [
+      { fromLib: 'a', toLib: 'b', weight: 2 },
+    ]);
+    force.initialize([]);
+    const before = Math.hypot(centers.get('a')!.x - centers.get('b')!.x, 0, 0);
+    force(1);
+    const after = Math.hypot(centers.get('a')!.x - centers.get('b')!.x, 0, 0);
+    expect(after).toBeLessThan(before);
   });
 });

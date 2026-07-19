@@ -23,6 +23,7 @@ import {
   createFolderNestForce,
   createFolderShellRadialForce,
   createForeignLibraryRepelForce,
+  createCrossLibraryBridgeForce,
   createLibraryNestForce,
   createNestShellRadialForce,
   createTagSatelliteForce,
@@ -635,6 +636,27 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         fg.d3Force('folderShell', createFolderShellRadialForce(folderCenters));
         fg.d3Force('folderCohere', createFolderCohereForce());
         fg.d3Force('foreignRepel', createForeignLibraryRepelForce(libraryCenters));
+        const crossBridges: Array<{ fromLib: string; toLib: string; weight: number }> = [];
+        for (const link of graphData.links) {
+          const fromConceptId =
+            'fromConceptId' in link && typeof link.fromConceptId === 'string'
+              ? link.fromConceptId
+              : '';
+          const toConceptId =
+            'toConceptId' in link && typeof link.toConceptId === 'string' ? link.toConceptId : '';
+          const fromNode = nodeLookupById.get(fromConceptId);
+          const toNode = nodeLookupById.get(toConceptId);
+          const fromLib = fromNode?.primaryLibraryId;
+          const toLib = toNode?.primaryLibraryId;
+          if (!fromLib || !toLib || fromLib === toLib) continue;
+          const band =
+            '__similarityBand' in link && typeof link.__similarityBand === 'string'
+              ? link.__similarityBand
+              : 'medium';
+          const weight = band === 'high' ? 1.4 : band === 'medium' ? 1 : 0.45;
+          crossBridges.push({ fromLib, toLib, weight });
+        }
+        fg.d3Force('libBridge', createCrossLibraryBridgeForce(libraryCenters, crossBridges));
         fg.d3Force('articleOrbit', createArticleOrbitForce(articleCenters));
         fg.d3Force('articleHullOrbit', createArticleHullOrbitForce(folderCenters));
         fg.d3Force('tagSat', createTagSatelliteForce());
@@ -645,7 +667,15 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         setStatusText('Physics reheat deferred — layout still settling.');
       }
     },
-    [graphData.nodes.length, graphData.hullCount, libraryCenters, folderCenters, articleCenters],
+    [
+      graphData.nodes.length,
+      graphData.hullCount,
+      graphData.links,
+      libraryCenters,
+      folderCenters,
+      articleCenters,
+      nodeLookupById,
+    ],
   );
 
   // Stable imperative handle — configure nest forces immediately so warmup ticks
@@ -1857,7 +1887,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           aria-live="polite"
         >
           {use3dRenderer && !statusText
-            ? '3D semantic springs · orbital shelves · articles · tags · live refresh'
+            ? '3D semantic springs · library bridges · orbital shelves · articles · tags'
             : null}
           {use3dRenderer && (hasTopicFocus || statusText) ? ' · ' : null}
           {hasTopicFocus && `Focused ${focusSet!.size} concepts`}

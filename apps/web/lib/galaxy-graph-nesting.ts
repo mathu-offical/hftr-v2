@@ -3,7 +3,7 @@ import type {
   ResearchGraphFolderStar,
   ResearchGraphLibraryNest,
 } from '@hftr/contracts';
-import { isResearchArticleConcept } from '@hftr/contracts';
+import { galaxyDisplayTagsFromList, isResearchArticleConcept } from '@hftr/contracts';
 import { amalgamationMassFromTexts } from './galaxy-similarity';
 import {
   isBaselineSeededLibrary,
@@ -176,12 +176,25 @@ export function buildArticleOrbits(
  * Library-scoped research articles (D-127 / D-141): every `hftr:article` concept with a
  * primary library becomes an article-star orbit hub inside that library/folder.
  * `topicId` carries the concept uuid (orbit identity for the graph response).
+ * Member list includes co-tagged concepts in the same library so semantic
+ * membership springs actually fire (D-151).
  */
 export function buildLibraryArticleOrbits(
   concepts: ReadonlyArray<GraphNestingConcept>,
   libraries: ReadonlyArray<ResearchGraphLibraryNest>,
 ): ResearchGraphArticleOrbit[] {
   const libraryById = new Map(libraries.map((lib) => [lib.id, lib]));
+  const byLibraryTag = new Map<string, string[]>();
+  for (const concept of concepts) {
+    if (!concept.primaryLibraryId) continue;
+    for (const tag of galaxyDisplayTagsFromList(concept.tags)) {
+      const key = `${concept.primaryLibraryId}::${tag.toLowerCase()}`;
+      const list = byLibraryTag.get(key) ?? [];
+      list.push(concept.id);
+      byLibraryTag.set(key, list);
+    }
+  }
+
   const articles: ResearchGraphArticleOrbit[] = [];
 
   for (const concept of concepts) {
@@ -190,12 +203,22 @@ export function buildLibraryArticleOrbits(
     if (!libraryId || !libraryById.has(libraryId)) continue;
 
     const folderKey = resolveConceptFolderKey(concept, libraryById);
+    const related = new Set<string>([concept.id]);
+    for (const tag of galaxyDisplayTagsFromList(concept.tags)) {
+      const peers = byLibraryTag.get(`${libraryId}::${tag.toLowerCase()}`) ?? [];
+      for (const peerId of peers) {
+        if (related.size >= 9) break;
+        related.add(peerId);
+      }
+      if (related.size >= 9) break;
+    }
+
     articles.push({
       topicId: concept.id,
       title: concept.title,
       libraryId,
       folderKey,
-      memberConceptIds: [concept.id],
+      memberConceptIds: [...related],
     });
   }
 

@@ -7,6 +7,7 @@
 
 import type { ResearchGraphArticleOrbit, ResearchGraphLink, ResearchGraphNode } from '@hftr/contracts';
 import {
+  galaxyDisplayTagsFromList,
   isResearchArticleConcept,
   RESEARCH_ARTICLE_TAG,
   tokenizeQualitativeText,
@@ -48,20 +49,16 @@ export function isDisplayGalaxyTag(tag: string): boolean {
   if (CATALOG_KEY_SET.has(t as never)) return false;
   if (t.startsWith('hftr:') || t.startsWith('operator_') || t.startsWith('system_')) return false;
   if (t.startsWith('tier_') || t.startsWith('sector_')) return false;
-  return true;
+  return galaxyDisplayTagsFromList([t]).length > 0;
 }
 
 export function displayTagsForGalaxy(tags: readonly string[]): string[] {
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const raw of tags) {
-    if (!isDisplayGalaxyTag(raw)) continue;
-    const key = raw.trim().toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(raw.trim());
-  }
-  return out;
+  return galaxyDisplayTagsFromList(tags).filter((tag) => {
+    const key = tag.toLowerCase();
+    if (CATALOG_KEY_SET.has(key as never)) return false;
+    if (CATALOG_KEY_SET.has(tag as never)) return false;
+    return true;
+  });
 }
 
 /** Prefer title + display tags (weighted) + body slice for overlap scoring. */
@@ -145,8 +142,8 @@ export function buildSemanticGalaxyLinks(
     });
   };
 
-  // 1) Article / topic membership — star springs to the orbit hub when it is a concept,
-  //    otherwise pairwise bridges among members (capped).
+  // 1) Article / topic membership — star to hub when hub is a concept; otherwise
+  //    dense member clique so topic cohorts still interact (D-151).
   let membershipCount = 0;
   for (const article of articles) {
     if (membershipCount >= maxMembership) break;
@@ -160,11 +157,13 @@ export function buildSemanticGalaxyLinks(
         push(article.topicId, memberId, 'high', 'membership');
         membershipCount += 1;
       }
+      // When the hub is the only member (library article star), still bridge to
+      // co-tagged concepts later via shared_tag / overlap paths.
     } else {
-      const cap = Math.min(members.length, 8);
+      const cap = Math.min(members.length, 14);
       for (let i = 0; i < cap && membershipCount < maxMembership; i++) {
         for (let j = i + 1; j < cap && membershipCount < maxMembership; j++) {
-          push(members[i]!, members[j]!, 'medium', 'membership');
+          push(members[i]!, members[j]!, 'high', 'membership');
           membershipCount += 1;
         }
       }

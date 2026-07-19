@@ -1,5 +1,12 @@
 import { and, eq } from 'drizzle-orm';
-import { ConceptBatch, type EvidencePackage, withResearchArticleTag } from '@hftr/contracts';
+import {
+  ConceptBatch,
+  type EvidencePackage,
+  galaxyDisplayTagsFromList,
+  normalizeGalaxyDisplayTag,
+  similarityBandBetweenTexts,
+  withResearchArticleTag,
+} from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { companies, concepts, modules } from '@hftr/db/schema';
 import type { Clock } from '../clock';
@@ -9,28 +16,96 @@ import type { ModelGateway } from '../handlers/model-gateway';
 import { allowedRefsFromEvidence, assertBatchEvidenceGrounded } from './evidence-grounding';
 import { loadOperatorDirectiveHints } from './operator-directives';
 
+function qualitativeScopeTags(topicScope: string): string[] {
+  return topicScope
+    .split(/[^A-Za-z0-9_]+/)
+    .map((t) => normalizeGalaxyDisplayTag(t) ?? '')
+    .filter((t) => t.length >= 3)
+    .slice(0, 6);
+}
+
+/** Within-batch correlates from shared display tags / medium+ title-body overlap (D-151). */
+function buildDeterministicBatchLinks(
+  drafts: Array<{ title: string; body: string; tags: string[] }>,
+): Array<{
+  fromTitle: string;
+  toTitle: string;
+  relation: 'correlates';
+  weightBand: 'weak' | 'typical' | 'strong';
+}> {
+  const links: Array<{
+    fromTitle: string;
+    toTitle: string;
+    relation: 'correlates';
+    weightBand: 'weak' | 'typical' | 'strong';
+  }> = [];
+  const seen = new Set<string>();
+
+  const push = (fromTitle: string, toTitle: string, weightBand: 'weak' | 'typical' | 'strong') => {
+    if (fromTitle === toTitle) return;
+    const key = fromTitle < toTitle ? `${fromTitle}::${toTitle}` : `${toTitle}::${fromTitle}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    links.push({ fromTitle, toTitle, relation: 'correlates', weightBand });
+  };
+
+  const byTag = new Map<string, string[]>();
+  for (const draft of drafts) {
+    for (const tag of galaxyDisplayTagsFromList(draft.tags)) {
+      const key = tag.toLowerCase();
+      const list = byTag.get(key) ?? [];
+      list.push(draft.title);
+      byTag.set(key, list);
+    }
+  }
+  for (const titles of byTag.values()) {
+    const cap = Math.min(titles.length, 6);
+    for (let i = 0; i < cap; i++) {
+      for (let j = i + 1; j < cap; j++) {
+        push(titles[i]!, titles[j]!, 'typical');
+      }
+    }
+  }
+
+  for (let i = 0; i < drafts.length; i++) {
+    for (let j = i + 1; j < drafts.length; j++) {
+      const left = drafts[i]!;
+      const right = drafts[j]!;
+      const band = similarityBandBetweenTexts(
+        `${left.title} ${left.tags.join(' ')} ${left.body.slice(0, 400)}`,
+        `${right.title} ${right.tags.join(' ')} ${right.body.slice(0, 400)}`,
+      );
+      if (band === 'low') continue;
+      push(left.title, right.title, band === 'high' ? 'strong' : 'typical');
+    }
+  }
+
+  return links.slice(0, 24);
+}
+
 export function buildDeterministicBatchFromEvidence(opts: {
   evidencePackages: EvidencePackage[];
   topicScope: string;
 }): ConceptBatch {
-  const scopeTags = opts.topicScope
-    .split(/[^A-Za-z0-9_]+/)
-    .map((t) => t.trim())
-    .filter((t) => t.length >= 3)
-    .slice(0, 6);
+  const scopeTags = qualitativeScopeTags(opts.topicScope);
 
-  const concepts = opts.evidencePackages.slice(0, 12).map((pkg) => ({
-    title: pkg.title.slice(0, 200),
-    body:
-      `Evidence-backed qualitative note from ${pkg.sourceKind} (${pkg.feedClass}). ` +
-      `${pkg.summary}`,
-    tags: withResearchArticleTag([pkg.sourceKind, ...scopeTags]).slice(0, 16),
-    sourceRef: `evidence:${pkg.digest}`,
-  }));
+  const concepts = opts.evidencePackages.slice(0, 12).map((pkg) => {
+    const sourceTag = normalizeGalaxyDisplayTag(pkg.sourceKind) ?? pkg.sourceKind;
+    const feedTag = normalizeGalaxyDisplayTag(pkg.feedClass);
+    const mixed = [sourceTag, ...(feedTag ? [feedTag] : []), ...scopeTags];
+    return {
+      title: pkg.title.slice(0, 200),
+      body:
+        `Evidence-backed qualitative note from ${pkg.sourceKind} (${pkg.feedClass}). ` +
+        `${pkg.summary}`,
+      tags: withResearchArticleTag(mixed).slice(0, 16),
+      sourceRef: `evidence:${pkg.digest}`,
+    };
+  });
 
   return ConceptBatch.parse({
     concepts,
-    links: [],
+    links: buildDeterministicBatchLinks(concepts),
     escalateToStrategic: false,
     escalateReason: 'none',
   });

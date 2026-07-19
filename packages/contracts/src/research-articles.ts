@@ -29,20 +29,43 @@ export function isResearchArticleConcept(tags: readonly string[]): boolean {
   return tags.some((t) => t.trim() === RESEARCH_ARTICLE_TAG);
 }
 
-/** 1–3 chips for the Articles list line (excludes system markers). */
-export function articleDisplayTags(tags: readonly string[]): string[] {
+/**
+ * Normalize a freeform qualitative chip into a stable galaxy / article display tag.
+ * Model-free; strips system prefixes and collapses whitespace to snake_case.
+ */
+export function normalizeGalaxyDisplayTag(raw: string): string | null {
+  const collapsed = raw
+    .trim()
+    .toLowerCase()
+    .replace(/[\s/|]+/g, '_')
+    .replace(/[^a-z0-9_:-]+/g, '')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+  if (!collapsed || collapsed.length < 3 || collapsed.length > 48) return null;
+  if (isSystemArticleTag(collapsed)) return null;
+  if (collapsed === 'catalog' || collapsed === 'catalog_seed' || collapsed === 'baseline_sector') {
+    return null;
+  }
+  return collapsed;
+}
+
+/** All unique display tags from a mixed tag list (no chip cap). Preserves first-seen casing. */
+export function galaxyDisplayTagsFromList(tags: readonly string[]): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
   for (const raw of tags) {
-    const tag = raw.trim();
-    if (!tag || isSystemArticleTag(tag)) continue;
-    const key = tag.toLowerCase();
-    if (seen.has(key)) continue;
+    const key = normalizeGalaxyDisplayTag(raw);
+    if (!key || seen.has(key)) continue;
     seen.add(key);
-    out.push(tag);
-    if (out.length >= ARTICLE_DISPLAY_TAG_MAX) break;
+    const trimmed = raw.trim();
+    out.push(isSystemArticleTag(trimmed) ? key : trimmed);
   }
   return out;
+}
+
+/** 1–3 chips for the Articles list line (excludes system markers). */
+export function articleDisplayTags(tags: readonly string[]): string[] {
+  return galaxyDisplayTagsFromList(tags).slice(0, ARTICLE_DISPLAY_TAG_MAX);
 }
 
 /**

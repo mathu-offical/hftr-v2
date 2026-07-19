@@ -144,6 +144,10 @@ chips drawn from visible concepts’ tags (and optionally topic-level keywords).
   tag**, and **membership** springs so related concepts pull across soft-packed library
   nests; high cross-nest similarity strengthens bridges. System/catalog tags stay out of
   satellites and tag bridges.
+- **D-151 physical semantic bridging:** closer library packing, **library bridge force**
+  (centers drift toward cross-library semantic pairs), stronger cross-nest springs,
+  seed/synthesis **persisted correlates** from shared display tags, article orbits expand
+  to co-tagged peers, and `normalizeGalaxyDisplayTag` shared vocabulary.
 - A larger **company envelope** sphere outlines the full organizational cloud.
 - **Volume packing (D-116):** library / folder / article *centers* use **Fibonacci-sphere**
   samples on concentric shells so XYZ volume is used

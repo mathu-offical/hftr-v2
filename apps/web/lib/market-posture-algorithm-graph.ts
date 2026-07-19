@@ -49,7 +49,9 @@ export type PostureAlgoNodeRole =
   | 'panel_surface'
   | 'lane_label'
   /** Strip layout section frame (D-186). */
-  | 'screen_group';
+  | 'screen_group'
+  /** Nested process-route cluster inside the Process screen (D-186). */
+  | 'process_cluster';
 
 export type PostureAlgoNodeData = {
   label: string;
@@ -73,7 +75,7 @@ export type PostureAlgoNodeData = {
   panelKind?: 'rail' | 'overlay' | 'both';
   /** Emphasize amount as capital readout (D-163). */
   capitalBearing?: boolean;
-  /** Owning stage screen when nodeRole is screen_group (D-186). */
+  /** Owning stage screen when nodeRole is screen_group / process_cluster (D-186). */
   stageScreenId?: string;
   layer: MarketHubModelLayer;
   track: MarketHubModelTrack;
@@ -1422,6 +1424,7 @@ const STRIP_COL_W =
 
 const STRIP_ROLE_ORDER: Record<PostureAlgoNodeRole, number> = {
   screen_group: -1,
+  process_cluster: -1,
   capital_source: 0,
   library_source: 0,
   live_source: 0,
@@ -1431,6 +1434,224 @@ const STRIP_ROLE_ORDER: Record<PostureAlgoNodeRole, number> = {
   panel_surface: 4,
   lane_label: 9,
 };
+
+/** Pipeline order inside a process-route cluster (fetch → … → seal/compose). */
+const PROCESS_FN_ORDER: Record<string, number> = {
+  fetch: 0,
+  entitle: 0,
+  load: 0,
+  announce: 1,
+  normalize: 2,
+  extract: 3,
+  context: 4,
+  corroborate: 5,
+  score: 6,
+  thresholds: 6,
+  defaults: 6,
+  rank: 7,
+  verify: 8,
+  seal: 9,
+  compose: 10,
+};
+
+const STRIP_CLUSTER_GAP = 10;
+const STRIP_CLUSTER_HEADER = 22;
+
+function processClusterKey(n: PostureAlgoGraphNode): string {
+  const route = n.data.processRoute?.trim();
+  if (route) return route;
+  const kind = n.id.replace(/^process:/, '').split(':')[0];
+  return kind || 'shared';
+}
+
+function formatRouteLabel(route: string): string {
+  return route.replace(/_/g, ' ');
+}
+
+function sortProcessStepsInCluster(a: PostureAlgoGraphNode, b: PostureAlgoGraphNode): number {
+  const fa = PROCESS_FN_ORDER[a.data.processFunction ?? ''] ?? 50;
+  const fb = PROCESS_FN_ORDER[b.data.processFunction ?? ''] ?? 50;
+  if (fa !== fb) return fa - fb;
+  return a.data.label.localeCompare(b.data.label);
+}
+
+/**
+ * Pack the Process screen: nest route clusters (fetch→… chains) and park
+ * stages/panels in a side column ordered by connectivity.
+ */
+function packProcessScreenColumn(opts: {
+  children: PostureAlgoGraphNode[];
+  edges: Array<{ source: string; target: string }>;
+  colIdx: number;
+  globalRank: Map<string, number>;
+  intraEdges: number;
+  interEdges: number;
+  screenSummary: string;
+}): PostureAlgoGraphNode[] {
+  const { children, edges, colIdx, globalRank, intraEdges, interEdges, screenSummary } =
+    opts;
+  const processNodes = children.filter((n) => n.data.nodeRole === 'process');
+  const otherNodes = children.filter((n) => n.data.nodeRole !== 'process');
+
+  const byRoute = new Map<string, PostureAlgoGraphNode[]>();
+  for (const n of processNodes) {
+    const key = processClusterKey(n);
+    const list = byRoute.get(key) ?? [];
+    list.push(n);
+    byRoute.set(key, list);
+  }
+
+  const routeKeys = [...byRoute.keys()].sort((a, b) => {
+    const membersA = byRoute.get(a) ?? [];
+    const membersB = byRoute.get(b) ?? [];
+    const rankA = median(membersA.map((n) => globalRank.get(n.id) ?? 0));
+    const rankB = median(membersB.map((n) => globalRank.get(n.id) ?? 0));
+    if (rankA !== rankB) return rankA - rankB;
+    return a.localeCompare(b);
+  });
+
+  // Prefer routes that share edges with the same upstream adapters (cluster cohesion).
+  routeKeys.sort((a, b) => {
+    const score = (route: string) => {
+      const members = byRoute.get(route) ?? [];
+      const ids = new Set(members.map((m) => m.id));
+      let shared = 0;
+      for (const e of edges) {
+        if (ids.has(e.target) || ids.has(e.source)) shared += 1;
+      }
+      return shared;
+    };
+    const sa = score(a);
+    const sb = score(b);
+    if (sa !== sb) return sb - sa;
+    return a.localeCompare(b);
+  });
+
+  const groupId = `group:process`;
+  const out: PostureAlgoGraphNode[] = [];
+  let cursorY = STRIP_HEADER + STRIP_PAD;
+  let maxClusterW = STRIP_PAD * 2 + STRIP_INNER_LANE_W;
+
+  for (const route of routeKeys) {
+    const steps = [...(byRoute.get(route) ?? [])].sort(sortProcessStepsInCluster);
+    if (steps.length === 0) continue;
+    const clusterId = `cluster:process:${route}`;
+    const clusterW =
+      STRIP_PAD * 2 + Math.max(steps.length, 1) * STRIP_INNER_LANE_W;
+    const clusterH = STRIP_CLUSTER_HEADER + STRIP_PAD * 2 + STRIP_NODE_H;
+    maxClusterW = Math.max(maxClusterW, clusterW);
+
+    const fnSummary = [
+      ...new Set(steps.map((s) => s.data.processFunction).filter(Boolean)),
+    ]
+      .slice(0, 4)
+      .join(' → ');
+
+    out.push({
+      id: clusterId,
+      type: 'postureGroup',
+      parentId: groupId,
+      extent: 'parent',
+      position: { x: STRIP_PAD, y: cursorY },
+      style: { width: clusterW, height: clusterH },
+      draggable: false,
+      selectable: true,
+      data: {
+        label: formatRouteLabel(route),
+        detail: fnSummary || 'process chain',
+        kind: 'data',
+        nodeRole: 'process_cluster',
+        stageScreenId: 'process',
+        processRoute: route,
+        operation: 'route cluster',
+        amount: String(steps.length),
+        layer: 'pipeline',
+        track: steps[0]?.data.track ?? 'compound',
+        activation: 'armed',
+        status: 'ready',
+        updatedAt: null,
+      },
+    });
+
+    steps.forEach((step, si) => {
+      out.push({
+        ...step,
+        parentId: clusterId,
+        extent: 'parent',
+        position: {
+          x: STRIP_PAD + si * STRIP_INNER_LANE_W,
+          y: STRIP_CLUSTER_HEADER + STRIP_PAD,
+        },
+        draggable: false,
+        data: {
+          ...step.data,
+          stageScreenId: 'process',
+        },
+      });
+      globalRank.set(step.id, si);
+    });
+
+    cursorY += clusterH + STRIP_CLUSTER_GAP;
+  }
+
+  const otherX = maxClusterW + STRIP_PAD * 2;
+  const orderedOther = orderLaneByConnections(otherNodes, edges, globalRank);
+  orderedOther.forEach((child, rowIdx) => {
+    out.push({
+      ...child,
+      parentId: groupId,
+      extent: 'parent',
+      position: {
+        x: otherX,
+        y: STRIP_HEADER + STRIP_PAD + rowIdx * STRIP_NODE_H,
+      },
+      draggable: false,
+      data: {
+        ...child.data,
+        stageScreenId: 'process',
+      },
+    });
+  });
+
+  const otherBlockH =
+    orderedOther.length > 0
+      ? STRIP_PAD + orderedOther.length * STRIP_NODE_H
+      : 0;
+  const clustersH = Math.max(cursorY - STRIP_CLUSTER_GAP, STRIP_HEADER + STRIP_PAD);
+  const height = Math.max(
+    clustersH,
+    STRIP_HEADER + STRIP_PAD + otherBlockH,
+  ) + STRIP_PAD;
+  const width = Math.max(
+    otherX + STRIP_INNER_LANE_W + STRIP_PAD,
+    STRIP_COL_W - 12,
+  );
+
+  out.unshift({
+    id: groupId,
+    type: 'postureGroup',
+    position: { x: colIdx * STRIP_COL_W, y: 0 },
+    style: { width, height },
+    draggable: false,
+    selectable: true,
+    data: {
+      label: 'Process',
+      detail: `${routeKeys.length} routes · ${intraEdges} in · ${interEdges} out · ${screenSummary}`,
+      kind: 'data',
+      nodeRole: 'screen_group',
+      stageScreenId: 'process',
+      operation: 'section',
+      amount: String(children.length),
+      layer: 'sources',
+      track: 'compose',
+      activation: 'armed',
+      status: 'ready',
+      updatedAt: null,
+    },
+  });
+
+  return out;
+}
 
 function screenIdForNode(n: PostureAlgoGraphNode): MarketPostureStageScreenId {
   return resolveStageScreenId({
@@ -1535,9 +1756,43 @@ export function applyStripScreenGroups(
   const out: PostureAlgoGraphNode[] = [];
   const innerLaneW = STRIP_INNER_LANE_W;
   const groupInnerW = STRIP_PAD * 2 + STRIP_INNER_LANES * innerLaneW;
+  let cursorX = 0;
 
   MARKET_POSTURE_STAGE_SCREENS.forEach((screen, colIdx) => {
     const children = byScreen.get(screen.id) ?? [];
+    const intraEdges = edges.filter((e) => {
+      const a = children.some((c) => c.id === e.source);
+      const b = children.some((c) => c.id === e.target);
+      return a && b;
+    }).length;
+    const interEdges = edges.filter((e) => {
+      const a = children.some((c) => c.id === e.source);
+      const b = children.some((c) => c.id === e.target);
+      return (a || b) && !(a && b);
+    }).length;
+
+    if (screen.id === 'process') {
+      const packed = packProcessScreenColumn({
+        children,
+        edges,
+        colIdx,
+        globalRank,
+        intraEdges,
+        interEdges,
+        screenSummary: screen.summary,
+      });
+      // Reposition process group to cumulative X (wider than default pitch).
+      const group = packed.find((n) => n.id === 'group:process');
+      if (group) {
+        group.position = { x: cursorX, y: 0 };
+        cursorX += (group.style?.width ?? STRIP_COL_W) + 12;
+      } else {
+        cursorX += STRIP_COL_W;
+      }
+      out.push(...packed);
+      return;
+    }
+
     const lanes: PostureAlgoGraphNode[][] = Array.from(
       { length: STRIP_INNER_LANES },
       () => [],
@@ -1553,7 +1808,6 @@ export function applyStripScreenGroups(
     const orderedLanes = lanes.map((lane) =>
       orderLaneByConnections(lane, edges, globalRank),
     );
-    // Refresh ranks after connection ordering for cross-lane alignment.
     for (const lane of orderedLanes) {
       lane.forEach((n, i) => globalRank.set(n.id, i));
     }
@@ -1565,22 +1819,13 @@ export function applyStripScreenGroups(
     const height =
       STRIP_HEADER + STRIP_PAD * 2 + maxRows * STRIP_NODE_H;
     const groupId = `group:${screen.id}`;
-    const intraEdges = edges.filter((e) => {
-      const a = children.some((c) => c.id === e.source);
-      const b = children.some((c) => c.id === e.target);
-      return a && b;
-    }).length;
-    const interEdges = edges.filter((e) => {
-      const a = children.some((c) => c.id === e.source);
-      const b = children.some((c) => c.id === e.target);
-      return (a || b) && !(a && b);
-    }).length;
+    const width = Math.max(STRIP_COL_W - 12, groupInnerW);
 
     out.push({
       id: groupId,
       type: 'postureGroup',
-      position: { x: colIdx * STRIP_COL_W, y: 0 },
-      style: { width: Math.max(STRIP_COL_W - 12, groupInnerW), height },
+      position: { x: cursorX, y: 0 },
+      style: { width, height },
       draggable: false,
       selectable: true,
       data: {
@@ -1617,6 +1862,9 @@ export function applyStripScreenGroups(
         });
       });
     });
+
+    cursorX += width + 12;
+    void colIdx;
   });
   return out;
 }
@@ -1631,7 +1879,12 @@ export function finalizeStripEdges(
 ): PostureAlgoGraph['edges'] {
   const contentIds = new Set(
     packed
-      .filter((n) => n.data.nodeRole !== 'screen_group' && n.data.nodeRole !== 'lane_label')
+      .filter(
+        (n) =>
+          n.data.nodeRole !== 'screen_group' &&
+          n.data.nodeRole !== 'process_cluster' &&
+          n.data.nodeRole !== 'lane_label',
+      )
       .map((n) => n.id),
   );
   const screenByNode = new Map<string, MarketPostureStageScreenId>();

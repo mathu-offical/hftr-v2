@@ -492,7 +492,11 @@ export function buildStageNodeNumberFlow(
   if (graphNodes && graphNodes.length > 0) {
     const covered = new Set(steps.map((s) => s.nodeId));
     for (const n of graphNodes) {
-      if (n.data.nodeRole === 'screen_group' || n.data.nodeRole === 'lane_label') {
+      if (
+        n.data.nodeRole === 'screen_group' ||
+        n.data.nodeRole === 'process_cluster' ||
+        n.data.nodeRole === 'lane_label'
+      ) {
         continue;
       }
       const sid =

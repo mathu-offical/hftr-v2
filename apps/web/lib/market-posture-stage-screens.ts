@@ -64,8 +64,8 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
     id: 'process',
     label: 'Process',
     summary: 'Link market + news + library → tagged trend lists',
-    nodeIdPrefixes: ['process:'],
-    nodeRoles: ['process'],
+    nodeIdPrefixes: ['process:', 'cluster:'],
+    nodeRoles: ['process', 'process_cluster'],
     stageIds: ['gather', 'thresholds', 'defaults', 'universe', 'rs', 'rank', 'verify'],
     panelSurfaceIds: [
       'awareness_evidence',
@@ -126,6 +126,9 @@ export function resolveStageScreenId(input: {
   }
 
   const nodeId = input.nodeId?.trim() ?? '';
+  if (nodeId.startsWith('cluster:process:') || nodeId.startsWith('cluster:')) {
+    return 'process';
+  }
   if (nodeId.startsWith('panel:')) {
     const surface = nodeId.slice('panel:'.length);
     for (const screen of MARKET_POSTURE_STAGE_SCREENS) {

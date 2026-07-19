@@ -330,7 +330,8 @@ are ignored. Shortcuts are suppressed in editable fields.
   strip graph node on the screen is mapped into the emission list). The bottom **Model
   strip** packs nodes into the same six columns with connection-based layout (role lanes
   + relevance order), draws all within- and between-screen edges (plus group backbone
-  flows), and stamps each node to its owning stage screen.
+  flows), nests **process route clusters** with function-ordered chains
+  (fetch→normalize→…), and stamps each node to its owning stage screen.
   **Capital** shows root user-controlled funds only (company pool + holding funds),
   engine allocation splits, master equity, and open position mark/uPnL values.
   **Live ingest** shows active APIs, query/filter orientation, normalize pipeline, and

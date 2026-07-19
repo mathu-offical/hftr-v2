@@ -1871,8 +1871,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `activeStageScreenId` + `selectedModelNodeId`. Strip Model uses **screen-group columns**
   with **connection-based spread**: role lanes (x) + barycenter relevance (y); **no node
   overflow cap**; **all intra-screen and inter-screen edges** retained, plus group→group
-  backbone edges for cross-column flows. Every strip content node is stamped with
-  `stageScreenId` and mapped into that screen’s emission traces. **Capital** = root
+  backbone edges for cross-column flows. Process column nests **route clusters**
+  (`process_cluster`) with function-ordered chains (fetch→normalize→…). Every strip
+  content node is stamped with `stageScreenId` and mapped into that screen’s emission
+  traces. **Capital** = root
   user-controlled funds only (company pool + holding funds) plus engine allocation and
   position/equity readouts. Extends D-131 / D-147 / D-160 / D-179.
   Docs: ui-spec §4 Market posture. **Status: implemented.**
@@ -1920,6 +1922,22 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `waitForFilledActivity` merges executions; paper-loop asserts honesty chip testids.
   Re-verified `paper-system-verify` **25/25**. Docs: ui-spec §4, experiment-log EXP-06.
   **Status: implemented.**
+
+- **D-191 (dual research paths — inline spine + child packs → hub, 2026-07-19):** Each
+  **execution ENGINE** keeps an **inline specialty research** module at the spine start
+  (`research` → librarian → library) for **internal** desk gathering and processing inside
+  the execution family. Child **research ENGINEs** seeded from
+  `EXECUTION_ENGINE_RESEARCH_DEPENDENCIES` are separate family members (left column) that
+  hydrate the parent **Engine Data Hub** (analyzer emit → hub via `targetLibraryIds` /
+  utility binds). **Subtype overlap is intentional** (dual path): e.g. day-trading inline
+  `specialty_desk` coexists with `research_market_regime_lab` + `research_desk_aligned`;
+  HFT inline `microstructure_context` coexists with `research_microstructure_lab`. **Do NOT**
+  strip inline research when adding or refining child packs. Simulation family **pre/post**
+  placement (D-189) is target layout under this refinement. `template_input` option anchors
+  resolve owners from `templateInput.target.moduleIndex` (e.g. `focus` → trend member).
+  Extends D-043 / D-140 / D-159 / D-180 / D-184 / D-189. Spec alignment: engine full
+  refinement plan. Docs: canvas-engine-group-design, engine-node-family-design.
+  **Status: implementing.**
 
 ## Open questions
 

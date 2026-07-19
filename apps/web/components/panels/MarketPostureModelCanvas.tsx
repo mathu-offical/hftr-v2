@@ -75,6 +75,8 @@ function roleChrome(role: PostureAlgoNodeData['nodeRole']): string {
       return 'border-l-[3px] border-l-[var(--color-ink-faint)] bg-[var(--color-surface-0)]';
     case 'process':
       return 'border-l-[3px] border-l-[var(--color-accent)] border-dotted bg-[var(--color-surface-0)]';
+    case 'process_cluster':
+      return 'border border-[var(--color-line)] border-dashed bg-[color-mix(in_srgb,var(--color-accent)_6%,var(--color-surface-0))]';
     case 'stage':
       return 'border-[var(--color-line)] bg-[var(--color-surface-1)]';
     case 'panel_surface':
@@ -162,6 +164,8 @@ function roleLabel(role: PostureAlgoNodeData['nodeRole']): string {
       return 'ADAPT';
     case 'process':
       return 'PROC';
+    case 'process_cluster':
+      return 'ROUTE';
     case 'library_source':
       return 'LIB';
     case 'capital_source':
@@ -459,22 +463,39 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
 const PostureGroupNode = memo(function PostureGroupNode({
   data,
 }: NodeProps<Node<LiveNodeData>>) {
+  const isCluster = data.nodeRole === 'process_cluster';
   return (
     <div
-      className={`h-full w-full rounded border border-[var(--color-line)] bg-[color-mix(in_srgb,var(--color-surface-0)_70%,transparent)] ${
-        data.selected ? 'ring-1 ring-[var(--color-accent)]' : ''
-      }`}
-      data-testid="market-posture-model-node-screen_group"
+      className={`h-full w-full rounded border ${
+        isCluster
+          ? 'border-dashed border-[var(--color-line)] bg-[color-mix(in_srgb,var(--color-accent)_5%,var(--color-surface-0))]'
+          : 'border-[var(--color-line)] bg-[color-mix(in_srgb,var(--color-surface-0)_70%,transparent)]'
+      } ${data.selected ? 'ring-1 ring-[var(--color-accent)]' : ''}`}
+      data-testid={
+        isCluster
+          ? 'market-posture-model-node-process_cluster'
+          : 'market-posture-model-node-screen_group'
+      }
       data-stage-screen={data.stageScreenId}
+      data-process-route={data.processRoute}
     >
       <div className="flex items-center justify-between gap-1 border-b border-[var(--color-line)] px-1.5 py-0.5">
-        <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink)]">
-          {data.label}
+        <p
+          className={`font-mono uppercase tracking-[0.12em] text-[var(--color-ink)] ${
+            isCluster ? 'text-[8px] font-medium' : 'text-[9px] font-semibold'
+          }`}
+        >
+          {isCluster ? `Route · ${data.label}` : data.label}
         </p>
         <span className="font-mono text-[8px] tabular-nums text-[var(--color-ink-faint)]">
           {data.amount}
         </span>
       </div>
+      {isCluster && data.detail ? (
+        <p className="truncate px-1.5 pt-0.5 font-mono text-[7px] text-[var(--color-ink-faint)]">
+          {data.detail}
+        </p>
+      ) : null}
       <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !bg-[var(--color-line)]" />
       <Handle type="source" position={Position.Right} className="!h-1.5 !w-1.5 !bg-[var(--color-line)]" />
     </div>
@@ -573,6 +594,10 @@ function InnerCanvas(props: {
             node.id,
             data.stageScreenId as MarketPostureStageScreenId,
           );
+          return;
+        }
+        if (data.nodeRole === 'process_cluster') {
+          props.onNavigate?.(node.id, 'process');
           return;
         }
         const screenId = resolveStageScreenId({

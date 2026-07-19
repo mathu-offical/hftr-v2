@@ -102,15 +102,93 @@ describe('applyStripScreenGroups', () => {
     const src0 = liveKids.find((n) => n.id === 'live:src0')!;
     const adapt = liveKids.find((n) => n.id === 'adapter:1')!;
     expect(adapt.position.x).toBeGreaterThan(src0.position.x);
-    const processKids = packed.filter((n) => n.parentId === 'group:process');
+    const processKids = packed.filter(
+      (n) =>
+        n.id === 'process:step' ||
+        n.parentId?.startsWith('cluster:process:'),
+    );
     expect(processKids.some((n) => n.id === 'process:step')).toBe(true);
+    expect(
+      packed.some((n) => n.data.nodeRole === 'process_cluster'),
+    ).toBe(true);
+  });
+
+  it('clusters process nodes by route with function-ordered chains', () => {
+    const nodes = [
+      node('process:news:fetch', 'process', 'Fetch'),
+      node('process:news:normalize', 'process', 'Normalize'),
+      node('process:news:extract', 'process', 'Extract'),
+      node('process:bars:fetch', 'process', 'Bars fetch'),
+      node('process:bars:score', 'process', 'RS'),
+      node('universe', 'stage', 'Universe'),
+    ];
+    // Stamp routes / functions like real hydration nodes.
+    const stamped = nodes.map((n) => {
+      if (n.id.startsWith('process:news:')) {
+        const fn = n.id.split(':')[2]!;
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            processRoute: 'news_headline',
+            processFunction: fn,
+          },
+        };
+      }
+      if (n.id.startsWith('process:bars:')) {
+        const fn = n.id.split(':')[2]!;
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            processRoute: 'bars_ohlc',
+            processFunction: fn === 'score' ? 'score' : 'fetch',
+          },
+        };
+      }
+      return n;
+    });
+    const edges = [
+      edge('e1', 'process:news:fetch', 'process:news:normalize'),
+      edge('e2', 'process:news:normalize', 'process:news:extract'),
+      edge('e3', 'process:bars:fetch', 'process:bars:score'),
+      edge('e4', 'process:news:extract', 'universe'),
+    ];
+    const packed = applyStripScreenGroups(stamped, edges);
+    const clusters = packed.filter((n) => n.data.nodeRole === 'process_cluster');
+    expect(clusters.map((c) => c.data.processRoute).sort()).toEqual([
+      'bars_ohlc',
+      'news_headline',
+    ]);
+    const newsKids = packed.filter(
+      (n) => n.parentId === 'cluster:process:news_headline',
+    );
+    expect(newsKids.map((n) => n.data.processFunction)).toEqual([
+      'fetch',
+      'normalize',
+      'extract',
+    ]);
+    const barsKids = packed.filter(
+      (n) => n.parentId === 'cluster:process:bars_ohlc',
+    );
+    expect(barsKids[0]?.position.x).toBeLessThan(barsKids[1]?.position.x ?? 0);
+    expect(packed.some((n) => n.parentId === 'group:process' && n.id === 'universe')).toBe(
+      true,
+    );
   });
 
   it('finalizeStripEdges keeps child edges and adds group backbone', () => {
     const nodes = [
       node('live:bars', 'live_source', 'Bars'),
       node('adapter:1', 'adapter', 'Adapt'),
-      node('process:step', 'process', 'Norm'),
+      {
+        ...node('process:step', 'process', 'Norm'),
+        data: {
+          ...node('process:step', 'process', 'Norm').data,
+          processRoute: 'web_search',
+          processFunction: 'normalize',
+        },
+      },
       node('seal_movers', 'stage', 'Seal'),
     ];
     const edges = [

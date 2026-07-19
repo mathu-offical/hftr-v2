@@ -321,11 +321,9 @@ are ignored. Shortcuts are suppressed in editable fields.
   (capital / library / live / process / seals / day) snap-scroll above a
   fixed bottom **Model diagram strip**. Each pipeline column emits into the screen above
   it; clicking a Model node (or section group) navigates to that screen. Each stage
-  screen opens with a **Processing now** tape of live hub/synthesis rows for that
-  column (sources+adapters, ingest/links/limits/cost, sealed boards, day plan). Each stage
-  opens with **hydrated graphs** of that column’s individual inventory (entity bar+spark
-  charts for funds, sources, adapters, process steps, seals, day suggestions) plus rollup
-  pies — not leftover metrics from other screens. **Capital** stage
+  opens with a **Group nodes → numbers** trace (Model/hydration nodes → transform →
+  dollar/count readout) plus hydrated entity charts — not a status “Processing now”
+  tape. **Capital** stage
   shows root user-controlled funds only (company pool + holding funds), engine
   allocation splits, master equity, and open position mark/uPnL values — not every
   capital-bearing Model node. Content below: positions/library, combined live APIs +
@@ -473,7 +471,9 @@ are ignored. Shortcuts are suppressed in editable fields.
   session / Impact proxy / Child drain / Funds-only — D-187; raw tags still on the API).
   The same chip set appears on BottomPanel Decisions + Lineage execution rows and on
   TraceTimeline (D-188; testids `decisions-honesty-chips`, `lineage-honesty-chips`,
-  `timeline-honesty-chips`).
+  `timeline-honesty-chips`). Chip vocabulary also covers No queue / Both-verify /
+  Pre-block (D-190). Playwright `paper-loop` + `paper-intent-alignment` assert
+  `execution-honesty-chips` (and Decisions chips in paper-loop).
   Market posture left rail also lists open holdings for quick select (D-131); day quant
   lives on the canvas overlay, not as a position-centric navigator.
 - Ledger of all trades/results/responses: filterable table (module, venue, mode, outcome),

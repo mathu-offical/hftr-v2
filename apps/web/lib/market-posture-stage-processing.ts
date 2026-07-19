@@ -1,320 +1,367 @@
 /**
- * Per-stage-screen processing rows — what the column is actually working on (D-186).
+ * Stage node → number traces (D-186).
+ * Shows how Model-group nodes transform into operator-facing numeric readouts —
+ * not status/operation tapes.
  */
 
-import type {
-  MarketHubResponse,
-  MarketHubSynthesisRun,
-} from '@hftr/contracts';
-import {
-  MARKET_POSTURE_STAGE_SCREENS,
-  type MarketPostureStageScreenId,
-} from './market-posture-stage-screens';
+import type { MarketHubResponse } from '@hftr/contracts';
+import type { MarketPostureStageScreenId } from './market-posture-stage-screens';
 import { buildRootUserCapitalView } from './market-posture-root-capital';
 
-export type StageProcessingRowKind =
-  | 'capital'
-  | 'position'
-  | 'library'
-  | 'live'
-  | 'adapter'
-  | 'step'
-  | 'stage'
-  | 'board'
-  | 'link'
-  | 'panel'
-  | 'rec';
-
-export type StageProcessingRow = {
+export type StageNodeNumberStep = {
   id: string;
-  kind: StageProcessingRowKind;
-  label: string;
-  /** Operation / verb being applied. */
-  operation: string;
-  /** Amount / count / band readout (orientation). */
-  amount: string;
-  status: string;
-  detail?: string | undefined;
+  /** Model / hydration node id when known. */
+  nodeId: string;
+  nodeLabel: string;
+  /** How the node becomes a number. */
+  transform: string;
+  /** Actual numeric readout (dollars, counts, bps). */
+  valueLabel: string;
+  /** Optional formula orientation. */
+  formula: string | null;
 };
 
-const MAX_ROWS = 14;
+const MAX_STEPS = 18;
 
-function pushCap(
-  rows: StageProcessingRow[],
-  row: StageProcessingRow,
+function dollars(cents: number | string | null | undefined): string {
+  if (cents == null) return '—';
+  const n = typeof cents === 'string' ? Number(cents) : cents;
+  if (!Number.isFinite(n)) return '—';
+  return `$${(n / 100).toFixed(2)}`;
+}
+
+function parseCents(v: number | string | null | undefined): number | null {
+  if (v == null) return null;
+  const n = typeof v === 'string' ? Number(v) : v;
+  return Number.isFinite(n) ? n : null;
+}
+
+function push(
+  steps: StageNodeNumberStep[],
+  step: StageNodeNumberStep,
 ): void {
-  if (rows.length >= MAX_ROWS) return;
-  rows.push(row);
+  if (steps.length >= MAX_STEPS) return;
+  steps.push(step);
 }
 
 /**
- * Build operator-visible "what's being processed" rows for a stage screen.
+ * Build node→number traces for a stage screen from hub hydration.
  */
-export function buildStageProcessingRows(
+export function buildStageNodeNumberFlow(
   screenId: MarketPostureStageScreenId,
   hub: MarketHubResponse,
-  run: MarketHubSynthesisRun | null,
-): StageProcessingRow[] {
-  const rows: StageProcessingRow[] = [];
-  const meta = MARKET_POSTURE_STAGE_SCREENS.find((s) => s.id === screenId);
+): StageNodeNumberStep[] {
+  const steps: StageNodeNumberStep[] = [];
   const hydration = hub.modelHydration ?? null;
-  const stageIds = new Set(meta?.stageIds ?? []);
-
-  if (run) {
-    for (const st of run.stages) {
-      if (!stageIds.has(st.stageId)) continue;
-      if (st.status === 'queued') continue;
-      pushCap(rows, {
-        id: `stage:${st.stageId}`,
-        kind: 'stage',
-        label: st.stageId,
-        operation: st.kind,
-        amount: st.status,
-        status: st.status,
-        detail: st.summary ?? st.justificationLines[0] ?? undefined,
-      });
-    }
-  }
 
   switch (screenId) {
     case 'capital': {
       const view = buildRootUserCapitalView(hub);
-      pushCap(rows, {
-        id: 'equity',
-        kind: 'capital',
-        label: 'Master equity',
-        operation: 'ledger',
-        amount: view.equityCents != null ? 'tracked' : 'unavailable',
-        status: view.equityStatus,
-        detail: view.equityAsOfIso
-          ? `asOf ${new Date(view.equityAsOfIso).toLocaleTimeString()}`
-          : undefined,
-      });
       if (view.companyPool) {
-        pushCap(rows, {
-          id: `cap:${view.companyPool.id}`,
-          kind: 'capital',
-          label: view.companyPool.name,
-          operation: 'company_pool',
-          amount: view.companyPool.allocationCents ?? view.companyPool.status,
-          status: view.companyPool.status,
+        const cents =
+          parseCents(view.companyPool.allocationCents) ??
+          parseCents(view.companyPool.ledgerBalanceCents);
+        push(steps, {
+          id: 'pool',
+          nodeId: `capital:${view.companyPool.id}`,
+          nodeLabel: view.companyPool.name,
+          transform: 'resolve pool allocation',
+          valueLabel: dollars(cents),
+          formula: 'company_pool.allocationCents',
         });
       }
       for (const f of view.rootHoldingFunds) {
-        pushCap(rows, {
-          id: `cap:${f.id}`,
-          kind: 'capital',
-          label: f.name,
-          operation: 'holding_fund',
-          amount: f.allocationCents ?? f.status,
-          status: f.status,
+        const cents =
+          parseCents(f.allocationCents) ?? parseCents(f.ledgerBalanceCents);
+        push(steps, {
+          id: `hold:${f.id}`,
+          nodeId: `capital:${f.id}`,
+          nodeLabel: f.name,
+          transform: 'holding ledger → dollars',
+          valueLabel: dollars(cents),
+          formula:
+            f.allocationShareBps != null
+              ? `share ${(f.allocationShareBps / 100).toFixed(1)}% of pool`
+              : 'ledgerBalanceCents',
         });
       }
       for (const g of view.engineGroups) {
-        pushCap(rows, {
+        push(steps, {
           id: `eng:${g.key}`,
-          kind: 'capital',
-          label: g.label,
-          operation: 'engine_alloc',
-          amount: g.allocationCentsTotal ?? `${g.desks.length} desks`,
-          status: 'split',
+          nodeId: `capital:engine:${g.key}`,
+          nodeLabel: g.label,
+          transform: 'sum desk allocations',
+          valueLabel: dollars(g.allocationCentsTotal),
+          formula: `${g.desks.length} desk(s)`,
         });
+        for (const d of g.desks.slice(0, 4)) {
+          push(steps, {
+            id: `desk:${d.id}`,
+            nodeId: `capital:${d.id}`,
+            nodeLabel: d.name,
+            transform: 'engine desk split',
+            valueLabel: dollars(d.allocationCents ?? d.ledgerBalanceCents),
+            formula: g.label,
+          });
+        }
       }
-      for (const p of view.positions.slice(0, 6)) {
-        pushCap(rows, {
+      let book = 0;
+      for (const p of hub.positions) {
+        const qty = Number(p.qty);
+        const mark = parseCents(p.markCents) ?? 0;
+        const notional =
+          Number.isFinite(qty) && mark ? Math.round(Math.abs(qty) * mark) : 0;
+        book += notional;
+        push(steps, {
           id: `pos:${p.id}`,
-          kind: 'position',
-          label: p.symbol,
-          operation: 'mark',
-          amount: String(p.markCents),
-          status: p.unrealizedPnlCents,
+          nodeId: `capital:pos:${p.symbol}`,
+          nodeLabel: p.symbol,
+          transform: 'qty × mark',
+          valueLabel: dollars(notional),
+          formula: `${p.qty} × ${dollars(p.markCents)}`,
         });
       }
+      if (hub.positions.length > 0) {
+        push(steps, {
+          id: 'book-total',
+          nodeId: 'capital:book',
+          nodeLabel: 'Open book',
+          transform: 'Σ position notionals',
+          valueLabel: dollars(book),
+          formula: `${hub.positions.length} positions`,
+        });
+      }
+      push(steps, {
+        id: 'equity',
+        nodeId: 'capital:equity',
+        nodeLabel: 'Master equity',
+        transform: 'ledger balance-after',
+        valueLabel: dollars(hub.equity.equityCents),
+        formula: hub.equity.series.length
+          ? `${hub.equity.series.length} path pts`
+          : null,
+      });
       break;
     }
     case 'library': {
       for (const lib of hydration?.librarySources ?? []) {
-        pushCap(rows, {
+        push(steps, {
           id: `lib:${lib.id}`,
-          kind: 'library',
-          label: lib.name,
-          operation: lib.operation,
-          amount: lib.amount,
-          status: `${lib.admittedCount}/${lib.conceptCount}`,
-          detail: lib.shelf,
+          nodeId: `lib:${lib.id}`,
+          nodeLabel: lib.name,
+          transform: 'admit corpus',
+          valueLabel: `${lib.admittedCount} / ${lib.conceptCount}`,
+          formula: `${lib.shelf} · ${((lib.admittedCount / Math.max(lib.conceptCount, 1)) * 100).toFixed(0)}% admitted`,
         });
       }
-      for (const p of hub.positions.slice(0, 8)) {
-        pushCap(rows, {
-          id: `pos:${p.id}`,
-          kind: 'position',
-          label: p.symbol,
-          operation: 'mark',
-          amount: `qty ${p.qty}`,
-          status: p.viz?.heldVsCost ?? 'open',
-          detail: p.moduleName,
+      for (const p of hub.positions) {
+        const qty = Number(p.qty);
+        const mark = parseCents(p.markCents) ?? 0;
+        const cost = parseCents(p.avgCostCents) ?? 0;
+        const notional =
+          Number.isFinite(qty) && mark ? Math.round(Math.abs(qty) * mark) : 0;
+        const costBasis =
+          Number.isFinite(qty) && cost ? Math.round(Math.abs(qty) * cost) : 0;
+        push(steps, {
+          id: `libpos:${p.id}`,
+          nodeId: `lib:pos:${p.symbol}`,
+          nodeLabel: p.symbol,
+          transform: 'held mark / cost basis',
+          valueLabel: `${dollars(notional)} / ${dollars(costBasis)}`,
+          formula: `uPnL ${dollars(p.unrealizedPnlCents)}`,
         });
       }
       break;
     }
     case 'live': {
-      for (const lane of hub.sources.lanes.slice(0, 6)) {
-        pushCap(rows, {
+      for (const lane of hub.sources.lanes) {
+        const live = (hydration?.liveSources ?? []).find((s) => s.kind === lane.kind);
+        const bound = live?.canvasBoundCount ?? 0;
+        push(steps, {
           id: `lane:${lane.kind}`,
-          kind: 'live',
-          label: lane.label,
-          operation: lane.status === 'ready' ? 'entitle' : 'need_key',
-          amount: lane.contributed ? 'contributed' : lane.status,
-          status: lane.status,
-          detail: lane.domain,
+          nodeId: `live:${lane.kind}`,
+          nodeLabel: lane.label,
+          transform: lane.contributed
+            ? 'filter → seal contribution'
+            : 'entitle lane',
+          valueLabel: live?.amount ?? (lane.contributed ? '1 seal hit' : '0 seal hits'),
+          formula: `${bound} canvas bound · ${lane.domain}`,
         });
       }
-      for (const s of hydration?.liveSources ?? []) {
-        if (rows.some((r) => r.id === `lane:${s.kind}`)) continue;
-        pushCap(rows, {
-          id: `live:${s.kind}`,
-          kind: 'live',
-          label: s.label,
-          operation: s.operation,
-          amount: s.amount,
-          status: s.status,
-          detail: s.domain,
-        });
-      }
-      for (const f of (hydration?.processingFlows ?? []).slice(0, 6)) {
-        pushCap(rows, {
+      for (const f of hydration?.processingFlows ?? []) {
+        push(steps, {
           id: `flow:${f.id}`,
-          kind: 'adapter',
-          label: f.adapterLabel,
-          operation: f.operation,
-          amount: f.amount,
-          status: f.status,
-          detail: f.route ?? f.analysisRoles.join(', '),
+          nodeId: `adapter:${f.id}`,
+          nodeLabel: f.adapterLabel,
+          transform: `${f.operation} → amount`,
+          valueLabel: f.amount,
+          formula: f.route
+            ? `route ${f.route} · ${f.analysisRoles.join(',') || '—'}`
+            : f.analysisRoles.join(',') || null,
         });
       }
+      const ready = hub.sources.lanes.filter((l) => l.status === 'ready').length;
+      const contrib = hub.sources.contributedKinds.length;
+      push(steps, {
+        id: 'live-roll',
+        nodeId: 'live:rollup',
+        nodeLabel: 'Lane rollup',
+        transform: 'ready lanes · seal kinds',
+        valueLabel: `${ready} ready · ${contrib} contributed`,
+        formula: `mark feed ${hub.sources.markFeedClass}`,
+      });
       break;
     }
     case 'process': {
-      for (const step of (hydration?.processSteps ?? []).slice(0, 8)) {
-        pushCap(rows, {
-          id: `step:${step.id}`,
-          kind: 'step',
-          label: step.label,
-          operation: step.processFunction,
-          amount: step.amount,
-          status: step.status ?? step.operation,
-          detail: step.route,
+      for (const s of (hydration?.processSteps ?? []).slice(0, 10)) {
+        push(steps, {
+          id: `step:${s.id}`,
+          nodeId: `process:${s.id}`,
+          nodeLabel: s.label,
+          transform: `${s.processFunction}(${s.route})`,
+          valueLabel: s.amount,
+          formula: s.operation,
         });
       }
       const aw = hub.awarenessAnalysis;
       if (aw) {
-        for (const link of aw.links.slice(0, 4)) {
-          pushCap(rows, {
+        push(steps, {
+          id: 'links-count',
+          nodeId: 'process:links',
+          nodeLabel: 'Awareness links',
+          transform: 'count projected edges',
+          valueLabel: String(aw.links.length),
+          formula: `${aw.evidence.length} evidence pkgs`,
+        });
+        for (const link of aw.links.slice(0, 6)) {
+          push(steps, {
             id: `lnk:${link.id}`,
-            kind: 'link',
-            label: `${link.fromLabel} → ${link.toId}`,
-            operation: `${link.fromKind}→${link.toKind}`,
-            amount: link.strengthBand,
-            status: 'linked',
+            nodeId: `process:link:${link.id}`,
+            nodeLabel: `${link.fromLabel} → ${link.toId}`,
+            transform: `${link.fromKind}→${link.toKind} strength`,
+            valueLabel: link.strengthBand,
+            formula: null,
           });
         }
       }
       for (const op of (hydration?.stageOps ?? []).filter(
         (s) => s.stageId === 'thresholds' || s.stageId === 'defaults',
       )) {
-        pushCap(rows, {
+        push(steps, {
           id: `limit:${op.stageId}`,
-          kind: 'step',
-          label: op.stageId,
-          operation: op.operation,
-          amount: op.amount,
-          status: 'limit',
+          nodeId: `process:${op.stageId}`,
+          nodeLabel: op.stageId,
+          transform: 'limit / default band',
+          valueLabel: op.amount,
+          formula: op.operation,
         });
       }
-      for (const p of hub.positions.slice(0, 4)) {
-        pushCap(rows, {
+      for (const p of hub.positions.slice(0, 6)) {
+        const qty = Number(p.qty);
+        const cost = parseCents(p.avgCostCents) ?? 0;
+        const basis =
+          Number.isFinite(qty) && cost ? Math.round(Math.abs(qty) * cost) : 0;
+        push(steps, {
           id: `cost:${p.id}`,
-          kind: 'position',
-          label: p.symbol,
-          operation: 'cost_basis',
-          amount: String(p.avgCostCents),
-          status: String(p.markCents),
+          nodeId: `process:cost:${p.symbol}`,
+          nodeLabel: p.symbol,
+          transform: 'qty × avgCost',
+          valueLabel: dollars(basis),
+          formula: `mark ${dollars(p.markCents)} · uPnL ${dollars(p.unrealizedPnlCents)}`,
         });
       }
       break;
     }
     case 'seals': {
-      for (const item of hub.movers.items.slice(0, 6)) {
-        pushCap(rows, {
-          id: `mover:${item.symbolOrSector ?? rows.length}`,
-          kind: 'board',
-          label: item.symbolOrSector ?? item.headline ?? 'mover',
-          operation: 'seal_movers',
-          amount: [item.directionBand, item.strengthBand].filter(Boolean).join(' · ') || '—',
-          status: hub.movers.status,
-          detail: item.headline ?? undefined,
-        });
+      push(steps, {
+        id: 'movers-n',
+        nodeId: 'seal:movers',
+        nodeLabel: hub.movers.title ?? 'Stock movers',
+        transform: 'count sealed items',
+        valueLabel: String(hub.movers.items.length),
+        formula: hub.movers.corroborationBand
+          ? `corroboration ${hub.movers.corroborationBand}`
+          : null,
+      });
+      const bandCounts = new Map<string, number>();
+      for (const item of hub.movers.items) {
+        const d = item.directionBand ?? 'unset';
+        bandCounts.set(d, (bandCounts.get(d) ?? 0) + 1);
       }
-      for (const item of hub.news.items.slice(0, 4)) {
-        pushCap(rows, {
-          id: `news:${item.symbolOrSector ?? rows.length}`,
-          kind: 'board',
-          label: item.headline ?? item.symbolOrSector ?? 'news',
-          operation: 'sector',
-          amount: [item.directionBand, item.strengthBand].filter(Boolean).join(' · ') || '—',
-          status: hub.news.status,
-        });
-      }
-      for (const r of hub.reports.slice(0, 4)) {
-        pushCap(rows, {
-          id: `rpt:${r.id}`,
-          kind: 'board',
-          label: r.title,
-          operation: r.kind,
-          amount: r.expiresAt ? 'expiring' : 'sealed',
-          status: 'ready',
-        });
-      }
+      push(steps, {
+        id: 'movers-dir',
+        nodeId: 'seal:movers:dirs',
+        nodeLabel: 'Mover direction bands',
+        transform: 'tally direction bands',
+        valueLabel:
+          [...bandCounts.entries()]
+            .map(([k, v]) => `${k}:${v}`)
+            .join(' ') || '0',
+        formula: null,
+      });
+      push(steps, {
+        id: 'news-n',
+        nodeId: 'seal:news',
+        nodeLabel: hub.news.title ?? 'News seal',
+        transform: 'count news items',
+        valueLabel: String(hub.news.items.length),
+        formula: null,
+      });
+      push(steps, {
+        id: 'reports-n',
+        nodeId: 'seal:reports',
+        nodeLabel: 'Phase reports',
+        transform: 'count sealed reports',
+        valueLabel: String(hub.reports.length),
+        formula: null,
+      });
       break;
     }
     case 'day': {
-      for (const item of hub.movers.items.slice(0, 4)) {
-        pushCap(rows, {
-          id: `move:${item.symbolOrSector ?? rows.length}`,
-          kind: 'board',
-          label: item.symbolOrSector ?? 'movement',
-          operation: 'movement',
-          amount: [item.directionBand, item.strengthBand].filter(Boolean).join(' · ') || '—',
-          status: hub.movers.status,
-        });
+      const actionN = hub.watchlists.filter(
+        (w) =>
+          w.status === 'suggested_search' ||
+          w.status === 'suggested_verified' ||
+          w.status === 'watching',
+      ).length;
+      push(steps, {
+        id: 'day-move',
+        nodeId: 'day:movements',
+        nodeLabel: 'Movements',
+        transform: 'sealed mover count',
+        valueLabel: String(hub.movers.items.length),
+        formula: null,
+      });
+      push(steps, {
+        id: 'day-act',
+        nodeId: 'day:actions',
+        nodeLabel: 'Actions',
+        transform: 'suggested + watching + plans',
+        valueLabel: `${actionN} watch · ${hub.pipeline.length} plans`,
+        formula: null,
+      });
+      push(steps, {
+        id: 'day-tr',
+        nodeId: 'day:trends',
+        nodeLabel: 'Trends',
+        transform: 'candidate count',
+        valueLabel: String(hub.trendCandidates.length),
+        formula: null,
+      });
+      const strength = { weak: 0, moderate: 0, strong: 0 };
+      for (const t of hub.trendCandidates) {
+        if (t.strengthBand === 'weak' || t.strengthBand === 'moderate' || t.strengthBand === 'strong') {
+          strength[t.strengthBand] += 1;
+        }
       }
-      for (const w of hub.watchlists
-        .filter(
-          (x) =>
-            x.status === 'suggested_search' ||
-            x.status === 'suggested_verified' ||
-            x.status === 'watching',
-        )
-        .slice(0, 4)) {
-        pushCap(rows, {
-          id: `act:${w.id}`,
-          kind: 'rec',
-          label: w.symbol,
-          operation: 'action',
-          amount: w.status,
-          status: w.bias,
-        });
-      }
-      for (const t of hub.trendCandidates.slice(0, 4)) {
-        pushCap(rows, {
-          id: `tr:${t.id}`,
-          kind: 'rec',
-          label: t.symbol,
-          operation: 'trend',
-          amount: t.strengthBand,
-          status: t.status,
-        });
-      }
+      push(steps, {
+        id: 'day-tr-str',
+        nodeId: 'day:trends:strength',
+        nodeLabel: 'Trend strength mix',
+        transform: 'tally strength bands',
+        valueLabel: `w${strength.weak} m${strength.moderate} s${strength.strong}`,
+        formula: null,
+      });
       break;
     }
     default: {
@@ -323,5 +370,5 @@ export function buildStageProcessingRows(
     }
   }
 
-  return rows;
+  return steps;
 }

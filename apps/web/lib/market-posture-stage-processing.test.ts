@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MarketHubResponse } from '@hftr/contracts';
-import { buildStageProcessingRows } from './market-posture-stage-processing';
+import { buildStageNodeNumberFlow } from './market-posture-stage-processing';
 
 function emptyHub(): MarketHubResponse {
   return {
@@ -74,14 +74,19 @@ function emptyHub(): MarketHubResponse {
   } as unknown as MarketHubResponse;
 }
 
-describe('buildStageProcessingRows', () => {
-  it('surfaces live lane data on live screen', () => {
-    const rows = buildStageProcessingRows('live', emptyHub(), null);
-    expect(rows.some((r) => r.label === 'Alpaca bars')).toBe(true);
-    expect(rows[0]?.kind).toBe('live');
+describe('buildStageNodeNumberFlow', () => {
+  it('traces live lanes into numeric/amount readouts', () => {
+    const steps = buildStageNodeNumberFlow('live', emptyHub());
+    expect(steps.some((s) => s.nodeLabel === 'Alpaca bars')).toBe(true);
+    expect(steps.some((s) => s.transform.includes('seal') || s.valueLabel.includes('seal'))).toBe(
+      true,
+    );
+    expect(steps.every((s) => !('status' in s && (s as { status?: string }).status === 'ready'))).toBe(
+      true,
+    );
   });
 
-  it('surfaces capital equity row', () => {
+  it('traces capital equity into a dollar readout', () => {
     const hub = emptyHub();
     hub.equity = {
       ...hub.equity,
@@ -89,7 +94,27 @@ describe('buildStageProcessingRows', () => {
       equityCents: '10000',
       asOfIso: '2026-07-19T12:00:00.000Z',
     };
-    const rows = buildStageProcessingRows('capital', hub, null);
-    expect(rows.some((r) => r.id === 'equity' && r.status === 'fresh')).toBe(true);
+    const steps = buildStageNodeNumberFlow('capital', hub);
+    const equity = steps.find((s) => s.id === 'equity');
+    expect(equity?.valueLabel).toBe('$100.00');
+    expect(equity?.transform).toContain('ledger');
+  });
+
+  it('traces day plan into counts not statuses', () => {
+    const hub = emptyHub();
+    hub.movers = {
+      ...hub.movers,
+      status: 'ready',
+      items: [
+        {
+          symbolOrSector: 'AAPL',
+          headline: 'up',
+          directionBand: 'high',
+          strengthBand: 'high',
+        },
+      ],
+    };
+    const steps = buildStageNodeNumberFlow('day', hub);
+    expect(steps.find((s) => s.id === 'day-move')?.valueLabel).toBe('1');
   });
 });

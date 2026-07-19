@@ -212,7 +212,6 @@ export function MarketPostureOverlay() {
           <>
             <MarketPostureStageScreens
               hub={hub}
-              synthesisRun={synthesis.run}
               equityLabel={equityLabel}
               dayLens={dayLens}
               setDayLens={setDayLens}

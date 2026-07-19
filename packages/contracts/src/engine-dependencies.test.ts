@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   missingChildDependenciesForExecution,
+  presentChildDependenciesForExecution,
   presentChildTemplateIdsForExecution,
   requiredChildDependenciesForExecution,
 } from './engine-dependencies';
@@ -75,5 +76,20 @@ describe('engine child dependencies', () => {
         (dep) => dep.templateId,
       ),
     ).toContain('research_market_regime_lab');
+  });
+
+  it('presentChildDependenciesForExecution lists attached required children', () => {
+    const present = new Set([
+      'research_market_regime_lab',
+      'research_desk_aligned',
+      'sim_gate_strategy_spread',
+    ]);
+    const attached = presentChildDependenciesForExecution('engine_day_trading', present);
+    expect(attached.map((dep) => dep.templateId).sort()).toEqual([
+      'research_desk_aligned',
+      'research_market_regime_lab',
+      'sim_gate_strategy_spread',
+    ]);
+    expect(attached.every((dep) => dep.label.length > 0)).toBe(true);
   });
 });

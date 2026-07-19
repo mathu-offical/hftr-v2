@@ -2542,6 +2542,30 @@ export function listResolvedEngineTemplates(
   });
 }
 
+/** Prefill topicScope/focus template inputs from company sector focus (D-213). */
+export function seedTemplateInputsFromSectorFocus(
+  templateId: string,
+  sectorFocus: string,
+  existing?: Record<string, string>,
+): Record<string, string> {
+  const engine = getEngineTemplateById(templateId);
+  if (!engine) return existing ? { ...existing } : {};
+  const focus = sectorFocus.trim();
+  const prior = existing ?? {};
+  return Object.fromEntries(
+    engine.inputs.map((input) => {
+      if ((input.key === 'topicScope' || input.key === 'focus') && focus) {
+        return [input.key, focus];
+      }
+      const kept = prior[input.key];
+      if (kept !== undefined && kept !== '') {
+        return [input.key, kept];
+      }
+      return [input.key, input.options?.[0] ?? ''];
+    }),
+  );
+}
+
 export function getEngineTemplateById(id: string): EngineTemplate | undefined {
   const template = ENGINE_TEMPLATES.find((item) => item.id === id);
   if (!template) return undefined;
@@ -2670,6 +2694,7 @@ export type EngineSeedRef = {
  * Expand create/insert engine lists so each execution seed is preceded by its
  * research dependency packs (deduped). Copies parent setup onto auto-deps.
  * D-153: server + UI share this so API fixtures and module-store inserts match create-form.
+ * D-213: prefills dep topicScope/focus from parent sector focus when present.
  */
 export function expandEngineSeedsWithResearchDeps<T extends { templateId: string }>(
   seeds: readonly T[],
@@ -2684,12 +2709,33 @@ export function expandEngineSeedsWithResearchDeps<T extends { templateId: string
 
   for (const seed of seeds) {
     const deps = researchDependenciesForExecutionEngine(seed.templateId);
+    const parentInputs =
+      'inputs' in seed && seed.inputs && typeof seed.inputs === 'object'
+        ? (seed.inputs as Record<string, string>)
+        : undefined;
+    const parentTopics =
+      'setup' in seed &&
+      seed.setup &&
+      typeof seed.setup === 'object' &&
+      Array.isArray((seed.setup as { topicSectors?: string[] }).topicSectors)
+        ? (seed.setup as { topicSectors: string[] }).topicSectors
+        : [];
+    const sectorFocus =
+      parentInputs?.topicScope?.trim() ||
+      parentInputs?.focus?.trim() ||
+      parentTopics.join(', ').trim() ||
+      '';
     for (const depId of deps) {
       if (seen.has(depId)) continue;
       if (available && !available.has(depId)) continue;
       if (!ENGINE_TEMPLATES.some((t) => t.id === depId)) continue;
       seen.add(depId);
-      out.push({ ...seed, templateId: depId, inputs: {}, canvasOffset: undefined } as T);
+      out.push({
+        ...seed,
+        templateId: depId,
+        inputs: seedTemplateInputsFromSectorFocus(depId, sectorFocus),
+        canvasOffset: undefined,
+      } as T);
     }
     if (!seen.has(seed.templateId)) {
       seen.add(seed.templateId);
@@ -2732,9 +2778,14 @@ export function expandEngineSeedsWithSimDeps(
       if (!ENGINE_TEMPLATES.some((entry) => entry.id === dep.templateId)) continue;
       const role = dep.placement === 'pre' ? 'gate' : 'training';
       existingSimIds.add(dep.templateId);
+      const sectorFocus =
+        seed.inputs?.topicScope?.trim() ||
+        seed.inputs?.focus?.trim() ||
+        (seed.setup?.topicSectors ?? []).join(', ').trim() ||
+        '';
       out.push({
         templateId: dep.templateId,
-        inputs: {},
+        inputs: seedTemplateInputsFromSectorFocus(dep.templateId, sectorFocus),
         simulationPlacement: dep.placement,
         simulationRole: role,
       });

@@ -2131,6 +2131,18 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   cursors so owners in different columns stack independently. Docs: canvas-layout-
   and-dedicated-math-design, canvas-engine-group-design. **Status: implemented.**
 
+- **D-213 (canvas-primary decisions + sector template prefill, 2026-07-19):**
+  `CANVAS_PRIMARY_DECISION_KINDS` limits canvas decision cards to desk-level
+  choices (subtype, strategy family, branch role, recovery, emit/feed class, etc.).
+  Secondary module tuning (`curiosity_band`, `admission_mode`, `cadence_band`,
+  `query_policy`, `schedule_policy`) and `philosophy_axis` stay inspector/lever-tree
+  only. `seedTemplateInputsFromSectorFocus` prefills `topicScope` / `focus` from
+  company sector focus on create-form seeds, palette insert, and auto research/sim
+  deps. `EngineGroupNode` always renders template input fields from
+  `template.inputs` (not stored-keys only) and shows muted **Attached:** chips for
+  present child research/sim engines alongside **Missing:** warn chips.
+  Docs: canvas-engine-group-design, ui-spec §3. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

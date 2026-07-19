@@ -77,6 +77,11 @@ describe('engine decision seeds (D-202 refine)', () => {
     ]);
     expect(visible.some((a) => a.kind === 'branch_role')).toBe(true);
     expect(visible.some((a) => a.kind === 'template_input')).toBe(false);
+    expect(visible.some((a) => a.kind === 'curiosity_band')).toBe(false);
+    expect(visible.some((a) => a.kind === 'admission_mode')).toBe(false);
+    expect(visible.some((a) => a.kind === 'cadence_band')).toBe(false);
+    expect(visible.some((a) => a.kind === 'philosophy_axis')).toBe(false);
+    expect(anchors.some((a) => a.kind === 'curiosity_band')).toBe(true);
   });
 
   it('prediction engine uses interim reversion + pairs palette', () => {

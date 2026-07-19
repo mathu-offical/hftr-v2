@@ -123,7 +123,7 @@ describe('option-anchors', () => {
     ).toBe(true);
   });
 
-  it('canvasVisibleOptionAnchors excludes lever_band and template_input (D-208)', () => {
+  it('canvasVisibleOptionAnchors excludes lever_band, template_input, and secondary kinds (D-208, D-213)', () => {
     const anchors = anchorsFor('engine_day_trading', [
       {
         id: 'mod-trading-1',
@@ -134,6 +134,7 @@ describe('option-anchors', () => {
     const visible = canvasVisibleOptionAnchors(anchors);
     expect(visible.some((anchor) => anchor.kind === 'lever_band')).toBe(false);
     expect(visible.some((anchor) => anchor.kind === 'template_input')).toBe(false);
+    expect(visible.some((anchor) => anchor.kind === 'philosophy_axis')).toBe(false);
     expect(visible.some((anchor) => anchor.kind === 'strategy_family')).toBe(true);
     expect(
       visible.some(
@@ -219,6 +220,14 @@ describe('option-anchors', () => {
     const visible = canvasVisibleOptionAnchors(anchors);
     expect(visible.some((anchor) => anchor.kind === 'research_subtype')).toBe(true);
     expect(visible.some((anchor) => anchor.kind === 'lever_band')).toBe(false);
+    expect(visible.some((anchor) => anchor.kind === 'curiosity_band')).toBe(false);
+    expect(visible.some((anchor) => anchor.kind === 'admission_mode')).toBe(false);
+    expect(visible.some((anchor) => anchor.kind === 'cadence_band')).toBe(false);
+    expect(visible.some((anchor) => anchor.kind === 'philosophy_axis')).toBe(false);
+    expect(anchors.some((anchor) => anchor.kind === 'curiosity_band')).toBe(true);
+    expect(anchors.some((anchor) => anchor.kind === 'admission_mode')).toBe(true);
+    expect(anchors.some((anchor) => anchor.kind === 'cadence_band')).toBe(true);
+    expect(anchors.some((anchor) => anchor.kind === 'philosophy_axis')).toBe(true);
     expect(visible.some((anchor) => anchor.kind === 'branch_role')).toBe(true);
   });
 

@@ -2903,7 +2903,10 @@ describe('CreateCompanyInput (D-043)', () => {
       'engine_day_trading',
     ]);
     expect(expanded[2]?.inputs).toEqual({ focus: 'tech' });
-    expect(expanded[0]?.inputs).toEqual({});
+    // D-213: auto research deps inherit sector focus into topicScope/focus inputs
+    expect(expanded[0]?.inputs?.topicScope).toBe('tech');
+    expect(expanded[0]?.inputs?.focus).toBe('tech');
+    expect(expanded[1]?.inputs?.topicScope).toBe('tech');
     // Idempotent when deps already present
     const again = expandEngineSeedsWithResearchDeps(expanded);
     expect(again.map((s) => s.templateId)).toEqual(expanded.map((s) => s.templateId));

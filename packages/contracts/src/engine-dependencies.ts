@@ -94,6 +94,16 @@ export function missingChildDependenciesForExecution(
   );
 }
 
+/** Required child engines already attached to an execution parent (D-213). */
+export function presentChildDependenciesForExecution(
+  executionTemplateId: string,
+  presentTemplateIds: ReadonlySet<string>,
+): MissingEngineChildDependency[] {
+  return requiredChildDependenciesForExecution(executionTemplateId).filter((dep) =>
+    presentTemplateIds.has(dep.templateId),
+  );
+}
+
 type DecisionSnapshotMember = {
   id: string;
   type: string;

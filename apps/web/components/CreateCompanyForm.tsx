@@ -15,6 +15,7 @@ import {
   listEngineTemplatesForCreateSection,
   projectedModuleSlotsForCreate,
   researchDependenciesForExecutionEngine,
+  seedTemplateInputsFromSectorFocus,
   simDependenciesForExecutionEngine,
   DEFAULT_EXECUTION_SIM_COUNT,
   requiredModuleSetupFields,
@@ -78,10 +79,8 @@ function requiredSetupForEngine(templateId: string): ModuleSetupField[] {
   ] as ModuleSetupField[];
 }
 
-function defaultEngineInputs(templateId: string): Record<string, string> {
-  const engine = ENGINE_TEMPLATES.find((item) => item.id === templateId);
-  if (!engine) return {};
-  return Object.fromEntries(engine.inputs.map((input) => [input.key, input.options?.[0] ?? '']));
+function defaultEngineInputs(templateId: string, sectorFocus = ''): Record<string, string> {
+  return seedTemplateInputsFromSectorFocus(templateId, sectorFocus);
 }
 
 type EngineSeed = {
@@ -250,12 +249,13 @@ export function CreateCompanyForm() {
         ...defaultEngineDraft(seedCreditsCents),
         topicSectors: sectorFocusDraftString(sectorFocuses),
       } satisfies ModuleSetupDraft);
+    const topic = sectorFocusDraftString(sectorFocuses);
     const seed: EngineSeed = {
       key: options?.key ?? `${formId}-eng-${crypto.randomUUID()}`,
       templateId: engine.id,
       label: engine.label,
       description: engine.description,
-      inputs: defaultEngineInputs(engine.id),
+      inputs: defaultEngineInputs(engine.id, topic),
       draft: seededDraft,
     };
     if (options?.autoDependency) {
@@ -282,6 +282,7 @@ export function CreateCompanyForm() {
       prev.map((item) => ({
         ...item,
         draft: { ...item.draft, topicSectors: topic },
+        inputs: seedTemplateInputsFromSectorFocus(item.templateId, topic, item.inputs),
       })),
     );
     setExtraModules((prev) =>
@@ -306,6 +307,9 @@ export function CreateCompanyForm() {
     executionKey: string,
     draft: ModuleSetupDraft,
   ): EngineSeed[] {
+    const parent = enginesList.find((item) => item.key === executionKey);
+    const sectorFromInputs =
+      parent?.inputs.topicScope?.trim() || parent?.inputs.focus?.trim() || draft.topicSectors;
     return enginesList.map((item) => {
       if (item.cascadedFromKey !== executionKey || !item.autoDependency) return item;
       return {
@@ -317,6 +321,11 @@ export function CreateCompanyForm() {
           allocationValue: draft.allocationValue,
           targetExitLocal: draft.targetExitLocal,
         },
+        inputs: seedTemplateInputsFromSectorFocus(
+          item.templateId,
+          sectorFromInputs,
+          item.inputs,
+        ),
       };
     });
   }

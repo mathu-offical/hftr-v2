@@ -68,6 +68,8 @@ export type EngineGroupNodeData = {
   utilityLinks?: EngineUtilityLinkView[];
   /** D-210: required research/sim child engines not yet on canvas. */
   missingChildDependencies?: MissingEngineChildDependency[];
+  /** D-213: required research/sim child engines already attached to this execution. */
+  presentChildDependencies?: MissingEngineChildDependency[];
   onRequestAddMissingDependencies?: (engineId: string) => void;
   onRequestDelete: (engineId: string) => void;
   onRequestReflow: (engineId: string) => void;
@@ -111,10 +113,6 @@ function draftFromSnapshot(
   };
 }
 
-function humanizeKey(key: string): string {
-  return key.replace(/[_-]+/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
-}
-
 /**
  * React Flow parent node for an ENGINE instance (D-028 / D-033 / D-035 / D-089 / D-091):
  * labeled chrome with Reflow/Delete; shared setup + template inputs as bordered
@@ -153,16 +151,12 @@ export const EngineGroupNode = memo(function EngineGroupNode({
   );
 
   const templateInputDefs = useMemo(() => {
-    const entries = Object.entries(templateInputs);
-    return entries.map(([key, value]) => {
-      const def = template?.inputs.find((input) => input.key === key);
-      return {
-        key,
-        value,
-        label: def?.label ?? humanizeKey(key),
-        placeholder: def?.placeholder,
-      };
-    });
+    return (template?.inputs ?? []).map((def) => ({
+      key: def.key,
+      value: templateInputs[def.key] ?? '',
+      label: def.label,
+      placeholder: def.placeholder,
+    }));
   }, [template, templateInputs]);
 
   const linksByBus = useMemo(() => {
@@ -235,13 +229,19 @@ export const EngineGroupNode = memo(function EngineGroupNode({
   const outboundBuses = utilityBuses.filter((b) => b === 'data_out' || b === 'system_control');
   const hydrating = data.hydrationPhase === 'loading';
   const missingChildDeps = data.missingChildDependencies ?? [];
+  const presentChildDeps = data.presentChildDependencies ?? [];
   const showMissingChildDeps = missingChildDeps.length > 0;
+  const showPresentChildDeps = presentChildDeps.length > 0;
 
   function missingDepChipLabel(dep: MissingEngineChildDependency): string {
     if (dep.kind === 'simulation' && dep.role) {
       return `Missing: ${dep.role} sim`;
     }
     return `Missing: ${dep.label}`;
+  }
+
+  function presentDepChipLabel(dep: MissingEngineChildDependency): string {
+    return `Attached: ${dep.label}`;
   }
 
   return (
@@ -344,8 +344,17 @@ export const EngineGroupNode = memo(function EngineGroupNode({
               </span>
             </div>
             <div className="truncate text-sm font-medium text-[var(--color-ink)]">{data.label}</div>
-            {showMissingChildDeps && (
+            {(showPresentChildDeps || showMissingChildDeps) && (
               <div className="nodrag mt-1 flex flex-wrap items-center gap-1">
+                {presentChildDeps.map((dep) => (
+                  <span
+                    key={`present-${dep.templateId}`}
+                    className="rounded-full border border-[var(--color-line)] px-1.5 py-0.5 text-[8px] text-[var(--color-ink-dim)]"
+                    title={`Attached child engine: ${dep.label}`}
+                  >
+                    {presentDepChipLabel(dep)}
+                  </span>
+                ))}
                 {missingChildDeps.map((dep) => (
                   <span
                     key={dep.templateId}

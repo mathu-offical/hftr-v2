@@ -41,10 +41,13 @@ import {
   parseEngineUtilityHandle,
   parseTrendCandidateHandle,
   placeNextEngineOrigin,
+  presentChildDependenciesForExecution,
   presentChildTemplateIdsForExecution,
   reflowEngineAtOrigin,
   requiredChildDependenciesForExecution,
   researchDependenciesForExecutionEngine,
+  seedTemplateInputsFromSectorFocus,
+  sectorFocusDraftString,
   simDependenciesForExecutionEngine,
   DEFAULT_EXECUTION_SIM_COUNT,
   simulationRoleForPlacement,
@@ -820,6 +823,17 @@ function engineChildPresenceRows(
   }));
 }
 
+function sectorFocusForTemplateInputs(
+  inputs: Record<string, string>,
+  setup?: ModuleSetupInput,
+  sectorFocuses?: readonly string[],
+): string {
+  const fromInputs = inputs.topicScope?.trim() || inputs.focus?.trim();
+  if (fromInputs) return fromInputs;
+  const topics = setup?.topicSectors ?? sectorFocuses ?? [];
+  return sectorFocusDraftString(topics);
+}
+
 function syncMissingChildDependencies(nodes: CanvasFlowNode[]): CanvasFlowNode[] {
   const engines = engineChildPresenceRows(nodes);
   let changed = false;
@@ -827,22 +841,39 @@ function syncMissingChildDependencies(nodes: CanvasFlowNode[]): CanvasFlowNode[]
     if (!isEngineGroupNode(node)) return node;
     const template = getEngineTemplateById(node.data.templateId);
     if (!template || engineCreateSection(template) !== 'execution') {
-      if ((node.data.missingChildDependencies ?? []).length > 0) {
+      if (
+        (node.data.missingChildDependencies ?? []).length > 0 ||
+        (node.data.presentChildDependencies ?? []).length > 0
+      ) {
         changed = true;
         return {
           ...node,
-          data: { ...node.data, missingChildDependencies: [] },
+          data: {
+            ...node.data,
+            missingChildDependencies: [],
+            presentChildDependencies: [],
+          },
         };
       }
       return node;
     }
     const present = presentChildTemplateIdsForExecution(node.id, engines);
     const missing = missingChildDependenciesForExecution(node.data.templateId, present);
-    const prevJson = JSON.stringify(node.data.missingChildDependencies ?? []);
-    const nextJson = JSON.stringify(missing);
-    if (prevJson === nextJson) return node;
+    const attached = presentChildDependenciesForExecution(node.data.templateId, present);
+    const prevMissingJson = JSON.stringify(node.data.missingChildDependencies ?? []);
+    const nextMissingJson = JSON.stringify(missing);
+    const prevPresentJson = JSON.stringify(node.data.presentChildDependencies ?? []);
+    const nextPresentJson = JSON.stringify(attached);
+    if (prevMissingJson === nextMissingJson && prevPresentJson === nextPresentJson) return node;
     changed = true;
-    return { ...node, data: { ...node.data, missingChildDependencies: missing } };
+    return {
+      ...node,
+      data: {
+        ...node.data,
+        missingChildDependencies: missing,
+        presentChildDependencies: attached,
+      },
+    };
   });
   return changed ? next : nodes;
 }
@@ -2521,6 +2552,12 @@ export function CompanyCanvas(props: {
       },
     ) => {
       const cascadeFromCompany = options?.cascadeFromCompany !== false;
+      const sectorFocus = sectorFocusForTemplateInputs(
+        inputs,
+        setup,
+        props.companyDefaults?.sectorFocuses,
+      );
+      const resolvedInputs = seedTemplateInputsFromSectorFocus(engine.id, sectorFocus, inputs);
       const present = new Set(
         nodes.filter(isEngineGroupNode).map((node) => node.data.templateId),
       );
@@ -2541,7 +2578,7 @@ export function CompanyCanvas(props: {
         }
         queue.push({
           template: engine,
-          inputs,
+          inputs: resolvedInputs,
           ...(options?.simulationBinding
             ? { simulationBinding: options.simulationBinding }
             : {}),
@@ -2549,7 +2586,7 @@ export function CompanyCanvas(props: {
       } else {
         queue.push({
           template: engine,
-          inputs,
+          inputs: resolvedInputs,
           ...(options?.simulationBinding
             ? { simulationBinding: options.simulationBinding }
             : {}),
@@ -2779,6 +2816,7 @@ export function CompanyCanvas(props: {
               ENGINE_GROUP_PADDING,
             );
             const pendingId = `pending-engine-${crypto.randomUUID()}`;
+            const depInputs = seedTemplateInputsFromSectorFocus(depTemplate.id, sectorFocus);
             const pendingShell = pendingEngineShellNode({
               pendingId,
               companyId: props.companyId,
@@ -2791,7 +2829,7 @@ export function CompanyCanvas(props: {
                 height: relativeBounds.height,
               },
               masterTopicSectors: setup?.topicSectors ?? props.companyDefaults?.sectorFocuses ?? [],
-              templateInputs: {},
+              templateInputs: depInputs,
               callbacks: stableEngineCallbacks,
             });
             workingNodes = [...workingNodes, pendingShell];
@@ -2851,7 +2889,7 @@ export function CompanyCanvas(props: {
               method: 'POST',
               body: {
                 templateId: depTemplate.id,
-                inputs: {},
+                inputs: depInputs,
                 setup,
                 cascadeFromCompany,
                 canvasOffset: offset,
@@ -2940,6 +2978,7 @@ export function CompanyCanvas(props: {
               ENGINE_GROUP_PADDING,
             );
             const pendingId = `pending-engine-${crypto.randomUUID()}`;
+            const simInputs = seedTemplateInputsFromSectorFocus(simTemplate.id, sectorFocus);
             const pendingShell = pendingEngineShellNode({
               pendingId,
               companyId: props.companyId,
@@ -2952,7 +2991,7 @@ export function CompanyCanvas(props: {
                 height: relativeBounds.height,
               },
               masterTopicSectors: setup?.topicSectors ?? props.companyDefaults?.sectorFocuses ?? [],
-              templateInputs: {},
+              templateInputs: simInputs,
               callbacks: stableEngineCallbacks,
             });
             workingNodes = [...workingNodes, pendingShell];
@@ -3012,7 +3051,7 @@ export function CompanyCanvas(props: {
               method: 'POST',
               body: {
                 templateId: simTemplate.id,
-                inputs: {},
+                inputs: simInputs,
                 setup,
                 cascadeFromCompany,
                 canvasOffset: offset,
@@ -3163,6 +3202,12 @@ export function CompanyCanvas(props: {
             ? { topicSectors: [...props.companyDefaults.sectorFocuses] }
             : undefined;
 
+      const sectorFocus = sectorFocusForTemplateInputs(
+        execNode.data.templateInputs ?? {},
+        setup,
+        props.companyDefaults?.sectorFocuses,
+      );
+
       let workingNodes = nodes;
       let workingEdges = edges;
       const insertedLabels: string[] = [];
@@ -3193,6 +3238,7 @@ export function CompanyCanvas(props: {
             origin,
             ENGINE_GROUP_PADDING,
           );
+          const depInputs = seedTemplateInputsFromSectorFocus(depTemplate.id, sectorFocus);
           const pendingId = `pending-engine-${crypto.randomUUID()}`;
           const pendingShell = pendingEngineShellNode({
             pendingId,
@@ -3207,7 +3253,7 @@ export function CompanyCanvas(props: {
             },
             masterTopicSectors:
               setup?.topicSectors ?? props.companyDefaults?.sectorFocuses ?? [],
-            templateInputs: {},
+            templateInputs: depInputs,
             callbacks: stableEngineCallbacks,
           });
           workingNodes = [...workingNodes, pendingShell];
@@ -3268,7 +3314,7 @@ export function CompanyCanvas(props: {
             method: 'POST',
             body: {
               templateId: depTemplate.id,
-              inputs: {},
+              inputs: depInputs,
               setup,
               cascadeFromCompany: true,
               canvasOffset: offset,

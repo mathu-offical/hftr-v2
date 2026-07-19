@@ -108,25 +108,32 @@ ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles
     `EXECUTION_ENGINE_RESEARCH_DEPENDENCIES` in the left column; analyzer terminus emits enriched
     articles into the parent **Engine Data Hub** (not a second hub on the pack). Subtype overlap
     between inline and child packs is intentional.
-- **Option anchors (D-173 / D-180 / D-191 / D-202 / D-207 / D-208):** unified **decision nodes**
+- **Option anchors (D-173 / D-180 / D-191 / D-202 / D-207 / D-208 / D-213):** unified **decision nodes**
   parented under the engine group. Each node is one deterministic choice point —
   a **single multi-port unit** (data/system intakes; one out per option), never a
   compound tree of option cards. Strategy families and branch roles are sibling
-  decision nodes with options-as-ports. Template inputs stay inspector-only.
+  decision nodes with options-as-ports. Template inputs stay in engine chrome /
+  inspector. Canvas cards are limited to `CANVAS_PRIMARY_DECISION_KINDS` (desk-level
+  subtype/strategy/branch/recovery/emit/feed); curiosity, admission, cadence,
+  query/schedule policy, philosophy, and lever bands stay inspector-only.
   Every engine template seeds `decisionNodes` with desk-specific strategy palettes
   (day ORB/gap/VWAP, HFT market-making, crypto trend/reversion/pairs, long-term
   trend/compression/lead-lag, prediction interim RV). Lever bands remain inspector-only.
+- **Sector focus → template inputs (D-213):** company `sectorFocuses` prefill engine
+  `topicScope` / `focus` template inputs on create-form seeds, palette insert, and
+  auto research/sim deps (`seedTemplateInputsFromSectorFocus`). Engine chrome always
+  shows all `template.inputs` fields (Topic scope / Focus) even when empty.
 - **Simulation ENGINEs (D-189 / D-191):** create section alongside Research / Execution. Linked
   children of an execution use `setup_snapshot.simulationBinding` (`pre`=gate /
   `post`=training + parentExecutionEngineId); adhoc sims are standalone paper desks.
   Execution create defaults to two child sims (overridable). **Family placement** (pre gate
   left of exec, post training after exec) is target layout under D-189/D-191 refinement.
-- **Child dependency validation (D-210):** execution ENGINE chrome and inspector surface
+- **Child dependency validation (D-210 / D-213):** execution ENGINE chrome and inspector surface
   required research packs + default sim children from `EXECUTION_ENGINE_*_DEPENDENCIES`.
   Missing children show text-first **Required** warn chips (not a hard create block when
-  palette insert seeds them); **Add deps** reuses attach_execution / simulationBinding
-  insert paths. Engine create persists `decisionNodes` + `decisionOptionSelections` via
-  `seedEngineDecisionSnapshot`.
+  palette insert seeds them); present attached children show muted **Attached:** chips.
+  **Add deps** reuses attach_execution / simulationBinding insert paths. Engine create
+  persists `decisionNodes` + `decisionOptionSelections` via `seedEngineDecisionSnapshot`.
 - **Company → engine cascade (D-176):** canvas insert defaults `cascadeFromCompany` on —
   topic from `sectorFocuses`, capital from paper seed — then engine→member cascade (D-035).
 - **D-089 note:** shared setup + template inputs stay in the **header** as bordered inline fields

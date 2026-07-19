@@ -979,16 +979,32 @@ export function buildOptionAnchorsForEngine(
 /** D-202 alias: unified decision nodes share the option-anchor builder. */
 export const buildDecisionNodesForEngine = buildOptionAnchorsForEngine;
 
+/** Kinds shown as canvas decision cards. Other built kinds stay inspector/lever-tree only (D-213). */
+export const CANVAS_PRIMARY_DECISION_KINDS = new Set<string>([
+  'research_subtype',
+  'librarian_subtype',
+  'library_class',
+  'trend_posture',
+  'strategy_family',
+  'branch_role',
+  'recovery_phase',
+  'emit_mode',
+  'feed_class',
+]);
+
 /**
- * Canvas-visible decision nodes. Lever bands stay inspector-only.
- * Template inputs (empty option banks) stay inspector-only so the canvas
- * shows true multi-port decision units only (D-208).
+ * Canvas-visible decision nodes. Lever bands, template inputs, philosophy axes,
+ * and secondary module tuning kinds stay inspector-only (D-208, D-213).
  */
 export function canvasVisibleOptionAnchors(
   anchors: readonly OptionAnchorSpec[],
 ): OptionAnchorSpec[] {
   return anchors.filter(
-    (anchor) => anchor.kind !== 'lever_band' && anchor.kind !== 'template_input',
+    (anchor) =>
+      anchor.kind !== 'lever_band' &&
+      anchor.kind !== 'template_input' &&
+      anchor.kind !== 'philosophy_axis' &&
+      CANVAS_PRIMARY_DECISION_KINDS.has(anchor.kind),
   );
 }
 

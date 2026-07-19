@@ -12,6 +12,7 @@ function baseHub(): MarketHubResponse {
       asOfIso: '2026-07-18T12:00:00.000Z',
       version: 1,
       series: [],
+      sourceChips: [{ id: 'ledger', label: 'ledger', class: 'system' }],
     },
     movers: {
       status: 'ready',
@@ -23,6 +24,10 @@ function baseHub(): MarketHubResponse {
       verifiedAt: '2026-07-18T12:00:00.000Z',
       expiresAt: '2026-07-19T12:00:00.000Z',
       reportConceptId: null,
+      sourceChips: [
+        { id: 'alpaca_bars', label: 'alpaca bars', class: 'api' },
+        { id: 'library', label: 'library', class: 'library' },
+      ],
     },
     reports: [],
     watchlists: [],
@@ -39,6 +44,10 @@ function baseHub(): MarketHubResponse {
         unrealizedPnlCents: '0',
         engines: [],
         updatedAt: '2026-07-18T12:00:00.000Z',
+        sourceChips: [
+          { id: 'synthetic_sim', label: 'synthetic mark', class: 'system' },
+          { id: 'ledger', label: 'ledger', class: 'system' },
+        ],
         viz: {
           symbol: 'AAPL',
           spark: {
@@ -67,6 +76,7 @@ function baseHub(): MarketHubResponse {
       verifiedAt: null,
       expiresAt: null,
       reportConceptId: null,
+      sourceChips: [],
     },
     freshness: {
       moversExpiresAt: '2026-07-19T12:00:00.000Z',
@@ -129,9 +139,14 @@ describe('mergeMarketHubLive', () => {
 
     const next = mergeMarketHubLive(hub, live);
     expect(next.equity.equityCents).toBe('200');
+    expect(next.equity.sourceChips).toEqual([
+      { id: 'ledger', label: 'ledger', class: 'system' },
+    ]);
     expect(next.positions[0]?.markCents).toBe(11000);
     expect(next.positions[0]?.moduleName).toBe('Desk');
+    expect(next.positions[0]?.sourceChips).toHaveLength(2);
     expect(next.movers.title).toBe('Movers');
+    expect(next.movers.sourceChips).toHaveLength(2);
     expect(next.charts.allocation).toHaveLength(1);
     expect(next.freshness.fetchedAt).toBe('2026-07-18T12:01:00.000Z');
     expect(next.freshness.moversExpiresAt).toBe('2026-07-19T12:00:00.000Z');

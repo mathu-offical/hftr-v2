@@ -46,6 +46,7 @@ import type { MarketHubSymbolViz, QualitativeBand } from '@hftr/contracts';
 import { withAuth } from '@/lib/api';
 import { projectMarketHubCapitalSources } from '@/lib/market-hub-capital';
 import { projectMarketHubModelHydration } from '@/lib/market-hub-model-hydration';
+import { buildMarketHubSourceChips } from '@/lib/market-hub-source-chips';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 90;
@@ -174,6 +175,7 @@ export async function GET(_req: Request, ctx: Ctx) {
         verifiedAt: seal.verifiedAt,
         expiresAt: seal.expiresAt,
         reportConceptId: seal.reportConceptId ?? null,
+        sourceChips: buildMarketHubSourceChips(contributedKinds),
       };
     } else {
       let expiredMovers: MarketHubResponse['movers'] | null = null;
@@ -207,6 +209,7 @@ export async function GET(_req: Request, ctx: Ctx) {
             verifiedAt: parsed.verifiedAt,
             expiresAt: parsed.expiresAt,
             reportConceptId: parsed.reportConceptId ?? null,
+            sourceChips: buildMarketHubSourceChips(contributedKinds),
           };
         }
       } catch {
@@ -224,6 +227,7 @@ export async function GET(_req: Request, ctx: Ctx) {
           verifiedAt: null,
           expiresAt: null,
           reportConceptId: null,
+          sourceChips: [],
         } as const);
     }
 
@@ -474,7 +478,12 @@ export async function GET(_req: Request, ctx: Ctx) {
             strengthBand: relevance,
             relevanceBand: relevance,
           });
-      return { ...w, viz };
+      const kinds: string[] = [];
+      if (w.sourceClass === 'operator') kinds.push('operator');
+      else if (w.sourceClass === 'movers_rank') kinds.push('movers_rank', 'library');
+      else if (w.sourceClass) kinds.push(w.sourceClass);
+      else kinds.push('operator');
+      return { ...w, viz, sourceChips: buildMarketHubSourceChips(kinds) };
     });
 
     const trendsWithViz = trendCandidateRows.map((t) => {
@@ -704,6 +713,7 @@ export async function GET(_req: Request, ctx: Ctx) {
       verifiedAt: string | null;
       expiresAt: string | null;
       reportConceptId: string | null;
+      sourceChips: ReturnType<typeof buildMarketHubSourceChips>;
     } = {
       status: 'missing',
       title: null,
@@ -713,6 +723,7 @@ export async function GET(_req: Request, ctx: Ctx) {
       verifiedAt: null,
       expiresAt: null,
       reportConceptId: null,
+      sourceChips: [],
     };
     try {
       const sectorSeal = await loadLatestValidSeal(db, {
@@ -725,6 +736,7 @@ export async function GET(_req: Request, ctx: Ctx) {
       if (sectorSeal) {
         const expMs = Date.parse(sectorSeal.expiresAt);
         const expired = Number.isFinite(expMs) && expMs <= nowMs;
+        const newsKinds = (sectorSeal.contributingSourceKinds ?? []).slice(0, 32);
         news = {
           status: expired ? 'expired' : 'ready',
           title: sectorSeal.view.title?.slice(0, 300) ?? null,
@@ -739,6 +751,7 @@ export async function GET(_req: Request, ctx: Ctx) {
           verifiedAt: sectorSeal.verifiedAt,
           expiresAt: sectorSeal.expiresAt,
           reportConceptId: sectorSeal.reportConceptId ?? null,
+          sourceChips: buildMarketHubSourceChips(newsKinds),
         };
       }
     } catch {
@@ -909,6 +922,16 @@ export async function GET(_req: Request, ctx: Ctx) {
       positionCount: positionProjection.length,
     });
 
+    const markChipKinds =
+      markFeedClass === 'broker_paper' ? ['broker_paper'] : ['synthetic_sim'];
+    const positionsWithChips = positionProjection.map((p) => ({
+      ...p,
+      sourceChips: buildMarketHubSourceChips([...markChipKinds, 'ledger']),
+    }));
+    const equitySourceChips = buildMarketHubSourceChips(
+      equityCents != null ? ['ledger'] : [],
+    );
+
     const body = MarketHubResponse.parse({
       sectorFocuses,
       universeExcludes,
@@ -918,12 +941,13 @@ export async function GET(_req: Request, ctx: Ctx) {
         asOfIso: equityRow?.equityAsOf?.toISOString() ?? null,
         version: equityRow?.equityVersion ?? 0,
         series: series.slice(-120),
+        sourceChips: equitySourceChips,
       },
       movers,
       reports,
       watchlists: watchlistsWithViz,
       trendCandidates: trendsWithViz,
-      positions: positionProjection,
+      positions: positionsWithChips,
       pipeline,
       capitalSources,
       news,

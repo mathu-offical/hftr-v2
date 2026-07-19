@@ -3,6 +3,7 @@ import type { MarketHubLiveResponse, MarketHubResponse } from '@hftr/contracts';
 /**
  * Merge live equity/marks into a full hub snapshot without replacing static
  * seals, reports, charts, sources, Model inputs (D-112).
+ * Preserves D-155 sourceChips on equity / positions / watchlists across deltas.
  */
 export function mergeMarketHubLive(
   hub: MarketHubResponse,
@@ -19,6 +20,8 @@ export function mergeMarketHubLive(
       markCents: livePos.markCents,
       unrealizedPnlCents: livePos.unrealizedPnlCents,
       viz: livePos.viz,
+      // Keep verifying-source chips from last full hub (delta-safe).
+      sourceChips: p.sourceChips ?? [],
     };
   });
 
@@ -37,6 +40,7 @@ export function mergeMarketHubLive(
         relevanceBand: w.viz.relevanceBand,
         direction: w.viz.direction,
       },
+      sourceChips: w.sourceChips ?? [],
     };
   });
   const trendCandidates = hub.trendCandidates.map((t) => {
@@ -56,7 +60,10 @@ export function mergeMarketHubLive(
 
   return {
     ...hub,
-    equity: live.equity,
+    equity: {
+      ...live.equity,
+      sourceChips: hub.equity.sourceChips ?? live.equity.sourceChips ?? [],
+    },
     positions,
     watchlists,
     trendCandidates,

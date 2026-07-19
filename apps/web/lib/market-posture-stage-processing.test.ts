@@ -7,7 +7,7 @@ function emptyHub(): MarketHubResponse {
     sectorFocuses: [],
     universeExcludes: [],
     equity: {
-      status: 'unavailable',
+      status: 'empty',
       equityCents: null,
       asOfIso: null,
       version: 0,
@@ -15,7 +15,19 @@ function emptyHub(): MarketHubResponse {
       sourceChips: [],
     },
     movers: {
-      status: 'missing',
+      status: 'empty',
+      title: null,
+      sealId: null,
+      corroborationBand: null,
+      items: [],
+      itemViz: [],
+      verifiedAt: null,
+      expiresAt: null,
+      reportConceptId: null,
+      sourceChips: [],
+    },
+    news: {
+      status: 'empty',
       title: null,
       sealId: null,
       corroborationBand: null,
@@ -32,28 +44,13 @@ function emptyHub(): MarketHubResponse {
     positions: [],
     pipeline: [],
     capitalSources: [],
-    news: {
-      status: 'missing',
-      title: null,
-      sealId: null,
-      corroborationBand: null,
-      items: [],
-      verifiedAt: null,
-      expiresAt: null,
-      reportConceptId: null,
-      sourceChips: [],
-    },
-    freshness: {
-      fetchedAt: '2026-07-19T12:00:00.000Z',
-      moversExpiresAt: null,
-      dailyExpiresAt: null,
-      sectorExpiresAt: null,
-    },
     sources: {
+      markFeedClass: 'synthetic',
+      scannedAt: null,
       lanes: [
         {
           kind: 'alpaca_bars',
-          domain: 'bars',
+          domain: 'equity_bars',
           label: 'Alpaca bars',
           authMode: 'broker_paper',
           status: 'ready',
@@ -61,8 +58,6 @@ function emptyHub(): MarketHubResponse {
         },
       ],
       contributedKinds: ['alpaca_bars'],
-      markFeedClass: 'synthetic',
-      scannedAt: null,
     },
     charts: {
       allocation: [],
@@ -71,6 +66,45 @@ function emptyHub(): MarketHubResponse {
       moverDirections: [],
       sourceReady: [],
     },
+    modelHydration: {
+      liveSources: [
+        {
+          kind: 'alpaca_bars',
+          label: 'Alpaca bars',
+          domain: 'equity_bars',
+          status: 'ready',
+          authMode: 'broker_paper',
+          canvasBoundCount: 1,
+          contributed: true,
+          operation: 'hydrate',
+          amount: '1 seal',
+        },
+      ],
+      librarySources: [],
+      processingFlows: [],
+      processSteps: [],
+      stageOps: [],
+      capitalSources: [],
+      panelSurfaces: [],
+      totals: {
+        liveReady: 1,
+        liveTotal: 1,
+        libraryCount: 0,
+        admittedConcepts: 0,
+        contributedKinds: 1,
+        usedLiveMarks: 0,
+        syntheticMarks: 0,
+      },
+      asOfIso: '2026-07-19T12:00:00.000Z',
+      sealStamps: [],
+    },
+    freshness: {
+      moversExpiresAt: null,
+      sectorExpiresAt: null,
+      dailyExpiresAt: null,
+      fetchedAt: '2026-07-19T12:00:00.000Z',
+    },
+    synthesis: null,
   } as unknown as MarketHubResponse;
 }
 
@@ -103,6 +137,45 @@ describe('buildStageNodeNumberFlow', () => {
     const equity = steps.find((s) => s.id === 'equity');
     expect(equity?.valueLabel).toBe('$100.00');
     expect(equity?.transform).toContain('ledger');
+  });
+
+  it('maps every strip graph node into screen emissions', () => {
+    const hub = emptyHub();
+    const steps = buildStageNodeNumberFlow('live', hub, [
+      {
+        id: 'live:alpaca_bars',
+        data: {
+          label: 'Alpaca bars',
+          operation: 'hydrate',
+          amount: '2 bound',
+          nodeRole: 'live_source',
+          stageScreenId: 'live',
+        },
+      },
+      {
+        id: 'adapter:flow-1',
+        data: {
+          label: 'Bars adapter',
+          operation: 'normalize',
+          amount: 'ready',
+          nodeRole: 'adapter',
+          stageScreenId: 'live',
+        },
+      },
+      {
+        id: 'process:elsewhere',
+        data: {
+          label: 'Other',
+          operation: 'rank',
+          amount: '1',
+          nodeRole: 'process',
+          stageScreenId: 'process',
+        },
+      },
+    ]);
+    expect(steps.some((s) => s.nodeId === 'live:alpaca_bars')).toBe(true);
+    expect(steps.some((s) => s.nodeId === 'adapter:flow-1')).toBe(true);
+    expect(steps.some((s) => s.nodeId === 'process:elsewhere')).toBe(false);
   });
 
   it('omits unavailable live lanes and need-key adapters', () => {

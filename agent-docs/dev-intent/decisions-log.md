@@ -1868,9 +1868,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   (`resolveStageScreenId`; legacy `group:seals` → outlook). Charts and main readouts come
   first; each stage ends with a **Group nodes → numbers** trace for **active**
   services/pipelines only. Mid-page Model section removed. ViewContext carries
-  `activeStageScreenId` + `selectedModelNodeId`. Strip Model uses **screen-group columns**.
-  **Capital** = root user-controlled funds only (company pool + holding funds) plus engine
-  allocation and position/equity readouts. Extends D-131 / D-147 / D-160 / D-179.
+  `activeStageScreenId` + `selectedModelNodeId`. Strip Model uses **screen-group columns**
+  with **connection-based spread**: role lanes (x) + barycenter relevance (y); **no node
+  overflow cap**; **all intra-screen and inter-screen edges** retained, plus group→group
+  backbone edges for cross-column flows. Every strip content node is stamped with
+  `stageScreenId` and mapped into that screen’s emission traces. **Capital** = root
+  user-controlled funds only (company pool + holding funds) plus engine allocation and
+  position/equity readouts. Extends D-131 / D-147 / D-160 / D-179.
   Docs: ui-spec §4 Market posture. **Status: implemented.**
 
 - **D-185 (left/right panel toggle + layering, 2026-07-19):** Amend D-123: re-clicking an

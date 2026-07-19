@@ -266,31 +266,43 @@ function edgeTypeDash(edgeType: MarketHubModelEdgeType): string | undefined {
   }
 }
 
-function styleModelEdge(edge: {
-  id: string;
-  source: string;
-  target: string;
-  label?: string | undefined;
-  data: PostureAlgoEdgeData;
-}): LiveEdge {
+function styleModelEdge(
+  edge: {
+    id: string;
+    source: string;
+    target: string;
+    label?: string | undefined;
+    data: PostureAlgoEdgeData;
+  },
+  opts?: { crossScreen?: boolean },
+): LiveEdge {
   const { edgeType, activation, status, track } = edge.data;
   const stroke = trackStroke(track);
   const animated = activation === 'active' || activation === 'pulsing';
+  const cross = opts?.crossScreen === true || edge.id.startsWith('e-group:');
   const width =
     edgeType === 'emit'
-      ? 1
+      ? cross
+        ? 1.6
+        : 1
       : activation === 'active' || activation === 'pulsing'
         ? 2.2
-        : 1.2;
+        : cross
+          ? 1.8
+          : 1.2;
   const opacity =
     activation === 'blocked' || activation === 'stale'
       ? 0.35
       : edgeType === 'emit'
         ? activation === 'idle'
           ? 0.4
-          : 0.65
+          : cross
+            ? 0.85
+            : 0.65
         : activation === 'idle'
-          ? 0.45
+          ? cross
+            ? 0.55
+            : 0.45
           : activation === 'armed'
             ? 0.75
             : 1;
@@ -305,7 +317,8 @@ function styleModelEdge(edge: {
     target: edge.target,
     label,
     data: edge.data,
-    animated,
+    animated: animated || cross,
+    zIndex: cross ? 8 : edgeType === 'emit' ? 2 : 4,
     style: {
       stroke,
       strokeWidth: width,
@@ -512,7 +525,20 @@ function InnerCanvas(props: {
     [graph.nodes, byStage, props.selectedNodeId],
   );
 
-  const styledEdges = useMemo(() => graph.edges.map(styleModelEdge), [graph.edges]);
+  const styledEdges = useMemo(() => {
+    const screenById = new Map<string, string>();
+    for (const n of graph.nodes) {
+      if (n.data.stageScreenId) screenById.set(n.id, n.data.stageScreenId);
+    }
+    return graph.edges.map((e) => {
+      const a = screenById.get(e.source);
+      const b = screenById.get(e.target);
+      const crossScreen =
+        e.id.startsWith('e-group:') ||
+        (a != null && b != null && a !== b);
+      return styleModelEdge(e, { crossScreen });
+    });
+  }, [graph.edges, graph.nodes]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(liveNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(styledEdges);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import type { MarketHubResponse } from '@hftr/contracts';
 import { MarketPostureEquityChart } from '@/components/panels/MarketPostureEquityChart';
 import { MarketPostureSourcesStrip } from '@/components/panels/MarketPostureSourcesStrip';
@@ -32,6 +32,7 @@ import {
   buildRootUserCapitalView,
   formatCapitalCents,
 } from '@/lib/market-posture-root-capital';
+import { buildMarketPostureAlgorithmGraph } from '@/lib/market-posture-algorithm-graph';
 import {
   buildCapitalEntityCharts,
   buildCapitalStageCharts,
@@ -190,6 +191,16 @@ export function MarketPostureStageScreens(props: MarketPostureStageScreensProps)
     return () => observer.disconnect();
   }, [mp.activeStageScreenId, mp.setActiveStageScreenId, props.hub]);
 
+  const stripGraphNodes = useMemo(
+    () =>
+      buildMarketPostureAlgorithmGraph({
+        hydration: props.hub.modelHydration ?? null,
+        stages: null,
+        layoutMode: 'stripExpanded',
+      }).nodes,
+    [props.hub.modelHydration],
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <nav
@@ -224,7 +235,7 @@ export function MarketPostureStageScreens(props: MarketPostureStageScreensProps)
             id={meta.id}
             label={meta.label}
             summary={meta.summary}
-            numberFlow={buildStageNodeNumberFlow(meta.id, props.hub)}
+            numberFlow={buildStageNodeNumberFlow(meta.id, props.hub, stripGraphNodes)}
           >
             {renderScreenBody(meta.id, props, mp)}
           </ScreenShell>

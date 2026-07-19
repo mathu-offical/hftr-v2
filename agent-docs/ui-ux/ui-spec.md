@@ -326,7 +326,11 @@ are ignored. Shortcuts are suppressed in editable fields.
   corpus/constants. Each pipeline column emits into the screen above it; clicking a
   Model node (or section group) navigates to that screen. Each stage opens with charts
   and main numeric readouts first, then a **Group nodes → numbers** trace underneath
-  (active Model/hydration nodes only — no missing-key / unbound idle services).
+  (active Model/hydration nodes only — no missing-key / unbound idle services; every
+  strip graph node on the screen is mapped into the emission list). The bottom **Model
+  strip** packs nodes into the same six columns with connection-based layout (role lanes
+  + relevance order), draws all within- and between-screen edges (plus group backbone
+  flows), and stamps each node to its owning stage screen.
   **Capital** shows root user-controlled funds only (company pool + holding funds),
   engine allocation splits, master equity, and open position mark/uPnL values.
   **Live ingest** shows active APIs, query/filter orientation, normalize pipeline, and

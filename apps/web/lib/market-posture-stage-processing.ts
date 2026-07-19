@@ -5,7 +5,10 @@
  */
 
 import type { MarketHubResponse } from '@hftr/contracts';
-import type { MarketPostureStageScreenId } from './market-posture-stage-screens';
+import {
+  resolveStageScreenId,
+  type MarketPostureStageScreenId,
+} from './market-posture-stage-screens';
 import { buildRootUserCapitalView } from './market-posture-root-capital';
 
 export type StageNodeNumberStep = {
@@ -21,7 +24,7 @@ export type StageNodeNumberStep = {
   formula: string | null;
 };
 
-const MAX_STEPS = 18;
+const MAX_STEPS = 40;
 
 function dollars(cents: number | string | null | undefined): string {
   if (cents == null) return '—';
@@ -66,10 +69,24 @@ function push(
 
 /**
  * Build node→number traces for a stage screen from hub hydration.
+ * When `graphNodes` is provided (strip Model), every content node on this
+ * screen gets an emission if hub traces did not already cover its id.
  */
 export function buildStageNodeNumberFlow(
   screenId: MarketPostureStageScreenId,
   hub: MarketHubResponse,
+  graphNodes?: ReadonlyArray<{
+    id: string;
+    data: {
+      label: string;
+      operation: string;
+      amount: string;
+      nodeRole: string;
+      stageScreenId?: string | null;
+      stageId?: string | null;
+      panelSurfaceId?: string | null;
+    };
+  }>,
 ): StageNodeNumberStep[] {
   const steps: StageNodeNumberStep[] = [];
   const hydration = hub.modelHydration ?? null;
@@ -469,6 +486,34 @@ export function buildStageNodeNumberFlow(
     default: {
       const _exhaustive: never = screenId;
       return _exhaustive;
+    }
+  }
+
+  if (graphNodes && graphNodes.length > 0) {
+    const covered = new Set(steps.map((s) => s.nodeId));
+    for (const n of graphNodes) {
+      if (n.data.nodeRole === 'screen_group' || n.data.nodeRole === 'lane_label') {
+        continue;
+      }
+      const sid =
+        (n.data.stageScreenId as MarketPostureStageScreenId | null | undefined) ??
+        resolveStageScreenId({
+          nodeId: n.id,
+          nodeRole: n.data.nodeRole,
+          stageId: n.data.stageId ?? null,
+          panelSurfaceId: n.data.panelSurfaceId ?? null,
+        });
+      if (sid !== screenId) continue;
+      if (covered.has(n.id)) continue;
+      covered.add(n.id);
+      push(steps, {
+        id: `graph:${n.id}`,
+        nodeId: n.id,
+        nodeLabel: n.data.label,
+        transform: `${n.data.nodeRole.replace(/_/g, ' ')} → emission`,
+        valueLabel: n.data.amount,
+        formula: n.data.operation || null,
+      });
     }
   }
 

@@ -1395,9 +1395,10 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
   }));
 
   if (layoutMode === 'stripExpanded') {
+    const packed = applyStripScreenGroups(nodes, edges);
     return {
-      nodes: applyStripScreenGroups(nodes),
-      edges,
+      nodes: packed,
+      edges: finalizeStripEdges(edges, packed),
       tracks,
       trackBands,
       asOfIso,
@@ -1407,29 +1408,107 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
   return { nodes, edges, tracks, trackBands, asOfIso };
 }
 
-const STRIP_COL_W = 272;
-const STRIP_NODE_H = 64;
+/** Outer screen-column pitch (must fit inner role lanes). */
+const STRIP_NODE_H = 58;
+const STRIP_NODE_W = 148;
 const STRIP_PAD = 8;
 const STRIP_HEADER = 26;
+const STRIP_INNER_GAP = 10;
+/** Max role lanes inside a screen group (src → adapt → process → stage → emit). */
+const STRIP_INNER_LANES = 5;
+const STRIP_INNER_LANE_W = STRIP_NODE_W + STRIP_INNER_GAP;
+const STRIP_COL_W =
+  STRIP_PAD * 2 + STRIP_INNER_LANES * STRIP_INNER_LANE_W + 12;
 
 const STRIP_ROLE_ORDER: Record<PostureAlgoNodeRole, number> = {
   screen_group: -1,
   capital_source: 0,
-  library_source: 1,
-  live_source: 2,
-  adapter: 3,
-  process: 4,
-  stage: 5,
-  panel_surface: 6,
+  library_source: 0,
+  live_source: 0,
+  adapter: 1,
+  process: 2,
+  stage: 3,
+  panel_surface: 4,
   lane_label: 9,
 };
 
+function screenIdForNode(n: PostureAlgoGraphNode): MarketPostureStageScreenId {
+  return resolveStageScreenId({
+    nodeId: n.id,
+    nodeRole: n.data.nodeRole,
+    stageId: n.data.stageId ?? null,
+    panelSurfaceId: n.data.panelSurfaceId ?? null,
+  });
+}
+
+function median(nums: number[]): number {
+  if (nums.length === 0) return 0;
+  const sorted = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2
+    : (sorted[mid] ?? 0);
+}
+
+/**
+ * Order nodes in a role lane by connectivity (barycenter of neighbor ranks)
+ * with role/label tie-breaks. Spreads related nodes near each other.
+ */
+function orderLaneByConnections(
+  laneNodes: PostureAlgoGraphNode[],
+  edges: Array<{ source: string; target: string }>,
+  rankById: Map<string, number>,
+): PostureAlgoGraphNode[] {
+  if (laneNodes.length <= 1) return laneNodes;
+  const idSet = new Set(laneNodes.map((n) => n.id));
+  const neighborRanks = (id: string): number[] => {
+    const ranks: number[] = [];
+    for (const e of edges) {
+      if (e.source === id && !idSet.has(e.target)) {
+        const r = rankById.get(e.target);
+        if (r != null) ranks.push(r);
+      } else if (e.target === id && !idSet.has(e.source)) {
+        const r = rankById.get(e.source);
+        if (r != null) ranks.push(r);
+      }
+    }
+    return ranks;
+  };
+
+  let ordered = [...laneNodes].sort((a, b) => {
+    const ma = median(neighborRanks(a.id));
+    const mb = median(neighborRanks(b.id));
+    if (ma !== mb) return ma - mb;
+    return a.data.label.localeCompare(b.data.label);
+  });
+
+  // Second pass: refine with updated ranks inside the lane.
+  const localRank = new Map(ordered.map((n, i) => [n.id, i]));
+  ordered = [...ordered].sort((a, b) => {
+    const extA = neighborRanks(a.id);
+    const extB = neighborRanks(b.id);
+    const scoreA =
+      extA.length > 0
+        ? median(extA)
+        : (localRank.get(a.id) ?? 0);
+    const scoreB =
+      extB.length > 0
+        ? median(extB)
+        : (localRank.get(b.id) ?? 0);
+    if (scoreA !== scoreB) return scoreA - scoreB;
+    return a.data.label.localeCompare(b.data.label);
+  });
+  return ordered;
+}
+
 /**
  * Pack Model nodes into screen-aligned group columns for the bottom strip (D-186).
- * Lane labels dropped; children nest under clickable section frames.
+ * Children spread by role lane (x) and connection relevance (y). No overflow cap —
+ * every content node stays so intra- and inter-screen edges remain drawable.
  */
 export function applyStripScreenGroups(
   nodes: PostureAlgoGraphNode[],
+  edges: Array<{ source: string; target: string }> = [],
 ): PostureAlgoGraphNode[] {
   const content = nodes.filter((n) => n.data.nodeRole !== 'lane_label');
   const byScreen = new Map<MarketPostureStageScreenId, PostureAlgoGraphNode[]>();
@@ -1437,38 +1516,76 @@ export function applyStripScreenGroups(
     byScreen.set(screen.id, []);
   }
   for (const n of content) {
-    const sid = resolveStageScreenId({
-      nodeId: n.id,
-      nodeRole: n.data.nodeRole,
-      stageId: n.data.stageId ?? null,
-      panelSurfaceId: n.data.panelSurfaceId ?? null,
-    });
-    byScreen.get(sid)!.push(n);
+    byScreen.get(screenIdForNode(n))!.push(n);
   }
 
-  const out: PostureAlgoGraphNode[] = [];
-  MARKET_POSTURE_STAGE_SCREENS.forEach((screen, colIdx) => {
-    const children = [...(byScreen.get(screen.id) ?? [])].sort((a, b) => {
+  // Global connectivity ranks (topo-ish: role then label) for barycenter seeds.
+  const globalRank = new Map<string, number>();
+  let rank = 0;
+  for (const screen of MARKET_POSTURE_STAGE_SCREENS) {
+    const kids = [...(byScreen.get(screen.id) ?? [])].sort((a, b) => {
       const ra = STRIP_ROLE_ORDER[a.data.nodeRole] ?? 5;
       const rb = STRIP_ROLE_ORDER[b.data.nodeRole] ?? 5;
       if (ra !== rb) return ra - rb;
       return a.data.label.localeCompare(b.data.label);
     });
-    const visible = children.slice(0, 8);
-    const overflow = children.length - visible.length;
-    const innerH = Math.max(visible.length, 1) * STRIP_NODE_H;
-    const height = STRIP_HEADER + STRIP_PAD * 2 + innerH;
+    for (const k of kids) globalRank.set(k.id, rank++);
+  }
+
+  const out: PostureAlgoGraphNode[] = [];
+  const innerLaneW = STRIP_INNER_LANE_W;
+  const groupInnerW = STRIP_PAD * 2 + STRIP_INNER_LANES * innerLaneW;
+
+  MARKET_POSTURE_STAGE_SCREENS.forEach((screen, colIdx) => {
+    const children = byScreen.get(screen.id) ?? [];
+    const lanes: PostureAlgoGraphNode[][] = Array.from(
+      { length: STRIP_INNER_LANES },
+      () => [],
+    );
+    for (const child of children) {
+      const lane = Math.min(
+        STRIP_INNER_LANES - 1,
+        Math.max(0, STRIP_ROLE_ORDER[child.data.nodeRole] ?? 2),
+      );
+      lanes[lane]!.push(child);
+    }
+
+    const orderedLanes = lanes.map((lane) =>
+      orderLaneByConnections(lane, edges, globalRank),
+    );
+    // Refresh ranks after connection ordering for cross-lane alignment.
+    for (const lane of orderedLanes) {
+      lane.forEach((n, i) => globalRank.set(n.id, i));
+    }
+    const alignedLanes = orderedLanes.map((lane) =>
+      orderLaneByConnections(lane, edges, globalRank),
+    );
+
+    const maxRows = Math.max(1, ...alignedLanes.map((l) => l.length));
+    const height =
+      STRIP_HEADER + STRIP_PAD * 2 + maxRows * STRIP_NODE_H;
     const groupId = `group:${screen.id}`;
+    const intraEdges = edges.filter((e) => {
+      const a = children.some((c) => c.id === e.source);
+      const b = children.some((c) => c.id === e.target);
+      return a && b;
+    }).length;
+    const interEdges = edges.filter((e) => {
+      const a = children.some((c) => c.id === e.source);
+      const b = children.some((c) => c.id === e.target);
+      return (a || b) && !(a && b);
+    }).length;
+
     out.push({
       id: groupId,
       type: 'postureGroup',
       position: { x: colIdx * STRIP_COL_W, y: 0 },
-      style: { width: STRIP_COL_W - 14, height },
+      style: { width: Math.max(STRIP_COL_W - 12, groupInnerW), height },
       draggable: false,
       selectable: true,
       data: {
         label: screen.label,
-        detail: overflow > 0 ? `+${overflow} more · ${screen.summary}` : screen.summary,
+        detail: `${intraEdges} in · ${interEdges} out · ${screen.summary}`,
         kind: 'data',
         nodeRole: 'screen_group',
         stageScreenId: screen.id,
@@ -1481,20 +1598,94 @@ export function applyStripScreenGroups(
         updatedAt: null,
       },
     });
-    visible.forEach((child, i) => {
-      out.push({
-        ...child,
-        parentId: groupId,
-        extent: 'parent',
-        position: {
-          x: STRIP_PAD,
-          y: STRIP_HEADER + STRIP_PAD + i * STRIP_NODE_H,
-        },
-        draggable: false,
+
+    alignedLanes.forEach((lane, laneIdx) => {
+      lane.forEach((child, rowIdx) => {
+        out.push({
+          ...child,
+          parentId: groupId,
+          extent: 'parent',
+          position: {
+            x: STRIP_PAD + laneIdx * innerLaneW,
+            y: STRIP_HEADER + STRIP_PAD + rowIdx * STRIP_NODE_H,
+          },
+          draggable: false,
+          data: {
+            ...child.data,
+            stageScreenId: screen.id,
+          },
+        });
       });
     });
   });
   return out;
+}
+
+/**
+ * Keep every edge whose endpoints survived packing, and add screen-group
+ * backbone edges for between-screen flows (D-186).
+ */
+export function finalizeStripEdges(
+  edges: PostureAlgoGraph['edges'],
+  packed: PostureAlgoGraphNode[],
+): PostureAlgoGraph['edges'] {
+  const contentIds = new Set(
+    packed
+      .filter((n) => n.data.nodeRole !== 'screen_group' && n.data.nodeRole !== 'lane_label')
+      .map((n) => n.id),
+  );
+  const screenByNode = new Map<string, MarketPostureStageScreenId>();
+  for (const n of packed) {
+    if (n.data.nodeRole === 'screen_group' && n.data.stageScreenId) {
+      continue;
+    }
+    if (n.data.stageScreenId) {
+      screenByNode.set(n.id, n.data.stageScreenId as MarketPostureStageScreenId);
+    }
+  }
+
+  const kept = edges.filter(
+    (e) => contentIds.has(e.source) && contentIds.has(e.target),
+  );
+
+  const pairCounts = new Map<
+    string,
+    { from: MarketPostureStageScreenId; to: MarketPostureStageScreenId; n: number; track: MarketHubModelTrack }
+  >();
+  for (const e of kept) {
+    const from = screenByNode.get(e.source);
+    const to = screenByNode.get(e.target);
+    if (!from || !to || from === to) continue;
+    const key = `${from}->${to}`;
+    const prev = pairCounts.get(key);
+    if (prev) prev.n += 1;
+    else
+      pairCounts.set(key, {
+        from,
+        to,
+        n: 1,
+        track: e.data.track,
+      });
+  }
+
+  const backbone: PostureAlgoGraph['edges'] = [];
+  for (const { from, to, n, track } of pairCounts.values()) {
+    backbone.push({
+      id: `e-group:${from}->${to}`,
+      source: `group:${from}`,
+      target: `group:${to}`,
+      label: `${n} flows`,
+      data: {
+        edgeType: 'emit',
+        activation: 'armed',
+        status: 'ready',
+        track,
+        label: `${n} flows`,
+      },
+    });
+  }
+
+  return [...kept, ...backbone];
 }
 
 /**

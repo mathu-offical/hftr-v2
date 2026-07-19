@@ -6,6 +6,7 @@ import type { MarketHubCapitalSource, MarketHubResponse } from '@hftr/contracts'
 import { useMarketPostureView } from '@/components/panels/MarketPostureViewContext';
 import { SymbolTicker } from '@/components/market/SymbolTicker';
 import { Justification } from '@/components/panels/Justification';
+import { SourceVerifyChips } from '@/components/panels/SourceVerifyChips';
 import {
   dollarsFromCents,
   equityStatusLabel,
@@ -299,6 +300,11 @@ function PositionList(props: { hub: MarketHubResponse }) {
                     : ''}
                 </span>
               }
+            />
+            <SourceVerifyChips
+              chips={p.sourceChips ?? []}
+              className="mt-1"
+              multiOnly
             />
           </button>
         </li>

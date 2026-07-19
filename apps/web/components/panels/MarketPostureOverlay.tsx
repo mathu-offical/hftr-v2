@@ -6,6 +6,7 @@ import { useResearchView } from '@/components/research/ResearchViewContext';
 import { MarketPostureEquityChart } from '@/components/panels/MarketPostureEquityChart';
 import { MarketPostureFreshnessStrip } from '@/components/panels/MarketPostureFreshnessStrip';
 import { MarketPostureSourcesStrip } from '@/components/panels/MarketPostureSourcesStrip';
+import { SourceVerifyChips } from '@/components/panels/SourceVerifyChips';
 import { MarketPostureModelCanvas } from '@/components/panels/MarketPostureModelCanvas';
 import { MarketPostureAwarenessDock } from '@/components/panels/MarketPostureAwarenessDock';
 import { SymbolTicker } from '@/components/market/SymbolTicker';
@@ -228,9 +229,15 @@ export function MarketPostureOverlay() {
         ) : (
           <div className="mx-auto flex max-w-5xl flex-col gap-4">
             <section className="space-y-2" data-testid="market-posture-master-equity">
-              <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-                Master equity
-              </h3>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+                  Master equity
+                </h3>
+                <SourceVerifyChips
+                  chips={hub.equity.sourceChips ?? []}
+                  data-testid="market-posture-equity-source-chips"
+                />
+              </div>
               <MarketPostureEquityChart
                 series={hub.equity.series}
                 selectedQty={null}
@@ -293,6 +300,10 @@ export function MarketPostureOverlay() {
                         : ''}
                     </span>
                   </div>
+                  <SourceVerifyChips
+                    chips={hub.movers.sourceChips ?? []}
+                    data-testid="market-posture-movers-source-chips"
+                  />
                   <p className="font-mono text-[9px] text-[var(--color-ink-faint)]">
                     Verified {formatOrientation(hub.movers.verifiedAt)} · expires{' '}
                     {formatOrientation(hub.movers.expiresAt)}
@@ -368,6 +379,10 @@ export function MarketPostureOverlay() {
                         : ''}
                     </span>
                   </div>
+                  <SourceVerifyChips
+                    chips={hub.news.sourceChips ?? []}
+                    data-testid="market-posture-news-source-chips"
+                  />
                   <p className="font-mono text-[9px] text-[var(--color-ink-faint)]">
                     Verified {formatOrientation(hub.news.verifiedAt)} · expires{' '}
                     {formatOrientation(hub.news.expiresAt)}
@@ -554,6 +569,7 @@ export function MarketPostureOverlay() {
                       </Justification>
                       <div className="mt-0.5 flex items-center justify-between gap-1">
                         <EngineChips engines={w.engines} />
+                        <SourceVerifyChips chips={w.sourceChips ?? []} />
                         {w.status === 'suggested_search' || w.status === 'suggested_verified' ? (
                           <button
                             type="button"

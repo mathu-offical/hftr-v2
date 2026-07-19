@@ -69,8 +69,14 @@ describe('engine decision seeds (D-202 refine)', () => {
     expect(visible.some((a) => a.kind === 'recovery_phase')).toBe(true);
     expect(visible.some((a) => a.kind === 'research_subtype')).toBe(true);
     const families = visible.filter((a) => a.kind === 'strategy_family');
-    expect(families.length).toBe(3);
-    expect(families.every((f) => (f.options?.length ?? 0) > 0)).toBe(true);
+    expect(families.length).toBe(1);
+    expect(families[0]!.options.map((o) => o.id).sort()).toEqual([
+      'strat-001',
+      'strat-002',
+      'strat-005',
+    ]);
+    expect(visible.some((a) => a.kind === 'branch_role')).toBe(true);
+    expect(visible.some((a) => a.kind === 'template_input')).toBe(false);
   });
 
   it('prediction engine uses interim reversion + pairs palette', () => {
@@ -91,13 +97,14 @@ describe('engine decision seeds (D-202 refine)', () => {
       members,
     });
     const families = anchors.filter((a) => a.kind === 'strategy_family');
-    expect(families.map((f) => f.catalogRef.split('/').pop()).sort()).toEqual([
+    expect(families).toHaveLength(1);
+    expect(families[0]!.options.map((f) => f.id).sort()).toEqual([
       'strat-005',
       'strat-008',
     ]);
   });
 
-  it('HFT seeds market-making family only', () => {
+  it('HFT seeds one market-making strategy node', () => {
     const template = getEngineTemplateById('engine_hft')!;
     const members = template.modules.map((mod, i) => ({
       id: `h${i}`,
@@ -111,7 +118,7 @@ describe('engine decision seeds (D-202 refine)', () => {
     });
     const families = anchors.filter((a) => a.kind === 'strategy_family');
     expect(families).toHaveLength(1);
-    expect(families[0]?.catalogRef).toContain('strat-007');
+    expect(families[0]?.options.map((o) => o.id)).toEqual(['strat-007']);
   });
 
   it('long-term dual research exposes sibling decision roots per curator', () => {
@@ -129,7 +136,8 @@ describe('engine decision seeds (D-202 refine)', () => {
     const subtypes = anchors.filter((a) => a.kind === 'research_subtype');
     expect(subtypes.length).toBeGreaterThanOrEqual(2);
     const families = anchors.filter((a) => a.kind === 'strategy_family');
-    expect(families.map((f) => f.catalogRef.split('/').pop()).sort()).toEqual([
+    expect(families).toHaveLength(1);
+    expect(families[0]!.options.map((f) => f.id).sort()).toEqual([
       'strat-003',
       'strat-004',
       'strat-009',

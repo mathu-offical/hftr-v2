@@ -152,6 +152,7 @@ const EXECUTION_DESK_DECISION_SEEDS = (
     ownerModuleIndex: tradeIndex,
     optionRefs: [...strategyRefs],
   },
+  { kind: 'branch_role', ownerModuleIndex: tradeIndex },
   { kind: 'recovery_phase', ownerModuleIndex: tradeIndex },
   { kind: 'emit_mode', ownerModuleIndex: analyzerIndex },
 ];
@@ -188,6 +189,7 @@ const SIM_DESK_DECISION_SEEDS = (
     ownerModuleIndex: 2,
     optionRefs: [...strategyRefs],
   },
+  { kind: 'branch_role', ownerModuleIndex: 2 },
   { kind: 'recovery_phase', ownerModuleIndex: 2 },
   { kind: 'emit_mode', ownerModuleIndex: 5 },
 ];
@@ -935,6 +937,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         ownerModuleIndex: 6,
         optionRefs: ['strat-003', 'strat-004', 'strat-009'],
       },
+      { kind: 'branch_role', ownerModuleIndex: 6 },
       { kind: 'recovery_phase', ownerModuleIndex: 6 },
       { kind: 'emit_mode', ownerModuleIndex: 9 },
     ],
@@ -2498,6 +2501,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         ownerModuleIndex: 3,
         optionRefs: ['strat-001', 'strat-002', 'strat-005'],
       },
+      { kind: 'branch_role', ownerModuleIndex: 3 },
       { kind: 'recovery_phase', ownerModuleIndex: 3 },
       { kind: 'emit_mode', ownerModuleIndex: 6 },
     ],

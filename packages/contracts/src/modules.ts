@@ -76,7 +76,7 @@ export const MODULE_REQUIRED_DECISION_KINDS = {
   librarian: ['librarian_subtype', 'cadence_band'],
   library: ['library_class'],
   trend: ['trend_posture', 'cadence_band'],
-  trading: ['strategy_family', 'recovery_phase'],
+  trading: ['strategy_family', 'branch_role', 'recovery_phase'],
   analyzer: ['emit_mode'],
   live_api: ['feed_class', 'query_policy', 'schedule_policy'],
 } as const satisfies Record<string, readonly string[]>;

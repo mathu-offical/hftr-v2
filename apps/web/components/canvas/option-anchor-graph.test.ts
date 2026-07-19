@@ -278,6 +278,9 @@ describe('decision-node graph placement (D-192 / D-180)', () => {
     });
     const focus = all.find((a) => a.kind === 'template_input' && a.catalogRef === 'focus');
     expect(focus?.ownerModuleId).toBe(trendId);
+    // template_input stays inspector-only (D-208); canvas docks trend_posture beside trend.
+    const posture = all.find((a) => a.kind === 'trend_posture' && a.ownerModuleId === trendId);
+    expect(posture).toBeTruthy();
     const modulesForPlace = [
       ...execModules,
       ...fullMembers
@@ -309,17 +312,18 @@ describe('decision-node graph placement (D-192 / D-180)', () => {
       all,
       modulesForPlace,
     );
-    const focusNode = placed.find((n) => n.id === focus!.id);
-    expect(focusNode).toBeTruthy();
+    const postureNode = placed.find((n) => n.id === posture!.id);
+    expect(postureNode).toBeTruthy();
+    expect(postureNode!.type).toBe('decisionNode');
     const trendRelX = ENGINE_GROUP_PADDING.left + 400;
     const trendRelY = 200;
-    expect(focusNode!.position.x).toBe(
+    expect(postureNode!.position.x).toBe(
       trendRelX + CANVAS_LAYOUT.moduleWidth + OPTION_ANCHOR_OWNER_GAP,
     );
-    // Non-overlap may push below owner Y when earlier owner trees are tall.
-    expect(focusNode!.position.y).toBeGreaterThanOrEqual(trendRelY);
+    expect(postureNode!.position.y).toBeGreaterThanOrEqual(trendRelY);
     const edges = optionBindEdgesForEngine(all);
-    const ownerEdge = edges.find((e) => e.target === focus!.id);
+    const ownerEdge = edges.find((e) => e.target === posture!.id);
     expect(ownerEdge?.source).toBe(trendId);
+    expect(ownerEdge?.targetHandle).toBe(DECISION_HANDLE_DATA_IN);
   });
 });

@@ -47,34 +47,43 @@ function kindChipLabel(kind: OptionAnchorKind): string {
   return kind.replace(/_/g, ' ');
 }
 
-function selectedLabel(data: DecisionNodeData): string {
-  const selected = data.options?.find((opt) => opt.id === data.selectedOptionId);
-  return selected?.label ?? data.label;
-}
-
 /**
- * Unified decision node (D-192): one card per deterministic choice point.
- * Options live in config; each option exposes its own source handle for routing.
- * All Handles are direct children of the root (React Flow requirement).
+ * Single decision unit (D-208): one React Flow node with multiple intake ports
+ * and one source port per option. Options are config/ports — never child nodes.
  */
 export const DecisionNode = memo(function DecisionNode({
   data,
   selected,
 }: NodeProps<DecisionFlowNode>) {
-  const position = data.position ?? 'typical';
   const intakes = data.intakes ?? { data: true, systemControl: true, clock: false };
   const options: DecisionOption[] = data.options ?? [];
   const borderColor = selected
     ? 'var(--color-accent)'
     : 'color-mix(in srgb, var(--color-line) 85%, transparent)';
 
-  const cardMinHeight = Math.max(72, 48 + options.length * 14);
+  const intakeRows: Array<{ id: string; label: string; show: boolean }> = [
+    { id: DECISION_HANDLE_DATA_IN, label: 'data', show: intakes.data },
+    { id: DECISION_HANDLE_SYSTEM_IN, label: 'system', show: intakes.systemControl },
+    { id: 'decision-clock-in', label: 'clock', show: intakes.clock },
+  ].filter((row) => row.show);
+
+  const outRows =
+    options.length > 0
+      ? options.map((opt) => ({
+          id: decisionOptionOutHandle(opt.id),
+          label: opt.label,
+          selected: opt.id === data.selectedOptionId,
+        }))
+      : [{ id: OPTION_ANCHOR_HANDLE_OUT, label: 'out', selected: false }];
+
+  const rowCount = Math.max(intakeRows.length, outRows.length, 1);
+  const cardMinHeight = Math.max(56, 28 + rowCount * 18);
 
   return (
     <div
       role="group"
       aria-label={`${data.label} decision`}
-      className="relative flex w-[168px] flex-col gap-1 rounded-md border px-2 py-1.5 shadow-md"
+      className="relative flex w-[200px] flex-col rounded-md border shadow-md"
       style={{
         minHeight: cardMinHeight,
         borderColor,
@@ -82,112 +91,82 @@ export const DecisionNode = memo(function DecisionNode({
       }}
       title={data.label}
     >
-      {intakes.data ? (
+      {/* Handles must be direct children of the node root for React Flow. */}
+      {intakeRows.map((row, index) => (
         <Handle
-          id={DECISION_HANDLE_DATA_IN}
+          key={row.id}
+          id={row.id}
           type="target"
           position={Position.Left}
           className="hftr-handle"
-          aria-label="Decision data in"
+          aria-label={`Decision ${row.label} in`}
           style={{
-            top: '28%',
-            width: 6,
-            height: 6,
-            background: 'var(--color-ink-faint)',
-            border: '1px solid var(--color-surface-0)',
-          }}
-        />
-      ) : null}
-      {intakes.systemControl ? (
-        <Handle
-          id={DECISION_HANDLE_SYSTEM_IN}
-          type="target"
-          position={Position.Left}
-          className="hftr-handle"
-          aria-label="Decision system control in"
-          style={{
-            top: '62%',
-            width: 6,
-            height: 6,
+            top: `${((index + 1) / (intakeRows.length + 1)) * 100}%`,
+            width: 7,
+            height: 7,
             background: 'var(--color-ink-dim)',
             border: '1px solid var(--color-surface-0)',
           }}
         />
-      ) : null}
-
-      {options.length === 0 ? (
+      ))}
+      {outRows.map((row, index) => (
         <Handle
-          id={OPTION_ANCHOR_HANDLE_OUT}
+          key={row.id}
+          id={row.id}
           type="source"
           position={Position.Right}
           className="hftr-handle"
-          aria-label="Decision out"
+          aria-label={`Decision ${row.label} out`}
           style={{
-            top: '50%',
-            width: 6,
-            height: 6,
-            background: 'var(--color-ink-faint)',
+            top: `${((index + 1) / (outRows.length + 1)) * 100}%`,
+            width: 7,
+            height: 7,
+            background: row.selected ? 'var(--color-accent)' : 'var(--color-ink-faint)',
             border: '1px solid var(--color-surface-0)',
           }}
         />
-      ) : (
-        options.map((option, index) => {
-          const isSelected = option.id === data.selectedOptionId;
-          const topPct = ((index + 1) / (options.length + 1)) * 100;
-          return (
-            <Handle
-              key={option.id}
-              id={decisionOptionOutHandle(option.id)}
-              type="source"
-              position={Position.Right}
-              className="hftr-handle"
-              aria-label={`Option out ${option.label}`}
-              style={{
-                top: `${topPct}%`,
-                width: 6,
-                height: 6,
-                background: isSelected ? 'var(--color-accent)' : 'var(--color-ink-faint)',
-                border: '1px solid var(--color-surface-0)',
-              }}
-            />
-          );
-        })
-      )}
+      ))}
 
-      <div className="flex items-center justify-between gap-1">
-        <span className="max-w-[88px] truncate rounded border border-[var(--color-line)] px-1 py-0.5 text-[7px] uppercase tracking-wide text-[var(--color-ink-faint)]">
+      <div
+        className="border-b px-2 py-1"
+        style={{ borderColor: 'var(--color-line)' }}
+      >
+        <p className="truncate text-[8px] uppercase tracking-wide text-[var(--color-ink-faint)]">
           {kindChipLabel(data.kind)}
-        </span>
-        <span className="shrink-0 rounded border border-[var(--color-line)] px-1 py-0.5 text-[7px] uppercase tracking-wide text-[var(--color-ink-dim)]">
-          {position}
-        </span>
+        </p>
+        <p className="truncate text-[11px] font-medium text-[var(--color-ink)]">{data.label}</p>
       </div>
-      <p className="truncate text-[10px] font-medium text-[var(--color-ink)]">{data.label}</p>
-      <p className="truncate text-[8px] text-[var(--color-ink-dim)]">
-        Selected: {selectedLabel(data)}
-      </p>
-      {options.length > 0 ? (
-        <ul className="mt-0.5 space-y-0.5 pr-2">
-          {options.map((option) => {
-            const isSelected = option.id === data.selectedOptionId;
-            return (
-              <li
-                key={option.id}
-                className="truncate text-right text-[7px]"
-                style={{
-                  color: isSelected ? 'var(--color-accent)' : 'var(--color-ink-faint)',
-                }}
-                title={option.label}
-              >
-                {option.label}
-              </li>
-            );
-          })}
+
+      <div className="grid flex-1 grid-cols-2 gap-x-2 px-2 py-1">
+        <ul className="space-y-0.5">
+          {intakeRows.map((row) => (
+            <li
+              key={row.id}
+              className="truncate text-[8px] text-[var(--color-ink-dim)]"
+              title={row.label}
+            >
+              {row.label}
+            </li>
+          ))}
         </ul>
-      ) : null}
+        <ul className="space-y-0.5 text-right">
+          {outRows.map((row) => (
+            <li
+              key={row.id}
+              className="truncate text-[8px]"
+              style={{
+                color: row.selected ? 'var(--color-accent)' : 'var(--color-ink-dim)',
+              }}
+              title={row.label}
+            >
+              {row.label}
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 });
 
-/** @deprecated Prefer DecisionNode (D-192). */
+/** @deprecated Prefer DecisionNode (D-208). */
 export const OptionAnchorNode = DecisionNode;

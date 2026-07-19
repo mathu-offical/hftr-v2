@@ -2079,6 +2079,16 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   D-174 / D-202. Docs: canvas-engine-group-design, `engine-decision-seeds.ts`.
   **Status: implemented.**
 
+- **D-208 (decision nodes as single multi-port units, 2026-07-19):** Stop rendering
+  choice points as compound forests. Each canvas decision is **one** React Flow
+  node with labeled intake ports (data / system / clock) and **one source port per
+  option**. Strategy palette is a single `strategy_family` node (families = outs);
+  branch taxonomy is a sibling `branch_role` node — never one card per family or
+  per option leaf. Template inputs stay inspector-only; auto-bind is one data
+  intake edge per decision. Extends D-202 / D-207. Docs: ui-spec §3,
+  canvas-engine-group-design, DecisionNode.tsx.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

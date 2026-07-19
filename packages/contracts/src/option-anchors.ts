@@ -408,53 +408,72 @@ export function buildOptionAnchorsForEngine(
     });
   }
 
-  // ── Trading execution tree (D-202 collapse) ───────────────────────────────
+  // ── Trading decisions (D-208): one strategy node + one branch node per trader ─
   for (const trader of traders) {
     const families = resolveStrategyFamiliesForTrader(trader.config, template.category);
-    for (const familyId of families) {
-      const familyCatalogRef = `${trader.id}/${familyId}`;
-      const familyAnchorId = buildOptionAnchorId(
-        parsed.engineId,
-        'strategy_family',
-        familyCatalogRef,
-      );
-      const branchOptions: DecisionOption[] = branchTypes.map((branch) => ({
-        id: branch.id,
-        catalogRef: `${familyCatalogRef}/${branch.id}`,
-        label: humanizeToken(branch.role),
-      }));
+    const strategyCatalogRef = `${trader.id}/strategy_palette`;
+    const strategyAnchorId = buildOptionAnchorId(
+      parsed.engineId,
+      'strategy_family',
+      strategyCatalogRef,
+    );
+    const familyOptions: DecisionOption[] = families.map((familyId) => ({
+      id: familyId,
+      catalogRef: `${trader.id}/${familyId}`,
+      label: familyLabel(familyId),
+    }));
 
+    pushAnchor({
+      id: strategyAnchorId,
+      kind: 'strategy_family',
+      catalogRef: strategyCatalogRef,
+      label: 'Strategy family',
+      layer: 'tactical',
+      parentAnchorId: null,
+      ownerModuleId: trader.id,
+      ownerEngineId: parsed.engineId,
+      options: familyOptions,
+      selectedOptionId: families[0] ?? null,
+      intakes: DEFAULT_DECISION_INTAKES,
+    });
+
+    const branchOptions: DecisionOption[] = branchTypes.map((branch) => ({
+      id: branch.id,
+      catalogRef: `${trader.id}/${branch.id}`,
+      label: humanizeToken(branch.role),
+    }));
+    if (branchOptions.length > 0) {
       pushAnchor({
-        id: familyAnchorId,
-        kind: 'strategy_family',
-        catalogRef: familyCatalogRef,
-        label: familyLabel(familyId),
+        id: buildOptionAnchorId(parsed.engineId, 'branch_role', `${trader.id}/branch_palette`),
+        kind: 'branch_role',
+        catalogRef: `${trader.id}/branch_palette`,
+        label: 'Decision branch',
         layer: 'tactical',
         parentAnchorId: null,
         ownerModuleId: trader.id,
         ownerEngineId: parsed.engineId,
         options: branchOptions,
-        selectedOptionId: null,
+        selectedOptionId: branchOptions[0]?.id ?? null,
         intakes: DEFAULT_DECISION_INTAKES,
       });
+    }
 
-      for (const branch of branchTypes) {
-        for (const lever of branch.levers ?? []) {
-          leverBandRefs.add(lever);
-          pushAnchor({
-            id: buildOptionAnchorId(parsed.engineId, 'lever_band', `${trader.id}/${lever}`),
-            kind: 'lever_band',
-            catalogRef: lever,
-            label: humanizeToken(lever),
-            layer: 'tactical',
-            parentAnchorId: familyAnchorId,
-            ownerModuleId: trader.id,
-            ownerEngineId: parsed.engineId,
-            defaultPosition: 'typical',
-            options: [],
-            intakes: DEFAULT_DECISION_INTAKES,
-          });
-        }
+    for (const branch of branchTypes) {
+      for (const lever of branch.levers ?? []) {
+        leverBandRefs.add(lever);
+        pushAnchor({
+          id: buildOptionAnchorId(parsed.engineId, 'lever_band', `${trader.id}/${lever}`),
+          kind: 'lever_band',
+          catalogRef: lever,
+          label: humanizeToken(lever),
+          layer: 'tactical',
+          parentAnchorId: strategyAnchorId,
+          ownerModuleId: trader.id,
+          ownerEngineId: parsed.engineId,
+          defaultPosition: 'typical',
+          options: [],
+          intakes: DEFAULT_DECISION_INTAKES,
+        });
       }
     }
   }
@@ -961,12 +980,16 @@ export function buildOptionAnchorsForEngine(
 export const buildDecisionNodesForEngine = buildOptionAnchorsForEngine;
 
 /**
- * Canvas-visible decision anchors. Lever bands stay inspector-only.
+ * Canvas-visible decision nodes. Lever bands stay inspector-only.
+ * Template inputs (empty option banks) stay inspector-only so the canvas
+ * shows true multi-port decision units only (D-208).
  */
 export function canvasVisibleOptionAnchors(
   anchors: readonly OptionAnchorSpec[],
 ): OptionAnchorSpec[] {
-  return anchors.filter((anchor) => anchor.kind !== 'lever_band');
+  return anchors.filter(
+    (anchor) => anchor.kind !== 'lever_band' && anchor.kind !== 'template_input',
+  );
 }
 
 /** D-202 alias for canvas-visible unified decision nodes. */

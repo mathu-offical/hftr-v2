@@ -4,7 +4,6 @@ import {
   canvasVisibleOptionAnchors,
   CANVAS_LAYOUT,
   DECISION_HANDLE_DATA_IN,
-  DECISION_HANDLE_SYSTEM_IN,
   ENGINE_GROUP_PADDING,
   handleIdForStream,
   type OptionAnchorPosition,
@@ -13,9 +12,9 @@ import {
 import type { DecisionFlowNode, OptionAnchorFlowNode } from './DecisionNode';
 import type { CanvasEngineGroup, CanvasModule } from './types';
 
-export const OPTION_ANCHOR_NODE_WIDTH = 168;
-/** Base height; placement grows with option count. */
-export const OPTION_ANCHOR_NODE_HEIGHT = 72;
+export const OPTION_ANCHOR_NODE_WIDTH = 200;
+/** Base height; placement grows with max(intake, option) port rows. */
+export const OPTION_ANCHOR_NODE_HEIGHT = 64;
 export const OPTION_ANCHOR_GAP = 10;
 /** Matches CANVAS_LAYOUT / ENGINE_GROUP_PADDING.right reserve (D-176). */
 export const OPTION_ANCHOR_COLUMN_WIDTH = CANVAS_LAYOUT.optionAnchorColumnWidth;
@@ -47,8 +46,12 @@ function rootKindPriority(kind: string): number {
 }
 
 function nodeHeightFor(anchor: OptionAnchorSpec): number {
-  const optionCount = anchor.options?.length ?? 0;
-  return Math.max(OPTION_ANCHOR_NODE_HEIGHT, 36 + optionCount * 14);
+  const intakes = anchor.intakes ?? { data: true, systemControl: true, clock: false };
+  const intakeCount =
+    (intakes.data ? 1 : 0) + (intakes.systemControl ? 1 : 0) + (intakes.clock ? 1 : 0);
+  const optionCount = Math.max(anchor.options?.length ?? 0, 1);
+  const rows = Math.max(intakeCount, optionCount, 1);
+  return Math.max(OPTION_ANCHOR_NODE_HEIGHT, 28 + rows * 18);
 }
 
 export function anchorsForEngine(
@@ -251,8 +254,12 @@ export function measurePlacedAnchorBottom(
 ): number {
   let bottom = 0;
   for (const node of nodes) {
-    const optionCount = node.data.options?.length ?? 0;
-    const height = Math.max(OPTION_ANCHOR_NODE_HEIGHT, 36 + optionCount * 14);
+    const intakes = node.data.intakes ?? { data: true, systemControl: true, clock: false };
+    const intakeCount =
+      (intakes.data ? 1 : 0) + (intakes.systemControl ? 1 : 0) + (intakes.clock ? 1 : 0);
+    const optionCount = Math.max(node.data.options?.length ?? 0, 1);
+    const rows = Math.max(intakeCount, optionCount, 1);
+    const height = Math.max(OPTION_ANCHOR_NODE_HEIGHT, 28 + rows * 18);
     bottom = Math.max(bottom, node.position.y + height);
   }
   return bottom;
@@ -260,9 +267,8 @@ export function measurePlacedAnchorBottom(
 
 /**
  * React Flow-only decision binds (not persisted as module_links).
- * Owner module data_feed-out → decision data-in.
- * System-control intake handle is present on the card; decorative system bind uses
- * directive-out when the owner exposes it (control-shaped), else data only.
+ * One data intake edge per decision — system/clock ports exist on the node for
+ * wiring but are not auto-fanned (keeps the graph a set of single units, D-208).
  */
 export function optionBindEdgesForEngine(
   allAnchors: readonly OptionAnchorSpec[],
@@ -272,51 +278,29 @@ export function optionBindEdgesForEngine(
   const suppressOwnerBindIds = options?.suppressOwnerBindIds ?? new Set<string>();
   const edges: Edge[] = [];
   const moduleDataOut = handleIdForStream('data_feed', 'out');
-  const moduleDirectiveOut = handleIdForStream('directive', 'out');
 
   for (const anchor of visible) {
     if (!anchor.ownerModuleId || suppressOwnerBindIds.has(anchor.id)) continue;
     const intakes = anchor.intakes ?? { data: true, systemControl: true, clock: false };
+    if (!intakes.data) continue;
 
-    if (intakes.data) {
-      edges.push({
-        id: `decision-bind:data:${anchor.ownerModuleId}:${anchor.id}`,
-        source: anchor.ownerModuleId,
-        target: anchor.id,
-        sourceHandle: moduleDataOut,
-        targetHandle: DECISION_HANDLE_DATA_IN,
-        type: 'smoothstep',
-        selectable: false,
-        focusable: false,
-        style: {
-          stroke: 'var(--color-ink-faint)',
-          strokeWidth: 1,
-          strokeDasharray: '3 4',
-        },
-        className: 'hftr-edge hftr-edge-option-bind',
-        data: { linkKind: 'option_bind', nature: 'data', decisionId: anchor.id },
-      });
-    }
-
-    if (intakes.systemControl) {
-      edges.push({
-        id: `decision-bind:system:${anchor.ownerModuleId}:${anchor.id}`,
-        source: anchor.ownerModuleId,
-        target: anchor.id,
-        sourceHandle: moduleDirectiveOut,
-        targetHandle: DECISION_HANDLE_SYSTEM_IN,
-        type: 'smoothstep',
-        selectable: false,
-        focusable: false,
-        style: {
-          stroke: 'var(--color-ink-dim)',
-          strokeWidth: 1,
-          strokeDasharray: '2 5',
-        },
-        className: 'hftr-edge hftr-edge-option-bind',
-        data: { linkKind: 'option_bind', nature: 'system', decisionId: anchor.id },
-      });
-    }
+    edges.push({
+      id: `decision-bind:data:${anchor.ownerModuleId}:${anchor.id}`,
+      source: anchor.ownerModuleId,
+      target: anchor.id,
+      sourceHandle: moduleDataOut,
+      targetHandle: DECISION_HANDLE_DATA_IN,
+      type: 'smoothstep',
+      selectable: false,
+      focusable: false,
+      style: {
+        stroke: 'var(--color-ink-faint)',
+        strokeWidth: 1,
+        strokeDasharray: '3 4',
+      },
+      className: 'hftr-edge hftr-edge-option-bind',
+      data: { linkKind: 'option_bind', nature: 'data', decisionId: anchor.id },
+    });
   }
 
   return edges;

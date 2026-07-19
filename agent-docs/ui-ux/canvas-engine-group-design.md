@@ -100,13 +100,11 @@ ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles
     `EXECUTION_ENGINE_RESEARCH_DEPENDENCIES` in the left column; analyzer terminus emits enriched
     articles into the parent **Engine Data Hub** (not a second hub on the pack). Subtype overlap
     between inline and child packs is intentional.
-- **Option anchors (D-173 / D-180 / D-191 / D-202 / D-207):** unified **decision nodes**
-  parented under the engine group. Each node is one deterministic choice point;
-  **options are config** with a separate `option-out:{id}` handle per option.
-  Intakes: `decision-data-in` + `decision-system-in` from the owner module.
-  Owned decisions dock beside their owner module. Collapse rules: strategy
-  branches and recovery phases fold into parent options; research/librarian/
-  live-api choice kinds are sibling decision roots (not one card per leaf value).
+- **Option anchors (D-173 / D-180 / D-191 / D-202 / D-207 / D-208):** unified **decision nodes**
+  parented under the engine group. Each node is one deterministic choice point —
+  a **single multi-port unit** (data/system intakes; one out per option), never a
+  compound tree of option cards. Strategy families and branch roles are sibling
+  decision nodes with options-as-ports. Template inputs stay inspector-only.
   Every engine template seeds `decisionNodes` with desk-specific strategy palettes
   (day ORB/gap/VWAP, HFT market-making, crypto trend/reversion/pairs, long-term
   trend/compression/lead-lag, prediction interim RV). Lever bands remain inspector-only.

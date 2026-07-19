@@ -39,12 +39,12 @@ describe('option-anchors', () => {
     expect(slice.recoveryLadderTemplates?.length).toBeGreaterThan(0);
   });
 
-  it('engine_day_trading collapses strategy_family branches into options (D-192)', () => {
+  it('engine_day_trading uses one strategy node with family options (D-208)', () => {
     const anchors = anchorsFor('engine_day_trading', [
       {
         id: 'mod-trading-1',
         type: 'trading',
-        config: { strategyFamilies: ['strat-001'] },
+        config: { strategyFamilies: ['strat-001', 'strat-002'] },
       },
     ]);
 
@@ -52,6 +52,7 @@ describe('option-anchors', () => {
     const kinds = kindsPresent(anchors);
     expect(kinds.has('template_input')).toBe(true);
     expect(kinds.has('strategy_family')).toBe(true);
+    expect(kinds.has('branch_role')).toBe(true);
     expect(kinds.has('lever_band')).toBe(true);
     expect(kinds.has('recovery_phase')).toBe(true);
     expect(kinds.has('philosophy_axis')).toBe(true);
@@ -60,23 +61,31 @@ describe('option-anchors', () => {
     const branchCount = slice.branchTypes?.length ?? 0;
     expect(branchCount).toBeGreaterThan(0);
 
-    const family = anchors.find((anchor) => anchor.kind === 'strategy_family');
-    expect(family?.ownerModuleId).toBe('mod-trading-1');
-    expect(family?.catalogRef).toContain('strat-001');
-    expect(family?.options.length).toBe(branchCount);
-    expect(family?.parentAnchorId).toBeNull();
-    expect(family?.intakes).toEqual({ data: true, systemControl: true, clock: false });
+    const families = anchors.filter((anchor) => anchor.kind === 'strategy_family');
+    expect(families).toHaveLength(1);
+    const family = families[0]!;
+    expect(family.ownerModuleId).toBe('mod-trading-1');
+    expect(family.options.map((opt) => opt.id).sort()).toEqual(['strat-001', 'strat-002']);
+    expect(family.parentAnchorId).toBeNull();
+    expect(family.intakes).toEqual({ data: true, systemControl: true, clock: false });
+
+    const branch = anchors.find(
+      (anchor) =>
+        anchor.kind === 'branch_role' && anchor.ownerModuleId === 'mod-trading-1',
+    );
+    expect(branch?.parentAnchorId).toBeNull();
+    expect(branch?.options.length).toBe(branchCount);
 
     const tradingBranchChildren = anchors.filter(
       (anchor) =>
         anchor.kind === 'branch_role' &&
-        anchor.parentAnchorId === family?.id &&
+        anchor.parentAnchorId != null &&
         anchor.ownerModuleId === 'mod-trading-1',
     );
     expect(tradingBranchChildren).toHaveLength(0);
 
     const lever = anchors.find(
-      (anchor) => anchor.kind === 'lever_band' && anchor.parentAnchorId === family?.id,
+      (anchor) => anchor.kind === 'lever_band' && anchor.parentAnchorId === family.id,
     );
     expect(lever).toBeDefined();
 
@@ -106,10 +115,15 @@ describe('option-anchors', () => {
     expect(kinds.has('lever_band')).toBe(true);
 
     const family = anchors.find((anchor) => anchor.kind === 'strategy_family');
-    expect(family?.options.length).toBeGreaterThan(0);
+    expect(family?.options.map((o) => o.id)).toEqual(['strat-007']);
+    expect(
+      anchors.some(
+        (a) => a.kind === 'branch_role' && a.ownerModuleId === 'mod-hft-trading',
+      ),
+    ).toBe(true);
   });
 
-  it('canvasVisibleOptionAnchors excludes lever_band but keeps strategy_family', () => {
+  it('canvasVisibleOptionAnchors excludes lever_band and template_input (D-208)', () => {
     const anchors = anchorsFor('engine_day_trading', [
       {
         id: 'mod-trading-1',
@@ -119,12 +133,12 @@ describe('option-anchors', () => {
     ]);
     const visible = canvasVisibleOptionAnchors(anchors);
     expect(visible.some((anchor) => anchor.kind === 'lever_band')).toBe(false);
+    expect(visible.some((anchor) => anchor.kind === 'template_input')).toBe(false);
     expect(visible.some((anchor) => anchor.kind === 'strategy_family')).toBe(true);
     expect(
       visible.some(
         (anchor) =>
           anchor.kind === 'branch_role' &&
-          anchor.catalogRef.includes('strat-001') &&
           anchor.parentAnchorId !== null,
       ),
     ).toBe(false);

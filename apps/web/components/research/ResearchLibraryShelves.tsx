@@ -18,6 +18,7 @@ import {
   type SeededPageRow,
   type SeededSubfolder,
 } from '@/lib/research-library-shelves';
+import { dedupeLibrariesForScrollUi } from '@/lib/research-topic-engine-groups';
 import { fetchLibraryConceptPages } from '@/lib/research-resource-api';
 import {
   peekResearchResource,
@@ -671,11 +672,14 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
   );
 
   const { runtimeLibraries, systemLibraries, baselineLibraries, dataHubLibraries } = useMemo(() => {
+    // D-166: company-wide seeded libraries may be referenced by multiple engines —
+    // scrolling shelves show one set (dedupe by name+topicScope; hubs stay distinct).
+    const scrollLibraries = dedupeLibrariesForScrollUi(props.libraries);
     const runtime: Library[] = [];
     const system: Library[] = [];
     const baseline: Library[] = [];
     const dataHubs: Library[] = [];
-    for (const lib of props.libraries) {
+    for (const lib of scrollLibraries) {
       if (lib.status !== 'active') continue;
       const kind = classifyLibraryShelf(lib);
       if (kind === 'engine_data_hub') dataHubs.push(lib);

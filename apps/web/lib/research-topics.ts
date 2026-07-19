@@ -12,7 +12,15 @@ function iso(d: Date | null | undefined): string | null {
   return d ? d.toISOString() : null;
 }
 
-export function serializeTopic(row: typeof researchTopics.$inferSelect, conceptCount?: number) {
+export function serializeTopic(
+  row: typeof researchTopics.$inferSelect,
+  conceptCount?: number,
+  engine?: {
+    engineInstanceId?: string | null;
+    engineLabel?: string | null;
+    researchModuleName?: string | null;
+  },
+) {
   return {
     id: row.id,
     companyId: row.companyId,
@@ -28,6 +36,9 @@ export function serializeTopic(row: typeof researchTopics.$inferSelect, conceptC
     lastQueriedAt: iso(row.lastQueriedAt),
     referenceCount: row.referenceCount ?? 0,
     lastReferencedAt: iso(row.lastReferencedAt),
+    engineInstanceId: engine?.engineInstanceId ?? null,
+    engineLabel: engine?.engineLabel ?? null,
+    researchModuleName: engine?.researchModuleName ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

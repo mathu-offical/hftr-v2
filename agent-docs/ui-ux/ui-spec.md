@@ -22,19 +22,22 @@
   **Philosophy & sectors**, LLM/operating, Settings — D-115; layered overlay under the ribbon
   with dimmed backdrop, centered `w-[min(42rem,…)]`, rounded bottom edge — not full-bleed; SWR
   per-tab cache with lazy refresh on view; ribbon toggle labeled **Company profile**) → executions ticker tape (`ExecutionTicker`,
-  marquee of recent fills/blocks with amounts, pauses on hover) → paper/live master switch
+  marquee of recent fills/blocks with amounts + **paper/live capital chips** on fill dollars
+  (D-167; venue honesty e.g. `paper sim`), pauses on hover) → paper/live master switch
   (`ModeSwitch`, live gated with an explanation popover — fails closed until the broker
   milestone) → **LLM connection chip** (`LlmRibbonStatusChip`: `llm: n/6` from shell
   `LlmConnectionStatusProvider`, refreshed on settings save — not re-fetched per panel) →
   queue chip → **User settings** modal (`UserSettingsLauncher`: tabs **LLM
   providers** | **Research** | **Brokers** — six LLM providers + Anthropic ZDR attestation,
   research gather keys, Alpaca paper Key ID + Secret via **Save & verify** — D-027) → Clerk
-  user button. TopDrawer **Desk / PnL**: company identity + seed, equity chart (taller),
-  allocation/trend charts from market-hub, positions + ledger tables (trading profile +
+  user button. TopDrawer **Desk / PnL**: company identity + seed, **Paper balance** /
+  **Paper realized|unrealized PnL** (mode-aware labels), equity chart titled **Paper equity**
+  (taller), allocation/trend charts from market-hub, positions + ledger tables (trading profile +
   ledger condensed). **Philosophy & sectors**: free-text + axes + directives above sector
   group/specific refinement and `universe_excludes` (D-106); overlaps as text-first peer hints.
-  TopDrawer LLM/operating tab: **trading capital caps** (virtual / broker buying
-  power / effective min when bound, else paper sim), provider budgets + **provider health**
+  TopDrawer LLM/operating tab: **trading capital caps** (virtual paper ledger /
+  **Paper|Live broker buying power** / effective min when bound, else paper sim), provider
+  budgets + **provider health**
   chips (same shell connection status; last failure from recent calls when operating tab
   loads), company `llm_policy` with tier
   model cost/privacy labels from `MODEL_CAPABILITY_REGISTRY`, broker bind + feed entitlement,
@@ -463,14 +466,19 @@ Mistral conversational chat lands with the research/assistant LLM budget work (M
 Full design: `ui-ux/research-galaxy-topic-view-design.md`.
 
 ### Objects
-- **Topics** — research-**module** points / work programs (agent-created or seeded). They
-  organize focus and can spawn articles or libraries; they are **not** galaxy nodes and are
-  distinct from library-side concepts/tags/trends/functions. **D-126:** company bootstrap
-  seeds **Current awareness** (regime, macro, news/event readthrough) plus **Sector · {label}**
-  research points from `sectorFocuses`, and a thin **Seeded trading mechanisms** library
-  overview topic — **not** catalog class mirrors (those stay on the library shelf). Legacy
-  D-096 desk-focus / catalog-directive topics prune on next bootstrap. Concepts remain in the
-  mechanisms library so galaxy/Article have baseline catalog content without a research run.
+- **Topics** — research-**module** / research-**engine** points / work programs (agent-created
+  or seeded). They organize focus and can spawn articles or libraries; they are **not** galaxy
+  nodes and are distinct from library-side concepts/tags/trends/functions. **D-166:** seeded
+  topics are **per research engine** (every `type === 'research'` module gets its own seed tree);
+  the Research Topics list is grouped by owning engine with origin chips. **If no research
+  modules are on the canvas, Topics stay blank.** Seeded **libraries** remain company-wide;
+  scrolling library shelves show one set when engines share overlap (dedupe by name+scope).
+  **D-126:** company bootstrap seeds **Current awareness** (regime, macro, news/event
+  readthrough) plus **Sector · {label}** research points from `sectorFocuses`, and a thin
+  **Seeded trading mechanisms** library overview topic — **not** catalog class mirrors (those
+  stay on the library shelf). Legacy D-096 desk-focus / catalog-directive topics prune on next
+  bootstrap. Concepts remain in the mechanisms library so galaxy/Article have baseline catalog
+  content without a research run.
 - **Articles (D-127)** — research-module (or operator) outputs: concepts marked `hftr:article`,
   **must** save into a company library, listed in the Research **Articles** group with up to
   three display-tag chips. Distinct from topics (directives) and from catalog seed pages.

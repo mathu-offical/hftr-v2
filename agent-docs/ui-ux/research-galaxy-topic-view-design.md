@@ -69,7 +69,11 @@ share one graph.
 
 ```
 │ Research tab                       │  [ Galaxy | Page ]   filters / layout       │
-│  Topics (all company)              │                                               │
+│  Topics (per research engine)      │                                               │
+│  · engine sections + origin chips  │                                               │
+│  · blank if no research modules    │                                               │
+│  Articles                          │                                               │
+│  Libraries (company-wide one set)  │                                               │
 │  Concepts & tags (searchable)      │  Layered overlay: rotating tag chips +        │
 │  Workspace Galaxy|Page             │  force graph (concepts) inside library nests  │
 │  Modules & libraries (collapsed)   │                                               │
@@ -80,9 +84,13 @@ share one graph.
 
 ### 3.1 Left panel — Topics primary
 
-- Research tab lists **all company topics** first (grouped by owning research module; tree
-  when `parent_topic_id` set): title, status (`active|archived|deferred`), priority, concept
-  count, coverage hint, last-queried / reference badges (text-first).
+- Research tab lists topics **per research engine** (D-166): every `type === 'research'`
+  module owns a seeded topic tree; the list is sectioned by engine with origin chips
+  (`engineLabel` / research module name). **No research modules → Topics blank.**
+  Within each engine, topics remain a tree when `parent_topic_id` is set (title, status
+  `active|archived|deferred`, priority, concept count, coverage hint, usage badges).
+- Seeded libraries stay company-wide; scrolling shelves show one shared set when engines
+  overlap (dedupe by name+topicScope; Engine Data Hubs remain distinct).
 - Next: **Concepts & tags** — company-wide searchable concept database with tag chip filters;
   Focus opens galaxy highlight for that concept.
 - Workspace strip: **Galaxy | Page** switches the layered overlay tabs (Page = hybrid article).

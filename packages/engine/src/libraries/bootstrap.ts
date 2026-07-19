@@ -147,17 +147,34 @@ async function syncSeededTopicsForResearchModule(opts: {
   return result.programTopicId;
 }
 
-/** Prefer an explicit research module for topic ownership (D-096). */
-async function resolveResearchModuleId(
-  db: Db,
-  companyId: string,
-): Promise<string | null> {
-  const [research] = await db
+/** All active research modules for per-engine topic seeding (D-166). */
+async function listResearchModuleIds(db: Db, companyId: string): Promise<string[]> {
+  const rows = await db
     .select({ id: modules.id })
     .from(modules)
-    .where(and(eq(modules.companyId, companyId), eq(modules.type, 'research')))
-    .limit(1);
-  return research?.id ?? null;
+    .where(and(eq(modules.companyId, companyId), eq(modules.type, 'research')));
+  return rows.map((r) => r.id);
+}
+
+async function syncSeededTopicsForAllResearchModules(opts: {
+  db: Db;
+  companyId: string;
+  now: Date;
+  researchModuleIds?: string[];
+}): Promise<string | null> {
+  const ids =
+    opts.researchModuleIds ?? (await listResearchModuleIds(opts.db, opts.companyId));
+  let firstTopicId: string | null = null;
+  for (const researchModuleId of ids) {
+    const topicId = await syncSeededTopicsForResearchModule({
+      db: opts.db,
+      companyId: opts.companyId,
+      researchModuleId,
+      now: opts.now,
+    });
+    if (!firstTopicId && topicId) firstTopicId = topicId;
+  }
+  return firstTopicId;
 }
 
 /**
@@ -682,16 +699,13 @@ export async function bootstrapCompanyKnowledge(opts: {
           .select({ id: modules.id, type: modules.type })
           .from(modules)
           .where(eq(modules.companyId, opts.companyId));
-        const research = companyModules.find((m) => m.type === 'research');
-        let topicId: string | null = null;
-        if (research) {
-          topicId = await syncSeededTopicsForResearchModule({
-            db: opts.db,
-            companyId: opts.companyId,
-            researchModuleId: research.id,
-            now,
-          });
-        }
+        const researchIds = companyModules.filter((m) => m.type === 'research').map((m) => m.id);
+        const topicId = await syncSeededTopicsForAllResearchModules({
+          db: opts.db,
+          companyId: opts.companyId,
+          now,
+          researchModuleIds: researchIds,
+        });
         return {
           librariesEnsured: 0,
           conceptsUpserted: rematerialized + sector.conceptsUpserted,
@@ -865,20 +879,20 @@ export async function bootstrapCompanyKnowledge(opts: {
   // Sector knowledge first so sector_seeds concepts exist for Sector / Desk focus topics.
   const sector = await ensureSectorKnowledge(opts.db, opts.companyId, now);
 
-  // Topics always attach to a research module when one exists (even if catalog
-  // concepts are owned by librarian/library — D-096).
-  const researchModuleId =
-    ownerModule?.type === 'research'
-      ? ownerModuleId
-      : await resolveResearchModuleId(opts.db, opts.companyId);
-  const topicId = researchModuleId
-    ? await syncSeededTopicsForResearchModule({
-        db: opts.db,
-        companyId: opts.companyId,
-        researchModuleId,
-        now,
-      })
-    : null;
+  // Seeded topics are per research engine/module (D-166) — not company-global.
+  const researchModuleIds = companyModules
+    .filter((m) => m.type === 'research')
+    .map((m) => m.id);
+  // When catalog owner is itself research, ensure it is included.
+  if (ownerModule?.type === 'research' && !researchModuleIds.includes(ownerModuleId)) {
+    researchModuleIds.push(ownerModuleId);
+  }
+  const topicId = await syncSeededTopicsForAllResearchModules({
+    db: opts.db,
+    companyId: opts.companyId,
+    now,
+    researchModuleIds,
+  });
 
   return {
     librariesEnsured,

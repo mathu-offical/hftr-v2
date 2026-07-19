@@ -98,13 +98,16 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   company-wide sweep, research cadence schedule.
 - Output: evidence packages → validated concepts + tags + typed links (galaxy graph); library
   curation as `auto_admitted` or `proposed` per admission mode.
-- **Topics (D-040 / D-126):** agent-created (or seeded) **research points** that organize
+- **Topics (D-040 / D-126 / D-166):** agent-created (or seeded) **research points** that organize
   focus and may spawn articles/libraries. They are **not** galaxy nodes and are **distinct
   from seeded library knowledge** (catalog concepts live in the Seeded trading mechanisms
-  nest). Company bootstrap seeds **Current awareness** (regime / macro / news) plus one
-  **Sector · {focus}** point per `sectorFocuses`, and a thin library-overview topic for the
-  Libraries Overview link — not catalog class mirrors. Topics own ordered memberships and a
-  hybrid article; research/librarian curation keep graph + article + library membership coherent.
+  nest). Seeded topics are **per research engine/module**; with no research modules present,
+  Topics stay blank. Company bootstrap seeds **Current awareness** (regime / macro / news)
+  plus one **Sector · {focus}** point per `sectorFocuses` on each research module, and a thin
+  library-overview topic for the Libraries Overview link — not catalog class mirrors. Topics
+  own ordered memberships and a hybrid article; research/librarian curation keep graph +
+  article + library membership coherent. Seeded libraries remain company-wide (one set in the
+  scrolling shelves UI when engines share overlap).
 - **Usage telemetry (D-040):** topics and concepts track `query_count` / `last_queried_at` and
   `reference_count` / `last_referenced_at` for retrieval ranking, librarian prioritization,
   cadence, and visual weight — not display-only.

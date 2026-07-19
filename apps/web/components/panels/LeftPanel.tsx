@@ -214,6 +214,13 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
   const loadTopics = useCallback(
     async (force = false) => {
       if (!companyId) return;
+      // D-166: no research modules → topics stay blank (do not surface orphaned rows).
+      const hasResearch = props.modules.some((m) => m.type === 'research');
+      if (!hasResearch) {
+        setTopics([]);
+        setTopicsLoaded(true);
+        return;
+      }
       try {
         const next = await fetchCompanyTopics(companyId, { force });
         setTopics(next);
@@ -225,7 +232,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
         setTopicsLoaded(true);
       }
     },
-    [companyId],
+    [companyId, props.modules],
   );
 
   const refreshShell = useCallback(
@@ -504,10 +511,14 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                 <div className="mt-3">
                   <ResearchPagesList
                     companyId={companyId}
+                    hasResearchModules={topicOwnerModules.length > 0}
                     topics={
-                      topicsLoaded
+                      topicsLoaded && topicOwnerModules.length > 0
                         ? topics
-                            .filter((t) => t.status === 'active' || t.status === 'deferred')
+                            .filter((t) => {
+                              if (t.status !== 'active' && t.status !== 'deferred') return false;
+                              return topicOwnerModules.some((m) => m.id === t.moduleId);
+                            })
                             .map((t) => ({
                               id: t.id,
                               title: t.title,
@@ -519,6 +530,9 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                               status: t.status,
                               priority: t.priority,
                               provenance: t.provenance ?? null,
+                              engineInstanceId: t.engineInstanceId ?? null,
+                              engineLabel: t.engineLabel ?? null,
+                              researchModuleName: t.researchModuleName ?? null,
                             }))
                         : []
                     }
@@ -526,7 +540,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                     linkedTopicIds={researchView.linkedTopicIds}
                     linkedTopicTitles={researchView.linkedTopicTitles}
                     onSelectTopic={(topicId) => void researchView.selectTopic(topicId)}
-                    loading={!topicsLoaded}
+                    loading={!topicsLoaded && topicOwnerModules.length > 0}
                   />
                 </div>
 

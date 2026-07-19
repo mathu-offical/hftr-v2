@@ -1687,6 +1687,25 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   badges; legend lists tracks and node types (SRC/LIB/CAP/ADAPT/PROC/STAGE/PANEL). Extends
   D-163. Docs: ui-spec §4, synthesis hub design. **Status: implemented.**
 
+- **D-166 (research topics per research engine, 2026-07-19):** Seeded research topics attach to
+  **every** research module/engine (not only the first). Topics GET returns empty when the
+  company has no research modules; Left Research Topics list stays blank until a research
+  module exists. UI groups topics by owning engine and shows origin chips (`engineLabel` /
+  research module name). Seeded libraries remain **company-wide**; scrolling shelves dedupe
+  shared name+scope rows so overlap shows one set (engine data hubs stay distinct). Contracts
+  enrich `ResearchTopic` with `engineInstanceId` / `engineLabel` / `researchModuleName`.
+  Docs: ui-spec §6, research-galaxy-topic-view-design. **Status: implemented.**
+
+- **D-167 (paper vs live capital copy on money surfaces, 2026-07-19):** Keep paper trading
+  low-friction (ModeSwitch + existing paper seed / paper trade flows) but make **dollar amounts
+  self-labeling** so operators never confuse virtual ledger money with live broker money.
+  Shared helpers in `apps/web/lib/capital-mode-label.ts` drive: Desk/PnL (`Paper balance` /
+  `Paper realized PnL`), right-panel balance, company-card equity (`Paper equity`), market
+  posture funds/equity headlines, execution fill chips (`paper sim` / `paper` / `live` from
+  venue+mode), fund-transfer eyebrow (`Virtual fund transfers (paper)`), and broker buying
+  power (`Paper broker buying power` when bound connection mode is paper). No modals.
+  Docs: ui-spec §2. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

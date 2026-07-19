@@ -1550,11 +1550,14 @@ describe('Libraries and research graph (M2)', () => {
         lastQueriedAt: null,
         referenceCount: 0,
         lastReferencedAt: null,
+        engineInstanceId: '66666666-6666-4666-8666-666666666666',
+        engineLabel: 'Research Alpha',
+        researchModuleName: 'Desk research',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         memberships: [],
-      }).synopsisMd,
-    ).toBe('Overview');
+      }).engineLabel,
+    ).toBe('Research Alpha');
   });
 });
 

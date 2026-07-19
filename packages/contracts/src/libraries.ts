@@ -106,6 +106,15 @@ export const ResearchTopic = z.object({
   lastQueriedAt: z.string().nullable().default(null),
   referenceCount: z.number().int().nonnegative().default(0),
   lastReferencedAt: z.string().nullable().default(null),
+  /**
+   * Owning research module's ENGINE instance (D-166). Null when the research
+   * module is not bound to an engine group.
+   */
+  engineInstanceId: z.string().uuid().nullable().optional(),
+  /** Operator-facing ENGINE label for topic chips (falls back to research module name). */
+  engineLabel: z.string().max(200).nullable().optional(),
+  /** Research module display name (directive owner). */
+  researchModuleName: z.string().max(200).nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

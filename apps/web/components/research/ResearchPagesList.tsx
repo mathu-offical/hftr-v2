@@ -7,6 +7,10 @@ import {
   researchTopicKindLabel,
   type ResearchTopicDisplayKind,
 } from '@/lib/research-topic-display';
+import {
+  groupTopicsByResearchEngine,
+  researchTopicEngineChip,
+} from '@/lib/research-topic-engine-groups';
 import { api } from '@/lib/client';
 
 export interface ResearchPageTopic {
@@ -18,6 +22,9 @@ export interface ResearchPageTopic {
   status?: string;
   priority?: string;
   provenance?: string | null | undefined;
+  engineInstanceId?: string | null;
+  engineLabel?: string | null;
+  researchModuleName?: string | null;
 }
 
 export interface ResearchPagesListProps {
@@ -28,6 +35,8 @@ export interface ResearchPagesListProps {
   linkedTopicTitles: string[];
   onSelectTopic: (topicId: string) => void;
   loading?: boolean;
+  /** When false, topics stay blank (no research modules on canvas). */
+  hasResearchModules?: boolean;
 }
 
 type TopicNode = {
@@ -87,6 +96,8 @@ function TopicRow(props: {
   researchingId: string | null;
   forceExpand: boolean;
   defaultOpen: boolean;
+  /** When true, hide per-row engine chip (section header already names the engine). */
+  hideEngineChip: boolean;
 }) {
   const { topic, children } = props.node;
   const [open, setOpen] = useState(props.defaultOpen);
@@ -103,6 +114,7 @@ function TopicRow(props: {
   const label = researchTopicDisplayLabel(topic.title, props.depth);
   const hasChildren = children.length > 0;
   const researching = props.researchingId === topic.id;
+  const engineChip = researchTopicEngineChip(topic);
 
   return (
     <li>
@@ -143,6 +155,15 @@ function TopicRow(props: {
               {topic.conceptCount}
             </span>
           ) : null}
+          {!props.hideEngineChip ? (
+            <span
+              data-testid={`research-topic-engine-chip-${topic.id}`}
+              title={`Research engine: ${engineChip}`}
+              className="max-w-[5.5rem] shrink-0 truncate rounded border border-[var(--color-line)] px-1 py-px text-[7px] uppercase tracking-wide text-[var(--color-ink-dim)]"
+            >
+              {engineChip}
+            </span>
+          ) : null}
           <span className={`shrink-0 text-[8px] uppercase tracking-wide ${kindTone(kind)}`}>
             {researchTopicKindLabel(kind)}
           </span>
@@ -177,6 +198,7 @@ function TopicRow(props: {
               researchingId={props.researchingId}
               forceExpand={props.forceExpand}
               defaultOpen={false}
+              hideEngineChip={props.hideEngineChip}
             />
           ))}
         </ul>
@@ -186,35 +208,57 @@ function TopicRow(props: {
 }
 
 function ResearchPagesListInner(props: ResearchPagesListProps) {
+  const hasResearchModules = props.hasResearchModules !== false;
   const linkedIdSet = useMemo(() => new Set(props.linkedTopicIds), [props.linkedTopicIds]);
   const linkedTitleSet = useMemo(() => new Set(props.linkedTopicTitles), [props.linkedTopicTitles]);
-  const forest = useMemo(() => buildTopicForest(props.topics), [props.topics]);
+  const engineGroups = useMemo(
+    () => (hasResearchModules ? groupTopicsByResearchEngine(props.topics) : []),
+    [hasResearchModules, props.topics],
+  );
   const [filter, setFilter] = useState('');
   const [researchingId, setResearchingId] = useState<string | null>(null);
   const [queueMessage, setQueueMessage] = useState<string | null>(null);
 
-  const filteredForest = useMemo(() => {
+  const filteredGroups = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return forest;
+    return engineGroups
+      .map((group) => {
+        const forest = buildTopicForest(group.topics);
+        if (!q) {
+          return { ...group, forest };
+        }
 
-    function matchNode(node: TopicNode): TopicNode | null {
-      const label = researchTopicDisplayLabel(node.topic.title, 1).toLowerCase();
-      const titleHit =
-        node.topic.title.toLowerCase().includes(q) || label.includes(q);
-      const kids = node.children
-        .map((c) => matchNode(c))
-        .filter((c): c is TopicNode => c !== null);
-      if (titleHit || kids.length > 0) {
-        return { topic: node.topic, children: titleHit ? node.children : kids };
-      }
-      return null;
-    }
+        function matchNode(node: TopicNode): TopicNode | null {
+          const label = researchTopicDisplayLabel(node.topic.title, 1).toLowerCase();
+          const titleHit =
+            node.topic.title.toLowerCase().includes(q) || label.includes(q);
+          const engineHit = researchTopicEngineChip(node.topic).toLowerCase().includes(q);
+          const kids = node.children
+            .map((c) => matchNode(c))
+            .filter((c): c is TopicNode => c !== null);
+          if (titleHit || engineHit || kids.length > 0) {
+            return {
+              topic: node.topic,
+              children: titleHit || engineHit ? node.children : kids,
+            };
+          }
+          return null;
+        }
 
-    return forest.map((n) => matchNode(n)).filter((n): n is TopicNode => n !== null);
-  }, [filter, forest]);
+        const forestFiltered = forest
+          .map((n) => matchNode(n))
+          .filter((n): n is TopicNode => n !== null);
+        if (forestFiltered.length === 0 && !group.label.toLowerCase().includes(q)) {
+          return null;
+        }
+        return { ...group, forest: forestFiltered };
+      })
+      .filter((g): g is NonNullable<typeof g> => g !== null);
+  }, [engineGroups, filter]);
 
-  const topicCount = props.topics.length;
+  const topicCount = hasResearchModules ? props.topics.length : 0;
   const forceExpand = Boolean(filter.trim());
+  const multiEngine = engineGroups.length > 1;
 
   async function queueTopics(body: { all: true } | { topicIds: string[] }, label: string) {
     if (!props.companyId) return;
@@ -263,14 +307,21 @@ function ResearchPagesListInner(props: ResearchPagesListProps) {
         </div>
       </div>
       <p className="mt-0.5 text-[9px] text-[var(--color-ink-faint)]">
-        Planned and in progress · library research queue
+        Per research engine · library research queue
       </p>
       {queueMessage ? (
         <p className="mt-1 text-[10px] text-[var(--color-ink-dim)]" role="status">
           {queueMessage}
         </p>
       ) : null}
-      {topicCount > 8 ? (
+      {!hasResearchModules ? (
+        <p
+          className="mt-1 text-[10px] text-[var(--color-ink-faint)]"
+          data-testid="research-topics-empty-no-modules"
+        >
+          No research modules — topics stay empty until a research engine is on the canvas.
+        </p>
+      ) : topicCount > 8 ? (
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
@@ -279,33 +330,57 @@ function ResearchPagesListInner(props: ResearchPagesListProps) {
           className="mt-1.5 w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)]"
         />
       ) : null}
-      {!props.topics.length ? (
+      {hasResearchModules && !props.topics.length ? (
         <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">
           {props.loading ? 'Loading research topics…' : 'No research topics yet.'}
         </p>
-      ) : filteredForest.length === 0 ? (
+      ) : hasResearchModules && filteredGroups.length === 0 ? (
         <p className="mt-1 text-[10px] text-[var(--color-ink-faint)]">No matching topics.</p>
-      ) : (
-        <ul className="mt-1.5 max-h-64 space-y-0.5 overflow-y-auto">
-          {filteredForest.map((node) => (
-            <TopicRow
-              key={node.topic.id}
-              node={node}
-              depth={0}
-              selectedTopicId={props.selectedTopicId}
-              linkedIdSet={linkedIdSet}
-              linkedTitleSet={linkedTitleSet}
-              onSelectTopic={props.onSelectTopic}
-              onResearchTopic={(topicId) =>
-                void queueTopics({ topicIds: [topicId] }, 'one topic')
-              }
-              researchingId={researchingId}
-              forceExpand={forceExpand}
-              defaultOpen={node.children.length <= 12}
-            />
+      ) : hasResearchModules ? (
+        <div className="mt-1.5 max-h-72 space-y-2 overflow-y-auto">
+          {filteredGroups.map((group) => (
+            <section
+              key={group.groupKey}
+              data-testid={`research-topics-engine-${group.groupKey}`}
+              aria-label={`Topics for ${group.label}`}
+            >
+              {multiEngine || group.engineInstanceId ? (
+                <p className="mb-0.5 flex items-center gap-1.5 px-0.5">
+                  <span className="text-[9px] uppercase tracking-widest text-[var(--color-ink-faint)]">
+                    Engine
+                  </span>
+                  <span
+                    data-testid={`research-topics-engine-label-${group.groupKey}`}
+                    className="truncate rounded border border-[var(--color-line)] px-1.5 py-px text-[9px] text-[var(--color-ink-dim)]"
+                  >
+                    {group.label}
+                  </span>
+                </p>
+              ) : null}
+              <ul className="space-y-0.5">
+                {group.forest.map((node) => (
+                  <TopicRow
+                    key={node.topic.id}
+                    node={node}
+                    depth={0}
+                    selectedTopicId={props.selectedTopicId}
+                    linkedIdSet={linkedIdSet}
+                    linkedTitleSet={linkedTitleSet}
+                    onSelectTopic={props.onSelectTopic}
+                    onResearchTopic={(topicId) =>
+                      void queueTopics({ topicIds: [topicId] }, 'one topic')
+                    }
+                    researchingId={researchingId}
+                    forceExpand={forceExpand}
+                    defaultOpen={node.children.length <= 12}
+                    hideEngineChip={false}
+                  />
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
-      )}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -11,7 +11,10 @@ import type {
 } from '@hftr/contracts';
 import {
   liveDataSourceFormForDomain,
+  liveDataSourceIsCompleteList,
   liveDataSourcePresetsForDomain,
+  resolveLiveDataSourceMaxResults,
+  type ResearchSourceKind,
 } from '@hftr/contracts';
 import { api } from '@/lib/client';
 import { loadLiveDataSources } from '@/lib/live-data-sources-cache';
@@ -101,6 +104,7 @@ export function LiveSourceProviderView(props: {
   const [widgets, setWidgets] = useState<LiveDataSourceWidget[]>([]);
   const [presets, setPresets] = useState<LiveDataSourceQueryPreset[]>([]);
   const [form, setForm] = useState<LiveDataSourceFormHint | null>(null);
+  const [completeList, setCompleteList] = useState(false);
   const [queryBusy, setQueryBusy] = useState(false);
   const [queryError, setQueryError] = useState<string | null>(null);
   const [lastQuery, setLastQuery] = useState<string | null>(null);
@@ -112,6 +116,7 @@ export function LiveSourceProviderView(props: {
     setLastQuery(res.query);
     setQueriedStatus(res.status);
     setFetchedAt(res.fetchedAt);
+    setCompleteList(res.completeList);
     if (res.presets.length > 0) setPresets(res.presets);
     if (res.form) setForm(res.form);
     if (res.errors.length > 0 && res.widgets.length === 0) {
@@ -125,6 +130,8 @@ export function LiveSourceProviderView(props: {
     async (opts: { mode: 'search' | 'browse'; query: string }) => {
       setQueryBusy(true);
       setQueryError(null);
+      const kind = props.kind as ResearchSourceKind;
+      const maxResults = resolveLiveDataSourceMaxResults(kind);
       try {
         const res = await api<LiveDataSourceQueryResponse>(
           `/api/companies/${props.companyId}/live-data-sources/${props.kind}/query`,
@@ -133,7 +140,7 @@ export function LiveSourceProviderView(props: {
             body: {
               mode: opts.mode,
               query: opts.query,
-              maxResults: 12,
+              maxResults,
             },
           },
         );
@@ -175,6 +182,7 @@ export function LiveSourceProviderView(props: {
         if (match) {
           setPresets(liveDataSourcePresetsForDomain(match.domain));
           setForm(liveDataSourceFormForDomain(match.domain));
+          setCompleteList(liveDataSourceIsCompleteList(match.kind));
         } else {
           setMetaError('Source not found in inventory');
         }
@@ -340,7 +348,11 @@ export function LiveSourceProviderView(props: {
         <span>
           {lastQuery ? `Query · ${lastQuery}` : '—'}
           {queriedStatus ? ` · ${queriedStatus}` : ''}
-          {widgets.length > 0 ? ` · ${widgets.length} widgets` : ''}
+          {widgets.length > 0
+            ? completeList
+              ? ` · full list · ${widgets.length}`
+              : ` · ${widgets.length} widgets`
+            : ''}
         </span>
         {fetchedAt ? <span>{fetchedAt.slice(11, 19)}Z</span> : null}
       </div>

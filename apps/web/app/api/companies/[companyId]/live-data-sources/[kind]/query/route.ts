@@ -7,7 +7,9 @@ import {
   defaultBrowseQueryForDomain,
   evidenceToLiveDataSourceWidget,
   liveDataSourceFormForDomain,
+  liveDataSourceIsCompleteList,
   liveDataSourcePresetsForDomain,
+  resolveLiveDataSourceMaxResults,
   resolveLiveDataSourceStatus,
   type ResearchSourceAvailability,
   type ResearchSourceDescriptor,
@@ -63,6 +65,8 @@ export async function POST(req: Request, ctx: Ctx) {
     const fetchedAt = new Date().toISOString();
     const presets = liveDataSourcePresetsForDomain(descriptor.domain);
     const form = liveDataSourceFormForDomain(descriptor.domain);
+    const completeList = liveDataSourceIsCompleteList(kind);
+    const maxResults = resolveLiveDataSourceMaxResults(kind, body.maxResults);
 
     if (status === 'stub' || status === 'researched') {
       return LiveDataSourceQueryResponse.parse({
@@ -74,6 +78,7 @@ export async function POST(req: Request, ctx: Ctx) {
         widgets: [],
         presets,
         form,
+        completeList,
         errors: [{ code: status === 'stub' ? 'not_implemented' : 'researched_only' }],
         fetchedAt,
       });
@@ -89,6 +94,7 @@ export async function POST(req: Request, ctx: Ctx) {
         widgets: [],
         presets,
         form,
+        completeList,
         errors: [{ code: 'missing_key' }],
         fetchedAt,
       });
@@ -104,7 +110,7 @@ export async function POST(req: Request, ctx: Ctx) {
       const preview = await buildOperatorLivePreviewWidgets({
         kind,
         query,
-        maxResults: body.maxResults,
+        maxResults,
         credentials: {
           ...(gatherCredentials.alpacaKeyId
             ? { alpacaKeyId: gatherCredentials.alpacaKeyId }
@@ -124,6 +130,7 @@ export async function POST(req: Request, ctx: Ctx) {
           widgets: preview,
           presets,
           form,
+          completeList,
           errors: [],
           fetchedAt,
         });
@@ -137,13 +144,13 @@ export async function POST(req: Request, ctx: Ctx) {
       sourceKinds: [kind],
       allowlist: [],
       blocklist: [],
-      maxEvidence: body.maxResults,
+      maxEvidence: maxResults,
       ...gatherCredentials,
       secAllowEmptyOnError: true,
       marketNewsAllowDeterministicFallback: true,
     });
 
-    const widgets = packages.slice(0, body.maxResults).map((pkg, i) =>
+    const widgets = packages.slice(0, maxResults).map((pkg, i) =>
       evidenceToLiveDataSourceWidget(pkg, {
         domain: descriptor.domain,
         index: i,
@@ -160,6 +167,7 @@ export async function POST(req: Request, ctx: Ctx) {
       widgets,
       presets,
       form,
+      completeList,
       errors: errors.map((e) => ({ code: e.code.slice(0, 80) })),
       fetchedAt,
     });

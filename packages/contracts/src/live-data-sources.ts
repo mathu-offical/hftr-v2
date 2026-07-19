@@ -45,8 +45,11 @@ export type LiveDataSourceQueryMode = z.infer<typeof LiveDataSourceQueryMode>;
 export const LiveDataSourceQueryRequest = z.object({
   query: z.string().max(200).default(''),
   mode: LiveDataSourceQueryMode.default('search'),
-  /** Cap evidence widgets returned (operator browse). */
-  maxResults: z.number().int().min(1).max(24).default(12),
+  /**
+   * Cap for search/sample hydrators. Complete-list hydrators ignore low caps and
+   * return the full available set up to LIVE_DATA_SOURCE_FULL_LIST_CAP.
+   */
+  maxResults: z.number().int().min(1).max(500).default(12),
 });
 export type LiveDataSourceQueryRequest = z.infer<typeof LiveDataSourceQueryRequest>;
 
@@ -101,9 +104,11 @@ export const LiveDataSourceQueryResponse = z.object({
   query: z.string().max(200),
   status: LiveDataSourceStatus,
   domain: z.string().max(40).optional(),
-  widgets: z.array(LiveDataSourceWidget).max(24),
+  widgets: z.array(LiveDataSourceWidget).max(500),
   presets: z.array(LiveDataSourceQueryPreset).max(12).default([]),
   form: LiveDataSourceFormHint.optional(),
+  /** True when this hydrator returns a complete enumerable catalog (not a search sample). */
+  completeList: z.boolean().default(false),
   errors: z
     .array(
       z.object({
@@ -116,7 +121,38 @@ export const LiveDataSourceQueryResponse = z.object({
 });
 export type LiveDataSourceQueryResponse = z.infer<typeof LiveDataSourceQueryResponse>;
 
-/** Default browse query when operator opens a hydrator without typing. */
+/** Safety ceiling for operator full-list widgets (schema + transport). */
+export const LIVE_DATA_SOURCE_FULL_LIST_CAP = 500;
+
+/**
+ * Hydrators whose provider response is a finite catalog — Data Explorer must fetch
+ * the full available set (not a truncated sample).
+ */
+export function liveDataSourceIsCompleteList(
+  kind: z.infer<typeof ResearchSourceKind>,
+): boolean {
+  switch (kind) {
+    case 'frankfurter_fx':
+    case 'coingecko_crypto':
+      return true;
+    default:
+      return false;
+  }
+}
+
+/** Resolve operator query size: full-list kinds always use FULL_LIST_CAP. */
+export function resolveLiveDataSourceMaxResults(
+  kind: z.infer<typeof ResearchSourceKind>,
+  requested?: number,
+): number {
+  if (liveDataSourceIsCompleteList(kind)) {
+    return LIVE_DATA_SOURCE_FULL_LIST_CAP;
+  }
+  if (typeof requested === 'number' && Number.isFinite(requested)) {
+    return Math.min(Math.max(1, Math.trunc(requested)), 24);
+  }
+  return 12;
+}
 export function defaultBrowseQueryForDomain(domain: string): string {
   switch (domain) {
     case 'web_search':
@@ -171,13 +207,13 @@ export function liveDataSourceFormForDomain(domain: string): LiveDataSourceFormH
       return {
         fieldLabel: 'Base currency',
         placeholder: 'USD, EUR…',
-        helper: 'Live ECB reference rates for the base currency.',
+        helper: 'Full ECB reference rate list for the base currency.',
       };
     case 'crypto':
       return {
         fieldLabel: 'Asset filter',
         placeholder: 'bitcoin, ethereum…',
-        helper: 'Live market-cap ranked listings with price fields.',
+        helper: 'Full market-cap ranked CoinGecko listing (paginated to complete set).',
       };
     case 'macro':
       return {

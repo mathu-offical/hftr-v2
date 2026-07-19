@@ -5,8 +5,11 @@
  */
 
 import {
+  LIVE_DATA_SOURCE_FULL_LIST_CAP,
   LiveDataSourceWidget,
   RESEARCH_SOURCE_FEED_CLASS,
+  liveDataSourceIsCompleteList,
+  resolveLiveDataSourceMaxResults,
   type LiveDataSourceWidget as LiveDataSourceWidgetT,
   type ResearchSourceKind as ResearchSourceKindT,
 } from '@hftr/contracts';
@@ -27,58 +30,83 @@ function fmtNum(n: number, digits = 2): string {
   });
 }
 
-async function previewCoingecko(limit: number): Promise<LiveDataSourceWidgetT[]> {
-  const url =
-    'https://api.coingecko.com/api/v3/coins/markets' +
-    `?vs_currency=usd&order=market_cap_desc&per_page=${Math.min(limit, 24)}&page=1`;
-  const res = await fetch(url, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'hftr-v2-operator-preview/1.0',
-    },
-  });
-  if (!res.ok) throw new Error(`coingecko_http_${res.status}`);
-  const body = (await res.json()) as unknown;
-  if (!Array.isArray(body)) throw new Error('coingecko_parse');
+type CoinGeckoMarketRow = {
+  id?: string;
+  symbol?: string;
+  name?: string;
+  current_price?: number;
+  market_cap_rank?: number;
+  price_change_percentage_24h?: number;
+};
 
-  return body.slice(0, limit).map((row, i) => {
-    const r = row as {
-      id?: string;
-      symbol?: string;
-      name?: string;
-      current_price?: number;
-      market_cap_rank?: number;
-      price_change_percentage_24h?: number;
-    };
-    const symbol = (r.symbol ?? 'crypto').toUpperCase();
-    const name = r.name?.trim() || symbol;
-    const price = typeof r.current_price === 'number' ? r.current_price : null;
-    const change =
-      typeof r.price_change_percentage_24h === 'number' ? r.price_change_percentage_24h : null;
-    const rank = typeof r.market_cap_rank === 'number' ? r.market_cap_rank : null;
+function mapCoingeckoRow(row: CoinGeckoMarketRow, i: number): LiveDataSourceWidgetT {
+  const symbol = (row.symbol ?? 'crypto').toUpperCase();
+  const name = row.name?.trim() || symbol;
+  const price = typeof row.current_price === 'number' ? row.current_price : null;
+  const change =
+    typeof row.price_change_percentage_24h === 'number' ? row.price_change_percentage_24h : null;
+  const rank = typeof row.market_cap_rank === 'number' ? row.market_cap_rank : null;
 
-    return LiveDataSourceWidget.parse({
-      id: `cg-${r.id ?? i}`,
-      title: name !== symbol ? `${name} (${symbol})` : symbol,
-      summary: 'Live CoinGecko market listing (operator preview).',
-      feedClass: RESEARCH_SOURCE_FEED_CLASS.coingecko_crypto,
-      authorityClass: 'DETERMINISTIC',
-      externalRef: r.id ? `https://www.coingecko.com/en/coins/${r.id}` : null,
-      expiresAt: null,
-      widgetKind: 'listing',
-      fields: [
-        ...(rank !== null ? [{ label: 'Rank', value: String(rank) }] : []),
-        ...(price !== null ? [{ label: 'Price USD', value: fmtNum(price, 6) }] : []),
-        ...(change !== null
-          ? [{ label: '24h %', value: `${change >= 0 ? '+' : ''}${fmtNum(change, 2)}` }]
-          : []),
-        { label: 'Source', value: 'CoinGecko' },
-      ],
-    });
+  return LiveDataSourceWidget.parse({
+    id: `cg-${row.id ?? i}`,
+    title: name !== symbol ? `${name} (${symbol})` : symbol,
+    summary: 'Live CoinGecko market listing (operator preview).',
+    feedClass: RESEARCH_SOURCE_FEED_CLASS.coingecko_crypto,
+    authorityClass: 'DETERMINISTIC',
+    externalRef: row.id ? `https://www.coingecko.com/en/coins/${row.id}` : null,
+    expiresAt: null,
+    widgetKind: 'listing',
+    fields: [
+      ...(rank !== null ? [{ label: 'Rank', value: String(rank) }] : []),
+      ...(price !== null ? [{ label: 'Price USD', value: fmtNum(price, 6) }] : []),
+      ...(change !== null
+        ? [{ label: '24h %', value: `${change >= 0 ? '+' : ''}${fmtNum(change, 2)}` }]
+        : []),
+      { label: 'Source', value: 'CoinGecko' },
+    ],
   });
 }
 
-async function previewFrankfurter(baseQuery: string, limit: number): Promise<LiveDataSourceWidgetT[]> {
+/** Paginate CoinGecko markets until exhausted or FULL_LIST_CAP (complete catalog). */
+async function previewCoingecko(cap: number): Promise<LiveDataSourceWidgetT[]> {
+  const perPage = 250; // CoinGecko max page size
+  const out: LiveDataSourceWidgetT[] = [];
+  let page = 1;
+
+  while (out.length < cap) {
+    const url =
+      'https://api.coingecko.com/api/v3/coins/markets' +
+      `?vs_currency=usd&order=market_cap_desc&per_page=${perPage}&page=${page}`;
+    const res = await fetch(url, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'hftr-v2-operator-preview/1.0',
+      },
+    });
+    if (!res.ok) throw new Error(`coingecko_http_${res.status}`);
+    const body = (await res.json()) as unknown;
+    if (!Array.isArray(body)) throw new Error('coingecko_parse');
+    if (body.length === 0) break;
+
+    for (const row of body as CoinGeckoMarketRow[]) {
+      if (out.length >= cap) break;
+      out.push(mapCoingeckoRow(row, out.length));
+    }
+
+    if (body.length < perPage) break;
+    page += 1;
+    // Defensive: CoinGecko can return many pages; stop at schema cap.
+    if (page > Math.ceil(cap / perPage) + 1) break;
+  }
+
+  return out;
+}
+
+/** Return every FX pair for the base (complete finite list). */
+async function previewFrankfurter(
+  baseQuery: string,
+  cap: number,
+): Promise<LiveDataSourceWidgetT[]> {
   const base = (baseQuery.trim().toUpperCase().match(/^[A-Z]{3}/)?.[0] ?? 'USD').slice(0, 3);
   const url = `https://api.frankfurter.dev/v2/rates?base=${encodeURIComponent(base)}`;
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
@@ -99,7 +127,8 @@ async function previewFrankfurter(baseQuery: string, limit: number): Promise<Liv
     }
   }
 
-  return pairs.slice(0, limit).map((p, i) =>
+  // Complete list — do not sample; only apply schema safety ceiling.
+  return pairs.slice(0, cap).map((p, i) =>
     LiveDataSourceWidget.parse({
       id: `fx-${base}-${p.quote}-${i}`,
       title: `${base} / ${p.quote}`,
@@ -129,9 +158,10 @@ async function previewAlpacaBars(
     keyId: credentials.keyId,
     secret: credentials.secret,
   });
+  const barLimit = Math.min(Math.max(limit, 5), 24);
   const result = await fetchBars({
     symbol,
-    limit: Math.min(Math.max(limit, 5), 24),
+    limit: barLimit,
     credentials,
     client,
   });
@@ -163,7 +193,8 @@ async function previewAlpacaBars(
     }),
   ];
 
-  for (const [i, bar] of result.bars.slice(-Math.min(limit - 1, 8)).entries()) {
+  for (const [i, bar] of result.bars.entries()) {
+    if (widgets.length >= barLimit) break;
     widgets.push(
       LiveDataSourceWidget.parse({
         id: `alpaca-bar-${symbol}-${i}`,
@@ -185,12 +216,13 @@ async function previewAlpacaBars(
     );
   }
 
-  return widgets.slice(0, limit);
+  return widgets;
 }
 
 /**
  * Build operator live widgets when a richer preview exists for the hydrator.
  * Returns null when this kind should keep evidence-package widgets only.
+ * Complete-list hydrators return the full available catalog (up to FULL_LIST_CAP).
  */
 export async function buildOperatorLivePreviewWidgets(opts: {
   kind: ResearchSourceKindT;
@@ -198,13 +230,17 @@ export async function buildOperatorLivePreviewWidgets(opts: {
   maxResults: number;
   credentials: OperatorLivePreviewCredentials;
 }): Promise<LiveDataSourceWidgetT[] | null> {
-  const limit = Math.min(Math.max(1, opts.maxResults), 24);
+  const limit = resolveLiveDataSourceMaxResults(opts.kind, opts.maxResults);
+  const complete = liveDataSourceIsCompleteList(opts.kind);
 
   switch (opts.kind) {
     case 'coingecko_crypto':
-      return previewCoingecko(limit);
+      return previewCoingecko(complete ? LIVE_DATA_SOURCE_FULL_LIST_CAP : limit);
     case 'frankfurter_fx':
-      return previewFrankfurter(opts.query, limit);
+      return previewFrankfurter(
+        opts.query,
+        complete ? LIVE_DATA_SOURCE_FULL_LIST_CAP : limit,
+      );
     case 'alpaca_bars': {
       const keyId = opts.credentials.alpacaKeyId?.trim();
       const secret = opts.credentials.alpacaSecret?.trim();

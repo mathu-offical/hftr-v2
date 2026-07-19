@@ -346,8 +346,11 @@ Legacy `moduleFilter` keys are ignored. Shortcuts are suppressed in editable fie
   stub / researched stay out of the live list. Live API select → **Data Explorer** live
   provider view (domain form + presets + widget cards via
   `POST …/live-data-sources/[kind]/query`; crypto/FX/Alpaca bars use operator live
-  previews with display fields). Canvas `live_api` uses
-  `config.sourceKind`. Overlays mutually exclusive for backgrounds; inspector persists (D-133).
+  previews with display fields). Complete enumerable catalogs (`frankfurter_fx` all pairs for
+  base; `coingecko_crypto` markets up to full-list cap) always request the full available set
+  (`completeList` / `resolveLiveDataSourceMaxResults`) — not sample truncation. Canvas `live_api`
+  uses `config.sourceKind`. Overlays mutually exclusive for backgrounds; inspector persists
+  (D-133).
 
 ### MIDDLE BOTTOM — Exploration + Analysis + Choice (the main control panel)
 - **Persistent ribbon (D-097 / D-113 / D-114 / D-118):** collapsed view keeps tab buttons +

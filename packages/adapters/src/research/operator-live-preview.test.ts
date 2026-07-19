@@ -46,4 +46,31 @@ describe('buildOperatorLivePreviewWidgets', () => {
       globalThis.fetch = original;
     }
   });
+
+  it('returns full frankfurter pair list without sampling', async () => {
+    const original = globalThis.fetch;
+    const pairs = Array.from({ length: 40 }, (_, i) => ({
+      quote: `C${String(i).padStart(2, '0')}`,
+      rate: 1 + i / 100,
+      base: 'USD',
+    }));
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify(pairs), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })) as typeof fetch;
+
+    try {
+      const out = await buildOperatorLivePreviewWidgets({
+        kind: 'frankfurter_fx',
+        query: 'USD',
+        maxResults: 12,
+        credentials: {},
+      });
+      expect(out).not.toBeNull();
+      expect(out!.length).toBe(40);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
 });

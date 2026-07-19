@@ -1050,8 +1050,8 @@ describe('engine templates', () => {
   });
 
   function linkEndpointTypes(
-    engine: (typeof ENGINE_TEMPLATES)[number],
-    link: (typeof ENGINE_TEMPLATES)[number]['links'][number],
+    engine: { modules: Array<{ type: string }> },
+    link: { fromIndex: number | 'math'; toIndex: number | 'math'; linkKind: string },
   ): { from: string | undefined; to: string | undefined } {
     const from =
       link.fromIndex === 'math'
@@ -1123,6 +1123,61 @@ describe('engine templates', () => {
       for (const m of template.modules) {
         expect(banned, `${template.id}/${m.name}`).not.toContain(m.name);
       }
+    }
+  });
+
+  it('routes research only through librarian when library is present (D-143)', () => {
+    const templates: Array<{ id: string; modules: typeof ENGINE_TEMPLATES[number]['modules']; links: typeof ENGINE_TEMPLATES[number]['links'] }> = [
+      ...ENGINE_TEMPLATES,
+      ...Object.values(COMPANY_TEMPLATES),
+    ];
+    for (const template of templates) {
+      if (template.modules.length === 0) continue;
+      const researchIdx = new Set(
+        template.modules.map((m, i) => (m.type === 'research' ? i : -1)).filter((i) => i >= 0),
+      );
+      const libraryIdx = new Set(
+        template.modules.map((m, i) => (m.type === 'library' ? i : -1)).filter((i) => i >= 0),
+      );
+      if (researchIdx.size === 0 || libraryIdx.size === 0) continue;
+
+      for (const link of template.links) {
+        if (link.linkKind !== 'data_feed') continue;
+        if (typeof link.fromIndex !== 'number' || typeof link.toIndex !== 'number') continue;
+        expect(
+          researchIdx.has(link.fromIndex) && libraryIdx.has(link.toIndex),
+          `${template.id} research→library bypass ${link.fromIndex}→${link.toIndex}`,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it('targets engine_crypto philosophy at trend focus (D-143)', () => {
+    const crypto = ENGINE_TEMPLATES.find((e) => e.id === 'engine_crypto');
+    expect(crypto).toBeDefined();
+    const philosophy = crypto!.inputs.find((i) => i.key === 'philosophy');
+    expect(philosophy?.target).toEqual({ moduleIndex: 4, configKey: 'focus' });
+    expect(crypto!.modules[4]?.type).toBe('trend');
+  });
+
+  it('keeps company starters on librarian spines (D-143)', () => {
+    for (const template of Object.values(COMPANY_TEMPLATES)) {
+      if (template.modules.length === 0) continue;
+      const types = template.modules.map((m) => m.type);
+      if (!types.includes('research') || !types.includes('library')) continue;
+      expect(types.includes('librarian'), `${template.id} missing librarian`).toBe(true);
+      const hasResearchToLibrarian = template.links.some((link) => {
+        if (link.linkKind !== 'data_feed') return false;
+        const { from, to } = linkEndpointTypes(template, link);
+        return from === 'research' && to === 'librarian';
+      });
+      const hasLibrarianToLibrary = template.links.some((link) => {
+        if (link.linkKind !== 'data_feed') return false;
+        const { from, to } = linkEndpointTypes(template, link);
+        return from === 'librarian' && to === 'library';
+      });
+      expect(hasResearchToLibrarian, `${template.id} research→librarian`).toBe(true);
+      expect(hasLibrarianToLibrary, `${template.id} librarian→library`).toBe(true);
     }
   });
 });
@@ -1650,10 +1705,20 @@ describe('live data sources contracts', () => {
       liveDataSourceFormForDomain,
       evidenceToLiveDataSourceWidget,
       widgetKindForDomain,
+      liveDataSourceIsCompleteList,
+      resolveLiveDataSourceMaxResults,
+      LIVE_DATA_SOURCE_FULL_LIST_CAP,
     } = await import('./live-data-sources');
     expect(liveDataSourcePresetsForDomain('filings').some((p) => p.id === '10k')).toBe(true);
     expect(liveDataSourceFormForDomain('equity_bars').fieldLabel).toBe('Symbol');
     expect(widgetKindForDomain('news')).toBe('headline');
+    expect(liveDataSourceIsCompleteList('frankfurter_fx')).toBe(true);
+    expect(liveDataSourceIsCompleteList('coingecko_crypto')).toBe(true);
+    expect(liveDataSourceIsCompleteList('brave_search')).toBe(false);
+    expect(resolveLiveDataSourceMaxResults('frankfurter_fx', 12)).toBe(
+      LIVE_DATA_SOURCE_FULL_LIST_CAP,
+    );
+    expect(resolveLiveDataSourceMaxResults('brave_search', 8)).toBe(8);
     const w = evidenceToLiveDataSourceWidget(
       {
         digest: 'abcdefghijklmnop',

@@ -308,7 +308,7 @@ function styleModelEdge(
     label?: string | undefined;
     data: PostureAlgoEdgeData;
   },
-  opts?: { crossScreen?: boolean },
+  opts?: { crossScreen?: boolean; hideLabels?: boolean },
 ): LiveEdge {
   const { edgeType, activation, status, track } = edge.data;
   const stroke = trackStroke(track);
@@ -340,8 +340,9 @@ function styleModelEdge(
           : activation === 'armed'
             ? 0.75
             : 1;
-  const label =
-    edge.label != null
+  const label = opts?.hideLabels
+    ? undefined
+    : edge.label != null
       ? `${edge.label} · ${activation}/${status}`
       : `${edgeType} · ${activation}`;
 
@@ -399,15 +400,69 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
   const ring = data.selected
     ? 'ring-1 ring-[var(--color-accent)]'
     : activationRing(data.activation);
+  const chrome =
+    data.nodeRole === 'process' || data.nodeRole === 'analysis'
+      ? processFunctionChrome(data.processFunction)
+      : data.nodeRole === 'live_source'
+        ? sourceDomainChrome(data.sourceDomain)
+        : roleChrome(data.nodeRole);
+
+  // Dense strip cells — packing grid assumes ~40×118 chrome (D-214).
+  if (data.stripCompact) {
+    const badge =
+      data.nodeRole === 'process' || data.nodeRole === 'analysis'
+        ? processFunctionLabel(data.processFunction)
+        : roleLabel(data.nodeRole);
+    return (
+      <div
+        className={`w-[112px] rounded border border-t-2 px-1 py-0.5 ${kindBorder(data.kind)} ${chrome} ${ring}`}
+        style={{ borderTopColor: trackStroke(data.track) }}
+        data-testid={`market-posture-model-node-${data.nodeRole}`}
+        data-activation={data.activation}
+        data-track={data.track}
+        data-strip-compact="true"
+        title={`${data.label} · ${data.operation} · ${data.amount}`}
+      >
+        <Handle
+          type="target"
+          position={Position.Left}
+          className="!h-1 !w-1 !bg-[var(--color-ink-faint)]"
+        />
+        <div className="flex items-center justify-between gap-0.5">
+          <span className="font-mono text-[7px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+            {badge}
+          </span>
+          <span
+            className="max-w-[3.5rem] truncate font-mono text-[7px] tabular-nums text-[var(--color-ink-dim)]"
+            title={data.amount}
+          >
+            {data.amount}
+          </span>
+        </div>
+        <p
+          className="truncate text-[10px] font-medium leading-tight text-[var(--color-ink)]"
+          title={data.label}
+        >
+          {data.label}
+        </p>
+        <p
+          className="truncate font-mono text-[8px] uppercase tracking-wide text-[var(--color-accent)]"
+          title={data.operation}
+        >
+          {data.operation}
+        </p>
+        <Handle
+          type="source"
+          position={Position.Right}
+          className="!h-1 !w-1 !bg-[var(--color-ink-faint)]"
+        />
+      </div>
+    );
+  }
+
   return (
     <div
-      className={`min-w-[140px] max-w-[240px] rounded border border-t-[3px] px-1.5 py-1 shadow-sm ${kindBorder(data.kind)} ${
-        data.nodeRole === 'process' || data.nodeRole === 'analysis'
-          ? processFunctionChrome(data.processFunction)
-          : data.nodeRole === 'live_source'
-            ? sourceDomainChrome(data.sourceDomain)
-            : roleChrome(data.nodeRole)
-      } ${ring}`}
+      className={`min-w-[140px] max-w-[240px] rounded border border-t-[3px] px-1.5 py-1 shadow-sm ${kindBorder(data.kind)} ${chrome} ${ring}`}
       style={{ borderTopColor: trackStroke(data.track) }}
       data-testid={`market-posture-model-node-${data.nodeRole}`}
       data-activation={data.activation}
@@ -495,6 +550,7 @@ const PostureGroupNode = memo(function PostureGroupNode({
   data,
 }: NodeProps<Node<LiveNodeData>>) {
   const isCluster = data.nodeRole === 'process_cluster';
+  const compact = Boolean(data.stripCompact);
   return (
     <div
       className={`h-full w-full rounded border ${
@@ -509,21 +565,38 @@ const PostureGroupNode = memo(function PostureGroupNode({
       }
       data-stage-screen={data.stageScreenId}
       data-process-route={data.processRoute}
+      data-strip-compact={compact ? 'true' : undefined}
     >
-      <div className="flex items-center justify-between gap-1 border-b border-[var(--color-line)] px-1.5 py-0.5">
+      <div
+        className={`flex items-center justify-between gap-1 border-b border-[var(--color-line)] ${
+          compact ? 'px-1 py-px' : 'px-1.5 py-0.5'
+        }`}
+      >
         <p
-          className={`font-mono uppercase tracking-[0.12em] text-[var(--color-ink)] ${
-            isCluster ? 'text-[8px] font-medium' : 'text-[9px] font-semibold'
+          className={`truncate font-mono uppercase tracking-[0.12em] text-[var(--color-ink)] ${
+            isCluster
+              ? compact
+                ? 'text-[7px] font-medium'
+                : 'text-[8px] font-medium'
+              : compact
+                ? 'text-[8px] font-semibold'
+                : 'text-[9px] font-semibold'
           }`}
+          title={data.label}
         >
-          {isCluster ? `Route · ${data.label}` : data.label}
+          {isCluster ? data.label : data.label}
         </p>
-        <span className="font-mono text-[8px] tabular-nums text-[var(--color-ink-faint)]">
+        <span className="shrink-0 font-mono text-[7px] tabular-nums text-[var(--color-ink-faint)]">
           {data.amount}
         </span>
       </div>
       {isCluster && data.detail ? (
-        <p className="truncate px-1.5 pt-0.5 font-mono text-[7px] text-[var(--color-ink-faint)]">
+        <p
+          className={`truncate font-mono text-[var(--color-ink-faint)] ${
+            compact ? 'px-1 text-[6px] leading-tight' : 'px-1.5 pt-0.5 text-[7px]'
+          }`}
+          title={data.detail}
+        >
           {data.detail}
         </p>
       ) : null}
@@ -582,15 +655,16 @@ function InnerCanvas(props: {
     for (const n of graph.nodes) {
       if (n.data.stageScreenId) screenById.set(n.id, n.data.stageScreenId);
     }
+    const hideLabels = props.layoutMode === 'stripExpanded';
     return graph.edges.map((e) => {
       const a = screenById.get(e.source);
       const b = screenById.get(e.target);
       const crossScreen =
         e.id.startsWith('e-group:') ||
         (a != null && b != null && a !== b);
-      return styleModelEdge(e, { crossScreen });
+      return styleModelEdge(e, { crossScreen, hideLabels });
     });
-  }, [graph.edges, graph.nodes]);
+  }, [graph.edges, graph.nodes, props.layoutMode]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(liveNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(styledEdges);
@@ -603,9 +677,13 @@ function InnerCanvas(props: {
   useEffect(() => {
     setEdges(styledEdges);
     const frame = requestAnimationFrame(() => {
-      const padding = props.layoutMode === 'stripExpanded' ? 0.08 : 0.18;
-      const maxZoom = props.layoutMode === 'stripExpanded' ? 0.85 : 0.75;
-      void fitView({ padding, maxZoom, duration: 220 });
+      const strip = props.layoutMode === 'stripExpanded';
+      void fitView({
+        padding: strip ? 0.05 : 0.18,
+        maxZoom: strip ? 1.05 : 0.75,
+        minZoom: strip ? 0.28 : 0.12,
+        duration: 220,
+      });
     });
     return () => cancelAnimationFrame(frame);
   }, [styledEdges, setEdges, fitView, props.layoutMode]);
@@ -648,12 +726,16 @@ function InnerCanvas(props: {
       elementsSelectable
       panOnScroll
       zoomOnScroll={false}
-      minZoom={0.12}
-      maxZoom={1.2}
+      minZoom={props.layoutMode === 'stripExpanded' ? 0.28 : 0.12}
+      maxZoom={props.layoutMode === 'stripExpanded' ? 1.25 : 1.2}
       proOptions={{ hideAttribution: true }}
       className="bg-[var(--color-surface-0)]"
     >
-      <Background gap={14} size={1} color="var(--color-line)" />
+      <Background
+        gap={props.layoutMode === 'stripExpanded' ? 18 : 14}
+        size={1}
+        color="var(--color-line)"
+      />
       <Controls showInteractive={false} position="bottom-right" />
     </ReactFlow>
   );
@@ -936,6 +1018,9 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
           {hydration && (hydration.panelSurfaces?.length ?? 0) > 0
             ? ` · ${hydration.panelSurfaces.length} panels`
             : ''}
+          {hydration && (hydration.researchEngines?.length ?? 0) > 0
+            ? ` · ${hydration.researchEngines.length} research ENG`
+            : ''}
           {hydration?.asOfIso
             ? ` · asOf ${new Date(hydration.asOfIso).toLocaleTimeString()}`
             : ''}
@@ -944,7 +1029,7 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
             : ''}
         </p>
       </div>
-      <TrackLegend tracks={baselineGraph.tracks} compact={isStrip} />
+      {!isStrip ? <TrackLegend tracks={baselineGraph.tracks} compact={false} /> : null}
       <div
         data-testid="market-posture-model-canvas"
         className={

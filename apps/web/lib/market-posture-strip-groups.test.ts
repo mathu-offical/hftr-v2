@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   applyStripScreenGroups,
   finalizeStripEdges,
+  STRIP_NODE_H,
+  STRIP_NODE_W,
 } from './market-posture-algorithm-graph';
 import type {
   PostureAlgoGraphNode,
@@ -597,5 +599,39 @@ describe('applyStripScreenGroups', () => {
     expect(kids[0]?.id).toBe(`engine:research:${engId}`);
     expect(kids.map((k) => k.id)).toContain(`articles:engine:${engId}`);
     expect(kids.at(-1)?.position.x).toBeGreaterThan(kids[0]!.position.x);
+  });
+
+  it('stamps stripCompact and keeps cluster children inside lane cells', () => {
+    const stamped = [
+      {
+        ...node('process:shared:a', 'process', 'A'),
+        data: {
+          ...node('process:shared:a', 'process', 'A').data,
+          processRoute: 'narrative_compose',
+          processFunction: 'compose',
+        },
+      },
+      {
+        ...node('process:shared:b', 'process', 'B'),
+        data: {
+          ...node('process:shared:b', 'process', 'B').data,
+          processRoute: 'narrative_compose',
+          processFunction: 'verify',
+        },
+      },
+    ];
+    const packed = applyStripScreenGroups(stamped, [
+      edge('e1', 'process:shared:b', 'process:shared:a'),
+    ]);
+    expect(packed.every((n) => n.data.stripCompact === true)).toBe(true);
+    const cluster = packed.find((n) => n.data.nodeRole === 'process_cluster')!;
+    const kids = packed.filter((n) => n.parentId === cluster.id);
+    expect(kids.length).toBe(2);
+    const cw = (cluster.style?.width as number) ?? 0;
+    const ch = (cluster.style?.height as number) ?? 0;
+    for (const kid of kids) {
+      expect(kid.position.x + STRIP_NODE_W).toBeLessThanOrEqual(cw + 1);
+      expect(kid.position.y + STRIP_NODE_H).toBeLessThanOrEqual(ch + 1);
+    }
   });
 });

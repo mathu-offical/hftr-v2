@@ -374,8 +374,9 @@ are ignored. Shortcuts are suppressed in editable fields.
   validate → synthesize → admit → articles → shelf), Process route clusters + stage
   track lanes, Capital root vs execution, Outlook/Day sequential stage columns. Routes
   stack in pipeline order; steps within a route use **edge-level columns** (L→R by
-  connection depth, shared across sequential routes); side nodes sit below the route
-  stack. Draws all within- and
+  connection depth, shared across sequential routes); strip nodes use **compact chrome**
+  sized to the packing grid (no clipped cards); edge labels off in the strip; side nodes
+  sit below the route stack. Draws all within- and
   between-screen edges (plus **forward-only** group backbone flows) and stamps each
   node to its owning stage screen (cluster click uses that screen). Data-flow
   assignment: library adapters use `lib-adapter:` under Library; `providers` stage sits

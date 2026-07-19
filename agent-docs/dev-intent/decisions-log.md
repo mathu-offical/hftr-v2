@@ -1888,7 +1888,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   named process → research articles → library); steps sit on **shared edge-level columns**
   (longest-path L→R from connection edges) so sequential hops align across routes;
   **research ENGINEs** appear on Library as gather→validate→synthesize→admit→articles→shelf
-  (D-214). Non-route nodes sit **below** the route stack.
+  (D-214). Strip chrome is **compact** (`stripCompact`): packing cell sizes match dense
+  node cards; edge labels hidden; track legend omitted so the diagram fills the band.
+  Non-route nodes sit **below** the route stack.
   Cluster click navigates via `stageScreenId` (not hard-coded Process).
   Every strip content node is stamped with `stageScreenId` and mapped into that screen’s
   emission traces. Strip data-flow is left→right: library adapters use `lib-adapter:`

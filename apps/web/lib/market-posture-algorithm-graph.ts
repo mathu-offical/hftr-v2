@@ -83,6 +83,11 @@ export type PostureAlgoNodeData = {
   capitalBearing?: boolean;
   /** Owning stage screen when nodeRole is screen_group / process_cluster (D-186). */
   stageScreenId?: string;
+  /**
+   * Dense chrome for bottom Model strip (D-186 / D-214) — packing sizes assume this
+   * when true so nodes fit their lane cells without clipping.
+   */
+  stripCompact?: boolean;
   layer: MarketHubModelLayer;
   track: MarketHubModelTrack;
   activation: MarketHubModelEdgeActivation;
@@ -1801,12 +1806,12 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
   return { nodes, edges, tracks, trackBands, asOfIso };
 }
 
-/** Outer screen-column pitch (must fit inner role lanes). */
-const STRIP_NODE_H = 58;
-const STRIP_NODE_W = 148;
-const STRIP_PAD = 8;
-const STRIP_HEADER = 26;
-const STRIP_INNER_GAP = 10;
+/** Outer screen-column pitch — sized for stripCompact chrome (D-214). */
+export const STRIP_NODE_H = 40;
+export const STRIP_NODE_W = 118;
+const STRIP_PAD = 6;
+const STRIP_HEADER = 22;
+const STRIP_INNER_GAP = 8;
 /** Max role lanes inside a screen group (src → adapt → process → stage → emit). */
 const STRIP_INNER_LANES = 5;
 const STRIP_INNER_LANE_W = STRIP_NODE_W + STRIP_INNER_GAP;
@@ -1855,8 +1860,8 @@ const PROCESS_FN_ORDER: Record<string, number> = {
   compose: 10,
 };
 
-const STRIP_CLUSTER_GAP = 10;
-const STRIP_CLUSTER_HEADER = 22;
+const STRIP_CLUSTER_GAP = 8;
+const STRIP_CLUSTER_HEADER = 18;
 
 /**
  * Shared phase columns inside every route row (source → adapter → pipeline fns).
@@ -2434,14 +2439,26 @@ function packProcessScreenColumn(opts: {
     const clusterH =
       STRIP_CLUSTER_HEADER + STRIP_PAD * 2 + maxStack * STRIP_NODE_H;
 
+    const orderedSteps = orderClusterStepsByEdges(steps, edges);
     const fnSummary = [
       ...new Set(
-        steps
-          .map((s) => s.data.processFunction)
+        orderedSteps
+          .map((s) => {
+            if (s.data.nodeRole === 'research_engine') return 'engine';
+            if (s.data.nodeRole === 'research_articles') return 'articles';
+            if (
+              s.data.nodeRole === 'live_source' ||
+              s.data.nodeRole === 'library_source'
+            ) {
+              return 'src';
+            }
+            if (s.data.nodeRole === 'adapter') return 'adapt';
+            return s.data.processFunction ?? null;
+          })
           .filter((fn): fn is string => Boolean(fn)),
       ),
     ]
-      .slice(0, 4)
+      .slice(0, 6)
       .join(' → ');
     const roleBits = [
       ...new Set(steps.map((s) => s.data.nodeRole).filter(Boolean)),
@@ -2473,6 +2490,7 @@ function packProcessScreenColumn(opts: {
         activation: 'armed',
         status: 'ready',
         updatedAt: null,
+        stripCompact: true,
       },
     });
 
@@ -2490,6 +2508,7 @@ function packProcessScreenColumn(opts: {
           data: {
             ...step.data,
             stageScreenId: screenId,
+            stripCompact: true,
           },
         });
         globalRank.set(step.id, routeIdx * 100 + levelIdx * 10 + stackIdx);
@@ -2554,6 +2573,7 @@ function packProcessScreenColumn(opts: {
         data: {
           ...child.data,
           stageScreenId: screenId,
+          stripCompact: true,
         },
       });
     });
@@ -2591,6 +2611,7 @@ function packProcessScreenColumn(opts: {
       activation: 'armed',
       status: 'ready',
       updatedAt: null,
+      stripCompact: true,
     },
   });
 
@@ -2913,7 +2934,13 @@ export function applyStripScreenGroups(
     cursorX += width + 12;
     void colIdx;
   });
-  return out;
+  return out.map((n) => ({
+    ...n,
+    data: {
+      ...n.data,
+      stripCompact: true,
+    },
+  }));
 }
 
 /**

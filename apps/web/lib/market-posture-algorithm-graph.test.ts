@@ -135,6 +135,8 @@ const hydration: MarketHubModelHydration = {
       operation: 'rail inventory',
       amount: '1 open',
       sourceStageId: 'narrative',
+      emitFromStages: [],
+      emitFromFunctions: [],
       updatedAt: '2026-07-19T05:00:00.000Z',
       capitalBearing: true,
     },

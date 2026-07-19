@@ -1322,7 +1322,7 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
     }
 
     // Process-function emissions — one representative process node per function class.
-    const emitFns = new Set(surf.emitFromFunctions ?? []);
+    const emitFns = new Set<string>(surf.emitFromFunctions ?? []);
     if (emitFns.size > 0) {
       const seenFn = new Set<string>();
       for (const pn of processNodes) {

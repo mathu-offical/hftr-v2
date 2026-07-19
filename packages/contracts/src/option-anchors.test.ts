@@ -3,6 +3,7 @@ import {
   buildOptionAnchorId,
   buildOptionAnchorsForEngine,
   canvasVisibleOptionAnchors,
+  decisionOptionOutHandle,
   optionAnchorCatalogSlice,
   OptionAnchorKind,
   slugCatalogRef,
@@ -28,6 +29,7 @@ describe('option-anchors', () => {
     expect(buildOptionAnchorId(ENGINE_ID, 'strategy_family', 'mod/strat-001')).toBe(
       `${ENGINE_ID}:strategy_family:mod-strat-001`,
     );
+    expect(decisionOptionOutHandle('discover')).toBe('option-out:discover');
   });
 
   it('exposes catalog slice for UI consumers', () => {
@@ -37,7 +39,7 @@ describe('option-anchors', () => {
     expect(slice.recoveryLadderTemplates?.length).toBeGreaterThan(0);
   });
 
-  it('engine_day_trading yields template, family, branch, and lever anchors', () => {
+  it('engine_day_trading collapses strategy_family branches into options (D-192)', () => {
     const anchors = anchorsFor('engine_day_trading', [
       {
         id: 'mod-trading-1',
@@ -50,22 +52,37 @@ describe('option-anchors', () => {
     const kinds = kindsPresent(anchors);
     expect(kinds.has('template_input')).toBe(true);
     expect(kinds.has('strategy_family')).toBe(true);
-    expect(kinds.has('branch_role')).toBe(true);
     expect(kinds.has('lever_band')).toBe(true);
     expect(kinds.has('recovery_phase')).toBe(true);
     expect(kinds.has('philosophy_axis')).toBe(true);
 
+    const slice = optionAnchorCatalogSlice();
+    const branchCount = slice.branchTypes?.length ?? 0;
+    expect(branchCount).toBeGreaterThan(0);
+
     const family = anchors.find((anchor) => anchor.kind === 'strategy_family');
     expect(family?.ownerModuleId).toBe('mod-trading-1');
     expect(family?.catalogRef).toContain('strat-001');
+    expect(family?.options.length).toBe(branchCount);
+    expect(family?.parentAnchorId).toBeNull();
+    expect(family?.intakes).toEqual({ data: true, systemControl: true, clock: false });
 
-    const branch = anchors.find((anchor) => anchor.kind === 'branch_role');
-    expect(branch?.parentAnchorId).toBe(family?.id);
+    const tradingBranchChildren = anchors.filter(
+      (anchor) =>
+        anchor.kind === 'branch_role' &&
+        anchor.parentAnchorId === family?.id &&
+        anchor.ownerModuleId === 'mod-trading-1',
+    );
+    expect(tradingBranchChildren).toHaveLength(0);
 
     const lever = anchors.find(
-      (anchor) => anchor.kind === 'lever_band' && anchor.parentAnchorId === branch?.id,
+      (anchor) => anchor.kind === 'lever_band' && anchor.parentAnchorId === family?.id,
     );
     expect(lever).toBeDefined();
+
+    const recovery = anchors.find((anchor) => anchor.kind === 'recovery_phase');
+    expect(recovery?.options.length).toBeGreaterThan(1);
+    expect(recovery?.parentAnchorId).toBeNull();
 
     for (const anchor of anchors) {
       expect(anchor.id).toMatch(new RegExp(`^${ENGINE_ID}:`));
@@ -86,11 +103,13 @@ describe('option-anchors', () => {
     const kinds = kindsPresent(anchors);
     expect(kinds.has('template_input')).toBe(true);
     expect(kinds.has('strategy_family')).toBe(true);
-    expect(kinds.has('branch_role')).toBe(true);
     expect(kinds.has('lever_band')).toBe(true);
+
+    const family = anchors.find((anchor) => anchor.kind === 'strategy_family');
+    expect(family?.options.length).toBeGreaterThan(0);
   });
 
-  it('canvasVisibleOptionAnchors excludes lever_band', () => {
+  it('canvasVisibleOptionAnchors excludes lever_band but keeps strategy_family', () => {
     const anchors = anchorsFor('engine_day_trading', [
       {
         id: 'mod-trading-1',
@@ -101,10 +120,17 @@ describe('option-anchors', () => {
     const visible = canvasVisibleOptionAnchors(anchors);
     expect(visible.some((anchor) => anchor.kind === 'lever_band')).toBe(false);
     expect(visible.some((anchor) => anchor.kind === 'strategy_family')).toBe(true);
-    expect(visible.some((anchor) => anchor.kind === 'branch_role')).toBe(true);
+    expect(
+      visible.some(
+        (anchor) =>
+          anchor.kind === 'branch_role' &&
+          anchor.catalogRef.includes('strat-001') &&
+          anchor.parentAnchorId !== null,
+      ),
+    ).toBe(false);
   });
 
-  it('research engines yield subtype / curiosity / librarian / library trees (D-178)', () => {
+  it('research engines yield sibling decision roots with option sets (D-192)', () => {
     const anchors = anchorsFor('research_web_fabric', [
       {
         id: 'mod-research-1',
@@ -147,17 +173,39 @@ describe('option-anchors', () => {
 
     const subtype = anchors.find((anchor) => anchor.kind === 'research_subtype');
     expect(subtype?.ownerModuleId).toBe('mod-research-1');
-    expect(subtype?.catalogRef).toContain('external_web');
+    expect(subtype?.parentAnchorId).toBeNull();
+    expect(subtype?.options.length).toBeGreaterThan(1);
+    expect(subtype?.selectedOptionId).toBe('external_web');
 
-    const discover = anchors.find(
-      (anchor) =>
-        anchor.kind === 'branch_role' && anchor.catalogRef.endsWith('/discover'),
+    const curiosity = anchors.find((anchor) => anchor.kind === 'curiosity_band');
+    expect(curiosity?.parentAnchorId).toBeNull();
+    expect(curiosity?.options.length).toBeGreaterThanOrEqual(2);
+    expect(curiosity?.selectedOptionId).toBe('exploratory');
+
+    const admission = anchors.find((anchor) => anchor.kind === 'admission_mode');
+    expect(admission?.parentAnchorId).toBeNull();
+    expect(admission?.options.length).toBeGreaterThanOrEqual(2);
+    expect(admission?.selectedOptionId).toBe('auto_admit_validated');
+
+    const cadence = anchors.find(
+      (anchor) => anchor.kind === 'cadence_band' && anchor.ownerModuleId === 'mod-research-1',
     );
-    expect(discover?.parentAnchorId).toBe(subtype?.id);
+    expect(cadence?.parentAnchorId).toBeNull();
+    expect(cadence?.options.length).toBeGreaterThanOrEqual(2);
+    expect(cadence?.selectedOptionId).toBeTruthy();
+
+    const pipeline = anchors.find(
+      (anchor) =>
+        anchor.kind === 'branch_role' && anchor.catalogRef.endsWith('/research_pipeline'),
+    );
+    expect(pipeline?.parentAnchorId).toBeNull();
+    expect(pipeline?.options).toHaveLength(2);
+    expect(pipeline?.options.map((option) => option.id)).toEqual(['discover', 'verify_sanity']);
 
     const visible = canvasVisibleOptionAnchors(anchors);
     expect(visible.some((anchor) => anchor.kind === 'research_subtype')).toBe(true);
     expect(visible.some((anchor) => anchor.kind === 'lever_band')).toBe(false);
+    expect(visible.some((anchor) => anchor.kind === 'branch_role')).toBe(true);
   });
 
   it('trend research engine attaches trend_posture under the trend member', () => {
@@ -175,7 +223,14 @@ describe('option-anchors', () => {
     ]);
     const posture = anchors.find((anchor) => anchor.kind === 'trend_posture');
     expect(posture?.ownerModuleId).toBe('mod-trend-t');
-    expect(posture?.catalogRef).toContain('research_only');
+    expect(posture?.selectedOptionId).toBe('research_only');
+    expect(posture?.options.length).toBeGreaterThan(1);
+    expect(posture?.parentAnchorId).toBeNull();
+
+    const cadence = anchors.find(
+      (anchor) => anchor.kind === 'cadence_band' && anchor.ownerModuleId === 'mod-trend-t',
+    );
+    expect(cadence?.parentAnchorId).toBeNull();
   });
 
   it('focus template_input owns to trend via target.moduleIndex (D-191)', () => {

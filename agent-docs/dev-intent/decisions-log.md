@@ -2020,6 +2020,24 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   text-only (`bar={false}`) in panels/ticker. Extends D-198. Docs: ui-spec §8.
   **Status: implemented.**
 
+- **D-202 (unified decision nodes — options as config, 2026-07-19):** Evolve D-173/D-180
+  option-anchor forests into one React Flow **decision node** per deterministic choice
+  point. Options live in `options[]` with per-option `option-out:{id}` handles; intakes
+  are data + system-control from the owner module. Strategy branches and recovery phases
+  collapse into parent options; research/librarian/live-api kinds are sibling decision
+  roots (full enum catalogs). Templates seed stable decision kinds; modules declare
+  `MODULE_REQUIRED_DECISION_KINDS`. Persistence: `setupSnapshot.decisionNodes` +
+  `decisionOptionSelections` (legacy optionAnchors retained). Spec:
+  `docs/superpowers/specs/2026-07-19-unified-decision-nodes-design.md`. Extends D-173 /
+  D-180 / D-191. Docs: ui-spec §3, canvas-engine-group-design.
+  **Status: implemented.**
+
+- **D-203 (wheels for buttons, bars for screens, 2026-07-19):** Loading contract split —
+  **buttons / chips / rail slots / shaped controls** use stepped `LoadingWheel`;
+  **interface screens** (panels, canvas regions, directory, ticker strips) use flat
+  `IndeterminateProgressBar` / `InlineLoadingStrip`. Extends D-201. Docs: ui-spec §8.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

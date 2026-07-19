@@ -22,6 +22,9 @@ const KIND_LABELS: Record<OptionAnchorKind, string> = {
   cadence_band: 'Cadence bands',
   admission_mode: 'Admission modes',
   emit_mode: 'Emit modes',
+  feed_class: 'Feed classes',
+  query_policy: 'Query policies',
+  schedule_policy: 'Schedule policies',
 };
 
 const POSITION_OPTIONS: OptionAnchorPosition[] = ['min', 'typical', 'max'];
@@ -55,6 +58,9 @@ function anchorCatalogHint(anchor: OptionAnchorSpec): string | null {
     case 'cadence_band':
     case 'admission_mode':
     case 'emit_mode':
+    case 'feed_class':
+    case 'query_policy':
+    case 'schedule_policy':
       return null;
     default: {
       const _exhaustive: never = anchor.kind;

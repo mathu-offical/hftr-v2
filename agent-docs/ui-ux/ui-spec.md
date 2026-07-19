@@ -208,12 +208,15 @@
   **D-173 completeness:** every selectable canvas node opens an inspector —
   modules (`SchemaConfigForm` from `MODULE_CONFIG_SCHEMAS` + setup + specialized actions +
   `LeverTreeSection` for trading/trend/policy), engine groups (shared setup, template inputs,
-  option-anchor list), and option anchors (kind, catalogRef, band position). RightPanel Config
+  option-anchor list), and decision nodes (kind, catalogRef, options, selected option,
+  band position). RightPanel Config
   tab is out of scope for this completeness pass.
-- **Option-tree anchors (D-173 / D-180):** engines provision compact `optionAnchor` children from
-  `buildOptionAnchorsForEngine` (catalog refs / band positions only — no raw financial numbers).
-  Owned roots dock beside owner modules with `option_bind` edges; research engines include
-  subtype / curiosity / librarian / library / trend / emit trees. Lever bands edit in the inspector.
+- **Decision nodes (D-173 / D-180 / D-202):** engines provision unified `decisionNode`
+  children from `buildDecisionNodesForEngine` / `buildOptionAnchorsForEngine` — one card
+  per choice point with `options[]` and per-option outs (catalog refs / band positions
+  only — no raw financial numbers). Owned decisions dock beside owner modules with
+  intake binds (data + system). Research engines seed subtype / curiosity / admission /
+  cadence / pipeline as sibling decisions. Lever bands edit in the inspector.
 - **Deferred:** old “expanded info view” (node grows ~2× with live mini-log) — replaced by
   fixed dashboard + inspector; deep jump to owning side panel remains a later affordance.
 - Minimap + zoom controls bottom-right; fit-view on load; LOD: below zoom threshold, node bodies
@@ -695,7 +698,6 @@ after applying SQL migrations.
   cycling remains open.
 - All interactive elements labeled (ARIA); status conveyed in text (already the rule).
 - 60fps canvas pan/zoom on a mid-tier laptop; panel animation ≤300ms; no layout shift on data
-  refresh (skeletons + stable row heights). **D-198 / D-201:** shared `LoadingChrome` —
-  slim retro flat bars (1–2px stepped, no glass), square blink dots, single-line
-  mono status; panel/ticker strips prefer text-only; region loaders are border-only
-  blocks (not glassy cards).
+  refresh (skeletons + stable row heights). **D-198 / D-201 / D-203:** shared
+  `LoadingChrome` — **screens** use slim flat bars; **buttons / shaped controls** use
+  stepped `LoadingWheel` (rail slots, chips, busy actions). No glass gradients.

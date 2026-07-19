@@ -100,15 +100,14 @@ ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles
     `EXECUTION_ENGINE_RESEARCH_DEPENDENCIES` in the left column; analyzer terminus emits enriched
     articles into the parent **Engine Data Hub** (not a second hub on the pack). Subtype overlap
     between inline and child packs is intentional.
-- **Option anchors (D-173 / D-180 / D-191):** catalog decision nodes parented under the engine
-  group. **Owned** roots dock beside their owner module (research subtype, librarian,
-  library class, trend posture, trading family, analyzer emit) with `option_bind` edges
-  owner→root→children (handles: module `data_feed-out` → `option-in` → `option-out`).
-  **`template_input` owners** resolve from `templateInput.target.moduleIndex` on the engine
-  template (e.g. `topicScope` → research member, `focus` → trend member) — not first-of-type
-  heuristics. Unowned roots (e.g. philosophy axes) stay in the right column. Owner trees are
-  sorted and non-overlapping; chrome height grows to fit placed trees. Positions re-sync on
-  module drag. Lever bands remain inspector-only.
+- **Option anchors (D-173 / D-180 / D-191 / D-192):** unified **decision nodes**
+  parented under the engine group. Each node is one deterministic choice point;
+  **options are config** with a separate `option-out:{id}` handle per option.
+  Intakes: `decision-data-in` + `decision-system-in` from the owner module.
+  Owned decisions dock beside their owner module. Collapse rules: strategy
+  branches and recovery phases fold into parent options; research/librarian/
+  live-api choice kinds are sibling decision roots (not one card per leaf value).
+  Lever bands remain inspector-only.
 - **Simulation ENGINEs (D-189 / D-191):** create section alongside Research / Execution. Linked
   children of an execution use `setup_snapshot.simulationBinding` (`pre`=gate /
   `post`=training + parentExecutionEngineId); adhoc sims are standalone paper desks.

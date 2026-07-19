@@ -36,7 +36,7 @@ export type EngineInspectorModel = {
 
 /**
  * Floating inspector for a selected ENGINE group (D-173): setup, template
- * inputs, and the full option-anchor lever tree.
+ * inputs, and the full decision-node lever tree (D-202).
  */
 export function EngineInspectorPanel(props: {
   companyId: string;
@@ -264,7 +264,7 @@ export function EngineInspectorPanel(props: {
 
       {canvasAnchors.length > 0 && (
         <div className="space-y-2 border-t border-[var(--color-line)] pt-3">
-          <span className="text-xs text-[var(--color-ink-dim)]">Option anchors</span>
+          <span className="text-xs text-[var(--color-ink-dim)]">Decision nodes</span>
           <ul className="max-h-40 space-y-1 overflow-y-auto">
             {canvasAnchors.map((anchor) => (
               <li key={anchor.id}>

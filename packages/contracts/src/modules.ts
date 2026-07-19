@@ -62,6 +62,26 @@ export function moduleRequiresMath(type: ModuleType): boolean {
 }
 
 /**
+ * D-192: decision kinds each module type must expose when present on an engine.
+ * Builder merges template seeds ∪ these required kinds for member modules.
+ */
+export const MODULE_REQUIRED_DECISION_KINDS = {
+  research: [
+    'research_subtype',
+    'curiosity_band',
+    'admission_mode',
+    'cadence_band',
+    'branch_role',
+  ],
+  librarian: ['librarian_subtype', 'cadence_band'],
+  library: ['library_class'],
+  trend: ['trend_posture', 'cadence_band'],
+  trading: ['strategy_family', 'recovery_phase'],
+  analyzer: ['emit_mode'],
+  live_api: ['feed_class', 'query_policy', 'schedule_policy'],
+} as const satisfies Record<string, readonly string[]>;
+
+/**
  * Hard cap on modules per company (hub + engine members + dedicated Math tools).
  * Sized for flexible multi-engine canvases (D-052); engines share one company queue.
  */

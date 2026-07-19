@@ -3,24 +3,23 @@ import {
   buildOptionAnchorsForEngine,
   canvasVisibleOptionAnchors,
   CANVAS_LAYOUT,
+  DECISION_HANDLE_DATA_IN,
+  DECISION_HANDLE_SYSTEM_IN,
   ENGINE_GROUP_PADDING,
   handleIdForStream,
   type OptionAnchorPosition,
   type OptionAnchorSpec,
 } from '@hftr/contracts';
-import type { OptionAnchorFlowNode } from './OptionAnchorNode';
-import {
-  OPTION_ANCHOR_HANDLE_IN,
-  OPTION_ANCHOR_HANDLE_OUT,
-} from './OptionAnchorNode';
+import type { DecisionFlowNode, OptionAnchorFlowNode } from './DecisionNode';
 import type { CanvasEngineGroup, CanvasModule } from './types';
 
-export const OPTION_ANCHOR_NODE_WIDTH = 140;
-export const OPTION_ANCHOR_NODE_HEIGHT = 48;
-export const OPTION_ANCHOR_GAP = 8;
+export const OPTION_ANCHOR_NODE_WIDTH = 168;
+/** Base height; placement grows with option count. */
+export const OPTION_ANCHOR_NODE_HEIGHT = 72;
+export const OPTION_ANCHOR_GAP = 10;
 /** Matches CANVAS_LAYOUT / ENGINE_GROUP_PADDING.right reserve (D-176). */
 export const OPTION_ANCHOR_COLUMN_WIDTH = CANVAS_LAYOUT.optionAnchorColumnWidth;
-/** Gap between owner module card and its docked option-anchor stack (D-180). */
+/** Gap between owner module card and its docked decision stack (D-180 / D-192). */
 export const OPTION_ANCHOR_OWNER_GAP = 16;
 
 /** Prefer process-decision roots at the owner card Y; secondary roots stack below. */
@@ -32,12 +31,24 @@ const ROOT_KIND_PRIORITY: Record<string, number> = {
   trend_posture: 0,
   emit_mode: 0,
   feed_class: 0,
+  recovery_phase: 1,
+  curiosity_band: 1,
+  admission_mode: 1,
+  cadence_band: 1,
+  query_policy: 1,
+  schedule_policy: 1,
+  branch_role: 1,
   template_input: 2,
   philosophy_axis: 3,
 };
 
 function rootKindPriority(kind: string): number {
   return ROOT_KIND_PRIORITY[kind] ?? 1;
+}
+
+function nodeHeightFor(anchor: OptionAnchorSpec): number {
+  const optionCount = anchor.options?.length ?? 0;
+  return Math.max(OPTION_ANCHOR_NODE_HEIGHT, 36 + optionCount * 14);
 }
 
 export function anchorsForEngine(
@@ -83,7 +94,6 @@ export function relativeMemberPositions(
       continue;
     }
     if (!bounds) {
-      // Without bounds, treat stored position as already parent-relative (buildInitialGraph path).
       map.set(module.id, module.position);
       continue;
     }
@@ -104,8 +114,8 @@ export function optionAnchorColumnX(groupWidth: number): number {
   );
 }
 
-function pushAnchorNode(
-  nodes: OptionAnchorFlowNode[],
+function pushDecisionNode(
+  nodes: DecisionFlowNode[],
   engine: CanvasEngineGroup,
   anchor: OptionAnchorSpec,
   x: number,
@@ -115,7 +125,7 @@ function pushAnchorNode(
 ): void {
   nodes.push({
     id: anchor.id,
-    type: 'optionAnchor',
+    type: 'decisionNode',
     parentId: engine.id,
     expandParent: false,
     draggable: false,
@@ -128,9 +138,12 @@ function pushAnchorNode(
       catalogRef: anchor.catalogRef,
       label: anchor.label,
       ...(anchor.layer ? { layer: anchor.layer } : {}),
-      parentAnchorId: anchor.parentAnchorId ?? null,
+      parentAnchorId: null,
       ownerModuleId: anchor.ownerModuleId ?? null,
       ownerEngineId: anchor.ownerEngineId,
+      options: anchor.options ?? [],
+      selectedOptionId: anchor.selectedOptionId ?? null,
+      intakes: anchor.intakes ?? { data: true, systemControl: true, clock: false },
       position,
       parentId: engine.id,
       ...(suppressOwnerBind ? { suppressOwnerBind: true } : {}),
@@ -139,11 +152,10 @@ function pushAnchorNode(
 }
 
 /**
- * Place canvas-visible anchors by process function:
- * - Owned roots dock right of their owner module (clamped into group)
- * - Children stack indented under parent anchor
- * - Owners sorted by (y,x); trees do not vertically overlap
- * - Unowned roots + orphans stack in the engine right column
+ * Place canvas-visible decision nodes (D-192):
+ * - One card per choice point (options are config, not child cards)
+ * - Owned decisions dock right of their owner module
+ * - Unowned roots stack in the engine right column
  */
 export function placeOptionAnchorNodes(
   engine: CanvasEngineGroup,
@@ -151,21 +163,13 @@ export function placeOptionAnchorNodes(
   allAnchors: readonly OptionAnchorSpec[],
   modules: readonly CanvasModule[],
   relativeFromNodes?: ReadonlyMap<string, { x: number; y: number }>,
-): OptionAnchorFlowNode[] {
+): DecisionFlowNode[] {
   const visible = canvasVisibleOptionAnchors(allAnchors);
   if (visible.length === 0) return [];
 
-  const byParent = new Map<string | null, OptionAnchorSpec[]>();
-  for (const anchor of visible) {
-    const parentKey = anchor.parentAnchorId ?? null;
-    const list = byParent.get(parentKey) ?? [];
-    list.push(anchor);
-    byParent.set(parentKey, list);
-  }
-
   const positions = positionsMap(engine);
   const memberPos = relativeMemberPositions(engine, modules, relativeFromNodes);
-  const nodes: OptionAnchorFlowNode[] = [];
+  const nodes: DecisionFlowNode[] = [];
   const placed = new Set<string>();
 
   const columnX = optionAnchorColumnX(groupWidth);
@@ -174,27 +178,7 @@ export function placeOptionAnchorNodes(
   let columnY: number = ENGINE_GROUP_PADDING.top;
   let ownerRowCursor: number = ENGINE_GROUP_PADDING.top;
 
-  const placeTree = (
-    parentId: string,
-    depth: number,
-    baseX: number,
-    startY: number,
-  ): number => {
-    let cursorY = startY;
-    const children = byParent.get(parentId) ?? [];
-    for (const anchor of children) {
-      if (placed.has(anchor.id)) continue;
-      placed.add(anchor.id);
-      const x = baseX + Math.min(depth, 2) * 10;
-      const position = positions[anchor.id] ?? anchor.defaultPosition ?? 'typical';
-      pushAnchorNode(nodes, engine, anchor, x, cursorY, position);
-      cursorY += OPTION_ANCHOR_NODE_HEIGHT + OPTION_ANCHOR_GAP;
-      cursorY = placeTree(anchor.id, depth + 1, baseX, cursorY);
-    }
-    return cursorY;
-  };
-
-  const roots = byParent.get(null) ?? [];
+  const roots = visible.filter((anchor) => !anchor.parentAnchorId);
   const ownedRoots = roots.filter((anchor) => anchor.ownerModuleId);
   const freeRoots = roots.filter((anchor) => !anchor.ownerModuleId);
 
@@ -215,16 +199,12 @@ export function placeOptionAnchorNodes(
     return (pa?.x ?? 0) - (pb?.x ?? 0);
   });
 
-  /** Roots whose dock was clamped into the free column — skip owner→root binds. */
-  const columnClampedRootIds = new Set<string>();
-
   for (const [ownerId, ownerRoots] of ownerEntries) {
     const owner = memberPos.get(ownerId);
     let dockX = owner
       ? owner.x + CANVAS_LAYOUT.moduleWidth + OPTION_ANCHOR_OWNER_GAP
       : columnX;
     let clampedToColumn = false;
-    // Keep owned docks out of the reserved right column / group edge.
     if (dockX > maxDockX) {
       dockX = columnX;
       clampedToColumn = true;
@@ -236,11 +216,9 @@ export function placeOptionAnchorNodes(
     for (const root of orderedRoots) {
       if (placed.has(root.id)) continue;
       placed.add(root.id);
-      if (clampedToColumn) columnClampedRootIds.add(root.id);
       const position = positions[root.id] ?? root.defaultPosition ?? 'typical';
-      pushAnchorNode(nodes, engine, root, dockX, dockY, position, clampedToColumn);
-      dockY += OPTION_ANCHOR_NODE_HEIGHT + OPTION_ANCHOR_GAP;
-      dockY = placeTree(root.id, 1, dockX, dockY);
+      pushDecisionNode(nodes, engine, root, dockX, dockY, position, clampedToColumn);
+      dockY += nodeHeightFor(root) + OPTION_ANCHOR_GAP;
     }
     ownerRowCursor = Math.max(ownerRowCursor, dockY);
     if (!owner) columnY = Math.max(columnY, dockY);
@@ -252,54 +230,61 @@ export function placeOptionAnchorNodes(
     if (placed.has(root.id)) continue;
     placed.add(root.id);
     const position = positions[root.id] ?? root.defaultPosition ?? 'typical';
-    pushAnchorNode(nodes, engine, root, columnX, columnY, position);
-    columnY += OPTION_ANCHOR_NODE_HEIGHT + OPTION_ANCHOR_GAP;
-    columnY = placeTree(root.id, 1, columnX, columnY);
+    pushDecisionNode(nodes, engine, root, columnX, columnY, position);
+    columnY += nodeHeightFor(root) + OPTION_ANCHOR_GAP;
   }
 
   for (const anchor of visible) {
     if (placed.has(anchor.id)) continue;
     const position = positions[anchor.id] ?? anchor.defaultPosition ?? 'typical';
-    pushAnchorNode(nodes, engine, anchor, columnX, columnY, position);
-    columnY += OPTION_ANCHOR_NODE_HEIGHT + OPTION_ANCHOR_GAP;
+    pushDecisionNode(nodes, engine, anchor, columnX, columnY, position);
+    columnY += nodeHeightFor(anchor) + OPTION_ANCHOR_GAP;
     placed.add(anchor.id);
   }
 
   return nodes;
 }
 
-/** Bottom extent of placed anchors (parent-relative), for engine chrome height. */
-export function measurePlacedAnchorBottom(nodes: readonly OptionAnchorFlowNode[]): number {
+/** Bottom extent of placed decisions (parent-relative), for engine chrome height. */
+export function measurePlacedAnchorBottom(
+  nodes: readonly DecisionFlowNode[] | readonly OptionAnchorFlowNode[],
+): number {
   let bottom = 0;
   for (const node of nodes) {
-    bottom = Math.max(bottom, node.position.y + OPTION_ANCHOR_NODE_HEIGHT);
+    const optionCount = node.data.options?.length ?? 0;
+    const height = Math.max(OPTION_ANCHOR_NODE_HEIGHT, 36 + optionCount * 14);
+    bottom = Math.max(bottom, node.position.y + height);
   }
   return bottom;
 }
 
-/** React Flow-only option_bind edges (not persisted as module_links). */
+/**
+ * React Flow-only decision binds (not persisted as module_links).
+ * Owner module data_feed-out → decision data-in.
+ * System-control intake handle is present on the card; decorative system bind uses
+ * directive-out when the owner exposes it (control-shaped), else data only.
+ */
 export function optionBindEdgesForEngine(
   allAnchors: readonly OptionAnchorSpec[],
   options?: { suppressOwnerBindIds?: ReadonlySet<string> },
 ): Edge[] {
   const visible = canvasVisibleOptionAnchors(allAnchors);
-  const visibleIds = new Set(visible.map((anchor) => anchor.id));
   const suppressOwnerBindIds = options?.suppressOwnerBindIds ?? new Set<string>();
   const edges: Edge[] = [];
-  const moduleOutHandle = handleIdForStream('data_feed', 'out');
+  const moduleDataOut = handleIdForStream('data_feed', 'out');
+  const moduleDirectiveOut = handleIdForStream('directive', 'out');
 
   for (const anchor of visible) {
-    if (
-      anchor.ownerModuleId &&
-      !anchor.parentAnchorId &&
-      !suppressOwnerBindIds.has(anchor.id)
-    ) {
+    if (!anchor.ownerModuleId || suppressOwnerBindIds.has(anchor.id)) continue;
+    const intakes = anchor.intakes ?? { data: true, systemControl: true, clock: false };
+
+    if (intakes.data) {
       edges.push({
-        id: `option-bind:${anchor.ownerModuleId}:${anchor.id}`,
+        id: `decision-bind:data:${anchor.ownerModuleId}:${anchor.id}`,
         source: anchor.ownerModuleId,
         target: anchor.id,
-        sourceHandle: moduleOutHandle,
-        targetHandle: OPTION_ANCHOR_HANDLE_IN,
+        sourceHandle: moduleDataOut,
+        targetHandle: DECISION_HANDLE_DATA_IN,
         type: 'smoothstep',
         selectable: false,
         focusable: false,
@@ -309,26 +294,27 @@ export function optionBindEdgesForEngine(
           strokeDasharray: '3 4',
         },
         className: 'hftr-edge hftr-edge-option-bind',
-        data: { linkKind: 'option_bind', nature: 'system' },
+        data: { linkKind: 'option_bind', nature: 'data', decisionId: anchor.id },
       });
     }
-    if (anchor.parentAnchorId && visibleIds.has(anchor.parentAnchorId)) {
+
+    if (intakes.systemControl) {
       edges.push({
-        id: `option-bind:${anchor.parentAnchorId}:${anchor.id}`,
-        source: anchor.parentAnchorId,
+        id: `decision-bind:system:${anchor.ownerModuleId}:${anchor.id}`,
+        source: anchor.ownerModuleId,
         target: anchor.id,
-        sourceHandle: OPTION_ANCHOR_HANDLE_OUT,
-        targetHandle: OPTION_ANCHOR_HANDLE_IN,
+        sourceHandle: moduleDirectiveOut,
+        targetHandle: DECISION_HANDLE_SYSTEM_IN,
         type: 'smoothstep',
         selectable: false,
         focusable: false,
         style: {
-          stroke: 'var(--color-ink-faint)',
+          stroke: 'var(--color-ink-dim)',
           strokeWidth: 1,
-          strokeDasharray: '2 3',
+          strokeDasharray: '2 5',
         },
         className: 'hftr-edge hftr-edge-option-bind',
-        data: { linkKind: 'option_bind', nature: 'system' },
+        data: { linkKind: 'option_bind', nature: 'system', decisionId: anchor.id },
       });
     }
   }
@@ -341,11 +327,11 @@ export function buildOptionAnchorArtifacts(
   modules: readonly CanvasModule[],
   relativeFromNodes?: ReadonlyMap<string, { x: number; y: number }>,
 ): {
-  nodes: OptionAnchorFlowNode[];
+  nodes: DecisionFlowNode[];
   edges: Edge[];
   anchorsByEngine: Map<string, OptionAnchorSpec[]>;
 } {
-  const nodes: OptionAnchorFlowNode[] = [];
+  const nodes: DecisionFlowNode[] = [];
   const edges: Edge[] = [];
   const anchorsByEngine = new Map<string, OptionAnchorSpec[]>();
 

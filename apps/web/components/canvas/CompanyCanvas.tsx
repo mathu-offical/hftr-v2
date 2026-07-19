@@ -69,6 +69,7 @@ import { ModuleProcessDetailModal } from './ModuleProcessDetailModal';
 import { MathToolNode, type MathToolFlowNode } from './MathToolNode';
 import { ModuleNode, type ModuleFlowNode } from './ModuleNode';
 import {
+  DecisionNode,
   OptionAnchorNode,
   type OptionAnchorFlowNode,
 } from './OptionAnchorNode';
@@ -97,6 +98,8 @@ const nodeTypes = {
   module: ModuleNode,
   mathTool: MathToolNode,
   engineGroup: EngineGroupNode,
+  decisionNode: DecisionNode,
+  /** @deprecated D-192 — prefer decisionNode */
   optionAnchor: OptionAnchorNode,
 };
 
@@ -119,7 +122,7 @@ function isMathToolNode(node: CanvasFlowNode): node is MathToolFlowNode {
 }
 
 function isOptionAnchorNode(node: CanvasFlowNode): node is OptionAnchorFlowNode {
-  return node.type === 'optionAnchor';
+  return node.type === 'decisionNode' || node.type === 'optionAnchor';
 }
 
 function isGraphModuleNode(node: CanvasFlowNode): node is ModuleFlowNode | MathToolFlowNode {
@@ -3461,6 +3464,9 @@ export function CompanyCanvas(props: {
             ownerModuleId: selectedAnchor.data.ownerModuleId ?? null,
             ownerEngineId: selectedAnchor.data.ownerEngineId,
             defaultPosition: selectedAnchor.data.position ?? 'typical',
+            options: selectedAnchor.data.options ?? [],
+            selectedOptionId: selectedAnchor.data.selectedOptionId ?? null,
+            ...(selectedAnchor.data.intakes ? { intakes: selectedAnchor.data.intakes } : {}),
           }}
           position={selectedAnchor.data.position ?? 'typical'}
           siblings={anchorsByEngine.get(selectedAnchor.data.ownerEngineId) ?? []}

@@ -88,6 +88,14 @@ export interface EngineTemplateInput {
   alsoTargets?: EngineTemplateInputTarget[];
 }
 
+/** D-192: stable decision-node seeds declared on engine templates. */
+export interface EngineTemplateDecisionSeed {
+  kind: string;
+  ownerModuleIndex: number | null;
+  optionRefs?: string[];
+  defaultSelectedRef?: string;
+}
+
 /** Primary + alsoTargets for template input application. */
 export function templateInputTargets(input: EngineTemplateInput): EngineTemplateInputTarget[] {
   return [input.target, ...(input.alsoTargets ?? [])];
@@ -111,6 +119,8 @@ export interface EngineTemplate {
   modules: TemplateModule[];
   links: TemplateLink[];
   inputs: EngineTemplateInput[];
+  /** D-192: documents required decision kinds; builder fills option catalogs. */
+  decisionNodes?: EngineTemplateDecisionSeed[];
 }
 
 export const ENGINE_TEMPLATES: EngineTemplate[] = [
@@ -262,6 +272,29 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         options: ['momentum continuation', 'mean reversion', 'breakout capture'],
         target: { moduleIndex: 4, configKey: 'focus' },
       },
+    ],
+    decisionNodes: [
+      { kind: 'research_subtype', ownerModuleIndex: 0 },
+      { kind: 'curiosity_band', ownerModuleIndex: 0 },
+      { kind: 'admission_mode', ownerModuleIndex: 0 },
+      { kind: 'cadence_band', ownerModuleIndex: 0 },
+      {
+        kind: 'branch_role',
+        ownerModuleIndex: 0,
+        optionRefs: ['discover', 'verify_sanity'],
+        defaultSelectedRef: 'discover',
+      },
+      { kind: 'librarian_subtype', ownerModuleIndex: 1 },
+      { kind: 'cadence_band', ownerModuleIndex: 1 },
+      { kind: 'library_class', ownerModuleIndex: 2 },
+      { kind: 'feed_class', ownerModuleIndex: 3 },
+      { kind: 'query_policy', ownerModuleIndex: 3 },
+      { kind: 'schedule_policy', ownerModuleIndex: 3 },
+      { kind: 'trend_posture', ownerModuleIndex: 4 },
+      { kind: 'cadence_band', ownerModuleIndex: 4 },
+      { kind: 'strategy_family', ownerModuleIndex: 5 },
+      { kind: 'recovery_phase', ownerModuleIndex: 5 },
+      { kind: 'emit_mode', ownerModuleIndex: 8 },
     ],
   },
   {
@@ -865,6 +898,21 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           { moduleIndex: 2, configKey: 'topicScope' },
         ],
       },
+    ],
+    decisionNodes: [
+      { kind: 'research_subtype', ownerModuleIndex: 0 },
+      { kind: 'curiosity_band', ownerModuleIndex: 0 },
+      { kind: 'admission_mode', ownerModuleIndex: 0 },
+      { kind: 'cadence_band', ownerModuleIndex: 0 },
+      {
+        kind: 'branch_role',
+        ownerModuleIndex: 0,
+        optionRefs: ['discover', 'verify_sanity'],
+        defaultSelectedRef: 'discover',
+      },
+      { kind: 'librarian_subtype', ownerModuleIndex: 1 },
+      { kind: 'library_class', ownerModuleIndex: 2 },
+      { kind: 'emit_mode', ownerModuleIndex: 3 },
     ],
   },
   {
@@ -1846,6 +1894,29 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         options: ['spread capture', 'inventory skew defense', 'quote microstructure'],
         target: { moduleIndex: 4, configKey: 'focus' },
       },
+    ],
+    decisionNodes: [
+      { kind: 'research_subtype', ownerModuleIndex: 0 },
+      { kind: 'curiosity_band', ownerModuleIndex: 0 },
+      { kind: 'admission_mode', ownerModuleIndex: 0 },
+      { kind: 'cadence_band', ownerModuleIndex: 0 },
+      {
+        kind: 'branch_role',
+        ownerModuleIndex: 0,
+        optionRefs: ['discover', 'verify_sanity'],
+        defaultSelectedRef: 'discover',
+      },
+      { kind: 'librarian_subtype', ownerModuleIndex: 1 },
+      { kind: 'cadence_band', ownerModuleIndex: 1 },
+      { kind: 'library_class', ownerModuleIndex: 2 },
+      { kind: 'feed_class', ownerModuleIndex: 3 },
+      { kind: 'query_policy', ownerModuleIndex: 3 },
+      { kind: 'schedule_policy', ownerModuleIndex: 3 },
+      { kind: 'trend_posture', ownerModuleIndex: 4 },
+      { kind: 'cadence_band', ownerModuleIndex: 4 },
+      { kind: 'strategy_family', ownerModuleIndex: 5 },
+      { kind: 'recovery_phase', ownerModuleIndex: 5 },
+      { kind: 'emit_mode', ownerModuleIndex: 8 },
     ],
   },
   // ── Simulation ENGINEs (D-189) — paper_sim / funds_only by default ─────────

@@ -13,13 +13,10 @@ import {
   OPTION_ANCHOR_OWNER_GAP,
   OPTION_ANCHOR_COLUMN_WIDTH,
 } from './option-anchor-graph';
-import {
-  OPTION_ANCHOR_HANDLE_IN,
-  OPTION_ANCHOR_HANDLE_OUT,
-} from './OptionAnchorNode';
+import { DECISION_HANDLE_DATA_IN } from '@hftr/contracts';
 import type { CanvasEngineGroup, CanvasModule } from './types';
 
-describe('option-anchor-graph placement (D-180)', () => {
+describe('decision-node graph placement (D-192 / D-180)', () => {
   const engine: CanvasEngineGroup = {
     id: '11111111-1111-1111-1111-111111111111',
     templateId: 'research_web_fabric',
@@ -113,7 +110,7 @@ describe('option-anchor-graph placement (D-180)', () => {
     expect(researchRoot!.position.y).toBe(120);
   });
 
-  it('avoids vertical overlap between owner trees', () => {
+  it('avoids vertical overlap between owner decision stacks', () => {
     const all = buildOptionAnchorsForEngine({
       engineId: engine.id,
       templateId: engine.templateId,
@@ -126,11 +123,33 @@ describe('option-anchor-graph placement (D-180)', () => {
     const placed = placeOptionAnchorNodes(engine, engine.canvasBounds!.width, all, modules);
     const researchOwned = placed.filter((n) => n.data.ownerModuleId === researcherId);
     const librarianOwned = placed.filter((n) => n.data.ownerModuleId === librarianId);
+    const heightOf = (n: (typeof placed)[number]) =>
+      Math.max(OPTION_ANCHOR_NODE_HEIGHT, 36 + (n.data.options?.length ?? 0) * 14);
     const researchBottom = Math.max(
-      ...researchOwned.map((n) => n.position.y + OPTION_ANCHOR_NODE_HEIGHT),
+      ...researchOwned.map((n) => n.position.y + heightOf(n)),
     );
     const librarianTop = Math.min(...librarianOwned.map((n) => n.position.y));
     expect(librarianTop).toBeGreaterThanOrEqual(researchBottom);
+  });
+
+  it('places decisionNode cards with options config (no child option cards)', () => {
+    const all = buildOptionAnchorsForEngine({
+      engineId: engine.id,
+      templateId: engine.templateId,
+      members: modules.map((m) => ({
+        id: m.id,
+        type: m.type,
+        ...(m.config ? { config: m.config } : {}),
+      })),
+    });
+    const curiosity = all.find((a) => a.kind === 'curiosity_band');
+    expect(curiosity?.parentAnchorId ?? null).toBeNull();
+    expect((curiosity?.options?.length ?? 0)).toBeGreaterThanOrEqual(2);
+    const placed = placeOptionAnchorNodes(engine, engine.canvasBounds!.width, all, modules);
+    expect(placed.every((n) => n.type === 'decisionNode')).toBe(true);
+    expect(placed.some((n) => (n.data.options?.length ?? 0) > 0)).toBe(true);
+    // No parent→child option card edges among visible decisions
+    expect(placed.every((n) => !n.data.parentAnchorId)).toBe(true);
   });
 
   it('centers free column in ENGINE_GROUP_PADDING.right', () => {
@@ -142,7 +161,7 @@ describe('option-anchor-graph placement (D-180)', () => {
     );
   });
 
-  it('wires option_bind edges with handles', () => {
+  it('wires owner→decision data intake binds (no parent→child option cards)', () => {
     const all = buildOptionAnchorsForEngine({
       engineId: engine.id,
       templateId: engine.templateId,
@@ -158,15 +177,15 @@ describe('option-anchor-graph placement (D-180)', () => {
       (a) => a.kind === 'research_subtype' && a.ownerModuleId === researcherId,
     );
     expect(root).toBeTruthy();
-    const ownerEdge = edges.find((e) => e.target === root!.id && e.source === researcherId);
-    expect(ownerEdge?.targetHandle).toBe(OPTION_ANCHOR_HANDLE_IN);
-    expect(ownerEdge?.sourceHandle).toBeTruthy();
-    const child = visible.find((a) => a.parentAnchorId === root!.id);
-    if (child) {
-      const childEdge = edges.find((e) => e.target === child.id && e.source === root!.id);
-      expect(childEdge?.sourceHandle).toBe(OPTION_ANCHOR_HANDLE_OUT);
-      expect(childEdge?.targetHandle).toBe(OPTION_ANCHOR_HANDLE_IN);
-    }
+    const dataEdge = edges.find(
+      (e) =>
+        e.target === root!.id &&
+        e.source === researcherId &&
+        e.targetHandle === DECISION_HANDLE_DATA_IN,
+    );
+    expect(dataEdge?.sourceHandle).toBeTruthy();
+    expect(visible.some((a) => a.parentAnchorId === root!.id)).toBe(false);
+    expect(edges.some((e) => e.source === root!.id && e.target !== root!.id)).toBe(false);
   });
 
   it('docks focus beside trend on day-trading-shaped engine (D-191)', () => {
@@ -277,7 +296,7 @@ describe('option-anchor-graph placement (D-180)', () => {
           topicSectors: [],
           capitalAllocationRef: null,
           targetExitRef: null,
-          missingSetupFields: [] as string[],
+          missingSetupFields: [] as CanvasModule['missingSetupFields'],
           engineInstanceId: execEngine.id,
           toolOwnerModuleId: null,
           topicSectorsOverridden: false,

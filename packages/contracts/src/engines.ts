@@ -1,5 +1,10 @@
 import { z } from 'zod';
 import {
+  DecisionIntakes,
+  DecisionOption,
+  OptionAnchorPosition,
+} from './option-anchors';
+import {
   CanvasPosition,
   CapitalAllocationInput,
   ModuleSetupInput,
@@ -166,6 +171,30 @@ export const EngineSetupSnapshot = z.object({
   optionAnchorPositions: z
     .record(z.string(), z.enum(['min', 'typical', 'max']))
     .optional(),
+  /**
+   * D-192: last-synced unified decision nodes (options + selection on each node).
+   * Supersedes optionAnchors for new canvas surfaces; legacy field kept for compat.
+   */
+  decisionNodes: z
+    .array(
+      z.object({
+        id: z.string(),
+        kind: z.string(),
+        catalogRef: z.string(),
+        label: z.string(),
+        layer: z.string().optional(),
+        parentAnchorId: z.string().nullable().optional(),
+        ownerModuleId: z.string().nullable().optional(),
+        ownerEngineId: z.string(),
+        defaultPosition: OptionAnchorPosition.optional(),
+        options: z.array(DecisionOption).default([]),
+        selectedOptionId: z.string().nullable().optional(),
+        intakes: DecisionIntakes.optional(),
+      }),
+    )
+    .optional(),
+  /** D-192: operator / policy selection map decisionId → optionId. */
+  decisionOptionSelections: z.record(z.string(), z.string()).optional(),
   /**
    * D-189: simulation ENGINE binding (adhoc vs child gate/training on a parent exec).
    */

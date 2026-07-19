@@ -1,5 +1,14 @@
 import { z } from 'zod';
 import seededStrategyCatalog from '../../db/src/seed/catalogs/seeded-strategy-catalog.json';
+import {
+  AnalyzerEmitMode,
+  LibrarianSubtype,
+  LibraryClass,
+  LiveApiQueryPolicy,
+  LiveApiSchedulePolicy,
+  ResearchSubtype,
+  TrendPosture,
+} from './modules';
 import { PHILOSOPHY_AXIS_CATALOG } from './philosophy';
 import { getEngineTemplateById } from './templates';
 
@@ -41,6 +50,21 @@ export type OptionAnchorPosition = z.infer<typeof OptionAnchorPosition>;
 export const OptionAnchorLayer = z.enum(['strategic', 'tactical', 'execution', 'policy']);
 export type OptionAnchorLayer = z.infer<typeof OptionAnchorLayer>;
 
+export const DecisionOption = z.object({
+  id: z.string(),
+  catalogRef: z.string(),
+  label: z.string(),
+  defaultPosition: OptionAnchorPosition.optional(),
+});
+export type DecisionOption = z.infer<typeof DecisionOption>;
+
+export const DecisionIntakes = z.object({
+  data: z.boolean(),
+  systemControl: z.boolean(),
+  clock: z.boolean(),
+});
+export type DecisionIntakes = z.infer<typeof DecisionIntakes>;
+
 export const OptionAnchorSpec = z.object({
   id: z.string(),
   kind: OptionAnchorKind,
@@ -51,8 +75,21 @@ export const OptionAnchorSpec = z.object({
   ownerModuleId: z.string().nullable().optional(),
   ownerEngineId: z.string(),
   defaultPosition: OptionAnchorPosition.optional(),
+  options: z.array(DecisionOption).default([]),
+  selectedOptionId: z.string().nullable().optional(),
+  intakes: DecisionIntakes.optional(),
 });
 export type OptionAnchorSpec = z.infer<typeof OptionAnchorSpec>;
+
+/** D-192: unified decision node identity (evolved option anchor). */
+export type DecisionNodeSpec = OptionAnchorSpec;
+
+export const DECISION_HANDLE_DATA_IN = 'decision-data-in';
+export const DECISION_HANDLE_SYSTEM_IN = 'decision-system-in';
+
+export function decisionOptionOutHandle(optionId: string): string {
+  return `option-out:${optionId}`;
+}
 
 export const BuildOptionAnchorsInput = z.object({
   engineId: z.string(),
@@ -97,6 +134,50 @@ const RESEARCH_PHILOSOPHY_AXIS_IDS = new Set([
   'research_breadth',
   'regime_bias',
 ]);
+
+const CURIOSITY_BANDS = ['conservative', 'balanced', 'exploratory'] as const;
+
+const RESEARCH_ADMISSION_MODES = [
+  'auto_admit_validated',
+  'require_operator_approval',
+] as const;
+
+const LIVE_API_FEED_CLASSES = [
+  'iex_free',
+  'synthetic_sim',
+  'paper_sim',
+  'alpaca_iex',
+] as const;
+
+const RESEARCH_CADENCE_OPTION_DEFS = [
+  { id: 'active', suffix: 'research_active', label: 'Active cadence', position: 'min' as const },
+  { id: 'standard', suffix: 'research_standard', label: 'Standard cadence', position: 'typical' as const },
+  { id: 'slow', suffix: 'research_slow', label: 'Slow cadence', position: 'max' as const },
+] as const;
+
+const LIBRARIAN_CADENCE_OPTION_DEFS = [
+  { id: 'active', suffix: 'librarian_active', label: 'Active cadence', position: 'min' as const },
+  { id: 'standard', suffix: 'librarian_standard', label: 'Standard cadence', position: 'typical' as const },
+  { id: 'slow', suffix: 'librarian_slow', label: 'Slow cadence', position: 'max' as const },
+] as const;
+
+const TREND_CADENCE_OPTION_DEFS = [
+  { id: 'microstructure', suffix: 'trend_microstructure', label: 'Microstructure cadence', position: 'min' as const },
+  { id: 'intraday', suffix: 'trend_intraday', label: 'Intraday cadence', position: 'typical' as const },
+  { id: 'research', suffix: 'trend_research', label: 'Research cadence', position: 'max' as const },
+] as const;
+
+const PHILOSOPHY_POSITION_OPTIONS: DecisionOption[] = [
+  { id: 'min', catalogRef: 'min', label: 'Min', defaultPosition: 'min' },
+  { id: 'typical', catalogRef: 'typical', label: 'Typical', defaultPosition: 'typical' },
+  { id: 'max', catalogRef: 'max', label: 'Max', defaultPosition: 'max' },
+];
+
+const DEFAULT_DECISION_INTAKES: DecisionIntakes = {
+  data: true,
+  systemControl: true,
+  clock: false,
+};
 
 /** Slug catalog references for stable anchor ids (no positional indices). */
 export function slugCatalogRef(ref: string): string {
@@ -145,6 +226,53 @@ function readNumberConfig(
 ): number | null {
   const value = config?.[key];
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function enumDecisionOptions(
+  ownerId: string,
+  scope: string,
+  values: readonly string[],
+  labelFn: (value: string) => string = humanizeToken,
+): DecisionOption[] {
+  return values.map((value) => ({
+    id: value,
+    catalogRef: `${ownerId}/${scope}/${value}`,
+    label: labelFn(value),
+  }));
+}
+
+function cadenceOptionsForScope(
+  ownerId: string,
+  scope: 'research' | 'librarian' | 'trend',
+): DecisionOption[] {
+  const defs =
+    scope === 'research'
+      ? RESEARCH_CADENCE_OPTION_DEFS
+      : scope === 'librarian'
+        ? LIBRARIAN_CADENCE_OPTION_DEFS
+        : TREND_CADENCE_OPTION_DEFS;
+  return defs.map((entry) => ({
+    id: entry.id,
+    catalogRef: `${ownerId}/${entry.suffix}`,
+    label: entry.label,
+    defaultPosition: entry.position,
+  }));
+}
+
+function selectedCadenceOptionId(
+  ownerId: string,
+  scope: 'research' | 'librarian' | 'trend',
+  minutes: number | null,
+): string {
+  const band = cadenceBandForMinutes(minutes, scope);
+  const defs =
+    scope === 'research'
+      ? RESEARCH_CADENCE_OPTION_DEFS
+      : scope === 'librarian'
+        ? LIBRARIAN_CADENCE_OPTION_DEFS
+        : TREND_CADENCE_OPTION_DEFS;
+  const match = defs.find((entry) => entry.suffix === band.catalogRef);
+  return match?.id ?? 'standard';
 }
 
 /** Bucket cadenceMinutes into a text-first band (no raw minutes on canvas). */
@@ -235,7 +363,13 @@ export function buildOptionAnchorsForEngine(
   const pushAnchor = (anchor: OptionAnchorSpec): void => {
     if (seenIds.has(anchor.id)) return;
     seenIds.add(anchor.id);
-    anchors.push(OptionAnchorSpec.parse(anchor));
+    anchors.push(
+      OptionAnchorSpec.parse({
+        ...anchor,
+        options: anchor.options ?? [],
+        intakes: anchor.intakes ?? DEFAULT_DECISION_INTAKES,
+      }),
+    );
   };
 
   const traders = membersOfType(parsed.members, 'trading');
@@ -254,7 +388,6 @@ export function buildOptionAnchorsForEngine(
 
   for (const templateInput of template.inputs) {
     const catalogRef = templateInput.key;
-    // Philosophy is represented by philosophy_axis nodes — skip duplicate template_input.
     if (catalogRef.toLowerCase().includes('philosophy')) continue;
     const ownerForInput = ownerModuleIdForTemplateInput(
       template.modules,
@@ -270,10 +403,13 @@ export function buildOptionAnchorsForEngine(
       parentAnchorId: null,
       ownerModuleId: ownerForInput,
       ownerEngineId: parsed.engineId,
+      options: [],
+      selectedOptionId: null,
+      intakes: DEFAULT_DECISION_INTAKES,
     });
   }
 
-  // ── Trading execution tree (existing) ────────────────────────────────────
+  // ── Trading execution tree (D-192 collapse) ───────────────────────────────
   for (const trader of traders) {
     const families = readStrategyFamilies(trader.config);
     for (const familyId of families) {
@@ -283,6 +419,11 @@ export function buildOptionAnchorsForEngine(
         'strategy_family',
         familyCatalogRef,
       );
+      const branchOptions: DecisionOption[] = branchTypes.map((branch) => ({
+        id: branch.id,
+        catalogRef: `${familyCatalogRef}/${branch.id}`,
+        label: humanizeToken(branch.role),
+      }));
 
       pushAnchor({
         id: familyAnchorId,
@@ -293,27 +434,12 @@ export function buildOptionAnchorsForEngine(
         parentAnchorId: null,
         ownerModuleId: trader.id,
         ownerEngineId: parsed.engineId,
+        options: branchOptions,
+        selectedOptionId: null,
+        intakes: DEFAULT_DECISION_INTAKES,
       });
 
       for (const branch of branchTypes) {
-        const branchCatalogRef = `${familyCatalogRef}/${branch.id}`;
-        const branchAnchorId = buildOptionAnchorId(
-          parsed.engineId,
-          'branch_role',
-          branchCatalogRef,
-        );
-
-        pushAnchor({
-          id: branchAnchorId,
-          kind: 'branch_role',
-          catalogRef: branchCatalogRef,
-          label: humanizeToken(branch.role),
-          layer: 'tactical',
-          parentAnchorId: familyAnchorId,
-          ownerModuleId: trader.id,
-          ownerEngineId: parsed.engineId,
-        });
-
         for (const lever of branch.levers ?? []) {
           leverBandRefs.add(lever);
           pushAnchor({
@@ -322,10 +448,12 @@ export function buildOptionAnchorsForEngine(
             catalogRef: lever,
             label: humanizeToken(lever),
             layer: 'tactical',
-            parentAnchorId: branchAnchorId,
+            parentAnchorId: familyAnchorId,
             ownerModuleId: trader.id,
             ownerEngineId: parsed.engineId,
             defaultPosition: 'typical',
+            options: [],
+            intakes: DEFAULT_DECISION_INTAKES,
           });
         }
       }
@@ -348,134 +476,145 @@ export function buildOptionAnchorsForEngine(
         ownerModuleId: firstTrader.id,
         ownerEngineId: parsed.engineId,
         defaultPosition: 'typical',
+        options: [],
+        intakes: DEFAULT_DECISION_INTAKES,
       });
     }
 
     const recoveryTemplate = catalog.recoveryLadderTemplates?.[0];
     if (recoveryTemplate) {
-      let parentRecoveryId: string | null = null;
-      for (const phase of recoveryTemplate.phases) {
-        const phaseCatalogRef = `${recoveryTemplate.id}/${phase}`;
-        const phaseAnchorId = buildOptionAnchorId(
-          parsed.engineId,
-          'recovery_phase',
-          phaseCatalogRef,
-        );
-        pushAnchor({
-          id: phaseAnchorId,
-          kind: 'recovery_phase',
-          catalogRef: phaseCatalogRef,
-          label: humanizeToken(phase),
-          layer: 'tactical',
-          parentAnchorId: parentRecoveryId,
-          ownerModuleId: firstTrader.id,
-          ownerEngineId: parsed.engineId,
-        });
-        parentRecoveryId = phaseAnchorId;
-      }
+      const recoveryCatalogRef = recoveryTemplate.id;
+      const recoveryAnchorId = buildOptionAnchorId(
+        parsed.engineId,
+        'recovery_phase',
+        recoveryCatalogRef,
+      );
+      const phaseOptions: DecisionOption[] = recoveryTemplate.phases.map((phase) => ({
+        id: phase,
+        catalogRef: `${recoveryTemplate.id}/${phase}`,
+        label: humanizeToken(phase),
+      }));
+      pushAnchor({
+        id: recoveryAnchorId,
+        kind: 'recovery_phase',
+        catalogRef: recoveryCatalogRef,
+        label: recoveryTemplate.name ? humanizeToken(recoveryTemplate.name) : 'Recovery ladder',
+        layer: 'tactical',
+        parentAnchorId: null,
+        ownerModuleId: firstTrader.id,
+        ownerEngineId: parsed.engineId,
+        options: phaseOptions,
+        selectedOptionId: recoveryTemplate.phases[0] ?? null,
+        intakes: DEFAULT_DECISION_INTAKES,
+      });
     }
   }
 
-  // ── Research curator trees (D-180) ───────────────────────────────────────
+  // ── Research curator trees (D-192 sibling roots) ────────────────────────
   for (const researcher of researchers) {
     const subtype =
       readStringConfig(researcher.config, 'researchSubtype') ?? 'external_web';
-    const subtypeRef = `${researcher.id}/${subtype}`;
-    const subtypeId = buildOptionAnchorId(parsed.engineId, 'research_subtype', subtypeRef);
+    const subtypeScopeRef = `${researcher.id}/research_subtype`;
+    const subtypeId = buildOptionAnchorId(parsed.engineId, 'research_subtype', subtypeScopeRef);
+
     pushAnchor({
       id: subtypeId,
       kind: 'research_subtype',
-      catalogRef: subtypeRef,
-      label: humanizeToken(subtype),
+      catalogRef: subtypeScopeRef,
+      label: 'Research subtype',
       layer: 'strategic',
       parentAnchorId: null,
       ownerModuleId: researcher.id,
       ownerEngineId: parsed.engineId,
+      options: enumDecisionOptions(researcher.id, 'research_subtype', ResearchSubtype.options),
+      selectedOptionId: subtype,
+      intakes: DEFAULT_DECISION_INTAKES,
     });
 
-    const curiosity = readStringConfig(researcher.config, 'curiosity') ?? 'balanced';
+    const curiosity =
+      readStringConfig(researcher.config, 'curiosity') ?? 'balanced';
     pushAnchor({
-      id: buildOptionAnchorId(
-        parsed.engineId,
-        'curiosity_band',
-        `${researcher.id}/${curiosity}`,
-      ),
+      id: buildOptionAnchorId(parsed.engineId, 'curiosity_band', `${researcher.id}/curiosity_band`),
       kind: 'curiosity_band',
-      catalogRef: `${researcher.id}/${curiosity}`,
-      label: humanizeToken(curiosity),
+      catalogRef: `${researcher.id}/curiosity_band`,
+      label: 'Curiosity band',
       layer: 'strategic',
-      parentAnchorId: subtypeId,
+      parentAnchorId: null,
       ownerModuleId: researcher.id,
       ownerEngineId: parsed.engineId,
-      defaultPosition:
-        curiosity === 'conservative' ? 'min' : curiosity === 'exploratory' ? 'max' : 'typical',
+      options: CURIOSITY_BANDS.map((band) => ({
+        id: band,
+        catalogRef: `${researcher.id}/${band}`,
+        label: humanizeToken(band),
+        defaultPosition:
+          band === 'conservative' ? 'min' : band === 'exploratory' ? 'max' : 'typical',
+      })),
+      selectedOptionId: curiosity,
+      intakes: DEFAULT_DECISION_INTAKES,
     });
 
     const admission =
       readStringConfig(researcher.config, 'admissionMode') ?? 'auto_admit_validated';
     pushAnchor({
-      id: buildOptionAnchorId(
-        parsed.engineId,
-        'admission_mode',
-        `${researcher.id}/${admission}`,
-      ),
+      id: buildOptionAnchorId(parsed.engineId, 'admission_mode', `${researcher.id}/admission_mode`),
       kind: 'admission_mode',
-      catalogRef: `${researcher.id}/${admission}`,
-      label: humanizeToken(admission),
+      catalogRef: `${researcher.id}/admission_mode`,
+      label: 'Admission mode',
       layer: 'policy',
-      parentAnchorId: subtypeId,
+      parentAnchorId: null,
       ownerModuleId: researcher.id,
       ownerEngineId: parsed.engineId,
+      options: enumDecisionOptions(researcher.id, 'admission_mode', RESEARCH_ADMISSION_MODES),
+      selectedOptionId: admission,
+      intakes: DEFAULT_DECISION_INTAKES,
     });
 
-    const cadence = cadenceBandForMinutes(
-      readNumberConfig(researcher.config, 'cadenceMinutes'),
-      'research',
-    );
+    const cadenceMinutes = readNumberConfig(researcher.config, 'cadenceMinutes');
+    const cadence = cadenceBandForMinutes(cadenceMinutes, 'research');
     pushAnchor({
-      id: buildOptionAnchorId(
-        parsed.engineId,
-        'cadence_band',
-        `${researcher.id}/${cadence.catalogRef}`,
-      ),
+      id: buildOptionAnchorId(parsed.engineId, 'cadence_band', `${researcher.id}/cadence_band`),
       kind: 'cadence_band',
-      catalogRef: `${researcher.id}/${cadence.catalogRef}`,
-      label: cadence.label,
+      catalogRef: `${researcher.id}/cadence_band`,
+      label: 'Research cadence',
       layer: 'strategic',
-      parentAnchorId: subtypeId,
+      parentAnchorId: null,
       ownerModuleId: researcher.id,
       ownerEngineId: parsed.engineId,
+      options: cadenceOptionsForScope(researcher.id, 'research'),
+      selectedOptionId: selectedCadenceOptionId(researcher.id, 'research', cadenceMinutes),
       defaultPosition: cadence.position,
+      intakes: DEFAULT_DECISION_INTAKES,
     });
 
-    const discoverId = buildOptionAnchorId(
+    const pipelineCatalogRef = `${researcher.id}/research_pipeline`;
+    const pipelineId = buildOptionAnchorId(
       parsed.engineId,
       'branch_role',
-      `${researcher.id}/discover`,
+      pipelineCatalogRef,
     );
     pushAnchor({
-      id: discoverId,
+      id: pipelineId,
       kind: 'branch_role',
-      catalogRef: `${researcher.id}/discover`,
-      label: 'Discover',
+      catalogRef: pipelineCatalogRef,
+      label: 'Research pipeline',
       layer: 'strategic',
-      parentAnchorId: subtypeId,
+      parentAnchorId: null,
       ownerModuleId: researcher.id,
       ownerEngineId: parsed.engineId,
-    });
-    pushAnchor({
-      id: buildOptionAnchorId(
-        parsed.engineId,
-        'branch_role',
-        `${researcher.id}/verify_sanity`,
-      ),
-      kind: 'branch_role',
-      catalogRef: `${researcher.id}/verify_sanity`,
-      label: 'Verify Sanity',
-      layer: 'strategic',
-      parentAnchorId: discoverId,
-      ownerModuleId: researcher.id,
-      ownerEngineId: parsed.engineId,
+      options: [
+        {
+          id: 'discover',
+          catalogRef: `${researcher.id}/discover`,
+          label: 'Discover',
+        },
+        {
+          id: 'verify_sanity',
+          catalogRef: `${researcher.id}/verify_sanity`,
+          label: 'Verify Sanity',
+        },
+      ],
+      selectedOptionId: 'discover',
+      intakes: DEFAULT_DECISION_INTAKES,
     });
 
     const researchTools =
@@ -493,10 +632,12 @@ export function buildOptionAnchorsForEngine(
         catalogRef: tool.id,
         label: humanizeToken(tool.id),
         layer: 'strategic',
-        parentAnchorId: discoverId,
+        parentAnchorId: pipelineId,
         ownerModuleId: researcher.id,
         ownerEngineId: parsed.engineId,
         defaultPosition: 'typical',
+        options: [],
+        intakes: DEFAULT_DECISION_INTAKES,
       });
     }
   }
@@ -505,53 +646,62 @@ export function buildOptionAnchorsForEngine(
   for (const librarian of librarians) {
     const subtype =
       readStringConfig(librarian.config, 'librarianSubtype') ?? 'librarian_relevance';
-    const subtypeRef = `${librarian.id}/${subtype}`;
-    const subtypeId = buildOptionAnchorId(parsed.engineId, 'librarian_subtype', subtypeRef);
+    const subtypeScopeRef = `${librarian.id}/librarian_subtype`;
     pushAnchor({
-      id: subtypeId,
+      id: buildOptionAnchorId(parsed.engineId, 'librarian_subtype', subtypeScopeRef),
       kind: 'librarian_subtype',
-      catalogRef: subtypeRef,
-      label: humanizeToken(subtype),
+      catalogRef: subtypeScopeRef,
+      label: 'Librarian subtype',
       layer: 'tactical',
       parentAnchorId: null,
       ownerModuleId: librarian.id,
       ownerEngineId: parsed.engineId,
+      options: enumDecisionOptions(librarian.id, 'librarian_subtype', LibrarianSubtype.options),
+      selectedOptionId: subtype,
+      intakes: DEFAULT_DECISION_INTAKES,
     });
 
-    const cadence = cadenceBandForMinutes(
-      readNumberConfig(librarian.config, 'cadenceMinutes'),
-      'librarian',
-    );
+    const cadenceMinutes = readNumberConfig(librarian.config, 'cadenceMinutes');
+    const cadence = cadenceBandForMinutes(cadenceMinutes, 'librarian');
     pushAnchor({
-      id: buildOptionAnchorId(
-        parsed.engineId,
-        'cadence_band',
-        `${librarian.id}/${cadence.catalogRef}`,
-      ),
+      id: buildOptionAnchorId(parsed.engineId, 'cadence_band', `${librarian.id}/cadence_band`),
       kind: 'cadence_band',
-      catalogRef: `${librarian.id}/${cadence.catalogRef}`,
-      label: cadence.label,
+      catalogRef: `${librarian.id}/cadence_band`,
+      label: 'Librarian cadence',
       layer: 'tactical',
-      parentAnchorId: subtypeId,
+      parentAnchorId: null,
       ownerModuleId: librarian.id,
       ownerEngineId: parsed.engineId,
+      options: cadenceOptionsForScope(librarian.id, 'librarian'),
+      selectedOptionId: selectedCadenceOptionId(librarian.id, 'librarian', cadenceMinutes),
       defaultPosition: cadence.position,
+      intakes: DEFAULT_DECISION_INTAKES,
     });
 
-    const curateId = buildOptionAnchorId(
+    const relevanceCatalogRef = `${librarian.id}/relevance`;
+    const relevanceId = buildOptionAnchorId(
       parsed.engineId,
       'branch_role',
-      `${librarian.id}/relevance_curate`,
+      relevanceCatalogRef,
     );
     pushAnchor({
-      id: curateId,
+      id: relevanceId,
       kind: 'branch_role',
-      catalogRef: `${librarian.id}/relevance_curate`,
-      label: 'Relevance Curate',
+      catalogRef: relevanceCatalogRef,
+      label: 'Relevance pipeline',
       layer: 'tactical',
-      parentAnchorId: subtypeId,
+      parentAnchorId: null,
       ownerModuleId: librarian.id,
       ownerEngineId: parsed.engineId,
+      options: [
+        {
+          id: 'relevance_curate',
+          catalogRef: `${librarian.id}/relevance_curate`,
+          label: 'Relevance Curate',
+        },
+      ],
+      selectedOptionId: 'relevance_curate',
+      intakes: DEFAULT_DECISION_INTAKES,
     });
 
     for (const weight of ['topical', 'freshness', 'evidence_fit'] as const) {
@@ -565,31 +715,33 @@ export function buildOptionAnchorsForEngine(
         catalogRef: `relevance_${weight}`,
         label: humanizeToken(`relevance_${weight}`),
         layer: 'tactical',
-        parentAnchorId: curateId,
+        parentAnchorId: relevanceId,
         ownerModuleId: librarian.id,
         ownerEngineId: parsed.engineId,
         defaultPosition: 'typical',
+        options: [],
+        intakes: DEFAULT_DECISION_INTAKES,
       });
     }
   }
 
   // ── Library class roots ──────────────────────────────────────────────────
+  const libraryClassOptions = LibraryClass.options.filter((klass) => klass !== 'engine_data_hub');
   for (const library of libraries) {
     const klass = readStringConfig(library.config, 'libraryClass') ?? 'topic_runtime';
     if (klass === 'engine_data_hub') continue;
     pushAnchor({
-      id: buildOptionAnchorId(
-        parsed.engineId,
-        'library_class',
-        `${library.id}/${klass}`,
-      ),
+      id: buildOptionAnchorId(parsed.engineId, 'library_class', `${library.id}/library_class`),
       kind: 'library_class',
-      catalogRef: `${library.id}/${klass}`,
-      label: humanizeToken(klass),
+      catalogRef: `${library.id}/library_class`,
+      label: 'Library class',
       layer: 'tactical',
       parentAnchorId: null,
       ownerModuleId: library.id,
       ownerEngineId: parsed.engineId,
+      options: enumDecisionOptions(library.id, 'library_class', libraryClassOptions),
+      selectedOptionId: klass,
+      intakes: DEFAULT_DECISION_INTAKES,
     });
   }
 
@@ -597,37 +749,35 @@ export function buildOptionAnchorsForEngine(
   for (const trend of trends) {
     const posture =
       readStringConfig(trend.config, 'trendPosture') ?? 'session_intraday';
-    const postureRef = `${trend.id}/${posture}`;
-    const postureId = buildOptionAnchorId(parsed.engineId, 'trend_posture', postureRef);
     pushAnchor({
-      id: postureId,
+      id: buildOptionAnchorId(parsed.engineId, 'trend_posture', `${trend.id}/trend_posture`),
       kind: 'trend_posture',
-      catalogRef: postureRef,
-      label: humanizeToken(posture),
+      catalogRef: `${trend.id}/trend_posture`,
+      label: 'Trend posture',
       layer: 'tactical',
       parentAnchorId: null,
       ownerModuleId: trend.id,
       ownerEngineId: parsed.engineId,
+      options: enumDecisionOptions(trend.id, 'trend_posture', TrendPosture.options),
+      selectedOptionId: posture,
+      intakes: DEFAULT_DECISION_INTAKES,
     });
 
-    const cadence = cadenceBandForMinutes(
-      readNumberConfig(trend.config, 'cadenceMinutes'),
-      'trend',
-    );
+    const cadenceMinutes = readNumberConfig(trend.config, 'cadenceMinutes');
+    const cadence = cadenceBandForMinutes(cadenceMinutes, 'trend');
     pushAnchor({
-      id: buildOptionAnchorId(
-        parsed.engineId,
-        'cadence_band',
-        `${trend.id}/${cadence.catalogRef}`,
-      ),
+      id: buildOptionAnchorId(parsed.engineId, 'cadence_band', `${trend.id}/cadence_band`),
       kind: 'cadence_band',
-      catalogRef: `${trend.id}/${cadence.catalogRef}`,
-      label: cadence.label,
+      catalogRef: `${trend.id}/cadence_band`,
+      label: 'Trend cadence',
       layer: 'tactical',
-      parentAnchorId: postureId,
+      parentAnchorId: null,
       ownerModuleId: trend.id,
       ownerEngineId: parsed.engineId,
+      options: cadenceOptionsForScope(trend.id, 'trend'),
+      selectedOptionId: selectedCadenceOptionId(trend.id, 'trend', cadenceMinutes),
       defaultPosition: cadence.position,
+      intakes: DEFAULT_DECISION_INTAKES,
     });
   }
 
@@ -635,80 +785,85 @@ export function buildOptionAnchorsForEngine(
   for (const analyzer of analyzers) {
     const mode = readStringConfig(analyzer.config, 'emitMode') ?? 'verify_loopback';
     pushAnchor({
-      id: buildOptionAnchorId(
-        parsed.engineId,
-        'emit_mode',
-        `${analyzer.id}/${mode}`,
-      ),
+      id: buildOptionAnchorId(parsed.engineId, 'emit_mode', `${analyzer.id}/emit_mode`),
       kind: 'emit_mode',
-      catalogRef: `${analyzer.id}/${mode}`,
-      label: humanizeToken(mode),
+      catalogRef: `${analyzer.id}/emit_mode`,
+      label: 'Emit mode',
       layer: 'policy',
       parentAnchorId: null,
       ownerModuleId: analyzer.id,
       ownerEngineId: parsed.engineId,
+      options: enumDecisionOptions(analyzer.id, 'emit_mode', AnalyzerEmitMode.options),
+      selectedOptionId: mode,
+      intakes: DEFAULT_DECISION_INTAKES,
     });
   }
 
-  // ── Live API process anchors (D-184) ─────────────────────────────────────
+  // ── Live API process anchors (D-184 sibling roots) ─────────────────────
   for (const live of liveApis) {
     const feed = readStringConfig(live.config, 'feedClass') ?? 'iex_free';
-    const feedId = buildOptionAnchorId(
-      parsed.engineId,
-      'feed_class',
-      `${live.id}/${feed}`,
-    );
     pushAnchor({
-      id: feedId,
+      id: buildOptionAnchorId(parsed.engineId, 'feed_class', `${live.id}/feed_class`),
       kind: 'feed_class',
-      catalogRef: `${live.id}/${feed}`,
-      label: humanizeToken(feed),
+      catalogRef: `${live.id}/feed_class`,
+      label: 'Feed class',
       layer: 'execution',
       parentAnchorId: null,
       ownerModuleId: live.id,
       ownerEngineId: parsed.engineId,
+      options: LIVE_API_FEED_CLASSES.map((feedClass) => ({
+        id: feedClass,
+        catalogRef: `${live.id}/${feedClass}`,
+        label: humanizeToken(feedClass),
+      })),
+      selectedOptionId: feed,
+      intakes: DEFAULT_DECISION_INTAKES,
     });
+
     const queryPolicy =
       readStringConfig(live.config, 'queryPolicy') ?? 'static_only';
     pushAnchor({
-      id: buildOptionAnchorId(
-        parsed.engineId,
-        'query_policy',
-        `${live.id}/${queryPolicy}`,
-      ),
+      id: buildOptionAnchorId(parsed.engineId, 'query_policy', `${live.id}/query_policy`),
       kind: 'query_policy',
-      catalogRef: `${live.id}/${queryPolicy}`,
-      label: humanizeToken(queryPolicy),
+      catalogRef: `${live.id}/query_policy`,
+      label: 'Query policy',
       layer: 'tactical',
-      parentAnchorId: feedId,
+      parentAnchorId: null,
       ownerModuleId: live.id,
       ownerEngineId: parsed.engineId,
+      options: enumDecisionOptions(live.id, 'query_policy', LiveApiQueryPolicy.options),
+      selectedOptionId: queryPolicy,
+      intakes: DEFAULT_DECISION_INTAKES,
     });
+
     const schedulePolicy =
       readStringConfig(live.config, 'schedulePolicy') ?? 'module_poll';
     pushAnchor({
       id: buildOptionAnchorId(
         parsed.engineId,
         'schedule_policy',
-        `${live.id}/${schedulePolicy}`,
+        `${live.id}/schedule_policy`,
       ),
       kind: 'schedule_policy',
-      catalogRef: `${live.id}/${schedulePolicy}`,
-      label: humanizeToken(schedulePolicy),
+      catalogRef: `${live.id}/schedule_policy`,
+      label: 'Schedule policy',
       layer: 'tactical',
-      parentAnchorId: feedId,
+      parentAnchorId: null,
       ownerModuleId: live.id,
       ownerEngineId: parsed.engineId,
+      options: enumDecisionOptions(live.id, 'schedule_policy', LiveApiSchedulePolicy.options),
+      selectedOptionId: schedulePolicy,
+      intakes: DEFAULT_DECISION_INTAKES,
     });
   }
 
-  // Strategic research levers (inspector-only) — parent under first research discover branch
+  // Strategic research levers (inspector-only) — parent under research pipeline decision
   if (researchers.length > 0) {
     const ownerId = researchers[0]!.id;
-    const discoverParentId = buildOptionAnchorId(
+    const pipelineParentId = buildOptionAnchorId(
       parsed.engineId,
       'branch_role',
-      `${ownerId}/discover`,
+      `${ownerId}/research_pipeline`,
     );
     const strategicTools =
       catalog.deterministicToolCatalog?.leverToolsByScope?.strategic ?? [];
@@ -722,10 +877,12 @@ export function buildOptionAnchorsForEngine(
         catalogRef: bandRef,
         label: humanizeToken(bandRef),
         layer: 'strategic',
-        parentAnchorId: discoverParentId,
+        parentAnchorId: pipelineParentId,
         ownerModuleId: ownerId,
         ownerEngineId: parsed.engineId,
         defaultPosition: 'typical',
+        options: [],
+        intakes: DEFAULT_DECISION_INTAKES,
       });
     }
   }
@@ -752,6 +909,8 @@ export function buildOptionAnchorsForEngine(
         ownerModuleId: firstTrader.id,
         ownerEngineId: parsed.engineId,
         defaultPosition: 'typical',
+        options: [],
+        intakes: DEFAULT_DECISION_INTAKES,
       });
     }
   }
@@ -763,7 +922,6 @@ export function buildOptionAnchorsForEngine(
 
   if (hasPhilosophyInput || traders.length > 0 || isResearchHeavy) {
     for (const axis of PHILOSOPHY_AXIS_CATALOG) {
-      // Research-only and simulation desks: keep the slim research axis set.
       if (
         (isResearchHeavy && !hasPhilosophyInput && traders.length === 0) ||
         isSimulation
@@ -777,10 +935,15 @@ export function buildOptionAnchorsForEngine(
         label: axis.label,
         layer: axis.layer,
         parentAnchorId: null,
-        // Engine-level axes live in the free right column (not a single member).
         ownerModuleId: null,
         ownerEngineId: parsed.engineId,
         defaultPosition: 'typical',
+        options: PHILOSOPHY_POSITION_OPTIONS.map((option) => ({
+          ...option,
+          catalogRef: `${axis.id}/${option.id}`,
+        })),
+        selectedOptionId: 'typical',
+        intakes: DEFAULT_DECISION_INTAKES,
       });
     }
   }
@@ -788,29 +951,17 @@ export function buildOptionAnchorsForEngine(
   return anchors;
 }
 
+/** D-192 alias: unified decision nodes share the option-anchor builder. */
+export const buildDecisionNodesForEngine = buildOptionAnchorsForEngine;
+
 /**
  * Canvas-visible decision anchors. Lever bands stay inspector-only.
  */
 export function canvasVisibleOptionAnchors(
   anchors: readonly OptionAnchorSpec[],
 ): OptionAnchorSpec[] {
-  return anchors.filter(
-    (anchor) =>
-      anchor.kind === 'template_input' ||
-      anchor.kind === 'strategy_family' ||
-      anchor.kind === 'branch_role' ||
-      anchor.kind === 'recovery_phase' ||
-      anchor.kind === 'philosophy_axis' ||
-      anchor.kind === 'research_subtype' ||
-      anchor.kind === 'curiosity_band' ||
-      anchor.kind === 'librarian_subtype' ||
-      anchor.kind === 'library_class' ||
-      anchor.kind === 'trend_posture' ||
-      anchor.kind === 'cadence_band' ||
-      anchor.kind === 'admission_mode' ||
-      anchor.kind === 'emit_mode' ||
-      anchor.kind === 'feed_class' ||
-      anchor.kind === 'query_policy' ||
-      anchor.kind === 'schedule_policy',
-  );
+  return anchors.filter((anchor) => anchor.kind !== 'lever_band');
 }
+
+/** D-192 alias for canvas-visible unified decision nodes. */
+export const canvasVisibleDecisionNodes = canvasVisibleOptionAnchors;

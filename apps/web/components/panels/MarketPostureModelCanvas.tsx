@@ -153,6 +153,7 @@ function sourceDomainChrome(domain: string | undefined): string {
 
 function processFunctionLabel(fn: string | undefined): string {
   if (!fn) return 'PROC';
+  if (fn === 'seal') return 'BOARD';
   return fn.slice(0, 8).toUpperCase();
 }
 

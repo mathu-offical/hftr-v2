@@ -382,7 +382,7 @@ export function buildStageNodeNumberFlow(
         nodeLabel: 'Watched symbols',
         transform: 'count watch + suggested',
         valueLabel: String(watched.length),
-        formula: `${hub.movers.items.length} sealed movers · ${hub.news.items.length} news`,
+        formula: `${hub.movers.items.length} board movers · ${hub.news.items.length} news`,
       });
       for (const w of watched.slice(0, 6)) {
         push(steps, {
@@ -408,8 +408,8 @@ export function buildStageNodeNumberFlow(
       push(steps, {
         id: 'movers-dir',
         nodeId: 'outlook:movers:dirs',
-        nodeLabel: 'Sealed direction bands',
-        transform: 'tally sealed directions',
+        nodeLabel: 'Board direction bands',
+        transform: 'tally board directions',
         valueLabel:
           [...bandCounts.entries()]
             .map(([k, v]) => `${k}:${v}`)
@@ -422,7 +422,7 @@ export function buildStageNodeNumberFlow(
         id: 'reports-n',
         nodeId: 'outlook:reports',
         nodeLabel: 'Phase reports',
-        transform: 'count sealed reports',
+        transform: 'count committed reports',
         valueLabel: String(hub.reports.length),
         formula: null,
       });
@@ -447,7 +447,7 @@ export function buildStageNodeNumberFlow(
         id: 'day-move',
         nodeId: 'day:movements',
         nodeLabel: 'Movements',
-        transform: 'sealed mover count',
+        transform: 'board mover count',
         valueLabel: String(hub.movers.items.length),
         formula: null,
       });

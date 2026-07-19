@@ -83,7 +83,7 @@ function ProviderStatusDropdown(props: {
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((v) => !v)}
-        title="Provider surfaces readiness and last sealed contributions"
+        title="Provider surfaces readiness and last board contributions"
         className={`border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] ${
           open
             ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
@@ -121,7 +121,7 @@ function ProviderStatusDropdown(props: {
               <span className="text-[var(--color-ink)]">{pullingLabels.join(' · ')}</span>
             ) : (
               <span className="text-[var(--color-ink-faint)]">
-                no sealed contribution yet — Sync / Analyze runs entitled lanes
+                no board contribution yet — Sync / Analyze runs entitled lanes
               </span>
             )}
           </p>

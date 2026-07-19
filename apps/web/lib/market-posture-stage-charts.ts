@@ -262,6 +262,7 @@ export function buildLiveStageCharts(hub: MarketHubResponse): LiveStageCharts {
 
 export type ProcessStageCharts = {
   processFunctions: MarketHubChartSlice[];
+  routeClusters: MarketHubChartSlice[];
   linkStrength: MarketHubChartSlice[];
   linkFrom: MarketHubChartSlice[];
   costBasis: MarketHubChartSlice[];
@@ -270,9 +271,12 @@ export type ProcessStageCharts = {
 export function buildProcessStageCharts(hub: MarketHubResponse): ProcessStageCharts {
   const steps = hub.modelHydration?.processSteps ?? [];
   const fnCounts = new Map<string, number>();
+  const routeCounts = new Map<string, number>();
   for (const s of steps) {
     const key = s.processFunction || s.operation || 'step';
     fnCounts.set(key, (fnCounts.get(key) ?? 0) + 1);
+    const route = s.route || 'shared';
+    routeCounts.set(route, (routeCounts.get(route) ?? 0) + 1);
   }
 
   const aw = hub.awarenessAnalysis;
@@ -303,9 +307,18 @@ export function buildProcessStageCharts(hub: MarketHubResponse): ProcessStageCha
     processFunctions: slicesFromCounts(
       [...fnCounts.entries()].map(([id, count]) => ({
         id,
-        label: id.replace(/_/g, ' '),
+        label: id === 'seal' ? 'board' : id.replace(/_/g, ' '),
         count,
       })),
+    ),
+    routeClusters: slicesFromCounts(
+      [...routeCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([id, count]) => ({
+          id,
+          label: id.replace(/_/g, ' '),
+          count,
+        })),
     ),
     linkStrength: slicesFromCounts(
       [...strengthCounts.entries()].map(([id, count]) => ({
@@ -660,7 +673,7 @@ export function buildLiveEntityCharts(hub: MarketHubResponse): {
         shareBps: Math.min(10_000, readyBoost + contribBoost),
         detail: [
           lane.domain,
-          lane.contributed ? 'in seal' : 'canvas-bound',
+          lane.contributed ? 'on board' : 'canvas-bound',
           hydration?.operation,
         ]
           .filter(Boolean)
@@ -687,18 +700,43 @@ export function buildLiveEntityCharts(hub: MarketHubResponse): {
 
 export function buildProcessEntityCharts(hub: MarketHubResponse): {
   steps: StageEntityChartRow[];
+  routes: StageEntityChartRow[];
   links: StageEntityChartRow[];
   costBasis: StageEntityChartRow[];
   limits: StageEntityChartRow[];
 } {
-  const steps = (hub.modelHydration?.processSteps ?? [])
-    .filter((s) => s.status === 'ready' || s.status === 'public')
-    .map((s, i, arr) => ({
-      id: s.id,
-      label: s.label,
-      valueLabel: s.amount,
-      shareBps: Math.round(((arr.length - i) / Math.max(arr.length, 1)) * 10_000),
-      detail: `${s.route} · ${s.processFunction} · ${s.operation}`,
+  const activeSteps = (hub.modelHydration?.processSteps ?? []).filter(
+    (s) => s.status === 'ready' || s.status === 'public',
+  );
+  const steps = activeSteps.map((s, i, arr) => ({
+    id: s.id,
+    label: s.label,
+    valueLabel: s.amount,
+    shareBps: Math.round(((arr.length - i) / Math.max(arr.length, 1)) * 10_000),
+    detail: `${s.route} · ${s.processFunction === 'seal' ? 'board' : s.processFunction} · ${s.operation}`,
+    viz: null,
+  }));
+
+  const byRoute = new Map<string, typeof activeSteps>();
+  for (const s of activeSteps) {
+    const key = s.route || 'shared';
+    const list = byRoute.get(key) ?? [];
+    list.push(s);
+    byRoute.set(key, list);
+  }
+  const maxRoute = Math.max(1, ...[...byRoute.values()].map((v) => v.length));
+  const routes: StageEntityChartRow[] = [...byRoute.entries()]
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([route, list]) => ({
+      id: `route:${route}`,
+      label: route.replace(/_/g, ' '),
+      valueLabel: `${list.length} steps`,
+      shareBps: Math.round((list.length / maxRoute) * 10_000),
+      detail: list
+        .map((s) => (s.processFunction === 'seal' ? 'board' : s.processFunction))
+        .filter(Boolean)
+        .slice(0, 6)
+        .join(' → '),
       viz: null,
     }));
 
@@ -738,7 +776,7 @@ export function buildProcessEntityCharts(hub: MarketHubResponse): {
       viz: null,
     }));
 
-  return { steps, links, costBasis, limits };
+  return { steps, routes, links, costBasis, limits };
 }
 
 export function buildOutlookEntityCharts(hub: MarketHubResponse): {
@@ -747,6 +785,7 @@ export function buildOutlookEntityCharts(hub: MarketHubResponse): {
   movers: StageEntityChartRow[];
   news: StageEntityChartRow[];
   reports: StageEntityChartRow[];
+  positions: StageEntityChartRow[];
 } {
   const recBySymbol = new Map(
     (hub.awarenessAnalysis?.recommendations ?? []).map((r) => [r.symbol, r]),
@@ -817,7 +856,7 @@ export function buildOutlookEntityCharts(hub: MarketHubResponse): {
     return {
       id: `${symbol ?? 'm'}-${i}`,
       label: item.symbolOrSector ?? item.headline ?? `mover ${i + 1}`,
-      valueLabel: [item.directionBand, item.strengthBand].filter(Boolean).join(' · ') || 'sealed',
+      valueLabel: [item.directionBand, item.strengthBand].filter(Boolean).join(' · ') || 'boarded',
       shareBps: strengthToBps(item.strengthBand),
       detail: item.headline ?? null,
       viz,
@@ -827,7 +866,7 @@ export function buildOutlookEntityCharts(hub: MarketHubResponse): {
   const news: StageEntityChartRow[] = hub.news.items.slice(0, 24).map((item, i) => ({
     id: `news-${i}-${item.symbolOrSector ?? i}`,
     label: item.headline ?? item.symbolOrSector ?? `news ${i + 1}`,
-    valueLabel: [item.directionBand, item.strengthBand].filter(Boolean).join(' · ') || 'sealed',
+    valueLabel: [item.directionBand, item.strengthBand].filter(Boolean).join(' · ') || 'boarded',
     shareBps: strengthToBps(item.strengthBand ?? item.directionBand),
     detail: item.symbolOrSector ?? null,
     viz: null,
@@ -838,11 +877,26 @@ export function buildOutlookEntityCharts(hub: MarketHubResponse): {
     label: r.title,
     valueLabel: r.kind,
     shareBps: r.expiresAt ? 5_000 : 8_000,
-    detail: r.expiresAt ? 'expiring' : 'sealed',
+    detail: r.expiresAt ? 'expiring' : 'committed',
     viz: null,
   }));
 
-  return { watched, growth, movers, news, reports };
+  const positions = rowsFromNotionals(
+    hub.positions.map((p) => {
+      const qty = Number(p.qty);
+      const mark = parseCents(p.markCents) ?? 0;
+      return {
+        id: p.id,
+        label: p.symbol,
+        notionalCents:
+          Number.isFinite(qty) && mark ? Math.round(Math.abs(qty) * mark) : 0,
+        detail: `${p.moduleName} · uPnL ${dollarsLabel(parseCents(p.unrealizedPnlCents) ?? 0)}`,
+        viz: p.viz ?? null,
+      };
+    }),
+  );
+
+  return { watched, growth, movers, news, reports, positions };
 }
 
 /** @deprecated alias — use buildOutlookEntityCharts */
@@ -926,7 +980,7 @@ export function buildDayEntityCharts(hub: MarketHubResponse): {
       label: r.title,
       valueLabel: r.kind,
       shareBps: 6_000,
-      detail: 'sealed daily research artifact',
+      detail: 'committed daily research artifact',
       viz: null,
     })),
   ];

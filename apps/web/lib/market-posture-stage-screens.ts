@@ -86,7 +86,7 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
   {
     id: 'outlook',
     label: 'Outlook',
-    summary: 'Watched symbols, marks, and recommendation-linked growth outlook',
+    summary: 'Watched symbols, open positions, and recommendation-linked growth outlook',
     nodeIdPrefixes: [],
     nodeRoles: ['stage'],
     stageIds: ['seal_movers', 'sector', 'daily', 'narrative'],

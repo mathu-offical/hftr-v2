@@ -1859,11 +1859,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   (`analysisRoles`) for downstream nodes. **Library** shows sector/company constants
   (numerical + semantic) from sectors, engines, shelves, and holdings — admission ranges
   and market-aware positioning context. **Process** links market + news + library evidence
-  and emits **tagged trend lists** with symbols. **Outlook** (renamed from seals) shows all
-  watched symbols/values plus spark-path / heldVsCost **growth outlook** (orientation only;
-  no invented forward dollars) alongside sealed stock/news boards. **Day plan** analyzes
+  and emits **tagged trend lists** with symbols. **Outlook** (operator name for the former
+  seals column) shows all watched symbols/values, open positions, plus spark-path /
+  heldVsCost **growth outlook** (orientation only; no invented forward dollars) alongside
+  **committed stock/news boards**. Stage/model copy uses **board / commit** language
+  (`Movers board`, `board movers`, `on board`) while internal ids remain `seal_movers`
+  etc. **Day plan** analyzes
   upstream stages into actionable movements, watch/plan actions, research topics
-  (sector lenses + sealed reports), and daily trends. Each diagram column emits into the
+  (sector lenses + committed reports), and daily trends. Each diagram column emits into the
   screen above it; clicking a Model node navigates to its owning screen
   (`resolveStageScreenId`; legacy `group:seals` → outlook). Charts and main readouts come
   first; each stage ends with a **Group nodes → numbers** trace for **active**
@@ -1872,7 +1875,7 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   with **connection-based spread**: role lanes (x) + barycenter relevance (y); **no node
   overflow cap**; **all intra-screen and inter-screen edges** retained, plus group→group
   backbone edges for cross-column flows. Process column nests **route clusters**
-  (`process_cluster`) with function-ordered chains (fetch→normalize→…). Every strip
+  (`process_cluster`) with function-ordered chains (fetch→normalize→…→board). Every strip
   content node is stamped with `stageScreenId` and mapped into that screen’s emission
   traces. Strip data-flow is left→right: library adapters use `lib-adapter:` (not Live),
   `providers` lives on Process, positions panel on Outlook, panel edges skip backward
@@ -1949,6 +1952,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   markCents for operator display; qty≥2 soft-flags impact proxy. Extends D-187 /
   D-177. Docs: ui-spec §4, broker-integration §7, experiment-log EXP-07.
   **Status: implemented.**
+
+- **D-193 (processing queue modal, company-scoped, 2026-07-19):** Replace the read-only
+  global queue chip with a **Processing queue** button on the company ribbon. Opens a
+  portal modal board: one column per `QueueClass`, listing this company’s pending /
+  active / dead jobs (from `GET …/jobs/pending` + `GET …/jobs/dead`). Chip label uses
+  the same company-scoped counts (not `/api/queue/stats`). Bottom Lineage Queue / Dead
+  letters unchanged. Spec:
+  `docs/superpowers/specs/2026-07-19-processing-queue-modal-design.md`.
+  Docs: ui-spec §2. **Status: implemented.**
 
 ## Open questions
 

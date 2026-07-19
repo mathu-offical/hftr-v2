@@ -215,7 +215,7 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     steps: [
       { suffix: 'gather', label: 'Sector headline gather', operation: 'sector lanes', analysisRole: 'news_corpus', processFunction: 'fetch' },
       { suffix: 'corroborate', label: 'Sector corroborate', operation: 'multi-source band', analysisRole: 'corroboration', processFunction: 'corroborate' },
-      { suffix: 'seal', label: 'Bulletin seal', operation: 'persist news board', analysisRole: 'seal', processFunction: 'seal' },
+      { suffix: 'seal', label: 'Bulletin board', operation: 'persist news board', analysisRole: 'seal', processFunction: 'seal' },
     ],
   },
   daily_phase: {
@@ -224,7 +224,7 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     feedStages: ['daily', 'narrative'],
     steps: [
       { suffix: 'calendar', label: 'Calendar phase', operation: 'session window', analysisRole: 'daily', processFunction: 'seal' },
-      { suffix: 'seal', label: 'Daily seal', operation: 'persist summary', analysisRole: 'seal', processFunction: 'seal' },
+      { suffix: 'seal', label: 'Daily board', operation: 'persist summary', analysisRole: 'seal', processFunction: 'seal' },
     ],
   },
   narrative_compose: {
@@ -233,7 +233,7 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     feedStages: ['narrative', 'hub_ready'],
     steps: [
       { suffix: 'book_tape', label: 'Book↔tape crosswalk', operation: 'held / watch / pipeline', analysisRole: 'narrative', processFunction: 'compose' },
-      { suffix: 'rollup', label: 'Narrative rollup', operation: 'seal-grounded', analysisRole: 'narrative', processFunction: 'compose' },
+      { suffix: 'rollup', label: 'Narrative rollup', operation: 'board-grounded', analysisRole: 'narrative', processFunction: 'compose' },
     ],
   },
 };
@@ -295,7 +295,7 @@ function amountForStatus(opts: {
 }): string {
   if (opts.status === 'missing_key') return 'need key';
   if (opts.status === 'stub' || opts.status === 'researched') return opts.status;
-  if (opts.contributed) return 'sealed contrib';
+  if (opts.contributed) return 'board contrib';
   if (opts.route === 'bars_ohlc') {
     return opts.status === 'ready' || opts.status === 'public' ? 'RS path' : 'idle';
   }

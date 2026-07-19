@@ -63,7 +63,7 @@ function liveOperation(opts: {
     return { operation: 'need key', amount: boundLabel };
   }
   if (opts.contributed) {
-    return { operation: 'hydrate · sealed', amount: `${boundLabel} · contrib` };
+    return { operation: 'hydrate · on board', amount: `${boundLabel} · contrib` };
   }
   if (bound > 0) {
     return { operation: 'hydrate ready', amount: boundLabel };
@@ -287,12 +287,12 @@ export async function projectMarketHubModelHydration(opts: {
     },
     {
       stageId: 'seal_movers',
-      operation: 'seal stock',
+      operation: 'board movers',
       amount: `${moversItemCount} items`,
     },
     {
       stageId: 'sector',
-      operation: 'seal news',
+      operation: 'board news',
       amount: `${newsItemCount} items`,
     },
     {

@@ -29,7 +29,10 @@
   (`ModeSwitch`, live gated with an explanation popover — fails closed until the broker
   milestone) → **LLM connection chip** (`LlmRibbonStatusChip`: `llm: n/6` from shell
   `LlmConnectionStatusProvider`, refreshed on settings save — not re-fetched per panel) →
-  queue chip → **User settings** modal (`UserSettingsLauncher`: tabs **LLM
+  **Processing queue** button (`ProcessingQueueChip`, D-193: company-scoped depth from
+  `jobs/pending` + `jobs/dead`; opens portal modal with one column per `queueClass`,
+  pending/active/dead cards; Lineage Queue / Dead letters in the bottom panel stay) →
+  **User settings** modal (`UserSettingsLauncher`: tabs **LLM
   providers** | **Research** | **Brokers** — six LLM providers + Anthropic ZDR attestation,
   research gather keys, Alpaca paper Key ID + Secret via **Save & verify** — D-027) → Clerk
   user button. TopDrawer **Desk / PnL**: company identity + seed, **Paper balance** /
@@ -340,10 +343,11 @@ are ignored. Shortcuts are suppressed in editable fields.
   **Live ingest** shows active APIs, query/filter orientation, normalize pipeline, and
   system variables for downstream. **Library** shows sector/company constants → discrete
   ranges + positioning context. **Process** links market + news + library and emits
-  tagged trend lists. **Outlook** (ex-seals) shows watched symbols/values, spark-path
-  growth orientation, and sealed stock/news boards. **Day plan** combines upstream into
+  tagged trend lists. **Outlook** shows watched symbols/values, open positions, spark-path
+  growth orientation, and committed stock/news boards (operator “board/commit” language;
+  internal seal ids unchanged). **Day plan** combines upstream into
   actionable movements, actions, research topics, and daily trends.
-  Analyze reseals stock compound + sector news in parallel.
+  Analyze commits stock compound + sector news in parallel.
   Distinct from Research (async corpus).   Hub data uses client **SWR cache**
   (`market-hub-cache` + `useMarketHub`): memory + sessionStorage, 15s fresh / 10m stale for
   **full hub** cache policy (used on mount/Sync/after Analyze), inflight dedupe, shell

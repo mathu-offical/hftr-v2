@@ -987,7 +987,7 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
         id: edgeId,
         source: liveId,
         target: 'providers',
-        label: src.contributed ? 'sealed' : 'entitle',
+        label: src.contributed ? 'on board' : 'entitle',
         data: {
           edgeType: 'entitle',
           track: 'entitle',
@@ -1530,7 +1530,7 @@ const STRIP_ROLE_ORDER: Record<PostureAlgoNodeRole, number> = {
   lane_label: 9,
 };
 
-/** Pipeline order inside a process-route cluster (fetch → … → seal/compose). */
+/** Pipeline order inside a process-route cluster (fetch → … → board/compose). */
 const PROCESS_FN_ORDER: Record<string, number> = {
   fetch: 0,
   entitle: 0,

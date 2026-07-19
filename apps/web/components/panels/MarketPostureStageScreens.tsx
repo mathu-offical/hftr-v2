@@ -572,7 +572,7 @@ function LiveIngestScreen(props: { hub: MarketHubResponse }) {
           empty="No domains hydrated"
         />
         <MarketPostureMetricBars
-          title="Filtered into seal"
+          title="Filtered onto board"
           slices={charts.contributeMix}
           empty="No contribution mix yet"
         />
@@ -717,11 +717,16 @@ function ProcessScreen(props: { hub: MarketHubResponse }) {
 
   return (
     <>
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <MarketPostureMetricBars
-          title="Ingest process functions"
+          title="Process functions"
           slices={charts.processFunctions}
           empty="No process steps hydrated"
+        />
+        <MarketPostureMetricBars
+          title="Route clusters"
+          slices={charts.routeClusters}
+          empty="No route clusters yet"
         />
         <MarketPosturePieChart
           title="Link strength"
@@ -749,7 +754,8 @@ function ProcessScreen(props: { hub: MarketHubResponse }) {
         </h3>
         <p className="text-[10px] text-[var(--color-ink-dim)]">
           Discrete market data joins news and library evidence into edges, then emits
-          trend lists with tagged symbols for outlook and day plan.
+          trend lists with tagged symbols for outlook and day plan. Model strip nests
+          each process route as a fetch→…→board cluster.
         </p>
         {aw?.coverageSummary ? (
           <p className="font-mono text-[9px] text-[var(--color-ink-faint)]">
@@ -769,7 +775,7 @@ function ProcessScreen(props: { hub: MarketHubResponse }) {
         </h3>
         {taggedTrends.length === 0 ? (
           <p className="text-[10px] text-[var(--color-ink-faint)]">
-            No tagged trends yet — Analyze to link seals and emit symbol-tagged trends.
+            No tagged trends yet — Analyze to link boards and emit symbol-tagged trends.
           </p>
         ) : (
           <ul className="space-y-1">
@@ -795,29 +801,36 @@ function ProcessScreen(props: { hub: MarketHubResponse }) {
 
       <section className="grid gap-3 lg:grid-cols-2">
         <MarketPostureEntityChartPanel
+          title="Route clusters · pipeline"
+          rows={entities.routes}
+          empty="No process routes hydrated — Sync or Analyze"
+          testId="market-posture-process-routes"
+        />
+        <MarketPostureEntityChartPanel
           title="Ingest steps · chart"
           rows={entities.steps}
           empty="No process steps yet — Sync or Analyze"
-        />
-        <MarketPostureEntityChartPanel
-          title="Links · chart"
-          rows={entities.links}
-          empty="No awareness links projected"
         />
       </section>
 
       <section className="grid gap-3 lg:grid-cols-2">
         <MarketPostureEntityChartPanel
+          title="Links · chart"
+          rows={entities.links}
+          empty="No awareness links projected"
+        />
+        <MarketPostureEntityChartPanel
           title="Limits · thresholds & defaults"
           rows={entities.limits}
           empty="No limit stage ops hydrated"
         />
-        <MarketPostureEntityChartPanel
-          title="Cost basis · avg vs mark"
-          rows={entities.costBasis}
-          empty="No open positions"
-        />
       </section>
+
+      <MarketPostureEntityChartPanel
+        title="Cost basis · avg vs mark"
+        rows={entities.costBasis}
+        empty="No open positions"
+      />
     </>
   );
 }
@@ -844,9 +857,9 @@ function OutlookScreen(props: {
           empty="No watched symbols"
         />
         <MarketPostureMetricBars
-          title="Sealed mover directions"
+          title="Board mover directions"
           slices={charts.moverDirections}
-          empty="No sealed movers"
+          empty="No board movers"
         />
         <MarketPosturePieChart
           title="Mover strength bands"
@@ -861,7 +874,7 @@ function OutlookScreen(props: {
         <MarketPostureMetricBars
           title="Report kinds"
           slices={charts.reportKinds}
-          empty="No sealed reports"
+          empty="No committed reports"
         />
       </section>
 
@@ -914,9 +927,26 @@ function OutlookScreen(props: {
         />
       </section>
 
+      <MarketPostureEntityChartPanel
+        title="Open positions · marks"
+        rows={entities.positions}
+        empty="No open positions"
+        testId="market-posture-outlook-positions"
+        onSelect={(row) => {
+          const p = hub.positions.find((x) => x.id === row.id);
+          if (!p) return;
+          mp.focusEntity({
+            symbol: p.symbol,
+            category: 'positions',
+            positionId: p.id,
+            stageScreenId: 'outlook',
+          });
+        }}
+      />
+
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-          Sealed board lens
+          Outlook board lens
         </span>
         {(
           [
@@ -954,7 +984,7 @@ function OutlookScreen(props: {
           <MarketPostureEntityChartPanel
             title={`Stock board · ${hub.movers.title ?? 'movers'}`}
             rows={entities.movers}
-            empty="No movers seal yet — Analyze reseals stock compound"
+            empty="No movers board yet — Analyze commits stock compound"
             testId="market-posture-stock-board"
             headerExtra={
               hub.movers.reportConceptId ? (
@@ -973,7 +1003,7 @@ function OutlookScreen(props: {
           <MarketPostureEntityChartPanel
             title={`News board · ${hub.news.title ?? 'sector'}`}
             rows={entities.news}
-            empty="No news seal yet"
+            empty="No news board yet"
             testId="market-posture-news-board"
             headerExtra={
               hub.news.reportConceptId ? (
@@ -993,7 +1023,7 @@ function OutlookScreen(props: {
       <MarketPostureEntityChartPanel
         title="Phase reports · chart"
         rows={entities.reports}
-        empty="No sealed reports yet"
+        empty="No committed reports yet"
         onSelect={(row) => openReport(row.id)}
       />
     </>
@@ -1044,9 +1074,9 @@ function DayPlanScreen(props: {
 
       <section className="grid gap-3 sm:grid-cols-3">
         <MarketPostureMetricBars
-          title="Movements · sealed direction"
+          title="Movements · board direction"
           slices={charts.movements}
-          empty="No sealed movers"
+          empty="No board movers"
         />
         <MarketPosturePieChart
           title="Actions · watch + plans"
@@ -1063,7 +1093,7 @@ function DayPlanScreen(props: {
       <MarketPostureEntityChartPanel
         title="Research topics · sectors + reports"
         rows={entities.topics}
-        empty="No sector focuses or sealed reports yet"
+        empty="No sector focuses or committed reports yet"
         testId="market-posture-day-topics"
         onSelect={(row) => {
           if (row.id.startsWith('report:')) {
@@ -1075,7 +1105,7 @@ function DayPlanScreen(props: {
       <MarketPostureEntityChartPanel
         title="Movements · chart"
         rows={entities.movements}
-        empty="No sealed movements for today"
+        empty="No board movements for today"
         onSelect={(row) => {
           const symbol = row.label.trim().replace(/^\$/, '').toUpperCase();
           if (!symbol || symbol.includes(' ')) return;

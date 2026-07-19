@@ -310,14 +310,15 @@ describe('market-posture-stage-charts', () => {
     expect(charts.adapterStatus[0]?.id).toBe('ready');
   });
 
-  it('builds process charts from steps + links + cost', () => {
+  it('builds process charts from steps + routes + links + cost', () => {
     const charts = buildProcessStageCharts(baseHub());
     expect(charts.processFunctions[0]?.id).toBe('rank');
+    expect(charts.routeClusters.length).toBeGreaterThan(0);
     expect(charts.linkFrom[0]?.id).toBe('news');
     expect(charts.costBasis[0]?.label).toBe('AAPL');
   });
 
-  it('builds outlook + day charts from watches, sealed boards, and actions', () => {
+  it('builds outlook + day charts from watches, boards, and actions', () => {
     const outlook = buildOutlookStageCharts(baseHub());
     expect(outlook.moverDirections).toHaveLength(2);
     expect(outlook.reportKinds[0]?.id).toBe('daily');
@@ -334,8 +335,10 @@ describe('market-posture-stage-charts', () => {
     expect(buildLiveEntityCharts(hub).sources).toHaveLength(1);
     expect(buildLiveEntityCharts(hub).adapters).toHaveLength(1);
     expect(buildProcessEntityCharts(hub).steps[0]?.label).toBe('Rank');
+    expect(buildProcessEntityCharts(hub).routes.length).toBeGreaterThan(0);
     expect(buildOutlookEntityCharts(hub).movers).toHaveLength(2);
     expect(buildOutlookEntityCharts(hub).watched.length).toBeGreaterThan(0);
+    expect(buildOutlookEntityCharts(hub).positions[0]?.label).toBe('AAPL');
     expect(buildDayEntityCharts(hub).trends[0]?.label).toBe('TSLA');
     expect(buildDayEntityCharts(hub).topics.length).toBeGreaterThan(0);
   });

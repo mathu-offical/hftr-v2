@@ -1,8 +1,8 @@
 /**
- * Galaxy 3D physics helpers (TD-09 / D-116 / D-136 / D-139 / D-142 / D-145 / D-151).
- * Semantic similarity springs bridge nests; packing is soft so related libraries
- * can interact. Cross-library bridge force drifts whole spheres toward shared
- * meaning. Folders own orbital shelf bands; articles are live star hubs.
+ * Galaxy 3D physics helpers (TD-09 / D-116 / D-136 / D-139 / D-142 / D-145 / D-151 / D-164).
+ * Library/folder spheres grow independently from content; packing separates hulls
+ * instead of crushing them. Seeded catalog folders are placed by system similarity
+ * scores (D-164). Semantic springs still bridge related nests.
  */
 
 import type { ResearchGraphLibraryNest, ResearchGraphLink } from '@hftr/contracts';
@@ -12,6 +12,11 @@ import {
   linkStrengthForSimilarity,
   type SimilarityBand,
 } from './galaxy-similarity';
+import {
+  folderSimilarityRestMul,
+  folderSimilaritySpringStrength,
+  seedFolderSimilarityBand,
+} from './galaxy-folder-similarity';
 
 export interface LibraryCenter3D {
   x: number;
@@ -185,9 +190,8 @@ export function separateLibraryCenters(
 
 /**
  * Place library nests on concentric Fibonacci spheres (not an XY ring / flat spiral).
- * Larger libraries sit on a slightly outer shell with larger hull radii so the company
- * cloud uses full 3D volume (D-116). D-132: tighter radii + separation pass so nests
- * read as distinct visual clusters instead of one overlapping cloud.
+ * Each library sphere grows independently from its concept count (D-164); separation
+ * pushes neighbors apart so growth does not crush siblings into a dense cloud.
  */
 export function computeLibraryCenters3D(
   nests: ResearchGraphLibraryNest[],
@@ -212,31 +216,43 @@ export function computeLibraryCenters3D(
 
   const centers = new Map<string, LibraryCenter3D>();
   const n = Math.max(ranked.length, 1);
-  // Soft shells — related libraries start close enough for semantic springs
-  // to physically drag nests into interaction (D-151; was wider D-145/D-132).
-  const baseShell = 95 + Math.min(140, n * 24);
+  // Wide shells — leave room for independent sphere growth (D-164).
+  const baseShell = 200 + Math.min(280, n * 52);
 
   ranked.forEach((id, i) => {
     const meta = libMeta.get(id);
     const conceptCount = meta?.conceptCount ?? 3;
-    const sizeBoost = Math.min(70, conceptCount * 1.5);
-    // Size tiers → concentric shells (inner = denser/larger libs, outer = sparse).
+    // Independent radius from content — not capped into a shared dense band.
+    const radius = libraryRadiusForConceptCount(conceptCount);
     const tier = Math.min(2, Math.floor((i / n) * 3));
-    const shellR = baseShell + tier * 55 + sizeBoost * 0.25;
+    const shellR = baseShell + tier * 110 + radius * 0.45;
     const unit = fibonacciSpherePoint(i, n);
     const pos = scaleSpherePoint(unit, shellR);
     centers.set(id, {
       x: pos.x,
       y: pos.y,
       z: pos.z,
-      // Soft radii — allow overlap; semantic springs + bridge force interact (D-151).
-      radius: 24 + Math.min(58, conceptCount * 1.35 + sizeBoost * 0.18),
+      radius,
       name: meta?.name ?? 'Library',
     });
   });
 
-  separateLibraryCenters(centers, 1.0, 8);
+  // Gap > 1 so growing spheres push neighbors away rather than overlapping.
+  separateLibraryCenters(centers, 1.28, 14);
   return centers;
+}
+
+/** Content-driven library hull radius (independent of other libraries). */
+export function libraryRadiusForConceptCount(conceptCount: number): number {
+  const n = Math.max(1, conceptCount);
+  return 42 + Math.min(160, Math.sqrt(n) * 14 + n * 1.1);
+}
+
+/** Content-driven folder hull radius (independent of sibling folders). */
+export function folderRadiusForMembers(mass: number, memberCount: number): number {
+  const m = Math.max(1, memberCount);
+  const massPart = Math.max(0, mass) * 1.35;
+  return 22 + Math.min(90, massPart + Math.sqrt(m) * 8 + m * 1.5);
 }
 
 /**
@@ -377,7 +393,7 @@ export type FolderCenter3D = LibraryCenter3D & {
   mass: number;
 };
 
-/** Place folder nests on a Fibonacci sphere inside each parent library hull. */
+/** Place folder nests by system similarity scores; each folder grows independently (D-164). */
 export function computeFolderCenters3D(opts: {
   libraryCenters: Map<string, LibraryCenter3D>;
   folders: Array<{
@@ -403,30 +419,146 @@ export function computeFolderCenters3D(opts: {
     const parent = libraryCenters.get(libraryId);
     if (!parent) continue;
 
-    const sorted = [...libFolders].sort((a, b) => b.mass - a.mass || b.memberCount - a.memberCount);
+    const sorted = [...libFolders].sort(
+      (a, b) => b.mass - a.mass || b.memberCount - a.memberCount || a.folderKey.localeCompare(b.folderKey),
+    );
     const count = Math.max(sorted.length, 1);
-    // Push folders toward the outer half of the parent hull so multi-folder
-    // libraries read as separated satellites, not a single core pile (D-132).
-    const shellR = parent.radius * 0.72;
 
-    sorted.forEach((folder, i) => {
+    type Local = {
+      folderKey: string;
+      label: string;
+      mass: number;
+      memberCount: number;
+      x: number;
+      y: number;
+      z: number;
+      radius: number;
+    };
+    const locals: Local[] = sorted.map((folder, i) => {
+      const radius = folderRadiusForMembers(folder.mass, folder.memberCount);
       const unit = fibonacciSpherePoint(i, count);
-      const offset = scaleSpherePoint(unit, shellR * (0.62 + (i / count) * 0.38));
-      const key = `${libraryId}::${folder.folderKey}`;
-      centers.set(key, {
-        x: parent.x + offset.x,
-        y: parent.y + offset.y,
-        z: parent.z + offset.z,
-        radius: 16 + Math.min(42, folder.mass * 1.6 + folder.memberCount * 1.35),
-        name: folder.label,
+      // Seed on a shell sized from this folder's own radius + siblings — not a tiny parent fraction.
+      const shellR = radius * 1.4 + Math.min(80, count * 12);
+      const offset = scaleSpherePoint(unit, shellR);
+      return {
         folderKey: folder.folderKey,
-        libraryId: folder.libraryId,
+        label: folder.label,
         mass: folder.mass,
-      });
+        memberCount: folder.memberCount,
+        x: offset.x,
+        y: offset.y,
+        z: offset.z,
+        radius,
+      };
     });
+
+    // Similarity springs: high → closer; low → farther (system-seeded catalog scores).
+    for (let pass = 0; pass < 16; pass++) {
+      for (let i = 0; i < locals.length; i++) {
+        for (let j = i + 1; j < locals.length; j++) {
+          const a = locals[i]!;
+          const b = locals[j]!;
+          const band = seedFolderSimilarityBand(a.folderKey, b.folderKey);
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const dz = b.z - a.z;
+          const dist = Math.hypot(dx, dy, dz) || 1e-6;
+          const rest = (a.radius + b.radius) * folderSimilarityRestMul(band);
+          const strength = folderSimilaritySpringStrength(band);
+          const delta = (dist - rest) / dist;
+          const k = strength * 0.35 * delta;
+          a.x += dx * k;
+          a.y += dy * k;
+          a.z += dz * k;
+          b.x -= dx * k;
+          b.y -= dy * k;
+          b.z -= dz * k;
+        }
+      }
+      // Hard separation so independent growth never collapses siblings.
+      for (let i = 0; i < locals.length; i++) {
+        for (let j = i + 1; j < locals.length; j++) {
+          const a = locals[i]!;
+          const b = locals[j]!;
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const dz = b.z - a.z;
+          const dist = Math.hypot(dx, dy, dz) || 1e-6;
+          const minDist = (a.radius + b.radius) * 1.2;
+          if (dist >= minDist) continue;
+          const push = (minDist - dist) / 2;
+          const ux = dx / dist;
+          const uy = dy / dist;
+          const uz = dz / dist;
+          a.x -= ux * push;
+          a.y -= uy * push;
+          a.z -= uz * push;
+          b.x += ux * push;
+          b.y += uy * push;
+          b.z += uz * push;
+        }
+      }
+    }
+
+    for (const local of locals) {
+      const key = `${libraryId}::${local.folderKey}`;
+      centers.set(key, {
+        x: parent.x + local.x,
+        y: parent.y + local.y,
+        z: parent.z + local.z,
+        radius: local.radius,
+        name: local.label,
+        folderKey: local.folderKey,
+        libraryId,
+        mass: local.mass,
+      });
+    }
   }
 
   return centers;
+}
+
+/**
+ * Grow each library sphere to enclose its folders, then re-separate libraries so
+ * independent growth does not leave hulls overlapping (D-164). Translates folders
+ * with their parent when centers move.
+ */
+export function refitLibraryPackingAfterFolders(
+  libraryCenters: Map<string, LibraryCenter3D>,
+  folderCenters: Map<string, FolderCenter3D>,
+): void {
+  const oldPos = new Map(
+    [...libraryCenters.entries()].map(([id, c]) => [id, { x: c.x, y: c.y, z: c.z }] as const),
+  );
+
+  for (const [libId, lib] of libraryCenters) {
+    let extent = lib.radius;
+    for (const folder of folderCenters.values()) {
+      if (folder.libraryId !== libId) continue;
+      const d =
+        Math.hypot(folder.x - lib.x, folder.y - lib.y, folder.z - lib.z) + folder.radius;
+      if (d > extent) extent = d;
+    }
+    // Parent grows from children — not a fixed shared density band.
+    lib.radius = Math.max(lib.radius, extent + 24);
+  }
+
+  separateLibraryCenters(libraryCenters, 1.28, 14);
+
+  for (const [libId, lib] of libraryCenters) {
+    const prev = oldPos.get(libId);
+    if (!prev) continue;
+    const dx = lib.x - prev.x;
+    const dy = lib.y - prev.y;
+    const dz = lib.z - prev.z;
+    if (dx === 0 && dy === 0 && dz === 0) continue;
+    for (const folder of folderCenters.values()) {
+      if (folder.libraryId !== libId) continue;
+      folder.x += dx;
+      folder.y += dy;
+      folder.z += dz;
+    }
+  }
 }
 
 export type ArticleOrbitCenter3D = {
@@ -798,8 +930,8 @@ export function createForeignLibraryRepelForce(centers: Map<string, LibraryCente
 }
 
 /**
- * Drift whole library spheres toward each other when cross-library semantic
- * bridges exist (D-151). Mutates center positions so nest/shell forces follow.
+ * Gentle drift of library centers toward semantic neighbors (D-151 / D-164).
+ * Ideal rest respects independent radii (gap ≥ 1.15) so bridges do not crush packing.
  */
 export function createCrossLibraryBridgeForce(
   centers: Map<string, LibraryCenter3D>,
@@ -825,10 +957,11 @@ export function createCrossLibraryBridgeForce(
       const dy = b.y - a.y;
       const dz = b.z - a.z;
       const dist = Math.hypot(dx, dy, dz) || 1e-6;
-      const ideal = (a.radius + b.radius) * 0.82;
+      // Do not pull inside the independent packing gap.
+      const ideal = (a.radius + b.radius) * 1.18;
       if (dist <= ideal) continue;
-      const pull = Math.min(1.8, 0.25 + weight * 0.12);
-      const k = alpha * pull * ((dist - ideal) / dist) * 0.5;
+      const pull = Math.min(1.1, 0.12 + weight * 0.06);
+      const k = alpha * pull * ((dist - ideal) / dist) * 0.22;
       a.x += dx * k;
       a.y += dy * k;
       a.z += dz * k;

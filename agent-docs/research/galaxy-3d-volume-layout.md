@@ -99,10 +99,10 @@ Result: orbit camera still looked like a **flat necklace of nests**, not a volum
 |-------|------------------|
 | Concepts / tags | Free-float celestial bodies (planet/rock/ember/comet/moon) |
 | Article | **Star hub** — soft-orbits folder system; concepts orbit live star |
-| Packing | Soft library separation (gap ~1.0) + **library bridge force** so related nests drift together (D-151) |
+| Packing | Independent sphere growth + gap ≥ 1.28; parent hulls expand from folder extents (D-164) |
 | Semantic springs | Client overlap + shared display tags + membership; seed/synthesis also persist correlates |
 | Cross-nest high similarity | Stronger/shorter springs — bridges systems |
-| Folder | **Orbital shelf band** + tangential spread (not core-pile); weak when article owns node |
+| Folder | **System similarity placement** for seeded catalogs (D-164); independent radii; orbital shelves |
 | Article | **Star hub** — soft-orbits folder system; co-tagged peers join membership orbits (D-151) |
 | Tags | Display-chip satellites + shared-tag bridges; `normalizeGalaxyDisplayTag` vocabulary |
 | Topics | Dense membership cliques when hub is not a concept |

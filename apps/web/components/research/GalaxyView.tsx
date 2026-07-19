@@ -30,6 +30,7 @@ import {
   hierarchicalLinkScale,
   hashSpread3D,
   nestPackingSignature,
+  refitLibraryPackingAfterFolders,
   type GalaxySimNode,
 } from '@/lib/galaxy-physics';
 import {
@@ -264,35 +265,30 @@ function GalaxyViewInner(props: GalaxyViewProps) {
     };
   }, [prefer2dFallback]);
 
-  const libraryCenters = useMemo(
-    () =>
-      computeLibraryCenters3D(
-        libraryNests,
-        props.nodes.map((n) => ({ primaryLibraryId: n.primaryLibraryId ?? null })),
-      ),
-    [libraryNests, props.nodes],
-  );
+  const { libraryCenters, folderCenters } = useMemo(() => {
+    const libs = computeLibraryCenters3D(
+      libraryNests,
+      props.nodes.map((n) => ({ primaryLibraryId: n.primaryLibraryId ?? null })),
+    );
+    const folders = computeFolderCenters3D({
+      libraryCenters: libs,
+      folders: folderStars.map((folder) => ({
+        folderKey: folder.folderKey,
+        libraryId: folder.libraryId,
+        label: folder.label,
+        mass: folder.mass,
+        memberCount: folder.memberConceptIds.length,
+      })),
+    });
+    refitLibraryPackingAfterFolders(libs, folders);
+    return { libraryCenters: libs, folderCenters: folders };
+  }, [libraryNests, props.nodes, folderStars]);
 
   const conceptFolderIndex = useMemo(() => buildConceptFolderIndex(folderStars), [folderStars]);
 
   const conceptArticleIndex = useMemo(
     () => buildConceptArticleIndex(articleOrbits),
     [articleOrbits],
-  );
-
-  const folderCenters = useMemo(
-    () =>
-      computeFolderCenters3D({
-        libraryCenters,
-        folders: folderStars.map((folder) => ({
-          folderKey: folder.folderKey,
-          libraryId: folder.libraryId,
-          label: folder.label,
-          mass: folder.mass,
-          memberCount: folder.memberConceptIds.length,
-        })),
-      }),
-    [libraryCenters, folderStars],
   );
 
   const packingSig = useMemo(() => {

@@ -24,6 +24,7 @@ import {
   linkDistanceForWeight,
   linkStrengthForWeight,
   nestPackingSignature,
+  refitLibraryPackingAfterFolders,
   separateLibraryCenters,
 } from './galaxy-physics';
 import { linkDistanceForSimilarity } from './galaxy-similarity';
@@ -76,9 +77,96 @@ describe('galaxy-physics', () => {
     });
     const center = folderCenters.get('lib-1::strategy_families');
     expect(center).toBeDefined();
-    const dist = Math.hypot((center?.x ?? 0) - 100, center?.y ?? 0);
-    expect(dist).toBeLessThan(80);
+    const dist = Math.hypot((center?.x ?? 0) - 100, center?.y ?? 0, center?.z ?? 0);
+    // D-164: folder grows independently — may extend past provisional parent radius.
     expect(dist).toBeGreaterThan(0);
+    expect(center!.radius).toBeGreaterThan(20);
+  });
+
+  it('places high-similarity seed folders closer than low-similarity pairs', () => {
+    const libraryCenters = new Map([
+      ['lib-1', { x: 0, y: 0, z: 0, radius: 120, name: 'Baseline' }],
+    ]);
+    const folderCenters = computeFolderCenters3D({
+      libraryCenters,
+      folders: [
+        {
+          folderKey: 'strategy_families',
+          libraryId: 'lib-1',
+          label: 'Strategies',
+          mass: 6,
+          memberCount: 8,
+        },
+        {
+          folderKey: 'compound_strategies',
+          libraryId: 'lib-1',
+          label: 'Compounds',
+          mass: 6,
+          memberCount: 8,
+        },
+        {
+          folderKey: 'compliance_packages',
+          libraryId: 'lib-1',
+          label: 'Compliance',
+          mass: 6,
+          memberCount: 8,
+        },
+        {
+          folderKey: 'trend_lead_patterns',
+          libraryId: 'lib-1',
+          label: 'Trend leads',
+          mass: 6,
+          memberCount: 8,
+        },
+      ],
+    });
+    const strat = folderCenters.get('lib-1::strategy_families')!;
+    const compound = folderCenters.get('lib-1::compound_strategies')!;
+    const compliance = folderCenters.get('lib-1::compliance_packages')!;
+    const trend = folderCenters.get('lib-1::trend_lead_patterns')!;
+    const highDist = Math.hypot(
+      strat.x - compound.x,
+      strat.y - compound.y,
+      strat.z - compound.z,
+    );
+    const lowDist = Math.hypot(
+      compliance.x - trend.x,
+      compliance.y - trend.y,
+      compliance.z - trend.z,
+    );
+    expect(highDist).toBeLessThan(lowDist);
+  });
+
+  it('refitLibraryPackingAfterFolders grows parent hull and keeps gap', () => {
+    const libraryCenters = new Map([
+      ['a', { x: 0, y: 0, z: 0, radius: 40, name: 'A' }],
+      ['b', { x: 90, y: 0, z: 0, radius: 40, name: 'B' }],
+    ]);
+    const folderCenters = computeFolderCenters3D({
+      libraryCenters,
+      folders: [
+        {
+          folderKey: 'strategy_families',
+          libraryId: 'a',
+          label: 'Strategies',
+          mass: 10,
+          memberCount: 20,
+        },
+        {
+          folderKey: 'runtime',
+          libraryId: 'b',
+          label: 'Runtime',
+          mass: 10,
+          memberCount: 20,
+        },
+      ],
+    });
+    refitLibraryPackingAfterFolders(libraryCenters, folderCenters);
+    const a = libraryCenters.get('a')!;
+    const b = libraryCenters.get('b')!;
+    const gap = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+    expect(a.radius).toBeGreaterThan(40);
+    expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.28 - 1e-3);
   });
 
   it('soft folder nest force pulls outliers inward', () => {
@@ -553,8 +641,8 @@ describe('galaxy-physics', () => {
         const a = entries[i]!;
         const b = entries[j]!;
         const gap = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-        // Soft packing (D-151): allow envelope kiss; still not coincident.
-        expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.0 - 1e-3);
+        // Soft packing (D-164): independent growth with gap ≥ 1.28.
+        expect(gap).toBeGreaterThanOrEqual((a.radius + b.radius) * 1.28 - 1e-3);
       }
     }
   });

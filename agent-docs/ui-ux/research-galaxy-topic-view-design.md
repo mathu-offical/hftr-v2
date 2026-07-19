@@ -148,6 +148,10 @@ chips drawn from visible concepts’ tags (and optionally topic-level keywords).
   (centers drift toward cross-library semantic pairs), stronger cross-nest springs,
   seed/synthesis **persisted correlates** from shared display tags, article orbits expand
   to co-tagged peers, and `normalizeGalaxyDisplayTag` shared vocabulary.
+- **D-164 independent sphere growth + seeded folder similarity:** library/folder radii grow
+  from content independently; packing gap ≥ 1.28; parent hulls refit around folders.
+  Seeded catalog folders use system-defined similarity bands for placement (related closer,
+  unrelated farther) via `galaxy-folder-similarity.ts`.
 - A larger **company envelope** sphere outlines the full organizational cloud.
 - **Volume packing (D-116):** library / folder / article *centers* use **Fibonacci-sphere**
   samples on concentric shells so XYZ volume is used

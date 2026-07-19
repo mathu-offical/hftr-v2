@@ -48,17 +48,17 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
     summary: 'Active APIs → queries/filters → normalize → system variables',
     nodeIdPrefixes: ['live:', 'adapter:'],
     nodeRoles: ['live_source', 'adapter'],
-    stageIds: ['providers'],
+    stageIds: [],
     panelSurfaceIds: [],
   },
   {
     id: 'library',
     label: 'Library',
     summary: 'Sector/company constants → numerical ranges + positioning context',
-    nodeIdPrefixes: ['lib:'],
+    nodeIdPrefixes: ['lib:', 'lib-adapter:'],
     nodeRoles: ['library_source'],
     stageIds: [],
-    panelSurfaceIds: ['positions'],
+    panelSurfaceIds: [],
   },
   {
     id: 'process',
@@ -66,7 +66,16 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
     summary: 'Link market + news + library → tagged trend lists',
     nodeIdPrefixes: ['process:', 'cluster:'],
     nodeRoles: ['process', 'process_cluster'],
-    stageIds: ['gather', 'thresholds', 'defaults', 'universe', 'rs', 'rank', 'verify'],
+    stageIds: [
+      'providers',
+      'gather',
+      'thresholds',
+      'defaults',
+      'universe',
+      'rs',
+      'rank',
+      'verify',
+    ],
     panelSurfaceIds: [
       'awareness_evidence',
       'awareness_links',
@@ -81,7 +90,7 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
     nodeIdPrefixes: [],
     nodeRoles: ['stage'],
     stageIds: ['seal_movers', 'sector', 'daily', 'narrative'],
-    panelSurfaceIds: ['movers', 'news', 'reports', 'watchlists'],
+    panelSurfaceIds: ['movers', 'news', 'reports', 'watchlists', 'positions'],
   },
   {
     id: 'day',
@@ -158,6 +167,9 @@ export function resolveStageScreenId(input: {
   }
 
   // Legacy ids from earlier D-186 drafts.
+  if (nodeId.startsWith('lib-adapter:') || nodeId.startsWith('adapter:library')) {
+    return 'library';
+  }
   if (nodeId.startsWith('group:adapt') || role === 'adapter') return 'live';
   if (nodeId.startsWith('group:compose')) return 'day';
   if (nodeId.startsWith('group:seals') || nodeId.startsWith('group:seal')) return 'outlook';

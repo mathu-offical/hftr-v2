@@ -314,8 +314,52 @@ const SHARED_BRIDGE_SPECS: SharedBridgeSpec[] = [
     track: 'compose',
     baseY: LANE_Y.daily,
   },
+  {
+    id: 'bridge-narr-hub',
+    route: 'narrative_compose',
+    source: 'narrative',
+    target: 'hub_ready',
+    edgeType: 'pipeline',
+    track: 'compose',
+    baseY: LANE_Y.compose,
+  },
 ];
 
+/** Canonical process-route order for strip clustering (left→right / top→bottom). */
+export const ROUTE_PIPELINE_ORDER: readonly string[] = [
+  'bars_entitle',
+  'providers_entitle',
+  'news_headline',
+  'web_search',
+  'filings',
+  'macro_context',
+  'fx_context',
+  'crypto_context',
+  'bars_ohlc',
+  'library_jaccard',
+  'thresholds_llm',
+  'defaults_catalog',
+  'universe_build',
+  'compound_rank',
+  'verify_promote',
+  'sector_bulletin',
+  'daily_phase',
+  'narrative_compose',
+] as const;
+
+const SCREEN_FLOW_ORDER: readonly MarketPostureStageScreenId[] = [
+  'capital',
+  'live',
+  'library',
+  'process',
+  'outlook',
+  'day',
+];
+
+function screenFlowIndex(id: MarketPostureStageScreenId): number {
+  const i = SCREEN_FLOW_ORDER.indexOf(id);
+  return i >= 0 ? i : 99;
+}
 function parseStageAmountFromSummary(summary: string | null | undefined): string | null {
   if (!summary) return null;
   const m = summary.match(/(\d+)\s+([a-zA-Z][\w-]*)/);
@@ -753,11 +797,9 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
       return;
     }
 
-    const srcLayout = STAGE_LAYOUT.find((s) => s.id === bridge.source);
-    const tgtLayout = STAGE_LAYOUT.find((s) => s.id === bridge.target);
-    const x0 = (srcLayout?.x ?? 1000) + 60;
-    const xEnd = (tgtLayout?.x ?? x0 + 200) - 40;
-    const span = Math.max(90, (xEnd - x0) / Math.max(1, steps.length));
+    const routeIdx = Math.max(0, ROUTE_PIPELINE_ORDER.indexOf(bridge.route));
+    const x0 = processCol0 + (routeIdx % 4) * Math.floor(processColW * 0.5);
+    const span = Math.max(90, processColW * 0.85);
 
     const nodeIds = steps.map((step, si) =>
       ensureProcessNode(step, { x: x0 + si * span, y: bridge.baseY }),
@@ -1033,7 +1075,7 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
     });
     const flow = libFlows.find((f) => f.kind === `library:${lib.id}`);
     if (flow) {
-      const adapterId = `adapter:${flow.id}`;
+      const adapterId = `lib-adapter:${flow.id}`;
       nodes.push({
         id: adapterId,
         type: 'postureAlgo',
@@ -1098,6 +1140,36 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
       });
     }
   });
+
+  // Live → library hydrate: API normalize feeds corpus constants (D-186 L→R).
+  const liveNodeIds = liveSources
+    .filter((s) => s.contributed || s.status === 'ready' || s.status === 'public')
+    .map((s) => `live:${s.kind}`);
+  for (const lib of librarySources) {
+    if (lib.admittedCount <= 0) continue;
+    const libId = `lib:${lib.id}`;
+    if (!nodes.some((n) => n.id === libId)) continue;
+    for (const liveId of liveNodeIds.slice(0, 4)) {
+      if (!nodes.some((n) => n.id === liveId)) continue;
+      const edgeId = `e-hydrate-${liveId}-${libId}`;
+      if (edges.some((e) => e.id === edgeId)) continue;
+      edges.push({
+        id: edgeId,
+        source: liveId,
+        target: libId,
+        label: 'hydrate',
+        data: {
+          edgeType: 'hydrate',
+          track: 'compound',
+          ...resolveModelEdgeState({
+            edgeType: 'hydrate',
+            sourceReady: true,
+            pulsed: pulsed?.has(edgeId) ?? false,
+          }),
+        },
+      });
+    }
+  }
 
   for (const s of activeStageLayout) {
     const meta = MARKET_HUB_SYNTHESIS_STAGE_META[s.id];
@@ -1305,29 +1377,52 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
       : activeStageLayout.some((s) => s.id === 'hub_ready')
         ? 'hub_ready'
         : (activeStageLayout[activeStageLayout.length - 1]?.id ?? 'hub_ready');
-    const panelEdgeId = `e-panel-${fromStage}-${nodeId}`;
-    edges.push({
-      id: panelEdgeId,
-      source: fromStage,
-      target: nodeId,
-      label: surf.panel,
-      data: {
-        edgeType: 'panel',
-        track: 'compose',
-        ...resolveModelEdgeState({
-          edgeType: 'panel',
-          sourceStageStatus: byStage.get(fromStage)?.status,
-          sourceReady: ready,
-          pulsed: pulsed?.has(panelEdgeId) ?? false,
-        }),
-      },
+    const panelScreen = resolveStageScreenId({
+      panelSurfaceId: surf.id,
+      nodeId: nodeId,
+      nodeRole: 'panel_surface',
     });
+    const fromScreen = resolveStageScreenId({
+      nodeId: fromStage,
+      stageId: fromStage,
+      nodeRole: 'stage',
+    });
+    // Only wire stage→panel when it flows forward (or same screen). Capital
+    // panels already hydrate from capital_source nodes — skip day→capital.
+    const forwardPanel =
+      screenFlowIndex(fromScreen) <= screenFlowIndex(panelScreen) &&
+      !(panelScreen === 'capital' && fromScreen === 'day');
+    if (forwardPanel) {
+      const panelEdgeId = `e-panel-${fromStage}-${nodeId}`;
+      edges.push({
+        id: panelEdgeId,
+        source: fromStage,
+        target: nodeId,
+        label: surf.panel,
+        data: {
+          edgeType: 'panel',
+          track: 'compose',
+          ...resolveModelEdgeState({
+            edgeType: 'panel',
+            sourceStageStatus: byStage.get(fromStage)?.status,
+            sourceReady: ready,
+            pulsed: pulsed?.has(panelEdgeId) ?? false,
+          }),
+        },
+      });
+    }
 
     // Mid-pipeline metric emissions (dashed) — stages named in emitFromStages.
     const emitStages = surf.emitFromStages ?? [];
     for (const stageId of emitStages) {
       if (!activeStageLayout.some((s) => s.id === stageId)) continue;
       if (stageId === fromStage) continue;
+      const emitFromScreen = resolveStageScreenId({
+        nodeId: stageId,
+        stageId,
+        nodeRole: 'stage',
+      });
+      if (screenFlowIndex(emitFromScreen) > screenFlowIndex(panelScreen)) continue;
       const emitId = `e-emit-${stageId}-${nodeId}`;
       if (edges.some((e) => e.id === emitId)) continue;
       edges.push({
@@ -1502,6 +1597,11 @@ function packProcessScreenColumn(opts: {
   }
 
   const routeKeys = [...byRoute.keys()].sort((a, b) => {
+    const ia = ROUTE_PIPELINE_ORDER.indexOf(a);
+    const ib = ROUTE_PIPELINE_ORDER.indexOf(b);
+    const oa = ia >= 0 ? ia : 50;
+    const ob = ib >= 0 ? ib : 50;
+    if (oa !== ob) return oa - ob;
     const membersA = byRoute.get(a) ?? [];
     const membersB = byRoute.get(b) ?? [];
     const rankA = median(membersA.map((n) => globalRank.get(n.id) ?? 0));
@@ -1510,31 +1610,14 @@ function packProcessScreenColumn(opts: {
     return a.localeCompare(b);
   });
 
-  // Prefer routes that share edges with the same upstream adapters (cluster cohesion).
-  routeKeys.sort((a, b) => {
-    const score = (route: string) => {
-      const members = byRoute.get(route) ?? [];
-      const ids = new Set(members.map((m) => m.id));
-      let shared = 0;
-      for (const e of edges) {
-        if (ids.has(e.target) || ids.has(e.source)) shared += 1;
-      }
-      return shared;
-    };
-    const sa = score(a);
-    const sb = score(b);
-    if (sa !== sb) return sb - sa;
-    return a.localeCompare(b);
-  });
-
   const groupId = `group:process`;
   const out: PostureAlgoGraphNode[] = [];
   let cursorY = STRIP_HEADER + STRIP_PAD;
   let maxClusterW = STRIP_PAD * 2 + STRIP_INNER_LANE_W;
 
-  for (const route of routeKeys) {
+  routeKeys.forEach((route, routeIdx) => {
     const steps = [...(byRoute.get(route) ?? [])].sort(sortProcessStepsInCluster);
-    if (steps.length === 0) continue;
+    if (steps.length === 0) return;
     const clusterId = `cluster:process:${route}`;
     const clusterW =
       STRIP_PAD * 2 + Math.max(steps.length, 1) * STRIP_INNER_LANE_W;
@@ -1588,15 +1671,34 @@ function packProcessScreenColumn(opts: {
           stageScreenId: 'process',
         },
       });
-      globalRank.set(step.id, si);
+      globalRank.set(step.id, routeIdx * 100 + si);
     });
 
     cursorY += clusterH + STRIP_CLUSTER_GAP;
-  }
+  });
 
   const otherX = maxClusterW + STRIP_PAD * 2;
-  const orderedOther = orderLaneByConnections(otherNodes, edges, globalRank);
-  orderedOther.forEach((child, rowIdx) => {
+  const processStageOrder =
+    MARKET_POSTURE_STAGE_SCREENS.find((s) => s.id === 'process')?.stageIds ?? [];
+  const orderedOther = [...otherNodes].sort((a, b) => {
+    const ia = a.data.stageId
+      ? processStageOrder.indexOf(a.data.stageId)
+      : a.id && processStageOrder.includes(a.id as (typeof processStageOrder)[number])
+        ? processStageOrder.indexOf(a.id as (typeof processStageOrder)[number])
+        : -1;
+    const ib = b.data.stageId
+      ? processStageOrder.indexOf(b.data.stageId)
+      : b.id && processStageOrder.includes(b.id as (typeof processStageOrder)[number])
+        ? processStageOrder.indexOf(b.id as (typeof processStageOrder)[number])
+        : -1;
+    const oa = ia >= 0 ? ia : 50;
+    const ob = ib >= 0 ? ib : 50;
+    if (oa !== ob) return oa - ob;
+    return a.data.label.localeCompare(b.data.label);
+  });
+  // Light barycenter refine within same stage tier.
+  const refinedOther = orderLaneByConnections(orderedOther, edges, globalRank);
+  refinedOther.forEach((child, rowIdx) => {
     out.push({
       ...child,
       parentId: groupId,
@@ -1614,8 +1716,8 @@ function packProcessScreenColumn(opts: {
   });
 
   const otherBlockH =
-    orderedOther.length > 0
-      ? STRIP_PAD + orderedOther.length * STRIP_NODE_H
+    refinedOther.length > 0
+      ? STRIP_PAD + refinedOther.length * STRIP_NODE_H
       : 0;
   const clustersH = Math.max(cursorY - STRIP_CLUSTER_GAP, STRIP_HEADER + STRIP_PAD);
   const height = Math.max(
@@ -1909,6 +2011,8 @@ export function finalizeStripEdges(
     const from = screenByNode.get(e.source);
     const to = screenByNode.get(e.target);
     if (!from || !to || from === to) continue;
+    // Backbone only for forward L→R flow (capital→…→day).
+    if (screenFlowIndex(from) >= screenFlowIndex(to)) continue;
     const key = `${from}->${to}`;
     const prev = pairCounts.get(key);
     if (prev) prev.n += 1;

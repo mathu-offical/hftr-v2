@@ -177,7 +177,7 @@ describe('applyStripScreenGroups', () => {
     );
   });
 
-  it('finalizeStripEdges keeps child edges and adds group backbone', () => {
+  it('finalizeStripEdges keeps child edges and adds forward-only group backbone', () => {
     const nodes = [
       node('live:bars', 'live_source', 'Bars'),
       node('adapter:1', 'adapter', 'Adapt'),
@@ -195,6 +195,8 @@ describe('applyStripScreenGroups', () => {
       edge('e-live-adapt', 'live:bars', 'adapter:1'),
       edge('e-adapt-proc', 'adapter:1', 'process:step'),
       edge('e-proc-seal', 'process:step', 'seal_movers'),
+      // Backward edge must not create day→capital style backbone.
+      edge('e-back', 'seal_movers', 'live:bars'),
     ];
     const packed = applyStripScreenGroups(nodes, edges);
     const final = finalizeStripEdges(edges, packed);
@@ -203,5 +205,69 @@ describe('applyStripScreenGroups', () => {
     expect(final.some((e) => e.id === 'e-proc-seal')).toBe(true);
     expect(final.some((e) => e.id === 'e-group:live->process')).toBe(true);
     expect(final.some((e) => e.id === 'e-group:process->outlook')).toBe(true);
+    expect(final.some((e) => e.id === 'e-group:outlook->live')).toBe(false);
+    expect(final.some((e) => e.id === 'e-group:process->live')).toBe(false);
+  });
+
+  it('packs library adapters under library, not live', () => {
+    const packed = applyStripScreenGroups([
+      node('lib:1', 'library_source', 'Shelf'),
+      {
+        ...node('lib-adapter:jaccard', 'adapter', 'Lib adapter'),
+        data: {
+          ...node('lib-adapter:jaccard', 'adapter', 'Lib adapter').data,
+          // id prefix drives screen; role alone would be live
+        },
+      },
+      node('adapter:live-flow', 'adapter', 'Live adapter'),
+    ]);
+    expect(
+      packed.some(
+        (n) => n.id === 'lib-adapter:jaccard' && n.parentId === 'group:library',
+      ),
+    ).toBe(true);
+    expect(
+      packed.some(
+        (n) => n.id === 'adapter:live-flow' && n.parentId === 'group:live',
+      ),
+    ).toBe(true);
+  });
+
+  it('orders process route clusters by pipeline order', () => {
+    const stamped = [
+      {
+        ...node('process:a', 'process', 'Narr'),
+        data: {
+          ...node('process:a', 'process', 'Narr').data,
+          processRoute: 'narrative_compose',
+          processFunction: 'compose',
+        },
+      },
+      {
+        ...node('process:b', 'process', 'Entitle'),
+        data: {
+          ...node('process:b', 'process', 'Entitle').data,
+          processRoute: 'providers_entitle',
+          processFunction: 'entitle',
+        },
+      },
+      {
+        ...node('process:c', 'process', 'News'),
+        data: {
+          ...node('process:c', 'process', 'News').data,
+          processRoute: 'news_headline',
+          processFunction: 'fetch',
+        },
+      },
+    ];
+    const packed = applyStripScreenGroups(stamped, []);
+    const clusters = packed
+      .filter((n) => n.data.nodeRole === 'process_cluster')
+      .sort((a, b) => a.position.y - b.position.y);
+    expect(clusters.map((c) => c.data.processRoute)).toEqual([
+      'providers_entitle',
+      'news_headline',
+      'narrative_compose',
+    ]);
   });
 });

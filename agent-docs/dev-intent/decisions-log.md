@@ -1874,7 +1874,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   backbone edges for cross-column flows. Process column nests **route clusters**
   (`process_cluster`) with function-ordered chains (fetch→normalize→…). Every strip
   content node is stamped with `stageScreenId` and mapped into that screen’s emission
-  traces. **Capital** = root
+  traces. Strip data-flow is left→right: library adapters use `lib-adapter:` (not Live),
+  `providers` lives on Process, positions panel on Outlook, panel edges skip backward
+  hops, group backbones are forward-only, and live→library hydrate edges feed corpus.
+  **Capital** = root
   user-controlled funds only (company pool + holding funds) plus engine allocation and
   position/equity readouts. Extends D-131 / D-147 / D-160 / D-179.
   Docs: ui-spec §4 Market posture. **Status: implemented.**
@@ -1939,6 +1942,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   refinement plan. Docs: canvas-engine-group-design, engine-node-family-design.
   **Status: implemented** (anchors ownership, templates dual-path labels, research↔hub
   binding, sim family pre/post layout, mimicParent, live_api query/schedule/widgets).
+
+- **D-192 (paper trade quote honesty preview, 2026-07-19):** PaperTradeForm previews
+  MarketModel quote class before submit via `GET …/trade/quote-preview` (same
+  `resolveDispatchMarketQuote` path as dispatch). Returns honesty tags + optional
+  markCents for operator display; qty≥2 soft-flags impact proxy. Extends D-187 /
+  D-177. Docs: ui-spec §4, broker-integration §7, experiment-log EXP-07.
+  **Status: implemented.**
 
 ## Open questions
 

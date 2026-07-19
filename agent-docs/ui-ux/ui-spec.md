@@ -329,9 +329,12 @@ are ignored. Shortcuts are suppressed in editable fields.
   (active Model/hydration nodes only — no missing-key / unbound idle services; every
   strip graph node on the screen is mapped into the emission list). The bottom **Model
   strip** packs nodes into the same six columns with connection-based layout (role lanes
-  + relevance order), draws all within- and between-screen edges (plus group backbone
-  flows), nests **process route clusters** with function-ordered chains
-  (fetch→normalize→…), and stamps each node to its owning stage screen.
+  + relevance order), draws all within- and between-screen edges (plus **forward-only**
+  group backbone flows), nests **process route clusters** with function-ordered chains
+  (fetch→normalize→…), and stamps each node to its owning stage screen. Data-flow
+  assignment: library adapters use `lib-adapter:` under Library; `providers` stage sits
+  on Process; positions panel on Outlook; live→library hydrate edges feed corpus when
+  live is ready.
   **Capital** shows root user-controlled funds only (company pool + holding funds),
   engine allocation splits, master equity, and open position mark/uPnL values.
   **Live ingest** shows active APIs, query/filter orientation, normalize pipeline, and
@@ -485,6 +488,8 @@ are ignored. Shortcuts are suppressed in editable fields.
   `timeline-honesty-chips`). Chip vocabulary also covers No queue / Both-verify /
   Pre-block (D-190). Playwright `paper-loop` + `paper-intent-alignment` assert
   `execution-honesty-chips` (and Decisions chips in paper-loop).
+  **PaperTradeForm** (inspector) previews expected quote-class honesty before submit
+  (`data-testid="paper-trade-honesty-preview"`; `GET …/trade/quote-preview` — D-192).
   Market posture left rail also lists open holdings for quick select (D-131); day quant
   lives on the canvas overlay, not as a position-centric navigator.
 - Ledger of all trades/results/responses: filterable table (module, venue, mode, outcome),

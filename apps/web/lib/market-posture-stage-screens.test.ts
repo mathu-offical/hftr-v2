@@ -23,6 +23,7 @@ describe('resolveStageScreenId (D-186)', () => {
     expect(resolveStageScreenId({ nodeId: 'narrative' })).toBe('outlook');
     expect(resolveStageScreenId({ stageId: 'hub_ready' })).toBe('day');
     expect(resolveStageScreenId({ stageId: 'rank' })).toBe('process');
+    expect(resolveStageScreenId({ stageId: 'providers' })).toBe('process');
   });
 
   it('maps panel surfaces', () => {
@@ -31,6 +32,8 @@ describe('resolveStageScreenId (D-186)', () => {
     expect(resolveStageScreenId({ nodeId: 'panel:charts' })).toBe('day');
     expect(resolveStageScreenId({ panelSurfaceId: 'awareness_links' })).toBe('process');
     expect(resolveStageScreenId({ panelSurfaceId: 'watchlists' })).toBe('outlook');
+    expect(resolveStageScreenId({ panelSurfaceId: 'positions' })).toBe('outlook');
+    expect(resolveStageScreenId({ nodeId: 'lib-adapter:x' })).toBe('library');
   });
 
   it('exposes ordered registry and default (live before library)', () => {

@@ -50,6 +50,10 @@ export function engineSetupSnapshotFromInput(
     allocationMode,
     allocationValue,
     targetExitLocal,
+    ...(previous?.optionAnchors ? { optionAnchors: previous.optionAnchors } : {}),
+    ...(previous?.optionAnchorPositions
+      ? { optionAnchorPositions: previous.optionAnchorPositions }
+      : {}),
   };
 }
 

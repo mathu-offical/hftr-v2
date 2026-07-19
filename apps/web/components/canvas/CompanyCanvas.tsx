@@ -54,14 +54,29 @@ import {
   type ModuleStatus,
   type ModuleSetupInput,
   type ModuleType,
+  type OptionAnchorPosition,
+  type OptionAnchorSpec,
 } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import type { ModuleNameUpdate } from '@/lib/module-generated-name';
 import { EngineGroupNode, type EngineGroupFlowNode } from './EngineGroupNode';
+import { EngineInspectorPanel } from './EngineInspectorPanel';
 import { InspectorPanel } from './InspectorPanel';
 import { ModuleProcessDetailModal } from './ModuleProcessDetailModal';
 import { MathToolNode, type MathToolFlowNode } from './MathToolNode';
 import { ModuleNode, type ModuleFlowNode } from './ModuleNode';
+import {
+  OptionAnchorNode,
+  type OptionAnchorFlowNode,
+} from './OptionAnchorNode';
+import { OptionAnchorInspectorPanel } from './OptionAnchorInspectorPanel';
+import {
+  OPTION_ANCHOR_COLUMN_WIDTH,
+  OPTION_ANCHOR_GAP,
+  OPTION_ANCHOR_NODE_HEIGHT,
+  anchorsForEngine,
+  buildOptionAnchorArtifacts,
+} from './option-anchor-graph';
 import { CanvasSettingsMenu } from './CanvasSettingsMenu';
 import { Palette } from './Palette';
 import {
@@ -77,9 +92,18 @@ import {
   type ModuleTypeContextProjection,
 } from './types';
 
-const nodeTypes = { module: ModuleNode, mathTool: MathToolNode, engineGroup: EngineGroupNode };
+const nodeTypes = {
+  module: ModuleNode,
+  mathTool: MathToolNode,
+  engineGroup: EngineGroupNode,
+  optionAnchor: OptionAnchorNode,
+};
 
-export type CanvasFlowNode = ModuleFlowNode | MathToolFlowNode | EngineGroupFlowNode;
+export type CanvasFlowNode =
+  | ModuleFlowNode
+  | MathToolFlowNode
+  | EngineGroupFlowNode
+  | OptionAnchorFlowNode;
 
 function isModuleNode(node: CanvasFlowNode): node is ModuleFlowNode {
   return node.type === 'module';
@@ -91,6 +115,10 @@ function isEngineGroupNode(node: CanvasFlowNode): node is EngineGroupFlowNode {
 
 function isMathToolNode(node: CanvasFlowNode): node is MathToolFlowNode {
   return node.type === 'mathTool';
+}
+
+function isOptionAnchorNode(node: CanvasFlowNode): node is OptionAnchorFlowNode {
+  return node.type === 'optionAnchor';
 }
 
 function isGraphModuleNode(node: CanvasFlowNode): node is ModuleFlowNode | MathToolFlowNode {
@@ -283,6 +311,166 @@ function resolveEngineBounds(
     .filter((m) => m.engineInstanceId === engine.id && m.type !== 'math')
     .map((m) => m.position);
   return computeEngineBoundsFromPositions(memberPositions);
+}
+
+function canvasModuleFromNode(
+  node: ModuleFlowNode,
+  nodes: readonly CanvasFlowNode[],
+): CanvasModule {
+  return {
+    id: node.id,
+    type: node.data.moduleType,
+    name: node.data.name,
+    generatedNameBase: node.data.generatedNameBase,
+    nameCustomized: node.data.nameCustomized,
+    status: node.data.status,
+    position: absoluteModulePosition(node, nodes),
+    topicSectors: node.data.topicSectors,
+    capitalAllocationRef: node.data.capitalAllocationRef,
+    targetExitRef: node.data.targetExitRef,
+    missingSetupFields: node.data.missingSetupFields,
+    engineInstanceId: node.data.engineInstanceId,
+    toolOwnerModuleId: node.data.toolOwnerModuleId ?? null,
+    topicSectorsOverridden: node.data.topicSectorsOverridden,
+    subtypeChip: node.data.subtypeChip ?? null,
+    ...(node.data.config !== undefined ? { config: node.data.config } : {}),
+    ...(node.data.typeContext !== undefined ? { typeContext: node.data.typeContext } : {}),
+  };
+}
+
+function canvasModulesFromNodes(nodes: readonly CanvasFlowNode[]): CanvasModule[] {
+  return nodes.filter(isModuleNode).map((node) => canvasModuleFromNode(node, nodes));
+}
+
+function canvasEnginesFromNodes(nodes: readonly CanvasFlowNode[]): CanvasEngineGroup[] {
+  return nodes.filter(isEngineGroupNode).map((node) => {
+    const width = Number(node.style?.width) || 400;
+    const height = Number(node.style?.height) || 300;
+    return {
+      id: node.id,
+      templateId: node.data.templateId,
+      label: node.data.label,
+      masterTopicSectors: node.data.masterTopicSectors,
+      setupSnapshot: node.data.setupSnapshot ?? null,
+      templateInputs: node.data.templateInputs ?? {},
+      canvasBounds: {
+        x: node.position.x,
+        y: node.position.y,
+        width,
+        height,
+      },
+      memberModuleIds: node.data.memberModuleIds,
+      ...(node.data.utilityLinks ? { utilityLinks: node.data.utilityLinks } : {}),
+    };
+  });
+}
+
+function engineBoundsWithOptionColumn(
+  memberBounds: { x: number; y: number; width: number; height: number },
+  visibleAnchorCount: number,
+): { x: number; y: number; width: number; height: number } {
+  const anchorsHeight =
+    ENGINE_GROUP_PADDING.top +
+    visibleAnchorCount * (OPTION_ANCHOR_NODE_HEIGHT + OPTION_ANCHOR_GAP) +
+    ENGINE_GROUP_PADDING.bottom;
+  return {
+    x: memberBounds.x,
+    y: memberBounds.y,
+    width: memberBounds.width + (visibleAnchorCount > 0 ? OPTION_ANCHOR_COLUMN_WIDTH : 0),
+    height: Math.max(memberBounds.height, anchorsHeight),
+  };
+}
+
+/** Strip + rebuild option-anchor nodes; expand engine chrome for the right column. */
+function withSyncedOptionAnchors(nodes: readonly CanvasFlowNode[]): {
+  nodes: CanvasFlowNode[];
+  optionEdges: Edge[];
+  anchorsByEngine: Map<string, OptionAnchorSpec[]>;
+} {
+  const withoutAnchors = nodes.filter((node) => !isOptionAnchorNode(node));
+  const modules = canvasModulesFromNodes(withoutAnchors);
+  const engines = withoutAnchors.filter(isEngineGroupNode).map((node) => {
+    const memberBounds = resolveEngineBounds(
+      {
+        id: node.id,
+        templateId: node.data.templateId,
+        label: node.data.label,
+        masterTopicSectors: node.data.masterTopicSectors,
+        canvasBounds: null,
+        memberModuleIds: node.data.memberModuleIds,
+        setupSnapshot: node.data.setupSnapshot ?? null,
+        templateInputs: node.data.templateInputs ?? {},
+      },
+      modules,
+    );
+    const allAnchors = anchorsForEngine(
+      { id: node.id, templateId: node.data.templateId },
+      modules,
+    );
+    const visibleCount = allAnchors.filter(
+      (anchor) =>
+        anchor.kind === 'template_input' ||
+        anchor.kind === 'strategy_family' ||
+        anchor.kind === 'branch_role' ||
+        anchor.kind === 'recovery_phase' ||
+        anchor.kind === 'philosophy_axis',
+    ).length;
+    const expanded = engineBoundsWithOptionColumn(
+      {
+        x: node.position.x,
+        y: node.position.y,
+        width: memberBounds.width,
+        height: memberBounds.height,
+      },
+      visibleCount,
+    );
+    return {
+      id: node.id,
+      templateId: node.data.templateId,
+      label: node.data.label,
+      masterTopicSectors: node.data.masterTopicSectors,
+      setupSnapshot: node.data.setupSnapshot ?? null,
+      templateInputs: node.data.templateInputs ?? {},
+      canvasBounds: expanded,
+      memberModuleIds: node.data.memberModuleIds,
+      ...(node.data.utilityLinks ? { utilityLinks: node.data.utilityLinks } : {}),
+    } satisfies CanvasEngineGroup;
+  });
+
+  const artifacts = buildOptionAnchorArtifacts(engines, modules);
+  const engineById = new Map(engines.map((engine) => [engine.id, engine]));
+
+  const syncedBase: CanvasFlowNode[] = withoutAnchors.map((node) => {
+    if (!isEngineGroupNode(node)) return node;
+    const engine = engineById.get(node.id);
+    if (!engine?.canvasBounds) return node;
+    return {
+      ...node,
+      position: { x: engine.canvasBounds.x, y: engine.canvasBounds.y },
+      style: {
+        ...node.style,
+        width: engine.canvasBounds.width,
+        height: engine.canvasBounds.height,
+      },
+    };
+  });
+
+  return {
+    nodes: [...syncedBase, ...artifacts.nodes],
+    optionEdges: artifacts.edges,
+    anchorsByEngine: artifacts.anchorsByEngine,
+  };
+}
+
+function mergeDecorativeEdges(current: Edge[], nodes: CanvasFlowNode[]): Edge[] {
+  const core = current.filter(
+    (edge) =>
+      !String(edge.id).startsWith('util-') && !String(edge.id).startsWith('option-bind:'),
+  );
+  const engines = canvasEnginesFromNodes(nodes);
+  const modules = canvasModulesFromNodes(nodes);
+  const { edges: optionEdges } = buildOptionAnchorArtifacts(engines, modules);
+  return [...core, ...utilityEdgesFromEngines(engines), ...optionEdges];
 }
 
 /** True when the click landed on an editable control inside the node body. */
@@ -526,7 +714,9 @@ function applyLayoutToNodes(
   const modulePosById = new Map(layout.modules.map((m) => [m.id, m.canvasPosition]));
   const engineBoundsById = new Map(layout.engines.map((e) => [e.id, e.canvasBounds]));
 
-  return current.map((node) => {
+  const laidOut = current
+    .filter((node) => !isOptionAnchorNode(node))
+    .map((node) => {
     if (isEngineGroupNode(node)) {
       const bounds = engineBoundsById.get(node.id);
       if (!bounds) return node;
@@ -566,6 +756,8 @@ function applyLayoutToNodes(
       expandParent: false,
     };
   });
+
+  return withSyncedOptionAnchors(laidOut).nodes;
 }
 
 function buildInitialGraph(
@@ -691,7 +883,7 @@ function buildInitialGraph(
     nodes.push(moduleNode);
   }
 
-  return nodes;
+  return withSyncedOptionAnchors(nodes).nodes;
 }
 
 function edgeNatureForLink(
@@ -849,17 +1041,7 @@ function utilityEdgesFromEngines(engines: readonly CanvasEngineGroup[]): Edge[] 
 
 /** Rebuild utility edges from current engine-group node data (keeps module_links edges). */
 function mergeUtilityEdgesFromNodes(current: Edge[], nodes: CanvasFlowNode[]): Edge[] {
-  const moduleEdges = current.filter((edge) => !String(edge.id).startsWith('util-'));
-  const engines: CanvasEngineGroup[] = nodes.filter(isEngineGroupNode).map((node) => ({
-    id: node.id,
-    templateId: node.data.templateId,
-    label: node.data.label,
-    masterTopicSectors: node.data.masterTopicSectors,
-    canvasBounds: null,
-    memberModuleIds: node.data.memberModuleIds,
-    ...(node.data.utilityLinks ? { utilityLinks: node.data.utilityLinks } : {}),
-  }));
-  return [...moduleEdges, ...utilityEdgesFromEngines(engines)];
+  return mergeDecorativeEdges(current, nodes);
 }
 
 /** Apply company-wide utility link rows onto engine nodes (keyed by toEngineId). */
@@ -1087,6 +1269,7 @@ export function CompanyCanvas(props: {
       toEdge(l, initialTypeById),
     ),
     ...utilityEdgesFromEngines(props.initialEngines),
+    ...buildOptionAnchorArtifacts(props.initialEngines, props.initialModules).edges,
   ]);
   const ownerDragOriginRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
@@ -2466,17 +2649,103 @@ export function CompanyCanvas(props: {
     (
       id: string,
       patch: Partial<
-        Pick<CanvasModule, 'name' | 'status' | 'generatedNameBase' | 'nameCustomized'>
+        Pick<
+          CanvasModule,
+          | 'name'
+          | 'status'
+          | 'generatedNameBase'
+          | 'nameCustomized'
+          | 'config'
+          | 'topicSectors'
+          | 'capitalAllocationRef'
+          | 'targetExitRef'
+          | 'missingSetupFields'
+          | 'topicSectorsOverridden'
+        >
       >,
     ) => {
-      setNodes((current) =>
-        current.map((n) => {
+      setNodes((current) => {
+        const patched = current.map((n) => {
           if (!isModuleNode(n) || n.id !== id) return n;
           return { ...n, data: { ...n.data, ...patch } };
-        }),
-      );
+        });
+        if (patch.config === undefined) return patched;
+        const synced = withSyncedOptionAnchors(patched);
+        setEdges((edges) => mergeDecorativeEdges(edges, synced.nodes));
+        return synced.nodes;
+      });
     },
-    [setNodes],
+    [setNodes, setEdges],
+  );
+
+  const handleAnchorPositionChange = useCallback(
+    (anchorId: string, position: OptionAnchorPosition) => {
+      const anchorNode = nodes.find(
+        (node): node is OptionAnchorFlowNode =>
+          isOptionAnchorNode(node) && node.id === anchorId,
+      );
+      const engineId =
+        anchorNode?.data.ownerEngineId ??
+        (typeof anchorId === 'string' ? anchorId.split(':')[0] : null);
+      if (!engineId) return;
+
+      setNodes((current) => {
+        const next = current.map((node) => {
+          if (isOptionAnchorNode(node) && node.id === anchorId) {
+            return { ...node, data: { ...node.data, position } };
+          }
+          if (!isEngineGroupNode(node) || node.id !== engineId) return node;
+          const prevSnap = node.data.setupSnapshot ?? {
+            topicSectors: node.data.masterTopicSectors,
+            allocationMode: 'amount' as const,
+            allocationValue: '',
+            targetExitLocal: '',
+          };
+          const optionAnchorPositions = {
+            ...(prevSnap.optionAnchorPositions ?? {}),
+            [anchorId]: position,
+          };
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              setupSnapshot: {
+                ...prevSnap,
+                optionAnchorPositions,
+              },
+            },
+          };
+        });
+        return withSyncedOptionAnchors(next).nodes;
+      });
+
+      void api(`/api/companies/${props.companyId}/engines/${engineId}`, {
+        method: 'PATCH',
+        body: {
+          setupSnapshot: (() => {
+            const eng = nodes.find(
+              (n): n is EngineGroupFlowNode => isEngineGroupNode(n) && n.id === engineId,
+            );
+            const prev = eng?.data.setupSnapshot ?? {
+              topicSectors: eng?.data.masterTopicSectors ?? [],
+              allocationMode: 'amount' as const,
+              allocationValue: '',
+              targetExitLocal: '',
+            };
+            return {
+              ...prev,
+              optionAnchorPositions: {
+                ...(prev.optionAnchorPositions ?? {}),
+                [anchorId]: position,
+              },
+            };
+          })(),
+        },
+      }).catch(() => {
+        flash('Could not save lever position.');
+      });
+    },
+    [nodes, props.companyId, setNodes],
   );
 
   const removeModule = useCallback(
@@ -2509,45 +2778,57 @@ export function CompanyCanvas(props: {
   const selected: CanvasModule | null = useMemo(() => {
     const node = nodes.find((n) => n.id === selectedId);
     if (!node || !isModuleNode(node)) return null;
-    const abs = absoluteModulePosition(node, nodes);
+    return canvasModuleFromNode(node, nodes);
+  }, [nodes, selectedId]);
+
+  const selectedEngine = useMemo(() => {
+    const node = nodes.find((n) => n.id === selectedId);
+    if (!node || !isEngineGroupNode(node)) return null;
     return {
       id: node.id,
-      type: node.data.moduleType,
-      name: node.data.name,
-      generatedNameBase: node.data.generatedNameBase,
-      nameCustomized: node.data.nameCustomized,
-      status: node.data.status,
-      position: abs,
-      topicSectors: node.data.topicSectors,
-      capitalAllocationRef: node.data.capitalAllocationRef,
-      targetExitRef: node.data.targetExitRef,
-      missingSetupFields: node.data.missingSetupFields,
-      engineInstanceId: node.data.engineInstanceId,
-      toolOwnerModuleId: node.data.toolOwnerModuleId ?? null,
-      topicSectorsOverridden: node.data.topicSectorsOverridden,
+      label: node.data.label,
+      templateId: node.data.templateId,
+      masterTopicSectors: node.data.masterTopicSectors,
+      setupSnapshot: node.data.setupSnapshot ?? null,
+      templateInputs: node.data.templateInputs ?? {},
     };
   }, [nodes, selectedId]);
+
+  const selectedAnchor = useMemo(() => {
+    const node = nodes.find((n) => n.id === selectedId);
+    if (!node || !isOptionAnchorNode(node)) return null;
+    return node;
+  }, [nodes, selectedId]);
+
+  const anchorsByEngine = useMemo(() => {
+    const modules = canvasModulesFromNodes(nodes);
+    const map = new Map<string, OptionAnchorSpec[]>();
+    for (const eng of nodes.filter(isEngineGroupNode)) {
+      map.set(
+        eng.id,
+        anchorsForEngine({ id: eng.id, templateId: eng.data.templateId }, modules),
+      );
+    }
+    return map;
+  }, [nodes]);
+
+  const moduleInspectorAnchors = useMemo(() => {
+    if (!selected?.engineInstanceId) return [] as OptionAnchorSpec[];
+    const all = anchorsByEngine.get(selected.engineInstanceId) ?? [];
+    return all.filter(
+      (anchor) =>
+        !anchor.ownerModuleId ||
+        anchor.ownerModuleId === selected.id ||
+        selected.type === 'trading' ||
+        selected.type === 'trend' ||
+        selected.type === 'policy',
+    );
+  }, [anchorsByEngine, selected]);
 
   const processModule: CanvasModule | null = useMemo(() => {
     const node = nodes.find((n) => n.id === processModuleId);
     if (!node || !isModuleNode(node)) return null;
-    const abs = absoluteModulePosition(node, nodes);
-    return {
-      id: node.id,
-      type: node.data.moduleType,
-      name: node.data.name,
-      generatedNameBase: node.data.generatedNameBase,
-      nameCustomized: node.data.nameCustomized,
-      status: node.data.status,
-      position: abs,
-      topicSectors: node.data.topicSectors,
-      capitalAllocationRef: node.data.capitalAllocationRef,
-      targetExitRef: node.data.targetExitRef,
-      missingSetupFields: node.data.missingSetupFields,
-      engineInstanceId: node.data.engineInstanceId,
-      toolOwnerModuleId: node.data.toolOwnerModuleId ?? null,
-      topicSectorsOverridden: node.data.topicSectorsOverridden,
-    };
+    return canvasModuleFromNode(node, nodes);
   }, [nodes, processModuleId]);
 
   useEffect(() => {
@@ -2589,11 +2870,15 @@ export function CompanyCanvas(props: {
           selectionOnDrag={false}
           onNodeClick={(event, node) => {
             if (isInteractiveNodeTarget(event.target)) return;
-            if (!isModuleNode(node)) {
-              setSelectedId(null);
+            if (
+              isModuleNode(node as CanvasFlowNode) ||
+              isEngineGroupNode(node as CanvasFlowNode) ||
+              isOptionAnchorNode(node as CanvasFlowNode)
+            ) {
+              setSelectedId(node.id);
               return;
             }
-            setSelectedId(node.id);
+            setSelectedId(null);
           }}
           onPaneClick={() => setSelectedId(null)}
           minZoom={0.15}
@@ -2621,10 +2906,83 @@ export function CompanyCanvas(props: {
         <InspectorPanel
           companyId={props.companyId}
           module={selected}
+          anchors={moduleInspectorAnchors}
+          {...(selected.engineInstanceId
+            ? {
+                anchorPositions:
+                  (
+                    nodes.find(
+                      (n): n is EngineGroupFlowNode =>
+                        isEngineGroupNode(n) && n.id === selected.engineInstanceId,
+                    )?.data.setupSnapshot?.optionAnchorPositions ?? {}
+                  ),
+              }
+            : {})}
           onUpdated={updateModule}
           onDeleted={removeModule}
           onClose={() => setSelectedId(null)}
           onOpenProcess={() => setProcessModuleId(selected.id)}
+          onAnchorPositionChange={handleAnchorPositionChange}
+        />
+      )}
+
+      {selectedEngine && (
+        <EngineInspectorPanel
+          companyId={props.companyId}
+          engine={selectedEngine}
+          anchors={anchorsByEngine.get(selectedEngine.id) ?? []}
+          {...(selectedEngine.setupSnapshot?.optionAnchorPositions
+            ? { anchorPositions: selectedEngine.setupSnapshot.optionAnchorPositions }
+            : {})}
+          onUpdated={(engineId, patch) => {
+            setNodes((current) =>
+              current.map((node) => {
+                if (!isEngineGroupNode(node) || node.id !== engineId) return node;
+                return {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    ...(patch.label !== undefined ? { label: patch.label } : {}),
+                    ...(patch.masterTopicSectors !== undefined
+                      ? { masterTopicSectors: patch.masterTopicSectors }
+                      : {}),
+                    ...(patch.setupSnapshot !== undefined
+                      ? { setupSnapshot: patch.setupSnapshot }
+                      : {}),
+                    ...(patch.templateInputs !== undefined
+                      ? { templateInputs: patch.templateInputs }
+                      : {}),
+                  },
+                };
+              }),
+            );
+          }}
+          onClose={() => setSelectedId(null)}
+          onFocusAnchor={(anchorId) => setSelectedId(anchorId)}
+          onAnchorPositionChange={handleAnchorPositionChange}
+        />
+      )}
+
+      {selectedAnchor && (
+        <OptionAnchorInspectorPanel
+          companyId={props.companyId}
+          anchor={{
+            id: selectedAnchor.data.id,
+            kind: selectedAnchor.data.kind,
+            catalogRef: selectedAnchor.data.catalogRef,
+            label: selectedAnchor.data.label,
+            ...(selectedAnchor.data.layer ? { layer: selectedAnchor.data.layer } : {}),
+            parentAnchorId: selectedAnchor.data.parentAnchorId ?? null,
+            ownerModuleId: selectedAnchor.data.ownerModuleId ?? null,
+            ownerEngineId: selectedAnchor.data.ownerEngineId,
+            defaultPosition: selectedAnchor.data.position ?? 'typical',
+          }}
+          position={selectedAnchor.data.position ?? 'typical'}
+          siblings={anchorsByEngine.get(selectedAnchor.data.ownerEngineId) ?? []}
+          onClose={() => setSelectedId(null)}
+          onFocusEngine={(engineId) => setSelectedId(engineId)}
+          onFocusModule={(moduleId) => setSelectedId(moduleId)}
+          onPositionChange={handleAnchorPositionChange}
         />
       )}
 

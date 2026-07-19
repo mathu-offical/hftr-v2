@@ -1744,7 +1744,26 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   across open/close. Soft GET merges structures without wiping warm UI. Auto-probe only
   unknown / failed / invalidated providers (verified + format-ok skip). Draft edit, save,
   delete, and failed handshake invalidate that provider's verify. Never caches plaintext or
-  ciphertext. Extends D-027. Docs: ui-spec §1 shell. **Status: implemented.**
+  ciphertext. Extends D-027. Docs: ui-spec §1 shell.   **Status: implemented.**
+
+- **D-173 (option-tree anchors + complete canvas inspector, 2026-07-19):** Deterministic
+  catalog decision points render as `optionAnchor` nodes under engine groups (template
+  inputs, strategy families, branch roles, recovery phases, philosophy axes). Lever bands
+  stay inspector-only. Canvas `InspectorPanel` is schema-complete via `SchemaConfigForm` +
+  `LeverTreeSection`; selecting an engine or option anchor opens dedicated inspectors.
+  Band positions persist on `setupSnapshot.optionAnchorPositions` (no raw numbers). Extends
+  D-159 / D-091. Docs: ui-spec §3, canvas-engine-group-design,
+  `docs/superpowers/specs/2026-07-19-option-anchor-nodes-design.md`.
+  **Status: implemented.**
+
+- **D-174 (DT/HFT cascade granularization + sector cohort, 2026-07-19):** Paper experiment
+  across sectors for `engine_day_trading` + `engine_hft`. Defaults: day strategy palette
+  `strat-001/002/005` (ORB, gap-and-go, VWAP); HFT feed paper-first `paper_sim`/`synthetic_sim`
+  poll 5s (Alpaca IEX on bind). Deterministic cascade splits: `runCompileAdmissionCascade`
+  (heat→valves→POV; denser HFT child slices); exit scan reads `subtype: hft` for measurable-gain
+  floor + 10m time_stop; `strat-*` → recovery aliases with `strat-007`→`rec-006`. Cohort script
+  `paper-sector-engine-cohort.ts` with create-cap archival. Docs: post-fill lifecycle,
+  experiment-log EXP-2026-07-19-03, HFT design spec. **Status: implemented (paper).**
 
 ## Open questions
 

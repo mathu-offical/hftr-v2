@@ -1,7 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import type { ModuleStatus } from '@hftr/contracts';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ModuleStatus, OptionAnchorPosition, OptionAnchorSpec } from '@hftr/contracts';
+import {
+  missingModuleSetupFields,
+  requiredModuleSetupFields,
+} from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import type { ModuleNameUpdate } from '@/lib/module-generated-name';
 import {
@@ -20,13 +24,58 @@ import {
   WatchlistForm,
 } from './ModuleControls';
 import { PaperTradeForm } from './PaperTradeForm';
+import { SchemaConfigForm } from './SchemaConfigForm';
+import { LeverTreeSection } from './LeverTreeSection';
+import {
+  EMPTY_MODULE_SETUP_DRAFT,
+  ModuleSetupFields,
+  moduleSetupInputFromDraft,
+  type ModuleSetupDraft,
+} from './ModuleSetupFields';
 import { MODULE_VISUALS, type CanvasModule } from './types';
 
 const STATUS_OPTIONS: ModuleStatus[] = ['draft', 'active', 'paused'];
 
 type ModulePatch = Partial<
-  Pick<CanvasModule, 'name' | 'status' | 'generatedNameBase' | 'nameCustomized'>
+  Pick<
+    CanvasModule,
+    | 'name'
+    | 'status'
+    | 'generatedNameBase'
+    | 'nameCustomized'
+    | 'config'
+    | 'topicSectors'
+    | 'capitalAllocationRef'
+    | 'targetExitRef'
+    | 'missingSetupFields'
+    | 'topicSectorsOverridden'
+  >
 >;
+
+function useDebouncedCallback<Args extends unknown[]>(
+  fn: (...args: Args) => void,
+  delay: number,
+): (...args: Args) => void {
+  const fnRef = useRef(fn);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  fnRef.current = fn;
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  return useCallback(
+    (...args: Args) => {
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => fnRef.current(...args), delay);
+    },
+    [delay],
+  );
+}
+
+const LEVER_TREE_MODULE_TYPES: ReadonlySet<CanvasModule['type']> = new Set([
+  'trading',
+  'trend',
+  'policy',
+]);
 
 /**
  * Floating inspector card for the selected module (layered over the canvas,
@@ -35,23 +84,57 @@ type ModulePatch = Partial<
 export function InspectorPanel(props: {
   companyId: string;
   module: CanvasModule;
+  anchors?: OptionAnchorSpec[];
+  anchorPositions?: Record<string, OptionAnchorPosition>;
   onUpdated: (id: string, patch: ModulePatch) => void;
   onDeleted: (id: string, renamedModules?: readonly ModuleNameUpdate[]) => void;
   onClose: () => void;
   onOpenProcess?: () => void;
+  onAnchorPositionChange?: (anchorId: string, position: OptionAnchorPosition) => void;
 }) {
   const { module: mod } = props;
   const [name, setName] = useState(mod.name);
   const [error, setError] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [restoringTopic, setRestoringTopic] = useState(false);
+  const [setupDraft, setSetupDraft] = useState<ModuleSetupDraft>({
+    ...EMPTY_MODULE_SETUP_DRAFT,
+    topicSectors: mod.topicSectors.join(', '),
+  });
+  const [setupState, setSetupState] = useState({
+    topicSectors: mod.topicSectors,
+    capitalAllocationRef: mod.capitalAllocationRef,
+    targetExitRef: mod.targetExitRef,
+  });
+  const [setupError, setSetupError] = useState<string | null>(null);
+  const [savingSetup, setSavingSetup] = useState(false);
   const visual = MODULE_VISUALS[mod.type];
   const isProtectedSingleton = mod.type === 'math' || mod.type === 'clock';
+  const requiredSetupFields = requiredModuleSetupFields(mod.type);
+  const missingSetup = missingModuleSetupFields(mod.type, setupState);
+  const moduleConfig = mod.config ?? {};
+  const manualControl = moduleConfig.manualControl === true;
 
   useEffect(() => {
     setName(mod.name);
     setError(null);
-  }, [mod.id, mod.name]);
+    setSetupDraft({
+      ...EMPTY_MODULE_SETUP_DRAFT,
+      topicSectors: mod.topicSectors.join(', '),
+    });
+    setSetupState({
+      topicSectors: mod.topicSectors,
+      capitalAllocationRef: mod.capitalAllocationRef,
+      targetExitRef: mod.targetExitRef,
+    });
+    setSetupError(null);
+  }, [
+    mod.capitalAllocationRef,
+    mod.id,
+    mod.name,
+    mod.targetExitRef,
+    mod.topicSectors,
+  ]);
 
   async function saveName() {
     if (name.trim() === mod.name || name.trim() === '') return;
@@ -180,6 +263,69 @@ export function InspectorPanel(props: {
     }
   }
 
+  const saveSetup = useCallback(
+    async (draft: ModuleSetupDraft) => {
+      setSavingSetup(true);
+      setSetupError(null);
+      try {
+        const { module } = await api<{
+          module: {
+            topicSectors: string[];
+            capitalAllocationRef: string | null;
+            targetExitRef: string | null;
+            topicSectorsOverridden: boolean;
+            missingSetupFields: CanvasModule['missingSetupFields'];
+          };
+        }>(`/api/companies/${props.companyId}/modules/${mod.id}`, {
+          method: 'PATCH',
+          body: { setup: moduleSetupInputFromDraft(draft, requiredSetupFields) },
+        });
+        const overridden =
+          module.topicSectorsOverridden ||
+          (Boolean(mod.engineInstanceId) && Boolean(draft.topicSectors.trim()));
+        const nextState = {
+          topicSectors: module.topicSectors,
+          capitalAllocationRef: module.capitalAllocationRef,
+          targetExitRef: module.targetExitRef,
+        };
+        setSetupState(nextState);
+        props.onUpdated(mod.id, {
+          topicSectors: module.topicSectors,
+          capitalAllocationRef: module.capitalAllocationRef,
+          targetExitRef: module.targetExitRef,
+          missingSetupFields: module.missingSetupFields,
+          topicSectorsOverridden: overridden,
+        });
+        window.dispatchEvent(
+          new CustomEvent('hftr:module-setup-saved', {
+            detail: {
+              moduleId: mod.id,
+              topicSectors: module.topicSectors,
+              capitalAllocationRef: module.capitalAllocationRef,
+              targetExitRef: module.targetExitRef,
+              topicSectorsOverridden: overridden,
+              engineInstanceId: mod.engineInstanceId,
+            },
+          }),
+        );
+      } catch {
+        setSetupError('Setup could not be saved. Check the required values.');
+      } finally {
+        setSavingSetup(false);
+      }
+    },
+    [mod.engineInstanceId, mod.id, props, requiredSetupFields],
+  );
+
+  const debouncedSaveSetup = useDebouncedCallback((draft: ModuleSetupDraft) => {
+    void saveSetup(draft);
+  }, 500);
+
+  function handleSetupDraftChange(draft: ModuleSetupDraft) {
+    setSetupDraft(draft);
+    debouncedSaveSetup(draft);
+  }
+
   return (
     <aside className="absolute right-4 top-4 z-20 flex max-h-[calc(100%-2rem)] w-72 flex-col gap-5 overflow-y-auto rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)]/95 p-4 shadow-2xl backdrop-blur">
       <div className="flex items-center justify-between">
@@ -271,6 +417,48 @@ export function InspectorPanel(props: {
         </button>
       )}
 
+      {requiredSetupFields.length > 0 && (
+        <div className="space-y-2 border-t border-[var(--color-line)] pt-4">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-[var(--color-ink-dim)]">Module setup</span>
+            {savingSetup && (
+              <span className="text-[10px] text-[var(--color-ink-faint)]">Saving…</span>
+            )}
+          </div>
+          <ModuleSetupFields
+            requiredFields={requiredSetupFields}
+            missingFields={missingSetup}
+            draft={setupDraft}
+            onChange={handleSetupDraftChange}
+            layout="stack"
+            showLabels
+          />
+          {setupError && <p className="text-xs text-[var(--color-block)]">{setupError}</p>}
+        </div>
+      )}
+
+      <SchemaConfigForm
+        companyId={props.companyId}
+        moduleId={mod.id}
+        moduleType={mod.type}
+        config={moduleConfig}
+        onPatched={(config) => props.onUpdated(mod.id, { config })}
+      />
+
+      {LEVER_TREE_MODULE_TYPES.has(mod.type) && (
+        <LeverTreeSection
+          companyId={props.companyId}
+          moduleId={mod.id}
+          {...(mod.engineInstanceId ? { engineId: mod.engineInstanceId } : {})}
+          anchors={props.anchors ?? []}
+          {...(props.anchorPositions ? { positions: props.anchorPositions } : {})}
+          manualControl={manualControl}
+          {...(props.onAnchorPositionChange
+            ? { onPositionChange: props.onAnchorPositionChange }
+            : {})}
+        />
+      )}
+
       {mod.type === 'trading' && (
         <>
           <TradingConfigForm companyId={props.companyId} moduleId={mod.id} />
@@ -323,14 +511,6 @@ export function InspectorPanel(props: {
       )}
 
       {mod.type === 'time' && <TimeConfigForm companyId={props.companyId} moduleId={mod.id} />}
-
-      {(mod.type === 'holding_fund' || mod.type === 'fund_router') && (
-        <p className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] p-2 text-xs leading-relaxed text-[var(--color-ink-faint)]">
-          Visible paper topology only. This module does not move funds yet; future transfers must
-          resolve through ValueRefs, the deterministic Math calculator, approval policy, and the
-          immutable ledger.
-        </p>
-      )}
 
       {isProtectedSingleton ? (
         <p className="text-xs leading-relaxed text-[var(--color-ink-faint)]">

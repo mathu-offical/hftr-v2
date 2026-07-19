@@ -177,6 +177,12 @@ export const EngineGroupNode = memo(function EngineGroupNode({
         allocationMode: draft.allocationMode,
         allocationValue: draft.allocationValue.trim(),
         targetExitLocal: draft.targetExitLocal,
+        ...(data.setupSnapshot?.optionAnchors
+          ? { optionAnchors: data.setupSnapshot.optionAnchors }
+          : {}),
+        ...(data.setupSnapshot?.optionAnchorPositions
+          ? { optionAnchorPositions: data.setupSnapshot.optionAnchorPositions }
+          : {}),
       };
       const response = await api<{
         engine: {

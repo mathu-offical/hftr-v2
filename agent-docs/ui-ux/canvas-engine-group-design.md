@@ -91,8 +91,14 @@ ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles
   libraries use `parent_hub_library_id` only — **no** hub `module_links`.
 - **Family layout (D-159):** research deps left → hub gap → execution right; families stack
   vertically (`layoutCanvas` / `placeNextEngineOrigin` with `section`).
+- **Option anchors (D-173):** catalog decision nodes parented under the engine group as a
+  right-side column (`optionAnchor` React Flow type). Built from template inputs, strategy
+  families, branch roles, recovery phases, and philosophy axes. Lever bands remain
+  inspector-only. Visual `option_bind` edges are canvas decoration (not `module_links`).
+  Positions persist on `setupSnapshot.optionAnchorPositions`.
 - **D-089 note:** shared setup + template inputs stay in the **header** as bordered inline fields
   (`ModuleSetupFields` `layout="inline"`); the utility rail is separate from setup chrome.
+  Full engine setup + option-anchor tree also appear in the floating engine inspector (D-173).
 
 Full design: `architecture/engine-motherboard-io-design.md`.
 

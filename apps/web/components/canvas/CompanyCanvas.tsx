@@ -25,8 +25,10 @@ import {
   engineCreateSection,
   engineUtilitySourceHandleId,
   engineUtilityTargetHandleId,
+  getEngineTemplateById,
   handleIdForStream,
   handleIdForTrendCandidate,
+  isEngineDataHubConfig,
   isLegalStreamPortPair,
   isMathToolAttachment,
   layoutCanvas,
@@ -93,6 +95,12 @@ function isMathToolNode(node: CanvasFlowNode): node is MathToolFlowNode {
 
 function isGraphModuleNode(node: CanvasFlowNode): node is ModuleFlowNode | MathToolFlowNode {
   return isModuleNode(node) || isMathToolNode(node);
+}
+
+/** Operator config blob — Math tools have none (D-159 hub checks). */
+function moduleConfigRecord(node: ModuleFlowNode | MathToolFlowNode): Record<string, unknown> {
+  if (!isModuleNode(node)) return {};
+  return (node.data.config ?? {}) as Record<string, unknown>;
 }
 
 /** D-077: visual edges from trend-candidate → trading bindings (not module_links). */
@@ -761,7 +769,10 @@ function toUtilityEdge(link: UtilityLinkEdgeInput): Edge | null {
 
   if (
     link.fromModuleId &&
-    (link.bus === 'clock' || link.bus === 'funds' || link.bus === 'system_control')
+    (link.bus === 'clock' ||
+      link.bus === 'funds' ||
+      link.bus === 'system_control' ||
+      link.bus === 'data_in')
   ) {
     return {
       id: `util-${link.id}`,
@@ -1145,7 +1156,11 @@ export function CompanyCanvas(props: {
       if (!engineNode) return;
 
       let layout = reflowEngineAtOrigin(
-        { id: engineId, memberModuleIds: engineNode.data.memberModuleIds },
+        {
+          id: engineId,
+          memberModuleIds: engineNode.data.memberModuleIds,
+          templateId: engineNode.data.templateId,
+        },
         gatherLayoutModules(workingNodes),
         gatherLayoutLinks(workingEdges),
         { x: engineNode.position.x, y: engineNode.position.y },
@@ -1156,8 +1171,22 @@ export function CompanyCanvas(props: {
         const others = workingNodes
           .filter((n): n is EngineGroupFlowNode => isEngineGroupNode(n) && n.id !== engineId)
           .map(engineBounds);
+        const section =
+          engineCreateSection(
+            getEngineTemplateById(engineNode.data.templateId) ?? {
+              id: engineNode.data.templateId,
+              label: '',
+              category: 'research',
+              description: '',
+              available: true,
+              modules: [],
+              links: [],
+              inputs: [],
+            },
+          );
         const clearOrigin = placeNextEngineOrigin(others, reflowedBounds, {
           preferred: { x: reflowedBounds.x, y: reflowedBounds.y },
+          section,
         });
         layout = translateLayoutResultToOrigin(layout, engineId, clearOrigin);
       }
@@ -1209,7 +1238,22 @@ export function CompanyCanvas(props: {
 
     const engineNodes = workingNodes.filter(isEngineGroupNode);
     const layout = layoutCanvas(
-      engineNodes.map((n) => ({ id: n.id, memberModuleIds: n.data.memberModuleIds })),
+      engineNodes.map((n) => {
+        const hubModule = workingNodes.find((node) => {
+          if (!isModuleNode(node) || node.data.moduleType !== 'library') return false;
+          const cfg = moduleConfigRecord(node);
+          return (
+            isEngineDataHubConfig(cfg) &&
+            (cfg.ownerEngineInstanceId as string | undefined) === n.id
+          );
+        });
+        return {
+          id: n.id,
+          memberModuleIds: n.data.memberModuleIds,
+          templateId: n.data.templateId,
+          dataHubModuleId: hubModule?.id ?? null,
+        };
+      }),
       gatherLayoutModules(workingNodes),
       gatherLayoutLinks(workingEdges),
       ENGINE_GROUP_PADDING,
@@ -1711,6 +1755,26 @@ export function CompanyCanvas(props: {
 
       if (!isGraphModuleNode(from) || !isGraphModuleNode(to)) return;
 
+      const fromHub = isEngineDataHubConfig(moduleConfigRecord(from));
+      const toHub = isEngineDataHubConfig(moduleConfigRecord(to));
+      if (fromHub || toHub) {
+        flash('Connect Data Hub via the engine Data in port (motherboard), not module links.');
+        return;
+      }
+      const fromEngine = from.data.engineInstanceId;
+      const toEngine = to.data.engineInstanceId;
+      if (fromEngine && toEngine && fromEngine !== toEngine) {
+        flash('Cross-engine links use engine Data out → Data in (motherboard).');
+        return;
+      }
+      if (
+        ((!fromEngine && toEngine) || (fromEngine && !toEngine)) &&
+        !(isMathToolNode(from) || isMathToolNode(to))
+      ) {
+        flash('Attach free libraries to the engine Data in port.');
+        return;
+      }
+
       const trendCandidateId = parseTrendCandidateHandle(connection.sourceHandle);
       if (trendCandidateId) {
         if (!isModuleNode(from) || from.data.moduleType !== 'trend') {
@@ -1869,6 +1933,18 @@ export function CompanyCanvas(props: {
         return false;
       }
       if (!isGraphModuleNode(from) || !isGraphModuleNode(to)) return false;
+      // D-159: hub and cross-engine data only via motherboard utility edges.
+      const fromHub = isEngineDataHubConfig(moduleConfigRecord(from));
+      const toHub = isEngineDataHubConfig(moduleConfigRecord(to));
+      if (fromHub || toHub) return false;
+      const fromEngine = from.data.engineInstanceId;
+      const toEngine = to.data.engineInstanceId;
+      if (fromEngine && toEngine && fromEngine !== toEngine) return false;
+      if ((!fromEngine && toEngine) || (fromEngine && !toEngine)) {
+        // Free module ↔ engine member: reject (use engine data_in / chrome instead).
+        // Exception: dedicated Math tools stay attachable to their owner (same visual family).
+        if (!(isMathToolNode(from) || isMathToolNode(to))) return false;
+      }
       if (parseTrendCandidateHandle(connection.sourceHandle)) {
         return (
           isModuleNode(from) &&
@@ -2020,9 +2096,23 @@ export function CompanyCanvas(props: {
           const occupied = workingNodes.filter(isEngineGroupNode).map(engineBounds);
           const templatePositions = item.template.modules.map((module) => module.position);
           const relativeBounds = computeEngineBoundsFromPositions(templatePositions);
+          const section = engineCreateSection(item.template);
+          const researchNodes = workingNodes.filter(
+            (n): n is EngineGroupFlowNode =>
+              isEngineGroupNode(n) &&
+              (() => {
+                const t = getEngineTemplateById(n.data.templateId);
+                return t ? engineCreateSection(t) === 'research' : false;
+              })(),
+          );
+          const lastResearch = researchNodes.at(-1);
           const origin = placeNextEngineOrigin(occupied, relativeBounds, {
             originX: CANVAS_LAYOUT.originX,
             originY: CANVAS_LAYOUT.originY,
+            section,
+            ...(section === 'execution' && lastResearch
+              ? { familyAnchor: engineBounds(lastResearch) }
+              : {}),
           });
           const { offset } = engineCanvasOffsetForOrigin(
             templatePositions,
@@ -2120,7 +2210,11 @@ export function CompanyCanvas(props: {
           );
 
           let layout = reflowEngineAtOrigin(
-            { id: response.engine.id, memberModuleIds: response.engine.memberModuleIds },
+            {
+              id: response.engine.id,
+              memberModuleIds: response.engine.memberModuleIds,
+              templateId: response.engine.templateId,
+            },
             gatherLayoutModules(workingNodes),
             gatherLayoutLinks(allEdges),
             { x: origin.x, y: origin.y },
@@ -2134,6 +2228,7 @@ export function CompanyCanvas(props: {
               .map(engineBounds);
             const clearOrigin = placeNextEngineOrigin(others, reflowedBounds, {
               preferred: { x: origin.x, y: origin.y },
+              section: engineCreateSection(item.template),
             });
             layout = translateLayoutResultToOrigin(layout, response.engine.id, clearOrigin);
           }

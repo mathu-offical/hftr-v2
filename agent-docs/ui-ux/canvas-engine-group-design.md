@@ -86,6 +86,12 @@ ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles
   terminal analyzer render attached to the group border (not counted as extra member grid cells).
 - **Engine↔engine edges:** connect `data_out` on source engine to `data_in` on target; stream pins
   use opaque `stream_id` + qualitative descriptor. Animate when either side has active jobs.
+- **Engine Data Hub (D-140 / D-159):** free library node in the research→exec gap; binds to owning
+  execution `data_in` via motherboard utility (`fromModuleId=hub`). Nest libraries use
+  `parent_hub_library_id` only — **no** hub `module_links`. Cross-engine and hub module↔module
+  links are rejected on the live canvas.
+- **Family layout (D-159):** research deps left → hub gap → execution right; families stack
+  vertically (`layoutCanvas` / `placeNextEngineOrigin` with `section`).
 - **D-089 note:** shared setup + template inputs stay in the **header** as bordered inline fields
   (`ModuleSetupFields` `layout="inline"`); the utility rail is separate from setup chrome.
 

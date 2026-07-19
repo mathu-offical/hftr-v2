@@ -1,12 +1,12 @@
 import {
   ENGINE_TEMPLATES,
-  allowedLinkKinds,
+  CANVAS_LAYOUT,
   engineCreateSection,
+  engineUtilitySourceHandleId,
+  engineUtilityTargetHandleId,
   handleIdForLink,
-  moduleLinkPorts,
   type EngineTemplate,
   type LinkKind,
-  type ModuleType,
 } from '@hftr/contracts';
 import type { Edge, Node } from '@xyflow/react';
 import { LINK_COLORS } from '@/components/canvas/canvas-visuals';
@@ -24,7 +24,9 @@ export const PREVIEW_GROUP_PADDING = {
 const POSITION_SCALE = 0.42;
 const FAMILY_GAP_Y = 200;
 const DEP_GAP_Y = 160;
-const RESEARCH_TO_EXEC_GAP_X = 200;
+const RESEARCH_TO_EXEC_GAP_X = CANVAS_LAYOUT.researchToExecGap * POSITION_SCALE;
+const HUB_WIDTH = 120;
+const HUB_HEIGHT = 48;
 const ORPHAN_GAP_Y = 180;
 const CANVAS_ORIGIN = { x: 48, y: 48 };
 
@@ -177,77 +179,6 @@ function placeEngine(
   return { seed, template, bounds, absPositions };
 }
 
-/** Prefer library outputs for legal library→research bridges; then trend/research. */
-function pickResearchBridgeSource(template: EngineTemplate): number {
-  const preference: ModuleType[] = ['library', 'trend', 'research', 'librarian'];
-  for (const type of preference) {
-    for (let index = template.modules.length - 1; index >= 0; index -= 1) {
-      const module = template.modules[index]!;
-      if (module.type !== type) continue;
-      if (moduleLinkPorts(module.type).outbound.includes('data_feed')) return index;
-      if (moduleLinkPorts(module.type).outbound.includes('directive')) return index;
-    }
-  }
-  for (let index = template.modules.length - 1; index >= 0; index -= 1) {
-    if (moduleLinkPorts(template.modules[index]!.type).outbound.length > 0) return index;
-  }
-  return Math.max(0, template.modules.length - 1);
-}
-
-/** Prefer research/library inputs on the execution spine. */
-function pickExecutionBridgeTarget(template: EngineTemplate): number {
-  const preference: ModuleType[] = ['research', 'library', 'librarian', 'trend', 'trading'];
-  for (const type of preference) {
-    for (let index = 0; index < template.modules.length; index += 1) {
-      const module = template.modules[index]!;
-      if (module.type !== type) continue;
-      if (moduleLinkPorts(module.type).inbound.includes('data_feed')) return index;
-      if (moduleLinkPorts(module.type).inbound.includes('directive')) return index;
-    }
-  }
-  for (let index = 0; index < template.modules.length; index += 1) {
-    if (moduleLinkPorts(template.modules[index]!.type).inbound.length > 0) return index;
-  }
-  return 0;
-}
-
-function bridgeLinkKind(fromType: ModuleType, toType: ModuleType): LinkKind | null {
-  const kinds = allowedLinkKinds(fromType, toType);
-  const fromOut = new Set(moduleLinkPorts(fromType).outbound);
-  const toIn = new Set(moduleLinkPorts(toType).inbound);
-  const usable = kinds.filter((kind) => fromOut.has(kind) && toIn.has(kind));
-  if (usable.includes('data_feed')) return 'data_feed';
-  if (usable.includes('directive')) return 'directive';
-  return usable[0] ?? null;
-}
-
-/** Resolve module indices + link kind that both expose matching handle ports. */
-function resolveResearchExecBridge(
-  research: EngineTemplate,
-  execution: EngineTemplate,
-): { fromIndex: number; toIndex: number; kind: LinkKind } | null {
-  if (research.modules.length === 0 || execution.modules.length === 0) return null;
-
-  const fromCandidates = [
-    pickResearchBridgeSource(research),
-    ...research.modules.map((_, index) => index),
-  ];
-  const toCandidates = [
-    pickExecutionBridgeTarget(execution),
-    ...execution.modules.map((_, index) => index),
-  ];
-
-  for (const fromIndex of fromCandidates) {
-    const fromType = research.modules[fromIndex]!.type;
-    for (const toIndex of toCandidates) {
-      const toType = execution.modules[toIndex]!.type;
-      const kind = bridgeLinkKind(fromType, toType);
-      if (kind) return { fromIndex, toIndex, kind };
-    }
-  }
-  return null;
-}
-
 function appendEngineNodes(
   nodes: PreviewFlowNode[],
   edges: Edge[],
@@ -323,26 +254,22 @@ function appendEngineNodes(
   });
 }
 
+/** D-159: research eng Data out → execution eng Data in (motherboard). */
 function appendResearchToExecutionBridge(
   edges: Edge[],
   research: PlacedEngine,
   execution: PlacedEngine,
 ) {
-  // Never wire eng→eng without Handle ports — React Flow logs #008 (handle id null).
-  const bridge = resolveResearchExecBridge(research.template, execution.template);
-  if (!bridge) return;
-
-  const { fromIndex, toIndex, kind } = bridge;
   edges.push({
     id: `bridge:${research.seed.key}:${execution.seed.key}`,
-    source: `mod:${research.seed.key}:${fromIndex}`,
-    target: `mod:${execution.seed.key}:${toIndex}`,
+    source: `eng:${research.seed.key}`,
+    target: `eng:${execution.seed.key}`,
     type: 'smoothstep',
     animated: true,
-    sourceHandle: handleIdForLink(kind, 'out'),
-    targetHandle: handleIdForLink(kind, 'in'),
+    sourceHandle: engineUtilitySourceHandleId('data_out'),
+    targetHandle: engineUtilityTargetHandleId('data_in'),
     style: {
-      stroke: LINK_COLORS[kind],
+      stroke: LINK_COLORS.data_feed,
       strokeWidth: 1.75,
       strokeDasharray: '6 4',
     },
@@ -355,17 +282,77 @@ function appendResearchToExecutionBridge(
   });
 }
 
+/** D-159: synthetic Data Hub between research and execution, wired to exec data_in. */
+function appendFamilyDataHub(
+  nodes: PreviewFlowNode[],
+  edges: Edge[],
+  familyKey: string,
+  researchBounds: { x: number; y: number; width: number; height: number }[],
+  execution: PlacedEngine,
+  familyActive: boolean,
+) {
+  const researchRight =
+    researchBounds.length > 0
+      ? Math.max(...researchBounds.map((r) => r.x + r.width))
+      : CANVAS_ORIGIN.x;
+  const gapLeft = researchRight + 16;
+  const gapRight = execution.bounds.x - 16;
+  const hubX =
+    gapRight > gapLeft + HUB_WIDTH
+      ? gapLeft + (gapRight - gapLeft - HUB_WIDTH) / 2
+      : researchRight + 24;
+  const hubY = execution.bounds.y + Math.max(0, (execution.bounds.height - HUB_HEIGHT) / 2);
+  const hubId = `hub:${familyKey}`;
+
+  nodes.push({
+    id: hubId,
+    type: 'previewModule',
+    position: { x: hubX, y: hubY },
+    data: {
+      name: 'Data Hub',
+      moduleType: 'library',
+      engineKey: familyKey,
+      config: { libraryClass: 'engine_data_hub', engineDataHub: true },
+    },
+    style: { width: HUB_WIDTH, height: HUB_HEIGHT, zIndex: 1 },
+    selectable: false,
+    draggable: false,
+  });
+
+  edges.push({
+    id: `bridge:hub:${familyKey}`,
+    source: hubId,
+    target: `eng:${execution.seed.key}`,
+    type: 'smoothstep',
+    animated: true,
+    sourceHandle: handleIdForLink('data_feed', 'out'),
+    targetHandle: engineUtilityTargetHandleId('data_in'),
+    style: {
+      stroke: LINK_COLORS.data_feed,
+      strokeWidth: 1.5,
+      strokeDasharray: '4 3',
+    },
+    label: 'Data Hub',
+    labelStyle: { fill: 'var(--color-accent)', fontSize: 8 },
+    labelBgStyle: { fill: 'var(--color-surface-0)' },
+    selectable: false,
+    focusable: false,
+    data: { kind: 'data_hub_bridge', familyActive },
+  });
+}
+
 /**
  * Build a read-only React Flow graph from create-form engine seeds.
  *
- * Placement:
- * - Each execution family: research deps stacked left → execution on the right
+ * Placement (D-159):
+ * - Each execution family: research deps left → Data Hub gap → execution right
  * - Families stacked top→bottom
- * - Standalone research engines below as orphans (left column)
+ * - Standalone research engines as orphans (left column)
  *
  * Edges:
  * - Intra-engine template links
- * - Research-dep → execution bridges (module ports, dashed)
+ * - Research eng → exec eng motherboard bridges
+ * - Data Hub → exec data_in
  */
 export function buildTemplatePreviewGraph(input: {
   engines: PreviewEngineSeed[];
@@ -401,12 +388,22 @@ export function buildTemplatePreviewGraph(input: {
 
     for (const placed of placedDeps) {
       appendEngineNodes(nodes, edges, placed, input.selectedEngineKey, familyActiveKeys);
-      // Only wire research-dep → its owning execution (never dep ↔ dep).
       if (placed.seed.cascadedFromKey === family.root.key) {
         appendResearchToExecutionBridge(edges, placed, placedExec);
       }
     }
     appendEngineNodes(nodes, edges, placedExec, input.selectedEngineKey, familyActiveKeys);
+
+    if (engineCreateSection(placedExec.template) === 'execution') {
+      appendFamilyDataHub(
+        nodes,
+        edges,
+        family.root.key,
+        placedDeps.map((d) => d.bounds),
+        placedExec,
+        familyActiveKeys.has(family.root.key),
+      );
+    }
 
     const familyBottom = Math.max(depsBottom, placedExec.bounds.y + placedExec.bounds.height);
     cursorY = familyBottom + FAMILY_GAP_Y;
@@ -421,3 +418,4 @@ export function buildTemplatePreviewGraph(input: {
 
   return { nodes, edges };
 }
+

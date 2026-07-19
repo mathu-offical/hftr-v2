@@ -86,7 +86,8 @@ Layout uses measured React Flow node dimensions when available and conservative 
 | Group header/top padding | 92 px (D-089 inline bounded header fields) |
 | Group bottom padding | 132 px (Math docks + funds + Time rail) |
 | Top-level engine gutter | 120 px — create/insert/reflow/drag-stop via `placeNextEngineOrigin` |
-| Canvas min zoom | 0.15 (fit large multi-engine graphs) |
+| Research → exec gap | 280 px (`researchToExecGap`) — Data Hub sits in this band (D-159) |
+| Canvas family stack | Research deps left → hub gap → execution right; families stack **vertically** (D-159) |
 | Math attachment | Single **Calc ref** (`math → owner` `data_feed`); info-type port labels (D-088) |
 
 ### Engine chip snap zones (2026-07-18)
@@ -134,7 +135,9 @@ disabled when empty).
 3. Run engine-scoped reflow for every engine.
 4. Treat each engine as one top-level envelope.
 5. Treat ungrouped owner/tool clusters and standalone modules as top-level envelopes.
-6. Arrange top-level envelopes in one horizontal line with connection-safe gutters.
+6. Arrange top-level envelopes as **vertical families** (D-159): research deps left,
+   Data Hub in the gap, execution right; stack families top→bottom (not a single
+   horizontal line of all engines).
 7. Persist the full layout atomically and fit the viewport to the result.
 
 Ordinary drag remains freeform. This feature does not enable always-on grid snapping.

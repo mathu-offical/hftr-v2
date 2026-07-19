@@ -17,11 +17,13 @@ created, invalid link 422, math delete 422, noop job enqueued → drained → co
   Column snap, LOD, minimap, edge delete still open.
 - **T1.3 queue spine:** live — drain endpoint verified end-to-end against Neon; queue stats
   chip in the top bar. Schedules/materializer still open.
-- **Infra:** Neon project `hftr-v2` (bold-surf-86557348) created + migrated + XNYS calendar
+- **Infra:** Neon project `hftr-v2` (`calm-bird-16964297`; prior `bold-surf-86557348` retained
+  as `hftr-v2-backup-quota` / `DATABASE_URL_BACKUP` per D-158) migrated + XNYS calendar
   seeded (2026–27); GitHub Actions CI added; dev auth bypass (`DEV_AUTH_BYPASS=1`, inactive in
   production or once Clerk keys are set). Vercel project `hftr` rootDirectory corrected to
-  `apps/web` (was stale `apps/hftr-web`); production env seeded with `DATABASE_URL` + Clerk +
-  `CRON_SECRET` — `/api/health` returns `db: true` on https://hftr.vercel.app (2026-07-17).
+  `apps/web` (was stale `apps/hftr-web`); `DATABASE_URL` points at `ep-blue-fire-ajk6bglk`
+  for Development / Production / Preview (D-158); Clerk + `CRON_SECRET` seeded —
+  `/api/health` returns `db: true` on https://hftr.vercel.app (2026-07-17).
 
 ## T1.1 — Company CRUD + wizard
 

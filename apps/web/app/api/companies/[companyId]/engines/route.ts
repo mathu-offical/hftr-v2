@@ -154,6 +154,7 @@ export async function POST(req: Request, ctx: Ctx) {
           : {}),
         originX: CANVAS_LAYOUT.originX,
         originY: CANVAS_LAYOUT.originY,
+        section: engineCreateSection(engine),
       },
     );
     const laid = layoutEngineTemplateAtOrigin(

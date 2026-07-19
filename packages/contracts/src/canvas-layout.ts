@@ -8,11 +8,17 @@ import {
   MODULE_LANE_ROW,
 } from './modules';
 import { isMathToolAttachment } from './engines';
+import {
+  engineCreateSection,
+  getEngineTemplateById,
+  researchDependenciesForExecutionEngine,
+} from './templates';
 
 /**
- * Connection-safe canvas layout constants and pure reflow helpers (D-033 / D-064).
+ * Connection-safe canvas layout constants and pure reflow helpers (D-033 / D-064 / D-159).
  * Engine chip zones (2026-07-18): research → data → trend → execution → verification;
  * funds shelf + clock bus below. Unused process lanes compress.
+ * Top-level (D-159): research left → Data Hub gap → execution right; families stack vertically.
  * Ordinary drag stays freeform; Reflow buttons call these deterministically.
  */
 
@@ -32,6 +38,8 @@ export const CANVAS_LAYOUT = {
   /** Gap above the engine Time hub rail (below member/Math/funds envelopes). */
   engineTimeHubGap: 40,
   topLevelGutter: 120,
+  /** Gap between research deps column and execution (hub sits in this band). */
+  researchToExecGap: 280,
   originX: 40,
   originY: 40,
 } as const;
@@ -94,6 +102,10 @@ export interface LayoutLink {
 export interface LayoutEngine {
   id: string;
   memberModuleIds: string[];
+  /** Template id for research vs execution sectioning (D-159). Optional for single-engine reflow. */
+  templateId?: string;
+  /** Engine Data Hub module id owned by this execution engine (D-140 / D-159). */
+  dataHubModuleId?: string | null;
 }
 
 export interface LayoutResult {
@@ -548,7 +560,82 @@ export function layoutEngineGroup(
   };
 }
 
-/** Reflow every engine, then line up top-level engines and free modules. */
+type EngineFamily = {
+  execution: LayoutEngine;
+  researchDeps: LayoutEngine[];
+};
+
+/**
+ * Group execution engines with their research dependency packs (D-159).
+ * Orphan research engines are returned separately for the left column.
+ */
+export function buildCanvasEngineFamilies(
+  engines: readonly LayoutEngine[],
+): { families: EngineFamily[]; orphans: LayoutEngine[] } {
+  const byTemplate = new Map<string, LayoutEngine[]>();
+  for (const engine of engines) {
+    const tid = engine.templateId ?? '';
+    if (!tid) continue;
+    const list = byTemplate.get(tid) ?? [];
+    list.push(engine);
+    byTemplate.set(tid, list);
+  }
+
+  const claimed = new Set<string>();
+  const families: EngineFamily[] = [];
+
+  for (const engine of engines) {
+    const tid = engine.templateId ?? '';
+    const template = tid ? getEngineTemplateById(tid) : undefined;
+    if (!template || engineCreateSection(template) !== 'execution') continue;
+    if (claimed.has(engine.id)) continue;
+
+    const depIds = researchDependenciesForExecutionEngine(tid);
+    const researchDeps: LayoutEngine[] = [];
+    for (const depId of depIds) {
+      const candidates = byTemplate.get(depId) ?? [];
+      for (const dep of candidates) {
+        if (claimed.has(dep.id)) continue;
+        researchDeps.push(dep);
+        claimed.add(dep.id);
+        break;
+      }
+    }
+    claimed.add(engine.id);
+    families.push({ execution: engine, researchDeps });
+  }
+
+  const orphans = engines.filter((engine) => !claimed.has(engine.id));
+  return { families, orphans };
+}
+
+/**
+ * Place a Data Hub module between research right edge and execution left edge,
+ * vertically centered on the execution envelope (D-159).
+ */
+export function placeDataHubOrigin(
+  researchBounds: readonly LayoutRect[],
+  executionBounds: LayoutRect,
+  hubSize: { width: number; height: number } = {
+    width: CANVAS_LAYOUT.moduleWidth,
+    height: CANVAS_LAYOUT.moduleHeight,
+  },
+): { x: number; y: number } {
+  const researchRight =
+    researchBounds.length > 0
+      ? Math.max(...researchBounds.map((r) => r.x + r.width))
+      : CANVAS_LAYOUT.originX;
+  const gapLeft = researchRight + CANVAS_LAYOUT.topLevelGutter / 2;
+  const gapRight = executionBounds.x - CANVAS_LAYOUT.topLevelGutter / 2;
+  const midX =
+    gapRight > gapLeft + hubSize.width
+      ? gapLeft + (gapRight - gapLeft - hubSize.width) / 2
+      : researchRight + CANVAS_LAYOUT.topLevelGutter;
+  const midY = executionBounds.y + Math.max(0, (executionBounds.height - hubSize.height) / 2);
+  return { x: midX, y: midY };
+}
+
+/** Reflow every engine into vertical families (research left, hub gap, exec right). */
 export function layoutCanvas(
   engines: readonly LayoutEngine[],
   modules: readonly LayoutModule[],
@@ -558,28 +645,90 @@ export function layoutCanvas(
   const modulesById = new Map(modules.map((m) => [m.id, m]));
   const resultModules = new Map<string, { x: number; y: number }>();
   const resultEngines: LayoutResult['engines'] = [];
+  const hubModuleIds = new Set(
+    engines.map((e) => e.dataHubModuleId).filter((id): id is string => typeof id === 'string'),
+  );
 
-  let cursorX = CANVAS_LAYOUT.originX;
-  const originY = CANVAS_LAYOUT.originY;
+  const { families, orphans } = buildCanvasEngineFamilies(engines);
+  let cursorY = CANVAS_LAYOUT.originY as number;
+  let maxFamilyRight = CANVAS_LAYOUT.originX as number;
+  /** Shared execution column so stacked exec engines align even when some lack research deps. */
+  let sharedExecColumnX: number | null = null;
 
-  for (const engine of engines) {
+  const placeEngineAt = (engine: LayoutEngine, origin: { x: number; y: number }) => {
     const laid = layoutEngineGroup(
       engine.id,
       engine.memberModuleIds,
       modulesById,
       links,
-      { x: cursorX, y: originY },
+      origin,
       padding,
     );
     for (const m of laid.modules) {
       resultModules.set(m.id, m.canvasPosition);
     }
     resultEngines.push({ id: engine.id, canvasBounds: laid.canvasBounds });
-    cursorX += laid.canvasBounds.width + CANVAS_LAYOUT.topLevelGutter;
+    return laid.canvasBounds;
+  };
+
+  // Orphan research engines: left column, stacked above/alongside families.
+  let orphanCursorY = cursorY;
+  const orphanBounds: LayoutRect[] = [];
+  for (const orphan of orphans) {
+    const bounds = placeEngineAt(orphan, { x: CANVAS_LAYOUT.originX, y: orphanCursorY });
+    orphanBounds.push(bounds);
+    orphanCursorY = bounds.y + bounds.height + CANVAS_LAYOUT.topLevelGutter;
+    maxFamilyRight = Math.max(maxFamilyRight, bounds.x + bounds.width);
+  }
+  if (orphanBounds.length > 0) {
+    cursorY = Math.max(cursorY, orphanCursorY);
+  }
+
+  for (const family of families) {
+    const familyTop = cursorY;
+    let depCursorY: number = familyTop;
+    let depsRight: number = CANVAS_LAYOUT.originX;
+    const depBounds: LayoutRect[] = [];
+
+    for (const dep of family.researchDeps) {
+      const bounds = placeEngineAt(dep, { x: CANVAS_LAYOUT.originX, y: depCursorY });
+      depBounds.push(bounds);
+      depsRight = Math.max(depsRight, bounds.x + bounds.width);
+      depCursorY = bounds.y + bounds.height + CANVAS_LAYOUT.topLevelGutter;
+    }
+
+    const defaultExecX = CANVAS_LAYOUT.originX + CANVAS_LAYOUT.researchToExecGap;
+    let execOriginX: number;
+    if (family.researchDeps.length > 0) {
+      execOriginX = depsRight + CANVAS_LAYOUT.researchToExecGap;
+      sharedExecColumnX = execOriginX;
+    } else {
+      execOriginX = sharedExecColumnX ?? defaultExecX;
+      if (sharedExecColumnX == null) sharedExecColumnX = execOriginX;
+    }
+    const execBounds = placeEngineAt(family.execution, { x: execOriginX, y: familyTop });
+
+    const hubId = family.execution.dataHubModuleId;
+    if (hubId && modulesById.has(hubId)) {
+      const hubOrigin = placeDataHubOrigin(depBounds, execBounds);
+      resultModules.set(hubId, hubOrigin);
+    }
+
+    const familyBottom = Math.max(
+      depCursorY - CANVAS_LAYOUT.topLevelGutter,
+      execBounds.y + execBounds.height,
+      ...depBounds.map((b) => b.y + b.height),
+    );
+    cursorY = familyBottom + CANVAS_LAYOUT.topLevelGutter;
+    maxFamilyRight = Math.max(maxFamilyRight, execBounds.x + execBounds.width);
   }
 
   const memberIds = new Set(engines.flatMap((e) => e.memberModuleIds));
+  const freeOriginX = maxFamilyRight + CANVAS_LAYOUT.topLevelGutter;
+  const freeOriginY = CANVAS_LAYOUT.originY;
+
   // Time processors (non-engine) also reserved for cadence rail — exclude from free lanes.
+  // Data hubs are placed in the family gap above — exclude from free lanes.
   const free = modules
     .filter(
       (m) =>
@@ -587,6 +736,7 @@ export function layoutCanvas(
         m.type !== 'clock' &&
         m.type !== 'time' &&
         !memberIds.has(m.id) &&
+        !hubModuleIds.has(m.id) &&
         !resultModules.has(m.id),
     )
     .sort((a, b) => a.id.localeCompare(b.id));
@@ -612,8 +762,8 @@ export function layoutCanvas(
     const list = (freeByLane.get(lane) ?? []).sort(compareFreeWithinLane);
     list.forEach((m, rowIndex) => {
       resultModules.set(m.id, {
-        x: cursorX + compressedRank * LAYOUT_COLUMN_STEP,
-        y: originY + rowIndex * LAYOUT_ROW_STEP,
+        x: freeOriginX + compressedRank * LAYOUT_COLUMN_STEP,
+        y: freeOriginY + rowIndex * LAYOUT_ROW_STEP,
       });
     });
   }
@@ -623,17 +773,17 @@ export function layoutCanvas(
   const leftoverMath = modules
     .filter((m) => m.type === 'math' && !placedIds.has(m.id))
     .sort((a, b) => a.id.localeCompare(b.id));
-  let mathY = originY;
+  let mathY = freeOriginY;
   for (const m of leftoverMath) {
     resultModules.set(m.id, {
-      x: cursorX + LAYOUT_COLUMN_STEP,
+      x: freeOriginX + LAYOUT_COLUMN_STEP,
       y: mathY,
     });
     mathY += CANVAS_LAYOUT.mathToolHeight + CANVAS_LAYOUT.verticalGutter;
   }
 
   // D-091: Master Clock pins to a bottom company cadence rail under all engines.
-  let cadenceY: number = originY;
+  let cadenceY: number = CANVAS_LAYOUT.originY;
   for (const pos of resultModules.values()) {
     cadenceY = Math.max(cadenceY, pos.y + CANVAS_LAYOUT.moduleHeight);
   }
@@ -719,8 +869,8 @@ export function rectsOverlap(a: LayoutRect, b: LayoutRect): boolean {
 
 /**
  * Next top-left origin for an engine envelope that does not overlap occupied
- * rects. Prefers the caller's preferred origin, then left-to-right packing
- * (canvas default), then below existing engines.
+ * rects (D-159). Prefer preferred when clear; research sits left of familyAnchor;
+ * execution stacks below prior envelopes before packing right.
  */
 export function placeNextEngineOrigin(
   occupied: readonly LayoutRect[],
@@ -730,6 +880,10 @@ export function placeNextEngineOrigin(
     originX?: number;
     originY?: number;
     preferred?: { x: number; y: number };
+    /** D-159: research packs left; execution stacks vertically. */
+    section?: 'research' | 'execution';
+    /** Anchor envelope for family placement (exec for research, or research stack for exec). */
+    familyAnchor?: LayoutRect;
   },
 ): { x: number; y: number } {
   const gutter = options?.gutter ?? CANVAS_LAYOUT.topLevelGutter;
@@ -752,18 +906,48 @@ export function placeNextEngineOrigin(
     return { x: originX, y: originY };
   }
 
-  const ordered = [...occupied].sort((a, b) => a.x - b.x || a.y - b.y);
-  const candidates: Array<{ x: number; y: number }> = [
-    { x: originX, y: originY },
-    ...ordered.map((rect) => ({ x: rect.x + rect.width + gutter, y: originY })),
-    ...ordered.map((rect) => ({ x: rect.x, y: rect.y + rect.height + gutter })),
-  ];
+  const candidates: Array<{ x: number; y: number }> = [];
+
+  if (options?.section === 'research' && options.familyAnchor) {
+    candidates.push({
+      x: originX,
+      y: options.familyAnchor.y,
+    });
+    candidates.push({
+      x: originX,
+      y: options.familyAnchor.y + options.familyAnchor.height + gutter,
+    });
+  }
+
+  if (options?.section === 'execution') {
+    if (options.familyAnchor) {
+      candidates.push({
+        x: options.familyAnchor.x + options.familyAnchor.width + CANVAS_LAYOUT.researchToExecGap,
+        y: options.familyAnchor.y,
+      });
+    }
+    const maxBottom = Math.max(...occupied.map((rect) => rect.y + rect.height));
+    candidates.push({ x: originX + CANVAS_LAYOUT.researchToExecGap, y: maxBottom + gutter });
+    for (const rect of occupied) {
+      candidates.push({ x: rect.x, y: rect.y + rect.height + gutter });
+    }
+  }
+
+  candidates.push({ x: originX, y: originY });
+  const ordered = [...occupied].sort((a, b) => a.y - b.y || a.x - b.x);
+  for (const rect of ordered) {
+    candidates.push({ x: rect.x, y: rect.y + rect.height + gutter });
+  }
+  for (const rect of ordered) {
+    candidates.push({ x: rect.x + rect.width + gutter, y: rect.y });
+  }
+
   for (const candidate of candidates) {
     if (fits(candidate)) return candidate;
   }
 
-  const maxRight = Math.max(...occupied.map((rect) => rect.x + rect.width));
-  return { x: maxRight + gutter, y: originY };
+  const maxBottom = Math.max(...occupied.map((rect) => rect.y + rect.height));
+  return { x: originX, y: maxBottom + gutter };
 }
 
 /**

@@ -83,11 +83,21 @@ describe('buildTemplatePreviewGraph', () => {
     ).toBeGreaterThanOrEqual(100);
 
     const templateLinks = edges.filter((edge) => String(edge.id).startsWith('link:'));
-    const bridges = edges.filter((edge) => String(edge.id).startsWith('bridge:'));
+    const researchBridges = edges.filter(
+      (edge) =>
+        String(edge.id).startsWith('bridge:') && !String(edge.id).startsWith('bridge:hub:'),
+    );
+    const hubBridges = edges.filter((edge) => String(edge.id).startsWith('bridge:hub:'));
     expect(templateLinks.length).toBeGreaterThan(0);
-    expect(bridges).toHaveLength(2);
-    expect(bridges.every((edge) => String(edge.source).startsWith('mod:dep-'))).toBe(true);
-    expect(bridges.every((edge) => String(edge.target).startsWith('mod:exec-day:'))).toBe(true);
+    expect(researchBridges).toHaveLength(2);
+    expect(researchBridges.every((edge) => String(edge.source).startsWith('eng:dep-'))).toBe(true);
+    expect(researchBridges.every((edge) => String(edge.target).startsWith('eng:exec-day'))).toBe(
+      true,
+    );
+    expect(hubBridges).toHaveLength(1);
+    expect(hubBridges[0]!.source).toBe('hub:exec-day');
+    expect(hubBridges[0]!.target).toBe('eng:exec-day');
+    expect(nodes.some((node) => node.id === 'hub:exec-day')).toBe(true);
     expect(edges.some((edge) => String(edge.id).startsWith('cascade:'))).toBe(false);
     expect(
       edges.every(
@@ -100,8 +110,8 @@ describe('buildTemplatePreviewGraph', () => {
     ).toBe(true);
   });
 
-  it('skips bridges when a dependency template is missing', () => {
-    const { edges } = buildTemplatePreviewGraph({
+  it('skips research bridges when a dependency template is missing but still hubs the exec', () => {
+    const { edges, nodes } = buildTemplatePreviewGraph({
       engines: [
         {
           key: 'dep-empty',
@@ -118,7 +128,14 @@ describe('buildTemplatePreviewGraph', () => {
       ],
       selectedEngineKey: 'exec-day',
     });
-    expect(edges.filter((edge) => String(edge.id).startsWith('bridge:'))).toHaveLength(0);
+    expect(
+      edges.filter(
+        (edge) =>
+          String(edge.id).startsWith('bridge:') && !String(edge.id).startsWith('bridge:hub:'),
+      ),
+    ).toHaveLength(0);
+    expect(edges.filter((edge) => String(edge.id).startsWith('bridge:hub:'))).toHaveLength(1);
+    expect(nodes.some((node) => node.id === 'hub:exec-day')).toBe(true);
     expect(edges.filter((edge) => String(edge.id).startsWith('cascade:'))).toHaveLength(0);
   });
 });

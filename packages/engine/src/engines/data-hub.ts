@@ -288,7 +288,11 @@ async function resolveFamilyEngineIds(
   return [...ids];
 }
 
-/** Wire hydrate (nests→hub), query (hub→trading), returns (policy/trading/analyzer→hub). */
+/**
+ * D-159: Bind Data Hub to owning execution engine via motherboard `data_in`.
+ * Nest membership stays `parent_hub_library_id` only (no nest→hub module_links).
+ * Query/returns use hub library targets + config — no hub↔trading module_links.
+ */
 export async function wireDataHubLinks(
   db: Db,
   companyId: string,
@@ -297,48 +301,49 @@ export async function wireDataHubLinks(
   nestedModuleIds: string[],
   now = new Date(),
 ): Promise<number> {
-  const members = await db
-    .select({ id: modules.id, type: modules.type })
-    .from(modules)
-    .where(and(eq(modules.companyId, companyId), eq(modules.engineInstanceId, engineId)));
+  void nestedModuleIds;
 
-  const trading = members.find((m) => m.type === 'trading');
-  const policy = members.find((m) => m.type === 'policy');
-  const analyzer = members.find((m) => m.type === 'analyzer');
+  // Clear legacy hub module_links (D-140 module-edge era).
+  await db
+    .delete(moduleLinks)
+    .where(
+      and(
+        eq(moduleLinks.companyId, companyId),
+        or(eq(moduleLinks.fromModuleId, hubModuleId), eq(moduleLinks.toModuleId, hubModuleId)),
+      ),
+    );
 
-  const desired: Array<{ from: string; to: string; kind: 'data_feed' | 'verification' }> = [];
+  const existing = await db
+    .select({ id: engineUtilityLinks.id })
+    .from(engineUtilityLinks)
+    .where(
+      and(
+        eq(engineUtilityLinks.companyId, companyId),
+        eq(engineUtilityLinks.toEngineId, engineId),
+        eq(engineUtilityLinks.bus, 'data_in'),
+        eq(engineUtilityLinks.fromModuleId, hubModuleId),
+      ),
+    )
+    .limit(1);
 
-  for (const nestId of nestedModuleIds) {
-    desired.push({ from: nestId, to: hubModuleId, kind: 'data_feed' });
-  }
-  if (trading) {
-    desired.push({ from: hubModuleId, to: trading.id, kind: 'data_feed' });
-    desired.push({ from: trading.id, to: hubModuleId, kind: 'data_feed' });
-  }
-  if (policy) {
-    desired.push({ from: policy.id, to: hubModuleId, kind: 'verification' });
-  }
-  if (analyzer) {
-    desired.push({ from: analyzer.id, to: hubModuleId, kind: 'data_feed' });
-  }
+  if (existing.length > 0) return 0;
 
-  let inserted = 0;
-  for (const edge of desired) {
-    const [row] = await db
-      .insert(moduleLinks)
-      .values({
-        companyId,
-        fromModuleId: edge.from,
-        toModuleId: edge.to,
-        linkKind: edge.kind,
-      })
-      .onConflictDoNothing()
-      .returning({ id: moduleLinks.id });
-    if (row) inserted += 1;
-  }
+  const [row] = await db
+    .insert(engineUtilityLinks)
+    .values({
+      companyId,
+      toEngineId: engineId,
+      bus: 'data_in',
+      fromEngineId: null,
+      fromModuleId: hubModuleId,
+      streamId: null,
+      streamDescriptor: 'Data Hub',
+      updatedAt: now,
+    })
+    .onConflictDoNothing()
+    .returning({ id: engineUtilityLinks.id });
 
-  void now;
-  return inserted;
+  return row ? 1 : 0;
 }
 
 /** Ensure research modules in the family list the hub in targetLibraryIds (hydration). */

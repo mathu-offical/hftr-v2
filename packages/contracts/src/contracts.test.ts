@@ -2199,36 +2199,97 @@ describe('canvas layout (D-033)', () => {
     expect(modulePositions[researchIdx]!.y).not.toBe(modulePositions[librarianIdx]!.y);
   });
 
-  it('lays out multiple engines side by side without overlap', () => {
+  it('stacks execution engines vertically with research on the left (D-159)', () => {
     const a = '00000000-0000-4000-8000-0000000000d1';
     const b = '00000000-0000-4000-8000-0000000000d2';
+    const c = '00000000-0000-4000-8000-0000000000d3';
     const engineTwo = '00000000-0000-4000-8000-00000000e002';
+    const researchEng = '00000000-0000-4000-8000-00000000e003';
     const modules = [
       { ...mkModule(a), engineInstanceId: engineId },
       { ...mkModule(b), engineInstanceId: engineTwo },
+      { ...mkModule(c, 'research'), engineInstanceId: researchEng },
     ];
     const result = layoutCanvas(
       [
-        { id: engineId, memberModuleIds: [a] },
-        { id: engineTwo, memberModuleIds: [b] },
+        {
+          id: engineId,
+          memberModuleIds: [a],
+          templateId: 'engine_day_trading',
+        },
+        {
+          id: engineTwo,
+          memberModuleIds: [b],
+          templateId: 'engine_hft',
+        },
+        {
+          id: researchEng,
+          memberModuleIds: [c],
+          templateId: 'research_market_regime_lab',
+        },
       ],
       modules,
       [],
       ENGINE_GROUP_PADDING,
     );
-    const [first, second] = result.engines;
-    expect(second!.canvasBounds.x).toBeGreaterThanOrEqual(
-      first!.canvasBounds.x + first!.canvasBounds.width,
-    );
+    const day = result.engines.find((e) => e.id === engineId)!;
+    const hft = result.engines.find((e) => e.id === engineTwo)!;
+    const research = result.engines.find((e) => e.id === researchEng)!;
+    // Research dep claimed by day-trading sits left of day execution.
+    expect(research.canvasBounds.x).toBeLessThan(day.canvasBounds.x);
+    // Separate execution engines stack vertically (similar x, greater y).
+    expect(Math.abs(day.canvasBounds.x - hft.canvasBounds.x)).toBeLessThan(50);
+    expect(hft.canvasBounds.y).toBeGreaterThanOrEqual(day.canvasBounds.y + day.canvasBounds.height);
   });
 
-  it('places the next engine origin without overlapping occupied envelopes', () => {
+  it('places Data Hub between research and execution (D-159)', () => {
+    const researchMod = '00000000-0000-4000-8000-0000000000h1';
+    const tradingMod = '00000000-0000-4000-8000-0000000000h2';
+    const hubMod = '00000000-0000-4000-8000-0000000000h3';
+    const researchEng = '00000000-0000-4000-8000-00000000e0r1';
+    const modules = [
+      { ...mkModule(researchMod, 'research'), engineInstanceId: researchEng },
+      { ...mkModule(tradingMod, 'trading'), engineInstanceId: engineId },
+      {
+        ...mkModule(hubMod, 'library'),
+        engineInstanceId: null,
+        position: { x: 0, y: 0 },
+      },
+    ];
+    const result = layoutCanvas(
+      [
+        {
+          id: engineId,
+          memberModuleIds: [tradingMod],
+          templateId: 'engine_day_trading',
+          dataHubModuleId: hubMod,
+        },
+        {
+          id: researchEng,
+          memberModuleIds: [researchMod],
+          templateId: 'research_market_regime_lab',
+        },
+      ],
+      modules,
+      [],
+      ENGINE_GROUP_PADDING,
+    );
+    const exec = result.engines.find((e) => e.id === engineId)!;
+    const research = result.engines.find((e) => e.id === researchEng)!;
+    const hubPos = result.modules.find((m) => m.id === hubMod)!.canvasPosition;
+    expect(hubPos.x).toBeGreaterThanOrEqual(research.canvasBounds.x);
+    expect(hubPos.x + CANVAS_LAYOUT.moduleWidth).toBeLessThanOrEqual(
+      exec.canvasBounds.x + exec.canvasBounds.width,
+    );
+    expect(hubPos.x).toBeLessThan(exec.canvasBounds.x);
+  });
+
+  it('places the next execution engine origin below occupied envelopes (D-159)', () => {
     const first = { x: 40, y: 40, width: 800, height: 600 };
     const size = { width: 700, height: 500 };
-    const origin = placeNextEngineOrigin([first], size);
+    const origin = placeNextEngineOrigin([first], size, { section: 'execution' });
     expect(rectsOverlap({ ...origin, ...size }, first)).toBe(false);
-    expect(origin.x).toBeGreaterThanOrEqual(first.x + first.width);
-    expect(origin.y).toBe(CANVAS_LAYOUT.originY);
+    expect(origin.y).toBeGreaterThanOrEqual(first.y + first.height);
   });
 
   it('keeps a preferred origin when it already clears occupied engines', () => {

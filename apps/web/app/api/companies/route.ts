@@ -15,6 +15,7 @@ import {
   withDefaultEngineSetup,
   templateInputTargets,
   expandEngineSeedsWithResearchDeps,
+  engineCreateSection,
   type LayoutRect,
 } from '@hftr/contracts';
 import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
@@ -182,16 +183,19 @@ export async function POST(req: Request) {
         width: preview.canvasBounds.width,
         height: preview.canvasBounds.height,
       };
+      const section = engineCreateSection(engine);
       const origin = seed.canvasOffset
         ? placeNextEngineOrigin(occupiedEngineBounds, size, {
             preferred: {
               x: seed.canvasOffset.x,
               y: seed.canvasOffset.y,
             },
+            section,
           })
         : placeNextEngineOrigin(occupiedEngineBounds, size, {
             originX: CANVAS_LAYOUT.originX,
             originY: CANVAS_LAYOUT.originY,
+            section,
           });
       const laid = layoutEngineTemplateAtOrigin(
         engine.modules,

@@ -62,10 +62,11 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 
 - **D-012 (application build session, 2026-07-16):** Fresh Neon project `hftr-v2`
   (bold-surf-86557348, per D-006) created via MCP; migrations applied; XNYS calendar seeded.
-  Dev-only auth bypass added (`DEV_AUTH_BYPASS=1`): active only when Clerk is unconfigured AND
-  NODE_ENV != production; production without Clerk keys fails closed. M1 canvas/CRUD/queue
-  spine implemented and verified against the running app (see m1-sprint-spec §Progress).
-  Clerk dashboard keys remain a user action (OQ-7).
+  **Superseded for runtime connections by D-158** (`calm-bird-16964297`); bold-surf retained
+  as `hftr-v2-backup-quota`. Dev-only auth bypass added (`DEV_AUTH_BYPASS=1`): active only when
+  Clerk is unconfigured AND NODE_ENV != production; production without Clerk keys fails closed.
+  M1 canvas/CRUD/queue spine implemented and verified against the running app (see
+  m1-sprint-spec §Progress). Clerk dashboard keys remain a user action (OQ-7).
 
 - **D-013 (sub-agent orchestration, 2026-07-16):** Cursor workspace rules require parallel
   sub-agent delegation for independent multi-package/domain work. All Cursor sub-agents must
@@ -1494,8 +1495,8 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 
 - **D-140 (Engine Data Hub, 2026-07-18):** Each execution engine owns a first-class shared
   **Engine Data Hub** library (canvas module + `libraries` row). Linked research engines
-  hydrate the hub; in-family libraries nest under it in Library/Data views; query line
-  hub→execution; returns (Policies / History / Notes) execution→hub. Spec:
+  hydrate the hub; in-family libraries nest under it in Library/Data views. **Canvas I/O
+  superseded by D-159** (ENGINE utility + nest parent FK; no hub `module_links`). Spec:
   `docs/superpowers/specs/2026-07-18-engine-data-hub-design.md`. **Status: implemented.**
 
 - **D-141 (galaxy full library articles + live refresh, 2026-07-18):** Graph nests every
@@ -1623,6 +1624,22 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `docs/superpowers/specs/2026-07-18-hft-engine-design.md`. Extends D-153. Docs:
   product-spec presets, canvas-connection-point-audit, engine-node-family-design, REQ-MDL-012.
   **Status: implemented.**
+
+- **D-158 (Neon project cutover, 2026-07-19):** Active Neon project is `hftr-v2`
+  (`calm-bird-16964297`, aws-us-east-2, endpoint `ep-blue-fire-ajk6bglk`). Prior project
+  `bold-surf-86557348` renamed `hftr-v2-backup-quota` and kept as `DATABASE_URL_BACKUP` only.
+  Schema on the new project has 45 Drizzle migrations applied. `DATABASE_URL` migrated for
+  local (`apps/web/.env.local` + worktree), and Vercel project `hftr` Development / Production /
+  Preview. Supersedes the project id recorded in D-012 for runtime connections (D-006 still
+  holds: fresh Neon + clean v2 schema). **Status: implemented.**
+
+- **D-159 (engine vertical families + Data Hub via ENGINE edges, 2026-07-19):** Canvas layout
+  stacks execution families vertically: research deps left → Engine Data Hub in the gap →
+  execution right. Hub↔exec and research↔exec I/O use motherboard `engine_utility_links` only;
+  nest membership stays `parent_hub_library_id` (Library tree). Live canvas rejects
+  cross-engine and hub `module_links`. Create preview mirrors eng→eng + hub→exec bridges.
+  Extends D-140 / D-091. Docs: engine-data-hub-design, canvas-layout-and-dedicated-math-design,
+  canvas-engine-group-design, ui-spec. **Status: implemented.**
 
 ## Open questions
 

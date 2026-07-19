@@ -1,9 +1,11 @@
 'use client';
 
 import { memo } from 'react';
-import { type Node, type NodeProps } from '@xyflow/react';
+import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import {
   engineUtilityBusesForCategory,
+  engineUtilitySourceHandleId,
+  engineUtilityTargetHandleId,
   getEngineTemplateById,
   type EngineUtilityBus,
 } from '@hftr/contracts';
@@ -34,7 +36,9 @@ export const PreviewEngineGroupNode = memo(function PreviewEngineGroupNode({
   const engineVisual = engineVisualForTemplate(data.templateId);
   const template = getEngineTemplateById(data.templateId);
   const utilityBuses = engineUtilityBusesForCategory(template?.category ?? 'research');
-  const inboundBuses = utilityBuses.filter((bus) => bus === 'data_in' || bus === 'clock' || bus === 'funds');
+  const inboundBuses = utilityBuses.filter(
+    (bus) => bus === 'data_in' || bus === 'clock' || bus === 'funds' || bus === 'system_control',
+  );
   const outboundBuses = utilityBuses.filter(
     (bus) => bus === 'data_out' || bus === 'system_control',
   );
@@ -73,28 +77,54 @@ export const PreviewEngineGroupNode = memo(function PreviewEngineGroupNode({
         const top = `${18 + index * 16}%`;
         const nature = NATURE_PORT_VISUALS[BUS_NATURE[bus]];
         return (
-          <span
-            key={`in-${bus}`}
-            className="pointer-events-none absolute -left-[3.6rem] w-[3.4rem] truncate text-right text-[6px]"
-            style={{ top, transform: 'translateY(-50%)', color: nature.color }}
-            aria-hidden
-          >
-            {BUS_LABELS[bus]}
-          </span>
+          <div key={`in-${bus}`}>
+            <Handle
+              id={engineUtilityTargetHandleId(bus)}
+              type="target"
+              position={Position.Left}
+              style={{
+                top,
+                width: 6,
+                height: 6,
+                background: nature.color,
+                border: `1px solid ${nature.color}`,
+              }}
+            />
+            <span
+              className="pointer-events-none absolute -left-[3.6rem] w-[3.4rem] truncate text-right text-[6px]"
+              style={{ top, transform: 'translateY(-50%)', color: nature.color }}
+              aria-hidden
+            >
+              {BUS_LABELS[bus]}
+            </span>
+          </div>
         );
       })}
       {outboundBuses.map((bus, index) => {
         const top = `${22 + index * 18}%`;
         const nature = NATURE_PORT_VISUALS[BUS_NATURE[bus]];
         return (
-          <span
-            key={`out-${bus}`}
-            className="pointer-events-none absolute -right-[3.6rem] w-[3.4rem] truncate text-left text-[6px]"
-            style={{ top, transform: 'translateY(-50%)', color: nature.color }}
-            aria-hidden
-          >
-            {BUS_LABELS[bus]}
-          </span>
+          <div key={`out-${bus}`}>
+            <Handle
+              id={engineUtilitySourceHandleId(bus)}
+              type="source"
+              position={Position.Right}
+              style={{
+                top,
+                width: 6,
+                height: 6,
+                background: nature.color,
+                border: `1px solid ${nature.color}`,
+              }}
+            />
+            <span
+              className="pointer-events-none absolute -right-[3.6rem] w-[3.4rem] truncate text-left text-[6px]"
+              style={{ top, transform: 'translateY(-50%)', color: nature.color }}
+              aria-hidden
+            >
+              {BUS_LABELS[bus]}
+            </span>
+          </div>
         );
       })}
       <div className="flex items-center gap-1 px-2 py-1 pl-3">

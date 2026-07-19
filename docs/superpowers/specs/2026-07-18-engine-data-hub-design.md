@@ -14,22 +14,23 @@ Every **execution** engine instance owns a first-class **Engine Data Hub**: a sh
 |----------|------|
 | Hub module | Canvas `library` with `libraryClass: engine_data_hub`, `engineDataHub: true`; **not** an engine member (`engine_instance_id` null); owned via `libraries.owner_engine_instance_id` |
 | Hub library row | `is_engine_data_hub = true`, `owner_engine_instance_id` set |
-| Nest libraries | Member libraries of the execution engine + linked research engines; `parent_hub_library_id` → hub |
-| Query edge | Hub → trading (or analyzer) `data_feed`, role label **Query** |
-| Hydrate edges | Nest library modules → hub `data_feed`, role **Hydrate** / shelf |
-| Returns edges | Policy / trading / analyzer → hub; labels **Policies** / **History** / **Notes** (nature system via verification or labeled data_feed) |
+| Nest libraries | Member libraries of the execution engine + linked research engines; `parent_hub_library_id` → hub (Library tree only — **no** nest→hub canvas `module_links`) |
+| Engine utility bind (D-159) | Hub → owning execution `data_in` (`from_module_id=hub`, streamDescriptor `Data Hub`) |
+| Research → exec (D-159) | Research eng `data_out` → execution `data_in` (motherboard); family layout stacks research left / hub gap / exec right |
+| Query / returns | Qualitative via hub `targetLibraryIds` + analyzer emit / `mirrorResearchTargetsToHub` — **not** hub↔trading `module_links` |
 
 ## Lifecycle
 
-1. On execution engine insert (company create or `POST …/engines`): create hub module + library row; place left of execution envelope; register nests; wire query/hydrate/returns; add hub id to research `targetLibraryIds`.
+1. On execution engine insert (company create or `POST …/engines`): create hub module + library row; place in the research→exec gap; register nests; bind hub→engine `data_in` utility; add hub id to research `targetLibraryIds`.
 2. When a library module is added under the family: set `parent_hub_library_id`.
 3. On execution engine cascade delete: delete hub module + library (and clear nest parents).
+4. Legacy hub `module_links` are deleted on ensure (heal path).
 
 ## UI
 
 - Libraries dock / Data: hub-rooted tree when engine-scoped; nests as shelves under hub.
-- Canvas: hub between research deps and execution group; shelf input chrome.
-- Create preview: same wiring (replaces fiction-only research↔exec bridges where hub applies).
+- Canvas: hub between research deps and execution group; edges terminate on **engine chrome** (D-159).
+- Create preview: same wiring (eng→eng + hub→exec `data_in`).
 
 ## Safety
 

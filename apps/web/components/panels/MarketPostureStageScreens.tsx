@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
-import type { MarketHubResponse } from '@hftr/contracts';
+import type { MarketHubResponse, MarketHubSynthesisRun } from '@hftr/contracts';
 import { MarketPostureEquityChart } from '@/components/panels/MarketPostureEquityChart';
 import { MarketPostureSourcesStrip } from '@/components/panels/MarketPostureSourcesStrip';
 import { SourceVerifyChips } from '@/components/panels/SourceVerifyChips';
@@ -29,6 +29,10 @@ import {
   MARKET_POSTURE_STAGE_SCREENS,
   type MarketPostureStageScreenId,
 } from '@/lib/market-posture-stage-screens';
+import {
+  buildStageProcessingRows,
+  type StageProcessingRow,
+} from '@/lib/market-posture-stage-processing';
 
 function focusRing(active: boolean): string {
   return active
@@ -82,6 +86,7 @@ function ScreenShell(props: {
   id: MarketPostureStageScreenId;
   label: string;
   summary: string;
+  processingRows: StageProcessingRow[];
   children: ReactNode;
 }) {
   return (
@@ -97,13 +102,63 @@ function ScreenShell(props: {
         </h2>
         <p className="text-[10px] text-[var(--color-ink-faint)]">{props.summary}</p>
       </header>
-      <div className="mx-auto flex max-w-5xl flex-col gap-3">{props.children}</div>
+      <StageProcessingTape rows={props.processingRows} screenId={props.id} />
+      <div className="mx-auto mt-3 flex max-w-5xl flex-col gap-3">{props.children}</div>
     </section>
+  );
+}
+
+function StageProcessingTape(props: {
+  rows: StageProcessingRow[];
+  screenId: MarketPostureStageScreenId;
+}) {
+  return (
+    <div
+      className="rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2"
+      data-testid={`market-posture-stage-tape-${props.screenId}`}
+    >
+      <div className="mb-1.5 flex items-baseline justify-between gap-2">
+        <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--color-ink-faint)]">
+          Processing now
+        </p>
+        <span className="font-mono text-[9px] tabular-nums text-[var(--color-ink-dim)]">
+          {props.rows.length} rows
+        </span>
+      </div>
+      {props.rows.length === 0 ? (
+        <p className="text-[10px] text-[var(--color-ink-faint)]">
+          No live rows for this column yet — Sync or Analyze to hydrate.
+        </p>
+      ) : (
+        <ul className="max-h-36 space-y-1 overflow-y-auto">
+          {props.rows.map((row) => (
+            <li
+              key={row.id}
+              className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_auto] items-baseline gap-1 border-b border-[var(--color-line)] py-0.5 last:border-0"
+            >
+              <span className="truncate text-[11px] text-[var(--color-ink)]" title={row.detail}>
+                {row.label}
+              </span>
+              <span className="truncate font-mono text-[9px] uppercase text-[var(--color-ink-faint)]">
+                {row.operation}
+              </span>
+              <span className="truncate font-mono text-[9px] text-[var(--color-ink-dim)]">
+                {row.amount}
+              </span>
+              <span className="shrink-0 font-mono text-[9px] uppercase text-[var(--color-ink-faint)]">
+                {row.status}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
 export type MarketPostureStageScreensProps = {
   hub: MarketHubResponse;
+  synthesisRun: MarketHubSynthesisRun | null;
   equityLabel: string;
   dayLens: 'both' | 'stock' | 'news';
   setDayLens: (v: 'both' | 'stock' | 'news') => void;
@@ -195,7 +250,17 @@ export function MarketPostureStageScreens(props: MarketPostureStageScreensProps)
         className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain"
       >
         {MARKET_POSTURE_STAGE_SCREENS.map((meta) => (
-          <ScreenShell key={meta.id} id={meta.id} label={meta.label} summary={meta.summary}>
+          <ScreenShell
+            key={meta.id}
+            id={meta.id}
+            label={meta.label}
+            summary={meta.summary}
+            processingRows={buildStageProcessingRows(
+              meta.id,
+              props.hub,
+              props.synthesisRun,
+            )}
+          >
             {renderScreenBody(meta.id, props, mp)}
           </ScreenShell>
         ))}

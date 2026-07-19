@@ -81,6 +81,8 @@ function roleChrome(role: PostureAlgoNodeData['nodeRole']): string {
       return 'border-[var(--color-ok)] bg-[color-mix(in_srgb,var(--color-ok)_6%,var(--color-surface-1))]';
     case 'lane_label':
       return 'border-transparent bg-transparent shadow-none';
+    case 'screen_group':
+      return 'border-[var(--color-line)] bg-[var(--color-surface-1)]/80';
     default: {
       const _exhaustive: never = role;
       return _exhaustive;
@@ -170,6 +172,8 @@ function roleLabel(role: PostureAlgoNodeData['nodeRole']): string {
       return 'PANEL';
     case 'lane_label':
       return 'LANE';
+    case 'screen_group':
+      return 'GROUP';
     default: {
       const _exhaustive: never = role;
       return _exhaustive;
@@ -350,7 +354,7 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
     : activationRing(data.activation);
   return (
     <div
-      className={`min-w-[160px] max-w-[188px] rounded border border-t-[3px] px-2.5 py-2 shadow-sm ${kindBorder(data.kind)} ${
+      className={`min-w-[140px] max-w-[240px] rounded border border-t-[3px] px-1.5 py-1 shadow-sm ${kindBorder(data.kind)} ${
         data.nodeRole === 'process'
           ? processFunctionChrome(data.processFunction)
           : data.nodeRole === 'live_source'
@@ -439,7 +443,35 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
   );
 });
 
-const nodeTypes: NodeTypes = { postureAlgo: PostureAlgoNode };
+const PostureGroupNode = memo(function PostureGroupNode({
+  data,
+}: NodeProps<Node<LiveNodeData>>) {
+  return (
+    <div
+      className={`h-full w-full rounded border border-[var(--color-line)] bg-[color-mix(in_srgb,var(--color-surface-0)_70%,transparent)] ${
+        data.selected ? 'ring-1 ring-[var(--color-accent)]' : ''
+      }`}
+      data-testid="market-posture-model-node-screen_group"
+      data-stage-screen={data.stageScreenId}
+    >
+      <div className="flex items-center justify-between gap-1 border-b border-[var(--color-line)] px-1.5 py-0.5">
+        <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink)]">
+          {data.label}
+        </p>
+        <span className="font-mono text-[8px] tabular-nums text-[var(--color-ink-faint)]">
+          {data.amount}
+        </span>
+      </div>
+      <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !bg-[var(--color-line)]" />
+      <Handle type="source" position={Position.Right} className="!h-1.5 !w-1.5 !bg-[var(--color-line)]" />
+    </div>
+  );
+});
+
+const nodeTypes: NodeTypes = {
+  postureAlgo: PostureAlgoNode,
+  postureGroup: PostureGroupNode,
+};
 
 function InnerCanvas(props: {
   run: MarketHubSynthesisRun | null;
@@ -510,6 +542,13 @@ function InnerCanvas(props: {
         const data = node.data as LiveNodeData;
         if (data.nodeRole === 'lane_label') return;
         props.onSelectNode(node.id);
+        if (data.nodeRole === 'screen_group' && data.stageScreenId) {
+          props.onNavigate?.(
+            node.id,
+            data.stageScreenId as MarketPostureStageScreenId,
+          );
+          return;
+        }
         const screenId = resolveStageScreenId({
           nodeId: node.id,
           nodeRole: data.nodeRole,

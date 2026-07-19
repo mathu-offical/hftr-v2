@@ -30,6 +30,14 @@ import {
   tracksFromCapabilities,
 } from './market-hub-model-availability';
 import { primaryFeedStage } from './market-hub-process-routes';
+import {
+  MARKET_POSTURE_STAGE_SCREENS,
+  resolveStageScreenId,
+  type MarketPostureStageScreenId,
+} from './market-posture-stage-screens';
+
+export { resolveStageScreenId };
+export type { MarketPostureStageScreenId };
 
 export type PostureAlgoNodeRole =
   | 'live_source'
@@ -39,7 +47,9 @@ export type PostureAlgoNodeRole =
   | 'capital_source'
   | 'stage'
   | 'panel_surface'
-  | 'lane_label';
+  | 'lane_label'
+  /** Strip layout section frame (D-186). */
+  | 'screen_group';
 
 export type PostureAlgoNodeData = {
   label: string;
@@ -63,6 +73,8 @@ export type PostureAlgoNodeData = {
   panelKind?: 'rail' | 'overlay' | 'both';
   /** Emphasize amount as capital readout (D-163). */
   capitalBearing?: boolean;
+  /** Owning stage screen when nodeRole is screen_group (D-186). */
+  stageScreenId?: string;
   layer: MarketHubModelLayer;
   track: MarketHubModelTrack;
   activation: MarketHubModelEdgeActivation;
@@ -86,13 +98,20 @@ export type PostureAlgoTrackBand = {
   y: number;
 };
 
+export type PostureAlgoGraphNode = {
+  id: string;
+  type: 'postureAlgo' | 'postureGroup';
+  position: { x: number; y: number };
+  data: PostureAlgoNodeData;
+  parentId?: string;
+  extent?: 'parent';
+  style?: { width: number; height: number };
+  draggable?: boolean;
+  selectable?: boolean;
+};
+
 export type PostureAlgoGraph = {
-  nodes: Array<{
-    id: string;
-    type: 'postureAlgo';
-    position: { x: number; y: number };
-    data: PostureAlgoNodeData;
-  }>;
+  nodes: PostureAlgoGraphNode[];
   edges: Array<{
     id: string;
     source: string;
@@ -1376,23 +1395,107 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
   }));
 
   if (layoutMode === 'stripExpanded') {
-    const sx = 1.35;
-    const sy = 1.22;
-    for (const n of nodes) {
-      n.position.x = Math.round(n.position.x * sx);
-      n.position.y = Math.round(n.position.y * sy);
-    }
-    for (const band of trackBands) {
-      band.y = Math.round(band.y * sy);
-    }
+    return {
+      nodes: applyStripScreenGroups(nodes),
+      edges,
+      tracks,
+      trackBands,
+      asOfIso,
+    };
   }
 
   return { nodes, edges, tracks, trackBands, asOfIso };
 }
 
-/** Re-export stage-screen resolver for Model navigation (D-186). */
-export { resolveStageScreenId } from './market-posture-stage-screens';
-export type { MarketPostureStageScreenId } from './market-posture-stage-screens';
+const STRIP_COL_W = 272;
+const STRIP_NODE_H = 64;
+const STRIP_PAD = 8;
+const STRIP_HEADER = 26;
+
+const STRIP_ROLE_ORDER: Record<PostureAlgoNodeRole, number> = {
+  screen_group: -1,
+  capital_source: 0,
+  library_source: 1,
+  live_source: 2,
+  adapter: 3,
+  process: 4,
+  stage: 5,
+  panel_surface: 6,
+  lane_label: 9,
+};
+
+/**
+ * Pack Model nodes into screen-aligned group columns for the bottom strip (D-186).
+ * Lane labels dropped; children nest under clickable section frames.
+ */
+export function applyStripScreenGroups(
+  nodes: PostureAlgoGraphNode[],
+): PostureAlgoGraphNode[] {
+  const content = nodes.filter((n) => n.data.nodeRole !== 'lane_label');
+  const byScreen = new Map<MarketPostureStageScreenId, PostureAlgoGraphNode[]>();
+  for (const screen of MARKET_POSTURE_STAGE_SCREENS) {
+    byScreen.set(screen.id, []);
+  }
+  for (const n of content) {
+    const sid = resolveStageScreenId({
+      nodeId: n.id,
+      nodeRole: n.data.nodeRole,
+      stageId: n.data.stageId ?? null,
+      panelSurfaceId: n.data.panelSurfaceId ?? null,
+    });
+    byScreen.get(sid)!.push(n);
+  }
+
+  const out: PostureAlgoGraphNode[] = [];
+  MARKET_POSTURE_STAGE_SCREENS.forEach((screen, colIdx) => {
+    const children = [...(byScreen.get(screen.id) ?? [])].sort((a, b) => {
+      const ra = STRIP_ROLE_ORDER[a.data.nodeRole] ?? 5;
+      const rb = STRIP_ROLE_ORDER[b.data.nodeRole] ?? 5;
+      if (ra !== rb) return ra - rb;
+      return a.data.label.localeCompare(b.data.label);
+    });
+    const visible = children.slice(0, 8);
+    const overflow = children.length - visible.length;
+    const innerH = Math.max(visible.length, 1) * STRIP_NODE_H;
+    const height = STRIP_HEADER + STRIP_PAD * 2 + innerH;
+    const groupId = `group:${screen.id}`;
+    out.push({
+      id: groupId,
+      type: 'postureGroup',
+      position: { x: colIdx * STRIP_COL_W, y: 0 },
+      style: { width: STRIP_COL_W - 14, height },
+      draggable: false,
+      selectable: true,
+      data: {
+        label: screen.label,
+        detail: overflow > 0 ? `+${overflow} more · ${screen.summary}` : screen.summary,
+        kind: 'data',
+        nodeRole: 'screen_group',
+        stageScreenId: screen.id,
+        operation: 'section',
+        amount: String(children.length),
+        layer: 'sources',
+        track: 'compose',
+        activation: 'armed',
+        status: 'ready',
+        updatedAt: null,
+      },
+    });
+    visible.forEach((child, i) => {
+      out.push({
+        ...child,
+        parentId: groupId,
+        extent: 'parent',
+        position: {
+          x: STRIP_PAD,
+          y: STRIP_HEADER + STRIP_PAD + i * STRIP_NODE_H,
+        },
+        draggable: false,
+      });
+    });
+  });
+  return out;
+}
 
 /**
  * Collect edge/node ids that changed since the previous snapshot (D-160 / D-161).

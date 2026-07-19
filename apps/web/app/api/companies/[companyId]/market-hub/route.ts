@@ -45,6 +45,7 @@ import {
 import type { MarketHubSymbolViz, QualitativeBand } from '@hftr/contracts';
 import { withAuth } from '@/lib/api';
 import { projectMarketHubCapitalSources } from '@/lib/market-hub-capital';
+import { projectMarketHubModelHydration } from '@/lib/market-hub-model-hydration';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 90;
@@ -895,6 +896,19 @@ export async function GET(_req: Request, ctx: Ctx) {
       if (marketModelAwareness.usedLiveCount > 0) markFeedClass = 'broker_paper';
     }
 
+    const modelHydration = await projectMarketHubModelHydration({
+      db,
+      companyId,
+      availability,
+      contributedKinds,
+      usedLiveMarks: marketModelAwareness.usedLiveCount,
+      syntheticMarks: marketModelAwareness.syntheticCount,
+      moversItemCount: movers.items.length,
+      newsItemCount: news.items.length,
+      watchlistCount: watchlistsWithViz.length,
+      positionCount: positionProjection.length,
+    });
+
     const body = MarketHubResponse.parse({
       sectorFocuses,
       universeExcludes,
@@ -921,6 +935,7 @@ export async function GET(_req: Request, ctx: Ctx) {
       },
       synthesis,
       marketModelAwareness,
+      modelHydration,
       sources: {
         lanes: sourceLanes,
         contributedKinds,

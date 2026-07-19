@@ -16,6 +16,8 @@ import {
   templateInputTargets,
   engineCreateSection,
   researchDependenciesForExecutionEngine,
+  EngineSetupSnapshot,
+  shouldApplyMimicParent,
   type LayoutRect,
   type ModuleType,
 } from '@hftr/contracts';
@@ -26,6 +28,8 @@ import {
   ensureEngineMotherboardUtilities,
   listEngineUtilityLinks,
   ensureEngineDataHub,
+  applyResearchLibraryBindingOnInsert,
+  mimicParentExecutionEnvelope,
   bootstrapCompanyKnowledge,
   reflowCompanyFamilyLayout,
 } from '@hftr/engine';
@@ -197,7 +201,7 @@ export async function POST(req: Request, ctx: Ctx) {
     const canvasBounds = laid.canvasBounds;
     const absolutePositions = laid.modulePositions;
     const cascadeFromCompany = input.cascadeFromCompany !== false;
-    const setup = resolveEngineSetupFromCompany(
+    let setup = resolveEngineSetupFromCompany(
       input.setup,
       {
         sectorFocuses: company.sectorFocuses ?? [],
@@ -205,12 +209,13 @@ export async function POST(req: Request, ctx: Ctx) {
       },
       cascadeFromCompany,
     );
-    const masterTopicSectors = setup.topicSectors ?? [];
-    const setupSnapshot = engineSetupSnapshotFromInput(
+    let masterTopicSectors = setup.topicSectors ?? [];
+    let setupSnapshot = engineSetupSnapshotFromInput(
       setup,
       null,
       input.simulationBinding ? { simulationBinding: input.simulationBinding } : undefined,
     );
+
     const templateInputs = input.inputs ?? {};
 
     const clock = createSystemClock();
@@ -273,6 +278,31 @@ export async function POST(req: Request, ctx: Ctx) {
 
     if (setup) {
       await cascadeEngineSetup(db, companyId, engineRow.id, setup);
+    }
+
+    if (shouldApplyMimicParent(input.simulationBinding)) {
+      const parentId = input.simulationBinding.parentExecutionEngineId!;
+      try {
+        const mimicked = await mimicParentExecutionEnvelope(
+          db,
+          companyId,
+          engineRow.id,
+          parentId,
+          created.map((row) => row.id),
+        );
+        if (mimicked) {
+          setupSnapshot = mimicked.setupSnapshot;
+          masterTopicSectors = mimicked.setupSnapshot.topicSectors;
+          const [updatedEngine] = await db
+            .select()
+            .from(engineInstances)
+            .where(eq(engineInstances.id, engineRow.id))
+            .limit(1);
+          if (updatedEngine) persistedEngine = updatedEngine;
+        }
+      } catch (err) {
+        console.error('mimicParentExecutionEnvelope failed', engineRow.id, err);
+      }
     }
 
     const dedicatedMath = await provisionDedicatedMathTools(
@@ -362,6 +392,22 @@ export async function POST(req: Request, ctx: Ctx) {
     } catch (err) {
       console.error('bootstrapCompanyKnowledge failed on engine create', err);
     }
+
+    if (engineCreateSection(engine) === 'research') {
+      try {
+        await applyResearchLibraryBindingOnInsert(
+          db,
+          companyId,
+          engineRow.id,
+          engine.id,
+          input.researchLibraryBinding,
+          existingEngines,
+        );
+      } catch (err) {
+        console.error('applyResearchLibraryBindingOnInsert failed', engineRow.id, err);
+      }
+    }
+
     const dataHub = await ensureEngineDataHub(db, companyId, engineRow.id);
 
     // D-153: when a research pack lands, re-nest/wire Data Hubs on execution engines that declare it.

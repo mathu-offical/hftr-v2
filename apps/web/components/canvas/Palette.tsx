@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
+  DEFAULT_EXECUTION_SIM_COUNT,
   defaultEngineCapitalEnvelope,
   defaultTargetExitLocal,
   engineCreateSection,
@@ -13,6 +14,7 @@ import {
   type ModuleSetupField,
   type ModuleSetupInput,
   type ModuleType,
+  type ResearchLibraryBinding,
   type SimulationEngineBinding,
   type SimulationPlacement,
 } from '@hftr/contracts';
@@ -198,6 +200,10 @@ export function Palette(props: {
     options?: {
       cascadeFromCompany?: boolean;
       simulationBinding?: SimulationEngineBinding;
+      /** D-189: child sim count when inserting execution (default 2). */
+      simCount?: number;
+      /** D-184 §1: research pack library / hub binding. */
+      researchLibraryBinding?: ResearchLibraryBinding;
     },
   ) => Promise<void>;
   companyDefaults?: CompanyEngineDefaults;
@@ -487,15 +493,24 @@ function EngineConfigForm(props: {
     options?: {
       cascadeFromCompany?: boolean;
       simulationBinding?: SimulationEngineBinding;
+      /** D-189: child sim count when inserting execution (default 2). */
+      simCount?: number;
+      researchLibraryBinding?: ResearchLibraryBinding;
     },
   ) => Promise<void>;
 }) {
   const isSimulation = engineCreateSection(props.engine) === 'simulation';
+  const isExecution = engineCreateSection(props.engine) === 'execution';
+  const isResearch = engineCreateSection(props.engine) === 'research';
   const isAdhocTemplate = props.engine.id === 'sim_adhoc_paper_desk';
+  const [simCountPerExecution, setSimCountPerExecution] = useState(DEFAULT_EXECUTION_SIM_COUNT);
   const [cascadeFromCompany, setCascadeFromCompany] = useState(true);
   const [linkMode, setLinkMode] = useState<'adhoc' | 'linked'>(
     isAdhocTemplate || !isSimulation ? 'adhoc' : 'linked',
   );
+  const [researchBindingMode, setResearchBindingMode] = useState<
+    'create_internal' | 'attach_execution'
+  >(() => ((props.executionEngines?.length ?? 0) > 0 ? 'attach_execution' : 'create_internal'));
   const [parentExecutionId, setParentExecutionId] = useState(
     () => props.executionEngines?.[0]?.id ?? '',
   );
@@ -547,6 +562,7 @@ function EngineConfigForm(props: {
     setError(null);
     try {
       let simulationBinding: SimulationEngineBinding | undefined;
+      let researchLibraryBinding: ResearchLibraryBinding | undefined;
       if (isSimulation) {
         if (linkMode === 'linked') {
           if (!parentExecutionId) {
@@ -564,12 +580,29 @@ function EngineConfigForm(props: {
           simulationBinding = { role: 'adhoc', mimicParent: false };
         }
       }
+      if (isResearch) {
+        if (researchBindingMode === 'attach_execution') {
+          if (!parentExecutionId) {
+            setError('Select a parent execution engine to hydrate its Data Hub.');
+            setBusy(false);
+            return;
+          }
+          researchLibraryBinding = {
+            mode: 'attach_execution',
+            engineInstanceId: parentExecutionId,
+          };
+        } else {
+          researchLibraryBinding = { mode: 'create_internal' };
+        }
+      }
       await props.onInsert(
         values,
         skipSetup ? undefined : moduleSetupInputFromDraft(setupDraft, requiredSetupFields),
         {
           cascadeFromCompany,
           ...(simulationBinding ? { simulationBinding } : {}),
+          ...(isExecution ? { simCount: simCountPerExecution } : {}),
+          ...(researchLibraryBinding ? { researchLibraryBinding } : {}),
         },
       );
     } catch {
@@ -586,6 +619,69 @@ function EngineConfigForm(props: {
           {props.engine.description}
         </p>
       </div>
+      {isExecution && (
+        <label className="flex items-center gap-1.5 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-[10px] text-[var(--color-ink-dim)]">
+          Child sims
+          <select
+            className="rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] px-1 py-0.5 text-[10px] text-[var(--color-ink)]"
+            value={simCountPerExecution}
+            onChange={(event) =>
+              setSimCountPerExecution(Number.parseInt(event.target.value, 10) || 0)
+            }
+            data-testid="palette-sim-count-per-execution"
+          >
+            {[0, 1, 2, 3, 4].map((count) => (
+              <option key={count} value={count}>
+                {count === 0 ? 'none' : count}
+              </option>
+            ))}
+          </select>
+          <span className="text-[var(--color-ink-faint)]">(gate pre + train post by default)</span>
+        </label>
+      )}
+      {isResearch && (props.executionEngines?.length ?? 0) > 0 && (
+        <div className="space-y-2 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-ink-dim)]">
+            Library binding (D-184)
+          </p>
+          <div className="flex flex-wrap gap-2 text-[10px]">
+            <label className="flex items-center gap-1">
+              <input
+                type="radio"
+                name="research-binding-mode"
+                checked={researchBindingMode === 'create_internal'}
+                onChange={() => setResearchBindingMode('create_internal')}
+              />
+              New internal library
+            </label>
+            <label className="flex items-center gap-1">
+              <input
+                type="radio"
+                name="research-binding-mode"
+                checked={researchBindingMode === 'attach_execution'}
+                onChange={() => setResearchBindingMode('attach_execution')}
+              />
+              Attach to execution hub
+            </label>
+          </div>
+          {researchBindingMode === 'attach_execution' && (
+            <label className="block space-y-1">
+              <span className="text-[10px] text-[var(--color-ink-dim)]">Parent execution</span>
+              <select
+                className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2 py-1 text-xs"
+                value={parentExecutionId}
+                onChange={(event) => setParentExecutionId(event.target.value)}
+              >
+                {(props.executionEngines ?? []).map((engine) => (
+                  <option key={engine.id} value={engine.id}>
+                    {engine.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+      )}
       {isSimulation && (
         <div className="space-y-2 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5">
           <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-ink-dim)]">

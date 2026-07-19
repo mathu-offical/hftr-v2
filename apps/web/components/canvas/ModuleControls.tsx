@@ -978,11 +978,17 @@ interface LibraryConfig {
   topicScope: string;
   masterLibrary: boolean;
   libraryClass: string;
+  ownerEngineInstanceId?: string | null;
+  nestedModuleIds?: string[];
+  engineDataHub?: boolean;
 }
 
 const DEFAULT_LIBRARY_CONFIG: Omit<LibraryConfig, 'topicScope'> = {
   masterLibrary: false,
   libraryClass: 'topic_runtime',
+  ownerEngineInstanceId: null,
+  nestedModuleIds: [],
+  engineDataHub: false,
 };
 
 const LIBRARY_CLASS_OPTIONS = [
@@ -993,6 +999,7 @@ const LIBRARY_CLASS_OPTIONS = [
   { value: 'runtime_app_logs', label: 'Runtime app logs' },
   { value: 'specialty_evidence', label: 'Specialty evidence' },
   { value: 'master_graph', label: 'Master graph' },
+  { value: 'engine_data_hub', label: 'Engine data hub' },
 ] as const;
 
 export function LibraryConfigForm(props: { companyId: string; moduleId: string }) {
@@ -1067,12 +1074,19 @@ export function LibraryConfigForm(props: { companyId: string; moduleId: string }
           ))}
         </select>
       </label>
+      {(config.libraryClass === 'engine_data_hub' || config.engineDataHub) && (
+        <div className="space-y-1 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-[10px] text-[var(--color-ink-dim)]">
+          <p className="font-medium uppercase tracking-wider">Engine Data Hub (D-140)</p>
+          <p className="truncate font-mono text-[9px] text-[var(--color-ink-faint)]">
+            Owner: {config.ownerEngineInstanceId ?? '—'}
+          </p>
+          <p>Nested modules: {(config.nestedModuleIds ?? []).length}</p>
+        </div>
+      )}
       {message && <p className="text-xs text-[var(--color-block)]">{message}</p>}
     </div>
   );
 }
-
-interface MathConfig {
   mathType: string;
 }
 
@@ -1620,6 +1634,10 @@ interface LiveApiConfig {
   instruments: string[];
   feedClass: string;
   pollSeconds: number;
+  outputWidgetKinds: string[];
+  queryPolicy: string;
+  staticQuery: string;
+  schedulePolicy: string;
 }
 
 const DEFAULT_LIVE_API_CONFIG: LiveApiConfig = {
@@ -1628,6 +1646,10 @@ const DEFAULT_LIVE_API_CONFIG: LiveApiConfig = {
   instruments: [],
   feedClass: 'iex_free',
   pollSeconds: 60,
+  outputWidgetKinds: ['generic'],
+  queryPolicy: 'static_only',
+  staticQuery: '',
+  schedulePolicy: 'module_poll',
 };
 
 const LIVE_VENUE_OPTIONS = [
@@ -1798,6 +1820,71 @@ export function LiveApiConfigForm(props: { companyId: string; moduleId: string }
             })
           }
           onBlur={() => void saveConfig(config)}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Query policy (D-184)</span>
+        <select
+          value={config.queryPolicy}
+          disabled={saving}
+          onChange={(e) => void saveConfig({ ...config, queryPolicy: e.target.value })}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          <option value="static_only">Static only</option>
+          <option value="upstream_then_static">Upstream then static</option>
+          <option value="upstream_or_null">Upstream or null</option>
+          <option value="static_prefer_upstream">Static prefer upstream</option>
+        </select>
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Static query</span>
+        <input
+          type="text"
+          value={config.staticQuery}
+          disabled={saving}
+          onChange={(e) => setConfig({ ...config, staticQuery: e.target.value })}
+          onBlur={() => void saveConfig(config)}
+          placeholder="Operator query text (no raw financial numbers)"
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Schedule policy</span>
+        <select
+          value={config.schedulePolicy}
+          disabled={saving}
+          onChange={(e) => void saveConfig({ ...config, schedulePolicy: e.target.value })}
+          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+        >
+          <option value="module_poll">Module poll</option>
+          <option value="clock_bound">Clock bound</option>
+          <option value="manual">Manual</option>
+        </select>
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[11px] text-[var(--color-ink-dim)]">Output widget kinds</span>
+        <input
+          type="text"
+          value={config.outputWidgetKinds.join(', ')}
+          disabled={saving}
+          onChange={(e) =>
+            setConfig({
+              ...config,
+              outputWidgetKinds: e.target.value
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean),
+            })
+          }
+          onBlur={() =>
+            void saveConfig({
+              ...config,
+              outputWidgetKinds:
+                config.outputWidgetKinds.length > 0 ? config.outputWidgetKinds : ['generic'],
+            })
+          }
+          placeholder="headline, series, generic"
           className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
         />
       </label>

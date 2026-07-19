@@ -23,6 +23,7 @@ import {
   type EngineTemplate,
   type ModuleSetupField,
   type ModuleType,
+  type ResearchLibraryBinding,
   type SectorFocusGroupId,
   type SimulationPlacement,
 } from '@hftr/contracts';
@@ -96,6 +97,8 @@ type EngineSeed = {
   /** D-189: linked simulation placement (pre=gate, post=training). */
   simulationPlacement?: SimulationPlacement;
   simulationRole?: 'gate' | 'training' | 'adhoc';
+  /** D-184 §1: auto research deps attach to parent exec hub after insert. */
+  researchLibraryBinding?: ResearchLibraryBinding;
 };
 
 type ModuleSeed = {
@@ -352,6 +355,7 @@ export function CreateCompanyForm() {
           autoDependency: true,
           cascadedFromKey: execKey,
           draft: { ...execSeed.draft },
+          researchLibraryBinding: { mode: 'attach_execution' },
         });
         if (!dep) continue;
         next.push(dep);
@@ -540,6 +544,9 @@ export function CreateCompanyForm() {
             ? { simulationPlacement: item.simulationPlacement }
             : {}),
           ...(item.simulationRole ? { simulationRole: item.simulationRole } : {}),
+          ...(item.researchLibraryBinding
+            ? { researchLibraryBinding: item.researchLibraryBinding }
+            : {}),
         };
       });
 

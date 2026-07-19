@@ -24,7 +24,7 @@ import {
 } from '@hftr/contracts';
 import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
-import { bootstrapCompanyKnowledge, createSystemClock, loadSessionConstraints, resolveCompanyServiceBindings, ensureEngineMotherboardUtilities, ensureEngineDataHub, reflowCompanyFamilyLayout } from '@hftr/engine';
+import { bootstrapCompanyKnowledge, createSystemClock, loadSessionConstraints, resolveCompanyServiceBindings, ensureEngineMotherboardUtilities, ensureEngineDataHub, applyResearchLibraryBindingOnInsert, reflowCompanyFamilyLayout } from '@hftr/engine';
 import { provisionEngineTimeHub } from '@/lib/time-provision';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import {
@@ -494,6 +494,31 @@ export async function POST(req: Request) {
       await bootstrapCompanyKnowledge({ db, companyId: company.id });
     } catch (err) {
       console.error('bootstrapCompanyKnowledge failed on company create', err);
+    }
+
+    // D-184 §1: research pack library/hub binding after internal library rows exist.
+    for (let engineIndex = 0; engineIndex < engineSeeds.length; engineIndex += 1) {
+      const seed = engineSeeds[engineIndex]!;
+      const engineId = createdEngineIds[engineIndex];
+      if (!engineId) continue;
+      const template = engineCatalog.find((item) => item.id === seed.templateId);
+      if (!template || engineCreateSection(template) !== 'research') continue;
+      const priorEngines = createdEngineIds.map((id, index) => ({
+        id,
+        templateId: engineSeeds[index]!.templateId,
+      }));
+      try {
+        await applyResearchLibraryBindingOnInsert(
+          db,
+          company.id,
+          engineId,
+          seed.templateId,
+          seed.researchLibraryBinding,
+          priorEngines,
+        );
+      } catch (err) {
+        console.error('applyResearchLibraryBindingOnInsert failed on company create', engineId, err);
+      }
     }
 
     // D-140: provision Engine Data Hubs after library rows exist so nests resolve.

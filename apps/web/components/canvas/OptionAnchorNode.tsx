@@ -15,6 +15,8 @@ export type OptionAnchorNodeData = Pick<
   position?: OptionAnchorPosition;
   /** React Flow parent relationship — positioning handled by parent group. */
   parentId?: string | null;
+  /** Dock was clamped into free column — skip owner→root option_bind. */
+  suppressOwnerBind?: boolean;
 };
 
 export type OptionAnchorFlowNode = Node<OptionAnchorNodeData, 'optionAnchor'>;

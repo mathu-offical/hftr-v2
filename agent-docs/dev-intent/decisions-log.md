@@ -1937,7 +1937,8 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   resolve owners from `templateInput.target.moduleIndex` (e.g. `focus` → trend member).
   Extends D-043 / D-140 / D-159 / D-180 / D-184 / D-189. Spec alignment: engine full
   refinement plan. Docs: canvas-engine-group-design, engine-node-family-design.
-  **Status: implementing.**
+  **Status: implemented** (anchors ownership, templates dual-path labels, research↔hub
+  binding, sim family pre/post layout, mimicParent, live_api query/schedule/widgets).
 
 ## Open questions
 

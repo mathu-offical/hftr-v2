@@ -1488,6 +1488,9 @@ export function CompanyCanvas(props: {
         memberModuleIds: n.data.memberModuleIds,
         templateId: n.data.templateId,
         dataHubModuleId: resolveDataHubModuleId(n.id, workingNodes),
+        ...(n.data.setupSnapshot?.simulationBinding
+          ? { simulationBinding: n.data.setupSnapshot.simulationBinding }
+          : {}),
       })),
       gatherLayoutModules(workingNodes),
       gatherLayoutLinks(workingEdges),
@@ -2338,38 +2341,54 @@ export function CompanyCanvas(props: {
       options?: {
         cascadeFromCompany?: boolean;
         simulationBinding?: import('@hftr/contracts').SimulationEngineBinding;
+        simCount?: number;
+        researchLibraryBinding?: import('@hftr/contracts').ResearchLibraryBinding;
       },
     ) => {
       const cascadeFromCompany = options?.cascadeFromCompany !== false;
       const present = new Set(
         nodes.filter(isEngineGroupNode).map((node) => node.data.templateId),
       );
+      const researchDepTemplates: EngineTemplate[] = [];
       const queue: Array<{
         template: EngineTemplate;
         inputs: Record<string, string>;
         simulationBinding?: import('@hftr/contracts').SimulationEngineBinding;
+        researchLibraryBinding?: import('@hftr/contracts').ResearchLibraryBinding;
       }> = [];
       if (engineCreateSection(engine) === 'execution') {
         for (const depId of researchDependenciesForExecutionEngine(engine.id)) {
           if (present.has(depId)) continue;
           const dep = ENGINE_TEMPLATES.find((item) => item.id === depId);
           if (!dep?.available) continue;
-          queue.push({ template: dep, inputs: {} });
+          researchDepTemplates.push(dep);
           present.add(depId);
         }
+        queue.push({
+          template: engine,
+          inputs,
+          ...(options?.simulationBinding
+            ? { simulationBinding: options.simulationBinding }
+            : {}),
+        });
+      } else {
+        queue.push({
+          template: engine,
+          inputs,
+          ...(options?.simulationBinding
+            ? { simulationBinding: options.simulationBinding }
+            : {}),
+          ...(options?.researchLibraryBinding
+            ? { researchLibraryBinding: options.researchLibraryBinding }
+            : {}),
+        });
       }
-      queue.push({
-        template: engine,
-        inputs,
-        ...(options?.simulationBinding
-          ? { simulationBinding: options.simulationBinding }
-          : {}),
-      });
 
       // After the parent exec is inserted, child sims are queued with its id.
+      const executionSimCount = options?.simCount ?? DEFAULT_EXECUTION_SIM_COUNT;
       const pendingSimDeps =
         engineCreateSection(engine) === 'execution'
-          ? simDependenciesForExecutionEngine(engine.id, DEFAULT_EXECUTION_SIM_COUNT).filter(
+          ? simDependenciesForExecutionEngine(engine.id, executionSimCount).filter(
               (dep) => {
                 if (present.has(dep.templateId)) return false;
                 const depTemplate = ENGINE_TEMPLATES.find((item) => item.id === dep.templateId);
@@ -2473,6 +2492,9 @@ export function CompanyCanvas(props: {
               ...(item.simulationBinding
                 ? { simulationBinding: item.simulationBinding }
                 : {}),
+              ...(item.researchLibraryBinding
+                ? { researchLibraryBinding: item.researchLibraryBinding }
+                : {}),
             },
           });
 
@@ -2537,6 +2559,149 @@ export function CompanyCanvas(props: {
             workingNodes = applyLayoutToNodes(workingNodes, response.familyLayout);
           }
           workingEdges = mergeUtilityEdgesFromNodes(allEdges, workingNodes);
+        }
+
+        if (insertedExecutionId && researchDepTemplates.length > 0) {
+          for (const depTemplate of researchDepTemplates) {
+            const occupied = workingNodes.filter(isEngineGroupNode).map(engineBounds);
+            const templatePositions = depTemplate.modules.map((module) => module.position);
+            const relativeBounds = computeEngineBoundsFromPositions(templatePositions);
+            const execNode = workingNodes.find(
+              (n): n is EngineGroupFlowNode =>
+                isEngineGroupNode(n) && n.id === insertedExecutionId,
+            );
+            const origin = placeNextEngineOrigin(occupied, relativeBounds, {
+              originX: CANVAS_LAYOUT.originX,
+              originY: CANVAS_LAYOUT.originY,
+              section: 'research',
+              ...(execNode ? { familyAnchor: engineBounds(execNode) } : {}),
+            });
+            const { offset } = engineCanvasOffsetForOrigin(
+              templatePositions,
+              origin,
+              ENGINE_GROUP_PADDING,
+            );
+            const depResponse = await api<{
+              engine: {
+                id: string;
+                templateId: string;
+                label: string;
+                masterTopicSectors: string[];
+                capitalAllocationRef?: string | null;
+                targetExitRef?: string | null;
+                setupSnapshot?: CanvasEngineGroup['setupSnapshot'];
+                templateInputs?: Record<string, string>;
+                canvasBounds: { x: number; y: number; width: number; height: number } | null;
+                memberModuleIds: string[];
+              };
+              modules: Array<{
+                id: string;
+                type: ModuleType;
+                name: string;
+                generatedNameBase: string;
+                nameCustomized: boolean;
+                status: ModuleStatus;
+                canvasPosition: { x: number; y: number } | null;
+                topicSectors: string[];
+                topicSectorsOverridden?: boolean;
+                capitalAllocationRef?: string | null;
+                targetExitRef?: string | null;
+                config: unknown;
+                engineInstanceId: string | null;
+              }>;
+              links: Array<{
+                id: string;
+                fromModuleId: string;
+                toModuleId: string;
+                linkKind: LinkKind;
+              }>;
+              familyLayout?: {
+                modules: Array<{ id: string; canvasPosition: { x: number; y: number } }>;
+                engines: Array<{
+                  id: string;
+                  canvasBounds: { x: number; y: number; width: number; height: number };
+                }>;
+              } | null;
+              utilityLinks?: Array<{
+                id: string;
+                toEngineId: string;
+                bus: EngineUtilityBus;
+                fromEngineId?: string | null;
+                fromModuleId?: string | null;
+                streamId?: string | null;
+                streamDescriptor?: string | null;
+              }>;
+            }>(`/api/companies/${props.companyId}/engines`, {
+              method: 'POST',
+              body: {
+                templateId: depTemplate.id,
+                inputs: {},
+                setup,
+                cascadeFromCompany,
+                canvasOffset: offset,
+                researchLibraryBinding: {
+                  mode: 'attach_execution',
+                  engineInstanceId: insertedExecutionId,
+                },
+              },
+            });
+            insertedLabels.push(depResponse.engine.label);
+            const depBounds =
+              depResponse.engine.canvasBounds ??
+              computeEngineBoundsFromPositions(
+                depResponse.modules
+                  .filter(
+                    (m) => m.engineInstanceId === depResponse.engine.id && m.type !== 'math',
+                  )
+                  .map((m) => (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number }),
+              );
+            const utilityLinks = (depResponse.utilityLinks ?? []).map((link) => ({
+              ...link,
+              toEngineId: link.toEngineId,
+            }));
+            const newModuleEdges = depResponse.links.map((l) => toEdge(l));
+            const insertedNodes = buildInitialGraph(
+              depResponse.modules.map((row) =>
+                moduleRowToCanvas({
+                  ...row,
+                  capitalAllocationRef: row.capitalAllocationRef ?? null,
+                  targetExitRef: row.targetExitRef ?? null,
+                  toolOwnerModuleId: null,
+                  topicSectorsOverridden: row.topicSectorsOverridden ?? false,
+                  config: (row.config ?? {}) as Record<string, unknown>,
+                }),
+              ),
+              [
+                {
+                  id: depResponse.engine.id,
+                  templateId: depResponse.engine.templateId,
+                  label: depResponse.engine.label,
+                  masterTopicSectors: depResponse.engine.masterTopicSectors,
+                  capitalAllocationRef: depResponse.engine.capitalAllocationRef ?? null,
+                  targetExitRef: depResponse.engine.targetExitRef ?? null,
+                  setupSnapshot: depResponse.engine.setupSnapshot ?? null,
+                  templateInputs: depResponse.engine.templateInputs ?? {},
+                  canvasBounds: depBounds,
+                  memberModuleIds: depResponse.engine.memberModuleIds,
+                  utilityLinks: utilityLinks.filter(
+                    (link) => link.toEngineId === depResponse.engine.id,
+                  ),
+                },
+              ],
+              depResponse.links,
+              props.companyId,
+              stableEngineCallbacks,
+            );
+            const allEdges = [...workingEdges, ...newModuleEdges];
+            workingNodes = applyUtilityLinksToEngineNodes(
+              applyMathAttachments([...workingNodes, ...insertedNodes], allEdges),
+              utilityLinks,
+            );
+            if (depResponse.familyLayout) {
+              workingNodes = applyLayoutToNodes(workingNodes, depResponse.familyLayout);
+            }
+            workingEdges = mergeUtilityEdgesFromNodes(allEdges, workingNodes);
+          }
         }
 
         // D-189: default child sims after parent execution is known.
@@ -2690,6 +2855,9 @@ export function CompanyCanvas(props: {
             memberModuleIds: n.data.memberModuleIds,
             templateId: n.data.templateId,
             dataHubModuleId: resolveDataHubModuleId(n.id, workingNodes),
+            ...(n.data.setupSnapshot?.simulationBinding
+              ? { simulationBinding: n.data.setupSnapshot.simulationBinding }
+              : {}),
           })),
           gatherLayoutModules(workingNodes),
           gatherLayoutLinks(workingEdges),

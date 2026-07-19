@@ -65,6 +65,13 @@ auto-hydration, and inter-engine stream rules.
 ENGINEs keep analyzer on the verification column with `emitMode: verify_loopback` for trading
 loopback.
 
+**Dual research paths (D-191):** execution ENGINEs keep an **inline specialty research** spine
+member at the start of the full spine (`research` → librarian → library → …) for **internal**
+desk gathering. Child research ENGINEs from `EXECUTION_ENGINE_RESEARCH_DEPENDENCIES` are
+separate family deps (left column) whose analyzer emit hydrates the parent **Engine Data Hub**.
+Subtype overlap between inline and child packs is intentional — do not strip inline research
+when refining packs or hub binding (extends D-153 / D-157 / D-184).
+
 **Auto-hydration:** engine insert provisions utility binds, dedicated Math docks, terminal
 analyzer (research), and source-derived library names — idempotent with template insert.
 
@@ -108,6 +115,7 @@ Same Zod / catalog schemas for UI and model tool calls. `enforceScopeStrict` fai
 | `external_filings` | SEC/EDGAR + filings |
 | `external_market_news` | Market/news narrative |
 | `specialty_desk` | Desk-aligned curator |
+| `microstructure_context` | Quote/flow toxicity, imbalance, microstructure narrative (D-157) |
 | `event_catalyst` | Earnings/events/macro |
 | `crypto_onchain_context` | Crypto narrative (not prices) |
 | `prediction_niche` | Prediction niche sources |
@@ -152,13 +160,18 @@ Dedicated Math ownership (D-033) maps owner → preferred `mathType` when provis
 | `sim_adhoc_paper_desk` | adhoc | Standalone paper desk; promotable later via live gates |
 
 Create section: `simulation`. Defaults: execution add seeds two children (overridable).
-Binding: `setup_snapshot.simulationBinding`. Paper/funds_only by default.
+Binding: `setup_snapshot.simulationBinding`. Paper/funds_only by default. Family canvas
+placement (`pre` gate left of exec, `post` training after exec) is target layout under
+D-189 / D-191 refinement.
 
 ## Execution ENGINE specialties (full spine)
 
-Same topology; specialty remaps defaults only:
+Same topology; specialty remaps defaults only. Each execution ENGINE seeds **inline specialty
+research** at spine start **and** (via `EXECUTION_ENGINE_RESEARCH_DEPENDENCIES`) child research
+packs that hydrate the parent Engine Data Hub (D-191 dual path).
 
-`research pack` → libraries → `live_api` → `trend` → `trading` → `policy` + funds via Math + `analyzer`
+`inline research` → librarian → library → `live_api` → `trend` → `trading` → `policy` + funds via Math + `analyzer`
+(+ child research ENGINEs left → hub)
 
 | Specialty | `trading.subtype` | Availability |
 |-----------|-------------------|--------------|
@@ -166,7 +179,7 @@ Same topology; specialty remaps defaults only:
 | crypto | `crypto` | gated on session envelope |
 | prediction | `prediction` | available (live venue gated) |
 | long_term | `long_term` | available (new template) |
-| hft | `hft` | unavailable until latency gates |
+| hft | `hft` | available (paper; `engine_hft` + microstructure lab, D-157) — live fail-closed |
 | custom | `custom` | generator / manual |
 
 ## Research ENGINE specializations

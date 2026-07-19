@@ -31,6 +31,7 @@ const ROOT_KIND_PRIORITY: Record<string, number> = {
   strategy_family: 0,
   trend_posture: 0,
   emit_mode: 0,
+  feed_class: 0,
   template_input: 2,
   philosophy_axis: 3,
 };
@@ -110,6 +111,7 @@ function pushAnchorNode(
   x: number,
   y: number,
   position: OptionAnchorPosition,
+  suppressOwnerBind = false,
 ): void {
   nodes.push({
     id: anchor.id,
@@ -131,6 +133,7 @@ function pushAnchorNode(
       ownerEngineId: anchor.ownerEngineId,
       position,
       parentId: engine.id,
+      ...(suppressOwnerBind ? { suppressOwnerBind: true } : {}),
     },
   });
 }
@@ -212,14 +215,19 @@ export function placeOptionAnchorNodes(
     return (pa?.x ?? 0) - (pb?.x ?? 0);
   });
 
+  /** Roots whose dock was clamped into the free column — skip owner→root binds. */
+  const columnClampedRootIds = new Set<string>();
+
   for (const [ownerId, ownerRoots] of ownerEntries) {
     const owner = memberPos.get(ownerId);
     let dockX = owner
       ? owner.x + CANVAS_LAYOUT.moduleWidth + OPTION_ANCHOR_OWNER_GAP
       : columnX;
+    let clampedToColumn = false;
     // Keep owned docks out of the reserved right column / group edge.
     if (dockX > maxDockX) {
       dockX = columnX;
+      clampedToColumn = true;
     }
     let dockY = Math.max(owner?.y ?? columnY, ownerRowCursor);
     const orderedRoots = [...ownerRoots].sort(
@@ -228,8 +236,9 @@ export function placeOptionAnchorNodes(
     for (const root of orderedRoots) {
       if (placed.has(root.id)) continue;
       placed.add(root.id);
+      if (clampedToColumn) columnClampedRootIds.add(root.id);
       const position = positions[root.id] ?? root.defaultPosition ?? 'typical';
-      pushAnchorNode(nodes, engine, root, dockX, dockY, position);
+      pushAnchorNode(nodes, engine, root, dockX, dockY, position, clampedToColumn);
       dockY += OPTION_ANCHOR_NODE_HEIGHT + OPTION_ANCHOR_GAP;
       dockY = placeTree(root.id, 1, dockX, dockY);
     }
@@ -271,14 +280,20 @@ export function measurePlacedAnchorBottom(nodes: readonly OptionAnchorFlowNode[]
 /** React Flow-only option_bind edges (not persisted as module_links). */
 export function optionBindEdgesForEngine(
   allAnchors: readonly OptionAnchorSpec[],
+  options?: { suppressOwnerBindIds?: ReadonlySet<string> },
 ): Edge[] {
   const visible = canvasVisibleOptionAnchors(allAnchors);
   const visibleIds = new Set(visible.map((anchor) => anchor.id));
+  const suppressOwnerBindIds = options?.suppressOwnerBindIds ?? new Set<string>();
   const edges: Edge[] = [];
   const moduleOutHandle = handleIdForStream('data_feed', 'out');
 
   for (const anchor of visible) {
-    if (anchor.ownerModuleId && !anchor.parentAnchorId) {
+    if (
+      anchor.ownerModuleId &&
+      !anchor.parentAnchorId &&
+      !suppressOwnerBindIds.has(anchor.id)
+    ) {
       edges.push({
         id: `option-bind:${anchor.ownerModuleId}:${anchor.id}`,
         source: anchor.ownerModuleId,
@@ -347,7 +362,10 @@ export function buildOptionAnchorArtifacts(
       relativeFromNodes,
     );
     nodes.push(...placed);
-    edges.push(...optionBindEdgesForEngine(allAnchors));
+    const suppressOwnerBindIds = new Set(
+      placed.filter((node) => node.data.suppressOwnerBind).map((node) => node.id),
+    );
+    edges.push(...optionBindEdgesForEngine(allAnchors, { suppressOwnerBindIds }));
   }
 
   return { nodes, edges, anchorsByEngine };

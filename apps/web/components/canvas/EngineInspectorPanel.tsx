@@ -175,6 +175,38 @@ export function EngineInspectorPanel(props: {
         />
       </label>
 
+      {engine.setupSnapshot?.simulationBinding && (
+        <div className="space-y-1.5 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-ink-dim)]">
+            Simulation binding
+          </p>
+          <dl className="space-y-1 text-[10px] text-[var(--color-ink-dim)]">
+            <div className="flex justify-between gap-2">
+              <dt className="text-[var(--color-ink-faint)]">Role</dt>
+              <dd className="uppercase">{engine.setupSnapshot.simulationBinding.role}</dd>
+            </div>
+            {engine.setupSnapshot.simulationBinding.placement && (
+              <div className="flex justify-between gap-2">
+                <dt className="text-[var(--color-ink-faint)]">Placement</dt>
+                <dd className="uppercase">{engine.setupSnapshot.simulationBinding.placement}</dd>
+              </div>
+            )}
+            {engine.setupSnapshot.simulationBinding.parentExecutionEngineId && (
+              <div className="flex justify-between gap-2">
+                <dt className="text-[var(--color-ink-faint)]">Parent exec</dt>
+                <dd className="truncate font-mono text-[9px]">
+                  {engine.setupSnapshot.simulationBinding.parentExecutionEngineId}
+                </dd>
+              </div>
+            )}
+            <div className="flex justify-between gap-2">
+              <dt className="text-[var(--color-ink-faint)]">Mimic parent</dt>
+              <dd>{engine.setupSnapshot.simulationBinding.mimicParent ? 'yes' : 'no'}</dd>
+            </div>
+          </dl>
+        </div>
+      )}
+
       <div className="space-y-2 border-t border-[var(--color-line)] pt-3">
         <span className="text-xs text-[var(--color-ink-dim)]">Shared setup</span>
         <ModuleSetupFields
@@ -206,6 +238,27 @@ export function EngineInspectorPanel(props: {
               />
             </label>
           ))}
+        </div>
+      )}
+
+      {engine.setupSnapshot?.simulationBinding && (
+        <div className="space-y-1 border-t border-[var(--color-line)] pt-3 text-[10px] text-[var(--color-ink-dim)]">
+          <span className="text-xs text-[var(--color-ink-dim)]">Simulation binding (D-189)</span>
+          <p>
+            Role: {engine.setupSnapshot.simulationBinding.role}
+            {engine.setupSnapshot.simulationBinding.placement
+              ? ` · ${engine.setupSnapshot.simulationBinding.placement}`
+              : ''}
+          </p>
+          {engine.setupSnapshot.simulationBinding.parentExecutionEngineId && (
+            <p className="truncate font-mono text-[9px] text-[var(--color-ink-faint)]">
+              Parent: {engine.setupSnapshot.simulationBinding.parentExecutionEngineId}
+            </p>
+          )}
+          <p>
+            Mimic parent:{' '}
+            {engine.setupSnapshot.simulationBinding.mimicParent ? 'yes' : 'no'}
+          </p>
         </div>
       )}
 

@@ -168,4 +168,139 @@ describe('option-anchor-graph placement (D-180)', () => {
       expect(childEdge?.targetHandle).toBe(OPTION_ANCHOR_HANDLE_IN);
     }
   });
+
+  it('docks focus beside trend on day-trading-shaped engine (D-191)', () => {
+    const execEngine: CanvasEngineGroup = {
+      ...engine,
+      id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      templateId: 'engine_day_trading',
+      label: 'Day desk',
+      canvasBounds: { x: 40, y: 40, width: 1400, height: 900 },
+    };
+    const trendId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    const researchId = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+    const tradeId = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+    const execModules: CanvasModule[] = [
+      {
+        id: researchId,
+        type: 'research',
+        name: 'Desk research',
+        generatedNameBase: 'Desk research',
+        nameCustomized: false,
+        status: 'draft',
+        position: { x: 40 + ENGINE_GROUP_PADDING.left, y: 40 + 120 },
+        topicSectors: [],
+        capitalAllocationRef: null,
+        targetExitRef: null,
+        missingSetupFields: [],
+        engineInstanceId: execEngine.id,
+        toolOwnerModuleId: null,
+        topicSectorsOverridden: false,
+        config: { researchSubtype: 'specialty_desk' },
+      },
+      {
+        id: trendId,
+        type: 'trend',
+        name: 'Trend',
+        generatedNameBase: 'Trend',
+        nameCustomized: false,
+        status: 'draft',
+        position: {
+          x: 40 + ENGINE_GROUP_PADDING.left + 400,
+          y: 40 + 200,
+        },
+        topicSectors: [],
+        capitalAllocationRef: null,
+        targetExitRef: null,
+        missingSetupFields: [],
+        engineInstanceId: execEngine.id,
+        toolOwnerModuleId: null,
+        topicSectorsOverridden: false,
+        config: { trendPosture: 'session_intraday' },
+      },
+      {
+        id: tradeId,
+        type: 'trading',
+        name: 'Trade',
+        generatedNameBase: 'Trade',
+        nameCustomized: false,
+        status: 'draft',
+        position: {
+          x: 40 + ENGINE_GROUP_PADDING.left + 800,
+          y: 40 + 200,
+        },
+        topicSectors: [],
+        capitalAllocationRef: null,
+        targetExitRef: null,
+        missingSetupFields: [],
+        engineInstanceId: execEngine.id,
+        toolOwnerModuleId: null,
+        topicSectorsOverridden: false,
+        config: { strategyFamilies: ['strat-001'] },
+      },
+    ];
+    // Full member list matching template order so focus resolves to trend index 4
+    const fullMembers = [
+      { id: researchId, type: 'research' as const, config: { researchSubtype: 'specialty_desk' } },
+      { id: 'libn', type: 'librarian' as const },
+      { id: 'lib', type: 'library' as const },
+      { id: 'live', type: 'live_api' as const },
+      { id: trendId, type: 'trend' as const },
+      { id: tradeId, type: 'trading' as const, config: { strategyFamilies: ['strat-001'] } },
+      { id: 'hf', type: 'holding_fund' as const },
+      { id: 'fr', type: 'fund_router' as const },
+      { id: 'an', type: 'analyzer' as const },
+      { id: 'pol', type: 'policy' as const },
+    ];
+    const all = buildOptionAnchorsForEngine({
+      engineId: execEngine.id,
+      templateId: execEngine.templateId,
+      members: fullMembers,
+    });
+    const focus = all.find((a) => a.kind === 'template_input' && a.catalogRef === 'focus');
+    expect(focus?.ownerModuleId).toBe(trendId);
+    const modulesForPlace = [
+      ...execModules,
+      ...fullMembers
+        .filter((m) => !execModules.some((e) => e.id === m.id))
+        .map((m, i) => ({
+          id: m.id,
+          type: m.type as CanvasModule['type'],
+          name: m.type,
+          generatedNameBase: m.type,
+          nameCustomized: false,
+          status: 'draft' as const,
+          position: {
+            x: 40 + ENGINE_GROUP_PADDING.left + (i % 3) * 200,
+            y: 40 + 400 + Math.floor(i / 3) * 80,
+          },
+          topicSectors: [],
+          capitalAllocationRef: null,
+          targetExitRef: null,
+          missingSetupFields: [] as string[],
+          engineInstanceId: execEngine.id,
+          toolOwnerModuleId: null,
+          topicSectorsOverridden: false,
+          config: {},
+        })),
+    ];
+    const placed = placeOptionAnchorNodes(
+      execEngine,
+      execEngine.canvasBounds!.width,
+      all,
+      modulesForPlace,
+    );
+    const focusNode = placed.find((n) => n.id === focus!.id);
+    expect(focusNode).toBeTruthy();
+    const trendRelX = ENGINE_GROUP_PADDING.left + 400;
+    const trendRelY = 200;
+    expect(focusNode!.position.x).toBe(
+      trendRelX + CANVAS_LAYOUT.moduleWidth + OPTION_ANCHOR_OWNER_GAP,
+    );
+    // Non-overlap may push below owner Y when earlier owner trees are tall.
+    expect(focusNode!.position.y).toBeGreaterThanOrEqual(trendRelY);
+    const edges = optionBindEdgesForEngine(all);
+    const ownerEdge = edges.find((e) => e.target === focus!.id);
+    expect(ownerEdge?.source).toBe(trendId);
+  });
 });

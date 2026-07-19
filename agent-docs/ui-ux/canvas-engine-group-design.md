@@ -92,17 +92,28 @@ ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles
 - **Family layout (D-159 / D-176):** research deps left → hub gap (340px) → execution right;
   families stack vertically with 140px top-level gutter. Engine right padding 168px reserves
   the option-anchor column so server collision math matches client chrome.
-- **Option anchors (D-173 / D-180):** catalog decision nodes parented under the engine
+- **Dual research paths (D-191):** execution ENGINEs carry **two** research surfaces by design:
+  - **Inline spine** — member `research` (+ librarian → library) at the execution spine start
+    for **internal** desk gathering/processing inside the family (e.g. session `specialty_desk`,
+    HFT `microstructure_context`). Never remove when refining child packs.
+  - **Child research packs** — separate research ENGINEs from
+    `EXECUTION_ENGINE_RESEARCH_DEPENDENCIES` in the left column; analyzer terminus emits enriched
+    articles into the parent **Engine Data Hub** (not a second hub on the pack). Subtype overlap
+    between inline and child packs is intentional.
+- **Option anchors (D-173 / D-180 / D-191):** catalog decision nodes parented under the engine
   group. **Owned** roots dock beside their owner module (research subtype, librarian,
   library class, trend posture, trading family, analyzer emit) with `option_bind` edges
   owner→root→children (handles: module `data_feed-out` → `option-in` → `option-out`).
-  Unowned roots (e.g. philosophy axes) stay in the right column. Owner trees are sorted
-  and non-overlapping; chrome height grows to fit placed trees. Positions re-sync on
+  **`template_input` owners** resolve from `templateInput.target.moduleIndex` on the engine
+  template (e.g. `topicScope` → research member, `focus` → trend member) — not first-of-type
+  heuristics. Unowned roots (e.g. philosophy axes) stay in the right column. Owner trees are
+  sorted and non-overlapping; chrome height grows to fit placed trees. Positions re-sync on
   module drag. Lever bands remain inspector-only.
-- **Simulation ENGINEs (D-189):** create section alongside Research / Execution. Linked
+- **Simulation ENGINEs (D-189 / D-191):** create section alongside Research / Execution. Linked
   children of an execution use `setup_snapshot.simulationBinding` (`pre`=gate /
   `post`=training + parentExecutionEngineId); adhoc sims are standalone paper desks.
-  Execution create defaults to two child sims (overridable).
+  Execution create defaults to two child sims (overridable). **Family placement** (pre gate
+  left of exec, post training after exec) is target layout under D-189/D-191 refinement.
 - **Company → engine cascade (D-176):** canvas insert defaults `cascadeFromCompany` on —
   topic from `sectorFocuses`, capital from paper seed — then engine→member cascade (D-035).
 - **D-089 note:** shared setup + template inputs stay in the **header** as bordered inline fields

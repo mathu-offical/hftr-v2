@@ -8,6 +8,7 @@ post-fill workstream; research-topics also uses D-126), D-129 (POV drain +
 positions/exits), D-134 (control_snapshots + atr_stream maintenance +
 time-spaced child drain), D-135 (heat atr_stream + mid-drain partial traces),
 D-137 (atr credential discovery + drain ledger↔trace),
+D-174 (compile admission cascade + HFT exit profile + DT/HFT sector cohort),
 `product-spec.md` §Trading modules, `data-model.md` jobs,
 `seeded-strategy-catalog.json` bands, `academic-quant-tool-catalog.md`.
 

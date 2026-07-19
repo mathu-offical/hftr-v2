@@ -257,7 +257,39 @@ Scoring: `intent-alignment-scoring.md`
 | System fixes from run | DEV_AUTH_BYPASS `POST /api/queue/drain`; e2e drain-while-poll; Company profile toggle-close before live gate; promote probe in verify script |
 | Not verified | IronBee DevTools MCP unavailable this session |
 
+---
+
+## EXP-2026-07-19-02 — Paper MarketModel live quote teacher (D-171)
+
+| Field | Value |
+|---|---|
+| Status | unit **pass**; API paper-system-verify re-run pending below |
+| Mode | paper only (`funds_only` + `paper_sim`) |
+| Quote source | Prefer Alpaca IEX paper teacher when owner/module/company paper creds exist; else `synthetic_sim` |
+| Venues | `paper_sim` (internal fill; no submitOrder on teacher path) |
+| Hypothesis | Extending D-137 credential discovery to fill/compile/exit marks makes paper fills live-data-aware without elevating routing |
+| Declared intent | Close D-122 gap: default unbound companies priced from live market model when entitled |
+| Observed | `resolveDispatchMarketQuote` unit: owner teacher → `live_market_quote` path; fail-open synthetic; bound adapter skips owner. Honesty tags add `no_queue_position` / `no_market_impact` |
+| Alignment | **aligned** (unit) |
+| Decisions | D-171 (extends D-122 / D-137) |
+
 ### Follow-ups
 - Finish green `paper-loop` + `paper-intent-alignment` e2e
 - IronBee: TradingConfigForm routing mode + broker bind when MCP available
 - After backup quota resets (~2026-08-01), optional `pg_dump`/`pg_restore` if historical rows needed
+- Next realism: fuse canvas `live_api` / Data Hub ValueRef marks into MarketModel candidates; band-catalog slippage / participation impact
+
+---
+
+## EXP-2026-07-19-03 — Sector × day_trading / HFT cohort (D-174)
+
+| Field | Value |
+|---|---|
+| Status | **partial** — DT 4/4 pass; HFT intermittent under disk/server pressure |
+| Mode | paper only (`funds_only`) |
+| Hypothesis | Default engines across Semiconductors / Banks / Consumer discretionary / Industrials admit and fill with correct strategy palettes + throttles |
+| Declared intent | Exercise full promote/trade spine; refine deterministic cascades from findings |
+| Observed | DT desks seeded `strat-001/002/005`, `paper_balanced_general_v1`, paper fills with honesty tags. HFT-SEM fills with `strat-007` + `paper_hft_swarm_v1`. Later HFT cells saw non-fill / Next crash (ECONNREFUSED) under ~100% disk; `company_limit_reached` mitigated by archival |
+| System fixes | `runCompileAdmissionCascade`; HFT exit `subtype` wiring; recovery `strat-*` aliases; HFT paper-first feed; cohort archival helper |
+| Alignment | **aligned** for DT; HFT defaults improved, soak incomplete |
+| Decisions | D-174 |

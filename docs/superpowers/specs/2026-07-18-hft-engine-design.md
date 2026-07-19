@@ -44,7 +44,7 @@ Strict librarian spine; terminal concat → `data_out`.
 | Microstructure Desk Research | `microstructure_context` |
 | Microstructure Evidence Librarian | `librarian_relevance` |
 | Microstructure Evidence Library | `specialty_evidence` |
-| High-cadence Market Feed | Alpaca bars/quotes, `pollSeconds: 5` |
+| High-cadence Market Feed | **Paper-first** `paper_sim` / `synthetic_sim`, `pollSeconds: 5` (Alpaca IEX on bind; D-174) |
 | Microstructure Swarm Scanner | `microstructure_swarm`, maxActiveTrends 24, cadence 5 |
 | Paper HFT Execution | `subtype: hft`, `strat-007`, exitTimelineDays 0, cadenceMinutes 1 |
 | Paper HFT Holding Fund | `allocationPolicyRef: paper_hft_swarm_v1` |

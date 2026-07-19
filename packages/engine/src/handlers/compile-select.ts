@@ -24,10 +24,9 @@ import {
 import { record } from '../calc/store';
 import { resolveAtrCents } from '../calc/resolve-atr';
 import { resolveCompileSizingBudget, resolveEquityCentsForLimits } from '../dispatch/balances';
-import { planChildSlices, normalizeChildSliceFraction } from '../dispatch/child-order-scheduler';
 import { getSyntheticQuote } from '../dispatch/quotes';
-import { getBoundedRangeBand } from '../pipeline/bands';
 import { compileInstruction, resolveEntryQuantity } from '../pipeline/compile';
+import { runCompileAdmissionCascade } from '../pipeline/compile-admission';
 import { mergeCompileSelection, modelBlockReasonToCompile } from '../pipeline/compile-selection';
 import {
   resolveAtrStopMultiplier,
@@ -36,7 +35,6 @@ import {
 } from '../pipeline/lever-resolver';
 import {
   loadCompanyOpenPositionRisksWithAtr,
-  projectHeatAfterEntry,
   sumOpenRiskCents,
 } from '../pipeline/portfolio-heat';
 import {
@@ -45,10 +43,6 @@ import {
   type TrendStrengthBand,
 } from '../pipeline/signal-polarization';
 import { resolvePhilosophyControl } from '../pipeline/philosophy-control';
-import {
-  resolveParticipationValve,
-  resolveUrgencyValve,
-} from '../pipeline/weighted-valves';
 import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
 
@@ -210,13 +204,22 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
   const quote = getSyntheticQuote(tree.symbol, clock);
   const tradingModuleId = payload.targetModuleId ?? payload.moduleId;
   const tradingModuleRows = await db
-    .select({ capitalAllocationRef: modules.capitalAllocationRef })
+    .select({
+      capitalAllocationRef: modules.capitalAllocationRef,
+      config: modules.config,
+    })
     .from(modules)
     .where(
       and(eq(modules.id, tradingModuleId), eq(modules.companyId, payload.companyId)),
     )
     .limit(1);
   const capitalAllocationRef = tradingModuleRows[0]?.capitalAllocationRef ?? null;
+  const tradingSubtype =
+    typeof tradingModuleRows[0]?.config === 'object' &&
+    tradingModuleRows[0]?.config !== null &&
+    'subtype' in (tradingModuleRows[0].config as Record<string, unknown>)
+      ? String((tradingModuleRows[0].config as { subtype?: unknown }).subtype ?? '')
+      : undefined;
   const {
     budgetCents,
     balanceSource,
@@ -319,16 +322,18 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
   const existingOpenRiskCents = sumOpenRiskCents(openRows, atrMultiplier);
   const { equityCents } = await resolveEquityCentsForLimits(db, payload.companyId, budgetCents);
   const heatCapPct = resolvePortfolioHeatCapPct(leverState);
-  const heatProjection = projectHeatAfterEntry({
-    existingOpenRiskCents,
-    entryQty: quantity,
-    entryPriceCents: priceCents,
+  const admission = runCompileAdmissionCascade({
+    quantity,
+    priceCents,
+    atrCents,
     atrMultiplier,
+    existingOpenRiskCents,
     equityCents,
     heatCapPct,
-    entryAtrCents: atrCents,
+    polarizationScore: polarization.score,
+    ...(tradingSubtype ? { tradingSubtype } : {}),
   });
-  if (heatProjection.exceeds) {
+  if (admission.blocked) {
     await db.insert(compileEvents).values({
       companyId: payload.companyId,
       treeId: payload.treeId,
@@ -340,7 +345,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
         treeId: payload.treeId,
         stage: 'execution_agent_compile',
         provider: compileProvider,
-        projectedHeatPct: heatProjection.projectedHeatPct,
+        projectedHeatPct: admission.heatProjection.projectedHeatPct,
         heatCapPct,
         existingOpenRiskCents,
       },
@@ -356,23 +361,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
     return;
   }
 
-  const urgency = resolveUrgencyValve({
-    polarizationScore: polarization.score,
-    recoveryPressure: heatProjection.projectedHeatPct / Math.max(heatCapPct, 1e-9),
-  });
-  const participation = resolveParticipationValve({
-    urgencyWeight: urgency.value,
-  });
-  const childSliceBand = getBoundedRangeBand('child_slice_band');
-  const childSliceFraction = normalizeChildSliceFraction(
-    childSliceBand?.typical ?? 60,
-  );
-  const childPlan = planChildSlices({
-    parentQty: quantity,
-    participationPct: participation.value,
-    urgencyScalar: urgency.value,
-    childSliceFraction,
-  });
+  const { urgency, participation, childPlan } = admission;
 
   const instruction = { ...merged.instruction, quantity };
   const provider =
@@ -386,7 +375,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
     scale: 0,
     valueInt: BigInt(instruction.quantity),
     sourceClass: 'derived',
-    sourceId: `compile:sizing:${payload.leadId}:bps_${merged.adjustedSizingBasisBps}:pol_${polarization.score.toFixed(2)}:atr_risk:heat_${heatProjection.projectedHeatPct.toFixed(2)}:urg_${urgency.value.toFixed(2)}:pov_${participation.value.toFixed(1)}:slices_${childPlan.sliceCount}:${sizingBudgetSource}`,
+    sourceId: `compile:sizing:${payload.leadId}:bps_${merged.adjustedSizingBasisBps}:pol_${polarization.score.toFixed(2)}:atr_risk:heat_${admission.heatProjection.projectedHeatPct.toFixed(2)}:urg_${urgency.value.toFixed(2)}:pov_${participation.value.toFixed(1)}:slices_${childPlan.sliceCount}:${sizingBudgetSource}`,
     ttlMs: 10 * 60_000,
     sanity: { minInt: '1', maxInt: '100', maxAgeMs: null, mustBePositive: true },
     companyId: payload.companyId,
@@ -502,7 +491,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
       urgencyScalar: urgency.value,
       childSlices: childPlan.slices,
       childSliceCount: childPlan.sliceCount,
-      projectedHeatPct: heatProjection.projectedHeatPct,
+      projectedHeatPct: admission.heatProjection.projectedHeatPct,
       atrSource,
       controlSnapshotId,
       controlSnapshotHash,

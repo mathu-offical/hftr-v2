@@ -1747,7 +1747,11 @@
     {
       "id": "rec-006",
       "name": "implementation_shortfall_trajectory_recovery",
-      "appliesTo": ["all_execution_sensitive_families"],
+      "appliesTo": [
+        "all_execution_sensitive_families",
+        "market_making",
+        "strat-007"
+      ],
       "phases": [
         "schedule_deviation_detected",
         "reprice_toward_ac_trajectory",

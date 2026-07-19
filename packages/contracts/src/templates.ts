@@ -177,7 +177,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         name: 'Paper Day-Trade Execution',
         config: {
           subtype: 'day',
-          strategyFamilies: ['strat-001'],
+          strategyFamilies: ['strat-001', 'strat-002', 'strat-005'],
           exitTimelineDays: 1,
           cadenceMinutes: 5,
         },
@@ -408,7 +408,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         name: 'Paper Crypto Execution',
         config: {
           subtype: 'crypto',
-          strategyFamilies: ['strat-001'],
+          strategyFamilies: ['strat-001', 'strat-002', 'strat-005'],
           exitTimelineDays: 3,
           cadenceMinutes: 5,
         },
@@ -1708,9 +1708,11 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         type: 'live_api',
         name: 'High-cadence Market Feed',
         config: {
-          venue: 'alpaca',
+          // Paper-first: synthetic high-cadence feed. Bind Alpaca IEX when operator
+          // elevates executionBinding (D-174). Keeps swarm cadence without live entitlement.
+          venue: 'paper_sim',
           instruments: [],
-          feedClass: 'iex_free',
+          feedClass: 'synthetic_sim',
           pollSeconds: 5,
         },
         position: { x: 460, y: 552 },
@@ -2024,8 +2026,8 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
         name: 'Paper Day-Trade Execution',
         config: {
           subtype: 'day',
-          // strat-001 = opening_range_breakout in the seeded strategy catalog.
-          strategyFamilies: ['strat-001'],
+          // Product-spec day families: ORB + gap-and-go + VWAP reversion (agents pick at compile).
+          strategyFamilies: ['strat-001', 'strat-002', 'strat-005'],
           exitTimelineDays: 1,
           cadenceMinutes: 5,
         },

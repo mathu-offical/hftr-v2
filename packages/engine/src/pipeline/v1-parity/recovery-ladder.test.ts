@@ -25,7 +25,14 @@ describe('v1-parity recovery ladders', () => {
     }
   });
 
-  it.each(FAMILY_TO_TEMPLATE)('recoveryTemplateForFamily(%s) → %s', (family, expectedId) => {
+  it.each([
+    ...FAMILY_TO_TEMPLATE,
+    ['strat-001', 'rec-002'],
+    ['strat-002', 'rec-002'],
+    ['strat-005', 'rec-003'],
+    ['strat-007', 'rec-006'],
+    ['market_making', 'rec-006'],
+  ] as [string, string][])('recoveryTemplateForFamily(%s) → %s', (family, expectedId) => {
     expect(recoveryTemplateForFamily(family)).toBe(expectedId);
   });
 

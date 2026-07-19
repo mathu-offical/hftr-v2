@@ -187,8 +187,46 @@ describe('resolvePositionExitReason', () => {
     ).toBeNull();
   });
 
-  it('returns null when quote mark is missing', () => {
-    expect(resolvePositionExitReason({ ...base, markCents: null })).toBeNull();
+  it('uses higher net edge floor when hftOriented', () => {
+    // day floor ~34¢; hft net 40bps → floor ~49¢ on 10000
+    expect(measurableGainFloorCents(10_000, 40)).toBeGreaterThan(
+      measurableGainFloorCents(10_000),
+    );
+    expect(
+      resolvePositionExitReason({
+        ...base,
+        catalogExitsEnabled: true,
+        hftOriented: true,
+        markCents: 10_040,
+      }),
+    ).toBeNull();
+    expect(
+      resolvePositionExitReason({
+        ...base,
+        catalogExitsEnabled: true,
+        hftOriented: true,
+        markCents: 10_049,
+      }),
+    ).toBe('measurable_gain_take');
+  });
+
+  it('uses shorter time_stop when holdMinutesTypical is HFT-scaled', () => {
+    expect(
+      resolvePositionExitReason({
+        ...base,
+        catalogExitsEnabled: false,
+        holdMinutesTypical: 10,
+        nowMs: base.openedAtMs + 10 * 60_000,
+      }),
+    ).toBe('time_stop');
+    expect(
+      resolvePositionExitReason({
+        ...base,
+        catalogExitsEnabled: false,
+        holdMinutesTypical: 10,
+        nowMs: base.openedAtMs + 9 * 60_000,
+      }),
+    ).toBeNull();
   });
 
   it('prefers atr_stop over breakeven when catalog exits enabled', () => {

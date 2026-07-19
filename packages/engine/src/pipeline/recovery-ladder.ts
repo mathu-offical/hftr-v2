@@ -1,4 +1,5 @@
 import seededStrategyCatalog from '../../../db/src/seed/catalogs/seeded-strategy-catalog.json';
+import { resolveStrategyFamilyForRecovery } from './strategy-family-aliases';
 
 /**
  * Recovery ladder template lookup (v1 parity, catalog-backed).
@@ -39,10 +40,23 @@ export function loadRecoveryLadderTemplates(): ReadonlyMap<string, RecoveryLadde
   return cachedTemplates;
 }
 
-/** Pick the recovery-ladder template id grounded to a strategy family. */
+/**
+ * Pick the recovery-ladder template id grounded to a strategy family.
+ * Accepts catalog names (`opening_range_breakout`) or seeded ids (`strat-001`).
+ * Microstructure / market_making → rec-006 (IS trajectory); other families prefer
+ * specific ladders; unknown → rec-001.
+ */
 export function recoveryTemplateForFamily(family: string): string {
+  const resolved = resolveStrategyFamilyForRecovery(family);
+  if (resolved === 'market_making' || family === 'strat-007') {
+    return 'rec-006';
+  }
+
   for (const tpl of loadRecoveryLadderTemplates().values()) {
-    if (tpl.appliesTo.includes(family)) return tpl.id;
+    if (tpl.id === 'rec-001' || tpl.id === 'rec-006') continue;
+    if (tpl.appliesTo.includes(resolved) || tpl.appliesTo.includes(family)) {
+      return tpl.id;
+    }
   }
   return 'rec-001';
 }

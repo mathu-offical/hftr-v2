@@ -587,6 +587,17 @@ export {
   type RefreshAtrStreamDeps,
   type AlpacaPaperCredentials,
 } from './calc/refresh-atr-stream';
+export {
+  runCompileAdmissionCascade,
+  childSliceFractionForSubtype,
+  type CompileAdmissionInput,
+  type CompileAdmissionResult,
+  type TradingSubtype,
+} from './pipeline/compile-admission';
+export {
+  STRATEGY_FAMILY_ALIASES,
+  resolveStrategyFamilyForRecovery,
+} from './pipeline/strategy-family-aliases';
 export { planChildSlices, normalizeChildSliceFraction } from './dispatch/child-order-scheduler';
 export {
   materializeChildSliceFills,

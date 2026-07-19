@@ -14,7 +14,7 @@ import {
 import { resolveTrailMultiplier } from '../pipeline/lever-resolver';
 import { enqueue } from '../queue/queue';
 import { resolveAtrCents } from '../calc/resolve-atr';
-import { resolveMarketQuoteWithAdapter } from '../paper/market-model';
+import { resolveDispatchMarketQuote } from '../paper/market-model';
 import { resolveExecutionContext } from './execution-context';
 
 /**
@@ -43,6 +43,9 @@ export interface PositionExitSignal {
   avgCostCents: number;
   markCents: number;
   reason: PositionExitReason;
+  /** MarketModel provenance for the exit mark (D-171). */
+  markSourceClass: 'broker_state' | 'live_feed' | 'synthetic_sim';
+  markFeedClass: string;
 }
 
 const VERIFICATION_SCHEMA_VERSION = 'trade_verify_v1';
@@ -63,6 +66,8 @@ const SYNTHETIC_ATR_BPS = 50;
 const MEASURABLE_GAIN_NET_BPS = 25;
 /** Extra net edge for high-frequency-oriented / short-horizon takes. */
 const HFT_MEASURABLE_GAIN_NET_BPS = 40;
+/** Catalog time_stop is 60m; HFT subtype uses a shorter retail-API horizon. */
+const HFT_TIME_STOP_TYPICAL_MINUTES = 10;
 /** Synthetic paper round-trip fee proxy (commission+fees), bps of notional. */
 const PAPER_ROUND_TRIP_FEE_BPS = 5;
 /** Half-spread proxy matching synthetic quote model (2 bps of mid, min 1¢). */
@@ -338,6 +343,8 @@ export function resolvePositionExitReason(args: {
   trailMultiplier?: number;
   /** When true, use higher net edge (HFT-oriented turnover tax). */
   hftOriented?: boolean;
+  /** Override catalog time_stop typical minutes (HFT subtype uses shorter hold). */
+  holdMinutesTypical?: number;
   /** Resolved ATR cents (atr_stream / bars / synthetic via resolveAtrCents). */
   atrCents?: number;
 }): PositionExitReason | null {
@@ -419,7 +426,11 @@ export function resolvePositionExitReason(args: {
   }
   if (
     args.timeStopEnabled !== false &&
-    shouldExitTimeStop(args.openedAtMs, args.nowMs)
+    shouldExitTimeStop(
+      args.openedAtMs,
+      args.nowMs,
+      args.holdMinutesTypical ?? getTimeStopTypicalMinutes(),
+    )
   ) {
     return 'time_stop';
   }
@@ -546,8 +557,6 @@ export async function scanPositionExitSignals(
   const session = await getSession(db, 'XNYS', venueDate(nowMs, 'America/New_York'));
   const phase = sessionPhase(session, nowMs);
   const trailMultiplier = opts?.trailMultiplier ?? resolveTrailMultiplier(null);
-  const hftOriented =
-    opts?.hftOriented === true || getTimeStopTypicalMinutes() <= 15;
   const rows = await db
     .select({
       moduleId: positions.moduleId,
@@ -557,6 +566,7 @@ export async function scanPositionExitSignals(
       openedAt: positions.createdAt,
       moduleTargetExitRef: modules.targetExitRef,
       engineTargetExitRef: engineInstances.targetExitRef,
+      moduleConfig: modules.config,
     })
     .from(positions)
     .innerJoin(modules, eq(positions.moduleId, modules.id))
@@ -577,9 +587,21 @@ export async function scanPositionExitSignals(
   for (const row of rows) {
     if (row.qty <= 0n) continue;
 
-    const market = await resolveMarketQuoteWithAdapter({
-      symbol: row.symbol,
+    const moduleHft =
+      typeof row.moduleConfig === 'object' &&
+      row.moduleConfig !== null &&
+      (row.moduleConfig as { subtype?: unknown }).subtype === 'hft';
+    const hftOriented =
+      opts?.hftOriented === true || moduleHft || getTimeStopTypicalMinutes() <= 15;
+    const holdMinutesTypical = hftOriented
+      ? HFT_TIME_STOP_TYPICAL_MINUTES
+      : getTimeStopTypicalMinutes();
+
+    const market = await resolveDispatchMarketQuote({
+      db,
       clock,
+      companyId,
+      symbol: row.symbol,
       adapter,
     });
     const quote = market.quote;
@@ -639,6 +661,7 @@ export async function scanPositionExitSignals(
       peakMarkCents,
       trailMultiplier,
       hftOriented,
+      holdMinutesTypical,
       atrCents,
       ...(opts?.timeStopEnabled !== undefined
         ? { timeStopEnabled: opts.timeStopEnabled }
@@ -660,6 +683,8 @@ export async function scanPositionExitSignals(
       avgCostCents: row.avgCostCents,
       markCents,
       reason,
+      markSourceClass: market.sourceClass,
+      markFeedClass: quote.feedClass ?? market.sourceClass,
     });
   }
 
@@ -712,8 +737,10 @@ export async function enqueuePositionExit(
     unit: 'USD_cents',
     scale: 0,
     valueInt: BigInt(signal.markCents),
-    sourceClass: 'synthetic_sim',
-    sourceId: `synthetic_sim:${signal.symbol.toUpperCase()}`,
+    sourceClass: signal.markSourceClass,
+    sourceId: signal.markSourceClass === 'synthetic_sim'
+      ? `synthetic_sim:${signal.symbol.toUpperCase()}`
+      : `${signal.markFeedClass}:quote:${signal.symbol.toUpperCase()}`,
     ttlMs: QUOTE_TTL_MS,
     companyId: signal.companyId,
     moduleId: signal.moduleId,

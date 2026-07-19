@@ -60,7 +60,7 @@ function kindBorder(kind: PostureAlgoNodeData['kind']): string {
   }
 }
 
-/** Per-role chrome — distinct fills/borders so node types read at a glance (D-163 / D-165). */
+/** Per-role chrome — distinct fills/borders so node types read at a glance (D-163 / D-165 / D-169). */
 function roleChrome(role: PostureAlgoNodeData['nodeRole']): string {
   switch (role) {
     case 'live_source':
@@ -84,6 +84,70 @@ function roleChrome(role: PostureAlgoNodeData['nodeRole']): string {
       return _exhaustive;
     }
   }
+}
+
+/** Per-function process chrome (D-169) — fetch ≠ normalize ≠ score ≠ seal. */
+function processFunctionChrome(fn: string | undefined): string {
+  switch (fn) {
+    case 'fetch':
+      return 'border-l-[3px] border-l-sky-500 bg-[color-mix(in_srgb,rgb(14_165_233)_10%,var(--color-surface-0))]';
+    case 'normalize':
+      return 'border-l-[3px] border-l-violet-400 bg-[color-mix(in_srgb,rgb(167_139_250)_8%,var(--color-surface-0))]';
+    case 'extract':
+      return 'border-l-[3px] border-l-amber-400 bg-[color-mix(in_srgb,rgb(251_191_36)_8%,var(--color-surface-0))]';
+    case 'corroborate':
+      return 'border-l-[3px] border-l-teal-400 bg-[color-mix(in_srgb,rgb(45_212_191)_8%,var(--color-surface-0))]';
+    case 'entitle':
+      return 'border-l-[3px] border-l-[var(--color-ink-faint)] bg-[var(--color-surface-1)]';
+    case 'announce':
+      return 'border-l-[3px] border-l-[var(--color-ink-dim)] border-dashed bg-[var(--color-surface-0)]';
+    case 'score':
+      return 'border-l-[3px] border-l-[var(--color-accent)] bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-surface-0))]';
+    case 'rank':
+      return 'border-l-[3px] border-l-orange-400 bg-[color-mix(in_srgb,rgb(251_146_60)_10%,var(--color-surface-0))]';
+    case 'verify':
+      return 'border-l-[3px] border-l-[var(--color-ok)] bg-[color-mix(in_srgb,var(--color-ok)_10%,var(--color-surface-0))]';
+    case 'seal':
+      return 'border-l-[3px] border-l-emerald-600 bg-[color-mix(in_srgb,rgb(5_150_105)_12%,var(--color-surface-0))]';
+    case 'compose':
+      return 'border-l-[3px] border-l-[var(--color-ink)] bg-[var(--color-surface-1)]';
+    case 'load':
+      return 'border-l-[3px] border-l-indigo-400 border-dashed bg-[var(--color-surface-0)]';
+    case 'defaults':
+      return 'border-l-[3px] border-l-[var(--color-line)] bg-[var(--color-surface-0)]';
+    case 'thresholds':
+      return 'border-l-[3px] border-l-[var(--color-accent)] border-dashed bg-[var(--color-surface-0)]';
+    case 'context':
+      return 'border-l-[3px] border-l-cyan-500 bg-[color-mix(in_srgb,rgb(6_182_212)_10%,var(--color-surface-0))]';
+    default:
+      return 'border-l-[3px] border-l-[var(--color-accent)] border-dotted bg-[var(--color-surface-0)]';
+  }
+}
+
+/** Domain tint for live SRC nodes (D-169) — matches ResearchSourceDomain. */
+function sourceDomainChrome(domain: string | undefined): string {
+  const d = (domain ?? '').toLowerCase();
+  if (d === 'news' || d === 'equity_news' || d === 'web_search') {
+    return 'border-l-[3px] border-l-sky-400 bg-[color-mix(in_srgb,rgb(56_189_248)_8%,var(--color-surface-1))]';
+  }
+  if (d === 'filings') {
+    return 'border-l-[3px] border-l-amber-500 bg-[color-mix(in_srgb,rgb(245_158_11)_8%,var(--color-surface-1))]';
+  }
+  if (d === 'macro' || d === 'fx') {
+    return 'border-l-[3px] border-l-violet-400 bg-[color-mix(in_srgb,rgb(167_139_250)_8%,var(--color-surface-1))]';
+  }
+  if (d === 'crypto') {
+    return 'border-l-[3px] border-l-fuchsia-400 bg-[color-mix(in_srgb,rgb(232_121_249)_8%,var(--color-surface-1))]';
+  }
+  if (d === 'equity_bars') {
+    return 'border-l-[3px] border-l-[var(--color-accent)] bg-[color-mix(in_srgb,var(--color-accent)_8%,var(--color-surface-1))]';
+  }
+  return 'border-l-[3px] border-l-[var(--color-accent)] bg-[var(--color-surface-1)]';
+}
+
+function processFunctionLabel(fn: string | undefined): string {
+  if (!fn) return 'PROC';
+  return fn.slice(0, 8).toUpperCase();
 }
 
 function roleLabel(role: PostureAlgoNodeData['nodeRole']): string {
@@ -273,7 +337,13 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
     : activationRing(data.activation);
   return (
     <div
-      className={`min-w-[160px] max-w-[188px] rounded border border-t-[3px] px-2.5 py-2 shadow-sm ${kindBorder(data.kind)} ${roleChrome(data.nodeRole)} ${ring}`}
+      className={`min-w-[160px] max-w-[188px] rounded border border-t-[3px] px-2.5 py-2 shadow-sm ${kindBorder(data.kind)} ${
+        data.nodeRole === 'process'
+          ? processFunctionChrome(data.processFunction)
+          : data.nodeRole === 'live_source'
+            ? sourceDomainChrome(data.sourceDomain)
+            : roleChrome(data.nodeRole)
+      } ${ring}`}
       style={{ borderTopColor: trackStroke(data.track) }}
       data-testid={`market-posture-model-node-${data.nodeRole}`}
       data-activation={data.activation}
@@ -284,7 +354,10 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
       <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !bg-[var(--color-ink-faint)]" />
       <div className="flex items-baseline justify-between gap-1">
         <p className="font-mono text-[8px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          {roleLabel(data.nodeRole)} · {data.layer}
+          {data.nodeRole === 'process'
+            ? processFunctionLabel(data.processFunction)
+            : roleLabel(data.nodeRole)}{' '}
+          · {data.layer}
         </p>
         <p
           className="font-mono text-[8px] uppercase tracking-wider"
@@ -331,9 +404,10 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
       {data.nodeRole === 'process' && data.processRoute ? (
         <p
           className="mt-0.5 truncate font-mono text-[8px] text-[var(--color-ink-dim)]"
-          title={data.processRoute}
+          title={`${data.processFunction ?? ''} · ${data.processRoute}`}
         >
-          {data.processRoute.replace(/_/g, ' ')}
+          {(data.processFunction ? `${data.processFunction} · ` : '') +
+            data.processRoute.replace(/_/g, ' ')}
         </p>
       ) : null}
       {(data.nodeRole === 'live_source' ||
@@ -541,11 +615,14 @@ function TrackLegend(props: {
         </p>
         {(
           [
-            ['SRC', 'live API'],
+            ['SRC', 'live API · domain tint'],
             ['LIB', 'library'],
             ['CAP', 'capital'],
             ['ADAPT', 'adapter'],
-            ['PROC', 'process'],
+            ['FETCH', 'process fetch'],
+            ['NORM', 'normalize'],
+            ['SCORE', 'score / RS'],
+            ['SEAL', 'seal'],
             ['STAGE', 'milestone'],
             ['PANEL', 'board'],
           ] as const
@@ -573,7 +650,7 @@ function stageSignature(run: MarketHubSynthesisRun | null): string {
 }
 
 /**
- * Live synthesis hub canvas (D-120 / D-147 / D-156 / D-160 / D-165).
+ * Live synthesis hub canvas (D-120 / D-147 / D-156 / D-160 / D-165 / D-169).
  * Track-banded layout; typed edges; pulses on Sync/Analyze refresh.
  */
 export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(props: {

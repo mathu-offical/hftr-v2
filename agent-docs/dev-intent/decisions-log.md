@@ -1712,6 +1712,16 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `targetLibraryIds` unchanged. Extends D-159. Docs: engine-data-hub-design, canvas-layout.
   **Status: implemented.**
 
+- **D-169 (Market posture Model active-only + per-function chrome, 2026-07-19):** Model diagram
+  shows **active** live sources only (`ready` / `public` / contributed non-stub) — canvas-bound
+  stubs no longer light lanes. Each process step carries `processFunction` (fetch, normalize,
+  extract, corroborate, entitle, score, rank, verify, seal, …) with **distinct chrome**; live
+  SRC nodes tint by research **domain** (news/filings/macro/fx/crypto/equity_bars). Route chains
+  stay **kind-granular** (kind-prefixed labels; twelve_data/marketstack get entitle **and** OHLC
+  like Alpaca). Process chains wire to a **single primaryFeedStage** (cuts multi-stage fan-out
+  spaghetti); stage→stage bridges still carry the compound path. Extends D-162 / D-163 / D-165.
+  Docs: ui-spec §4. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

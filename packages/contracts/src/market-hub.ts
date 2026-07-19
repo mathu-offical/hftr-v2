@@ -454,9 +454,28 @@ export const MarketHubModelProcessingFlow = z.object({
 export type MarketHubModelProcessingFlow = z.infer<typeof MarketHubModelProcessingFlow>;
 
 /**
- * Granular route process step for the synthesis Model (D-162).
+ * Granular route process step for the synthesis Model (D-162 / D-169).
  * Replaces generic gather/rs/rank blobs with route-specific processing nodes.
  */
+export const MarketHubModelProcessFunction = z.enum([
+  'fetch',
+  'normalize',
+  'extract',
+  'corroborate',
+  'entitle',
+  'announce',
+  'score',
+  'rank',
+  'verify',
+  'seal',
+  'compose',
+  'load',
+  'defaults',
+  'thresholds',
+  'context',
+]);
+export type MarketHubModelProcessFunction = z.infer<typeof MarketHubModelProcessFunction>;
+
 export const MarketHubModelProcessStep = z.object({
   /** Stable id (e.g. gdelt_news:tickers, compound:rank_sort). */
   id: z.string().max(80),
@@ -466,6 +485,10 @@ export const MarketHubModelProcessStep = z.object({
   operation: z.string().max(80),
   amount: z.string().max(40),
   analysisRole: z.string().max(40),
+  /**
+   * Function class for Model chrome (D-169) — fetch vs normalize vs score, etc.
+   */
+  processFunction: MarketHubModelProcessFunction.default('fetch'),
   sortOrder: z.number().int().nonnegative(),
   /** Owning live kind or library:{id} or "shared". */
   kind: z.string().max(80),

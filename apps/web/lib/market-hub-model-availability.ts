@@ -33,13 +33,13 @@ const COMPOUND_SOURCE_KINDS = new Set([
 ]);
 
 /**
- * Provider is diagram-eligible when credentials/public lane is ready,
- * it already contributed to a seal, or it is canvas-bound.
+ * Provider is diagram-eligible only when actively provisioned (D-169):
+ * ready/public credentials, or a prior seal contribution (not stub/researched).
+ * Canvas-bound alone does not light the Model.
  */
 export function isAvailableLiveSource(src: MarketHubModelLiveSource): boolean {
   if (src.status === 'ready' || src.status === 'public') return true;
-  if (src.contributed) return true;
-  if (src.canvasBoundCount > 0) return true;
+  if (src.contributed && src.status !== 'stub' && src.status !== 'researched') return true;
   return false;
 }
 

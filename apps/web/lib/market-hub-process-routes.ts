@@ -1,5 +1,5 @@
 /**
- * Route-granular process step catalog for Market Posture Model (D-162).
+ * Route-granular process step catalog for Market Posture Model (D-162 / D-169).
  * Mirrors movers/sector/daily handler routes — each API family has its own
  * fetch → normalize → analyze chain instead of dumping into generic stages.
  */
@@ -36,6 +36,7 @@ type StepTemplate = {
   label: string;
   operation: string;
   analysisRole: string;
+  processFunction: MarketHubModelProcessStep['processFunction'];
 };
 
 type RouteDef = {
@@ -69,25 +70,10 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['movers', 'sector'],
     feedStages: ['gather', 'universe', 'seal_movers', 'sector'],
     steps: [
-      { suffix: 'fetch', label: 'Headline fetch', operation: 'API/DOC pull', analysisRole: 'news_corpus' },
-      {
-        suffix: 'normalize',
-        label: 'Package normalize',
-        operation: 'legal + feedClass',
-        analysisRole: 'normalize',
-      },
-      {
-        suffix: 'tickers',
-        label: 'Ticker extract',
-        operation: 'universe seeds',
-        analysisRole: 'universe_tickers',
-      },
-      {
-        suffix: 'corroborate',
-        label: 'News corroborate',
-        operation: 'domain band',
-        analysisRole: 'corroboration',
-      },
+      { suffix: 'fetch', label: 'Headline fetch', operation: 'API/DOC pull', analysisRole: 'news_corpus', processFunction: 'fetch' },
+      { suffix: 'normalize', label: 'Package normalize', operation: 'legal + feedClass', analysisRole: 'normalize', processFunction: 'normalize' },
+      { suffix: 'tickers', label: 'Ticker extract', operation: 'universe seeds', analysisRole: 'universe_tickers', processFunction: 'extract' },
+      { suffix: 'corroborate', label: 'News corroborate', operation: 'domain band', analysisRole: 'corroboration', processFunction: 'corroborate' },
     ],
   },
   web_search: {
@@ -95,19 +81,9 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['movers', 'sector'],
     feedStages: ['gather', 'seal_movers', 'sector'],
     steps: [
-      { suffix: 'fetch', label: 'Web search fetch', operation: 'Brave query', analysisRole: 'web_corpus' },
-      {
-        suffix: 'normalize',
-        label: 'Web normalize',
-        operation: 'legal + feedClass',
-        analysisRole: 'normalize',
-      },
-      {
-        suffix: 'corroborate',
-        label: 'Web corroborate',
-        operation: 'domain band',
-        analysisRole: 'corroboration',
-      },
+      { suffix: 'fetch', label: 'Web search fetch', operation: 'Brave query', analysisRole: 'web_corpus', processFunction: 'fetch' },
+      { suffix: 'normalize', label: 'Web normalize', operation: 'legal + feedClass', analysisRole: 'normalize', processFunction: 'normalize' },
+      { suffix: 'corroborate', label: 'Web corroborate', operation: 'domain band', analysisRole: 'corroboration', processFunction: 'corroborate' },
     ],
   },
   filings: {
@@ -115,19 +91,9 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['movers'],
     feedStages: ['gather', 'seal_movers'],
     steps: [
-      { suffix: 'fetch', label: 'EDGAR fetch', operation: 'filings pull', analysisRole: 'filings_corpus' },
-      {
-        suffix: 'normalize',
-        label: 'Filings normalize',
-        operation: 'legal + feedClass',
-        analysisRole: 'normalize',
-      },
-      {
-        suffix: 'corroborate',
-        label: 'Filings corroborate',
-        operation: 'domain band',
-        analysisRole: 'corroboration',
-      },
+      { suffix: 'fetch', label: 'EDGAR fetch', operation: 'filings pull', analysisRole: 'filings_corpus', processFunction: 'fetch' },
+      { suffix: 'normalize', label: 'Filings normalize', operation: 'legal + feedClass', analysisRole: 'normalize', processFunction: 'normalize' },
+      { suffix: 'corroborate', label: 'Filings corroborate', operation: 'domain band', analysisRole: 'corroboration', processFunction: 'corroborate' },
     ],
   },
   macro_context: {
@@ -135,19 +101,9 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['movers'],
     feedStages: ['gather', 'rank', 'seal_movers'],
     steps: [
-      { suffix: 'fetch', label: 'Macro fetch', operation: 'series pull', analysisRole: 'macro_context' },
-      {
-        suffix: 'normalize',
-        label: 'Macro normalize',
-        operation: 'legal + feedClass',
-        analysisRole: 'normalize',
-      },
-      {
-        suffix: 'context',
-        label: 'Macro context score',
-        operation: 'compound context',
-        analysisRole: 'corroboration',
-      },
+      { suffix: 'fetch', label: 'Macro fetch', operation: 'series pull', analysisRole: 'macro_context', processFunction: 'fetch' },
+      { suffix: 'normalize', label: 'Macro normalize', operation: 'legal + feedClass', analysisRole: 'normalize', processFunction: 'normalize' },
+      { suffix: 'context', label: 'Macro context score', operation: 'compound context', analysisRole: 'corroboration', processFunction: 'context' },
     ],
   },
   fx_context: {
@@ -155,13 +111,9 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['movers'],
     feedStages: ['gather', 'rank', 'seal_movers'],
     steps: [
-      { suffix: 'fetch', label: 'FX fetch', operation: 'rate pull', analysisRole: 'macro_context' },
-      {
-        suffix: 'context',
-        label: 'FX context',
-        operation: 'compound context',
-        analysisRole: 'corroboration',
-      },
+      { suffix: 'fetch', label: 'FX fetch', operation: 'rate pull', analysisRole: 'macro_context', processFunction: 'fetch' },
+      { suffix: 'normalize', label: 'FX normalize', operation: 'legal + feedClass', analysisRole: 'normalize', processFunction: 'normalize' },
+      { suffix: 'context', label: 'FX context', operation: 'compound context', analysisRole: 'corroboration', processFunction: 'context' },
     ],
   },
   crypto_context: {
@@ -169,13 +121,9 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['movers'],
     feedStages: ['gather', 'rank', 'seal_movers'],
     steps: [
-      { suffix: 'fetch', label: 'Crypto fetch', operation: 'market pull', analysisRole: 'macro_context' },
-      {
-        suffix: 'context',
-        label: 'Crypto context',
-        operation: 'compound context',
-        analysisRole: 'corroboration',
-      },
+      { suffix: 'fetch', label: 'Crypto fetch', operation: 'market pull', analysisRole: 'macro_context', processFunction: 'fetch' },
+      { suffix: 'normalize', label: 'Crypto normalize', operation: 'legal + feedClass', analysisRole: 'normalize', processFunction: 'normalize' },
+      { suffix: 'context', label: 'Crypto context', operation: 'compound context', analysisRole: 'corroboration', processFunction: 'context' },
     ],
   },
   bars_entitle: {
@@ -183,18 +131,8 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['movers'],
     feedStages: ['providers', 'gather', 'verify'],
     steps: [
-      {
-        suffix: 'entitle',
-        label: 'Bars entitlement',
-        operation: 'credential lane',
-        analysisRole: 'bars_entitlement',
-      },
-      {
-        suffix: 'announce',
-        label: 'Lane announce',
-        operation: 'providers ready',
-        analysisRole: 'corroboration',
-      },
+      { suffix: 'entitle', label: 'Bars entitlement', operation: 'credential lane', analysisRole: 'bars_entitlement', processFunction: 'entitle' },
+      { suffix: 'announce', label: 'Lane announce', operation: 'providers ready', analysisRole: 'corroboration', processFunction: 'announce' },
     ],
   },
   bars_ohlc: {
@@ -202,14 +140,9 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['movers'],
     feedStages: ['rs', 'rank'],
     steps: [
-      { suffix: 'fetch', label: 'OHLC fetch', operation: '15Min bars', analysisRole: 'bars_fetch' },
-      { suffix: 'rs', label: 'RS vs SPY', operation: 'rel strength', analysisRole: 'relative_strength' },
-      {
-        suffix: 'volume',
-        label: 'Volume expand',
-        operation: 'participation',
-        analysisRole: 'volume_expansion',
-      },
+      { suffix: 'fetch', label: 'OHLC fetch', operation: '15Min bars', analysisRole: 'bars_fetch', processFunction: 'fetch' },
+      { suffix: 'rs', label: 'RS vs SPY', operation: 'rel strength', analysisRole: 'relative_strength', processFunction: 'score' },
+      { suffix: 'volume', label: 'Volume expand', operation: 'participation', analysisRole: 'volume_expansion', processFunction: 'score' },
     ],
   },
   library_jaccard: {
@@ -217,13 +150,8 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['movers'],
     feedStages: ['thresholds', 'rank', 'seal_movers'],
     steps: [
-      { suffix: 'load', label: 'Corpus load', operation: 'admitted lenses', analysisRole: 'library_jaccard' },
-      {
-        suffix: 'jaccard',
-        label: 'Jaccard fit',
-        operation: 'compound fit',
-        analysisRole: 'corroboration',
-      },
+      { suffix: 'load', label: 'Corpus load', operation: 'admitted lenses', analysisRole: 'library_jaccard', processFunction: 'load' },
+      { suffix: 'jaccard', label: 'Jaccard fit', operation: 'compound fit', analysisRole: 'corroboration', processFunction: 'corroborate' },
     ],
   },
   providers_entitle: {
@@ -231,18 +159,8 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['movers', 'sector'],
     feedStages: ['providers', 'gather'],
     steps: [
-      {
-        suffix: 'select',
-        label: 'Select ready lanes',
-        operation: 'credential intersect',
-        analysisRole: 'entitle',
-      },
-      {
-        suffix: 'rollup',
-        label: 'Entitle rollup',
-        operation: 'providers → gather',
-        analysisRole: 'entitle',
-      },
+      { suffix: 'select', label: 'Select ready lanes', operation: 'credential intersect', analysisRole: 'entitle', processFunction: 'entitle' },
+      { suffix: 'rollup', label: 'Entitle rollup', operation: 'providers → gather', analysisRole: 'entitle', processFunction: 'entitle' },
     ],
   },
   thresholds_llm: {
@@ -250,18 +168,8 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['movers'],
     feedStages: ['thresholds', 'universe'],
     steps: [
-      {
-        suffix: 'lane_presence',
-        label: 'Lane presence',
-        operation: 'bars/news/macro flags',
-        analysisRole: 'thresholds',
-      },
-      {
-        suffix: 'propose',
-        label: 'LLM threshold propose',
-        operation: 'ints only',
-        analysisRole: 'thresholds',
-      },
+      { suffix: 'lane_presence', label: 'Lane presence', operation: 'bars/news/macro flags', analysisRole: 'thresholds', processFunction: 'thresholds' },
+      { suffix: 'propose', label: 'LLM threshold propose', operation: 'ints only', analysisRole: 'thresholds', processFunction: 'thresholds' },
     ],
   },
   defaults_catalog: {
@@ -269,12 +177,7 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['movers'],
     feedStages: ['defaults', 'universe'],
     steps: [
-      {
-        suffix: 'typical',
-        label: 'Typical defaults',
-        operation: 'fail-closed bands',
-        analysisRole: 'defaults',
-      },
+      { suffix: 'typical', label: 'Typical defaults', operation: 'fail-closed bands', analysisRole: 'defaults', processFunction: 'defaults' },
     ],
   },
   universe_build: {
@@ -282,24 +185,9 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['movers'],
     feedStages: ['universe', 'rs'],
     steps: [
-      {
-        suffix: 'evidence',
-        label: 'Evidence tickers',
-        operation: 'news seeds',
-        analysisRole: 'universe',
-      },
-      {
-        suffix: 'book_merge',
-        label: 'Book + trend merge',
-        operation: 'held + candidates',
-        analysisRole: 'universe',
-      },
-      {
-        suffix: 'cap',
-        label: 'Universe cap',
-        operation: 'liquid fallback',
-        analysisRole: 'universe',
-      },
+      { suffix: 'evidence', label: 'Evidence tickers', operation: 'news seeds', analysisRole: 'universe', processFunction: 'extract' },
+      { suffix: 'book_merge', label: 'Book + trend merge', operation: 'held + candidates', analysisRole: 'universe', processFunction: 'extract' },
+      { suffix: 'cap', label: 'Universe cap', operation: 'liquid fallback', analysisRole: 'universe', processFunction: 'extract' },
     ],
   },
   compound_rank: {
@@ -307,18 +195,8 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['movers'],
     feedStages: ['rank', 'verify'],
     steps: [
-      {
-        suffix: 'score',
-        label: 'Compound score',
-        operation: 'RS + corroboration + fit',
-        analysisRole: 'rank',
-      },
-      {
-        suffix: 'sort',
-        label: 'Leadership sort',
-        operation: 'top-K board',
-        analysisRole: 'rank',
-      },
+      { suffix: 'score', label: 'Compound score', operation: 'RS + corroboration + fit', analysisRole: 'rank', processFunction: 'rank' },
+      { suffix: 'sort', label: 'Leadership sort', operation: 'top-K board', analysisRole: 'rank', processFunction: 'rank' },
     ],
   },
   verify_promote: {
@@ -326,18 +204,8 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['movers'],
     feedStages: ['verify', 'seal_movers'],
     steps: [
-      {
-        suffix: 'gates',
-        label: 'Verify gates',
-        operation: 'admit / hold',
-        analysisRole: 'verify',
-      },
-      {
-        suffix: 'promote',
-        label: 'Watch promote',
-        operation: 'suggestion → watching',
-        analysisRole: 'verify',
-      },
+      { suffix: 'gates', label: 'Verify gates', operation: 'admit / hold', analysisRole: 'verify', processFunction: 'verify' },
+      { suffix: 'promote', label: 'Watch promote', operation: 'suggestion → watching', analysisRole: 'verify', processFunction: 'verify' },
     ],
   },
   sector_bulletin: {
@@ -345,24 +213,9 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['sector'],
     feedStages: ['sector', 'narrative'],
     steps: [
-      {
-        suffix: 'gather',
-        label: 'Sector headline gather',
-        operation: 'sector lanes',
-        analysisRole: 'news_corpus',
-      },
-      {
-        suffix: 'corroborate',
-        label: 'Sector corroborate',
-        operation: 'multi-source band',
-        analysisRole: 'corroboration',
-      },
-      {
-        suffix: 'seal',
-        label: 'Bulletin seal',
-        operation: 'persist news board',
-        analysisRole: 'seal',
-      },
+      { suffix: 'gather', label: 'Sector headline gather', operation: 'sector lanes', analysisRole: 'news_corpus', processFunction: 'fetch' },
+      { suffix: 'corroborate', label: 'Sector corroborate', operation: 'multi-source band', analysisRole: 'corroboration', processFunction: 'corroborate' },
+      { suffix: 'seal', label: 'Bulletin seal', operation: 'persist news board', analysisRole: 'seal', processFunction: 'seal' },
     ],
   },
   daily_phase: {
@@ -370,18 +223,8 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['daily'],
     feedStages: ['daily', 'narrative'],
     steps: [
-      {
-        suffix: 'calendar',
-        label: 'Calendar phase',
-        operation: 'session window',
-        analysisRole: 'daily',
-      },
-      {
-        suffix: 'seal',
-        label: 'Daily seal',
-        operation: 'persist summary',
-        analysisRole: 'seal',
-      },
+      { suffix: 'calendar', label: 'Calendar phase', operation: 'session window', analysisRole: 'daily', processFunction: 'seal' },
+      { suffix: 'seal', label: 'Daily seal', operation: 'persist summary', analysisRole: 'seal', processFunction: 'seal' },
     ],
   },
   narrative_compose: {
@@ -389,18 +232,8 @@ const ROUTE_DEFS: Record<ProcessRouteId, RouteDef> = {
     pipelines: ['compose'],
     feedStages: ['narrative', 'hub_ready'],
     steps: [
-      {
-        suffix: 'book_tape',
-        label: 'Book↔tape crosswalk',
-        operation: 'held / watch / pipeline',
-        analysisRole: 'narrative',
-      },
-      {
-        suffix: 'rollup',
-        label: 'Narrative rollup',
-        operation: 'seal-grounded',
-        analysisRole: 'narrative',
-      },
+      { suffix: 'book_tape', label: 'Book↔tape crosswalk', operation: 'held / watch / pipeline', analysisRole: 'narrative', processFunction: 'compose' },
+      { suffix: 'rollup', label: 'Narrative rollup', operation: 'seal-grounded', analysisRole: 'narrative', processFunction: 'compose' },
     ],
   },
 };
@@ -446,9 +279,11 @@ const ADAPTER_FLOWS: Record<string, AdapterFlowTemplate[]> = {
   ],
   twelve_data: [
     { idSuffix: 'entitle', adapterLabel: 'Twelve Data entitle', route: 'bars_entitle' },
+    { idSuffix: 'ohlc', adapterLabel: 'Twelve Data OHLC adapter', route: 'bars_ohlc' },
   ],
   marketstack: [
     { idSuffix: 'entitle', adapterLabel: 'Marketstack entitle', route: 'bars_entitle' },
+    { idSuffix: 'ohlc', adapterLabel: 'Marketstack OHLC adapter', route: 'bars_ohlc' },
   ],
 };
 
@@ -473,6 +308,11 @@ function stepId(kind: string, suffix: string): string {
   return `${kind}:${suffix}`.slice(0, 80);
 }
 
+function kindShort(kind: string): string {
+  const base = kind.startsWith('library:') ? kind.slice('library:'.length) : kind;
+  return base.replace(/_/g, ' ').slice(0, 28);
+}
+
 function buildStepsForKind(opts: {
   kind: string;
   route: ProcessRouteId;
@@ -480,13 +320,15 @@ function buildStepsForKind(opts: {
   amount: string;
 }): MarketHubModelProcessStep[] {
   const def = ROUTE_DEFS[opts.route];
+  const prefix = kindShort(opts.kind);
   return def.steps.map((s, i) => ({
     id: stepId(opts.kind, s.suffix),
     route: opts.route,
-    label: s.label.slice(0, 120),
+    label: `${prefix} · ${s.label}`.slice(0, 120),
     operation: s.operation.slice(0, 80),
     amount: opts.amount.slice(0, 40),
     analysisRole: s.analysisRole.slice(0, 40),
+    processFunction: s.processFunction,
     sortOrder: i,
     kind: opts.kind.slice(0, 80),
     pipelines: [...def.pipelines],
@@ -667,6 +509,7 @@ export function buildSharedCompoundProcessSteps(opts: {
         operation: s.operation.slice(0, 80),
         amount: row.amount.slice(0, 40),
         analysisRole: s.analysisRole.slice(0, 40),
+        processFunction: s.processFunction,
         sortOrder: i,
         kind: 'shared',
         pipelines: [...def.pipelines],
@@ -680,6 +523,36 @@ export function buildSharedCompoundProcessSteps(opts: {
   void opts.syntheticMarks;
   void opts.admittedConcepts;
   return out;
+}
+
+/**
+ * Single primary milestone a flow should wire into (D-169).
+ * Cuts multi-stage fan-out spaghetti; stage→stage bridges carry the rest.
+ */
+export function primaryFeedStage(
+  flow: MarketHubModelProcessingFlow,
+): MarketHubSynthesisStageId | null {
+  const stages = flow.targetStages;
+  if (stages.length === 0) return null;
+  const route = flow.route;
+  if (route === 'bars_ohlc') return stages.includes('rs') ? 'rs' : stages[0]!;
+  if (route === 'bars_entitle' || route === 'providers_entitle') {
+    return stages.includes('providers') ? 'providers' : stages[0]!;
+  }
+  if (route === 'library_jaccard') {
+    return stages.includes('rank') ? 'rank' : stages[0]!;
+  }
+  if (
+    route === 'news_headline' ||
+    route === 'web_search' ||
+    route === 'filings' ||
+    route === 'macro_context' ||
+    route === 'fx_context' ||
+    route === 'crypto_context'
+  ) {
+    return stages.includes('gather') ? 'gather' : stages[0]!;
+  }
+  return stages[0]!;
 }
 
 export function routeLabel(route: string): string {

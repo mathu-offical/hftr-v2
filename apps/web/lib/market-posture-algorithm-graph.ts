@@ -1,5 +1,5 @@
 /**
- * Market posture synthesis Model graph (D-120 … D-163 / D-165).
+ * Market posture synthesis Model graph (D-120 … D-163 / D-165 / D-169).
  * Available providers only; track-banded layout with clear lane spacing;
  * data sources (live/library/capital) feed route process chains.
  */
@@ -29,6 +29,7 @@ import {
   resolveModelTrackCapabilities,
   tracksFromCapabilities,
 } from './market-hub-model-availability';
+import { primaryFeedStage } from './market-hub-process-routes';
 
 export type PostureAlgoNodeRole =
   | 'live_source'
@@ -53,6 +54,10 @@ export type PostureAlgoNodeData = {
   /** Process route when nodeRole is process (D-162). */
   processRoute?: string;
   processStepId?: string;
+  /** Function class for process chrome (D-169). */
+  processFunction?: string;
+  /** Live/library source domain for SRC chrome (D-169). */
+  sourceDomain?: string;
   /** Panel surface id when nodeRole is panel_surface (D-161). */
   panelSurfaceId?: string;
   panelKind?: 'rail' | 'overlay' | 'both';
@@ -385,42 +390,10 @@ export function resolveModelEdgeState(opts: {
   return { activation: 'idle', status: 'idle' };
 }
 
+/** Primary milestone only — shared bridges carry stage→stage (D-169). */
 function diagramTargetStages(flow: MarketHubModelProcessingFlow): MarketHubSynthesisStageId[] {
-  const roles = new Set(flow.analysisRoles);
-  const out = new Set<MarketHubSynthesisStageId>();
-  const first = flow.targetStages[0];
-  if (first) out.add(first);
-
-  if (roles.has('relative_strength') || roles.has('volume_expansion')) {
-    for (const s of ['rs', 'rank'] as const) {
-      if (flow.targetStages.includes(s)) out.add(s);
-    }
-  }
-  if (roles.has('news_corpus') || roles.has('web_corpus') || roles.has('filings_corpus')) {
-    if (flow.targetStages.includes('gather')) out.add('gather');
-    if (flow.targetStages.includes('universe')) out.add('universe');
-    if (flow.targetStages.includes('sector') && flow.pipelines.includes('sector')) {
-      out.add('sector');
-    }
-    if (flow.targetStages.includes('seal_movers') && flow.pipelines.includes('movers')) {
-      out.add('seal_movers');
-    }
-  }
-  if (roles.has('macro_context') || roles.has('bars_entitlement')) {
-    if (flow.targetStages.includes('gather')) out.add('gather');
-    if (flow.targetStages.includes('providers')) out.add('providers');
-    if (flow.targetStages.includes('verify')) out.add('verify');
-  }
-  if (roles.has('library_jaccard')) {
-    for (const s of flow.targetStages) out.add(s);
-  }
-  if (roles.has('bars_entitlement') && !roles.has('relative_strength')) {
-    out.add('providers');
-  }
-  if (out.size === 0) {
-    for (const s of flow.targetStages.slice(0, 3)) out.add(s);
-  }
-  return [...out];
+  const primary = primaryFeedStage(flow);
+  return primary ? [primary] : [];
 }
 
 function trackForFlow(flow: MarketHubModelProcessingFlow): MarketHubModelTrack {
@@ -615,6 +588,7 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
         analysisRoles: [step.analysisRole],
         processRoute: step.route,
         processStepId: step.id,
+        processFunction: step.processFunction,
         layer: 'pipeline',
         track: trackForFlow({
           id: step.id,
@@ -687,7 +661,7 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
         id: edgeId,
         source: prevId,
         target: nodeId,
-        label: step.analysisRole.slice(0, 20),
+        label: (step.processFunction || step.analysisRole).slice(0, 20),
         data: {
           edgeType: si === 0 ? 'adapt' : 'pipeline',
           track: opts.track,
@@ -921,6 +895,7 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
         nodeRole: 'live_source',
         operation: src.operation,
         amount: src.amount,
+        sourceDomain: src.domain,
         layer: 'sources',
         track: srcTrack,
         activation: liveActivation,

@@ -22,8 +22,8 @@ function src(
   };
 }
 
-describe('market-hub-model-availability (D-163 / D-165)', () => {
-  it('treats ready/public/contributed/bound as available', () => {
+describe('market-hub-model-availability (D-163 / D-165 / D-169)', () => {
+  it('treats ready/public/contributed as available — not canvas-bound stubs', () => {
     expect(isAvailableLiveSource(src({ kind: 'alpaca_bars', status: 'ready' }))).toBe(true);
     expect(isAvailableLiveSource(src({ kind: 'gdelt_news', status: 'public' }))).toBe(true);
     expect(
@@ -31,7 +31,10 @@ describe('market-hub-model-availability (D-163 / D-165)', () => {
     ).toBe(true);
     expect(
       isAvailableLiveSource(src({ kind: 'fred_macro', status: 'stub', canvasBoundCount: 1 })),
-    ).toBe(true);
+    ).toBe(false);
+    expect(
+      isAvailableLiveSource(src({ kind: 'fred_macro', status: 'stub', contributed: true })),
+    ).toBe(false);
     expect(isAvailableLiveSource(src({ kind: 'gdelt_news', status: 'missing_key' }))).toBe(false);
   });
 

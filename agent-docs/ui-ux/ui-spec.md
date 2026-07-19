@@ -24,7 +24,8 @@
   **Philosophy & sectors**, LLM/operating, Settings — D-115; layered overlay under the ribbon
   with dimmed backdrop, centered `w-[min(42rem,…)]`, rounded bottom edge — not full-bleed; SWR
   per-tab cache with lazy refresh on view; ribbon toggle labeled **Company profile**) → executions ticker tape (`ExecutionTicker`,
-  marquee of recent fills/blocks with amounts + **paper/live capital chips** on fill dollars
+  D-206: stable `Executions · …` chrome then marquee from lightweight
+  `GET …/executions/ticker`; recent fills/blocks with amounts + **paper/live capital chips** on fill dollars
   (D-167; venue honesty e.g. `paper sim`) + **sim honesty ticker labels** from
   `simulatorGapTags` (Live mark / Prior session / Impact proxy / Child drain / Funds-only —
   D-187), pauses on hover) → paper/live master switch

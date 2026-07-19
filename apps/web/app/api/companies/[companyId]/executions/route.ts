@@ -20,6 +20,9 @@ type Ctx = { params: Promise<{ companyId: string }> };
  * Executions feed: append-only action traces enriched with ledger money and
  * upstream lead/tree ids (same causation walk as the trace timeline route) so
  * Scenario / Lineage views can join without symbol heuristics.
+ *
+ * Ribbon ticker uses GET …/executions/ticker (D-206) — do not point the header
+ * strip at this enriched route.
  */
 export async function GET(_req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
@@ -34,17 +37,20 @@ export async function GET(_req: Request, ctx: Ctx) {
       .limit(100);
 
     const traceIds = traces.map((t) => t.id);
-    const ledgerRows = traceIds.length
-      ? await db.select().from(ledgerEntries).where(inArray(ledgerEntries.traceId, traceIds))
-      : [];
-    const ledgerByTrace = new Map(ledgerRows.map((l) => [l.traceId, l]));
-
     const taskIds = [
       ...new Set(traces.map((t) => t.taskId).filter((id): id is string => typeof id === 'string')),
     ];
-    const tasks = taskIds.length
-      ? await db.select().from(deterministicTasks).where(inArray(deterministicTasks.id, taskIds))
-      : [];
+
+    // Ledger + tasks are independent after traces — fetch in parallel (D-206).
+    const [ledgerRows, tasks] = await Promise.all([
+      traceIds.length
+        ? db.select().from(ledgerEntries).where(inArray(ledgerEntries.traceId, traceIds))
+        : Promise.resolve([] as (typeof ledgerEntries.$inferSelect)[]),
+      taskIds.length
+        ? db.select().from(deterministicTasks).where(inArray(deterministicTasks.id, taskIds))
+        : Promise.resolve([] as (typeof deterministicTasks.$inferSelect)[]),
+    ]);
+    const ledgerByTrace = new Map(ledgerRows.map((l) => [l.traceId, l]));
     const taskById = new Map(tasks.map((t) => [t.id, t]));
 
     const instructionIds = [...new Set(tasks.map((t) => t.instructionId))];

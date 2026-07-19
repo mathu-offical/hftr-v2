@@ -2050,6 +2050,24 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   store catalog. Inventory click focuses the node. Extends D-023 / D-088 / D-176.
   Docs: ui-spec §3. **Status: implemented.**
 
+- **D-205 (BookDelta → participation valve training, 2026-07-19):** Close the
+  observation-only BookDelta loop: aggregate unapplied `training_feedback.book_delta`
+  rows (fill-price bps and/or provider rejects) into a bounded
+  `participation_rate_band` step via `proposeBandPositionFromBookDeltas` →
+  `applyControlSnapshotDelta` → `persistControlSnapshot`. Handler
+  `maintenance.book_delta_valves`; HTTP `GET …/book-deltas` +
+  `POST …/training/book-delta-valves`. Verify opt-in:
+  `HFTR_BOTH_VERIFY_SMOKE=1`, `HFTR_REQUIRE_RTH_FRESH=1` (weekday RTH). Extends D-122
+  Phase 4. Docs: data-model, broker-integration, experiment-log EXP-09.
+  **Status: implemented.**
+
+- **D-206 (lightweight execution ticker feed, 2026-07-19):** Header `ExecutionTicker`
+  uses `GET …/executions/ticker` (traces + ledger only, limit 20) instead of the
+  enriched `/executions` causation walk. Chrome always paints (`Executions · …`);
+  rows fill when ready; 8s abort; poll keeps prior rows on refresh failure. Full
+  `/executions` still serves panels and parallelizes ledger+tasks after traces.
+  Docs: ui-spec §2. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

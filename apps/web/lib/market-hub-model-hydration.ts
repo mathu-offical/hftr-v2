@@ -342,6 +342,7 @@ export async function projectMarketHubModelHydration(opts: {
   return {
     liveSources,
     librarySources,
+    capitalSources: [],
     processingFlows,
     processSteps,
     stageOps,

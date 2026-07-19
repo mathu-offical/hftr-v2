@@ -158,6 +158,7 @@ describe('mergeMarketHubLive', () => {
     hub.modelHydration = {
       liveSources: [],
       librarySources: [],
+      capitalSources: [],
       processingFlows: [],
       processSteps: [],
       stageOps: [
@@ -248,7 +249,7 @@ describe('mergeMarketHubLive', () => {
       'fresh',
     );
     expect(next.modelHydration?.panelSurfaces.find((s) => s.id === 'equity')?.amount).toBe(
-      'fresh · book',
+      '$2.00 · fresh',
     );
   });
 });

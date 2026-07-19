@@ -80,6 +80,17 @@ const processSteps = [
 const hydration: MarketHubModelHydration = {
   liveSources,
   librarySources,
+  capitalSources: [
+    {
+      id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      name: 'Company pool',
+      tier: 'company_root',
+      kind: 'company_pool',
+      operation: 'root fund',
+      amount: '$10000.00',
+      status: 'configured',
+    },
+  ],
   processingFlows,
   processSteps,
   stageOps: [
@@ -125,6 +136,18 @@ const hydration: MarketHubModelHydration = {
       amount: '1 open',
       sourceStageId: 'narrative',
       updatedAt: '2026-07-19T05:00:00.000Z',
+      capitalBearing: true,
+    },
+    {
+      id: 'capital',
+      label: 'Funds outline',
+      panel: 'rail',
+      status: 'ready',
+      operation: 'rail funds',
+      amount: '$10000.00 · 0 desk',
+      sourceStageId: 'hub_ready',
+      updatedAt: '2026-07-19T05:00:00.000Z',
+      capitalBearing: true,
     },
     {
       id: 'movers',
@@ -135,6 +158,7 @@ const hydration: MarketHubModelHydration = {
       amount: '5 items',
       sourceStageId: 'seal_movers',
       updatedAt: '2026-07-19T04:59:00.000Z',
+      capitalBearing: false,
     },
   ],
 };
@@ -184,7 +208,7 @@ describe('buildLiveProcessingFlows (D-156 / D-162)', () => {
   });
 });
 
-describe('buildMarketPostureAlgorithmGraph (D-147 / D-156 / D-160 / D-162)', () => {
+describe('buildMarketPostureAlgorithmGraph (D-147 / D-156 / D-160 / D-162 / D-163)', () => {
   it('wires typed edges with activation/status/track and granular process nodes', () => {
     const graph = buildMarketPostureAlgorithmGraph({
       hydration,
@@ -204,10 +228,21 @@ describe('buildMarketPostureAlgorithmGraph (D-147 / D-156 / D-160 / D-162)', () 
       expect(n.data.track).toBeTruthy();
     }
 
+    // D-163: missing_key GDELT is omitted; alpaca ready remains
+    expect(graph.nodes.some((n) => n.id === 'live:gdelt_news')).toBe(false);
+    expect(graph.nodes.some((n) => n.id === 'live:alpaca_bars')).toBe(true);
+    expect(graph.nodes.some((n) => n.data.nodeRole === 'capital_source')).toBe(true);
+    expect(
+      graph.nodes.find((n) => n.data.nodeRole === 'capital_source')?.data.amount,
+    ).toBe('$10000.00');
+    expect(
+      graph.nodes.find((n) => n.id === 'panel:capital')?.data.capitalBearing,
+    ).toBe(true);
+
     const processNodes = graph.nodes.filter((n) => n.data.nodeRole === 'process');
-    expect(processNodes.length).toBeGreaterThan(8);
-    expect(processNodes.some((n) => n.id === 'process:gdelt_news:fetch')).toBe(true);
+    expect(processNodes.length).toBeGreaterThan(4);
     expect(processNodes.some((n) => n.id === 'process:alpaca_bars:rs')).toBe(true);
+    expect(processNodes.some((n) => n.id === 'process:gdelt_news:fetch')).toBe(false);
     expect(processNodes.some((n) => n.id === 'process:shared:universe_build:evidence')).toBe(
       true,
     );
@@ -223,22 +258,29 @@ describe('buildMarketPostureAlgorithmGraph (D-147 / D-156 / D-160 / D-162)', () 
       ),
     ).toBe(true);
 
-    const blocked = graph.edges.find((e) => e.source === 'adapter:gdelt_news:headline');
-    expect(blocked?.data.activation).toBe('blocked');
-
     const pipe = graph.edges.find((e) => e.id === 'e-shared:compound_rank:0');
     expect(pipe?.data.edgeType).toBe('pipeline');
 
     const panels = graph.nodes.filter((n) => n.data.nodeRole === 'panel_surface');
-    expect(panels.length).toBe(2);
+    expect(panels.length).toBe(3);
     expect(graph.edges.some((e) => e.data.edgeType === 'panel')).toBe(true);
 
-    // No direct adapter→gather dump for route-bearing news flows
     expect(
       graph.edges.some(
         (e) => e.source === 'adapter:gdelt_news:headline' && e.target === 'gather',
       ),
     ).toBe(false);
+  });
+
+  it('omits sector track when no news providers are available (D-163)', () => {
+    const graph = buildMarketPostureAlgorithmGraph({
+      hydration,
+      nowMs: Date.parse('2026-07-19T05:00:30.000Z'),
+    });
+    expect(graph.tracks.map((t) => t.id)).not.toContain('sector');
+    expect(graph.nodes.some((n) => n.id === 'sector')).toBe(false);
+    expect(graph.tracks.map((t) => t.id)).toContain('entitle');
+    expect(graph.tracks.map((t) => t.id)).toContain('compound');
   });
 
   it('activates pipeline edges from running stages', () => {

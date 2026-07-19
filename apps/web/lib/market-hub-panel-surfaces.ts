@@ -1,12 +1,14 @@
 /**
- * Panel surface projections for Market Posture Model (D-161).
+ * Panel surface projections for Market Posture Model (D-161 / D-163).
  * Mirrors left-rail + overlay boards so hub_ready hydrates into operator panels.
+ * Capital-bearing surfaces carry hub-resolved dollar amount readouts (not LLM).
  */
 
 import type {
   MarketHubCapitalSource,
   MarketHubCharts,
   MarketHubEquity,
+  MarketHubModelCapitalSource,
   MarketHubModelHydration,
   MarketHubModelPanelSurface,
   MarketHubModelStageOp,
@@ -17,13 +19,30 @@ import type {
   MarketHubWatchlistItem,
 } from '@hftr/contracts';
 
+/** Hub-resolved display dollars — never for LLM prompts (D-008). */
+function dollarsFromCents(cents: number | string): string {
+  const n = typeof cents === 'string' ? Number(cents) : cents;
+  if (!Number.isFinite(n)) return '—';
+  return `$${(n / 100).toFixed(2)}`;
+}
+
 export type PanelSurfaceHubSlice = {
   equity: Pick<MarketHubEquity, 'status' | 'asOfIso' | 'equityCents'>;
   movers: Pick<MarketHubMovers, 'status' | 'items' | 'verifiedAt'>;
   news: Pick<MarketHubNews, 'status' | 'items' | 'verifiedAt'>;
   positions: Pick<MarketHubPosition, 'id'>[];
   watchlists: Pick<MarketHubWatchlistItem, 'id'>[];
-  capitalSources: Pick<MarketHubCapitalSource, 'id' | 'tier'>[];
+  capitalSources: Pick<
+    MarketHubCapitalSource,
+    | 'id'
+    | 'name'
+    | 'tier'
+    | 'kind'
+    | 'status'
+    | 'allocationCents'
+    | 'ledgerBalanceCents'
+    | 'allocationStatus'
+  >[];
   reports: Pick<MarketHubReportLink, 'id'>[];
   charts: Pick<
     MarketHubCharts,
@@ -34,8 +53,67 @@ export type PanelSurfaceHubSlice = {
 function panelEquityAmount(equity: PanelSurfaceHubSlice['equity']): string {
   if (equity.status === 'unavailable') return 'unavailable';
   if (equity.equityCents == null) return equity.status;
-  // Counts/status only — never LLM dollars on the Model.
-  return `${equity.status} · book`;
+  return `${dollarsFromCents(equity.equityCents)} · ${equity.status}`;
+}
+
+function capitalRowAmount(
+  s: PanelSurfaceHubSlice['capitalSources'][number],
+): string {
+  if (s.allocationCents) return dollarsFromCents(s.allocationCents);
+  if (s.ledgerBalanceCents) return `L ${dollarsFromCents(s.ledgerBalanceCents)}`;
+  switch (s.allocationStatus) {
+    case 'missing_base':
+      return 'need pool';
+    case 'missing_ref':
+      return 'unresolved';
+    case 'unconfigured':
+      return '—';
+    case 'resolved':
+      return '—';
+    default: {
+      const _exhaustive: never = s.allocationStatus;
+      return _exhaustive;
+    }
+  }
+}
+
+function capitalPanelAmount(sources: PanelSurfaceHubSlice['capitalSources']): string {
+  const pool = sources.find((c) => c.kind === 'company_pool');
+  if (pool?.allocationCents) {
+    const desks = sources.filter((c) => c.tier === 'execution_split').length;
+    return desks > 0
+      ? `${dollarsFromCents(pool.allocationCents)} · ${desks} desk`
+      : dollarsFromCents(pool.allocationCents);
+  }
+  const summed = sources.reduce((acc, s) => {
+    if (!s.allocationCents) return acc;
+    const n = Number(s.allocationCents);
+    return Number.isFinite(n) ? acc + n : acc;
+  }, 0);
+  if (summed > 0) return dollarsFromCents(summed);
+  const rootFunds = sources.filter((c) => c.tier === 'company_root').length;
+  const desks = sources.filter((c) => c.tier === 'execution_split').length;
+  return `${rootFunds} root · ${desks} desk`;
+}
+
+/**
+ * Project capital fund rows onto the Model as data-source nodes (D-163).
+ */
+export function buildMarketHubModelCapitalSources(
+  sources: PanelSurfaceHubSlice['capitalSources'],
+): MarketHubModelCapitalSource[] {
+  return sources
+    .filter((s) => s.status !== 'unavailable')
+    .slice(0, 32)
+    .map((s) => ({
+      id: s.id,
+      name: s.name.slice(0, 120),
+      tier: s.tier,
+      kind: s.kind,
+      operation: s.tier === 'company_root' ? 'root fund' : 'desk split',
+      amount: capitalRowAmount(s).slice(0, 40),
+      status: s.status,
+    }));
 }
 
 /**
@@ -44,8 +122,6 @@ function panelEquityAmount(equity: PanelSurfaceHubSlice['equity']): string {
 export function buildMarketHubModelPanelSurfaces(
   slice: PanelSurfaceHubSlice,
 ): MarketHubModelPanelSurface[] {
-  const rootFunds = slice.capitalSources.filter((c) => c.tier === 'company_root').length;
-  const desks = slice.capitalSources.filter((c) => c.tier === 'execution_split').length;
   const chartSlices =
     slice.charts.watchlistTiers.length +
     slice.charts.trendStrength.length +
@@ -62,6 +138,7 @@ export function buildMarketHubModelPanelSurfaces(
       amount: `${slice.positions.length} open`,
       sourceStageId: 'narrative',
       updatedAt: slice.equity.asOfIso,
+      capitalBearing: true,
     },
     {
       id: 'capital',
@@ -69,9 +146,10 @@ export function buildMarketHubModelPanelSurfaces(
       panel: 'rail',
       status: slice.capitalSources.length > 0 ? 'ready' : 'empty',
       operation: 'rail funds',
-      amount: `${rootFunds} root · ${desks} desk`,
+      amount: capitalPanelAmount(slice.capitalSources).slice(0, 40),
       sourceStageId: 'hub_ready',
       updatedAt: slice.equity.asOfIso,
+      capitalBearing: true,
     },
     {
       id: 'equity',
@@ -79,9 +157,10 @@ export function buildMarketHubModelPanelSurfaces(
       panel: 'overlay',
       status: slice.equity.status,
       operation: 'live book',
-      amount: panelEquityAmount(slice.equity),
+      amount: panelEquityAmount(slice.equity).slice(0, 40),
       sourceStageId: 'hub_ready',
       updatedAt: slice.equity.asOfIso,
+      capitalBearing: true,
     },
     {
       id: 'movers',
@@ -92,6 +171,7 @@ export function buildMarketHubModelPanelSurfaces(
       amount: `${slice.movers.items.length} items`,
       sourceStageId: 'seal_movers',
       updatedAt: slice.movers.verifiedAt,
+      capitalBearing: false,
     },
     {
       id: 'news',
@@ -102,6 +182,7 @@ export function buildMarketHubModelPanelSurfaces(
       amount: `${slice.news.items.length} items`,
       sourceStageId: 'sector',
       updatedAt: slice.news.verifiedAt,
+      capitalBearing: false,
     },
     {
       id: 'watchlists',
@@ -112,6 +193,7 @@ export function buildMarketHubModelPanelSurfaces(
       amount: `${slice.watchlists.length} rows`,
       sourceStageId: 'verify',
       updatedAt: slice.movers.verifiedAt,
+      capitalBearing: false,
     },
     {
       id: 'reports',
@@ -122,6 +204,7 @@ export function buildMarketHubModelPanelSurfaces(
       amount: `${slice.reports.length} links`,
       sourceStageId: 'narrative',
       updatedAt: slice.movers.verifiedAt,
+      capitalBearing: false,
     },
     {
       id: 'charts',
@@ -132,6 +215,7 @@ export function buildMarketHubModelPanelSurfaces(
       amount: `${chartSlices} slices`,
       sourceStageId: 'hub_ready',
       updatedAt: slice.equity.asOfIso,
+      capitalBearing: false,
     },
   ];
 }
@@ -164,8 +248,9 @@ export function patchModelHydrationFromLive(opts: {
       return {
         ...s,
         status: equity.status,
-        amount: panelEquityAmount(equity),
+        amount: panelEquityAmount(equity).slice(0, 40),
         updatedAt: equity.asOfIso ?? fetchedAt,
+        capitalBearing: true,
       };
     }
     if (s.id === 'positions') {
@@ -174,17 +259,23 @@ export function patchModelHydrationFromLive(opts: {
         status: positionCount > 0 ? 'ready' : 'empty',
         amount: `${positionCount} open`,
         updatedAt: equity.asOfIso ?? fetchedAt,
+        capitalBearing: true,
       };
     }
     if (s.id === 'capital') {
-      return { ...s, updatedAt: equity.asOfIso ?? fetchedAt };
+      return { ...s, updatedAt: equity.asOfIso ?? fetchedAt, capitalBearing: true };
     }
     return s;
   });
 
   let stageOps = hydration.stageOps;
   stageOps = patchStageOp(stageOps, 'narrative', `${positionCount} held`);
-  stageOps = patchStageOp(stageOps, 'hub_ready', stageOps.find((s) => s.stageId === 'hub_ready')?.amount ?? 'project', 'project hub');
+  stageOps = patchStageOp(
+    stageOps,
+    'hub_ready',
+    stageOps.find((s) => s.stageId === 'hub_ready')?.amount ?? 'project',
+    'project hub',
+  );
 
   return {
     ...hydration,

@@ -46,7 +46,7 @@ import type { MarketHubSymbolViz, QualitativeBand } from '@hftr/contracts';
 import { withAuth } from '@/lib/api';
 import { projectMarketHubCapitalSources } from '@/lib/market-hub-capital';
 import { projectMarketHubModelHydration } from '@/lib/market-hub-model-hydration';
-import { buildMarketHubModelPanelSurfaces } from '@/lib/market-hub-panel-surfaces';
+import { buildMarketHubModelPanelSurfaces, buildMarketHubModelCapitalSources } from '@/lib/market-hub-panel-surfaces';
 import { buildMarketHubSourceChips } from '@/lib/market-hub-source-chips';
 
 export const dynamic = 'force-dynamic';
@@ -932,6 +932,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     });
     const modelHydration = {
       ...modelHydrationBase,
+      capitalSources: buildMarketHubModelCapitalSources(capitalSources),
       panelSurfaces: buildMarketHubModelPanelSurfaces({
         equity: {
           status: equityStatus,

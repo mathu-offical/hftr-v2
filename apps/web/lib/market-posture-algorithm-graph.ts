@@ -1,7 +1,7 @@
 /**
- * Market posture synthesis Model graph (D-120 / D-147 / D-156 / D-160 / D-162).
- * Per-route process chains (live + library + shared compound) sit between
- * adapters/stages; edges carry type, activation, status, and track.
+ * Market posture synthesis Model graph (D-120 / D-147 / D-156 / D-160 / D-162 / D-163).
+ * Shows only available provider tracks; data sources (live/library/capital)
+ * feed route process chains into synthesis milestones and panel surfaces.
  */
 
 import type {
@@ -22,12 +22,19 @@ import {
   MARKET_HUB_MODEL_TRACK_META,
   MARKET_HUB_SYNTHESIS_STAGE_META,
 } from '@hftr/contracts';
+import {
+  isAvailableLibrarySource,
+  isAvailableLiveSource,
+  resolveModelTrackCapabilities,
+  tracksFromCapabilities,
+} from './market-hub-model-availability';
 
 export type PostureAlgoNodeRole =
   | 'live_source'
   | 'adapter'
   | 'process'
   | 'library_source'
+  | 'capital_source'
   | 'stage'
   | 'panel_surface';
 
@@ -47,6 +54,8 @@ export type PostureAlgoNodeData = {
   /** Panel surface id when nodeRole is panel_surface (D-161). */
   panelSurfaceId?: string;
   panelKind?: 'rail' | 'overlay' | 'both';
+  /** Emphasize amount as capital readout (D-163). */
+  capitalBearing?: boolean;
   layer: MarketHubModelLayer;
   track: MarketHubModelTrack;
   activation: MarketHubModelEdgeActivation;
@@ -461,12 +470,87 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
   const nodes: PostureAlgoGraph['nodes'] = [];
   const edges: PostureAlgoGraph['edges'] = [];
 
-  const liveSources = hydration?.liveSources ?? [];
-  const librarySources = hydration?.librarySources ?? [];
-  const flows = hydration?.processingFlows ?? [];
-  const processSteps = hydration?.processSteps ?? [];
+  const allLiveSources = hydration?.liveSources ?? [];
+  const allLibrarySources = hydration?.librarySources ?? [];
+  const capitalSources = hydration?.capitalSources ?? [];
+  const panelSurfacesEarly = hydration?.panelSurfaces ?? [];
+
+  /** D-163: diagram shows only available providers / admitted libraries. */
+  const liveSources = allLiveSources.filter(isAvailableLiveSource);
+  const librarySources = allLibrarySources.filter(isAvailableLibrarySource);
+  const availableKinds = new Set(liveSources.map((s) => s.kind));
+
+  const caps = resolveModelTrackCapabilities({
+    liveSources: allLiveSources,
+    librarySources: allLibrarySources,
+    hasCapitalSources: capitalSources.length > 0,
+    hasPanelSurfaces: panelSurfacesEarly.length > 0,
+  });
+
+  const flows = (hydration?.processingFlows ?? []).filter((f) => {
+    if (f.kind.startsWith('library:')) {
+      return librarySources.some((lib) => f.kind === `library:${lib.id}`);
+    }
+    return availableKinds.has(f.kind);
+  });
+
+  const processSteps = (hydration?.processSteps ?? []).filter((s) => {
+    if (s.kind === 'shared') {
+      if (s.route === 'sector_bulletin' && !caps.hasSector) return false;
+      if (s.route === 'daily_phase' && !caps.hasDaily) return false;
+      if (s.route === 'providers_entitle' && !caps.hasEntitle) return false;
+      if (
+        (s.route === 'thresholds_llm' ||
+          s.route === 'defaults_catalog' ||
+          s.route === 'universe_build' ||
+          s.route === 'compound_rank' ||
+          s.route === 'verify_promote') &&
+        !caps.hasCompound
+      ) {
+        return false;
+      }
+      if (s.route === 'narrative_compose' && !caps.hasCompose) return false;
+      return true;
+    }
+    if (s.kind.startsWith('library:')) {
+      return librarySources.some((lib) => s.kind === `library:${lib.id}`);
+    }
+    return availableKinds.has(s.kind);
+  });
   const stepsById = new Map(processSteps.map((s) => [s.id, s]));
   const asOfIso = hydration?.asOfIso ?? null;
+
+  const activeStageLayout = STAGE_LAYOUT.filter((s) => {
+    if (s.id === 'sector' && !caps.hasSector) return false;
+    if (s.id === 'daily' && !caps.hasDaily) return false;
+    if (
+      (s.id === 'providers' || s.id === 'gather') &&
+      !caps.hasCompound &&
+      !caps.hasEntitle
+    ) {
+      return false;
+    }
+    if (
+      ['thresholds', 'defaults', 'universe', 'rs', 'rank', 'verify', 'seal_movers'].includes(
+        s.id,
+      ) &&
+      !caps.hasCompound
+    ) {
+      return false;
+    }
+    if ((s.id === 'narrative' || s.id === 'hub_ready') && !caps.hasCompose) return false;
+    return true;
+  });
+
+  const activeBridges = SHARED_BRIDGE_SPECS.filter((b) => {
+    if (b.track === 'sector' || b.route === 'sector_bulletin') return caps.hasSector;
+    if (b.track === 'daily' || b.route === 'daily_phase') return caps.hasDaily;
+    if (b.route === 'providers_entitle') return caps.hasEntitle;
+    if (b.track === 'compose' || b.route === 'narrative_compose') return caps.hasCompose;
+    if (b.track === 'compound') return caps.hasCompound;
+    if (b.track === 'entitle') return caps.hasEntitle;
+    return true;
+  });
 
   const gap = 72;
   const liveX = 0;
@@ -950,7 +1034,7 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
     }
   });
 
-  for (const s of STAGE_LAYOUT) {
+  for (const s of activeStageLayout) {
     const meta = MARKET_HUB_SYNTHESIS_STAGE_META[s.id];
     const stageRow = byStage.get(s.id);
     const baseline = stageOpFromHydration(hydration, s.id);
@@ -1008,11 +1092,13 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
     });
   }
 
-  for (const bridge of SHARED_BRIDGE_SPECS) {
+  for (const bridge of activeBridges) {
     wireSharedRouteChain(bridge);
   }
 
   for (const spec of DIRECT_STAGE_EDGE_SPECS) {
+    if (!activeStageLayout.some((s) => s.id === spec.source)) continue;
+    if (!activeStageLayout.some((s) => s.id === spec.target)) continue;
     const src = byStage.get(spec.source);
     const tgt = byStage.get(spec.target);
     const targetStale =
@@ -1040,8 +1126,56 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
     });
   }
 
+  // Capital data sources (D-163) — fund rows with inline amount readouts.
+  const capitalStartY =
+    librarySources.length > 0
+      ? libStartY + librarySources.length * gap + 24
+      : row * gap + 48;
+  capitalSources.forEach((cap, i) => {
+    const nodeId = `capital:${cap.id}`;
+    const ready = cap.status === 'configured';
+    nodes.push({
+      id: nodeId,
+      type: 'postureAlgo',
+      position: { x: liveX, y: capitalStartY + i * gap },
+      data: {
+        label: cap.name,
+        detail: `${cap.tier} · ${cap.kind}`,
+        kind: 'data',
+        nodeRole: 'capital_source',
+        operation: cap.operation,
+        amount: cap.amount,
+        capitalBearing: true,
+        layer: 'sources',
+        track: 'compose',
+        activation: ready ? 'armed' : 'idle',
+        status: ready ? 'ready' : 'idle',
+        updatedAt: asOfIso,
+      },
+    });
+    const edgeId = `e-${nodeId}-panel:capital`;
+    edges.push({
+      id: edgeId,
+      source: nodeId,
+      target: 'panel:capital',
+      label: 'funds',
+      data: {
+        edgeType: 'hydrate',
+        track: 'compose',
+        ...resolveModelEdgeState({
+          edgeType: 'hydrate',
+          sourceReady: ready,
+          pulsed: pulsed?.has(edgeId) ?? false,
+        }),
+      },
+    });
+  });
+
   // Panel surfaces — hub_ready hydrates into operator rail/overlay boards (D-161).
-  const panelSurfaces = hydration?.panelSurfaces ?? [];
+  const panelSurfaces = (hydration?.panelSurfaces ?? []).filter((surf) => {
+    if (surf.id === 'news' && !caps.hasSector) return false;
+    return true;
+  });
   const panelX = 3600;
   const panelGap = 56;
   const panelStartY = 40;
@@ -1053,6 +1187,7 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
       : ready
         ? 'armed'
         : 'idle';
+    const capitalBearing = surf.capitalBearing === true;
     nodes.push({
       id: nodeId,
       type: 'postureAlgo',
@@ -1066,6 +1201,7 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
         amount: surf.amount,
         panelSurfaceId: surf.id,
         panelKind: surf.panel,
+        capitalBearing,
         layer: 'output',
         track: 'compose',
         activation,
@@ -1074,10 +1210,15 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
       },
     });
     const edgeId = `e-hub_ready-${nodeId}`;
-    const fromStage = surf.sourceStageId ?? 'hub_ready';
+    const fromStageRaw = surf.sourceStageId ?? 'hub_ready';
+    const fromStage = activeStageLayout.some((s) => s.id === fromStageRaw)
+      ? fromStageRaw
+      : activeStageLayout.some((s) => s.id === 'hub_ready')
+        ? 'hub_ready'
+        : (activeStageLayout[activeStageLayout.length - 1]?.id ?? 'hub_ready');
     edges.push({
       id: edgeId,
-      source: fromStage === 'hub_ready' ? 'hub_ready' : fromStage,
+      source: fromStage,
       target: nodeId,
       label: surf.panel,
       data: {
@@ -1093,13 +1234,17 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
     });
   });
 
-  const tracks = (Object.keys(MARKET_HUB_MODEL_TRACK_META) as MarketHubModelTrack[]).map(
-    (id) => ({
+  // Only list tracks that actually appear after availability filtering (D-163).
+  const trackIds = new Set<MarketHubModelTrack>(tracksFromCapabilities(caps));
+  for (const e of edges) trackIds.add(e.data.track);
+  for (const n of nodes) trackIds.add(n.data.track);
+  const tracks = (Object.keys(MARKET_HUB_MODEL_TRACK_META) as MarketHubModelTrack[])
+    .filter((id) => trackIds.has(id))
+    .map((id) => ({
       id,
       label: MARKET_HUB_MODEL_TRACK_META[id].label,
       summary: MARKET_HUB_MODEL_TRACK_META[id].summary,
-    }),
-  );
+    }));
 
   return { nodes, edges, tracks, asOfIso };
 }

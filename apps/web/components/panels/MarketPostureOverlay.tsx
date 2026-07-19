@@ -471,7 +471,7 @@ export function MarketPostureOverlay() {
                 Synthesis model · hydration
               </h3>
               <p className="text-[10px] text-[var(--color-ink-dim)]">
-                Per-route process steps (fetch→normalize→analyze) feed analysis tracks;
+                Available providers + capital data sources feed per-route process steps;
                 hub_ready hydrates left-rail and
                 day-overlay panel boards. Live marks patch panel surfaces without a full Sync
                 pulse. Analyze animates pipeline stages (stock + news seals).

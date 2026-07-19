@@ -329,17 +329,19 @@ are ignored. Shortcuts are suppressed in editable fields.
   synthesis run, force-reseals `library.system_movers` (tactical LLM thresholds),
   `library.system_sector_news`, calendar-phase `library.system_daily_summaries` in parallel,
   then `library.posture_narrative` (waits for seal stages; book↔tape deterministic rollup).
-  Overlay **Model** section is the **live synthesis hydration hub** (D-147 / D-156 / D-160 / D-161 / D-162) —
-  React Flow with live sources → adapters → **route-granular process steps**
+  Overlay **Model** section is the **live synthesis hydration hub** (D-147 / D-156 / D-160 / D-161 / D-162 / D-163) —
+  React Flow with **available** live/library/**capital** data sources → adapters → **route-granular process steps**
   (fetch→normalize→analyze per API family; shared universe/rank/verify chains between
-  stages) across **layers** (sources/adapters/pipeline/output) and **tracks**
-  (entitle/compound/sector/daily/compose),
+  stages) across **layers** (sources/adapters/pipeline/output) and **tracks that are present**
+  (entitle/compound/sector/daily/compose filtered by provider capabilities),
   then **panel surfaces** (rail positions/funds + overlay equity/movers/news/charts).
+  Nodes are **role-styled** (SRC/LIB/CAP/ADAPT/PROC/STAGE/PANEL); capital-bearing nodes
+  show **inline dollar amount readouts** from hub-resolved cents (not LLM).
   Connections carry **type / activation / status** styling; Sync/Analyze pulse hydrate + pipeline
   edges; live equity/marks poll patches `panelSurfaces` via `livePatchedAt` without a full Sync
   pulse. Operation + amount on every node; track legend + inspector; plus an **awareness dock**.
-  Hub GET projects `modelHydration` (`processingFlows`, `processSteps`, `asOfIso`, `sealStamps`,
-  `panelSurfaces`).
+  Hub GET projects `modelHydration` (`processingFlows`, `processSteps`, `capitalSources`,
+  `asOfIso`, `sealStamps`, `panelSurfaces`).
   **Watchlist tiers (D-092):** `suggested_search` → `suggested_verified` → `watching`
   (+ `triggered` / `archived`). Overlay recommendation watch grid + bottom Watch lists
   filter chips (default: watching + suggested_verified). **Confirm** PATCHes to `watching`
@@ -496,8 +498,8 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
   company envelope sphere bounds the visible nests. Cross-library edges may span systems.
   Layout uses Fibonacci volume packing (D-116) with free-float
   semantic springs (D-136), celestial hierarchy (D-139 / D-141), orbital shelf
-  bands (D-142), **client semantic springs** (D-145), and **physical library bridges**
-  from shared display tags / overlap so related spheres drift into interaction (D-151).
+  bands (D-142), **client semantic springs** (D-145), **physical library bridges** (D-151),
+  and **independent sphere growth** with system-seeded folder similarity placement (D-164).
 - **Rotating info-tag layer** over the graph (subtle orbit of tag chips; static under
   `prefers-reduced-motion`); chips double as filters.
 - **Topic focus** (left-panel select): dim non-member concepts/edges; stronger particles on

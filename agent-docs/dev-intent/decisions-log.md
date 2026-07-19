@@ -1664,6 +1664,21 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Model hydration/visualization only. Extends D-156 / D-161. Docs: ui-spec §4, data-model,
   synthesis hub design. **Status: implemented.**
 
+- **D-163 (Market posture Model available-only tracks + capital amounts, 2026-07-19):** Model
+  diagram filters to **available providers** (ready/public/contributed/canvas-bound) and
+  **admitted libraries**; track legend + sector/daily branches follow capabilities. Capital
+  fund rows project as **CAP data-source nodes** with hub-resolved dollar amounts; capital-
+  bearing panels (capital/equity/positions) emphasize inline amount readouts. Per-role node
+  chrome distinguishes SRC/LIB/CAP/ADAPT/PROC/STAGE/PANEL. Extends D-162. Docs: ui-spec §4,
+  data-model, synthesis hub design. **Status: implemented.**
+
+- **D-164 (galaxy independent spheres + seeded folder similarity, 2026-07-19):** Galaxy nests
+  were too dense after D-151 soft packing. Library/folder radii now grow **independently**
+  from content; packing gap ≥ 1.28; parent hulls **refit** around folder extents. Seeded
+  catalog folders carry system-defined similarity bands (`galaxy-folder-similarity.ts`) so
+  related shelves place closer and unrelated farther. Bridge force respects the packing gap.
+  Docs: galaxy-3d-volume-layout, research-galaxy-topic-view-design, ui-spec. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

@@ -5,18 +5,19 @@
 
 ## Intent
 
-Operator **Analyze** creates a durable synthesis **run** with ordered **stages**. Posture → **Model** is a live React Flow **hydration hub** (D-147 / D-156 / D-162): each API route has its own **process chain** (fetch→normalize→analyze) into analysis stages, shared compound bridges sit between stage milestones, then pipeline stages animate from the run. Baseline awareness dock remains (movers status, multi-seal freshness, report/narrative open). Equity live poll (D-112) stays paused during Analyze POST only; synthesis progress polls separately (~1.5s).
+Operator **Analyze** creates a durable synthesis **run** with ordered **stages**. Posture → **Model** is a live React Flow **hydration hub** (D-147 / D-156 / D-162 / D-163): only **available** API providers and admitted libraries appear; each route has its own **process chain** (fetch→normalize→analyze) into analysis stages; **capital fund rows** show as CAP data sources with inline dollar amounts; shared compound bridges sit between stage milestones; then pipeline stages animate from the run. Baseline awareness dock remains (movers status, multi-seal freshness, report/narrative open). Equity live poll (D-112) stays paused during Analyze POST only; synthesis progress polls separately (~1.5s).
 
-## Hydration graph (D-147 / D-156 / D-160 / D-162)
+## Hydration graph (D-147 / D-156 / D-160 / D-162 / D-163)
 
 - **Layers:** `sources` → `adapters` → `pipeline` → `output`
-- **Tracks:** `entitle` | `compound` | `sector` | `daily` | `compose` — distinct data-handling lanes
+- **Tracks:** `entitle` | `compound` | `sector` | `daily` | `compose` — **filtered to capabilities** of available providers (missing-key/stub lanes omitted from the diagram)
+- **Data sources:** live SRC + library LIB + capital CAP nodes (fund allocation readouts)
 - **Live sources** → **per-kind adapters** → **route-granular process steps** → stage milestones (not a single dump into `gather`)
 - Examples: GDELT → `news_headline` fetch/normalize/tickers/corroborate → `gather`/`universe`/`sector`; Alpaca bars → `bars_entitle` **and** `bars_ohlc` (fetch/RS/volume) → `rs`/`rank`; libraries → `library_jaccard` load/fit → `thresholds`/`rank`/`seal_movers`
-- **Shared compound bridges (D-162):** stage → `providers_entitle` / `thresholds_llm` / `universe_build` / `compound_rank` / `verify_promote` / `sector_bulletin` / `daily_phase` / `narrative_compose` → stage
-- Hub projects `modelHydration.processingFlows[]` + `processSteps[]` plus `asOfIso` + `sealStamps` for refresh/stale detection
+- **Shared compound bridges (D-162):** stage → `providers_entitle` / `thresholds_llm` / `universe_build` / `compound_rank` / `verify_promote` / `sector_bulletin` / `daily_phase` / `narrative_compose` → stage (sector/daily bridges only when those tracks are active)
+- Hub projects `modelHydration.processingFlows[]` + `processSteps[]` + `capitalSources[]` plus `asOfIso` + `sealStamps` for refresh/stale detection
 - **Edges** carry `edgeType` (`hydrate`|`adapt`|`pipeline`|`entitle`|`corpus`|`parallel`|`panel`), `activation` (`idle`|`armed`|`active`|`pulsing`|`blocked`|`stale`), `status`, and `track` — canvas styles stroke/dash/animation from these; Sync/Analyze pulse hydrate + pipeline edges when `asOfIso` or stage signature changes; **live poll** patches `panelSurfaces` + `livePatchedAt` without bumping `asOfIso` (panel-only pulse)
-- **Panel surfaces (D-161):** `hub_ready` / seal stages hydrate into operator boards (`positions`, `capital`, `equity`, `movers`, `news`, `watchlists`, `reports`, `charts`) with rail/overlay binding
+- **Panel surfaces (D-161 / D-163):** `hub_ready` / seal stages hydrate into operator boards; capital/equity/positions are **capitalBearing** with hub-resolved `$` amounts
 - Pipeline stages still carry baseline ops from `stageOps`; run summary counts override stage amount labels when present
 - Stage IDs remain the synthesis-run vocabulary; granular process nodes are Model visualization only
 

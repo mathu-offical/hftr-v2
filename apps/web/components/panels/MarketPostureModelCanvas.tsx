@@ -60,16 +60,42 @@ function kindBorder(kind: PostureAlgoNodeData['kind']): string {
   }
 }
 
+/** Per-role chrome — distinct fills/borders so node types read at a glance (D-163). */
+function roleChrome(role: PostureAlgoNodeData['nodeRole']): string {
+  switch (role) {
+    case 'live_source':
+      return 'border-l-[3px] border-l-[var(--color-accent)] bg-[var(--color-surface-1)]';
+    case 'library_source':
+      return 'border-l-[3px] border-l-[var(--color-ink-dim)] bg-[var(--color-surface-1)] border-dashed';
+    case 'capital_source':
+      return 'border-l-[3px] border-l-[var(--color-ok)] bg-[color-mix(in_srgb,var(--color-ok)_8%,var(--color-surface-1))]';
+    case 'adapter':
+      return 'border-l-[3px] border-l-[var(--color-ink-faint)] bg-[var(--color-surface-0)]';
+    case 'process':
+      return 'border-l-[3px] border-l-[var(--color-accent)] border-dotted bg-[var(--color-surface-0)]';
+    case 'stage':
+      return 'border-[var(--color-line)] bg-[var(--color-surface-1)]';
+    case 'panel_surface':
+      return 'border-[var(--color-ok)] bg-[color-mix(in_srgb,var(--color-ok)_6%,var(--color-surface-1))]';
+    default: {
+      const _exhaustive: never = role;
+      return _exhaustive;
+    }
+  }
+}
+
 function roleLabel(role: PostureAlgoNodeData['nodeRole']): string {
   switch (role) {
     case 'live_source':
-      return 'LIVE';
+      return 'SRC';
     case 'adapter':
       return 'ADAPT';
     case 'process':
       return 'PROC';
     case 'library_source':
       return 'LIB';
+    case 'capital_source':
+      return 'CAP';
     case 'stage':
       return 'STAGE';
     case 'panel_surface':
@@ -218,11 +244,12 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
     : activationRing(data.activation);
   return (
     <div
-      className={`min-w-[152px] max-w-[176px] rounded border bg-[var(--color-surface-1)] px-2 py-1.5 shadow-sm ${kindBorder(data.kind)} ${ring}`}
+      className={`min-w-[152px] max-w-[176px] rounded border px-2 py-1.5 shadow-sm ${kindBorder(data.kind)} ${roleChrome(data.nodeRole)} ${ring}`}
       data-testid={`market-posture-model-node-${data.nodeRole}`}
       data-activation={data.activation}
       data-track={data.track}
       data-layer={data.layer}
+      data-capital-bearing={data.capitalBearing ? 'true' : undefined}
     >
       <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !bg-[var(--color-ink-faint)]" />
       <div className="flex items-baseline justify-between gap-1">
@@ -246,7 +273,15 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
       <p className="truncate text-[11px] font-medium text-[var(--color-ink)]" title={data.label}>
         {data.label}
       </p>
-      <p className="mt-0.5 font-mono text-[10px] tabular-nums text-[var(--color-ink)]">
+      <p
+        className={
+          data.capitalBearing
+            ? 'mt-1 font-mono text-[12px] font-semibold tabular-nums tracking-tight text-[var(--color-ok)]'
+            : 'mt-0.5 font-mono text-[10px] tabular-nums text-[var(--color-ink)]'
+        }
+        data-testid={data.capitalBearing ? 'market-posture-model-capital-amount' : undefined}
+        title={data.amount}
+      >
         {data.amount}
       </p>
       <p className="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-accent)]">
@@ -266,6 +301,17 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
           title={data.processRoute}
         >
           {data.processRoute.replace(/_/g, ' ')}
+        </p>
+      ) : null}
+      {(data.nodeRole === 'live_source' ||
+        data.nodeRole === 'library_source' ||
+        data.nodeRole === 'capital_source') &&
+      data.detail ? (
+        <p
+          className="mt-0.5 truncate font-mono text-[8px] text-[var(--color-ink-faint)]"
+          title={data.detail}
+        >
+          {data.detail}
         </p>
       ) : null}
       <Handle type="source" position={Position.Right} className="!h-1.5 !w-1.5 !bg-[var(--color-ink-faint)]" />
@@ -360,7 +406,7 @@ function NodeInspector(props: {
   if (!props.node) {
     return (
       <p className="text-[10px] text-[var(--color-ink-faint)]">
-        Select a live source, adapter, process step, library, stage, or panel surface.
+        Select a data source, adapter, process step, capital fund, stage, or panel surface.
       </p>
     );
   }
@@ -389,6 +435,11 @@ function NodeInspector(props: {
         <p className="text-[10px] text-[var(--color-ink)]">
           Route {n.processRoute?.replace(/_/g, ' ') ?? '—'}
           {n.processStepId ? ` · ${n.processStepId}` : ''}
+        </p>
+      ) : null}
+      {n.capitalBearing ? (
+        <p className="font-mono text-[12px] font-semibold tabular-nums text-[var(--color-ok)]">
+          Amount {n.amount}
         </p>
       ) : null}
       {n.nodeRole === 'panel_surface' ? (

@@ -550,7 +550,6 @@ export async function GET(_req: Request, ctx: Ctx) {
     const capitalSources = await projectMarketHubCapitalSources({
       db,
       moduleRows,
-      engineRows,
       engineLabelById: engineById,
       moduleLedgerBalance,
       companyPoolCents,

@@ -12,21 +12,15 @@ type ModuleCapitalRow = {
   status: string;
 };
 
-type EngineCapitalRow = {
-  id: string;
-  label: string;
-  capitalAllocationRef: string | null;
-};
-
 /**
- * Company root funds + execution module splits for Posture left rail (D-139).
- * Omits fund_router hops — those are route topology, not capital sources.
+ * Company root funds + execution module splits for Posture left rail (D-144).
+ * Omits fund_router hops and research engine envelopes — topology / research
+ * capital are not inventory sources. Execution = trading desks only.
  * Amounts from ValueRefs / ledger — never LLM text.
  */
 export async function projectMarketHubCapitalSources(opts: {
   db: Db;
   moduleRows: ModuleCapitalRow[];
-  engineRows: EngineCapitalRow[];
   engineLabelById: Map<string, string>;
   moduleLedgerBalance: Map<string, string>;
   companyPoolCents: bigint | null;
@@ -35,7 +29,6 @@ export async function projectMarketHubCapitalSources(opts: {
   const {
     db,
     moduleRows,
-    engineRows,
     engineLabelById,
     moduleLedgerBalance,
     companyPoolCents,
@@ -146,11 +139,9 @@ export async function projectMarketHubCapitalSources(opts: {
     });
   }
 
-  // Execution module splits — trading desks (capital they may spend).
-  const enginesWithTrading = new Set<string>();
+  // Execution module splits — trading desks only (not research engine envelopes).
   for (const m of moduleRows) {
     if (m.type !== 'trading') continue;
-    if (m.engineInstanceId) enginesWithTrading.add(m.engineInstanceId);
     const resolved = await resolveAllocation(m.capitalAllocationRef);
     const engLabel = m.engineInstanceId
       ? (engineLabelById.get(m.engineInstanceId) ?? null)
@@ -176,28 +167,6 @@ export async function projectMarketHubCapitalSources(opts: {
       ledgerBalanceCents: moduleLedgerBalance.get(m.id) ?? null,
       engineId: m.engineInstanceId,
       engineLabel: engLabel ? engLabel.slice(0, 120) : null,
-    });
-  }
-
-  // Engine envelopes only when no trading desk already represents that engine.
-  for (const eng of engineRows) {
-    if (enginesWithTrading.has(eng.id)) continue;
-    if (!eng.capitalAllocationRef) continue;
-    const resolved = await resolveAllocation(eng.capitalAllocationRef);
-    out.push({
-      id: eng.id,
-      name: eng.label.slice(0, 120),
-      entityType: 'engine',
-      moduleType: null,
-      kind: 'engine_envelope',
-      tier: 'execution_split',
-      sourceLabel: 'engine spend envelope (no trading desk)',
-      status: 'configured',
-      allocationRef: eng.capitalAllocationRef,
-      ...resolved,
-      ledgerBalanceCents: null,
-      engineId: eng.id,
-      engineLabel: eng.label.slice(0, 120),
     });
   }
 

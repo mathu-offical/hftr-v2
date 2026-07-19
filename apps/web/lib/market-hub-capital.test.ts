@@ -12,26 +12,23 @@ import { projectMarketHubCapitalSources } from './market-hub-capital';
 
 const companyId = '11111111-1111-4111-8111-111111111111';
 const engineId = '22222222-2222-4222-8222-222222222222';
+const researchEngineId = '66666666-6666-4666-8666-666666666666';
 
-describe('projectMarketHubCapitalSources (D-139)', () => {
+describe('projectMarketHubCapitalSources (D-144)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('emits company pool + root holding funds + trading splits; omits fund_router', async () => {
+  it('emits company pool + root holding funds + trading splits; omits routers and engines', async () => {
     const rows = await projectMarketHubCapitalSources({
       db: {} as never,
       companyId,
       companyPoolCents: 1_000_000n,
-      engineLabelById: new Map([[engineId, 'Day engine']]),
+      engineLabelById: new Map([
+        [engineId, 'Day engine'],
+        [researchEngineId, 'Market regime lab'],
+      ]),
       moduleLedgerBalance: new Map(),
-      engineRows: [
-        {
-          id: engineId,
-          label: 'Day engine',
-          capitalAllocationRef: 'eng-ref',
-        },
-      ],
       moduleRows: [
         {
           id: '33333333-3333-4333-8333-333333333333',
@@ -64,12 +61,12 @@ describe('projectMarketHubCapitalSources (D-139)', () => {
     });
 
     expect(rows.some((r) => r.kind === 'fund_router')).toBe(false);
+    expect(rows.some((r) => r.kind === 'engine_envelope')).toBe(false);
     expect(rows.find((r) => r.kind === 'company_pool')?.tier).toBe('company_root');
     expect(rows.find((r) => r.kind === 'holding_fund')?.tier).toBe('company_root');
     expect(rows.find((r) => r.kind === 'trading_desk')?.tier).toBe('execution_split');
-    // Engine with trading desk is not duplicated as envelope.
-    expect(rows.some((r) => r.kind === 'engine_envelope')).toBe(false);
     expect(rows.filter((r) => r.tier === 'company_root').length).toBe(2);
     expect(rows.filter((r) => r.tier === 'execution_split').length).toBe(1);
+    expect(rows.every((r) => r.kind !== 'engine_envelope')).toBe(true);
   });
 });

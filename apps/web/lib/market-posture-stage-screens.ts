@@ -55,9 +55,16 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
   {
     id: 'library',
     label: 'Library',
-    summary: 'Scored seed intake → sector/company constants → ranges + positioning',
-    nodeIdPrefixes: ['lib:', 'lib-adapter:', 'process:library:'],
-    nodeRoles: ['library_source'],
+    summary: 'Scored seed + research ENGINEs → articles → shelf constants',
+    nodeIdPrefixes: [
+      'lib:',
+      'lib-adapter:',
+      'process:library:',
+      'engine:research:',
+      'process:engine:',
+      'articles:engine:',
+    ],
+    nodeRoles: ['library_source', 'research_engine', 'research_articles'],
     stageIds: [],
     panelSurfaceIds: [],
   },
@@ -142,12 +149,17 @@ export function resolveStageScreenId(input: {
   }
   // Kind-specific adapter process chains live with Live ingest; shared compound on Process.
   if (nodeId.startsWith('process:library:')) return 'library';
+  if (nodeId.startsWith('process:engine:')) return 'library';
+  if (nodeId.startsWith('engine:research:') || nodeId.startsWith('articles:engine:')) {
+    return 'library';
+  }
   if (nodeId.startsWith('process:shared:')) return 'process';
   if (nodeId.startsWith('process:') && !nodeId.startsWith('process:shared:')) {
     return 'live';
   }
   if (nodeId.startsWith('cluster:process:')) {
     const route = nodeId.slice('cluster:process:'.length);
+    if (route.startsWith('engine_') || route.startsWith('shelf_')) return 'library';
     if (
       route.startsWith('shared') ||
       route.includes('providers_entitle') ||

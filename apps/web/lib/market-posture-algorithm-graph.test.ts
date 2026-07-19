@@ -80,6 +80,7 @@ const processSteps = [
 const hydration: MarketHubModelHydration = {
   liveSources,
   librarySources,
+  researchEngines: [],
   capitalSources: [
     {
       id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',

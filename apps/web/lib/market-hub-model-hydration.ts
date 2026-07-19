@@ -9,20 +9,25 @@ import {
   type MarketHubModelHydration,
   type MarketHubModelLibrarySource,
   type MarketHubModelLiveSource,
+  type MarketHubModelResearchEngine,
   type MarketHubModelStageOp,
   type ResearchSourceAvailability,
   type ResearchSourceDescriptor,
 } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
-import { libraries, libraryConcepts, modules } from '@hftr/db/schema';
+import {
+  engineInstances,
+  libraries,
+  libraryConcepts,
+  modules,
+  researchTopics,
+} from '@hftr/db/schema';
 import {
   buildLibraryProcessingFlows,
   buildLiveProcessingFlows,
   buildProcessStepsFromFlows,
   buildSharedCompoundProcessSteps,
-} from '@/lib/market-hub-processing-flows';
-
-const INTERNAL_SOURCE_KINDS = new Set<string>(['catalog', 'library', 'operator']);
+} from '@/lib/market-hub-processing-flows';const INTERNAL_SOURCE_KINDS = new Set<string>(['catalog', 'library', 'operator']);
 
 const SYSTEM_SCOPES = new Set<string>(Object.values(SystemTopicScope).map((s) => s.toLowerCase()));
 
@@ -339,9 +344,161 @@ export async function projectMarketHubModelHydration(opts: {
     }),
   ].slice(0, 128);
 
+  // Research ENGINEs → library articles (D-214). Group by engine instance when present.
+  const researchModRows = await db
+    .select({
+      id: modules.id,
+      name: modules.name,
+      status: modules.status,
+      config: modules.config,
+      engineInstanceId: modules.engineInstanceId,
+    })
+    .from(modules)
+    .where(and(eq(modules.companyId, companyId), eq(modules.type, 'research')))
+    .limit(32);
+
+  const engineIds = [
+    ...new Set(
+      researchModRows
+        .map((r) => r.engineInstanceId)
+        .filter((id): id is string => typeof id === 'string'),
+    ),
+  ];
+  const engineLabelById = new Map<string, string>();
+  if (engineIds.length > 0) {
+    const engRows = await db
+      .select({ id: engineInstances.id, label: engineInstances.label })
+      .from(engineInstances)
+      .where(inArray(engineInstances.id, engineIds));
+    for (const row of engRows) {
+      engineLabelById.set(row.id, row.label);
+    }
+  }
+
+  const liveApiByEngine = new Map<string, string[]>();
+  const liveApiAll = await db
+    .select({
+      id: modules.id,
+      config: modules.config,
+      engineInstanceId: modules.engineInstanceId,
+    })
+    .from(modules)
+    .where(and(eq(modules.companyId, companyId), eq(modules.type, 'live_api')))
+    .limit(128);
+  for (const row of liveApiAll) {
+    const kind = resolveLiveApiSourceKind(row.config);
+    if (!kind || !row.engineInstanceId) continue;
+    const list = liveApiByEngine.get(row.engineInstanceId) ?? [];
+    if (!list.includes(kind)) list.push(kind);
+    liveApiByEngine.set(row.engineInstanceId, list);
+  }
+
+  const topicCounts = new Map<string, number>();
+  const researchModuleIds = researchModRows.map((r) => r.id);
+  if (researchModuleIds.length > 0) {
+    const topicRows = await db
+      .select({
+        moduleId: researchTopics.moduleId,
+        n: count(),
+      })
+      .from(researchTopics)
+      .where(
+        and(
+          inArray(researchTopics.moduleId, researchModuleIds),
+          eq(researchTopics.status, 'active'),
+        ),
+      )
+      .groupBy(researchTopics.moduleId);
+    for (const row of topicRows) {
+      topicCounts.set(row.moduleId, Number(row.n));
+    }
+  }
+
+  const hubLibByOwner = new Map<string, string>();
+  const hubOwnerRows = await db
+    .select({
+      id: libraries.id,
+      ownerEngineInstanceId: libraries.ownerEngineInstanceId,
+    })
+    .from(libraries)
+    .where(
+      and(
+        eq(libraries.companyId, companyId),
+        eq(libraries.status, 'active'),
+        eq(libraries.isEngineDataHub, true),
+      ),
+    )
+    .limit(64);
+  for (const row of hubOwnerRows) {
+    if (row.ownerEngineInstanceId) {
+      hubLibByOwner.set(row.ownerEngineInstanceId, row.id);
+    }
+  }
+
+  const researchEngineMap = new Map<string, MarketHubModelResearchEngine>();
+  for (const mod of researchModRows) {
+    const engineKey = mod.engineInstanceId ?? mod.id;
+    const cfg = (mod.config ?? {}) as Record<string, unknown>;
+    const fromConfig = Array.isArray(cfg.targetLibraryIds)
+      ? (cfg.targetLibraryIds as string[]).filter((id) => typeof id === 'string')
+      : [];
+    const hubLib = mod.engineInstanceId
+      ? hubLibByOwner.get(mod.engineInstanceId)
+      : undefined;
+    const boundLibraryIds = [
+      ...new Set([...fromConfig, ...(hubLib ? [hubLib] : [])]),
+    ].slice(0, 16);
+    const liveKinds =
+      (mod.engineInstanceId
+        ? liveApiByEngine.get(mod.engineInstanceId)
+        : undefined) ??
+      liveSources
+        .filter((s) => s.contributed || s.status === 'ready' || s.status === 'public')
+        .map((s) => s.kind)
+        .slice(0, 16);
+    const topics = topicCounts.get(mod.id) ?? 0;
+    const existing = researchEngineMap.get(engineKey);
+    if (existing) {
+      existing.topicCount += topics;
+      existing.articleCount += topics;
+      existing.boundLibraryIds = [
+        ...new Set([...existing.boundLibraryIds, ...boundLibraryIds]),
+      ].slice(0, 16);
+      existing.liveSourceKinds = [
+        ...new Set([...existing.liveSourceKinds, ...liveKinds]),
+      ].slice(0, 32);
+      existing.amount = `${existing.articleCount} articles · ${existing.boundLibraryIds.length} libs`;
+      continue;
+    }
+    const label = (
+      (mod.engineInstanceId && engineLabelById.get(mod.engineInstanceId)) ||
+      mod.name
+    ).slice(0, 120);
+    const status =
+      mod.status === 'active' ||
+      mod.status === 'paused' ||
+      mod.status === 'error' ||
+      mod.status === 'draft'
+        ? mod.status
+        : 'draft';
+    researchEngineMap.set(engineKey, {
+      id: engineKey,
+      label,
+      status,
+      boundLibraryIds,
+      liveSourceKinds: liveKinds.slice(0, 32),
+      topicCount: topics,
+      articleCount: topics,
+      operation: 'live → articles',
+      amount: `${topics} articles · ${boundLibraryIds.length} libs`,
+    });
+  }
+  const researchEngines = [...researchEngineMap.values()].slice(0, 32);
+
   return {
     liveSources,
     librarySources,
+    researchEngines,
     capitalSources: [],
     processingFlows,
     processSteps,

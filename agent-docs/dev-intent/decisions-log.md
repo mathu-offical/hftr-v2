@@ -1885,8 +1885,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   shared route clusters with **track lanes** for remaining stages; Capital lanes
   `company_root` left of `execution_split`; Outlook lanes by stage order; Day lanes by
   panel family. Routes stack **top→bottom in `ROUTE_PIPELINE_ORDER`** (ingest → analysis →
-  named process); steps sit on a **shared phase column grid** (source|adapter|fetch|…|score)
-  so columns align across sequential routes; non-route nodes sit **below** the route stack.
+  named process → research articles → library); steps sit on **shared edge-level columns**
+  (longest-path L→R from connection edges) so sequential hops align across routes;
+  **research ENGINEs** appear on Library as gather→validate→synthesize→admit→articles→shelf
+  (D-214). Non-route nodes sit **below** the route stack.
   Cluster click navigates via `stageScreenId` (not hard-coded Process).
   Every strip content node is stamped with `stageScreenId` and mapped into that screen’s
   emission traces. Strip data-flow is left→right: library adapters use `lib-adapter:`
@@ -2133,6 +2135,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   (not scaled template JSON positions). Option-anchor docking uses per-`dockX`
   cursors so owners in different columns stack independently. Docs: canvas-layout-
   and-dedicated-math-design, canvas-engine-group-design. **Status: implemented.**
+
+- **D-214 (research ENGINEs on Market Posture Model strip, 2026-07-19):** Baseline Model
+  strip shows canvas **research ENGINEs** as a visible processing path: live APIs →
+  `engine:research:{id}` → gather → validate → synthesize → admit → `articles:engine:{id}`
+  → bound `lib:*` shelves. Hydration projects `researchEngines[]` from research modules +
+  hub bindings + topic counts. Strip clusters use **connection edge levels** (longest-path
+  L→R) so sequential steps follow edges, not only function enums. Library screen owns
+  engine/article nodes; Live retains analyze→seed. Extends D-166 / D-184 / D-186 / D-191.
+  Docs: ui-spec §4. **Status: implemented.**
 
 - **D-213 (canvas-primary decisions + sector template prefill, 2026-07-19):**
   `CANVAS_PRIMARY_DECISION_KINDS` limits canvas decision cards to desk-level

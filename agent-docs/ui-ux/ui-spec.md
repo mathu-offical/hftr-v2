@@ -370,14 +370,17 @@ are ignored. Shortcuts are suppressed in editable fields.
   strip graph node on the screen is mapped into the emission list). The bottom **Model
   strip** packs nodes into the same six columns with connection-based layout and
   **optimized viewing groups**: Live kind bundles (source→adapter→analyze), Library
-  per-shelf chains, Process route clusters + stage track lanes, Capital root vs
-  execution, Outlook/Day sequential stage columns. Routes stack in pipeline order with a
-  **shared phase column grid** (aligned fetch/normalize/score across rows); side nodes
-  sit below the route stack. Draws all within- and
+  per-shelf chains **plus research ENGINE article pipelines** (live feed → gather →
+  validate → synthesize → admit → articles → shelf), Process route clusters + stage
+  track lanes, Capital root vs execution, Outlook/Day sequential stage columns. Routes
+  stack in pipeline order; steps within a route use **edge-level columns** (L→R by
+  connection depth, shared across sequential routes); side nodes sit below the route
+  stack. Draws all within- and
   between-screen edges (plus **forward-only** group backbone flows) and stamps each
   node to its owning stage screen (cluster click uses that screen). Data-flow
   assignment: library adapters use `lib-adapter:` under Library; `providers` stage sits
-  on Process; positions panel on Outlook; live analysis seeds library after score.
+  on Process; positions panel on Outlook; live analysis seeds library after score;
+  research ENGINEs publish articles onto bound shelves (D-214).
   **Capital** shows root user-controlled funds only (company pool + holding funds),
   engine allocation splits, master equity, and open position mark/uPnL values.
   **Live ingest** shows active APIs, query/filter orientation, normalize pipeline,

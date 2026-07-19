@@ -158,6 +158,7 @@ describe('mergeMarketHubLive', () => {
     hub.modelHydration = {
       liveSources: [],
       librarySources: [],
+      researchEngines: [],
       capitalSources: [],
       processingFlows: [],
       processSteps: [],

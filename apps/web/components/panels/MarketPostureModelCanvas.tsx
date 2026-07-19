@@ -69,6 +69,10 @@ function roleChrome(role: PostureAlgoNodeData['nodeRole']): string {
       return 'border-l-[3px] border-l-[var(--color-accent)] bg-[var(--color-surface-1)]';
     case 'library_source':
       return 'border-l-[3px] border-l-[var(--color-ink-dim)] bg-[var(--color-surface-1)] border-dashed';
+    case 'research_engine':
+      return 'border-l-[3px] border-l-fuchsia-500 bg-[color-mix(in_srgb,rgb(217_70_239)_10%,var(--color-surface-1))]';
+    case 'research_articles':
+      return 'border-l-[3px] border-l-emerald-400 bg-[color-mix(in_srgb,rgb(52_211_153)_10%,var(--color-surface-1))]';
     case 'capital_source':
       return 'border-l-[3px] border-l-[var(--color-ok)] bg-[color-mix(in_srgb,var(--color-ok)_8%,var(--color-surface-1))]';
     case 'adapter':
@@ -133,6 +137,14 @@ function processFunctionChrome(fn: string | undefined): string {
       return 'border-l-[3px] border-l-[var(--color-accent)] border-dashed bg-[var(--color-surface-0)]';
     case 'context':
       return 'border-l-[3px] border-l-cyan-500 bg-[color-mix(in_srgb,rgb(6_182_212)_10%,var(--color-surface-0))]';
+    case 'gather':
+      return 'border-l-[3px] border-l-fuchsia-400 bg-[color-mix(in_srgb,rgb(232_121_249)_10%,var(--color-surface-0))]';
+    case 'validate':
+      return 'border-l-[3px] border-l-violet-500 bg-[color-mix(in_srgb,rgb(139_92_246)_10%,var(--color-surface-0))]';
+    case 'synthesize':
+      return 'border-l-[3px] border-l-pink-400 bg-[color-mix(in_srgb,rgb(244_114_182)_10%,var(--color-surface-0))]';
+    case 'admit':
+      return 'border-l-[3px] border-l-emerald-500 bg-[color-mix(in_srgb,rgb(16_185_129)_12%,var(--color-surface-0))]';
     default:
       return 'border-l-[3px] border-l-[var(--color-accent)] border-dotted bg-[var(--color-surface-0)]';
   }
@@ -182,6 +194,10 @@ function roleLabel(role: PostureAlgoNodeData['nodeRole']): string {
       return 'ROUTE';
     case 'library_source':
       return 'LIB';
+    case 'research_engine':
+      return 'ENG';
+    case 'research_articles':
+      return 'ART';
     case 'capital_source':
       return 'CAP';
     case 'stage':

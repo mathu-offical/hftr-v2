@@ -409,7 +409,7 @@ describe('applyStripScreenGroups', () => {
     ]);
   });
 
-  it('aligns route steps onto shared phase columns across sequential routes', () => {
+  it('aligns sequential routes on shared edge-level columns', () => {
     const stamped = [
       {
         ...node('process:news:fetch', 'process', 'Fetch'),
@@ -444,7 +444,11 @@ describe('applyStripScreenGroups', () => {
         },
       },
     ];
-    const packed = applyStripScreenGroups(stamped, []);
+    const edges = [
+      edge('e-n', 'process:news:fetch', 'process:news:normalize'),
+      edge('e-b', 'process:bars:fetch', 'process:bars:score'),
+    ];
+    const packed = applyStripScreenGroups(stamped, edges);
     const clusters = packed
       .filter((n) => n.data.nodeRole === 'process_cluster')
       .sort((a, b) => a.position.y - b.position.y);
@@ -452,11 +456,11 @@ describe('applyStripScreenGroups', () => {
       'news_headline',
       'bars_ohlc',
     ]);
-    // Same width = shared phase grid.
+    // Same width = shared edge-level grid.
     expect(clusters[0]?.style?.width).toBe(clusters[1]?.style?.width);
     const newsFetch = packed.find((n) => n.id === 'process:news:fetch')!;
     const barsFetch = packed.find((n) => n.id === 'process:bars:fetch')!;
-    // Fetch phase aligns across route rows.
+    // First hop aligns across route rows.
     expect(newsFetch.position.x).toBe(barsFetch.position.x);
     const barsScore = packed.find((n) => n.id === 'process:bars:score')!;
     expect(barsScore.position.x).toBeGreaterThan(barsFetch.position.x);
@@ -476,7 +480,7 @@ describe('applyStripScreenGroups', () => {
         ...node('universe', 'stage', 'Universe'),
         data: {
           ...node('universe', 'stage', 'Universe').data,
-          track: 'entitle',
+          track: 'entitle' as const,
         },
       },
     ];
@@ -491,5 +495,107 @@ describe('applyStripScreenGroups', () => {
     expect(universe.position.y).toBeGreaterThan(
       (cluster.position.y ?? 0) + ((cluster.style?.height as number) ?? 0) - 1,
     );
+  });
+
+  it('orders cluster steps by connection edge levels L→R', () => {
+    const a = {
+      ...node('process:shared:a', 'process', 'A'),
+      data: {
+        ...node('process:shared:a', 'process', 'A').data,
+        processRoute: 'narrative_compose',
+        processFunction: 'compose',
+      },
+    };
+    const b = {
+      ...node('process:shared:b', 'process', 'B'),
+      data: {
+        ...node('process:shared:b', 'process', 'B').data,
+        processRoute: 'narrative_compose',
+        processFunction: 'verify',
+      },
+    };
+    const c = {
+      ...node('process:shared:c', 'process', 'C'),
+      data: {
+        ...node('process:shared:c', 'process', 'C').data,
+        processRoute: 'narrative_compose',
+        processFunction: 'fetch',
+      },
+    };
+    // Edges force C → B → A regardless of processFunction order.
+    const packed = applyStripScreenGroups([a, b, c], [
+      edge('e1', 'process:shared:c', 'process:shared:b'),
+      edge('e2', 'process:shared:b', 'process:shared:a'),
+    ]);
+    const kids = packed
+      .filter((n) => n.parentId === 'cluster:process:narrative_compose')
+      .sort((x, y) => x.position.x - y.position.x);
+    expect(kids.map((k) => k.id)).toEqual([
+      'process:shared:c',
+      'process:shared:b',
+      'process:shared:a',
+    ]);
+  });
+
+  it('clusters research ENGINE gather→articles on Library', () => {
+    const engId = '11111111-2222-3333-4444-555555555555';
+    const libId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+    const nodes = [
+      {
+        ...node(`engine:research:${engId}`, 'research_engine', 'Sector ENG'),
+        data: {
+          ...node(`engine:research:${engId}`, 'research_engine', 'Sector ENG').data,
+          processRoute: `engine_${engId}`,
+        },
+      },
+      {
+        ...node(`process:engine:${engId}:gather`, 'process', 'Gather'),
+        data: {
+          ...node(`process:engine:${engId}:gather`, 'process', 'Gather').data,
+          processRoute: `engine_${engId}`,
+          processFunction: 'gather',
+        },
+      },
+      {
+        ...node(`process:engine:${engId}:admit`, 'process', 'Admit'),
+        data: {
+          ...node(`process:engine:${engId}:admit`, 'process', 'Admit').data,
+          processRoute: `engine_${engId}`,
+          processFunction: 'admit',
+        },
+      },
+      {
+        ...node(`articles:engine:${engId}`, 'research_articles', 'Articles'),
+        data: {
+          ...node(`articles:engine:${engId}`, 'research_articles', 'Articles')
+            .data,
+          processRoute: `engine_${engId}`,
+        },
+      },
+      node(`lib:${libId}`, 'library_source', 'Hub'),
+    ];
+    const edges = [
+      edge('e1', `engine:research:${engId}`, `process:engine:${engId}:gather`),
+      edge(
+        'e2',
+        `process:engine:${engId}:gather`,
+        `process:engine:${engId}:admit`,
+      ),
+      edge('e3', `process:engine:${engId}:admit`, `articles:engine:${engId}`),
+      edge('e4', `articles:engine:${engId}`, `lib:${libId}`),
+    ];
+    const packed = applyStripScreenGroups(nodes, edges);
+    const cluster = packed.find(
+      (n) =>
+        n.data.nodeRole === 'process_cluster' &&
+        n.data.processRoute === `engine_${engId}`,
+    );
+    expect(cluster?.parentId).toBe('group:library');
+    const kids = packed
+      .filter((n) => n.parentId === `cluster:process:engine_${engId}`)
+      .sort((a, b) => a.position.x - b.position.x);
+    expect(kids[0]?.id).toBe(`engine:research:${engId}`);
+    expect(kids.map((k) => k.id)).toContain(`articles:engine:${engId}`);
+    expect(kids.at(-1)?.position.x).toBeGreaterThan(kids[0]!.position.x);
   });
 });

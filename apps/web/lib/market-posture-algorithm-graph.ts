@@ -53,7 +53,11 @@ export type PostureAlgoNodeRole =
   /** Nested process-route cluster inside the Process screen (D-186). */
   | 'process_cluster'
   /** Pre-library analysis module (organize → route → score) on Live (D-186). */
-  | 'analysis';
+  | 'analysis'
+  /** Canvas research ENGINE that turns live feeds into library articles (D-214). */
+  | 'research_engine'
+  /** Article yield from a research ENGINE (D-214). */
+  | 'research_articles';
 
 export type PostureAlgoNodeData = {
   label: string;
@@ -338,6 +342,7 @@ export const ROUTE_PIPELINE_ORDER: readonly string[] = [
   'fx_context',
   'crypto_context',
   'bars_ohlc',
+  'research_articles',
   'library_jaccard',
   'thresholds_llm',
   'defaults_catalog',
@@ -1269,6 +1274,199 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
     }
   }
 
+  // Research ENGINEs: live → gather → validate → synthesize → admit → articles → library (D-214).
+  const researchEngines = hydration?.researchEngines ?? [];
+  const ENGINE_PIPELINE: Array<{
+    suffix: 'gather' | 'validate' | 'synthesize' | 'admit';
+    label: string;
+    operation: string;
+    processFunction: 'gather' | 'validate' | 'synthesize' | 'admit';
+  }> = [
+    {
+      suffix: 'gather',
+      label: 'Gather live',
+      operation: 'pull API evidence',
+      processFunction: 'gather',
+    },
+    {
+      suffix: 'validate',
+      label: 'Validate',
+      operation: 'schema + provenance',
+      processFunction: 'validate',
+    },
+    {
+      suffix: 'synthesize',
+      label: 'Synthesize',
+      operation: 'draft article body',
+      processFunction: 'synthesize',
+    },
+    {
+      suffix: 'admit',
+      label: 'Admit',
+      operation: 'concepts → shelf',
+      processFunction: 'admit',
+    },
+  ];
+  for (const eng of researchEngines) {
+    const engineNodeId = `engine:research:${eng.id}`;
+    const route = `engine_${eng.id}`;
+    const ready = eng.status === 'active';
+    const y = nextLaneY('compound', LANE_Y.compound + 120);
+    if (!nodes.some((n) => n.id === engineNodeId)) {
+      nodes.push({
+        id: engineNodeId,
+        type: 'postureAlgo',
+        position: { x: processCol0 - 40, y },
+        data: {
+          label: eng.label.slice(0, 28),
+          detail: eng.operation,
+          kind: 'deterministic',
+          nodeRole: 'research_engine',
+          operation: eng.operation,
+          amount: eng.amount,
+          processRoute: route,
+          layer: 'pipeline',
+          track: 'compound',
+          activation: ready ? 'armed' : 'idle',
+          status: ready ? 'ready' : 'idle',
+          updatedAt: asOfIso,
+          stageScreenId: 'library',
+        },
+      });
+    }
+    for (const kind of eng.liveSourceKinds) {
+      const liveId = `live:${kind}`;
+      if (!nodes.some((n) => n.id === liveId)) continue;
+      const edgeId = `e-feed-${liveId}-${engineNodeId}`;
+      if (edges.some((e) => e.id === edgeId)) continue;
+      edges.push({
+        id: edgeId,
+        source: liveId,
+        target: engineNodeId,
+        label: 'feed',
+        data: {
+          edgeType: 'hydrate',
+          track: 'compound',
+          ...resolveModelEdgeState({
+            edgeType: 'hydrate',
+            sourceReady: ready,
+            pulsed: pulsed?.has(edgeId) ?? false,
+          }),
+        },
+      });
+    }
+    let prevId = engineNodeId;
+    for (let si = 0; si < ENGINE_PIPELINE.length; si++) {
+      const step = ENGINE_PIPELINE[si]!;
+      const nodeId = `process:engine:${eng.id}:${step.suffix}`;
+      if (!nodes.some((n) => n.id === nodeId)) {
+        nodes.push({
+          id: nodeId,
+          type: 'postureAlgo',
+          position: { x: processCol0 + si * 100, y },
+          data: {
+            label: step.label,
+            detail: `${eng.label.slice(0, 24)} · ${step.operation}`,
+            kind: 'deterministic',
+            nodeRole: 'process',
+            operation: step.operation,
+            amount: ready ? 'armed' : 'idle',
+            processRoute: route,
+            processStepId: `engine:${eng.id}:${step.suffix}`,
+            processFunction: step.processFunction,
+            layer: 'pipeline',
+            track: 'compound',
+            activation: ready ? 'armed' : 'idle',
+            status: ready ? 'ready' : 'idle',
+            updatedAt: asOfIso,
+            stageScreenId: 'library',
+          },
+        });
+      }
+      const edgeId = `e-${prevId}-${nodeId}`;
+      if (!edges.some((e) => e.id === edgeId)) {
+        edges.push({
+          id: edgeId,
+          source: prevId,
+          target: nodeId,
+          label: step.suffix,
+          data: {
+            edgeType: 'pipeline',
+            track: 'compound',
+            ...resolveModelEdgeState({
+              edgeType: 'pipeline',
+              sourceReady: ready,
+              pulsed: pulsed?.has(edgeId) ?? false,
+            }),
+          },
+        });
+      }
+      prevId = nodeId;
+    }
+    const articlesId = `articles:engine:${eng.id}`;
+    if (!nodes.some((n) => n.id === articlesId)) {
+      nodes.push({
+        id: articlesId,
+        type: 'postureAlgo',
+        position: { x: processCol0 + ENGINE_PIPELINE.length * 100, y },
+        data: {
+          label: 'Articles',
+          detail: `${eng.articleCount} topics → library`,
+          kind: 'output',
+          nodeRole: 'research_articles',
+          operation: 'library articles',
+          amount: String(eng.articleCount),
+          processRoute: route,
+          layer: 'output',
+          track: 'compound',
+          activation: eng.articleCount > 0 ? 'armed' : 'idle',
+          status: eng.articleCount > 0 ? 'ready' : 'idle',
+          updatedAt: asOfIso,
+          stageScreenId: 'library',
+        },
+      });
+    }
+    const artEdge = `e-${prevId}-${articlesId}`;
+    if (!edges.some((e) => e.id === artEdge)) {
+      edges.push({
+        id: artEdge,
+        source: prevId,
+        target: articlesId,
+        label: 'articles',
+        data: {
+          edgeType: 'corpus',
+          track: 'compound',
+          ...resolveModelEdgeState({
+            edgeType: 'corpus',
+            sourceReady: ready,
+            pulsed: pulsed?.has(artEdge) ?? false,
+          }),
+        },
+      });
+    }
+    for (const libIdRaw of eng.boundLibraryIds) {
+      const libId = `lib:${libIdRaw}`;
+      if (!nodes.some((n) => n.id === libId)) continue;
+      const edgeId = `e-admit-${articlesId}-${libId}`;
+      if (edges.some((e) => e.id === edgeId)) continue;
+      edges.push({
+        id: edgeId,
+        source: articlesId,
+        target: libId,
+        label: 'to shelf',
+        data: {
+          edgeType: 'corpus',
+          track: 'compound',
+          ...resolveModelEdgeState({
+            edgeType: 'corpus',
+            sourceReady: ready,
+            pulsed: pulsed?.has(edgeId) ?? false,
+          }),
+        },
+      });
+    }
+  }
+
   for (const s of activeStageLayout) {
     const meta = MARKET_HUB_SYNTHESIS_STAGE_META[s.id];
     const stageRow = byStage.get(s.id);
@@ -1621,9 +1819,11 @@ const STRIP_ROLE_ORDER: Record<PostureAlgoNodeRole, number> = {
   capital_source: 0,
   library_source: 0,
   live_source: 0,
+  research_engine: 0,
   adapter: 1,
   analysis: 2,
   process: 2,
+  research_articles: 3,
   stage: 3,
   panel_surface: 4,
   lane_label: 9,
@@ -1634,19 +1834,23 @@ const PROCESS_FN_ORDER: Record<string, number> = {
   fetch: 0,
   entitle: 0,
   load: 0,
+  gather: 0,
   announce: 1,
   normalize: 2,
+  validate: 2,
   extract: 3,
   organize: 3,
   context: 4,
   route: 4,
   corroborate: 5,
+  synthesize: 5,
   score: 6,
   analyze: 6,
   thresholds: 6,
   defaults: 6,
   rank: 7,
   verify: 8,
+  admit: 8,
   seal: 9,
   compose: 10,
 };
@@ -1663,18 +1867,22 @@ const STRIP_PHASE_COLUMNS = [
   'adapter',
   'entitle',
   'fetch',
+  'gather',
   'normalize',
+  'validate',
   'extract',
   'organize',
   'context',
   'route',
   'corroborate',
+  'synthesize',
   'score',
   'analyze',
   'thresholds',
   'defaults',
   'rank',
   'verify',
+  'admit',
   'seal',
   'compose',
   'other',
@@ -1685,9 +1893,12 @@ function phaseColumnForStep(n: PostureAlgoGraphNode): number {
     case 'live_source':
     case 'library_source':
     case 'capital_source':
+    case 'research_engine':
       return STRIP_PHASE_COLUMNS.indexOf('source');
     case 'adapter':
       return STRIP_PHASE_COLUMNS.indexOf('adapter');
+    case 'research_articles':
+      return STRIP_PHASE_COLUMNS.indexOf('admit');
     default: {
       const fn = (n.data.processFunction ?? '').toLowerCase();
       if (fn) {
@@ -1767,6 +1978,9 @@ function routeClusterSortIndex(route: string): number {
   } else if (route.startsWith('shelf_')) {
     major = ROUTE_PIPELINE_ORDER.indexOf('library_jaccard');
     subtype = 3;
+  } else if (route.startsWith('engine_') || route === 'research_articles') {
+    major = ROUTE_PIPELINE_ORDER.indexOf('research_articles');
+    subtype = 2;
   } else {
     const direct = ROUTE_PIPELINE_ORDER.indexOf(route);
     major = direct >= 0 ? direct : 50;
@@ -1781,10 +1995,22 @@ function processClusterKey(n: PostureAlgoGraphNode): string {
     const kind = n.id.replace(/^analyze:/, '').split(':')[0];
     return kind ? `analysis_${kind}` : 'analysis';
   }
+  if (n.data.nodeRole === 'research_engine' || n.data.nodeRole === 'research_articles') {
+    const eng = n.id.match(/:(?:research:)?([^:]+)$/)?.[1] ?? n.id;
+    // engine:research:{uuid} | articles:engine:{uuid}
+    const fromArticles = n.id.match(/^articles:engine:(.+)$/);
+    if (fromArticles?.[1]) return `engine_${fromArticles[1]}`;
+    const fromEngine = n.id.match(/^engine:research:(.+)$/);
+    if (fromEngine?.[1]) return `engine_${fromEngine[1]}`;
+    return `engine_${eng}`;
+  }
+  const engProc = n.id.match(/^process:engine:([^:]+)/);
+  if (engProc?.[1]) return `engine_${engProc[1]}`;
   // Per-shelf library chains (process:library:{uuid}:…).
   const libMatch = n.id.match(/^process:library:([^:]+)/);
   if (libMatch?.[1]) return `shelf_${libMatch[1]}`;
   const route = n.data.processRoute?.trim();
+  if (route?.startsWith('engine_')) return route;
   if (route === 'library_jaccard') {
     const fromId = n.id.match(/^process:library:([^:]+)/);
     if (fromId?.[1]) return `shelf_${fromId[1]}`;
@@ -1804,6 +2030,9 @@ function formatRouteLabel(route: string): string {
   if (route.startsWith('ingest_')) {
     return `Ingest · ${route.slice('ingest_'.length).replace(/_/g, ' ')}`;
   }
+  if (route.startsWith('engine_')) {
+    return 'Research → articles';
+  }
   return route.replace(/_/g, ' ');
 }
 
@@ -1811,12 +2040,12 @@ function sortProcessStepsInCluster(a: PostureAlgoGraphNode, b: PostureAlgoGraphN
   const pa = phaseColumnForStep(a);
   const pb = phaseColumnForStep(b);
   if (pa !== pb) return pa - pb;
-  // Prefer source → adapter → analysis/process function order inside a phase.
   const roleRank = (n: PostureAlgoGraphNode): number => {
     switch (n.data.nodeRole) {
       case 'live_source':
       case 'library_source':
       case 'capital_source':
+      case 'research_engine':
         return 0;
       case 'adapter':
         return 1;
@@ -1824,8 +2053,10 @@ function sortProcessStepsInCluster(a: PostureAlgoGraphNode, b: PostureAlgoGraphN
         return 2;
       case 'process':
         return 3;
-      default:
+      case 'research_articles':
         return 4;
+      default:
+        return 5;
     }
   };
   const ra = roleRank(a);
@@ -1835,6 +2066,57 @@ function sortProcessStepsInCluster(a: PostureAlgoGraphNode, b: PostureAlgoGraphN
   const fb = PROCESS_FN_ORDER[b.data.processFunction ?? ''] ?? 50;
   if (fa !== fb) return fa - fb;
   return a.data.label.localeCompare(b.data.label);
+}
+
+/**
+ * Longest-path edge levels among cluster members — sequential L→R by connections.
+ */
+export function assignEdgeLevels(
+  steps: PostureAlgoGraphNode[],
+  edges: Array<{ source: string; target: string }>,
+): Map<string, number> {
+  const idSet = new Set(steps.map((s) => s.id));
+  const preds = new Map<string, string[]>();
+  for (const s of steps) preds.set(s.id, []);
+  for (const e of edges) {
+    if (!idSet.has(e.source) || !idSet.has(e.target)) continue;
+    preds.get(e.target)!.push(e.source);
+  }
+  const levels = new Map<string, number>();
+  const visiting = new Set<string>();
+  const levelOf = (id: string): number => {
+    const cached = levels.get(id);
+    if (cached != null) return cached;
+    if (visiting.has(id)) return 0;
+    visiting.add(id);
+    const ps = preds.get(id) ?? [];
+    const L =
+      ps.length === 0 ? 0 : 1 + Math.max(...ps.map((p) => levelOf(p)), 0);
+    visiting.delete(id);
+    levels.set(id, L);
+    return L;
+  };
+  for (const s of steps) levelOf(s.id);
+  const unique = [...new Set([...levels.values()])].sort((a, b) => a - b);
+  const remap = new Map(unique.map((v, i) => [v, i]));
+  for (const [id, L] of levels) {
+    levels.set(id, remap.get(L) ?? L);
+  }
+  return levels;
+}
+
+/** Order cluster steps by connection levels, then phase/function within a level. */
+export function orderClusterStepsByEdges(
+  steps: PostureAlgoGraphNode[],
+  edges: Array<{ source: string; target: string }>,
+): PostureAlgoGraphNode[] {
+  const levels = assignEdgeLevels(steps, edges);
+  return [...steps].sort((a, b) => {
+    const la = levels.get(a.id) ?? 0;
+    const lb = levels.get(b.id) ?? 0;
+    if (la !== lb) return la - lb;
+    return sortProcessStepsInCluster(a, b);
+  });
 }
 
 /**
@@ -1873,6 +2155,22 @@ function pullClusterPeers(opts: {
     return { steps: [...peers, ...steps], remaining };
   }
   if (screenId === 'library') {
+    if (route.startsWith('engine_')) {
+      const engId = route.slice('engine_'.length);
+      const peers: PostureAlgoGraphNode[] = [];
+      const remaining: PostureAlgoGraphNode[] = [];
+      for (const n of otherNodes) {
+        if (
+          n.id === `engine:research:${engId}` ||
+          n.id === `articles:engine:${engId}`
+        ) {
+          peers.push(n);
+        } else {
+          remaining.push(n);
+        }
+      }
+      return { steps: [...peers, ...steps], remaining };
+    }
     const shelfId = route.startsWith('shelf_')
       ? route.slice('shelf_'.length)
       : (steps[0]?.id.match(/^process:library:([^:]+)/)?.[1] ?? null);
@@ -1968,10 +2266,18 @@ function packProcessScreenColumn(opts: {
     screenLabel = 'Process',
   } = opts;
   const processNodes = children.filter(
-    (n) => n.data.nodeRole === 'process' || n.data.nodeRole === 'analysis',
+    (n) =>
+      n.data.nodeRole === 'process' ||
+      n.data.nodeRole === 'analysis' ||
+      n.data.nodeRole === 'research_engine' ||
+      n.data.nodeRole === 'research_articles',
   );
   const otherNodes = children.filter(
-    (n) => n.data.nodeRole !== 'process' && n.data.nodeRole !== 'analysis',
+    (n) =>
+      n.data.nodeRole !== 'process' &&
+      n.data.nodeRole !== 'analysis' &&
+      n.data.nodeRole !== 'research_engine' &&
+      n.data.nodeRole !== 'research_articles',
   );
 
   const byRoute = new Map<string, PostureAlgoGraphNode[]>();
@@ -2094,43 +2400,36 @@ function packProcessScreenColumn(opts: {
       a.route.localeCompare(b.route),
   );
 
-  // Shared phase span so every route row uses the same columns.
-  let minPhase = STRIP_PHASE_COLUMNS.length;
-  let maxPhase = 0;
+  // Shared edge-level column span so sequential routes align by connection depth.
+  let maxLevel = 0;
+  const levelsByCluster = new Map<string, Map<string, number>>();
   for (const c of pendingClusters) {
-    for (const s of c.steps) {
-      const p = phaseColumnForStep(s);
-      minPhase = Math.min(minPhase, p);
-      maxPhase = Math.max(maxPhase, p);
-    }
+    const levels = assignEdgeLevels(c.steps, edges);
+    levelsByCluster.set(c.route, levels);
+    for (const L of levels.values()) maxLevel = Math.max(maxLevel, L);
   }
-  if (pendingClusters.length === 0) {
-    minPhase = 0;
-    maxPhase = 0;
-  } else {
-    // Keep source/adapter columns even when a route starts mid-chain.
-    minPhase = Math.min(minPhase, STRIP_PHASE_COLUMNS.indexOf('source'));
-  }
-  const phaseStart = minPhase;
-  const phaseEnd = maxPhase;
-  const phaseCount = Math.max(1, phaseEnd - phaseStart + 1);
-  const clusterInnerW = phaseCount * STRIP_INNER_LANE_W;
+  const levelCount = Math.max(1, maxLevel + 1);
+  const clusterInnerW = levelCount * STRIP_INNER_LANE_W;
   const clusterW = STRIP_PAD * 2 + clusterInnerW;
 
   let cursorY = STRIP_HEADER + STRIP_PAD;
   pendingClusters.forEach((cluster, routeIdx) => {
     const { route, steps } = cluster;
     const clusterId = `cluster:process:${route}`;
-    const byPhase = new Map<number, PostureAlgoGraphNode[]>();
+    const levels = levelsByCluster.get(route) ?? assignEdgeLevels(steps, edges);
+    const byLevel = new Map<number, PostureAlgoGraphNode[]>();
     for (const step of steps) {
-      const p = phaseColumnForStep(step);
-      const list = byPhase.get(p) ?? [];
+      const L = levels.get(step.id) ?? 0;
+      const list = byLevel.get(L) ?? [];
       list.push(step);
-      byPhase.set(p, list);
+      byLevel.set(L, list);
+    }
+    for (const [, list] of byLevel) {
+      list.sort(sortProcessStepsInCluster);
     }
     const maxStack = Math.max(
       1,
-      ...[...byPhase.values()].map((list) => list.length),
+      ...[...byLevel.values()].map((list) => list.length),
     );
     const clusterH =
       STRIP_CLUSTER_HEADER + STRIP_PAD * 2 + maxStack * STRIP_NODE_H;
@@ -2177,15 +2476,14 @@ function packProcessScreenColumn(opts: {
       },
     });
 
-    byPhase.forEach((phaseSteps, phaseIdx) => {
-      const col = phaseIdx - phaseStart;
-      phaseSteps.forEach((step, stackIdx) => {
+    byLevel.forEach((levelSteps, levelIdx) => {
+      levelSteps.forEach((step, stackIdx) => {
         out.push({
           ...step,
           parentId: clusterId,
           extent: 'parent',
           position: {
-            x: STRIP_PAD + col * STRIP_INNER_LANE_W,
+            x: STRIP_PAD + levelIdx * STRIP_INNER_LANE_W,
             y: STRIP_CLUSTER_HEADER + STRIP_PAD + stackIdx * STRIP_NODE_H,
           },
           draggable: false,
@@ -2194,7 +2492,7 @@ function packProcessScreenColumn(opts: {
             stageScreenId: screenId,
           },
         });
-        globalRank.set(step.id, routeIdx * 100 + phaseIdx * 10 + stackIdx);
+        globalRank.set(step.id, routeIdx * 100 + levelIdx * 10 + stackIdx);
       });
     });
 
@@ -2222,7 +2520,7 @@ function packProcessScreenColumn(opts: {
   });
   const refinedOther = orderLaneByConnections(orderedOther, edges, globalRank);
 
-  const otherColCount = Math.max(phaseCount, STRIP_INNER_LANES);
+  const otherColCount = Math.max(levelCount, STRIP_INNER_LANES);
   const otherLanes: PostureAlgoGraphNode[][] = Array.from(
     { length: otherColCount },
     () => [],
@@ -2430,7 +2728,9 @@ export function applyStripScreenGroups(
             n.data.nodeRole === 'analysis' ||
             n.data.nodeRole === 'adapter' ||
             n.data.nodeRole === 'library_source' ||
-            n.data.nodeRole === 'live_source',
+            n.data.nodeRole === 'live_source' ||
+            n.data.nodeRole === 'research_engine' ||
+            n.data.nodeRole === 'research_articles',
         );
       if (needsClusters) {
         const packed = packProcessScreenColumn({

@@ -9,6 +9,11 @@ import {
   ResearchSubtype,
   TrendPosture,
 } from './modules';
+import {
+  applyDecisionSeedConstraints,
+  resolveEngineDecisionSeeds,
+  resolveStrategyFamiliesForTrader,
+} from './engine-decision-seeds';
 import { PHILOSOPHY_AXIS_CATALOG } from './philosophy';
 import { getEngineTemplateById } from './templates';
 
@@ -204,12 +209,6 @@ function humanizeToken(token: string): string {
 function familyLabel(familyId: string): string {
   const family = catalog.families?.find((entry) => entry.id === familyId);
   return family?.name ? humanizeToken(family.name) : familyId;
-}
-
-function readStrategyFamilies(config: Record<string, unknown> | undefined): string[] {
-  const raw = config?.strategyFamilies;
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((entry): entry is string => typeof entry === 'string');
 }
 
 function readStringConfig(
@@ -409,9 +408,9 @@ export function buildOptionAnchorsForEngine(
     });
   }
 
-  // ── Trading execution tree (D-192 collapse) ───────────────────────────────
+  // ── Trading execution tree (D-202 collapse) ───────────────────────────────
   for (const trader of traders) {
-    const families = readStrategyFamilies(trader.config);
+    const families = resolveStrategyFamiliesForTrader(trader.config, template.category);
     for (const familyId of families) {
       const familyCatalogRef = `${trader.id}/${familyId}`;
       const familyAnchorId = buildOptionAnchorId(
@@ -948,10 +947,17 @@ export function buildOptionAnchorsForEngine(
     }
   }
 
-  return anchors;
+  // Template seeds constrain option catalogs / defaults (D-202).
+  const seeds = resolveEngineDecisionSeeds(template);
+  return applyDecisionSeedConstraints(
+    anchors,
+    seeds,
+    parsed.members,
+    template.modules,
+  );
 }
 
-/** D-192 alias: unified decision nodes share the option-anchor builder. */
+/** D-202 alias: unified decision nodes share the option-anchor builder. */
 export const buildDecisionNodesForEngine = buildOptionAnchorsForEngine;
 
 /**
@@ -963,5 +969,5 @@ export function canvasVisibleOptionAnchors(
   return anchors.filter((anchor) => anchor.kind !== 'lever_band');
 }
 
-/** D-192 alias for canvas-visible unified decision nodes. */
+/** D-202 alias for canvas-visible unified decision nodes. */
 export const canvasVisibleDecisionNodes = canvasVisibleOptionAnchors;

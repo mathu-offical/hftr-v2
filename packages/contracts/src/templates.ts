@@ -88,7 +88,7 @@ export interface EngineTemplateInput {
   alsoTargets?: EngineTemplateInputTarget[];
 }
 
-/** D-192: stable decision-node seeds declared on engine templates. */
+/** D-202: stable decision-node seeds declared on engine templates. */
 export interface EngineTemplateDecisionSeed {
   kind: string;
   ownerModuleIndex: number | null;
@@ -119,9 +119,78 @@ export interface EngineTemplate {
   modules: TemplateModule[];
   links: TemplateLink[];
   inputs: EngineTemplateInput[];
-  /** D-192: documents required decision kinds; builder fills option catalogs. */
+  /** D-202: documents required decision kinds; builder fills option catalogs. */
   decisionNodes?: EngineTemplateDecisionSeed[];
 }
+
+/** Shared execution-desk decision seed pattern (research spine → feed → trend → trade). */
+const EXECUTION_DESK_DECISION_SEEDS = (
+  tradeIndex: number,
+  analyzerIndex: number,
+  strategyRefs: readonly string[],
+): EngineTemplateDecisionSeed[] => [
+  { kind: 'research_subtype', ownerModuleIndex: 0 },
+  { kind: 'curiosity_band', ownerModuleIndex: 0 },
+  { kind: 'admission_mode', ownerModuleIndex: 0 },
+  { kind: 'cadence_band', ownerModuleIndex: 0 },
+  {
+    kind: 'branch_role',
+    ownerModuleIndex: 0,
+    optionRefs: ['discover', 'verify_sanity'],
+    defaultSelectedRef: 'discover',
+  },
+  { kind: 'librarian_subtype', ownerModuleIndex: 1 },
+  { kind: 'cadence_band', ownerModuleIndex: 1 },
+  { kind: 'library_class', ownerModuleIndex: 2 },
+  { kind: 'feed_class', ownerModuleIndex: 3 },
+  { kind: 'query_policy', ownerModuleIndex: 3 },
+  { kind: 'schedule_policy', ownerModuleIndex: 3 },
+  { kind: 'trend_posture', ownerModuleIndex: 4 },
+  { kind: 'cadence_band', ownerModuleIndex: 4 },
+  {
+    kind: 'strategy_family',
+    ownerModuleIndex: tradeIndex,
+    optionRefs: [...strategyRefs],
+  },
+  { kind: 'recovery_phase', ownerModuleIndex: tradeIndex },
+  { kind: 'emit_mode', ownerModuleIndex: analyzerIndex },
+];
+
+/** Research-pack decision seeds (curator → librarian → library → analyzer). */
+const RESEARCH_PACK_DECISION_SEEDS: EngineTemplateDecisionSeed[] = [
+  { kind: 'research_subtype', ownerModuleIndex: 0 },
+  { kind: 'curiosity_band', ownerModuleIndex: 0 },
+  { kind: 'admission_mode', ownerModuleIndex: 0 },
+  { kind: 'cadence_band', ownerModuleIndex: 0 },
+  {
+    kind: 'branch_role',
+    ownerModuleIndex: 0,
+    optionRefs: ['discover', 'verify_sanity'],
+    defaultSelectedRef: 'discover',
+  },
+  { kind: 'librarian_subtype', ownerModuleIndex: 1 },
+  { kind: 'cadence_band', ownerModuleIndex: 1 },
+  { kind: 'library_class', ownerModuleIndex: 2 },
+  { kind: 'emit_mode', ownerModuleIndex: 3 },
+];
+
+/** Simulation desk seeds (feed → trend → trade spread). */
+const SIM_DESK_DECISION_SEEDS = (
+  strategyRefs: readonly string[],
+): EngineTemplateDecisionSeed[] => [
+  { kind: 'feed_class', ownerModuleIndex: 0 },
+  { kind: 'query_policy', ownerModuleIndex: 0 },
+  { kind: 'schedule_policy', ownerModuleIndex: 0 },
+  { kind: 'trend_posture', ownerModuleIndex: 1 },
+  { kind: 'cadence_band', ownerModuleIndex: 1 },
+  {
+    kind: 'strategy_family',
+    ownerModuleIndex: 2,
+    optionRefs: [...strategyRefs],
+  },
+  { kind: 'recovery_phase', ownerModuleIndex: 2 },
+  { kind: 'emit_mode', ownerModuleIndex: 5 },
+];
 
 export const ENGINE_TEMPLATES: EngineTemplate[] = [
   {
@@ -273,29 +342,11 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         target: { moduleIndex: 4, configKey: 'focus' },
       },
     ],
-    decisionNodes: [
-      { kind: 'research_subtype', ownerModuleIndex: 0 },
-      { kind: 'curiosity_band', ownerModuleIndex: 0 },
-      { kind: 'admission_mode', ownerModuleIndex: 0 },
-      { kind: 'cadence_band', ownerModuleIndex: 0 },
-      {
-        kind: 'branch_role',
-        ownerModuleIndex: 0,
-        optionRefs: ['discover', 'verify_sanity'],
-        defaultSelectedRef: 'discover',
-      },
-      { kind: 'librarian_subtype', ownerModuleIndex: 1 },
-      { kind: 'cadence_band', ownerModuleIndex: 1 },
-      { kind: 'library_class', ownerModuleIndex: 2 },
-      { kind: 'feed_class', ownerModuleIndex: 3 },
-      { kind: 'query_policy', ownerModuleIndex: 3 },
-      { kind: 'schedule_policy', ownerModuleIndex: 3 },
-      { kind: 'trend_posture', ownerModuleIndex: 4 },
-      { kind: 'cadence_band', ownerModuleIndex: 4 },
-      { kind: 'strategy_family', ownerModuleIndex: 5 },
-      { kind: 'recovery_phase', ownerModuleIndex: 5 },
-      { kind: 'emit_mode', ownerModuleIndex: 8 },
-    ],
+    decisionNodes: EXECUTION_DESK_DECISION_SEEDS(5, 8, [
+      'strat-001',
+      'strat-002',
+      'strat-005',
+    ]),
   },
   {
     id: 'engine_trend_research',
@@ -384,6 +435,12 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         target: { moduleIndex: 3, configKey: 'focus' },
       },
     ],
+    decisionNodes: [
+      ...RESEARCH_PACK_DECISION_SEEDS.filter((s) => s.kind !== 'emit_mode'),
+      { kind: 'trend_posture', ownerModuleIndex: 3 },
+      { kind: 'cadence_band', ownerModuleIndex: 3 },
+      { kind: 'emit_mode', ownerModuleIndex: 4 },
+    ],
   },
   {
     id: 'engine_crypto',
@@ -451,7 +508,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         name: 'Paper Crypto Execution',
         config: {
           subtype: 'crypto',
-          strategyFamilies: ['strat-001', 'strat-002', 'strat-005'],
+          // Trend continuation + VWAP-style reversion + pairs/relative value (24/7 desks).
+          strategyFamilies: ['strat-003', 'strat-005', 'strat-008'],
           exitTimelineDays: 3,
           cadenceMinutes: 5,
           executionBinding: { routingMode: 'funds_only' },
@@ -536,6 +594,11 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         target: { moduleIndex: 4, configKey: 'focus' },
       },
     ],
+    decisionNodes: EXECUTION_DESK_DECISION_SEEDS(5, 8, [
+      'strat-003',
+      'strat-005',
+      'strat-008',
+    ]),
   },
   {
     id: 'engine_prediction',
@@ -545,7 +608,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       'Event-probability trading on Kalshi demo — research, evidence, Kalshi feed, trend scanner, and limit execution.',
     available: false,
     unavailableReason:
-      'Requires seeded prediction-market strategy families in seeded-strategy-catalog; none ship yet.',
+      'Requires seeded prediction-market strategy families in seeded-strategy-catalog; interim strat-005/strat-008 palette pending dedicated prediction families.',
     modules: [
       {
         type: 'research',
@@ -603,7 +666,9 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         name: 'Kalshi Paper Execution',
         config: {
           subtype: 'prediction',
-          strategyFamilies: [],
+          // Event-probability desks: mean-reversion + relative-value until dedicated
+          // prediction families ship in seeded-strategy-catalog.
+          strategyFamilies: ['strat-005', 'strat-008'],
           exitTimelineDays: 7,
           cadenceMinutes: 15,
           executionBinding: { routingMode: 'funds_only' },
@@ -681,6 +746,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         target: { moduleIndex: 4, configKey: 'focus' },
       },
     ],
+    decisionNodes: EXECUTION_DESK_DECISION_SEEDS(5, 8, ['strat-005', 'strat-008']),
   },
   {
     id: 'engine_long_term',
@@ -758,7 +824,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         name: 'Paper Long-term Execution',
         config: {
           subtype: 'long_term',
-          strategyFamilies: ['strat-003'],
+          // Multi-session trend + compression breakout + lead-lag theme propagation.
+          strategyFamilies: ['strat-003', 'strat-004', 'strat-009'],
           exitTimelineDays: 180,
           cadenceMinutes: 60,
           executionBinding: { routingMode: 'funds_only' },
@@ -834,6 +901,43 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         target: { moduleIndex: 5, configKey: 'focus' },
       },
     ],
+    decisionNodes: [
+      { kind: 'research_subtype', ownerModuleIndex: 0 },
+      { kind: 'curiosity_band', ownerModuleIndex: 0 },
+      { kind: 'admission_mode', ownerModuleIndex: 0 },
+      { kind: 'cadence_band', ownerModuleIndex: 0 },
+      {
+        kind: 'branch_role',
+        ownerModuleIndex: 0,
+        optionRefs: ['discover', 'verify_sanity'],
+        defaultSelectedRef: 'discover',
+      },
+      { kind: 'research_subtype', ownerModuleIndex: 1 },
+      { kind: 'curiosity_band', ownerModuleIndex: 1 },
+      { kind: 'admission_mode', ownerModuleIndex: 1 },
+      { kind: 'cadence_band', ownerModuleIndex: 1 },
+      {
+        kind: 'branch_role',
+        ownerModuleIndex: 1,
+        optionRefs: ['discover', 'verify_sanity'],
+        defaultSelectedRef: 'discover',
+      },
+      { kind: 'librarian_subtype', ownerModuleIndex: 2 },
+      { kind: 'cadence_band', ownerModuleIndex: 2 },
+      { kind: 'library_class', ownerModuleIndex: 3 },
+      { kind: 'feed_class', ownerModuleIndex: 4 },
+      { kind: 'query_policy', ownerModuleIndex: 4 },
+      { kind: 'schedule_policy', ownerModuleIndex: 4 },
+      { kind: 'trend_posture', ownerModuleIndex: 5 },
+      { kind: 'cadence_band', ownerModuleIndex: 5 },
+      {
+        kind: 'strategy_family',
+        ownerModuleIndex: 6,
+        optionRefs: ['strat-003', 'strat-004', 'strat-009'],
+      },
+      { kind: 'recovery_phase', ownerModuleIndex: 6 },
+      { kind: 'emit_mode', ownerModuleIndex: 9 },
+    ],
   },
   {
     id: 'research_web_fabric',
@@ -899,21 +1003,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         ],
       },
     ],
-    decisionNodes: [
-      { kind: 'research_subtype', ownerModuleIndex: 0 },
-      { kind: 'curiosity_band', ownerModuleIndex: 0 },
-      { kind: 'admission_mode', ownerModuleIndex: 0 },
-      { kind: 'cadence_band', ownerModuleIndex: 0 },
-      {
-        kind: 'branch_role',
-        ownerModuleIndex: 0,
-        optionRefs: ['discover', 'verify_sanity'],
-        defaultSelectedRef: 'discover',
-      },
-      { kind: 'librarian_subtype', ownerModuleIndex: 1 },
-      { kind: 'library_class', ownerModuleIndex: 2 },
-      { kind: 'emit_mode', ownerModuleIndex: 3 },
-    ],
+    decisionNodes: RESEARCH_PACK_DECISION_SEEDS,
   },
   {
     id: 'research_filings_fundamentals',
@@ -978,6 +1068,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         ],
       },
     ],
+    decisionNodes: RESEARCH_PACK_DECISION_SEEDS,
   },
   {
     id: 'research_seed_mechanisms',
@@ -1043,6 +1134,22 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         ],
       },
     ],
+    decisionNodes: [
+      { kind: 'librarian_subtype', ownerModuleIndex: 0 },
+      { kind: 'cadence_band', ownerModuleIndex: 0 },
+      { kind: 'research_subtype', ownerModuleIndex: 1 },
+      { kind: 'curiosity_band', ownerModuleIndex: 1 },
+      { kind: 'admission_mode', ownerModuleIndex: 1 },
+      { kind: 'cadence_band', ownerModuleIndex: 1 },
+      {
+        kind: 'branch_role',
+        ownerModuleIndex: 1,
+        optionRefs: ['discover', 'verify_sanity'],
+        defaultSelectedRef: 'discover',
+      },
+      { kind: 'library_class', ownerModuleIndex: 2 },
+      { kind: 'emit_mode', ownerModuleIndex: 3 },
+    ],
   },
   {
     id: 'research_event_catalyst',
@@ -1107,6 +1214,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         ],
       },
     ],
+    decisionNodes: RESEARCH_PACK_DECISION_SEEDS,
   },
   {
     id: 'research_market_regime_lab',
@@ -1215,6 +1323,37 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         placeholder: 'e.g. breadth and leadership',
         target: { moduleIndex: 5, configKey: 'focus' },
       },
+    ],
+    decisionNodes: [
+      { kind: 'research_subtype', ownerModuleIndex: 0 },
+      { kind: 'curiosity_band', ownerModuleIndex: 0 },
+      { kind: 'admission_mode', ownerModuleIndex: 0 },
+      { kind: 'cadence_band', ownerModuleIndex: 0 },
+      {
+        kind: 'branch_role',
+        ownerModuleIndex: 0,
+        optionRefs: ['discover', 'verify_sanity'],
+        defaultSelectedRef: 'discover',
+      },
+      { kind: 'research_subtype', ownerModuleIndex: 1 },
+      { kind: 'curiosity_band', ownerModuleIndex: 1 },
+      { kind: 'admission_mode', ownerModuleIndex: 1 },
+      { kind: 'cadence_band', ownerModuleIndex: 1 },
+      {
+        kind: 'branch_role',
+        ownerModuleIndex: 1,
+        optionRefs: ['discover', 'verify_sanity'],
+        defaultSelectedRef: 'discover',
+      },
+      { kind: 'librarian_subtype', ownerModuleIndex: 2 },
+      { kind: 'cadence_band', ownerModuleIndex: 2 },
+      { kind: 'library_class', ownerModuleIndex: 3 },
+      { kind: 'feed_class', ownerModuleIndex: 4 },
+      { kind: 'query_policy', ownerModuleIndex: 4 },
+      { kind: 'schedule_policy', ownerModuleIndex: 4 },
+      { kind: 'trend_posture', ownerModuleIndex: 5 },
+      { kind: 'cadence_band', ownerModuleIndex: 5 },
+      { kind: 'emit_mode', ownerModuleIndex: 6 },
     ],
   },
   {
@@ -1325,6 +1464,37 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         target: { moduleIndex: 5, configKey: 'focus' },
       },
     ],
+    decisionNodes: [
+      { kind: 'research_subtype', ownerModuleIndex: 0 },
+      { kind: 'curiosity_band', ownerModuleIndex: 0 },
+      { kind: 'admission_mode', ownerModuleIndex: 0 },
+      { kind: 'cadence_band', ownerModuleIndex: 0 },
+      {
+        kind: 'branch_role',
+        ownerModuleIndex: 0,
+        optionRefs: ['discover', 'verify_sanity'],
+        defaultSelectedRef: 'discover',
+      },
+      { kind: 'research_subtype', ownerModuleIndex: 1 },
+      { kind: 'curiosity_band', ownerModuleIndex: 1 },
+      { kind: 'admission_mode', ownerModuleIndex: 1 },
+      { kind: 'cadence_band', ownerModuleIndex: 1 },
+      {
+        kind: 'branch_role',
+        ownerModuleIndex: 1,
+        optionRefs: ['discover', 'verify_sanity'],
+        defaultSelectedRef: 'discover',
+      },
+      { kind: 'librarian_subtype', ownerModuleIndex: 2 },
+      { kind: 'cadence_band', ownerModuleIndex: 2 },
+      { kind: 'library_class', ownerModuleIndex: 3 },
+      { kind: 'feed_class', ownerModuleIndex: 4 },
+      { kind: 'query_policy', ownerModuleIndex: 4 },
+      { kind: 'schedule_policy', ownerModuleIndex: 4 },
+      { kind: 'trend_posture', ownerModuleIndex: 5 },
+      { kind: 'cadence_band', ownerModuleIndex: 5 },
+      { kind: 'emit_mode', ownerModuleIndex: 6 },
+    ],
   },
   {
     id: 'research_prediction_niche',
@@ -1434,6 +1604,37 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         target: { moduleIndex: 5, configKey: 'focus' },
       },
     ],
+    decisionNodes: [
+      { kind: 'research_subtype', ownerModuleIndex: 0 },
+      { kind: 'curiosity_band', ownerModuleIndex: 0 },
+      { kind: 'admission_mode', ownerModuleIndex: 0 },
+      { kind: 'cadence_band', ownerModuleIndex: 0 },
+      {
+        kind: 'branch_role',
+        ownerModuleIndex: 0,
+        optionRefs: ['discover', 'verify_sanity'],
+        defaultSelectedRef: 'discover',
+      },
+      { kind: 'research_subtype', ownerModuleIndex: 1 },
+      { kind: 'curiosity_band', ownerModuleIndex: 1 },
+      { kind: 'admission_mode', ownerModuleIndex: 1 },
+      { kind: 'cadence_band', ownerModuleIndex: 1 },
+      {
+        kind: 'branch_role',
+        ownerModuleIndex: 1,
+        optionRefs: ['discover', 'verify_sanity'],
+        defaultSelectedRef: 'discover',
+      },
+      { kind: 'librarian_subtype', ownerModuleIndex: 2 },
+      { kind: 'cadence_band', ownerModuleIndex: 2 },
+      { kind: 'library_class', ownerModuleIndex: 3 },
+      { kind: 'feed_class', ownerModuleIndex: 4 },
+      { kind: 'query_policy', ownerModuleIndex: 4 },
+      { kind: 'schedule_policy', ownerModuleIndex: 4 },
+      { kind: 'trend_posture', ownerModuleIndex: 5 },
+      { kind: 'cadence_band', ownerModuleIndex: 5 },
+      { kind: 'emit_mode', ownerModuleIndex: 6 },
+    ],
   },
   {
     id: 'research_desk_aligned',
@@ -1529,6 +1730,15 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         placeholder: 'e.g. day-trade large-cap tech momentum',
         target: { moduleIndex: 4, configKey: 'focus' },
       },
+    ],
+    decisionNodes: [
+      ...RESEARCH_PACK_DECISION_SEEDS.filter((s) => s.kind !== 'emit_mode'),
+      { kind: 'feed_class', ownerModuleIndex: 3 },
+      { kind: 'query_policy', ownerModuleIndex: 3 },
+      { kind: 'schedule_policy', ownerModuleIndex: 3 },
+      { kind: 'trend_posture', ownerModuleIndex: 4 },
+      { kind: 'cadence_band', ownerModuleIndex: 4 },
+      { kind: 'emit_mode', ownerModuleIndex: 5 },
     ],
   },
   {
@@ -1633,6 +1843,43 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           { moduleIndex: 5, configKey: 'topicScope' },
         ],
       },
+    ],
+    decisionNodes: [
+      { kind: 'research_subtype', ownerModuleIndex: 0 },
+      { kind: 'curiosity_band', ownerModuleIndex: 0 },
+      { kind: 'admission_mode', ownerModuleIndex: 0 },
+      { kind: 'cadence_band', ownerModuleIndex: 0 },
+      {
+        kind: 'branch_role',
+        ownerModuleIndex: 0,
+        optionRefs: ['discover', 'verify_sanity'],
+        defaultSelectedRef: 'discover',
+      },
+      { kind: 'research_subtype', ownerModuleIndex: 1 },
+      { kind: 'curiosity_band', ownerModuleIndex: 1 },
+      { kind: 'admission_mode', ownerModuleIndex: 1 },
+      { kind: 'cadence_band', ownerModuleIndex: 1 },
+      {
+        kind: 'branch_role',
+        ownerModuleIndex: 1,
+        optionRefs: ['discover', 'verify_sanity'],
+        defaultSelectedRef: 'discover',
+      },
+      { kind: 'research_subtype', ownerModuleIndex: 2 },
+      { kind: 'curiosity_band', ownerModuleIndex: 2 },
+      { kind: 'admission_mode', ownerModuleIndex: 2 },
+      { kind: 'cadence_band', ownerModuleIndex: 2 },
+      {
+        kind: 'branch_role',
+        ownerModuleIndex: 2,
+        optionRefs: ['discover', 'verify_sanity'],
+        defaultSelectedRef: 'discover',
+      },
+      { kind: 'librarian_subtype', ownerModuleIndex: 3 },
+      { kind: 'cadence_band', ownerModuleIndex: 3 },
+      { kind: 'library_class', ownerModuleIndex: 4 },
+      { kind: 'library_class', ownerModuleIndex: 5 },
+      { kind: 'emit_mode', ownerModuleIndex: 6 },
     ],
   },
   {
@@ -1742,6 +1989,37 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         placeholder: 'e.g. spread stability and flow toxicity',
         target: { moduleIndex: 5, configKey: 'focus' },
       },
+    ],
+    decisionNodes: [
+      { kind: 'research_subtype', ownerModuleIndex: 0 },
+      { kind: 'curiosity_band', ownerModuleIndex: 0 },
+      { kind: 'admission_mode', ownerModuleIndex: 0 },
+      { kind: 'cadence_band', ownerModuleIndex: 0 },
+      {
+        kind: 'branch_role',
+        ownerModuleIndex: 0,
+        optionRefs: ['discover', 'verify_sanity'],
+        defaultSelectedRef: 'discover',
+      },
+      { kind: 'research_subtype', ownerModuleIndex: 1 },
+      { kind: 'curiosity_band', ownerModuleIndex: 1 },
+      { kind: 'admission_mode', ownerModuleIndex: 1 },
+      { kind: 'cadence_band', ownerModuleIndex: 1 },
+      {
+        kind: 'branch_role',
+        ownerModuleIndex: 1,
+        optionRefs: ['discover', 'verify_sanity'],
+        defaultSelectedRef: 'discover',
+      },
+      { kind: 'librarian_subtype', ownerModuleIndex: 2 },
+      { kind: 'cadence_band', ownerModuleIndex: 2 },
+      { kind: 'library_class', ownerModuleIndex: 3 },
+      { kind: 'feed_class', ownerModuleIndex: 4 },
+      { kind: 'query_policy', ownerModuleIndex: 4 },
+      { kind: 'schedule_policy', ownerModuleIndex: 4 },
+      { kind: 'trend_posture', ownerModuleIndex: 5 },
+      { kind: 'cadence_band', ownerModuleIndex: 5 },
+      { kind: 'emit_mode', ownerModuleIndex: 6 },
     ],
   },
   {
@@ -1895,29 +2173,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         target: { moduleIndex: 4, configKey: 'focus' },
       },
     ],
-    decisionNodes: [
-      { kind: 'research_subtype', ownerModuleIndex: 0 },
-      { kind: 'curiosity_band', ownerModuleIndex: 0 },
-      { kind: 'admission_mode', ownerModuleIndex: 0 },
-      { kind: 'cadence_band', ownerModuleIndex: 0 },
-      {
-        kind: 'branch_role',
-        ownerModuleIndex: 0,
-        optionRefs: ['discover', 'verify_sanity'],
-        defaultSelectedRef: 'discover',
-      },
-      { kind: 'librarian_subtype', ownerModuleIndex: 1 },
-      { kind: 'cadence_band', ownerModuleIndex: 1 },
-      { kind: 'library_class', ownerModuleIndex: 2 },
-      { kind: 'feed_class', ownerModuleIndex: 3 },
-      { kind: 'query_policy', ownerModuleIndex: 3 },
-      { kind: 'schedule_policy', ownerModuleIndex: 3 },
-      { kind: 'trend_posture', ownerModuleIndex: 4 },
-      { kind: 'cadence_band', ownerModuleIndex: 4 },
-      { kind: 'strategy_family', ownerModuleIndex: 5 },
-      { kind: 'recovery_phase', ownerModuleIndex: 5 },
-      { kind: 'emit_mode', ownerModuleIndex: 8 },
-    ],
+    decisionNodes: EXECUTION_DESK_DECISION_SEEDS(5, 8, ['strat-007']),
   },
   // ── Simulation ENGINEs (D-189) — paper_sim / funds_only by default ─────────
   {
@@ -2019,6 +2275,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         target: { moduleIndex: 1, configKey: 'focus' },
       },
     ],
+    decisionNodes: SIM_DESK_DECISION_SEEDS(['strat-001', 'strat-002', 'strat-005']),
   },
   {
     id: 'sim_train_policy_replay',
@@ -2118,6 +2375,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         target: { moduleIndex: 1, configKey: 'focus' },
       },
     ],
+    decisionNodes: SIM_DESK_DECISION_SEEDS(['strat-001']),
   },
   {
     id: 'sim_adhoc_paper_desk',
@@ -2228,6 +2486,20 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         target: { moduleIndex: 2, configKey: 'focus' },
         alsoTargets: [{ moduleIndex: 1, configKey: 'topicScope' }],
       },
+    ],
+    decisionNodes: [
+      { kind: 'feed_class', ownerModuleIndex: 0 },
+      { kind: 'query_policy', ownerModuleIndex: 0 },
+      { kind: 'schedule_policy', ownerModuleIndex: 0 },
+      { kind: 'trend_posture', ownerModuleIndex: 2 },
+      { kind: 'cadence_band', ownerModuleIndex: 2 },
+      {
+        kind: 'strategy_family',
+        ownerModuleIndex: 3,
+        optionRefs: ['strat-001', 'strat-002', 'strat-005'],
+      },
+      { kind: 'recovery_phase', ownerModuleIndex: 3 },
+      { kind: 'emit_mode', ownerModuleIndex: 6 },
     ],
   },
 ];

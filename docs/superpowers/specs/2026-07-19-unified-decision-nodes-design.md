@@ -1,9 +1,16 @@
 # Unified decision nodes (evolve option anchors)
 
 **Date:** 2026-07-19  
-**Decision:** D-202 (extends D-173 / D-180 / D-191)  
+**Decision:** D-202 / D-207 (extends D-173 / D-180 / D-191)  
 **Status:** implemented  
 **Approach:** Evolve `optionAnchor` → unified `decisionNode` (Approach 1)
+
+### D-207 follow-up (engine palettes)
+
+Every `ENGINE_TEMPLATES` entry seeds `decisionNodes`. Category strategy palettes
+(`CATEGORY_STRATEGY_PALETTE` in `engine-decision-seeds.ts`) map desks to catalog
+families; empty `strategyFamilies` falls back to the palette. Builder applies
+seed `optionRefs` / `defaultSelectedRef` after emission.
 
 ## Problem
 

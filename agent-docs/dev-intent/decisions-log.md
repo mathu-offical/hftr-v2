@@ -2068,6 +2068,17 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `/executions` still serves panels and parallelizes ledger+tasks after traces.
   Docs: ui-spec §2. **Status: implemented.**
 
+- **D-207 (engine decision palettes by desk category, 2026-07-19):** Every
+  `ENGINE_TEMPLATES` entry declares `decisionNodes` (helpers for execution /
+  research / sim desks; custom arrays for dual/triple research layouts).
+  `CATEGORY_STRATEGY_PALETTE` + `resolveStrategyFamiliesForTrader` map desks onto
+  seeded-strategy-catalog: day ORB/gap/VWAP (`001/002/005`), HFT market-making
+  (`007`), crypto trend/reversion/pairs (`003/005/008`), long-term
+  trend/compression/lead-lag (`003/004/009`), prediction interim reversion+RV
+  (`005/008`). Builder applies seed `optionRefs` / `defaultSelectedRef`. Extends
+  D-174 / D-202. Docs: canvas-engine-group-design, `engine-decision-seeds.ts`.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

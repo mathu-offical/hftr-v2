@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { TraceValueRefs } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
+import { simHonestyChips } from '@/lib/sim-honesty-label';
 import { dispatchValueLineageFocus } from '@/lib/value-lineage-focus';
 import { Justification, timelineStageSourceClass } from './Justification';
 import { stageTone } from './format';
@@ -24,19 +25,23 @@ interface TimelineEntry {
 export function TraceTimeline(props: { companyId: string; traceId: string; onClose: () => void }) {
   const [timeline, setTimeline] = useState<TimelineEntry[] | null>(null);
   const [valueRefs, setValueRefs] = useState<TraceValueRefs | null>(null);
+  const [simulatorGapTags, setSimulatorGapTags] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const { onClose } = props;
 
   useEffect(() => {
     let cancelled = false;
-    api<{ timeline: TimelineEntry[]; valueRefs: TraceValueRefs | null }>(
-      `/api/companies/${props.companyId}/traces/${props.traceId}/timeline`,
-    )
+    api<{
+      timeline: TimelineEntry[];
+      valueRefs: TraceValueRefs | null;
+      simulatorGapTags?: string[];
+    }>(`/api/companies/${props.companyId}/traces/${props.traceId}/timeline`)
       .then((data) => {
         if (cancelled) return;
         setTimeline(data.timeline);
         setValueRefs(data.valueRefs ?? null);
+        setSimulatorGapTags(data.simulatorGapTags ?? []);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -66,6 +71,8 @@ export function TraceTimeline(props: { companyId: string; traceId: string; onClo
     onClose();
   }
 
+  const honestyChips = simHonestyChips(simulatorGapTags);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
@@ -82,6 +89,22 @@ export function TraceTimeline(props: { companyId: string; traceId: string; onClo
           <div>
             <h2 className="text-sm font-medium text-[var(--color-ink)]">Decision trace</h2>
             <p className="font-mono text-[10px] text-[var(--color-ink-faint)]">{props.traceId}</p>
+            {honestyChips.length > 0 && (
+              <div
+                className="mt-1.5 flex flex-wrap gap-1"
+                data-testid="timeline-honesty-chips"
+                aria-label={`Simulation honesty: ${honestyChips.map((c) => c.label).join(', ')}`}
+              >
+                {honestyChips.map((chip) => (
+                  <span
+                    key={chip.kind}
+                    className="rounded border border-[var(--color-line)] px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]"
+                  >
+                    {chip.label}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           <button
             onClick={onClose}

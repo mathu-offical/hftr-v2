@@ -109,6 +109,8 @@ Approved design: `docs/superpowers/specs/2026-07-18-internal-paper-trade-engine-
   rebucket (`prior_session_mark`) so weekend paper can use venue last prints.
   Phase 7b (D-187): operator-visible honesty chips (Executions + ticker); feed-class
   ValueRef sourceIds on dispatch marks; multi-share verify asserts impact proxy.
+  Phase 7c (D-188): same chips on Decisions / Lineage / TraceTimeline via timeline
+  `simulatorGapTags`.
 - Company-level `broker_connections` bind remains for credentials; it no longer implies
   automatic venue submit for every paper trade (routing mode decides).
 

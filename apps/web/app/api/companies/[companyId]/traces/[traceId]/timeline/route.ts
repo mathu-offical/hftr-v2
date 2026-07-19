@@ -225,6 +225,9 @@ export async function GET(_req: Request, ctx: Ctx) {
     return TraceTimelineResponse.parse({
       timeline,
       valueRefs: resolveTraceValueRefs(task, instruction),
+      simulatorGapTags: Array.isArray(trace.simulatorGapTags)
+        ? (trace.simulatorGapTags as string[])
+        : [],
     });
   });
 }

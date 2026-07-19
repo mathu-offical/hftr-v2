@@ -8,6 +8,7 @@ import {
   normalizeCapitalMode,
   type CapitalMode,
 } from '@/lib/capital-mode-label';
+import { simHonestyChips } from '@/lib/sim-honesty-label';
 import { ACTIVITY_REFRESH_EVENT } from '../canvas/PaperTradeForm';
 import { dollars, GATE_KEYS, gateLabel, gateTone, toneFor } from './format';
 import { Justification } from './Justification';
@@ -133,6 +134,7 @@ interface ExecutionRow {
   createdAt: string;
   leadId: string | null;
   treeId: string | null;
+  simulatorGapTags?: string[];
 }
 
 interface VerificationRow {
@@ -805,7 +807,7 @@ function CondensedRow(props: {
         ) : null}
       </div>
       {props.secondary != null ? (
-        <p className="mt-0.5 truncate text-[10px] text-[var(--color-ink-dim)]">{props.secondary}</p>
+        <div className="mt-0.5 text-[10px] text-[var(--color-ink-dim)]">{props.secondary}</div>
       ) : null}
     </>
   );
@@ -899,6 +901,7 @@ function CondensedDecisionsList(props: {
     <div>
       {shown.map((e) => {
         const v = props.verifications.find((x) => x.traceId === e.id);
+        const honesty = simHonestyChips(e.simulatorGapTags);
         return (
           <CondensedRow
             key={e.id}
@@ -907,7 +910,29 @@ function CondensedDecisionsList(props: {
                 {e.outcome}
               </span>
             }
-            secondary={`${e.description ?? e.failureCode ?? `${e.venue} · ${e.mode}`} · ${props.moduleName(e.moduleId)}${v ? ` · ${v.result}` : ''}`}
+            secondary={
+              <span className="flex flex-col gap-0.5">
+                <span>
+                  {`${e.description ?? e.failureCode ?? `${e.venue} · ${e.mode}`} · ${props.moduleName(e.moduleId)}${v ? ` · ${v.result}` : ''}`}
+                </span>
+                {honesty.length > 0 && (
+                  <span
+                    className="flex flex-wrap gap-1"
+                    data-testid="decisions-honesty-chips"
+                    aria-label={`Simulation honesty: ${honesty.map((c) => c.label).join(', ')}`}
+                  >
+                    {honesty.map((chip) => (
+                      <span
+                        key={chip.kind}
+                        className="rounded border border-[var(--color-line)] px-1 text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]"
+                      >
+                        {chip.label}
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </span>
+            }
             meta={new Date(e.createdAt).toLocaleTimeString()}
             onClick={() => props.onOpenTrace(e.id)}
           />
@@ -2299,6 +2324,7 @@ function LineageView(props: {
             sortedExecutions.map((e) => {
               const key = `execution:${e.id}`;
               const v = props.verifications.find((x) => x.traceId === e.id);
+              const honesty = simHonestyChips(e.simulatorGapTags);
               const linked = ctx
                 ? isLineageLinked(ctx, {
                     kind: 'execution',
@@ -2330,6 +2356,22 @@ function LineageView(props: {
                   <div className="text-[10px] text-[var(--color-ink-faint)]">
                     {props.moduleName(e.moduleId)}
                   </div>
+                  {honesty.length > 0 && (
+                    <div
+                      className="mt-0.5 flex flex-wrap gap-1"
+                      data-testid="lineage-honesty-chips"
+                      aria-label={`Simulation honesty: ${honesty.map((c) => c.label).join(', ')}`}
+                    >
+                      {honesty.map((chip) => (
+                        <span
+                          key={chip.kind}
+                          className="rounded border border-[var(--color-line)] px-1 text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]"
+                        >
+                          {chip.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </button>
               );
             })

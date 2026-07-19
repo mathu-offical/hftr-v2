@@ -1881,6 +1881,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   broker-integration §7, ui-spec §1 shell / §4 panels.
   **Status: implemented (API 25/25 verified).**
 
+- **D-188 (honesty chips on Decisions + TraceTimeline, 2026-07-19):** Extend D-187
+  surfaces so BottomPanel Decisions + Lineage execution rows and TraceTimeline modal
+  show the same `simHonestyChips` vocabulary (`data-testid` decisions / lineage /
+  timeline-honesty-chips). Timeline API returns optional `simulatorGapTags` on
+  `TraceTimelineResponse`. Docs: ui-spec §4 panels.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

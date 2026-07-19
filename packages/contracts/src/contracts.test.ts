@@ -992,6 +992,27 @@ describe('NRA typing', () => {
     expect(ok.success).toBe(true);
   });
 
+  it('TraceTimelineResponse accepts optional simulatorGapTags (D-188)', () => {
+    const ok = TraceTimelineResponse.safeParse({
+      timeline: [
+        {
+          stage: 'trace',
+          at: '2026-07-19T00:00:00.000Z',
+          status: 'filled',
+          summary: 'paper fill',
+          refId: '00000000-0000-4000-8000-000000000099',
+        },
+      ],
+      valueRefs: null,
+      simulatorGapTags: ['live_market_quote', 'prior_session_mark'],
+    });
+    expect(ok.success).toBe(true);
+    expect(ok.success && ok.data.simulatorGapTags).toEqual([
+      'live_market_quote',
+      'prior_session_mark',
+    ]);
+  });
+
   it('parses a nested calc expression', () => {
     const req = {
       kind: 'expr',

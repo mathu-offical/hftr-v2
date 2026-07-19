@@ -178,6 +178,8 @@ export const TraceTimelineStage = z.object({
 export const TraceTimelineResponse = z.object({
   timeline: z.array(TraceTimelineStage),
   valueRefs: TraceValueRefs.nullable(),
+  /** Paper sim honesty tags from the action_traces row (D-188). */
+  simulatorGapTags: z.array(z.string()).optional(),
 });
 export type TraceTimelineResponse = z.infer<typeof TraceTimelineResponse>;
 

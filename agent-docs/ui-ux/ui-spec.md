@@ -468,6 +468,9 @@ are ignored. Shortcuts are suppressed in editable fields.
   Operator lifecycle: `POST …/positions/exits` runs model-free exit scan + drain.
   Executions expose `simulatorGapTags` as text-first honesty chips (Live mark / Prior
   session / Impact proxy / Child drain / Funds-only — D-187; raw tags still on the API).
+  The same chip set appears on BottomPanel Decisions + Lineage execution rows and on
+  TraceTimeline (D-188; testids `decisions-honesty-chips`, `lineage-honesty-chips`,
+  `timeline-honesty-chips`).
   Market posture left rail also lists open holdings for quick select (D-131); day quant
   lives on the canvas overlay, not as a position-centric navigator.
 - Ledger of all trades/results/responses: filterable table (module, venue, mode, outcome),

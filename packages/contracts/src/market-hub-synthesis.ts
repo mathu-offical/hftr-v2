@@ -129,6 +129,7 @@ export const MarketHubModelEdgeType = z.enum([
   'entitle',
   'corpus',
   'parallel',
+  'panel',
 ]);
 export type MarketHubModelEdgeType = z.infer<typeof MarketHubModelEdgeType>;
 

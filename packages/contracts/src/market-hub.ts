@@ -446,6 +446,49 @@ export const MarketHubModelProcessingFlow = z.object({
 });
 export type MarketHubModelProcessingFlow = z.infer<typeof MarketHubModelProcessingFlow>;
 
+/**
+ * Operator panel surface hydrated from synthesis / hub boards (D-161).
+ */
+export const MarketHubModelPanelSurface = z.object({
+  id: z.enum([
+    'equity',
+    'movers',
+    'news',
+    'positions',
+    'watchlists',
+    'capital',
+    'reports',
+    'charts',
+  ]),
+  label: z.string().max(80),
+  /** Where the operator reads this surface. */
+  panel: z.enum(['rail', 'overlay', 'both']),
+  status: z.string().max(40),
+  operation: z.string().max(80),
+  amount: z.string().max(40),
+  /** Pipeline stage that last sealed / projected this board. */
+  sourceStageId: z
+    .enum([
+      'providers',
+      'gather',
+      'thresholds',
+      'defaults',
+      'universe',
+      'rs',
+      'rank',
+      'verify',
+      'seal_movers',
+      'sector',
+      'daily',
+      'narrative',
+      'hub_ready',
+    ])
+    .nullable()
+    .default(null),
+  updatedAt: z.string().datetime().nullable(),
+});
+export type MarketHubModelPanelSurface = z.infer<typeof MarketHubModelPanelSurface>;
+
 export const MarketHubModelHydration = z.object({
   liveSources: z.array(MarketHubModelLiveSource).max(64).default([]),
   librarySources: z.array(MarketHubModelLibrarySource).max(64).default([]),
@@ -466,6 +509,11 @@ export const MarketHubModelHydration = z.object({
    * Hub GET time — client compares across Sync/Analyze to pulse edges.
    */
   asOfIso: z.string().datetime(),
+  /**
+   * Silent live-poll patch clock (D-161). Updates panel surfaces / mark-linked
+   * stageOps without bumping asOfIso (avoids full Sync pulse storms).
+   */
+  livePatchedAt: z.string().datetime().nullable().optional(),
   /** Seal freshness stamps for track stale/active styling (D-160). */
   sealStamps: z
     .object({
@@ -482,6 +530,11 @@ export const MarketHubModelHydration = z.object({
       newsExpiresAt: null,
       dailyExpiresAt: null,
     }),
+  /**
+   * Panel board projections the Model hydrates into (D-161).
+   * Left rail + overlay day surfaces — amounts/status mirror hub boards.
+   */
+  panelSurfaces: z.array(MarketHubModelPanelSurface).max(16).default([]),
 });
 export type MarketHubModelHydration = z.infer<typeof MarketHubModelHydration>;
 

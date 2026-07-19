@@ -615,7 +615,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
             )}
           </div>
 
-          {/* D-121 / D-128: Libraries dock — elevated sheet; rail LIB expands to full height. */}
+          {/* D-121 / D-128: Libraries dock — flush panel-shell footer; rail LIB = full height. */}
           {librariesDockOpen ? (
             <div
               data-testid="research-libraries-dock"
@@ -623,15 +623,15 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
               className={
                 librariesFull
                   ? 'relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden border-t border-[var(--color-line)] bg-[var(--color-surface-0)]'
-                  : 'relative z-10 mx-1.5 mb-1.5 mt-0 flex max-h-[min(42vh,20rem)] shrink-0 flex-col overflow-hidden rounded-t-xl border border-[var(--color-line)] border-b-[var(--color-line)] bg-[var(--color-surface-0)] shadow-[0_-8px_24px_rgba(0,0,0,0.45)] ring-1 ring-[var(--color-line)]'
+                  : 'relative z-10 flex max-h-[min(42vh,20rem)] shrink-0 flex-col overflow-hidden border-t border-[var(--color-line)] bg-[var(--color-surface-0)]'
               }
             >
-              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2">
-                <div className="min-w-0">
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--color-line)] bg-[var(--color-surface-1)] px-3 py-1.5">
+                <div className="flex min-w-0 items-baseline gap-2">
                   <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-ink)]">
                     Libraries
                   </p>
-                  <p className="text-[9px] text-[var(--color-ink-faint)]">
+                  <p className="truncate text-[9px] text-[var(--color-ink-faint)]">
                     {librariesFull
                       ? 'Full height · other tabs restore dock size'
                       : 'Shared · all tabs · open in inspector'}
@@ -644,7 +644,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                     setLibrariesFull(false);
                     setLibrariesDockOpen(false);
                   }}
-                  className="rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-1.5 py-0.5 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-ink)]"
+                  className="rounded-none border border-[var(--color-line)] bg-[var(--color-surface-0)] px-1.5 py-0.5 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-ink)]"
                 >
                   Hide
                 </button>
@@ -652,7 +652,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2 text-sm">
                 <section
                   data-testid="company-libraries-section"
-                  className="mb-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2.5"
+                  className="mb-3 border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2"
                   aria-label="Company libraries"
                 >
                   <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-ink-faint)]">
@@ -666,7 +666,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                       No company library modules yet. Create one below.
                     </p>
                   ) : (
-                    <ul className="mt-2 space-y-1.5">
+                    <ul className="mt-2 space-y-1">
                       {companyLibraryModules.map((m) => {
                         const hydrates = props.links
                           .filter((l) => l.fromModuleId === m.id && l.linkKind === 'data_feed')
@@ -677,10 +677,12 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                               type="button"
                               data-testid={`company-library-module-${m.id}`}
                               onClick={() => browseCompanyModule(m.id, m.name)}
-                              className="flex w-full flex-col rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-left hover:border-[var(--color-accent)]"
+                              className="flex w-full items-center gap-2 border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1 text-left hover:border-[var(--color-accent)]"
                             >
-                              <span className="truncate text-xs font-medium">{m.name}</span>
-                              <span className="text-[10px] text-[var(--color-ink-faint)]">
+                              <span className="min-w-0 flex-1 truncate text-[11px] font-medium">
+                                {m.name}
+                              </span>
+                              <span className="max-w-[55%] shrink-0 truncate text-[10px] text-[var(--color-ink-faint)]">
                                 {String(m.config.topicScope ?? 'library')}
                                 {hydrates.length > 0 ? ` · feeds ${hydrates.join(', ')}` : ''}
                               </span>
@@ -728,22 +730,22 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
               </div>
             </div>
           ) : (
-            <div className="relative z-10 mx-1.5 mb-1.5 shrink-0">
-              <button
-                type="button"
-                data-testid="research-libraries-dock-card"
-                onClick={() => {
-                  setLibrariesFull(false);
-                  setLibrariesDockOpen(true);
-                }}
-                className="flex w-full items-center justify-between gap-2 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2.5 py-2.5 text-left shadow-[0_-4px_16px_rgba(0,0,0,0.35)] ring-1 ring-[var(--color-line)] hover:border-[var(--color-accent)]"
-              >
-                <span className="min-w-0">
-                  <span className="block text-[10px] font-medium uppercase tracking-widest text-[var(--color-ink)]">
+            <button
+              type="button"
+              data-testid="research-libraries-dock-card"
+              onClick={() => {
+                setLibrariesFull(false);
+                setLibrariesDockOpen(true);
+              }}
+              className="shrink-0 rounded-none border-t border-[var(--color-line)] bg-[var(--color-surface-1)] text-left hover:bg-[var(--color-surface-0)]"
+            >
+              <span className="flex items-center justify-between gap-2 px-3 py-1">
+                <span className="flex min-w-0 items-baseline gap-2">
+                  <span className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-ink)]">
                     Libraries
                   </span>
-                  <span className="block text-[9px] text-[var(--color-ink-faint)]">
-                    Shared across Research · Posture · Data
+                  <span className="truncate text-[9px] text-[var(--color-ink-faint)]">
+                    Shared · Research · Posture · Data
                   </span>
                 </span>
                 <span className="shrink-0 text-[10px] text-[var(--color-ink-dim)]">
@@ -751,8 +753,30 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
                     ? `${libraries.length} librar${libraries.length === 1 ? 'y' : 'ies'} · Show`
                     : 'Show'}
                 </span>
-              </button>
-            </div>
+              </span>
+              {librariesLoaded && libraries.length > 0 ? (
+                <span className="flex flex-col gap-px border-t border-[var(--color-line)] px-2 py-1">
+                  {libraries.slice(0, 3).map((lib) => (
+                    <span
+                      key={lib.id}
+                      className="flex h-5 items-center gap-2 border border-[var(--color-line)] bg-[var(--color-surface-0)] px-1.5"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-[10px] leading-none text-[var(--color-ink)]">
+                        {lib.name}
+                      </span>
+                      <span className="max-w-[40%] shrink-0 truncate text-[9px] leading-none text-[var(--color-ink-faint)]">
+                        {lib.topicScope || lib.status}
+                      </span>
+                    </span>
+                  ))}
+                  {libraries.length > 3 ? (
+                    <span className="px-1 text-[9px] leading-none text-[var(--color-ink-faint)]">
+                      +{libraries.length - 3} more
+                    </span>
+                  ) : null}
+                </span>
+              ) : null}
+            </button>
           )}
         </aside>
       ) : null}
@@ -830,7 +854,7 @@ function LibrariesSection(props: {
 
   return (
     <section
-      className="mt-3 rounded-lg border border-[var(--color-line)] p-2.5"
+      className="mt-3 border border-[var(--color-line)] p-2"
       aria-label="Libraries"
     >
       <p className="text-[10px] uppercase tracking-widest text-[var(--color-ink-faint)]">
@@ -841,15 +865,15 @@ function LibrariesSection(props: {
       ) : props.libraries.length === 0 ? (
         <p className="mt-2 text-[10px] text-[var(--color-ink-faint)]">No libraries yet.</p>
       ) : (
-        <ul className="mt-2 space-y-1.5">
+        <ul className="mt-2 space-y-1">
           {props.libraries.map((lib) => (
             <li key={lib.id}>
-              <div className="flex items-center justify-between gap-2 rounded-md border border-[var(--color-line)] px-2 py-1.5">
-                <div className="min-w-0">
+              <div className="flex items-center justify-between gap-2 border border-[var(--color-line)] px-2 py-1">
+                <div className="flex min-w-0 flex-1 items-baseline gap-2">
                   <p className="truncate text-[11px] font-medium text-[var(--color-ink)]">
                     {lib.name}
                   </p>
-                  <p className="truncate text-[10px] text-[var(--color-ink-faint)]">
+                  <p className="shrink-0 truncate text-[10px] text-[var(--color-ink-faint)]">
                     {lib.topicScope || 'no scope'} · {lib.status}
                     {lib.masterLibrary ? ' · master' : ''}
                   </p>
@@ -859,7 +883,7 @@ function LibrariesSection(props: {
                   disabled={exportingId === lib.id}
                   onClick={() => void exportLibrary(lib)}
                   aria-label={`Export ${lib.name} to Obsidian zip`}
-                  className="shrink-0 rounded-md border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50"
+                  className="shrink-0 border border-[var(--color-line)] px-2 py-0.5 text-[10px] text-[var(--color-ink-dim)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50"
                 >
                   {exportingId === lib.id ? 'Exporting…' : 'Export'}
                 </button>

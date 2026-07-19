@@ -31,8 +31,10 @@ Entity search, agent activity, archive, and Modules & tools are **not** in this 
 ### Libraries dock (bottom-anchored)
 
 - **Expanded:** header “Libraries” + Hide; max ~42vh independently scrollable body with
-  **library shelves** + create/export (`LibrariesSection`).
-- **Collapsed:** a single **Libraries** card at the bottom; click expands the dock.
+  **library shelves** + create/export (`LibrariesSection`). Compact and full layouts share
+  **flush panel-shell chrome** (`border-t`, square corners — not a floating elevated card).
+- **Collapsed:** a slim **Libraries** footer bar flush to the left panel shell; shows up to
+  three **single-line** library preview rows; click expands the dock.
 - **Library shelves** — expandable groups; each library (or seeded category) is a **folder of pages**:
    - Caret expands the folder to list pages (catalog / admitted concepts as readable page leaves).
    - **Folder name click** opens the matching **overview topic** when one exists (same title as the library, e.g. Seeded trading mechanisms); otherwise opens the library inspector + galaxy nest.

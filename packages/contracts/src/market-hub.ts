@@ -400,9 +400,57 @@ export const MarketHubModelStageOp = z.object({
 });
 export type MarketHubModelStageOp = z.infer<typeof MarketHubModelStageOp>;
 
+/**
+ * Per-API / library processing flow for the synthesis Model (D-156).
+ * Each service has its own adapter path into specific analysis stages —
+ * not a dump into a single aggregator.
+ */
+export const MarketHubModelProcessingFlow = z.object({
+  /** Stable flow id (e.g. alpaca_bars:ohlc, gdelt_news:headline). */
+  id: z.string().max(80),
+  /** ResearchSourceKind or library:{uuid}. */
+  kind: z.string().max(80),
+  /** Human adapter name (GDELT headline gather, Alpaca OHLC fetch, …). */
+  adapterLabel: z.string().max(120),
+  /** Roles this adapter plays (news_corpus, relative_strength, …). */
+  analysisRoles: z.array(z.string().max(40)).max(8).default([]),
+  operation: z.string().max(80),
+  amount: z.string().max(40),
+  /** Pipeline stages this flow feeds. */
+  targetStages: z
+    .array(
+      z.enum([
+        'providers',
+        'gather',
+        'thresholds',
+        'defaults',
+        'universe',
+        'rs',
+        'rank',
+        'verify',
+        'seal_movers',
+        'sector',
+        'daily',
+        'narrative',
+        'hub_ready',
+      ]),
+    )
+    .max(12),
+  /** Which Analyze jobs consume this flow. */
+  pipelines: z.array(z.enum(['movers', 'sector'])).max(4),
+  /** Live source readiness for this kind when known. */
+  status: z
+    .enum(['ready', 'missing_key', 'stub', 'researched', 'public', 'idle'])
+    .default('idle'),
+  contributed: z.boolean().default(false),
+});
+export type MarketHubModelProcessingFlow = z.infer<typeof MarketHubModelProcessingFlow>;
+
 export const MarketHubModelHydration = z.object({
   liveSources: z.array(MarketHubModelLiveSource).max(64).default([]),
   librarySources: z.array(MarketHubModelLibrarySource).max(64).default([]),
+  /** Per-service adapter → analysis stage flows (D-156). */
+  processingFlows: z.array(MarketHubModelProcessingFlow).max(64).default([]),
   stageOps: z.array(MarketHubModelStageOp).max(32).default([]),
   totals: z.object({
     liveReady: z.number().int().nonnegative(),

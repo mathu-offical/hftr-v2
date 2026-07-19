@@ -63,6 +63,11 @@
   card. **D-198:** loading chrome uses indeterminate progress bars, status dots, and
   shimmer skeletons (`LoadingChrome`); ticker / RightPanel / BottomPanel show labeled
   strips until their client fetches complete (text-first; motion reinforces).
+  **D-200:** Suspense fallback mounts real panel rails (empty graph) so buttons stay
+  clickable while module lists stream; family layout heal is post-paint
+  (`POST …/canvas/family-layout`); RightPanel fetches only when open with field-level
+  updates; LeftPanel defers research shell refresh until open; LLM chip shows `llm: …`
+  until ready.
 
 - **Canvas-centric layout** per company beneath the ribbon: slim collapsible strips on the
   left (Research · Posture · Data), bottom (Trends · Scenarios · Watch lists · Decisions), and right

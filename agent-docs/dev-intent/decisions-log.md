@@ -2005,6 +2005,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `hierarchicalLinkScale` uses similarity bands only. Extends D-195. Docs: ui-spec §6,
   research-galaxy-topic-view-design. **Status: implemented.**
 
+- **D-200 (progressive shell hydration, 2026-07-19):** Company workspace paints interactive
+  chrome (header controls, panel rails/buttons) as soon as identity resolves; Suspense
+  fallback mounts real Left/Right/Bottom panels with empty graph props while module/link/
+  engine lists stream. Layout heal (D-159/D-168 + time hubs) moves to
+  `POST …/canvas/family-layout` after paint (fire-and-forget). RightPanel defaults closed
+  and fetches only when open with per-field progressive updates; LeftPanel defers
+  `refreshShell` until open; LLM ribbon shows `llm: …` placeholder instead of null.
+  Extends D-196/D-198. Docs: ui-spec §2. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

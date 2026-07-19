@@ -1308,6 +1308,59 @@ export function CompanyCanvas(props: {
   ]);
   const ownerDragOriginRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
+  // D-200: when RSC soft-refresh lands new positions after family-layout heal, rebuild graph.
+  const serverGraphSig = useMemo(
+    () =>
+      JSON.stringify({
+        m: props.initialModules.map((m) => [m.id, m.position.x, m.position.y, m.engineInstanceId]),
+        e: props.initialEngines.map((eng) => [
+          eng.id,
+          eng.canvasBounds?.x,
+          eng.canvasBounds?.y,
+          eng.canvasBounds?.width,
+          eng.canvasBounds?.height,
+          (eng.utilityLinks ?? []).map((u) => u.id),
+        ]),
+        l: props.initialLinks.map((l) => [l.id, l.fromModuleId, l.toModuleId, l.linkKind]),
+      }),
+    [props.initialModules, props.initialEngines, props.initialLinks],
+  );
+  const appliedServerGraphSig = useRef<string | null>(null);
+  useEffect(() => {
+    if (appliedServerGraphSig.current === null) {
+      appliedServerGraphSig.current = serverGraphSig;
+      return;
+    }
+    if (appliedServerGraphSig.current === serverGraphSig) return;
+    appliedServerGraphSig.current = serverGraphSig;
+    const typeById = new Map(props.initialModules.map((m) => [m.id, m.type] as const));
+    setNodes(
+      buildInitialGraph(
+        props.initialModules,
+        props.initialEngines,
+        props.initialLinks,
+        props.companyId,
+        stableEngineCallbacks,
+      ),
+    );
+    setEdges([
+      ...dedupeMathCalcRefLinks(props.initialLinks, props.initialModules).map((l) =>
+        toEdge(l, typeById),
+      ),
+      ...utilityEdgesFromEngines(props.initialEngines),
+      ...buildOptionAnchorArtifacts(props.initialEngines, props.initialModules).edges,
+    ]);
+  }, [
+    serverGraphSig,
+    props.initialModules,
+    props.initialEngines,
+    props.initialLinks,
+    props.companyId,
+    stableEngineCallbacks,
+    setNodes,
+    setEdges,
+  ]);
+
   const handleRequestDelete = useCallback((engineId: string) => {
     setDeleteEngineId(engineId);
   }, []);

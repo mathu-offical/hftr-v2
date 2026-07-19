@@ -267,7 +267,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
     [companyId, loadLibraries, loadTopics, loadConcepts],
   );
 
-  // Hydrate / warm shell as soon as the company page mounts (panel may stay collapsed).
+  // D-200: warm from module cache on mount; network refresh only when panel opens.
   useEffect(() => {
     if (!companyId) return;
     const cachedLibs = peekResearchResource<Library[]>({ kind: 'libraries', companyId });
@@ -285,8 +285,7 @@ export function LeftPanel(props: { modules: ModuleOption[]; links: LinkRow[] }) 
       setConcepts(cachedConcepts);
       setConceptsLoaded(true);
     }
-    void refreshShell(false);
-  }, [companyId, refreshShell]);
+  }, [companyId]);
 
   // While the Research panel is open, soft-revalidate on an interval (SWR, not hard wipe).
   useEffect(() => {

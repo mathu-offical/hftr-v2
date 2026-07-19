@@ -1,14 +1,12 @@
 import Link from 'next/link';
-import { Suspense } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
-import { missingModuleSetupFields } from '@hftr/contracts';
+import { missingModuleSetupFields, EngineUtilityBus } from '@hftr/contracts';
 import { getDb, NotFoundError, scoping } from '@hftr/db';
 import { engineUtilityLinks } from '@hftr/db/schema';
 import { eq } from 'drizzle-orm';
-import { EngineUtilityBus } from '@hftr/contracts';
-import { ensureAllInterEngineDataStreamLinks, reflowCompanyFamilyLayout } from '@hftr/engine';
-import { repositionAllEngineTimeHubs } from '@/lib/time-provision';
+import { CanvasFamilyLayoutSync } from '@/components/canvas/CanvasFamilyLayoutSync';
 import { CompanyCanvas } from '@/components/canvas/CompanyCanvas';
 import { BottomPanel } from '@/components/panels/BottomPanel';
 import { LeftPanel } from '@/components/panels/LeftPanel';
@@ -20,7 +18,6 @@ import { DataExplorerOverlay } from '@/components/panels/DataExplorerOverlay';
 import { MarketPostureOverlay } from '@/components/panels/MarketPostureOverlay';
 import { ProcessingQueueChip } from '@/components/ProcessingQueueChip';
 import { CompanySwitcher } from '@/components/shell/CompanySwitcher';
-import { CompanyWorkspaceLoading } from '@/components/shell/CompanyShellLoading';
 import { ExecutionTicker } from '@/components/shell/ExecutionTicker';
 import {
   LlmConnectionStatusProvider,
@@ -31,6 +28,7 @@ import { TopDrawer } from '@/components/shell/TopDrawer';
 import { UserSettingsLauncher } from '@/components/shell/UserSettingsModal';
 import { UserMenu } from '@/components/UserMenu';
 import { getAuthUserId } from '@/lib/auth';
+import { RegionLoadingCard, IndeterminateProgressBar } from '@/components/shell/LoadingChrome';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,10 +36,30 @@ const Params = z.object({ companyId: z.string().uuid() });
 
 type OwnedCompany = Awaited<ReturnType<typeof scoping.getOwnedCompany>>;
 
+/** Slim company fields needed by workspace chrome (panels / drawer already have SSR header). */
+type OwnedCompanyShellFields = Pick<
+  OwnedCompany,
+  | 'name'
+  | 'mode'
+  | 'philosophyPrompt'
+  | 'philosophyProfile'
+  | 'seedCreditsCents'
+  | 'createdAt'
+  | 'sectorFocuses'
+  | 'universeExcludes'
+>;
+
+type ModuleRow = Awaited<ReturnType<typeof scoping.listModules>>[number];
+type LinkRow = Awaited<ReturnType<typeof scoping.listLinks>>[number];
+type EngineRow = Awaited<ReturnType<typeof scoping.listEngineInstances>>[number];
+type UtilityLinkRow = typeof engineUtilityLinks.$inferSelect;
+
 /**
- * Company workspace (D-196): shell header paints after a fast company identity
- * read; canvas + panel module graph stream behind Suspense while layout
- * mutations and full module/link/engine loads complete.
+ * Company workspace (D-196 / D-200):
+ * - Header paints after fast `getOwnedCompany`.
+ * - Suspense fallback mounts real panel rails/buttons with empty graph props.
+ * - Workspace body does read-only module/link/engine loads (no layout mutations).
+ * - Family layout heal runs client-side after paint (`CanvasFamilyLayoutSync`).
  */
 export default async function CompanyPage(props: { params: Promise<{ companyId: string }> }) {
   const userId = await getAuthUserId();
@@ -59,6 +77,17 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
     if (err instanceof NotFoundError) notFound();
     throw err;
   }
+
+  const shellCompany: OwnedCompanyShellFields = {
+    name: company.name,
+    mode: company.mode,
+    philosophyPrompt: company.philosophyPrompt,
+    philosophyProfile: company.philosophyProfile,
+    seedCreditsCents: company.seedCreditsCents,
+    createdAt: company.createdAt,
+    sectorFocuses: company.sectorFocuses,
+    universeExcludes: company.universeExcludes,
+  };
 
   return (
     <LlmConnectionStatusProvider companyId={companyId}>
@@ -98,7 +127,34 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
           </div>
         </header>
 
-        <Suspense fallback={<CompanyWorkspaceLoading companyName={company.name} />}>
+        <Suspense
+          fallback={
+            <CompanyWorkspaceChrome
+              companyId={companyId}
+              company={shellCompany}
+              moduleRows={[]}
+              linkRows={[]}
+              engineRows={[]}
+              utilityLinkRows={[]}
+              canvas={
+                <div className="relative flex h-full min-h-0 flex-1 flex-col items-center justify-center bg-[var(--color-surface-0)] px-4">
+                  <div className="absolute inset-x-0 top-0">
+                    <IndeterminateProgressBar
+                      size="lg"
+                      label="Loading canvas"
+                      className="rounded-none"
+                    />
+                  </div>
+                  <RegionLoadingCard
+                    title={`Loading ${company.name}`}
+                    detail="Streaming modules, engines, and family layout"
+                    phases={['Module graph', 'Engine envelopes', 'Utility buses']}
+                  />
+                </div>
+              }
+            />
+          }
+        >
           <CompanyWorkspaceBody userId={userId} companyId={companyId} company={company} />
         </Suspense>
       </div>
@@ -114,49 +170,137 @@ async function CompanyWorkspaceBody(props: {
   const { userId, companyId, company } = props;
   const db = getDb();
 
-  let moduleRows, linkRows, engineRows, utilityLinkRows;
+  let moduleRows: ModuleRow[];
+  let linkRows: LinkRow[];
+  let engineRows: EngineRow[];
+  let utilityLinkRows: UtilityLinkRow[];
   try {
-    moduleRows = await scoping.listModules(db, userId, companyId);
-    linkRows = await scoping.listLinks(db, userId, companyId);
-    engineRows = await scoping.listEngineInstances(db, userId, companyId);
-    // D-168: prune legacy default eng↔eng data_in mesh (hub→exec binds kept).
-    try {
-      await ensureAllInterEngineDataStreamLinks(db, companyId);
-    } catch (err) {
-      console.error('ensureAllInterEngineDataStreamLinks failed', err);
-    }
-    // D-159: ensure Data Hubs + family layout (research | hub | exec) before paint.
-    try {
-      await reflowCompanyFamilyLayout(db, companyId);
-    } catch (err) {
-      console.error('reflowCompanyFamilyLayout failed', err);
-    }
-    // Pin engine Time hubs to bottom-left of each ENGINE envelope.
-    try {
-      await repositionAllEngineTimeHubs(db, companyId);
-      moduleRows = await scoping.listModules(db, userId, companyId);
-      engineRows = await scoping.listEngineInstances(db, userId, companyId);
-    } catch (err) {
-      console.error('repositionAllEngineTimeHubs failed', err);
-    }
-    utilityLinkRows = await db
-      .select()
-      .from(engineUtilityLinks)
-      .where(eq(engineUtilityLinks.companyId, companyId));
+    // D-200: read-only path for first paint — layout heal is client POST after mount.
+    const [modules, links, engines, utilities] = await Promise.all([
+      scoping.listModules(db, userId, companyId),
+      scoping.listLinks(db, userId, companyId),
+      scoping.listEngineInstances(db, userId, companyId),
+      db.select().from(engineUtilityLinks).where(eq(engineUtilityLinks.companyId, companyId)),
+    ]);
+    moduleRows = modules;
+    linkRows = links;
+    engineRows = engines;
+    utilityLinkRows = utilities;
   } catch (err) {
     if (err instanceof NotFoundError) notFound();
     throw err;
   }
 
-  const utilityByEngine = new Map<string, typeof utilityLinkRows>();
-  for (const link of utilityLinkRows) {
-    const list = utilityByEngine.get(link.toEngineId) ?? [];
-    list.push(link);
-    utilityByEngine.set(link.toEngineId, list);
-  }
+  const shellCompany: OwnedCompanyShellFields = {
+    name: company.name,
+    mode: company.mode,
+    philosophyPrompt: company.philosophyPrompt,
+    philosophyProfile: company.philosophyProfile,
+    seedCreditsCents: company.seedCreditsCents,
+    createdAt: company.createdAt,
+    sectorFocuses: company.sectorFocuses,
+    universeExcludes: company.universeExcludes,
+  };
+
+  return (
+    <CompanyWorkspaceChrome
+      companyId={companyId}
+      company={shellCompany}
+      moduleRows={moduleRows}
+      linkRows={linkRows}
+      engineRows={engineRows}
+      utilityLinkRows={utilityLinkRows}
+      canvas={
+        <CompanyCanvas
+          companyId={companyId}
+          initialModules={moduleRows.map((m) => {
+            const config = (m.config ?? {}) as Record<string, unknown>;
+            return {
+              id: m.id,
+              type: m.type,
+              name: m.name,
+              generatedNameBase: m.generatedNameBase,
+              nameCustomized: m.nameCustomized,
+              status: m.status,
+              position: (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number },
+              topicSectors: m.topicSectors,
+              capitalAllocationRef: m.capitalAllocationRef,
+              targetExitRef: m.targetExitRef,
+              missingSetupFields: missingModuleSetupFields(m.type, {
+                topicSectors: m.topicSectors,
+                capitalAllocationRef: m.capitalAllocationRef,
+                targetExitRef: m.targetExitRef,
+              }),
+              engineInstanceId: m.engineInstanceId,
+              toolOwnerModuleId: m.toolOwnerModuleId,
+              topicSectorsOverridden: m.topicSectorsOverridden,
+              config,
+            };
+          })}
+          initialEngines={engineRows.map((e) => ({
+            id: e.id,
+            templateId: e.templateId,
+            label: e.label,
+            masterTopicSectors: e.masterTopicSectors,
+            capitalAllocationRef: e.capitalAllocationRef,
+            targetExitRef: e.targetExitRef,
+            setupSnapshot: (e.setupSnapshot ?? null) as {
+              topicSectors: string[];
+              allocationMode: 'amount' | 'percentage';
+              allocationValue: string;
+              targetExitLocal: string;
+            } | null,
+            templateInputs: (e.templateInputs ?? {}) as Record<string, string>,
+            canvasBounds: e.canvasBounds as {
+              x: number;
+              y: number;
+              width: number;
+              height: number;
+            } | null,
+            memberModuleIds: moduleRows
+              .filter((m) => m.engineInstanceId === e.id)
+              .map((m) => m.id),
+            utilityLinks: utilityLinkRows
+              .filter((link) => link.toEngineId === e.id)
+              .map((link) => ({
+                id: link.id,
+                bus: EngineUtilityBus.parse(link.bus),
+                fromEngineId: link.fromEngineId,
+                fromModuleId: link.fromModuleId,
+                streamId: link.streamId,
+                streamDescriptor: link.streamDescriptor,
+              })),
+          }))}
+          initialLinks={linkRows.map((l) => ({
+            id: l.id,
+            fromModuleId: l.fromModuleId,
+            toModuleId: l.toModuleId,
+            linkKind: l.linkKind,
+          }))}
+          companyDefaults={{
+            sectorFocuses: company.sectorFocuses ?? [],
+            seedCreditsCents: Number(company.seedCreditsCents),
+          }}
+        />
+      }
+    />
+  );
+}
+
+function CompanyWorkspaceChrome(props: {
+  companyId: string;
+  company: OwnedCompanyShellFields;
+  moduleRows: ModuleRow[];
+  linkRows: LinkRow[];
+  engineRows: EngineRow[];
+  utilityLinkRows: UtilityLinkRow[];
+  canvas: ReactNode;
+}) {
+  const { companyId, company, moduleRows, linkRows, engineRows, canvas } = props;
 
   return (
     <CompanyResearchShell companyId={companyId} companyMode={company.mode}>
+      <CanvasFamilyLayoutSync companyId={companyId} />
       <div className="flex min-h-0 flex-1">
         <LeftPanel
           modules={moduleRows.map((m) => ({
@@ -175,75 +319,7 @@ async function CompanyWorkspaceBody(props: {
 
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="relative min-h-0 flex-1">
-            <CompanyCanvas
-              companyId={companyId}
-              initialModules={moduleRows.map((m) => {
-                const config = (m.config ?? {}) as Record<string, unknown>;
-                return {
-                  id: m.id,
-                  type: m.type,
-                  name: m.name,
-                  generatedNameBase: m.generatedNameBase,
-                  nameCustomized: m.nameCustomized,
-                  status: m.status,
-                  position: (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number },
-                  topicSectors: m.topicSectors,
-                  capitalAllocationRef: m.capitalAllocationRef,
-                  targetExitRef: m.targetExitRef,
-                  missingSetupFields: missingModuleSetupFields(m.type, {
-                    topicSectors: m.topicSectors,
-                    capitalAllocationRef: m.capitalAllocationRef,
-                    targetExitRef: m.targetExitRef,
-                  }),
-                  engineInstanceId: m.engineInstanceId,
-                  toolOwnerModuleId: m.toolOwnerModuleId,
-                  topicSectorsOverridden: m.topicSectorsOverridden,
-                  config,
-                };
-              })}
-              initialEngines={engineRows.map((e) => ({
-                id: e.id,
-                templateId: e.templateId,
-                label: e.label,
-                masterTopicSectors: e.masterTopicSectors,
-                capitalAllocationRef: e.capitalAllocationRef,
-                targetExitRef: e.targetExitRef,
-                setupSnapshot: (e.setupSnapshot ?? null) as {
-                  topicSectors: string[];
-                  allocationMode: 'amount' | 'percentage';
-                  allocationValue: string;
-                  targetExitLocal: string;
-                } | null,
-                templateInputs: (e.templateInputs ?? {}) as Record<string, string>,
-                canvasBounds: e.canvasBounds as {
-                  x: number;
-                  y: number;
-                  width: number;
-                  height: number;
-                } | null,
-                memberModuleIds: moduleRows
-                  .filter((m) => m.engineInstanceId === e.id)
-                  .map((m) => m.id),
-                utilityLinks: (utilityByEngine.get(e.id) ?? []).map((link) => ({
-                  id: link.id,
-                  bus: EngineUtilityBus.parse(link.bus),
-                  fromEngineId: link.fromEngineId,
-                  fromModuleId: link.fromModuleId,
-                  streamId: link.streamId,
-                  streamDescriptor: link.streamDescriptor,
-                })),
-              }))}
-              initialLinks={linkRows.map((l) => ({
-                id: l.id,
-                fromModuleId: l.fromModuleId,
-                toModuleId: l.toModuleId,
-                linkKind: l.linkKind,
-              }))}
-              companyDefaults={{
-                sectorFocuses: company.sectorFocuses ?? [],
-                seedCreditsCents: Number(company.seedCreditsCents),
-              }}
-            />
+            {canvas}
             <ResearchOverlay />
             <MarketPostureOverlay />
             <DataExplorerOverlay />

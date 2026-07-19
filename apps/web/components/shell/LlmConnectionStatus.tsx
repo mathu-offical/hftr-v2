@@ -211,7 +211,18 @@ export function LlmAvailabilityChips(props: { tiers: readonly LlmTier[]; classNa
 /** Compact ribbon readout of overall LLM credential connection status. */
 export function LlmRibbonStatusChip() {
   const status = useOptionalLlmConnectionStatus();
-  if (!status?.ready) return null;
+  if (!status?.ready) {
+    return (
+      <span
+        className="status-chip font-mono text-[var(--color-ink-faint)]"
+        title="Loading LLM connection status"
+        aria-busy="true"
+        data-testid="llm-ribbon-loading"
+      >
+        llm: …
+      </span>
+    );
+  }
   const total = LlmProvider.options.length;
   const n = status.configuredCount;
   const allOk = n === total;

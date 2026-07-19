@@ -337,30 +337,42 @@ export function BottomPanel(props: {
   const load = useCallback(async () => {
     const base = `/api/companies/${props.companyId}`;
     setDataLoadState((prev) => (prev === 'ready' ? 'ready' : 'loading'));
-    const results = await Promise.allSettled([
-      api<{ trends: TrendRow[] }>(`${base}/trends`),
-      api<{ executions: ExecutionRow[] }>(`${base}/executions`),
-      api<{ verifications: VerificationRow[] }>(`${base}/verifications`),
-      api<{ items: WatchlistRow[] }>(`${base}/watchlists`),
-      api<{ leads: LeadRow[] }>(`${base}/leads`),
-      api<{ trees: TreeRow[] }>(`${base}/trees`),
-      api<{ transfers: FundTransferRow[] }>(`${base}/fund-transfers`),
-      api<{ jobs: DeadJobRow[] }>(`${base}/jobs/dead`),
-      api<{ jobs: PendingJobRow[] }>(`${base}/jobs/pending`),
-      api<{ proposals: AssistantProposalRow[] }>(`${base}/assistant/proposals`),
-      api<LiveGateStatusRow>(`${base}/live-gates/status`),
+    // D-200: each pane slice settles independently so open tabs stay interactive.
+    await Promise.allSettled([
+      api<{ trends: TrendRow[] }>(`${base}/trends`)
+        .then((v) => setTrends(v.trends))
+        .catch(() => undefined),
+      api<{ executions: ExecutionRow[] }>(`${base}/executions`)
+        .then((v) => setExecutions(v.executions))
+        .catch(() => undefined),
+      api<{ verifications: VerificationRow[] }>(`${base}/verifications`)
+        .then((v) => setVerifications(v.verifications))
+        .catch(() => undefined),
+      api<{ items: WatchlistRow[] }>(`${base}/watchlists`)
+        .then((v) => setWatchlists(v.items))
+        .catch(() => undefined),
+      api<{ leads: LeadRow[] }>(`${base}/leads`)
+        .then((v) => setLeads(v.leads))
+        .catch(() => undefined),
+      api<{ trees: TreeRow[] }>(`${base}/trees`)
+        .then((v) => setTrees(v.trees))
+        .catch(() => undefined),
+      api<{ transfers: FundTransferRow[] }>(`${base}/fund-transfers`)
+        .then((v) => setTransfers(v.transfers))
+        .catch(() => undefined),
+      api<{ jobs: DeadJobRow[] }>(`${base}/jobs/dead`)
+        .then((v) => setDeadJobs(v.jobs))
+        .catch(() => undefined),
+      api<{ jobs: PendingJobRow[] }>(`${base}/jobs/pending`)
+        .then((v) => setPendingJobs(v.jobs))
+        .catch(() => undefined),
+      api<{ proposals: AssistantProposalRow[] }>(`${base}/assistant/proposals`)
+        .then((v) => setProposals(v.proposals))
+        .catch(() => undefined),
+      api<LiveGateStatusRow>(`${base}/live-gates/status`)
+        .then((v) => setLiveGate(v))
+        .catch(() => undefined),
     ]);
-    if (results[0].status === 'fulfilled') setTrends(results[0].value.trends);
-    if (results[1].status === 'fulfilled') setExecutions(results[1].value.executions);
-    if (results[2].status === 'fulfilled') setVerifications(results[2].value.verifications);
-    if (results[3].status === 'fulfilled') setWatchlists(results[3].value.items);
-    if (results[4].status === 'fulfilled') setLeads(results[4].value.leads);
-    if (results[5].status === 'fulfilled') setTrees(results[5].value.trees);
-    if (results[6].status === 'fulfilled') setTransfers(results[6].value.transfers);
-    if (results[7].status === 'fulfilled') setDeadJobs(results[7].value.jobs);
-    if (results[8].status === 'fulfilled') setPendingJobs(results[8].value.jobs);
-    if (results[9].status === 'fulfilled') setProposals(results[9].value.proposals);
-    if (results[10].status === 'fulfilled') setLiveGate(results[10].value);
     setDataLoadState('ready');
   }, [props.companyId]);
 

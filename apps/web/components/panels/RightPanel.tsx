@@ -154,7 +154,8 @@ export function RightPanel(props: { companyId: string; companyMode?: string }) {
   const prevRightOpenRef = useRef(false);
 
   const [tab, setTab] = useState<Tab>('executions');
-  const [open, setOpen] = useState(true);
+  /** D-200: default collapsed — chrome/rails paint without firing six APIs. */
+  const [open, setOpen] = useState(false);
   /** D-146 / D-150: assistant is a layered floating overlay, not a RightPanel tab. */
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [persistReady, setPersistReady] = useState(false);
@@ -167,7 +168,15 @@ export function RightPanel(props: { companyId: string; companyMode?: string }) {
   const [simulations, setSimulations] = useState<SimulationRow[]>([]);
   const [simComparison, setSimComparison] = useState<string | null>(null);
   const [focusedValueRef, setFocusedValueRef] = useState<string | null>(null);
-  const [dataLoadState, setDataLoadState] = useState<'loading' | 'ready'>('loading');
+  const [dataLoadState, setDataLoadState] = useState<'idle' | 'loading' | 'ready'>('idle');
+  const [fieldLoading, setFieldLoading] = useState({
+    ledger: false,
+    executions: false,
+    verifications: false,
+    positions: false,
+    values: false,
+    simulations: false,
+  });
 
   useEffect(() => {
     if (!storageKey) {
@@ -253,40 +262,60 @@ export function RightPanel(props: { companyId: string; companyMode?: string }) {
 
   const load = useCallback(async () => {
     const base = `/api/companies/${props.companyId}`;
-    // Bound each fetch so a hung route cannot leave the panel on "Fetching…" forever
-    // (common when Next is compiling or research/graph saturates the event loop).
     const timed = <T,>(path: string) =>
       api<T>(path, { signal: AbortSignal.timeout(25_000) });
-    try {
-      const results = await Promise.allSettled([
-        timed<{ balanceCents: string; ledger: LedgerRow[] }>(`${base}/activity?view=ledger`),
-        timed<{ executions: ExecutionRow[] }>(`${base}/executions`),
-        timed<{ verifications: VerificationRow[] }>(`${base}/verifications`),
-        timed<{ positions: PositionRow[] }>(`${base}/positions`),
-        timed<{ values: ValueRow[] }>(`${base}/values`),
-        timed<{ runs: SimulationRow[]; comparison?: { runIds: string[]; deltaSummary: string } }>(
-          `${base}/simulations`,
-        ),
-      ]);
-      if (results[0].status === 'fulfilled') {
-        setBalance(results[0].value.balanceCents);
-        setLedger(results[0].value.ledger);
-      }
-      if (results[1].status === 'fulfilled') setExecutions(results[1].value.executions);
-      if (results[2].status === 'fulfilled') setVerifications(results[2].value.verifications);
-      if (results[3].status === 'fulfilled') setPositions(results[3].value.positions);
-      if (results[4].status === 'fulfilled') setValues(results[4].value.values);
-      if (results[5].status === 'fulfilled') {
-        setSimulations(results[5].value.runs);
-        setSimComparison(results[5].value.comparison?.deltaSummary ?? null);
-      }
-    } finally {
-      setDataLoadState('ready');
-    }
+    setDataLoadState((prev) => (prev === 'ready' ? 'ready' : 'loading'));
+    setFieldLoading({
+      ledger: true,
+      executions: true,
+      verifications: true,
+      positions: true,
+      values: true,
+      simulations: true,
+    });
+
+    // D-200: settle each slice independently so chrome stays up and fields fill in.
+    const tasks: Promise<void>[] = [
+      timed<{ balanceCents: string; ledger: LedgerRow[] }>(`${base}/activity?view=ledger`)
+        .then((v) => {
+          setBalance(v.balanceCents);
+          setLedger(v.ledger);
+        })
+        .catch(() => undefined)
+        .finally(() => setFieldLoading((f) => ({ ...f, ledger: false }))),
+      timed<{ executions: ExecutionRow[] }>(`${base}/executions`)
+        .then((v) => setExecutions(v.executions))
+        .catch(() => undefined)
+        .finally(() => setFieldLoading((f) => ({ ...f, executions: false }))),
+      timed<{ verifications: VerificationRow[] }>(`${base}/verifications`)
+        .then((v) => setVerifications(v.verifications))
+        .catch(() => undefined)
+        .finally(() => setFieldLoading((f) => ({ ...f, verifications: false }))),
+      timed<{ positions: PositionRow[] }>(`${base}/positions`)
+        .then((v) => setPositions(v.positions))
+        .catch(() => undefined)
+        .finally(() => setFieldLoading((f) => ({ ...f, positions: false }))),
+      timed<{ values: ValueRow[] }>(`${base}/values`)
+        .then((v) => setValues(v.values))
+        .catch(() => undefined)
+        .finally(() => setFieldLoading((f) => ({ ...f, values: false }))),
+      timed<{ runs: SimulationRow[]; comparison?: { runIds: string[]; deltaSummary: string } }>(
+        `${base}/simulations`,
+      )
+        .then((v) => {
+          setSimulations(v.runs);
+          setSimComparison(v.comparison?.deltaSummary ?? null);
+        })
+        .catch(() => undefined)
+        .finally(() => setFieldLoading((f) => ({ ...f, simulations: false }))),
+    ];
+
+    await Promise.allSettled(tasks);
+    setDataLoadState('ready');
   }, [props.companyId]);
 
   useEffect(() => {
-    setDataLoadState('loading');
+    if (!open) return;
     void load();
     const interval = setInterval(load, 20_000);
     window.addEventListener(ACTIVITY_REFRESH_EVENT, load);
@@ -294,7 +323,7 @@ export function RightPanel(props: { companyId: string; companyMode?: string }) {
       clearInterval(interval);
       window.removeEventListener(ACTIVITY_REFRESH_EVENT, load);
     };
-  }, [load]);
+  }, [open, load]);
 
   const openPositionCount = positions.filter((p) => String(p.qty) !== '0').length;
 
@@ -339,7 +368,7 @@ export function RightPanel(props: { companyId: string; companyMode?: string }) {
       >
         <div className="text-xs text-[var(--color-ink-dim)]">{balanceLabel(companyMode)}</div>
         <div className="font-mono text-lg">
-          {dataLoadState === 'loading' && balance === null ? (
+          {fieldLoading.ledger && balance === null ? (
             <ShimmerBlock className="mt-1 h-7 w-28" />
           ) : balance ? (
             dollars(balance)
@@ -354,40 +383,54 @@ export function RightPanel(props: { companyId: string; companyMode?: string }) {
         aria-busy={dataLoadState === 'loading'}
       >
         {dataLoadState === 'loading' ? (
-          <div className="space-y-3" data-testid="right-panel-loading">
+          <div className="mb-3" data-testid="right-panel-loading">
             <InlineLoadingStrip
               label="Info panel"
-              detail="Fetching executions, positions, and ledger"
+              detail="Updating executions, positions, and ledger"
             />
-            <div className="space-y-2 pt-1">
-              <ShimmerBlock className="h-14 w-full rounded-lg" />
-              <ShimmerBlock className="h-14 w-full rounded-lg" />
-              <ShimmerBlock className="h-14 w-full rounded-lg" />
-            </div>
           </div>
-        ) : (
-          <>
-            {tab === 'verification' && (
-              <VerificationTab verifications={verifications} executions={executions} />
-            )}
-            {tab === 'executions' && <ExecutionsTab executions={executions} />}
-            {tab === 'positions' && (
-              <PositionsTab companyId={props.companyId} executions={executions} />
-            )}
-            {tab === 'ledger' && <LedgerTab ledger={ledger} companyMode={companyMode} />}
-            {tab === 'simulation' && (
-              <SimulationTab runs={simulations} comparisonSummary={simComparison} />
-            )}
-            {tab === 'values' && (
-              <ValuesTab
-                companyId={props.companyId}
-                values={values}
-                focusedRef={focusedValueRef}
-                onFocusedRefConsumed={() => setFocusedValueRef(null)}
-              />
-            )}
-          </>
-        )}
+        ) : null}
+        {tab === 'verification' &&
+          (fieldLoading.verifications && verifications.length === 0 ? (
+            <InlineLoadingStrip label="Verify" detail="Fetching verification records" />
+          ) : (
+            <VerificationTab verifications={verifications} executions={executions} />
+          ))}
+        {tab === 'executions' &&
+          (fieldLoading.executions && executions.length === 0 ? (
+            <InlineLoadingStrip label="Executions" detail="Fetching recent fills" />
+          ) : (
+            <ExecutionsTab executions={executions} />
+          ))}
+        {tab === 'positions' &&
+          (fieldLoading.positions && positions.length === 0 ? (
+            <InlineLoadingStrip label="Positions" detail="Fetching open holdings" />
+          ) : (
+            <PositionsTab companyId={props.companyId} executions={executions} />
+          ))}
+        {tab === 'ledger' &&
+          (fieldLoading.ledger && ledger.length === 0 && balance === null ? (
+            <InlineLoadingStrip label="Ledger" detail="Fetching balance and entries" />
+          ) : (
+            <LedgerTab ledger={ledger} companyMode={companyMode} />
+          ))}
+        {tab === 'simulation' &&
+          (fieldLoading.simulations && simulations.length === 0 ? (
+            <InlineLoadingStrip label="Sims" detail="Fetching simulation runs" />
+          ) : (
+            <SimulationTab runs={simulations} comparisonSummary={simComparison} />
+          ))}
+        {tab === 'values' &&
+          (fieldLoading.values && values.length === 0 ? (
+            <InlineLoadingStrip label="Values" detail="Fetching value refs" />
+          ) : (
+            <ValuesTab
+              companyId={props.companyId}
+              values={values}
+              focusedRef={focusedValueRef}
+              onFocusedRefConsumed={() => setFocusedValueRef(null)}
+            />
+          ))}
       </div>
     </>
   );

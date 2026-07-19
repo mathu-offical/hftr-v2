@@ -475,6 +475,10 @@ export const MarketHubModelProcessFunction = z.enum([
   'defaults',
   'thresholds',
   'context',
+  /** Pre-library analysis module (organize / route / score). */
+  'organize',
+  'route',
+  'analyze',
 ]);
 export type MarketHubModelProcessFunction = z.infer<typeof MarketHubModelProcessFunction>;
 

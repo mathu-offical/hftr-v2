@@ -146,9 +146,9 @@ export default async function CompanyPage(props: { params: Promise<{ companyId: 
                     />
                   </div>
                   <RegionLoadingCard
-                    title={`Loading ${company.name}`}
-                    detail="Streaming modules, engines, and family layout"
-                    phases={['Module graph', 'Engine envelopes', 'Utility buses']}
+                    title={company.name}
+                    detail="streaming graph"
+                    phases={['Modules', 'Engines', 'Buses']}
                   />
                 </div>
               }

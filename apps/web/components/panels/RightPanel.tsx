@@ -385,44 +385,45 @@ export function RightPanel(props: { companyId: string; companyMode?: string }) {
         {dataLoadState === 'loading' ? (
           <div className="mb-3" data-testid="right-panel-loading">
             <InlineLoadingStrip
-              label="Info panel"
-              detail="Updating executions, positions, and ledger"
+              label="Info"
+              detail="updating"
+              bar={false}
             />
           </div>
         ) : null}
         {tab === 'verification' &&
           (fieldLoading.verifications && verifications.length === 0 ? (
-            <InlineLoadingStrip label="Verify" detail="Fetching verification records" />
+            <InlineLoadingStrip label="Verify" detail="…" bar={false} />
           ) : (
             <VerificationTab verifications={verifications} executions={executions} />
           ))}
         {tab === 'executions' &&
           (fieldLoading.executions && executions.length === 0 ? (
-            <InlineLoadingStrip label="Executions" detail="Fetching recent fills" />
+            <InlineLoadingStrip label="Executions" detail="…" bar={false} />
           ) : (
             <ExecutionsTab executions={executions} />
           ))}
         {tab === 'positions' &&
           (fieldLoading.positions && positions.length === 0 ? (
-            <InlineLoadingStrip label="Positions" detail="Fetching open holdings" />
+            <InlineLoadingStrip label="Positions" detail="…" bar={false} />
           ) : (
             <PositionsTab companyId={props.companyId} executions={executions} />
           ))}
         {tab === 'ledger' &&
           (fieldLoading.ledger && ledger.length === 0 && balance === null ? (
-            <InlineLoadingStrip label="Ledger" detail="Fetching balance and entries" />
+            <InlineLoadingStrip label="Ledger" detail="…" bar={false} />
           ) : (
             <LedgerTab ledger={ledger} companyMode={companyMode} />
           ))}
         {tab === 'simulation' &&
           (fieldLoading.simulations && simulations.length === 0 ? (
-            <InlineLoadingStrip label="Sims" detail="Fetching simulation runs" />
+            <InlineLoadingStrip label="Sims" detail="…" bar={false} />
           ) : (
             <SimulationTab runs={simulations} comparisonSummary={simComparison} />
           ))}
         {tab === 'values' &&
           (fieldLoading.values && values.length === 0 ? (
-            <InlineLoadingStrip label="Values" detail="Fetching value refs" />
+            <InlineLoadingStrip label="Values" detail="…" bar={false} />
           ) : (
             <ValuesTab
               companyId={props.companyId}

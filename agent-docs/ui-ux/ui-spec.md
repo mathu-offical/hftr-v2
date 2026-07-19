@@ -695,6 +695,7 @@ after applying SQL migrations.
   cycling remains open.
 - All interactive elements labeled (ARIA); status conveyed in text (already the rule).
 - 60fps canvas pan/zoom on a mid-tier laptop; panel animation ≤300ms; no layout shift on data
-  refresh (skeletons + stable row heights). **D-198:** shared `LoadingChrome` (indeterminate
-  progress bar, status line, shimmer) for shell/workspace/directory/panel loads — text-first
-  status, motion reinforces only.
+  refresh (skeletons + stable row heights). **D-198 / D-201:** shared `LoadingChrome` —
+  slim retro flat bars (1–2px stepped, no glass), square blink dots, single-line
+  mono status; panel/ticker strips prefer text-only; region loaders are border-only
+  blocks (not glassy cards).

@@ -2014,6 +2014,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `refreshShell` until open; LLM ribbon shows `llm: …` placeholder instead of null.
   Extends D-196/D-198. Docs: ui-spec §2. **Status: implemented.**
 
+- **D-201 (slim retro loading chrome, 2026-07-19):** LoadingChrome uses 1–2px flat stepped
+  bars (no accent glow / glass gradients), square blink cursor dots, single-line
+  `label · detail` status, and quiet border-only region blocks. Inline strips prefer
+  text-only (`bar={false}`) in panels/ticker. Extends D-198. Docs: ui-spec §8.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

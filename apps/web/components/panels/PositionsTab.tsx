@@ -126,7 +126,8 @@ export function PositionsTab(props: {
       <InlineLoadingStrip
         className="px-1"
         label="Positions"
-        detail="Fetching open holdings"
+        detail="…"
+        bar={false}
         data-testid="positions-tab-loading"
       />
     );

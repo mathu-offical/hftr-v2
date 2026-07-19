@@ -76,7 +76,8 @@ export function ExecutionTicker(props: { companyId: string }) {
         <InlineLoadingStrip
           className="w-full max-w-md"
           label="Executions"
-          detail="Fetching recent fills and blocks"
+          detail="fetching"
+          bar={false}
         />
       </div>
     );

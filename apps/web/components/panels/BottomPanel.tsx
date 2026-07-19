@@ -606,13 +606,10 @@ export function BottomPanel(props: {
       {tabRibbon}
       {dataLoadState === 'loading' ? (
         <div
-          className="border-b border-[var(--color-line)] px-3 py-2"
+          className="border-b border-[var(--color-line)] px-3 py-1"
           data-testid="bottom-panel-loading"
         >
-          <InlineLoadingStrip
-            label="Bottom panel"
-            detail="Syncing trends, lineage, watchlists, and jobs"
-          />
+          <InlineLoadingStrip label="Bottom" detail="syncing" bar={false} />
         </div>
       ) : null}
       <div className="flex h-[min(calc(70vh-1.75rem),calc(48rem-1.75rem))] min-h-[14.25rem] gap-2 overflow-x-auto overflow-y-hidden px-3 py-2 text-sm">

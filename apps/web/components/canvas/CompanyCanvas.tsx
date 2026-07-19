@@ -2858,7 +2858,11 @@ export function CompanyCanvas(props: {
         {...(props.companyDefaults ? { companyDefaults: props.companyDefaults } : {})}
       />
 
-      <div className="h-full min-h-0 min-w-0 flex-1">
+      {/*
+        overscroll-none: block browser history swipe / rubber-band navigation when
+        trackpad-panning the canvas (Chrome/Edge/Firefox; Safari content-area only).
+      */}
+      <div className="h-full min-h-0 min-w-0 flex-1 overscroll-none">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -2880,6 +2884,8 @@ export function CompanyCanvas(props: {
           zoomOnPinch
           zoomOnScroll={false}
           selectionOnDrag={false}
+          preventScrolling
+          className="hftr-canvas-flow"
           onNodeClick={(event, node) => {
             if (isInteractiveNodeTarget(event.target)) return;
             if (

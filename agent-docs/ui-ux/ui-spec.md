@@ -65,6 +65,11 @@
 
 ## 3. Canvas (React Flow)
 
+- **Pan / navigation (D-182):** trackpad and touch pans stay inside the canvas —
+  `overscroll-behavior: none` on the React Flow pane (plus wrapper `overscroll-none`)
+  so horizontal swipe does not trigger browser back/forward while navigating the
+  graph. OS/browser edge swipes outside page content remain browser-controlled.
+
 - Modules as nodes, laid out left→right by **engine chip zones** (research → data →
   trend → execution → verification; funds shelf + clock bus below). See
   `canvas-layout-and-dedicated-math-design.md` and

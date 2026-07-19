@@ -1823,6 +1823,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   D-173. Docs: ui-spec §3, canvas-engine-group-design, option-anchor-nodes-design.
   **Status: implemented.**
 
+- **D-182 (canvas block accidental swipe-back, 2026-07-19):** Main company React Flow canvas
+  uses `overscroll-behavior: none` (wrapper + `.react-flow__pane`) so trackpad / touch pans
+  do not trigger browser history back/forward while navigating the graph. OS/browser edge
+  swipes outside page content remain uncontrolled. Docs: ui-spec §3.   **Status: implemented.**
+
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

@@ -29,6 +29,21 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * Main company canvas (D-182): keep trackpad / touch pans inside the pane.
+ * Blocks accidental browser back/forward swipe and page overscroll when the
+ * gesture originates over React Flow. Does not affect OS/browser edge swipes
+ * outside the page content.
+ */
+.hftr-canvas-flow.react-flow,
+.hftr-canvas-flow .react-flow__pane {
+  overscroll-behavior: none;
+}
+
+.hftr-canvas-flow .react-flow__pane {
+  touch-action: none;
+}
+
 /* Text-first status chips: color reinforces, never replaces, the word. */
 .status-chip {
   display: inline-flex;

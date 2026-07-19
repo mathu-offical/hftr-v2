@@ -53,16 +53,17 @@
   User settings modal chrome is **fixed height** (`min(36rem, 90vh)`) with a scrollable tab panel only — short tabs do not shrink the dialog.   User settings: per-provider **Verify** status badge + **Save & verify** (`POST …/verify` before persist — fail-closed; Anthropic format-ok deferred ping). **D-172:** existence rows (keyHint / broker summaries) and verify badges persist in a module cache across open/close; re-open does **not** wipe structures or re-probe already **Verified** / **Format ok** keys — only unknown / failed / invalidated (new material, delete, draft edit) auto-probe (concurrency 3). Soft GET merges existence without clearing warm badges. Humanized failure copy for `decrypt_failed` / `auth_rejected` / timeouts. Research gather keys use the same Save & verify gate. Alpaca paper / Kalshi demo: **Save & verify** rolls back credentials if handshake fails; broker existence cached the same way.
   (`POST /api/settings/keys/:provider/verify` accepts draft `apiKey` or saved decrypt);
   Alpaca paper: paste API Key ID + Secret Key, one **Save & verify** action (no OAuth);
+  capability readout + bound company id after handshake.
 
   **D-196 shell-first load:** Navigating to a company shows shell chrome immediately
   (`companies/[companyId]/loading.tsx`). After identity resolves, the header (switcher,
   ticker, mode, Processing queue, settings) paints; canvas + left/right/bottom module graph
   stream behind `Suspense` with a workspace loading region. Directory (`/companies`) shows
   header + cards as soon as the company list returns; service-coverage lines stream per
-  card. Ticker / RightPanel / BottomPanel show text “Loading…” until their client fetches
-  complete (skeletons + stable chrome; no blank full-page wait).
+  card. **D-198:** loading chrome uses indeterminate progress bars, status dots, and
+  shimmer skeletons (`LoadingChrome`); ticker / RightPanel / BottomPanel show labeled
+  strips until their client fetches complete (text-first; motion reinforces).
 
-  capability readout + bound company id after handshake.
 - **Canvas-centric layout** per company beneath the ribbon: slim collapsible strips on the
   left (Research · Posture · Data), bottom (Trends · Scenarios · Watch lists · Decisions), and right
   (Verify · Executions · Ledger · Sims · Values) expand into panels; the canvas keeps the
@@ -685,4 +686,6 @@ after applying SQL migrations.
   cycling remains open.
 - All interactive elements labeled (ARIA); status conveyed in text (already the rule).
 - 60fps canvas pan/zoom on a mid-tier laptop; panel animation ≤300ms; no layout shift on data
-  refresh (skeletons + stable row heights).
+  refresh (skeletons + stable row heights). **D-198:** shared `LoadingChrome` (indeterminate
+  progress bar, status line, shimmer) for shell/workspace/directory/panel loads — text-first
+  status, motion reinforces only.

@@ -21,6 +21,7 @@ import {
   type WatchlistTierFilter,
 } from './WatchlistTierFilters';
 import { invalidateMarketHub } from '@/lib/market-hub-cache';
+import { InlineLoadingStrip } from '@/components/shell/LoadingChrome';
 
 type Tab =
   | 'trends'
@@ -592,13 +593,15 @@ export function BottomPanel(props: {
     <section className="flex shrink-0 flex-col bg-[var(--color-surface-1)]">
       {tabRibbon}
       {dataLoadState === 'loading' ? (
-        <p
-          className="border-b border-[var(--color-line)] px-3 py-1.5 text-[11px] text-[var(--color-ink-faint)]"
+        <div
+          className="border-b border-[var(--color-line)] px-3 py-2"
           data-testid="bottom-panel-loading"
-          aria-busy="true"
         >
-          Loading bottom panel data…
-        </p>
+          <InlineLoadingStrip
+            label="Bottom panel"
+            detail="Syncing trends, lineage, watchlists, and jobs"
+          />
+        </div>
       ) : null}
       <div className="flex h-[min(calc(70vh-1.75rem),calc(48rem-1.75rem))] min-h-[14.25rem] gap-2 overflow-x-auto overflow-y-hidden px-3 py-2 text-sm">
         {orderedOpenTabs.map((id) => {

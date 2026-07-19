@@ -97,3 +97,82 @@ body {
 .react-flow__edge.hftr-edge-verification path.react-flow__edge-path {
   opacity: 0.92;
 }
+
+/* ── Loading chrome (D-198) ──────────────────────────────────────────────────
+   Text-first status + indeterminate progress; shimmer reinforces only. */
+@keyframes hftr-load-bar {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+@keyframes hftr-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes hftr-load-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.hftr-load-track {
+  position: relative;
+  overflow: hidden;
+  height: 2px;
+  width: 100%;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface-2));
+}
+
+.hftr-load-track::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-accent),
+    color-mix(in srgb, var(--color-accent) 55%, #fff),
+    var(--color-accent),
+    transparent
+  );
+  animation: hftr-load-bar 1.15s ease-in-out infinite;
+}
+
+.hftr-load-track-lg {
+  height: 3px;
+}
+
+.hftr-shimmer {
+  background: linear-gradient(
+    110deg,
+    var(--color-surface-2) 25%,
+    color-mix(in srgb, var(--color-surface-1) 40%, var(--color-accent-soft)) 45%,
+    var(--color-surface-2) 65%
+  );
+  background-size: 200% 100%;
+  animation: hftr-shimmer 1.6s linear infinite;
+}
+
+.hftr-load-dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  animation: hftr-load-pulse 1.2s ease-in-out infinite;
+}

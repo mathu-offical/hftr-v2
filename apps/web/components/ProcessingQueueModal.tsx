@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { QueueClass, type QueueClass as QueueClassT } from '@hftr/contracts';
 import { api } from '@/lib/client';
+import { InlineLoadingStrip } from '@/components/shell/LoadingChrome';
 
 export type ProcessingQueuePendingJob = {
   id: string;
@@ -212,7 +213,12 @@ export function ProcessingQueueModal(props: {
 
         <div className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden px-3 py-3">
           {loadState === 'loading' && pending.length === 0 && dead.length === 0 ? (
-            <p className="px-2 text-xs text-[var(--color-ink-faint)]">Loading jobs…</p>
+            <div className="max-w-sm px-2 py-1" data-testid="processing-queue-loading">
+              <InlineLoadingStrip
+                label="Processing queue"
+                detail="Fetching pending and dead-letter jobs"
+              />
+            </div>
           ) : loadState === 'error' && pending.length === 0 && dead.length === 0 ? (
             <p className="px-2 text-xs text-[var(--color-block)]">
               Could not load processing queue for this company.

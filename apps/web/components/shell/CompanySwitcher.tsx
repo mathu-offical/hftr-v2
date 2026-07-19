@@ -10,6 +10,7 @@ import {
   type CompanyListMeta,
   upsertCompanyListMeta,
 } from '@/lib/company-list-cache';
+import { InlineLoadingStrip } from '@/components/shell/LoadingChrome';
 
 async function fetchCompanyListMeta(): Promise<CompanyListMeta[]> {
   const r = await api<{ companies: Array<{ id: string; name: string; mode: string }> }>(
@@ -97,7 +98,9 @@ export function CompanySwitcher(props: {
           aria-label="Companies"
         >
           {loading && rows.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-[var(--color-ink-faint)]">Loading…</p>
+            <div className="px-3 py-2">
+              <InlineLoadingStrip label="Companies" detail="Loading list metadata" />
+            </div>
           ) : null}
           {rows.map((c) => (
             <Link

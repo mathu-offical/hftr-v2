@@ -1991,6 +1991,12 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   create / rename / duplicate / archive upsert or remove cache rows so the dropdown
   stays instant. Docs: ui-spec §2. **Status: implemented.**
 
+- **D-198 (rich loading chrome, 2026-07-19):** Shared indeterminate progress bars,
+  status dots, and shimmer skeletons (`LoadingChrome` + globals animations) for company
+  shell, workspace Suspense, directory cards, ticker, and panel fetches. Text-first
+  status labels remain primary; motion reinforces. Extends D-196. Docs: ui-spec §2 / §8.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

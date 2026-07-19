@@ -16,6 +16,10 @@ import { Justification } from './Justification';
 import { PanelTabs } from './PanelTabs';
 import { PanelEdgeRail } from './PanelEdgeRail';
 import { usePanelShell } from '@/components/panels/PanelShellContext';
+import {
+  InlineLoadingStrip,
+  ShimmerBlock,
+} from '@/components/shell/LoadingChrome';
 import { PositionsTab } from './PositionsTab';
 import { AssistantDock } from '@/components/assistant/AssistantDock';
 import {
@@ -328,11 +332,13 @@ export function RightPanel(props: { companyId: string; companyMode?: string }) {
       >
         <div className="text-xs text-[var(--color-ink-dim)]">{balanceLabel(companyMode)}</div>
         <div className="font-mono text-lg">
-          {dataLoadState === 'loading' && balance === null
-            ? 'Loading…'
-            : balance
-              ? dollars(balance)
-              : '—'}
+          {dataLoadState === 'loading' && balance === null ? (
+            <ShimmerBlock className="mt-1 h-7 w-28" />
+          ) : balance ? (
+            dollars(balance)
+          ) : (
+            '—'
+          )}
         </div>
       </div>
 
@@ -341,9 +347,17 @@ export function RightPanel(props: { companyId: string; companyMode?: string }) {
         aria-busy={dataLoadState === 'loading'}
       >
         {dataLoadState === 'loading' ? (
-          <p className="px-1 text-xs text-[var(--color-ink-faint)]" data-testid="right-panel-loading">
-            Loading panel data…
-          </p>
+          <div className="space-y-3" data-testid="right-panel-loading">
+            <InlineLoadingStrip
+              label="Info panel"
+              detail="Fetching executions, positions, and ledger"
+            />
+            <div className="space-y-2 pt-1">
+              <ShimmerBlock className="h-14 w-full rounded-lg" />
+              <ShimmerBlock className="h-14 w-full rounded-lg" />
+              <ShimmerBlock className="h-14 w-full rounded-lg" />
+            </div>
+          </div>
         ) : (
           <>
             {tab === 'verification' && (

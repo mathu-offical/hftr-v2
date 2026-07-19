@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/client';
 import { executionCapitalChip } from '@/lib/capital-mode-label';
 import { simHonestyTickerLabel } from '@/lib/sim-honesty-label';
+import { InlineLoadingStrip } from '@/components/shell/LoadingChrome';
 import styles from './ticker.module.css';
 
 interface ExecutionRow {
@@ -70,10 +71,13 @@ export function ExecutionTicker(props: { companyId: string }) {
     return (
       <div
         className="hidden min-w-0 flex-1 items-center overflow-hidden px-4 md:flex"
-        aria-busy="true"
         data-testid="execution-ticker-loading"
       >
-        <span className="text-[11px] text-[var(--color-ink-faint)]">Loading executions…</span>
+        <InlineLoadingStrip
+          className="w-full max-w-md"
+          label="Executions"
+          detail="Fetching recent fills and blocks"
+        />
       </div>
     );
   }

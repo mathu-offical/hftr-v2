@@ -12,6 +12,7 @@ import {
 import { TraceTimeline } from '@/components/panels/TraceTimeline';
 import { api } from '@/lib/client';
 import { useMarketHub } from '@/lib/use-market-hub';
+import { InlineLoadingStrip } from '@/components/shell/LoadingChrome';
 import { toneFor } from './format';
 
 export type PositionsExecutionRow = {
@@ -122,9 +123,12 @@ export function PositionsTab(props: {
 
   if (!hub && loading) {
     return (
-      <p className="px-1 font-mono text-[10px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-        Loading positions…
-      </p>
+      <InlineLoadingStrip
+        className="px-1"
+        label="Positions"
+        detail="Fetching open holdings"
+        data-testid="positions-tab-loading"
+      />
     );
   }
 

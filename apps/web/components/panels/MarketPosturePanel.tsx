@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { MarketHubCapitalSource, MarketHubResponse } from '@hftr/contracts';
 import { useMarketPostureView } from '@/components/panels/MarketPostureViewContext';
 import { SymbolTicker } from '@/components/market/SymbolTicker';
@@ -14,10 +14,12 @@ import { useMarketHub } from '@/lib/use-market-hub';
 
 function capitalKindLabel(kind: MarketHubCapitalSource['kind']): string {
   switch (kind) {
+    case 'company_pool':
+      return 'Company';
     case 'holding_fund':
-      return 'Fund';
+      return 'Root fund';
     case 'trading_desk':
-      return 'Desk';
+      return 'Execution';
     case 'fund_router':
       return 'Router';
     case 'engine_envelope':
@@ -34,7 +36,7 @@ function capitalKindLabel(kind: MarketHubCapitalSource['kind']): string {
 function allocationAmountLabel(s: MarketHubCapitalSource): string {
   if (s.allocationCents) {
     const share =
-      s.allocationShareBps != null
+      s.allocationShareBps != null && s.kind !== 'company_pool'
         ? ` · ${(s.allocationShareBps / 100).toFixed(1)}% pool`
         : '';
     return `${dollarsFromCents(s.allocationCents)}${share}`;
@@ -56,8 +58,8 @@ function allocationAmountLabel(s: MarketHubCapitalSource): string {
 }
 
 /**
- * Left-rail Market posture inventory (D-131 / D-138): open positions +
- * fund/engine/router allocations with resolved amounts.
+ * Left-rail Market posture inventory (D-131 / D-138 / D-139):
+ * company root funds → execution module splits → open positions.
  */
 export function MarketPosturePanel(props: { companyId: string }) {
   const mp = useMarketPostureView();
@@ -69,6 +71,15 @@ export function MarketPosturePanel(props: { companyId: string }) {
   const openDayView = useCallback(() => {
     mp.openOverlay();
   }, [mp]);
+
+  const rootFunds = useMemo(
+    () => (hub?.capitalSources ?? []).filter((s) => s.tier === 'company_root'),
+    [hub],
+  );
+  const executionSplits = useMemo(
+    () => (hub?.capitalSources ?? []).filter((s) => s.tier === 'execution_split'),
+    [hub],
+  );
 
   if (error && !hub) {
     return <p className="text-xs text-[var(--color-block)]">{error}</p>;
@@ -90,7 +101,7 @@ export function MarketPosturePanel(props: { companyId: string }) {
     <div className="space-y-3" data-testid="market-posture-panel">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] text-[var(--color-ink-faint)]">
-          Funds + positions · day tape on canvas
+          Company funds → execution · day tape on canvas
         </p>
         <div className="flex shrink-0 items-center gap-1.5">
           {(refreshing || analyzing) && (
@@ -121,9 +132,24 @@ export function MarketPosturePanel(props: { companyId: string }) {
 
       <section className="space-y-1.5">
         <h3 className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]">
-          Funds · sources · {hub.capitalSources.length}
+          Company · root funds · {rootFunds.length}
         </h3>
-        <CapitalSourcesList sources={hub.capitalSources} />
+        <CapitalSourcesList
+          sources={rootFunds}
+          empty="No company pool or root holding funds"
+          testId="market-posture-root-funds"
+        />
+      </section>
+
+      <section className="space-y-1.5">
+        <h3 className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]">
+          Execution · module splits · {executionSplits.length}
+        </h3>
+        <CapitalSourcesList
+          sources={executionSplits}
+          empty="No trading / execution allocations yet"
+          testId="market-posture-execution-splits"
+        />
       </section>
 
       <section className="space-y-1.5">
@@ -144,23 +170,30 @@ export function MarketPosturePanel(props: { companyId: string }) {
   );
 }
 
-function CapitalSourcesList(props: { sources: MarketHubCapitalSource[] }) {
+function CapitalSourcesList(props: {
+  sources: MarketHubCapitalSource[];
+  empty: string;
+  testId: string;
+}) {
   if (props.sources.length === 0) {
-    return (
-      <p className="text-xs text-[var(--color-ink-faint)]">
-        No holding funds, desks, routers, or engine envelopes yet
-      </p>
-    );
+    return <p className="text-xs text-[var(--color-ink-faint)]">{props.empty}</p>;
   }
   return (
-    <ul className="space-y-1 text-xs" data-testid="market-posture-capital-sources">
+    <ul className="space-y-1 text-xs" data-testid={props.testId}>
       {props.sources.map((s) => (
-        <li key={s.id} className="rounded border border-[var(--color-line)] px-2 py-1.5">
+        <li
+          key={s.id}
+          className={`rounded border px-2 py-1.5 ${
+            s.kind === 'company_pool'
+              ? 'border-[var(--color-accent)]/40 bg-[var(--color-surface-2)]'
+              : 'border-[var(--color-line)]'
+          }`}
+        >
           <Justification
             sourceClass="operator"
             block
             lines={[
-              `${capitalKindLabel(s.kind)} · ${s.entityType}`,
+              `${capitalKindLabel(s.kind)} · ${s.tier.replace(/_/g, ' ')}`,
               `Source: ${s.sourceLabel}`,
               s.engineLabel ? `Engine: ${s.engineLabel}` : 'No engine binding',
               s.allocationRef ? `Allocation ref: ${s.allocationRef}` : 'No allocation ref',

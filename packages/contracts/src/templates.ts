@@ -120,22 +120,22 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     label: 'Day trading engine',
     category: 'day_trading',
     description:
-      'Research + evidence + market/runtime data → trend → paper execution, with deterministic funds and policy verification.',
+      'Session desk research + evidence + market/runtime data → intraday trend → paper execution, with deterministic funds and policy verification. Seeds regime lab + desk-aligned research packs.',
     available: true,
     modules: [
       {
         type: 'research',
-        name: 'Market Regime Research',
+        name: 'Session Desk Research',
         config: {
           topicScope: 'pending_operator_scope',
-          researchSubtype: 'external_market_news',
-          curiosity: 'balanced',
+          researchSubtype: 'specialty_desk',
+          curiosity: 'exploratory',
         },
         position: { x: 0, y: 0 },
       },
       {
         type: 'librarian',
-        name: 'Evidence Librarian',
+        name: 'Session Evidence Librarian',
         config: {
           topicScope: 'pending_operator_scope',
           librarianSubtype: 'librarian_relevance',
@@ -144,7 +144,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'library',
-        name: 'Strategy Evidence Library',
+        name: 'Session Evidence Library',
         config: {
           topicScope: 'pending_operator_scope',
           masterLibrary: false,
@@ -837,10 +837,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
   },
   {
     id: 'research_filings_fundamentals',
-    label: 'Filings & fundamentals',
+    label: 'Horizon filings & fundamentals',
     category: 'research',
     description:
-      'Pure-data ENGINE focused on SEC/EDGAR and fundamentals curation; terminal analyzer concat → data_out.',
+      'Long-horizon fundamentals pack for multi-month desks: SEC/EDGAR + fundamentals library (conservative cadence) → data_out.',
     available: true,
     modules: [
       {
@@ -960,10 +960,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
   },
   {
     id: 'research_event_catalyst',
-    label: 'Event catalyst research',
+    label: 'Horizon event catalysts',
     category: 'research',
     description:
-      'Pure-data event/macro archetype curation for later desk promotion; terminal analyzer concat → data_out.',
+      'Event/macro catalyst pack for long-term desks: catalyst curator + evidence library for multi-week windows → data_out.',
     available: true,
     modules: [
       {
@@ -1021,10 +1021,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
   },
   {
     id: 'research_market_regime_lab',
-    label: 'Market regime lab',
+    label: 'Session regime lab',
     category: 'research',
     description:
-      'Market-trend research ENGINE with live feed and research-only trend scanner; terminal analyzer concat → data_out.',
+      'Macro/regime context pack for day-trading desks: market news + desk specialty, regime evidence, paper feed, research-only trend → data_out.',
     available: true,
     modules: [
       {
@@ -1129,7 +1129,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     label: 'Crypto context research',
     category: 'research',
     description:
-      'Crypto narrative + cross-cap trend lab (market_trend mode); terminal analyzer concat → data_out.',
+      'Crypto paper-desk support pack: on-chain/context research, crypto market news, knowledge library, and cross-cap scanner → data_out.',
     available: true,
     modules: [
       {
@@ -1234,7 +1234,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
     label: 'Prediction niche research',
     category: 'research',
     description:
-      'Event/probability research lab before prediction desk wiring; terminal analyzer concat → data_out.',
+      'Kalshi/prediction-desk support pack: niche probability research, catalyst curator, demo feed, event-probability scanner → data_out.',
     available: true,
     modules: [
       {
@@ -1329,10 +1329,10 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
   },
   {
     id: 'research_desk_aligned',
-    label: 'Desk-aligned research',
+    label: 'Day-trade desk specialty',
     category: 'research',
     description:
-      'Specialty-desk curator + evidence library + research-only trend feeder; terminal analyzer concat → data_out.',
+      'Intraday specialty-desk feeder for day-trading engines: session curator, desk evidence, paper feed, and session_intraday trend → data_out.',
     available: true,
     modules: [
       {
@@ -1377,12 +1377,12 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       },
       {
         type: 'trend',
-        name: 'Desk Feeder Trend',
+        name: 'Desk Session Feeder Trend',
         config: {
           focus: 'pending_operator_scope',
-          trendPosture: 'research_only',
+          trendPosture: 'session_intraday',
           maxActiveTrends: 10,
-          cadenceMinutes: 45,
+          cadenceMinutes: 15,
         },
         position: { x: 920, y: 276 },
       },
@@ -1579,15 +1579,21 @@ const EXECUTION_CATEGORIES = new Set<EngineTemplate['category']>([
 ]);
 
 /**
- * When an execution ENGINE is added at company create, also seed these research
- * ENGINE templates if not already present (D-042 specialty packs + D-043 UX).
+ * When an execution ENGINE is added, also seed these research ENGINE templates
+ * if not already present (D-042 specialty packs + D-043 UX + D-153 defaults).
+ * Packs are use-case-specific to the execution engine they support.
  */
 export const EXECUTION_ENGINE_RESEARCH_DEPENDENCIES: Readonly<Record<string, readonly string[]>> = {
+  /** Regime/macro lab + session specialty desk feeder for intraday paper desks. */
   engine_day_trading: ['research_market_regime_lab', 'research_desk_aligned'],
+  /** On-chain + crypto market context for 24/7 crypto paper. */
   engine_crypto: ['research_crypto_context'],
+  /** Event/probability niche lab before Kalshi desk wiring. */
   engine_prediction: ['research_prediction_niche'],
-  engine_long_term: ['research_filings_fundamentals', 'research_desk_aligned'],
-  engine_hft: ['research_market_regime_lab'],
+  /** Filings/fundamentals + event catalysts for multi-month horizon desks. */
+  engine_long_term: ['research_filings_fundamentals', 'research_event_catalyst'],
+  /** No research pack until microstructure lab ships with engine_hft modules. */
+  engine_hft: [],
 };
 
 export function engineCreateSection(template: EngineTemplate): EngineCreateSection {
@@ -1613,6 +1619,46 @@ export function researchDependenciesForExecutionEngine(templateId: string): stri
   return [...(EXECUTION_ENGINE_RESEARCH_DEPENDENCIES[templateId] ?? [])];
 }
 
+export type EngineSeedRef = {
+  templateId: string;
+  inputs?: Record<string, string>;
+  setup?: Record<string, unknown>;
+  canvasOffset?: { x: number; y: number };
+};
+
+/**
+ * Expand create/insert engine lists so each execution seed is preceded by its
+ * research dependency packs (deduped). Copies parent setup onto auto-deps.
+ * D-153: server + UI share this so API fixtures and module-store inserts match create-form.
+ */
+export function expandEngineSeedsWithResearchDeps<T extends { templateId: string }>(
+  seeds: readonly T[],
+  options?: {
+    /** When true, only add deps that exist in ENGINE_TEMPLATES and are available. */
+    availableTemplateIds?: ReadonlySet<string>;
+  },
+): T[] {
+  const available = options?.availableTemplateIds;
+  const seen = new Set<string>();
+  const out: T[] = [];
+
+  for (const seed of seeds) {
+    const deps = researchDependenciesForExecutionEngine(seed.templateId);
+    for (const depId of deps) {
+      if (seen.has(depId)) continue;
+      if (available && !available.has(depId)) continue;
+      if (!ENGINE_TEMPLATES.some((t) => t.id === depId)) continue;
+      seen.add(depId);
+      out.push({ ...seed, templateId: depId, inputs: {}, canvasOffset: undefined } as T);
+    }
+    if (!seen.has(seed.templateId)) {
+      seen.add(seed.templateId);
+      out.push(seed);
+    }
+  }
+  return out;
+}
+
 export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
   blank: {
     id: 'blank',
@@ -1630,17 +1676,17 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
     modules: [
       {
         type: 'research',
-        name: 'Market Regime Research',
+        name: 'Session Desk Research',
         config: {
           topicScope: 'pending_operator_scope',
-          researchSubtype: 'external_market_news',
-          curiosity: 'balanced',
+          researchSubtype: 'specialty_desk',
+          curiosity: 'exploratory',
         },
         position: { x: 40, y: 300 },
       },
       {
         type: 'librarian',
-        name: 'Evidence Librarian',
+        name: 'Session Evidence Librarian',
         config: {
           topicScope: 'pending_operator_scope',
           librarianSubtype: 'librarian_relevance',
@@ -1649,7 +1695,7 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
       },
       {
         type: 'library',
-        name: 'Strategy Evidence Library',
+        name: 'Session Evidence Library',
         config: {
           topicScope: 'pending_operator_scope',
           libraryClass: 'specialty_evidence',

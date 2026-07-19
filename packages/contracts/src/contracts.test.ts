@@ -93,6 +93,7 @@ import {
 import {
   COMPANY_TEMPLATES,
   ENGINE_TEMPLATES,
+  expandEngineSeedsWithResearchDeps,
   researchDependenciesForExecutionEngine,
   templateInputTargets,
 } from './templates';
@@ -2316,6 +2317,36 @@ describe('CreateCompanyInput (D-043)', () => {
     for (const dep of deps) {
       expect(ENGINE_TEMPLATES.some((engine) => engine.id === dep)).toBe(true);
     }
+  });
+
+  it('maps each execution engine to use-case research packs (D-153)', () => {
+    expect(researchDependenciesForExecutionEngine('engine_long_term')).toEqual([
+      'research_filings_fundamentals',
+      'research_event_catalyst',
+    ]);
+    expect(researchDependenciesForExecutionEngine('engine_crypto')).toEqual([
+      'research_crypto_context',
+    ]);
+    expect(researchDependenciesForExecutionEngine('engine_prediction')).toEqual([
+      'research_prediction_niche',
+    ]);
+    expect(researchDependenciesForExecutionEngine('engine_hft')).toEqual([]);
+  });
+
+  it('expands create seeds with research deps ahead of execution (D-153)', () => {
+    const expanded = expandEngineSeedsWithResearchDeps([
+      { templateId: 'engine_day_trading', inputs: { focus: 'tech' } },
+    ]);
+    expect(expanded.map((s) => s.templateId)).toEqual([
+      'research_market_regime_lab',
+      'research_desk_aligned',
+      'engine_day_trading',
+    ]);
+    expect(expanded[2]?.inputs).toEqual({ focus: 'tech' });
+    expect(expanded[0]?.inputs).toEqual({});
+    // Idempotent when deps already present
+    const again = expandEngineSeedsWithResearchDeps(expanded);
+    expect(again.map((s) => s.templateId)).toEqual(expanded.map((s) => s.templateId));
   });
 
   it('allows Engine Data Hub link pairs (D-140)', () => {

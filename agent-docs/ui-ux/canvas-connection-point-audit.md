@@ -33,14 +33,14 @@ Info-type labels only (no peer names as primary). Distinct per nature on one car
 
 | Template | Zone fit | Link notes |
 |----------|----------|------------|
-| engine_day_trading | full spine + funds | research→librarian→library→trend→trading→policy (no research→library bypass); Day-Trade Fund Router; analyzer verify; funds via Math |
-| engine_trend_research | research/data/trend/verify | research→librarian→library→trend; Trend Research Concat to_desk_stream |
+| engine_day_trading | full spine + funds | research→librarian→library→trend→trading→policy (no research→library bypass); seeds `research_market_regime_lab` + `research_desk_aligned`; Session Desk Research inline; Day-Trade Fund Router; Data Hub (D-140/D-153) |
+| engine_trend_research | research/data/trend/verify | research→librarian→library→trend; Trend Research Concat to_desk_stream (no Data Hub — research section) |
 | trend_research_lab | company starter | mirrors engine_trend_research (specialty_desk + streamDescriptor) |
-| research_* | research packs | research→librarian→library only (D-143); dual research subtypes distinct Fn labels; context-specific Concat names |
-| engine_crypto | execution specialty (gated) | research→librarian→library→trend→trading; Crypto Fund Router; philosophy targets trend focus |
-| engine_prediction | execution specialty | research→librarian→library→trend→trading; Prediction Fund Router |
-| engine_long_term | full spine + funds | dual research→librarian→library; Paper Horizon Holding Fund |
-| engine_hft | empty stub | unchanged |
+| research_* | research packs | use-case-specific packs for execution deps (D-153); research→librarian→library only; context-specific Concat names |
+| engine_crypto | execution specialty (gated) | seeds `research_crypto_context`; Crypto Fund Router; philosophy→trend |
+| engine_prediction | execution specialty | seeds `research_prediction_niche`; Prediction Fund Router |
+| engine_long_term | full spine + funds | seeds `research_filings_fundamentals` + `research_event_catalyst`; Paper Horizon Holding Fund |
+| engine_hft | empty stub | no research dep until microstructure pack ships |
 
 **Strict librarian spine (D-143):** When a template has both `research` and `library`,
 ingest must go `research→librarian→library`. Parallel `research→library` data_feed edges are

@@ -14,6 +14,8 @@ import {
   placeNextEngineOrigin,
   withDefaultEngineSetup,
   templateInputTargets,
+  engineCreateSection,
+  researchDependenciesForExecutionEngine,
   type LayoutRect,
   type ModuleType,
 } from '@hftr/contracts';
@@ -317,6 +319,21 @@ export async function POST(req: Request, ctx: Ctx) {
       console.error('bootstrapCompanyKnowledge failed on engine create', err);
     }
     const dataHub = await ensureEngineDataHub(db, companyId, engineRow.id);
+
+    // D-153: when a research pack lands, re-nest/wire Data Hubs on execution engines that declare it.
+    if (engineCreateSection(engine) === 'research') {
+      const peers = await scoping.listEngineInstances(db, clerkUserId, companyId);
+      for (const peer of peers) {
+        if (peer.id === engineRow.id) continue;
+        const deps = researchDependenciesForExecutionEngine(peer.templateId);
+        if (!deps.includes(engine.id)) continue;
+        try {
+          await ensureEngineDataHub(db, companyId, peer.id);
+        } catch (err) {
+          console.error('ensureEngineDataHub failed on research-dep sync', peer.id, err);
+        }
+      }
+    }
 
     try {
       await resolveCompanyServiceBindings(db, clerkUserId, companyId);

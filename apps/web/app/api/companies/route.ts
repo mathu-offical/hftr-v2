@@ -14,6 +14,7 @@ import {
   projectedModuleSlotsForCreate,
   withDefaultEngineSetup,
   templateInputTargets,
+  expandEngineSeedsWithResearchDeps,
   type LayoutRect,
 } from '@hftr/contracts';
 import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schema';
@@ -57,7 +58,17 @@ export async function POST(req: Request) {
 
     const sessionIds = new Set(loadSessionConstraints().keys());
     const engineCatalog = listResolvedEngineTemplates(sessionIds);
-    for (const seed of input.engines) {
+    const availableIds = new Set(
+      engineCatalog.filter((item) => item.available).map((item) => item.id),
+    );
+    // D-153: expand execution seeds with use-case research packs (idempotent if UI already sent them).
+    const engineSeeds = expandEngineSeedsWithResearchDeps(input.engines, {
+      availableTemplateIds: availableIds,
+    });
+    if (engineSeeds.length > 10) {
+      throw new ApiError(422, 'engine_limit_reached');
+    }
+    for (const seed of engineSeeds) {
       const engine = engineCatalog.find((item) => item.id === seed.templateId);
       if (!engine) throw new ApiError(422, 'engine_template_not_found');
       if (!engine.available) {
@@ -67,7 +78,7 @@ export async function POST(req: Request) {
 
     const extraModules = input.extraModules ?? [];
     const projectedCount = projectedModuleSlotsForCreate({
-      engineModuleTypes: input.engines.map((seed) => {
+      engineModuleTypes: engineSeeds.map((seed) => {
         const resolved = engineCatalog.find((item) => item.id === seed.templateId);
         return (resolved?.modules ?? []).map((module) => module.type);
       }),
@@ -142,8 +153,8 @@ export async function POST(req: Request) {
     let maxTemplateY = 0;
     const occupiedEngineBounds: LayoutRect[] = [];
 
-    for (let engineIndex = 0; engineIndex < input.engines.length; engineIndex += 1) {
-      const seed = input.engines[engineIndex]!;
+    for (let engineIndex = 0; engineIndex < engineSeeds.length; engineIndex += 1) {
+      const seed = engineSeeds[engineIndex]!;
       const engine = engineCatalog.find((item) => item.id === seed.templateId)!;
 
       const configs = engine.modules.map((m) => ({ ...m.config }));

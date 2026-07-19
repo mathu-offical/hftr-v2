@@ -21,6 +21,8 @@ import {
   computeEngineBoundsFromPositions,
   engineCanvasOffsetForOrigin,
   ENGINE_GROUP_PADDING,
+  ENGINE_TEMPLATES,
+  engineCreateSection,
   engineUtilitySourceHandleId,
   engineUtilityTargetHandleId,
   handleIdForStream,
@@ -37,6 +39,7 @@ import {
   parseTrendCandidateHandle,
   placeNextEngineOrigin,
   reflowEngineAtOrigin,
+  researchDependenciesForExecutionEngine,
   translateLayoutResultToOrigin,
   type DeleteEngineMode,
   type EngineTemplate,
@@ -1993,142 +1996,172 @@ export function CompanyCanvas(props: {
 
   const insertEngine = useCallback(
     async (engine: EngineTemplate, inputs: Record<string, string>, setup?: ModuleSetupInput) => {
-      const occupied = nodes.filter(isEngineGroupNode).map(engineBounds);
-      const templatePositions = engine.modules.map((module) => module.position);
-      const relativeBounds = computeEngineBoundsFromPositions(templatePositions);
-      const origin = placeNextEngineOrigin(occupied, relativeBounds, {
-        originX: CANVAS_LAYOUT.originX,
-        originY: CANVAS_LAYOUT.originY,
-      });
-      const { offset } = engineCanvasOffsetForOrigin(
-        templatePositions,
-        origin,
-        ENGINE_GROUP_PADDING,
+      const present = new Set(
+        nodes.filter(isEngineGroupNode).map((node) => node.data.templateId),
       );
+      const queue: Array<{ template: EngineTemplate; inputs: Record<string, string> }> = [];
+      if (engineCreateSection(engine) === 'execution') {
+        for (const depId of researchDependenciesForExecutionEngine(engine.id)) {
+          if (present.has(depId)) continue;
+          const dep = ENGINE_TEMPLATES.find((item) => item.id === depId);
+          if (!dep?.available) continue;
+          queue.push({ template: dep, inputs: {} });
+          present.add(depId);
+        }
+      }
+      queue.push({ template: engine, inputs });
+
+      let workingNodes = nodes;
+      let workingEdges = edges;
+      const insertedLabels: string[] = [];
 
       try {
-        const response = await api<{
-          engine: {
-            id: string;
-            templateId: string;
-            label: string;
-            masterTopicSectors: string[];
-            capitalAllocationRef?: string | null;
-            targetExitRef?: string | null;
-            setupSnapshot?: CanvasEngineGroup['setupSnapshot'];
-            templateInputs?: Record<string, string>;
-            canvasBounds: { x: number; y: number; width: number; height: number } | null;
-            memberModuleIds: string[];
-          };
-          modules: Array<{
-            id: string;
-            type: ModuleType;
-            name: string;
-            generatedNameBase: string;
-            nameCustomized: boolean;
-            status: ModuleStatus;
-            canvasPosition: { x: number; y: number } | null;
-            topicSectors: string[];
-            capitalAllocationRef: string | null;
-            targetExitRef: string | null;
-            engineInstanceId: string | null;
-            toolOwnerModuleId: string | null;
-            topicSectorsOverridden: boolean;
-          }>;
-          links: CanvasLink[];
-          utilityLinks?: Array<{
-            id: string;
-            toEngineId: string;
-            bus: EngineUtilityBus;
-            fromEngineId?: string | null;
-            fromModuleId?: string | null;
-            streamId?: string | null;
-            streamDescriptor?: string | null;
-          }>;
-        }>(`/api/companies/${props.companyId}/engines`, {
-          method: 'POST',
-          body: {
-            templateId: engine.id,
-            inputs,
-            setup,
-            canvasOffset: offset,
-          },
-        });
-
-        const bounds =
-          response.engine.canvasBounds ??
-          computeEngineBoundsFromPositions(
-            response.modules
-              .filter((m) => m.engineInstanceId === response.engine.id && m.type !== 'math')
-              .map((m) => (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number }),
+        for (const item of queue) {
+          const occupied = workingNodes.filter(isEngineGroupNode).map(engineBounds);
+          const templatePositions = item.template.modules.map((module) => module.position);
+          const relativeBounds = computeEngineBoundsFromPositions(templatePositions);
+          const origin = placeNextEngineOrigin(occupied, relativeBounds, {
+            originX: CANVAS_LAYOUT.originX,
+            originY: CANVAS_LAYOUT.originY,
+          });
+          const { offset } = engineCanvasOffsetForOrigin(
+            templatePositions,
+            origin,
+            ENGINE_GROUP_PADDING,
           );
 
-        const utilityLinks = (response.utilityLinks ?? []).map((link) => ({
-          ...link,
-          toEngineId: link.toEngineId,
-        }));
-        const newModuleEdges = response.links.map((l) => toEdge(l));
-        const insertedNodes = buildInitialGraph(
-          response.modules.map((row) => moduleRowToCanvas(row)),
-          [
-            {
-              id: response.engine.id,
-              templateId: response.engine.templateId,
-              label: response.engine.label,
-              masterTopicSectors: response.engine.masterTopicSectors,
-              capitalAllocationRef: response.engine.capitalAllocationRef ?? null,
-              targetExitRef: response.engine.targetExitRef ?? null,
-              setupSnapshot: response.engine.setupSnapshot ?? null,
-              templateInputs: response.engine.templateInputs ?? inputs,
-              canvasBounds: bounds,
-              memberModuleIds: response.engine.memberModuleIds,
-              utilityLinks: utilityLinks.filter((link) => link.toEngineId === response.engine.id),
-            },
-          ],
-          response.links,
-          props.companyId,
-          stableEngineCallbacks,
-        );
-
-        const allEdges = [...edges, ...newModuleEdges];
-        let workingNodes = applyUtilityLinksToEngineNodes(
-          applyMathAttachments([...nodes, ...insertedNodes], allEdges),
-          utilityLinks,
-        );
-
-        // Apply current gutters / Time rail immediately (template seeds may be denser).
-        let layout = reflowEngineAtOrigin(
-          { id: response.engine.id, memberModuleIds: response.engine.memberModuleIds },
-          gatherLayoutModules(workingNodes),
-          gatherLayoutLinks(allEdges),
-          { x: origin.x, y: origin.y },
-          ENGINE_GROUP_PADDING,
-        );
-        const reflowedBounds = layout.engines[0]?.canvasBounds;
-        if (reflowedBounds) {
-          const others = nodes.filter(isEngineGroupNode).map(engineBounds);
-          const clearOrigin = placeNextEngineOrigin(others, reflowedBounds, {
-            preferred: { x: origin.x, y: origin.y },
-          });
-          layout = translateLayoutResultToOrigin(layout, response.engine.id, clearOrigin);
-        }
-        workingNodes = applyLayoutToNodes(workingNodes, layout);
-
-        try {
-          await api(`/api/companies/${props.companyId}/canvas/layout`, {
-            method: 'PATCH',
+          const response = await api<{
+            engine: {
+              id: string;
+              templateId: string;
+              label: string;
+              masterTopicSectors: string[];
+              capitalAllocationRef?: string | null;
+              targetExitRef?: string | null;
+              setupSnapshot?: CanvasEngineGroup['setupSnapshot'];
+              templateInputs?: Record<string, string>;
+              canvasBounds: { x: number; y: number; width: number; height: number } | null;
+              memberModuleIds: string[];
+            };
+            modules: Array<{
+              id: string;
+              type: ModuleType;
+              name: string;
+              generatedNameBase: string;
+              nameCustomized: boolean;
+              status: ModuleStatus;
+              canvasPosition: { x: number; y: number } | null;
+              topicSectors: string[];
+              capitalAllocationRef: string | null;
+              targetExitRef: string | null;
+              engineInstanceId: string | null;
+              toolOwnerModuleId: string | null;
+              topicSectorsOverridden: boolean;
+            }>;
+            links: CanvasLink[];
+            utilityLinks?: Array<{
+              id: string;
+              toEngineId: string;
+              bus: EngineUtilityBus;
+              fromEngineId?: string | null;
+              fromModuleId?: string | null;
+              streamId?: string | null;
+              streamDescriptor?: string | null;
+            }>;
+          }>(`/api/companies/${props.companyId}/engines`, {
+            method: 'POST',
             body: {
-              modules: layout.modules,
-              engines: layout.engines,
+              templateId: item.template.id,
+              inputs: item.inputs,
+              setup,
+              canvasOffset: offset,
             },
           });
-        } catch {
-          // Insert succeeded; operator can still Reflow to persist spacing.
+
+          const bounds =
+            response.engine.canvasBounds ??
+            computeEngineBoundsFromPositions(
+              response.modules
+                .filter((m) => m.engineInstanceId === response.engine.id && m.type !== 'math')
+                .map((m) => (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number }),
+            );
+
+          const utilityLinks = (response.utilityLinks ?? []).map((link) => ({
+            ...link,
+            toEngineId: link.toEngineId,
+          }));
+          const newModuleEdges = response.links.map((l) => toEdge(l));
+          const insertedNodes = buildInitialGraph(
+            response.modules.map((row) => moduleRowToCanvas(row)),
+            [
+              {
+                id: response.engine.id,
+                templateId: response.engine.templateId,
+                label: response.engine.label,
+                masterTopicSectors: response.engine.masterTopicSectors,
+                capitalAllocationRef: response.engine.capitalAllocationRef ?? null,
+                targetExitRef: response.engine.targetExitRef ?? null,
+                setupSnapshot: response.engine.setupSnapshot ?? null,
+                templateInputs: response.engine.templateInputs ?? item.inputs,
+                canvasBounds: bounds,
+                memberModuleIds: response.engine.memberModuleIds,
+                utilityLinks: utilityLinks.filter((link) => link.toEngineId === response.engine.id),
+              },
+            ],
+            response.links,
+            props.companyId,
+            stableEngineCallbacks,
+          );
+
+          const allEdges = [...workingEdges, ...newModuleEdges];
+          workingNodes = applyUtilityLinksToEngineNodes(
+            applyMathAttachments([...workingNodes, ...insertedNodes], allEdges),
+            utilityLinks,
+          );
+
+          let layout = reflowEngineAtOrigin(
+            { id: response.engine.id, memberModuleIds: response.engine.memberModuleIds },
+            gatherLayoutModules(workingNodes),
+            gatherLayoutLinks(allEdges),
+            { x: origin.x, y: origin.y },
+            ENGINE_GROUP_PADDING,
+          );
+          const reflowedBounds = layout.engines[0]?.canvasBounds;
+          if (reflowedBounds) {
+            const others = workingNodes
+              .filter(isEngineGroupNode)
+              .filter((node) => node.id !== response.engine.id)
+              .map(engineBounds);
+            const clearOrigin = placeNextEngineOrigin(others, reflowedBounds, {
+              preferred: { x: origin.x, y: origin.y },
+            });
+            layout = translateLayoutResultToOrigin(layout, response.engine.id, clearOrigin);
+          }
+          workingNodes = applyLayoutToNodes(workingNodes, layout);
+          workingEdges = mergeUtilityEdgesFromNodes(allEdges, workingNodes);
+
+          try {
+            await api(`/api/companies/${props.companyId}/canvas/layout`, {
+              method: 'PATCH',
+              body: {
+                modules: layout.modules,
+                engines: layout.engines,
+              },
+            });
+          } catch {
+            // Insert succeeded; operator can still Reflow to persist spacing.
+          }
+
+          insertedLabels.push(item.template.label);
         }
 
         setNodes(workingNodes);
-        setEdges((edgeState) => mergeUtilityEdgesFromNodes([...edgeState, ...newModuleEdges], workingNodes));
-        flash(`${engine.label} inserted — activate its modules to start.`);
+        setEdges(workingEdges);
+        flash(
+          insertedLabels.length > 1
+            ? `${insertedLabels.join(' + ')} inserted — activate modules to start.`
+            : `${engine.label} inserted — activate its modules to start.`,
+        );
       } catch {
         flash('Engine insert failed.');
         throw new Error('engine_insert_failed');

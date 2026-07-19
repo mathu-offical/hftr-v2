@@ -51,9 +51,13 @@ watches, steers, and approves through the canvas + three panels + the assistant.
   module graph + links; dashed edges for research deps). Choosing an **execution** engine
   auto-adds research dependency packs and **cascades topic/capital/exit live** into those
   seeds (`cascadedFromKey`). Gated engines appear as **Locked · …**. Setup edits happen in the
-  selected-engine inspector. `EXECUTION_ENGINE_RESEARCH_DEPENDENCIES` drives auto-add. The API
-  seeds solely from `engines` (+ optional `extraModules`) after provisioning the company Math
-  hub. Module store remains the path for insertable engines after create
+  selected-engine inspector. `EXECUTION_ENGINE_RESEARCH_DEPENDENCIES` drives auto-add.
+  **D-153:** `POST /api/companies` expands execution seeds via
+  `expandEngineSeedsWithResearchDeps` (idempotent if the create form already sent packs);
+  module-store insert of an execution engine also seeds missing research packs first;
+  inserting a research pack re-syncs Engine Data Hubs on dependent execution engines.
+  Research packs are use-case-specific to the execution engine they support (not generic).
+  Module store remains available for additional engines after create
   (crypto/prediction/HFT listed with honest gating reasons). Scope fields use
   `pending_operator_scope` until operator setup. Allocation and exit resolve through
   ValueRefs and temporal refs per `architecture/number-handling.md`.

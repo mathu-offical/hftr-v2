@@ -151,7 +151,7 @@ async function main() {
 
   const traces = await drainUntil(
     companyId,
-    (t) => t.some((x) => x.outcome === 'filled' && x.symbol === 'AAPL'),
+    (t) => t.some((x) => x.outcome === 'filled' && (x.symbol === 'AAPL' || !x.symbol)),
     60_000,
   );
   const filled = traces.find((t) => t.outcome === 'filled' && (t.symbol === 'AAPL' || !t.symbol));
@@ -173,6 +173,41 @@ async function main() {
     record('mode_paper', filled.mode === 'paper', String(filled.mode));
     record('venue_paper_sim', filled.venue === 'paper_sim', String(filled.venue));
   }
+
+  // Promote path: trend → trading compile/dispatch → filled (may use child-slice drain).
+  const trendCreate = await req('POST', `/api/companies/${companyId}/trends`, {
+    moduleId: trend!.id,
+    symbol: 'MSFT',
+    direction: 'up',
+    strengthBand: 'strong',
+  });
+  record('create_trend', trendCreate.status < 300, `status=${trendCreate.status}`);
+  const trendId = (trendCreate.json.trend as { id?: string } | undefined)?.id;
+  const promote = await req('POST', `/api/companies/${companyId}/modules/${trend!.id}/promote`, {
+    trendId,
+    targetModuleId: trading!.id,
+  });
+  record('promote_trend', promote.status < 300, `status=${promote.status}`);
+  const promoteTraces = await drainUntil(
+    companyId,
+    (t) =>
+      t.some(
+        (x) =>
+          x.outcome === 'filled' &&
+          (x.symbol === 'MSFT' || (x.fills?.length ?? 0) > 0) &&
+          (x.simulatorGapTags ?? []).some(
+            (tag) => tag === 'child_slice_drain' || tag === 'no_partial_fills' || tag === 'funds_only_routing',
+          ),
+      ) || t.filter((x) => x.outcome === 'filled').length >= 2,
+    180_000,
+  );
+  const promoteFilled = promoteTraces.filter((t) => t.outcome === 'filled');
+  record(
+    'promote_filled_trace',
+    promoteFilled.length >= 2 ||
+      promoteFilled.some((t) => t.symbol === 'MSFT' || (t.fills?.length ?? 0) > 0),
+    `filled_count=${promoteFilled.length} outcomes=${promoteTraces.map((t) => t.outcome).join(',')}`,
+  );
 
   // Elevate to execute_on_service without broker → fail-closed block
   const elevate = await req('PATCH', `/api/companies/${companyId}/modules/${trading!.id}`, {

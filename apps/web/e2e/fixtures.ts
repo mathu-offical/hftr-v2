@@ -118,13 +118,18 @@ export async function waitForFilledActivity(
   await expect
     .poll(
       async () => {
-        await request.post('/api/queue/drain').catch(() => null);
+        // Prefer reading activity first — promote/trade routes often inline-drain.
         const response = await request.get(`/api/companies/${companyId}/activity`);
-        if (!response.ok()) return null;
-        const activity = (await response.json()) as PaperActivityResponse;
-        return activity.traces.find((trace) => trace.outcome === 'filled') ?? null;
+        if (response.ok()) {
+          const activity = (await response.json()) as PaperActivityResponse;
+          const filled = activity.traces.find((trace) => trace.outcome === 'filled');
+          if (filled) return filled;
+        }
+        // Advance time-spaced child-slice jobs if still pending.
+        await request.post('/api/queue/drain').catch(() => null);
+        return null;
       },
-      { timeout: timeoutMs, intervals: [500, 1_000, 2_000] },
+      { timeout: timeoutMs, intervals: [250, 500, 1_000, 2_000] },
     )
     .not.toBeNull();
 

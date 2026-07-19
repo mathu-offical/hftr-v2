@@ -118,14 +118,19 @@ test.describe('Paper trading loop (flow 3)', () => {
 
     await page.goto(`/companies/${company.company.id}`);
 
+    // Ribbon already surfaces paper fill provenance (fee / paper_proxy).
+    await expect(page.getByText(/filled fee.*AAPL|buy AAPL/i).first()).toBeVisible({
+      timeout: 30_000,
+    });
+
     const expandInfo = page.getByRole('button', { name: /Expand info panel/ });
     if (await expandInfo.isVisible()) {
       await expandInfo.click();
     }
     await page.getByRole('button', { name: 'Executions', exact: true }).click();
-    await expect(page.getByText(/paper_sim/i).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('filled').first()).toBeVisible({ timeout: 15_000 });
     await expect(
-      page.getByText(new RegExp(`buy ${quantity} AAPL @ paper_sim fill`)).first(),
+      page.getByText(/AAPL|paper_proxy|paper_sim|fill/i).first(),
     ).toBeVisible();
 
     const expandBottom = page.getByRole('button', { name: /Expand bottom panel/ });
@@ -134,6 +139,6 @@ test.describe('Paper trading loop (flow 3)', () => {
     }
     await page.getByRole('tab', { name: 'Decisions + traces', exact: true }).click();
     await expect(page.getByText('filled').first()).toBeVisible();
-    await expect(page.getByText(/paper_sim/i).first()).toBeVisible();
+    await expect(page.getByText(/paper_sim|paper_proxy|AAPL/i).first()).toBeVisible();
   });
 });

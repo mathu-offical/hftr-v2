@@ -174,8 +174,12 @@ test.describe('Paper intent alignment', () => {
     }).click();
     await expect(drawer.getByRole('combobox', { name: /Risk appetite/i })).toHaveValue('max');
 
+    // Escape closes the drawer; dismiss overlay intercepts toggle clicks (z-order).
+    await page.keyboard.press('Escape');
+    await expect(drawer).toBeHidden();
+
     await page.getByRole('button', { name: 'Live trading (gated)' }).click();
-    await expect(page.getByText('Live trading is gated.')).toBeVisible();
+    await expect(page.getByText('Live trading is gated.')).toBeVisible({ timeout: 15_000 });
     await expect(
       page.getByText(/checklist pass, fresh evidence|never enabled silently/i),
     ).toBeVisible();

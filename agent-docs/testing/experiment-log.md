@@ -237,3 +237,27 @@ Scoring: `intent-alignment-scoring.md`
 | Observed | `defaultLoadAlpacaPaperCredentials` returns creds via owner alpaca paper; soak refreshed AAPL/NVDA (`refreshed≥1`, `skipped:0`) on open-position desks; child-drain inserts ledger after partial/filled traces |
 | Alignment | **aligned** |
 | Decisions | D-137 |
+
+---
+
+## EXP-2026-07-19-01 — Paper system verification on Neon cutover (D-158)
+
+| Field | Value |
+|---|---|
+| Status | API **18/18** + philosophy UI e2e pass; paper-loop UI e2e still flaky on activity poll |
+| Mode | paper only |
+| Quote source | `synthetic_sim` / paper_sim |
+| Venues | paper_sim (internal funds_only) |
+| Hypothesis | After cutover to Neon `calm-bird-16964297`, operator trade + promote→fill + elevate fail-closed remain honest and integrable |
+| Declared intent | Verify D-122 Phases 1–5 end-to-end on fresh schema; leave `hftr-v2-backup-quota` intact |
+| Observed | `paper-system-verify.ts` **18/18**: funds_only fill tags, promote filled_count=2, elevate `broker_policy_block`; contracts/engine/adapters paper unit paths green |
+| Alignment | **pass (API + unit)** — Playwright/IronBee UI still closing |
+| Provenance | activity tags include `funds_only_routing`, `inline_fill_model`, `no_partial_fills` |
+| Hard fails | none on API after local `DATABASE_URL` uses **direct** endpoint (pooled cold path had intermittent `42P10` ON CONFLICT) |
+| System fixes from run | DEV_AUTH_BYPASS `POST /api/queue/drain`; e2e drain-while-poll; Company profile toggle-close before live gate; promote probe in verify script |
+| Not verified | IronBee DevTools MCP unavailable this session |
+
+### Follow-ups
+- Finish green `paper-loop` + `paper-intent-alignment` e2e
+- IronBee: TradingConfigForm routing mode + broker bind when MCP available
+- After backup quota resets (~2026-08-01), optional `pg_dump`/`pg_restore` if historical rows needed

@@ -91,6 +91,15 @@ export function TopDrawer(props: {
   const llmConnection = useOptionalLlmConnectionStatus();
   const llmBudgets = llmConnection?.budgets ?? [];
 
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
   return (
     <>
       <button

@@ -6,14 +6,14 @@ import { createOwnerScopedModelGateway } from '@/lib/model-gateway';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-async function runDrain(workerPrefix: string): Promise<Response> {
+async function runDrain(workerPrefix: string, budgetMs = 45_000): Promise<Response> {
   const clock = createSystemClock();
   const workerId = `${workerPrefix}:${process.env.VERCEL_DEPLOYMENT_ID ?? 'local'}:${clock.nowMs()}`;
   try {
     const db = getDb();
     const result = await drainQueues(db, clock, {
       workerId,
-      budgetMs: 45_000, // leave headroom inside maxDuration
+      budgetMs,
       modelGateway: createOwnerScopedModelGateway(db),
     });
     return NextResponse.json(result);
@@ -40,6 +40,7 @@ export async function GET(req: Request) {
 /**
  * Local / e2e drain for time-spaced paper child-slice jobs (D-129).
  * Allowed only when DEV_AUTH_BYPASS=1 outside production — never a production path.
+ * Short budget so Playwright poll loops are not starved by 45s drain windows.
  */
 export async function POST() {
   const allowed =
@@ -47,5 +48,5 @@ export async function POST() {
   if (!allowed) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
-  return runDrain('dev-bypass');
+  return runDrain('dev-bypass', 8_000);
 }

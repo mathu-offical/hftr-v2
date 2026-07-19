@@ -479,8 +479,32 @@ export const MarketHubModelProcessFunction = z.enum([
   'organize',
   'route',
   'analyze',
+  /** Research ENGINE article pipeline (live → library articles). */
+  'gather',
+  'validate',
+  'synthesize',
+  'admit',
 ]);
 export type MarketHubModelProcessFunction = z.infer<typeof MarketHubModelProcessFunction>;
+
+/**
+ * Canvas research ENGINE projected onto the synthesis Model (D-214).
+ * Live APIs feed gather→validate→synthesize→admit → library articles.
+ */
+export const MarketHubModelResearchEngine = z.object({
+  id: z.string().uuid(),
+  label: z.string().max(120),
+  status: z.enum(['active', 'paused', 'error', 'draft']),
+  /** Bound corpus shelves (hub / company libraries). */
+  boundLibraryIds: z.array(z.string().uuid()).max(16).default([]),
+  /** Live source kinds that feed this engine (same ENGINE or company contrib). */
+  liveSourceKinds: z.array(z.string().max(40)).max(32).default([]),
+  topicCount: z.number().int().nonnegative().default(0),
+  articleCount: z.number().int().nonnegative().default(0),
+  operation: z.string().max(80),
+  amount: z.string().max(40),
+});
+export type MarketHubModelResearchEngine = z.infer<typeof MarketHubModelResearchEngine>;
 
 export const MarketHubModelProcessStep = z.object({
   /** Stable id (e.g. gdelt_news:tickers, compound:rank_sort). */
@@ -624,6 +648,11 @@ export type MarketHubModelCapitalSource = z.infer<typeof MarketHubModelCapitalSo
 export const MarketHubModelHydration = z.object({
   liveSources: z.array(MarketHubModelLiveSource).max(64).default([]),
   librarySources: z.array(MarketHubModelLibrarySource).max(64).default([]),
+  /**
+   * Research ENGINEs that turn live API evidence into library articles (D-214).
+   * Baseline Model strip shows gather→validate→synthesize→admit beside shelves.
+   */
+  researchEngines: z.array(MarketHubModelResearchEngine).max(32).default([]),
   /**
    * Capital-bearing fund rows shown as Model data sources (D-163).
    * Filtered to configured / draft with resolvable amounts when present.

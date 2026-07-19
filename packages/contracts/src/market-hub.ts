@@ -537,12 +537,38 @@ export const MarketHubModelPanelSurface = z.object({
     .nullable()
     .default(null),
   updatedAt: z.string().datetime().nullable(),
+  /**
+   * When true, Model node emphasizes amount as an operator capital readout (D-163).
+   * Amounts are hub-resolved display strings (never LLM-authored dollars).
+   */
+  capitalBearing: z.boolean().default(false),
 });
 export type MarketHubModelPanelSurface = z.infer<typeof MarketHubModelPanelSurface>;
+
+/**
+ * Capital fund row projected onto the Model as a data-source node (D-163).
+ * Amount is a display string from resolved cents — not for LLM prompts.
+ */
+export const MarketHubModelCapitalSource = z.object({
+  id: z.string().uuid(),
+  name: z.string().max(120),
+  tier: z.enum(['company_root', 'execution_split']),
+  kind: z.string().max(40),
+  operation: z.string().max(80),
+  /** Formatted allocation / ledger readout for inline Model display. */
+  amount: z.string().max(40),
+  status: z.enum(['configured', 'draft', 'unavailable']),
+});
+export type MarketHubModelCapitalSource = z.infer<typeof MarketHubModelCapitalSource>;
 
 export const MarketHubModelHydration = z.object({
   liveSources: z.array(MarketHubModelLiveSource).max(64).default([]),
   librarySources: z.array(MarketHubModelLibrarySource).max(64).default([]),
+  /**
+   * Capital-bearing fund rows shown as Model data sources (D-163).
+   * Filtered to configured / draft with resolvable amounts when present.
+   */
+  capitalSources: z.array(MarketHubModelCapitalSource).max(32).default([]),
   /** Per-service adapter → analysis stage flows (D-156). */
   processingFlows: z.array(MarketHubModelProcessingFlow).max(64).default([]),
   /**

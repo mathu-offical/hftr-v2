@@ -312,6 +312,12 @@ are ignored. Shortcuts are suppressed in editable fields.
   modal listing each movers-lane provider as ready / need key / contributed on last seal
   (compact ready/N count on the button). Position marks remain synthetic until live broker
   marks.
+  **Source verify chips (D-155):** every posture metric board/row can show lightweight chips
+  that **must say** provenance class (`api` / `library` / `system` / `setting`) plus a short
+  label. Hub projects `sourceChips` on movers, news, equity, positions, and watchlists from
+  seal `contributingSourceKinds`, mark feed class, ledger, and watch `sourceClass`. Live
+  equity/mark deltas preserve chips (merge does not wipe them). Multi-confirm boards show
+  multiple chips.
   **SymbolTicker + charts (D-109):** Symbol rows on overlay recommendations + left position
   inventory use shared `SymbolTicker` — synthetic spark, direction glyph, strength ticks + band
   word, mark/held/uPnL text. Held vs cost **ok/block spark + PnL tone always wins** when cost

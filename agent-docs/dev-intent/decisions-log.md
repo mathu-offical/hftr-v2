@@ -1596,6 +1596,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Default open geometry uses the same anchor. Extends D-150. Docs: ui-spec §4 / §5.
   **Status: implemented.**
 
+- **D-155 (Market posture source-verify chips, 2026-07-18):** Every posture metric surface
+  can show **extremely lightweight** chips that **must say** provenance class
+  (`api` | `library` | `system` | `setting`) plus a short source label. Hub projects
+  `sourceChips` on movers/news (seal `contributingSourceKinds`), equity (ledger), positions
+  (mark feed + ledger), and watchlists (`sourceClass`). Live mark/equity deltas **preserve**
+  chips via `mergeMarketHubLive`. Multi-confirm metrics show multiple chips. UI:
+  `SourceVerifyChips`. Docs: ui-spec §4, data-model. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

@@ -429,15 +429,21 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           val: Math.max(1.2, degree * 0.7 + refs * 0.4 + 1),
           __focused: focused,
         };
-        // Free-float seed with mild bias toward article/folder/library (D-136).
+        // Seed on a shell around article / folder / library (D-142) so sparse-link
+        // catalogs start in shelf rings instead of a coincident cloud.
         if (!layoutCommittedRef.current.has(n.id)) {
           const spread = hashSpread3D(n.id);
-          const freeScale = center ? 1.35 : 1.8;
+          const mag = Math.hypot(spread.dx, spread.dy, spread.dz) || 1;
+          let band = 0.55;
+          for (let i = 0; i < n.id.length; i++) band = (band * 31 + n.id.charCodeAt(i)) % 100;
+          const shellR = center
+            ? Math.max(12, center.radius * (0.4 + (Math.abs(band) % 45) / 100))
+            : 48;
           return {
             ...base,
-            x: center ? center.x + spread.dx * freeScale : spread.dx * freeScale,
-            y: center ? center.y + spread.dy * freeScale : spread.dy * freeScale,
-            z: center ? center.z + spread.dz * freeScale : spread.dz * freeScale,
+            x: center ? center.x + (spread.dx / mag) * shellR : spread.dx,
+            y: center ? center.y + (spread.dy / mag) * shellR : spread.dy,
+            z: center ? center.z + (spread.dz / mag) * shellR : spread.dz,
           };
         }
         return base;
@@ -582,13 +588,13 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             .strength((node: unknown) => {
               const n = node as GalaxySimNode & { __kind?: string; __hullKind?: string };
               if (n.__kind === 'nest-hull') {
-                // Article stars need mild repulsion so hubs don't stack (D-139).
-                return n.__hullKind === 'article' ? baseCharge * 0.2 : 0;
+                // Article stars need repulsion so hubs don't stack (D-139 / D-142).
+                return n.__hullKind === 'article' ? baseCharge * 0.45 : 0;
               }
               if (n.__kind === 'tag-sat') return baseCharge * 0.28;
               return baseCharge;
             })
-            .distanceMax(560),
+            .distanceMax(240),
         );
 
         const center = fg.d3Force('center') as { strength?: (n: number) => unknown } | undefined;
@@ -598,12 +604,14 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         fg.d3Force(
           'collide',
           forceCollide((node: unknown) => {
-            const n = node as GalaxySimNode & { __kind?: string };
-            if (n.__kind === 'nest-hull') return 0;
+            const n = node as GalaxySimNode & { __kind?: string; __hullKind?: string; val?: number };
+            if (n.__kind === 'nest-hull') {
+              return n.__hullKind === 'article' ? Math.max(10, Math.cbrt(n.val ?? 1) * 5.5) : 0;
+            }
             if (n.__kind === 'tag-sat') return Math.cbrt(n.val ?? 0.35) * 2.4;
             return Math.cbrt(n.val ?? 1) * 3.2;
           })
-            .strength(0.65)
+            .strength(0.75)
             .iterations(2),
         );
         fg.d3Force('nest', createLibraryNestForce(libraryCenters));
@@ -1049,6 +1057,11 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           folderAssigned: number;
           insideHomeFolder: number;
           folderFractionInside: number;
+          articleAssigned: number;
+          insideArticleOrbit: number;
+          articleFractionInside: number;
+          articleHullCount: number;
+          folderHullCount: number;
         } | null;
         camera: {
           position: { x: number; y: number; z: number };
@@ -1129,15 +1142,42 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           folderAssigned: number;
           insideHomeFolder: number;
           folderFractionInside: number;
+          articleAssigned: number;
+          insideArticleOrbit: number;
+          articleFractionInside: number;
+          articleHullCount: number;
+          folderHullCount: number;
         } | null = null;
         const liveNodes = graphHandleRef.current?.graphData?.()?.nodes ?? [];
         const concepts = liveNodes.filter(
           (n) => n.__kind !== 'nest-hull' && n.__kind !== 'tag-sat' && n.primaryLibraryId,
         );
+        const articleHullCount = liveNodes.filter(
+          (n) => n.__kind === 'nest-hull' && (n as { __hullKind?: string }).__hullKind === 'article',
+        ).length;
+        const folderHullCount = liveNodes.filter(
+          (n) => n.__kind === 'nest-hull' && (n as { __hullKind?: string }).__hullKind === 'folder',
+        ).length;
         if (concepts.length > 0) {
           let inside = 0;
           let folderAssigned = 0;
           let insideFolder = 0;
+          let articleAssigned = 0;
+          let insideArticle = 0;
+          const liveHullByTopic = new Map<string, { x?: number; y?: number; z?: number }>();
+          for (const n of liveNodes) {
+            const hull = n as {
+              __kind?: string;
+              __hullKind?: string;
+              __topicId?: string;
+              x?: number;
+              y?: number;
+              z?: number;
+            };
+            if (hull.__kind === 'nest-hull' && hull.__hullKind === 'article' && hull.__topicId) {
+              liveHullByTopic.set(hull.__topicId, hull);
+            }
+          }
           for (const node of concepts) {
             const center = libraryCenters.get(node.primaryLibraryId!);
             if (!center) continue;
@@ -1157,7 +1197,21 @@ function GalaxyViewInner(props: GalaxyViewProps) {
                   (node.y ?? 0) - fCenter.y,
                   (node.z ?? 0) - fCenter.z,
                 );
-                if (fDist <= fCenter.radius * 1.1) insideFolder += 1;
+                // Orbital band: count inside outer envelope (D-142).
+                if (fDist <= fCenter.radius * 1.2) insideFolder += 1;
+              }
+            }
+            const articleId = (node as { primaryArticleId?: string | null }).primaryArticleId;
+            if (articleId) {
+              articleAssigned += 1;
+              const aSeed = articleCenters.get(articleId);
+              const live = liveHullByTopic.get(articleId);
+              if (aSeed) {
+                const ax = live?.x ?? aSeed.x;
+                const ay = live?.y ?? aSeed.y;
+                const az = live?.z ?? aSeed.z;
+                const aDist = Math.hypot((node.x ?? 0) - ax, (node.y ?? 0) - ay, (node.z ?? 0) - az);
+                if (aDist <= aSeed.radius * 1.5) insideArticle += 1;
               }
             }
           }
@@ -1168,6 +1222,11 @@ function GalaxyViewInner(props: GalaxyViewProps) {
             folderAssigned,
             insideHomeFolder: insideFolder,
             folderFractionInside: folderAssigned > 0 ? insideFolder / folderAssigned : 0,
+            articleAssigned,
+            insideArticleOrbit: insideArticle,
+            articleFractionInside: articleAssigned > 0 ? insideArticle / articleAssigned : 0,
+            articleHullCount,
+            folderHullCount,
           };
         }
 
@@ -1212,6 +1271,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
         .__hftrGalaxyHoverTest;
     };
   }, [
+    articleCenters,
     articleTitleById,
     clearHover,
     conceptArticleIndex,
@@ -1776,7 +1836,7 @@ function GalaxyViewInner(props: GalaxyViewProps) {
           aria-live="polite"
         >
           {use3dRenderer && !statusText
-            ? '3D celestial · all library articles · folder systems · live refresh'
+            ? '3D orbital shelves · article stars · sparse-link hierarchy · live refresh'
             : null}
           {use3dRenderer && (hasTopicFocus || statusText) ? ' · ' : null}
           {hasTopicFocus && `Focused ${focusSet!.size} concepts`}

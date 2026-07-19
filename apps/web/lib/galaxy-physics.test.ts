@@ -112,6 +112,40 @@ describe('galaxy-physics', () => {
     expect(node.vx).toBeLessThan(0);
   });
 
+  it('folder nest prefers orbital band over core collapse', () => {
+    const centers = new Map([
+      [
+        'lib::folder',
+        {
+          x: 0,
+          y: 0,
+          z: 0,
+          radius: 40,
+          name: 'Folder',
+          folderKey: 'folder',
+          libraryId: 'lib',
+          mass: 4,
+        },
+      ],
+    ]);
+    const force = createFolderNestForce(centers);
+    const nearCore = {
+      id: 'near',
+      primaryLibraryId: 'lib',
+      primaryFolderKey: 'folder',
+      x: 2,
+      y: 0,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+    };
+    force.initialize([nearCore]);
+    force(1);
+    // Pushed outward toward preferred band (~0.38–0.9 * radius).
+    expect(nearCore.vx).toBeGreaterThan(0);
+  });
+
   it('places article orbits inside folder parent when folderKey set', () => {
     const libraryCenters = new Map([['lib-1', { x: 0, y: 0, z: 0, radius: 80, name: 'Lib' }]]);
     const folderCenters = computeFolderCenters3D({

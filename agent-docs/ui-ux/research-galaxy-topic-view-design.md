@@ -136,6 +136,10 @@ chips drawn from visible concepts’ tags (and optionally topic-level keywords).
   `hftr:article` hubs (merged with topic membership orbits). Galaxy shows **all** folders
   and article stars in the active library scope (no top-N LOD). Overlay refreshes on
   research-cache invalidation and polls while open so new resources reshape the map.
+- **D-142 orbital shelf physics:** observed sparse `concept_links` (~5/100) — folder
+  forces use **radial orbital bands** + tangential ring spread (not core attract);
+  seeds place on shelf shells; article stars collide/repel locally. `layoutStats`
+  reports folder/article orbit membership fractions.
 - A larger **company envelope** sphere outlines the full organizational cloud.
 - **Volume packing (D-116):** library / folder / article *centers* use **Fibonacci-sphere**
   samples on concentric shells so XYZ volume is used

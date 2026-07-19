@@ -99,13 +99,15 @@ Result: orbit camera still looked like a **flat necklace of nests**, not a volum
 |-------|------------------|
 | Concepts / tags | Free-float celestial bodies (planet/rock/ember/comet/moon) |
 | Article | **Star hub** — soft-orbits folder system; concepts orbit live star |
-| Folder | Loose system attractor / shelf space (intersects OK) |
+| Folder | **Orbital shelf band** + tangential spread (not core-pile); weak when article owns node |
+| Article | **Star hub** — soft-orbits folder system; concepts orbit live star + tangential ring |
 | Library | Faint framing only |
 | Cross-membership springs | `hierarchicalLinkScale` — mild bias, not crush |
 | Foreign repel | Near-off so systems can overlap |
+| Sparse links | Hierarchy orbits dominate (observed ~5 links / 100 concepts) |
 | LOD | **All** folders + article stars in library scope (D-141); chips filter |
 | Live map | Research-cache invalidation + 8s overlay poll reshapes orbits |
-| QA | `layoutStats` still reports packing AABB / separation |
+| QA | `layoutStats` nestMembership folder/article orbit fractions + hull counts |
 
 ## 6. Verification
 

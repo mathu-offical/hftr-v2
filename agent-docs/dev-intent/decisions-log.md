@@ -1486,6 +1486,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Docs: ui-spec Galaxy tab, research-galaxy-topic-view-design §4.1,
   galaxy-3d-volume-layout. **Status: implemented.**
 
+- **D-142 (galaxy orbital shelf physics, 2026-07-18):** Live graph observation: typical
+  company has ~100 catalog concepts, ~17 folders, ~0–1 articles, and **very sparse**
+  `concept_links` (~5). Hierarchy forces must organize the map. Folder nest switched from
+  core-attract to **orbital radial bands** + tangential ring spread; stronger folder shell;
+  shell seeds around folder/article centers; tighter charge distanceMax; article-star
+  collide/repel. `layoutStats` adds article/folder orbit fractions + hull counts.
+  Docs: galaxy-3d-volume-layout, research-galaxy-topic-view-design §4.1.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

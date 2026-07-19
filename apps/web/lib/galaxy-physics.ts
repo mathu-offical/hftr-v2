@@ -1,8 +1,10 @@
 /**
- * Galaxy 3D physics helpers (TD-09 / D-116 / D-136 / D-139).
+ * Galaxy 3D physics helpers (TD-09 / D-116 / D-136 / D-139 / D-142).
  * Concepts and tags free-float on semantic springs as distinct celestial bodies;
+ * folders own orbital shelf bands (critical when concept_links are sparse);
  * articles are live star hubs that soft-orbit folder systems; concepts soft-orbit
- * those live hubs. Hierarchy may intersect — weight/similarity springs dominate (D-136).
+ * those live hubs. Hierarchy may intersect — weight/similarity springs dominate
+ * when dense; nest orbits dominate when links are sparse (D-142).
  */
 
 import type { ResearchGraphLibraryNest, ResearchGraphLink } from '@hftr/contracts';
@@ -502,50 +504,6 @@ export function computeArticleOrbitCenters3D(opts: {
 }
 
 /**
- * Soft folder *system* bound (D-136): gentle attract toward folder center with a
- * loose outer restore. Systems may intersect; semantic springs remain primary.
- */
-export function createFolderNestForce(centers: Map<string, FolderCenter3D>) {
-  let nodes: GalaxySimNode[] = [];
-
-  function force(alpha: number) {
-    const pull = alpha * 0.055;
-    const restore = alpha * 0.24;
-    for (const node of nodes) {
-      if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
-      const libId = node.primaryLibraryId;
-      const folderKey = node.primaryFolderKey;
-      if (!libId || !folderKey) continue;
-      const center = centers.get(`${libId}::${folderKey}`);
-      if (!center) continue;
-
-      const dx = (node.x ?? 0) - center.x;
-      const dy = (node.y ?? 0) - center.y;
-      const dz = (node.z ?? 0) - center.z;
-      const dist = Math.hypot(dx, dy, dz) || 1e-6;
-      const maxR = center.radius * 1.25;
-
-      if (dist > maxR) {
-        const k = ((dist - maxR) / dist) * restore;
-        node.vx = (node.vx ?? 0) - dx * k;
-        node.vy = (node.vy ?? 0) - dy * k;
-        node.vz = (node.vz ?? 0) - dz * k;
-      } else {
-        node.vx = (node.vx ?? 0) - dx * pull;
-        node.vy = (node.vy ?? 0) - dy * pull;
-        node.vz = (node.vz ?? 0) - dz * pull;
-      }
-    }
-  }
-
-  force.initialize = (initNodes: GalaxySimNode[]) => {
-    nodes = initNodes;
-  };
-
-  return force;
-}
-
-/**
  * Soft radial shell force inside each library nest (forceRadial analogue per nest).
  * Pushes concepts toward a hashed target radius so members fill the ball volume
  * instead of collapsing to the nest core / midplane (D-116 P2).
@@ -557,6 +515,90 @@ function hashedRadialBand(id: string, minBand: number, maxBand: number): number 
   return minBand + t * (maxBand - minBand);
 }
 
+/** Mild tangential kick so orbital members ring a hub instead of stacking (D-142). */
+function applyOrbitTangential(
+  node: GalaxySimNode,
+  dx: number,
+  dy: number,
+  dz: number,
+  dist: number,
+  strength: number,
+): void {
+  if (strength <= 0 || dist < 1e-4) return;
+  // Prefer XY-plane tangent; fall back when radial is near vertical.
+  let tx = -dy;
+  let ty = dx;
+  let tz = 0;
+  let tLen = Math.hypot(tx, ty, tz);
+  if (tLen < 1e-4) {
+    tx = -dz;
+    ty = 0;
+    tz = dx;
+    tLen = Math.hypot(tx, ty, tz) || 1e-6;
+  }
+  const phase = hashedRadialBand(String(node.id ?? ''), 0, 1) >= 0.5 ? 1 : -1;
+  const k = (strength * phase) / tLen;
+  node.vx = (node.vx ?? 0) + tx * k;
+  node.vy = (node.vy ?? 0) + ty * k;
+  node.vz = (node.vz ?? 0) + tz * k;
+}
+
+/**
+ * Soft folder *system* orbit (D-136 / D-142): prefer a radial band around the
+ * folder center instead of collapsing to the core. When an article hub owns the
+ * node, this force stays weak so article orbits dominate. Sparse-link catalogs
+ * rely on this band for readable shelf clusters.
+ */
+export function createFolderNestForce(centers: Map<string, FolderCenter3D>) {
+  let nodes: GalaxySimNode[] = [];
+
+  function force(alpha: number) {
+    for (const node of nodes) {
+      if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
+      const libId = node.primaryLibraryId;
+      const folderKey = node.primaryFolderKey;
+      if (!libId || !folderKey) continue;
+      const center = centers.get(`${libId}::${folderKey}`);
+      if (!center) continue;
+
+      const hasArticle = Boolean(node.primaryArticleId);
+      const orbitStrength = alpha * (hasArticle ? 0.028 : 0.13);
+      const restore = alpha * (hasArticle ? 0.1 : 0.3);
+      const spread = alpha * (hasArticle ? 0.008 : 0.035);
+
+      const dx = (node.x ?? 0) - center.x;
+      const dy = (node.y ?? 0) - center.y;
+      const dz = (node.z ?? 0) - center.z;
+      const dist = Math.hypot(dx, dy, dz) || 1e-6;
+      const targetR = center.radius * hashedRadialBand(String(node.id ?? ''), 0.38, 0.9);
+      const maxR = center.radius * (hasArticle ? 1.35 : 1.18);
+
+      if (dist > maxR) {
+        const k = ((dist - maxR) / dist) * restore;
+        node.vx = (node.vx ?? 0) - dx * k;
+        node.vy = (node.vy ?? 0) - dy * k;
+        node.vz = (node.vz ?? 0) - dz * k;
+      } else {
+        const delta = (dist - targetR) / dist;
+        node.vx = (node.vx ?? 0) - dx * delta * orbitStrength;
+        node.vy = (node.vy ?? 0) - dy * delta * orbitStrength;
+        node.vz = (node.vz ?? 0) - dz * delta * orbitStrength;
+      }
+
+      applyOrbitTangential(node, dx, dy, dz, dist, spread);
+    }
+  }
+
+  force.initialize = (initNodes: GalaxySimNode[]) => {
+    nodes = initNodes;
+  };
+
+  return force;
+}
+
+/**
+ * Soft library shell fill for concepts without folder/article membership (D-116 P2).
+ */
 export function createNestShellRadialForce(centers: Map<string, LibraryCenter3D>) {
   let nodes: GalaxySimNode[] = [];
 
@@ -592,13 +634,14 @@ export function createNestShellRadialForce(centers: Map<string, LibraryCenter3D>
 }
 
 /**
- * Soft system volume fill — mild radial preference inside a folder (D-136).
+ * Soft system volume fill — radial preference inside a folder (D-136 / D-142).
+ * Stronger than library shell because sparse-link catalogs organize by shelf.
  */
 export function createFolderShellRadialForce(centers: Map<string, FolderCenter3D>) {
   let nodes: GalaxySimNode[] = [];
 
   function force(alpha: number) {
-    const strength = alpha * 0.06;
+    const strength = alpha * 0.11;
     for (const node of nodes) {
       if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
       if (node.primaryArticleId) continue;
@@ -793,8 +836,9 @@ export function createArticleOrbitForce(centers: Map<string, ArticleOrbitCenter3
   let hullByTopic = new Map<string, GalaxySimNode>();
 
   function force(alpha: number) {
-    const orbitStrength = alpha * 0.09;
-    const restore = alpha * 0.2;
+    const orbitStrength = alpha * 0.12;
+    const restore = alpha * 0.24;
+    const spread = alpha * 0.03;
     for (const node of nodes) {
       if (node.__kind === 'nest-hull' || node.__kind === 'tag-sat') continue;
       const articleId = node.primaryArticleId;
@@ -825,6 +869,7 @@ export function createArticleOrbitForce(centers: Map<string, ArticleOrbitCenter3
         node.vy = (node.vy ?? 0) - dy * delta * orbitStrength;
         node.vz = (node.vz ?? 0) - dz * delta * orbitStrength;
       }
+      applyOrbitTangential(node, dx, dy, dz, dist, spread);
     }
   }
 
@@ -849,8 +894,9 @@ export function createArticleHullOrbitForce(folderCenters: Map<string, FolderCen
   let nodes: GalaxySimNode[] = [];
 
   function force(alpha: number) {
-    const orbitStrength = alpha * 0.11;
-    const restore = alpha * 0.22;
+    const orbitStrength = alpha * 0.14;
+    const restore = alpha * 0.26;
+    const spread = alpha * 0.04;
     for (const node of nodes) {
       if (node.__kind !== 'nest-hull' || node.__hullKind !== 'article') continue;
       const systemKey = node.__parentFolderKey;
@@ -876,6 +922,7 @@ export function createArticleHullOrbitForce(folderCenters: Map<string, FolderCen
         node.vy = (node.vy ?? 0) - dy * delta * orbitStrength;
         node.vz = (node.vz ?? 0) - dz * delta * orbitStrength;
       }
+      applyOrbitTangential(node, dx, dy, dz, dist, spread);
     }
   }
 

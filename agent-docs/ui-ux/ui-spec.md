@@ -455,8 +455,9 @@ Full design: `ui-ux/research-galaxy-topic-view-design.md`.
   Graph reloads on research-cache invalidation and an 8s poll while the overlay is open so
   newly admitted articles reshape the map. Folder hulls use an octahedron wire cue. A
   company envelope sphere bounds the visible nests. Cross-library edges may span systems.
-  Layout uses Fibonacci volume packing (D-116) with free-float semantic springs (D-136) and
-  celestial hierarchy (D-139 / D-141).
+  Layout uses Fibonacci volume packing (D-116) with free-float
+  semantic springs (D-136), celestial hierarchy (D-139 / D-141), and **orbital shelf
+  bands** for sparse-link catalogs (D-142).
 - **Rotating info-tag layer** over the graph (subtle orbit of tag chips; static under
   `prefers-reduced-motion`); chips double as filters.
 - **Topic focus** (left-panel select): dim non-member concepts/edges; stronger particles on

@@ -924,8 +924,8 @@ describe('module inline setup', () => {
     expect(CANVAS_LAYOUT.horizontalGutter).toBeGreaterThanOrEqual(
       CANVAS_LAYOUT.decisionOwnerGap + CANVAS_LAYOUT.decisionNodeWidth,
     );
-    expect(CANVAS_LAYOUT.researchToExecGap).toBe(360);
-    expect(CANVAS_LAYOUT.topLevelGutter).toBe(160);
+    expect(CANVAS_LAYOUT.researchToExecGap).toBe(380);
+    expect(CANVAS_LAYOUT.topLevelGutter).toBe(176);
   });
 
   it('inflates template layout bounds for decision column (D-218)', () => {

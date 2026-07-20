@@ -134,8 +134,9 @@
   Present attached children show muted **Attached:** chips (D-213). Canvas decision cards
   are limited to output-routing `CANVAS_PRIMARY_DECISION_KINDS` (D-217: strategy / branch /
   recovery / emit / feed); intakes and option outs are typed by info nature (data / system /
-  clock; `routeNature` / `routeLabel` — D-218). Decisions stack in the engine right column.
-  Sector focus prefills `topicScope` / `focus` template inputs on create and insert.
+  clock; `routeNature` / `routeLabel`). Decisions dock immediately after their parent module
+  (D-219); gutters clear the next lane. Sector focus prefills `topicScope` / `focus`
+  template inputs on create and insert.
 - **Math tools (D-028 / D-033 / D-042):** additional Math modules may be created from the palette and
   deleted; each may `data_feed`-attach to allowed consumer types. Dedicated Math tools render as
   compact nodes with **data handles on top** (owner connection) and **fund handles left→right**.
@@ -382,7 +383,9 @@ are ignored. Shortcuts are suppressed in editable fields.
   stack in pipeline order; steps within a route use **transfer hops** (L→R connection
   order / semantic source→adapter→process when edges are incomplete) with handoff-sized
   gaps — no empty mid-band holes; hop badges + short edge transfer labels on the strip;
-  unused screen space stays loose between columns; strip nodes use **compact chrome**
+  wires are **bespoke orthogonal rails** (`postureOrtho`, sharp right angles) with
+  cross-route / diagonal content edges pruned to adjacent screen backbones; unused screen
+  space stays loose between columns; strip nodes use **compact chrome**
   sized to the packing grid (no clipped cards); side nodes
   sit below the route stack. Draws all within- and
   between-screen edges (plus **forward-only** group backbone flows) and stamps each

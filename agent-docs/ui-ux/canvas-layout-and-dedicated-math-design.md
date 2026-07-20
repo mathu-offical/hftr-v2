@@ -78,16 +78,16 @@ Layout uses measured React Flow node dimensions when available and conservative 
 | Module card floor | 220 × 168 px (D-088 density) |
 | Math tool | 180 × 40 px |
 | Owner → Math attachment gap | 12 px |
-| Horizontal / vertical gutters | 248 / 120 px (clears right-column decisions + stacked envelopes; D-217) |
+| Horizontal / vertical gutters | 280 / 140 px (clears parent-docked decisions + stacked envelopes; D-219) |
 | Engine chip process zones | research → data → trend → execution → verification (unused compress) |
-| Funds shelf gap under process | 48 px (`engineFundsShelfGap`) |
-| Time hub gap under envelope | 40 px (`engineTimeHubGap`; Time pinned bottom-left under funds when present) |
-| Group left/right padding | 88 / 232 px (utility ports; right reserves decision column — D-217 / D-218) |
-| Group header/top padding | 92 px (D-089 inline bounded header fields) |
-| Group bottom padding | 132 px (Math docks + funds + Time rail) |
-| Top-level engine gutter | 160 px — create/insert/reflow/drag-stop via `placeNextEngineOrigin` (D-176 / D-217) |
-| Research → exec gap | 360 px (`researchToExecGap`) — Data Hub sits in this band (D-159 / D-176 / D-217) |
-| Decision column | All canvas decisions stack in reserved right column; bounds inflate via `inflateBoundsForEngineDecisions` (D-218) |
+| Funds shelf gap under process | 56 px (`engineFundsShelfGap`) |
+| Time hub gap under envelope | 48 px (`engineTimeHubGap`; Time pinned bottom-left under funds when present) |
+| Group left/right padding | 96 / 240 px (utility ports; right reserves overflow decision column — D-219) |
+| Group header/top padding | 96 px (D-089 inline bounded header fields) |
+| Group bottom padding | 144 px (Math docks + funds + Time rail) |
+| Top-level engine gutter | 176 px — create/insert/reflow/drag-stop via `placeNextEngineOrigin` (D-219) |
+| Research → exec gap | 380 px (`researchToExecGap`) — Data Hub sits in this band (D-159 / D-219) |
+| Decision docks | After parent (`moduleWidth + decisionOwnerGap`); overflow → right column (D-219) |
 | Canvas family stack | Research deps left → hub gap → execution right; families stack **vertically** (D-159) |
 | Math attachment | Single **Calc ref** (`math → owner` `data_feed`); info-type port labels (D-088) |
 

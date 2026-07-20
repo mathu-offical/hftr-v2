@@ -340,16 +340,16 @@ export function isMathToolAttachment(
  */
 export const ENGINE_GROUP_PADDING = {
   /** Clears motherboard utility ports + labeled side handles. */
-  left: 88,
+  left: 96,
   /**
-   * Clears right utility chrome + decision column (D-176 / D-217).
-   * Must be ≥ CANVAS_LAYOUT.optionAnchorColumnWidth (+ small centering margin).
+   * Clears right utility chrome + overflow decision column (D-176 / D-217 / D-219).
+   * Must be ≥ CANVAS_LAYOUT.optionAnchorColumnWidth (+ centering margin).
    */
-  right: 232,
+  right: 240,
   /** Badge + title + one wrap row of bordered setup fields (D-089). */
-  top: 92,
+  top: 96,
   /** Clears Math docks + bottom-left Time hub rail (D-091). */
-  bottom: 132,
+  bottom: 144,
 } as const;
 
 export function computeEngineBoundsFromPositions(

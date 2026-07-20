@@ -35,26 +35,26 @@ export const CANVAS_LAYOUT = {
   moduleHeight: 168,
   /**
    * Port/edge clearance between adjacent pipeline columns.
-   * Must clear docked decision cards: decisionOwnerGap + decisionNodeWidth (+ margin).
-   * D-217: was 152 — decisions (200px) overlapped the next column.
+   * Must clear parent-docked decision cards:
+   * decisionOwnerGap + decisionNodeWidth + margin (D-217 / D-219).
    */
-  horizontalGutter: 248,
+  horizontalGutter: 280,
   /** Clearance between stacked owner/tool envelopes in the same rank. */
-  verticalGutter: 120,
-  mathAttachmentGap: 12,
+  verticalGutter: 140,
+  mathAttachmentGap: 16,
   mathToolWidth: 180,
   mathToolHeight: 40,
   /** Gap above the funds shelf (below process/Math envelopes). */
-  engineFundsShelfGap: 48,
+  engineFundsShelfGap: 56,
   /** Gap above the engine Time hub rail (below member/Math/funds envelopes). */
-  engineTimeHubGap: 40,
+  engineTimeHubGap: 48,
   /** Clearance between engine families / free modules / cadence rail (D-176). */
-  topLevelGutter: 160,
+  topLevelGutter: 176,
   /**
    * Gap between research deps column and execution (hub sits in this band).
-   * D-176: widened from 280 so hub + option-anchor chrome stay connection-safe.
+   * Widened so hub + parent-docked decision chrome stay connection-safe.
    */
-  researchToExecGap: 360,
+  researchToExecGap: 380,
   /**
    * Compact Data Hub footprint used for gap placement (hubs are free library
    * nodes, not full member cards).
@@ -72,18 +72,18 @@ export const CANVAS_LAYOUT = {
    */
   dataHubGapBiasTowardExec: 0.72,
   /**
-   * Right-column reserve for decision nodes (must stay ≤ ENGINE_GROUP_PADDING.right).
-   * Matches DecisionNode card width (D-217).
+   * Right-column reserve for overflow / unowned decisions
+   * (must stay ≤ ENGINE_GROUP_PADDING.right).
    */
   optionAnchorColumnWidth: 208,
   /** Decision card body width (React Flow decisionNode). */
   decisionNodeWidth: 200,
-  /** Gap between owner module card and its docked decision stack. */
-  decisionOwnerGap: 16,
+  /** Gap between owner module card and its docked decision stack (after parent). */
+  decisionOwnerGap: 24,
   /** Vertical gap between stacked decision cards on the same dock column. */
-  decisionStackGap: 14,
+  decisionStackGap: 16,
   /** Minimum clearance when the research→exec gap is too narrow for the hub (D-176). */
-  dataHubTightGapClearance: 48,
+  dataHubTightGapClearance: 56,
   originX: 40,
   originY: 40,
 } as const;
@@ -100,12 +100,13 @@ export const LAYOUT_COLUMN_STEP = CANVAS_LAYOUT.moduleWidth + CANVAS_LAYOUT.hori
 export const LAYOUT_ROW_STEP = layoutOwnerEnvelopeHeight() + CANVAS_LAYOUT.verticalGutter;
 
 /**
- * Parent-relative bottom of a single right-column decision stack (D-218).
- * Matches `placeOptionAnchorNodes` when all owned decisions share the reserved column.
+ * Parent-relative bottom of decision stacks (D-218 / D-219).
+ * Groups by owner and staggers by LAYOUT_ROW_STEP so height matches
+ * parent-docked placement (not one mega right-column stack).
  */
 export function measureDecisionColumnBottom(
   anchors: readonly OptionAnchorSpec[],
-  options?: { top?: number; gap?: number },
+  options?: { top?: number; gap?: number; ownerRowStep?: number },
 ): number {
   const visible = canvasVisibleOptionAnchors(anchors).filter(
     (anchor) => !anchor.parentAnchorId,
@@ -113,11 +114,28 @@ export function measureDecisionColumnBottom(
   if (visible.length === 0) return 0;
   const top = options?.top ?? ENGINE_GROUP_PADDING.top;
   const gap = options?.gap ?? CANVAS_LAYOUT.decisionStackGap;
-  let y = top;
+  const rowStep = options?.ownerRowStep ?? LAYOUT_ROW_STEP;
+
+  const byOwner = new Map<string | null, OptionAnchorSpec[]>();
   for (const anchor of visible) {
-    y += estimateDecisionNodeHeight(anchor) + gap;
+    const key = anchor.ownerModuleId ?? null;
+    const list = byOwner.get(key) ?? [];
+    list.push(anchor);
+    byOwner.set(key, list);
   }
-  return y - gap;
+
+  let maxBottom = 0;
+  let ownerOrdinal = 0;
+  for (const [, group] of byOwner) {
+    const startY = top + ownerOrdinal * rowStep;
+    let y = startY;
+    for (const anchor of group) {
+      y += estimateDecisionNodeHeight(anchor) + gap;
+    }
+    maxBottom = Math.max(maxBottom, y - gap);
+    ownerOrdinal += 1;
+  }
+  return maxBottom;
 }
 
 /** Grow engine chrome height so the reserved decision column fits (D-218). */

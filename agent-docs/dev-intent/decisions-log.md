@@ -1893,7 +1893,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   (edge depth, or semantic source→adapter→process when the DAG collapses roles onto
   hop 0) with natural handoff gaps — continuous L→R chains without empty mid-band holes;
   hop index stamped on strip nodes; short transfer edge labels + arrowheads in the strip;
-  cluster frames size to content;
+  cluster frames size to content; strip edges use **bespoke orthogonal connectors**
+  (`postureOrtho` / sharp right-angle rails) and drop cross-route + diagonal content
+  wires in favor of adjacent screen-group backbones so the diagram stays readable;
   **research ENGINEs** appear on Library as gather→validate→synthesize→admit→articles→shelf
   (D-214). Strip chrome is **compact** (`stripCompact`): packing cell sizes match dense
   node cards; track legend omitted so the diagram fills the band.
@@ -2208,7 +2210,18 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   route. `measureDecisionColumnBottom` + `inflateBoundsForEngineDecisions` fold decision
   extent into `layoutEngineTemplateAtOrigin` / `reflowEngineAtOrigin` / create API so
   `placeNextEngineOrigin` collision rects include the column. Extends D-217.
-  Docs: canvas-engine-group-design, ui-spec §3. **Status: implemented.**
+  Docs: canvas-engine-group-design, ui-spec §3. **Status: superseded by D-219 for
+  placement** (routeNature + bounds inflation retained).
+
+- **D-219 (parent-after decision docks + global spacing refine, 2026-07-20):**
+  Canvas decisions dock **immediately after** their parent module
+  (`owner.x + moduleWidth + decisionOwnerGap`), with per-dockX stack cursors so
+  columns stay independent; overflow clamps to the reserved right column.
+  Global spacing widened: horizontalGutter 280, verticalGutter 140, group padding,
+  funds/time gaps, topLevelGutter 176, researchToExecGap 380 — so parent-docked
+  decisions clear the next pipeline column and engine families / Math / funds / time
+  envelopes breathe. Extends D-217 / D-218. Docs: canvas-engine-group-design,
+  canvas-layout-and-dedicated-math-design, ui-spec §3. **Status: implemented.**
 
 ## Open questions
 

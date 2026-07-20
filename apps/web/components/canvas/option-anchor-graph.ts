@@ -156,11 +156,12 @@ function pushDecisionNode(
 }
 
 /**
- * Place canvas-visible decision nodes (D-192 / D-218):
+ * Place canvas-visible decision nodes (D-192 / D-219):
  * - One card per choice point (options are config, not child cards)
- * - All decisions stack in the reserved engine **right column** (never beside
- *   owners mid-lane — avoids overlapping the next pipeline column)
- * - Per-owner stacks still align to owner Y when clear
+ * - Owned decisions dock **immediately after** their parent module
+ *   (owner.x + moduleWidth + decisionOwnerGap), stacked vertically per dock X
+ * - Falls back to the reserved right column when the dock would overflow chrome
+ * - Unowned roots stack in the engine right column
  */
 export function placeOptionAnchorNodes(
   engine: CanvasEngineGroup,
@@ -178,7 +179,11 @@ export function placeOptionAnchorNodes(
   const placed = new Set<string>();
 
   const columnX = optionAnchorColumnX(groupWidth);
+  const maxDockX =
+    groupWidth - ENGINE_GROUP_PADDING.right - OPTION_ANCHOR_NODE_WIDTH;
   let columnY: number = ENGINE_GROUP_PADDING.top;
+  /** Per dock X — owners in different columns do not push each other's stacks. */
+  const dockXCursor = new Map<number, number>();
 
   const roots = visible.filter((anchor) => !anchor.parentAnchorId);
   const ownedRoots = roots.filter((anchor) => anchor.ownerModuleId);
@@ -203,22 +208,32 @@ export function placeOptionAnchorNodes(
 
   for (const [ownerId, ownerRoots] of ownerEntries) {
     const owner = memberPos.get(ownerId);
-    let dockY = columnY;
+    let dockX = owner
+      ? owner.x + CANVAS_LAYOUT.moduleWidth + OPTION_ANCHOR_OWNER_GAP
+      : columnX;
+    let clampedToColumn = false;
+    if (!owner || dockX > maxDockX) {
+      dockX = columnX;
+      clampedToColumn = true;
+    }
+    const stackTop = dockXCursor.get(dockX) ?? ENGINE_GROUP_PADDING.top;
+    let dockY = stackTop;
     const orderedRoots = [...ownerRoots].sort(
       (a, b) => rootKindPriority(a.kind) - rootKindPriority(b.kind),
     );
     for (const root of orderedRoots) {
       if (placed.has(root.id)) continue;
       placed.add(root.id);
+      // Align primary decisions to the parent card Y when the dock column is clear.
       if (rootKindPriority(root.kind) === 0 && owner) {
-        dockY = Math.max(owner.y, columnY);
+        dockY = Math.max(owner.y, stackTop);
       }
       const position = positions[root.id] ?? root.defaultPosition ?? 'typical';
-      // Right-column dock — owner→decision binds still drawn (cross-lane dashed).
-      pushDecisionNode(nodes, engine, root, columnX, dockY, position, false);
+      pushDecisionNode(nodes, engine, root, dockX, dockY, position, clampedToColumn);
       dockY += nodeHeightFor(root) + OPTION_ANCHOR_GAP;
     }
-    columnY = Math.max(columnY, dockY);
+    dockXCursor.set(dockX, dockY);
+    if (clampedToColumn || !owner) columnY = Math.max(columnY, dockY);
   }
 
   for (const root of freeRoots) {

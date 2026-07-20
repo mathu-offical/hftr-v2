@@ -11,17 +11,18 @@ import {
   optionBindEdgesForEngine,
   placeOptionAnchorNodes,
   OPTION_ANCHOR_NODE_HEIGHT,
+  OPTION_ANCHOR_OWNER_GAP,
   OPTION_ANCHOR_COLUMN_WIDTH,
 } from './option-anchor-graph';
 import type { CanvasEngineGroup, CanvasModule } from './types';
 
-describe('decision-node graph placement (D-192 / D-180 / D-217)', () => {
+describe('decision-node graph placement (D-192 / D-180 / D-219)', () => {
   const engine: CanvasEngineGroup = {
     id: '11111111-1111-1111-1111-111111111111',
     templateId: 'research_web_fabric',
     label: 'Web fabric',
     masterTopicSectors: [],
-    canvasBounds: { x: 40, y: 40, width: 1100, height: 700 },
+    canvasBounds: { x: 40, y: 40, width: 1800, height: 800 },
     memberModuleIds: [],
     setupSnapshot: null,
     templateInputs: {},
@@ -112,7 +113,7 @@ describe('decision-node graph placement (D-192 / D-180 / D-217)', () => {
     },
   ];
 
-  it('docks owned roots in the reserved right column (D-218)', () => {
+  it('docks owned roots immediately after their parent module (D-219)', () => {
     const all = buildOptionAnchorsForEngine({
       engineId: engine.id,
       templateId: engine.templateId,
@@ -127,11 +128,13 @@ describe('decision-node graph placement (D-192 / D-180 / D-217)', () => {
       (n) => n.data.kind === 'branch_role' && n.data.ownerModuleId === researcherId,
     );
     expect(pipelineRoot).toBeTruthy();
-    expect(pipelineRoot!.position.x).toBe(optionAnchorColumnX(engine.canvasBounds!.width));
+    const expectedX =
+      ENGINE_GROUP_PADDING.left + CANVAS_LAYOUT.moduleWidth + OPTION_ANCHOR_OWNER_GAP;
+    expect(pipelineRoot!.position.x).toBe(expectedX);
     expect(pipelineRoot!.position.y).toBe(120);
   });
 
-  it('stacks owners in one right column without mid-lane overlap (D-218)', () => {
+  it('docks owners in different columns independently (per dockX cursor)', () => {
     const all = buildOptionAnchorsForEngine({
       engineId: engine.id,
       templateId: engine.templateId,
@@ -150,11 +153,17 @@ describe('decision-node graph placement (D-192 / D-180 / D-217)', () => {
     );
     expect(pipelineRoot).toBeTruthy();
     expect(emitRoot).toBeTruthy();
-    const colX = optionAnchorColumnX(engine.canvasBounds!.width);
-    expect(pipelineRoot!.position.x).toBe(colX);
-    expect(emitRoot!.position.x).toBe(colX);
-    // Shared column stacks — later owners clear prior decision bottoms.
-    expect(emitRoot!.position.y).toBeGreaterThanOrEqual(pipelineRoot!.position.y);
+    const researchDockX =
+      ENGINE_GROUP_PADDING.left + CANVAS_LAYOUT.moduleWidth + OPTION_ANCHOR_OWNER_GAP;
+    const analyzerRelX =
+      ENGINE_GROUP_PADDING.left +
+      2 * (CANVAS_LAYOUT.moduleWidth + CANVAS_LAYOUT.horizontalGutter);
+    const analyzerDockX =
+      analyzerRelX + CANVAS_LAYOUT.moduleWidth + OPTION_ANCHOR_OWNER_GAP;
+    expect(pipelineRoot!.position.x).toBe(researchDockX);
+    expect(emitRoot!.position.x).toBe(analyzerDockX);
+    expect(emitRoot!.position.y).toBe(120);
+    expect(pipelineRoot!.position.y).toBe(120);
   });
 
   it('avoids vertical overlap between owner decision stacks', () => {
@@ -268,7 +277,7 @@ describe('decision-node graph placement (D-192 / D-180 / D-217)', () => {
     expect(edges.some((e) => e.source === root!.id && e.target !== root!.id)).toBe(false);
   });
 
-  it('horizontal gutter clears docked decision width (D-217)', () => {
+  it('horizontal gutter clears parent-docked decision width (D-219)', () => {
     expect(CANVAS_LAYOUT.horizontalGutter).toBeGreaterThanOrEqual(
       CANVAS_LAYOUT.decisionOwnerGap + CANVAS_LAYOUT.decisionNodeWidth,
     );
@@ -277,7 +286,7 @@ describe('decision-node graph placement (D-192 / D-180 / D-217)', () => {
     );
   });
 
-  it('docks strategy_family in right column on day-trading-shaped engine (D-218)', () => {
+  it('docks strategy_family after trading parent on day-trading engine (D-219)', () => {
     const execEngine: CanvasEngineGroup = {
       ...engine,
       id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
@@ -404,8 +413,12 @@ describe('decision-node graph placement (D-192 / D-180 / D-217)', () => {
     const strategyNode = placed.find((n) => n.id === strategy!.id);
     expect(strategyNode).toBeTruthy();
     expect(strategyNode!.type).toBe('decisionNode');
-    expect(strategyNode!.position.x).toBe(optionAnchorColumnX(execEngine.canvasBounds!.width));
-    expect(strategyNode!.position.y).toBeGreaterThanOrEqual(ENGINE_GROUP_PADDING.top);
+    const tradeRelX = ENGINE_GROUP_PADDING.left + 800;
+    const tradeRelY = 200;
+    expect(strategyNode!.position.x).toBe(
+      tradeRelX + CANVAS_LAYOUT.moduleWidth + OPTION_ANCHOR_OWNER_GAP,
+    );
+    expect(strategyNode!.position.y).toBeGreaterThanOrEqual(tradeRelY);
     const edges = optionBindEdgesForEngine(all);
     const ownerEdge = edges.find((e) => e.target === strategy!.id);
     expect(ownerEdge?.source).toBe(tradeId);

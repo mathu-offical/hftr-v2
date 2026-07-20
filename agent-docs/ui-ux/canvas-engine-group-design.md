@@ -1,8 +1,8 @@
 # Canvas ENGINE group + Math tool design (2026-07-17)
 
-**Status:** API/DB/contracts implemented; canvas parent-group wiring + delete modal + E2E **not verified**  
+**Status:** API/DB/contracts + canvas parent groups + delete modal implemented; Math TOOL dock chrome + some IronBee passes still open  
 **Decision:** D-028 (`dev-intent/decisions-log.md`)  
-**Related:** D-026 node dashboard (`canvas-node-dashboard-design.md`); D-023/D-024 engine templates + setup
+**Related:** D-026 node dashboard (`canvas-node-dashboard-design.md`); D-023/D-024 engine templates + setup; D-216 compound Engine Data Hub
 
 ## Goal
 
@@ -189,12 +189,13 @@ Contracts: `packages/contracts/src/engines.ts`.
 - [x] IronBee: Engine chrome + Master topic/sector visible on day-trading canvas; console checked
 - [x] Engine CRUD + cascade + delete modes (API handlers)
 - [x] `EngineGroupNode` component (isolated)
-- [ ] `CompanyCanvas` parent groups + engines API insert path
-- [ ] Delete modal (cascade vs ungroup) wired from group chrome
-- [ ] Inspector: `restoreEngineTopic` affordance for engine members
+- [x] `CompanyCanvas` parent groups + engines API insert path
+- [x] Delete modal (cascade vs ungroup) wired from group chrome
+- [x] Inspector: `restoreEngineTopic` affordance for engine members
 - [ ] Math TOOL dock chrome on consumer nodes
 - [ ] Playwright ARCH-004 (multi-engine + cascade/override)
 - [ ] IronBee: grouped layout, master topic save, delete modes, Math multi-attach
+- [ ] IronBee: D-216 hub shelves / dual sim analyzers (DevTools)
 
 ## Non-goals
 

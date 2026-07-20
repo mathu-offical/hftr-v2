@@ -29,11 +29,11 @@
 **Interfaces:**
 - Produces: `HubShelfOrigin`, `HubShelfStream`, `HubShelfKey`, `HubShelfOutput`, `EngineDataHubShelvesConfig`, `defaultEngineDataHubConfig()`, `hubShelfStreamId()`, `AnalyzerHubFeedClass`
 
-- [ ] **Step 1:** Add zod enums + default matrix (4 origins × 3 streams) + `topicFeed: { enabled: true }`
-- [ ] **Step 2:** Extend `LibraryModuleConfig` with optional shelves / shelfOutputs / topicFeed (defaults via helper on ensure)
-- [ ] **Step 3:** Extend `AnalyzerModuleConfig` with `hubFeedClass`, `hubShelfOrigin`, `hubShelfStream`
-- [ ] **Step 4:** Unit tests for defaults + streamId encoding
-- [ ] **Step 5:** `pnpm --filter @hftr/contracts test`
+- [x] **Step 1:** Add zod enums + default matrix (4 origins × 3 streams) + `topicFeed: { enabled: true }`
+- [x] **Step 2:** Extend `LibraryModuleConfig` with optional shelves / shelfOutputs / topicFeed (defaults via helper on ensure)
+- [x] **Step 3:** Extend `AnalyzerModuleConfig` with `hubFeedClass`, `hubShelfOrigin`, `hubShelfStream`
+- [x] **Step 4:** Unit tests for defaults + streamId encoding
+- [x] **Step 5:** `pnpm --filter @hftr/contracts test`
 
 ---
 
@@ -43,10 +43,10 @@
 - Modify: `packages/engine/src/engines/data-hub.ts`
 - Test: `packages/engine/src/engines/data-hub.test.ts` (create if missing)
 
-- [ ] **Step 1:** On create/update hub module config, merge `defaultEngineDataHubConfig()`
-- [ ] **Step 2:** Idempotent: do not wipe operator-enabled `shelfOutputs`
-- [ ] **Step 3:** Tests for seed + merge
-- [ ] **Step 4:** `pnpm --filter @hftr/engine test -- data-hub`
+- [x] **Step 1:** On create/update hub module config, merge `defaultEngineDataHubConfig()`
+- [x] **Step 2:** Idempotent: do not wipe operator-enabled `shelfOutputs`
+- [x] **Step 3:** Tests for seed + merge
+- [x] **Step 4:** `pnpm --filter @hftr/engine test -- data-hub`
 
 ---
 
@@ -58,9 +58,9 @@
 - Modify: `packages/engine/src/handlers/analyzer-concat.ts` (call when analyzed)
 - Test: `packages/engine/src/engines/data-hub-topic-feed.test.ts`
 
-- [ ] **Step 1:** `ingestHubTopicCandidate({ db, companyId, hubModuleId, title, provenance, feedClass })` — creates/refreshes `research_topics` when topicFeed.enabled
-- [ ] **Step 2:** Wire analyzer.concat for `hubFeedClass === 'analyzed'` when target is hub
-- [ ] **Step 3:** Unit tests (enabled/disabled, dedupe by title)
+- [x] **Step 1:** `ingestHubTopicCandidate({ db, companyId, hubModuleId, title, provenance, feedClass })` — creates/refreshes `research_topics` when topicFeed.enabled
+- [x] **Step 2:** Wire analyzer.concat for `hubFeedClass === 'analyzed'` when target is hub
+- [x] **Step 3:** Unit tests (enabled/disabled, dedupe by title)
 
 ---
 
@@ -70,9 +70,9 @@
 - Modify: `packages/contracts/src/templates.ts` (`sim_gate_*`, `sim_train_*`, `sim_adhoc_*`)
 - Test: `packages/contracts/src/contracts.test.ts` (assert two analyzers + hubFeedClass)
 
-- [ ] **Step 1:** Add Direct + Analyzed analyzers; fix link indices
-- [ ] **Step 2:** Tests that each default sim template has both feed classes
-- [ ] **Step 3:** Run contracts tests
+- [x] **Step 1:** Add Direct + Analyzed analyzers; fix link indices
+- [x] **Step 2:** Tests that each default sim template has both feed classes
+- [x] **Step 3:** Run contracts tests
 
 ---
 
@@ -87,14 +87,22 @@
 - Modify: `docs/superpowers/specs/2026-07-18-engine-data-hub-design.md` (pointer to D-216)
 - Modify: `docs/superpowers/specs/2026-07-19-simulation-engine-templates-design.md` (dual analyzers)
 
-- [ ] **Step 1:** Log D-216 + sync owning docs
-- [ ] **Step 2:** Mark success criteria in design spec as code lands
+- [x] **Step 1:** Log D-216 + sync owning docs
+- [x] **Step 2:** Mark success criteria in design spec as code lands
 
 ---
 
 ### Task 6: Verify
 
-- [ ] `pnpm --filter @hftr/contracts test`
-- [ ] `pnpm --filter @hftr/engine test -- data-hub`
-- [ ] Typecheck affected packages
+- [x] `pnpm --filter @hftr/contracts test` (D-216 focused suites)
+- [x] `pnpm --filter @hftr/engine test -- data-hub`
+- [x] Typecheck affected packages (hub files clean)
 - [ ] IronBee browser smoke when DevTools available (hub visible on canvas)
+
+### Follow-ups landed after plan (also D-216)
+
+- [x] Migration `0047` + `wireShelfOutputs`
+- [x] `bindSimAnalyzersToHub` + sim-parent ensure on insert
+- [x] Hub inspector shelf outs / topic feed; HubDirect/HubAnalyzed labels
+- [x] Mirror hub topics onto attached research packs
+- [x] Create-form preview hub seeds compound config

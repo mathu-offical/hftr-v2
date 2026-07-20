@@ -113,6 +113,43 @@ describe('decision-node graph placement (D-192 / D-180 / D-219)', () => {
     },
   ];
 
+  it('honors saved decisionNodeCanvasPositions when unpinned (D-220)', () => {
+    const all = buildOptionAnchorsForEngine({
+      engineId: engine.id,
+      templateId: engine.templateId,
+      members: modules.map((m) => ({
+        id: m.id,
+        type: m.type,
+        ...(m.config ? { config: m.config } : {}),
+      })),
+    });
+    const pipeline = all.find(
+      (a) => a.kind === 'branch_role' && a.ownerModuleId === researcherId,
+    );
+    expect(pipeline).toBeTruthy();
+    const withSaved: CanvasEngineGroup = {
+      ...engine,
+      setupSnapshot: {
+        topicSectors: [],
+        allocationMode: 'amount',
+        allocationValue: '',
+        targetExitLocal: '',
+        decisionNodeCanvasPositions: {
+          [pipeline!.id]: { x: 640, y: 280 },
+        },
+      },
+    };
+    const placed = placeOptionAnchorNodes(
+      withSaved,
+      withSaved.canvasBounds!.width,
+      all,
+      modules,
+    );
+    const node = placed.find((n) => n.id === pipeline!.id);
+    expect(node?.position).toEqual({ x: 640, y: 280 });
+    expect(node?.draggable).toBe(true);
+  });
+
   it('docks owned roots immediately after their parent module (D-219)', () => {
     const all = buildOptionAnchorsForEngine({
       engineId: engine.id,

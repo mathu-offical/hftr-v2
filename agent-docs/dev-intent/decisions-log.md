@@ -2223,6 +2223,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   envelopes breathe. Extends D-217 / D-218. Docs: canvas-engine-group-design,
   canvas-layout-and-dedicated-math-design, ui-spec §3. **Status: implemented.**
 
+- **D-220 (unpinned decision nodes + canvas XY persistence, 2026-07-20):**
+  Decision nodes are **draggable** (`draggable: true`, `expandParent: true`) — not
+  pinned. Default placement still docks after the owning parent (screenshot-style:
+  Decision branch / recovery after the desk column). Operator moves persist in
+  `setupSnapshot.decisionNodeCanvasPositions` (parent-relative XY) and win on
+  sync; canvas/engine **Reflow** clears those overrides so defaults reapply.
+  Extends D-219. Docs: canvas-engine-group-design, ui-spec §3.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

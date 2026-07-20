@@ -172,6 +172,13 @@ export const EngineSetupSnapshot = z.object({
     .record(z.string(), z.enum(['min', 'typical', 'max']))
     .optional(),
   /**
+   * D-220: operator-dragged canvas XY for decision nodes (parent-relative).
+   * Absent entries use default parent-after placement on sync/reflow.
+   */
+  decisionNodeCanvasPositions: z
+    .record(z.string(), z.object({ x: z.number(), y: z.number() }))
+    .optional(),
+  /**
    * D-192: last-synced unified decision nodes (options + selection on each node).
    * Supersedes optionAnchors for new canvas surfaces; legacy field kept for compat.
    */

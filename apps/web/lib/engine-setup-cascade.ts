@@ -63,6 +63,9 @@ export function engineSetupSnapshotFromInput(
     ...(previous?.optionAnchorPositions
       ? { optionAnchorPositions: previous.optionAnchorPositions }
       : {}),
+    ...(previous?.decisionNodeCanvasPositions
+      ? { decisionNodeCanvasPositions: previous.decisionNodeCanvasPositions }
+      : {}),
     ...(previous?.decisionNodes ? { decisionNodes: previous.decisionNodes } : {}),
     ...(previous?.decisionOptionSelections
       ? { decisionOptionSelections: previous.decisionOptionSelections }

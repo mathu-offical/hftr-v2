@@ -1586,7 +1586,23 @@ export function CompanyCanvas(props: {
 
   const applyLayoutResult = useCallback(
     (layout: LayoutResult) => {
-      setNodes((current) => applyLayoutToNodes(current, layout));
+      setNodes((current) => {
+        // Reflow resets unpinned decision XY so defaults dock after parents again (D-220).
+        const cleared = current.map((n) => {
+          if (!isEngineGroupNode(n) || !n.data.setupSnapshot?.decisionNodeCanvasPositions) {
+            return n;
+          }
+          const { decisionNodeCanvasPositions: _cleared, ...rest } = n.data.setupSnapshot;
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              setupSnapshot: rest,
+            },
+          };
+        });
+        return applyLayoutToNodes(cleared, layout);
+      });
     },
     [setNodes],
   );
@@ -1661,6 +1677,19 @@ export function CompanyCanvas(props: {
       applyLayoutResult(layout);
 
       try {
+        const prev = engineNode.data.setupSnapshot ?? {
+          topicSectors: engineNode.data.masterTopicSectors,
+          allocationMode: 'amount' as const,
+          allocationValue: '',
+          targetExitLocal: '',
+        };
+        const { decisionNodeCanvasPositions: _cleared, ...snapRest } = prev;
+        await api(`/api/companies/${props.companyId}/engines/${engineId}`, {
+          method: 'PATCH',
+          body: {
+            setupSnapshot: snapRest,
+          },
+        });
         await api(`/api/companies/${props.companyId}/canvas/layout`, {
           method: 'PATCH',
           body: {
@@ -1722,6 +1751,15 @@ export function CompanyCanvas(props: {
     applyLayoutResult(layout);
 
     try {
+      for (const eng of engineNodes) {
+        const prev = eng.data.setupSnapshot;
+        if (!prev?.decisionNodeCanvasPositions) continue;
+        const { decisionNodeCanvasPositions: _cleared, ...snapRest } = prev;
+        await api(`/api/companies/${props.companyId}/engines/${eng.id}`, {
+          method: 'PATCH',
+          body: { setupSnapshot: snapRest },
+        });
+      }
       await api(`/api/companies/${props.companyId}/canvas/layout`, {
         method: 'PATCH',
         body: {
@@ -1967,6 +2005,68 @@ export function CompanyCanvas(props: {
           });
         } catch {
           flash('Could not save Math tool position.');
+        }
+        return;
+      }
+
+      // D-220: unpinned decision nodes — persist parent-relative canvas XY.
+      if (isOptionAnchorNode(node)) {
+        const engineId =
+          node.data.ownerEngineId ??
+          (typeof node.parentId === 'string' ? node.parentId : null) ??
+          (typeof node.id === 'string' ? node.id.split(':')[0] : null);
+        if (!engineId) return;
+        const x = Math.round(node.position.x);
+        const y = Math.round(node.position.y);
+        setNodes((current) => {
+          const patched = current.map((n) => {
+            if (!isEngineGroupNode(n) || n.id !== engineId) return n;
+            const prevSnap = n.data.setupSnapshot ?? {
+              topicSectors: n.data.masterTopicSectors,
+              allocationMode: 'amount' as const,
+              allocationValue: '',
+              targetExitLocal: '',
+            };
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                setupSnapshot: {
+                  ...prevSnap,
+                  decisionNodeCanvasPositions: {
+                    ...(prevSnap.decisionNodeCanvasPositions ?? {}),
+                    [node.id]: { x, y },
+                  },
+                },
+              },
+            };
+          });
+          return withSyncedOptionAnchors(patched).nodes;
+        });
+        try {
+          const eng = nodes.find(
+            (n): n is EngineGroupFlowNode => isEngineGroupNode(n) && n.id === engineId,
+          );
+          const prev = eng?.data.setupSnapshot ?? {
+            topicSectors: eng?.data.masterTopicSectors ?? [],
+            allocationMode: 'amount' as const,
+            allocationValue: '',
+            targetExitLocal: '',
+          };
+          await api(`/api/companies/${props.companyId}/engines/${engineId}`, {
+            method: 'PATCH',
+            body: {
+              setupSnapshot: {
+                ...prev,
+                decisionNodeCanvasPositions: {
+                  ...(prev.decisionNodeCanvasPositions ?? {}),
+                  [node.id]: { x, y },
+                },
+              },
+            },
+          });
+        } catch {
+          flash('Could not save decision position.');
         }
         return;
       }

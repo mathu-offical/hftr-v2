@@ -135,8 +135,8 @@
   are limited to output-routing `CANVAS_PRIMARY_DECISION_KINDS` (D-217: strategy / branch /
   recovery / emit / feed); intakes and option outs are typed by info nature (data / system /
   clock; `routeNature` / `routeLabel`). Decisions dock immediately after their parent module
-  (D-219); gutters clear the next lane. Sector focus prefills `topicScope` / `focus`
-  template inputs on create and insert.
+  by default and are draggable (not pinned; D-220). Gutters clear the next lane. Sector
+  focus prefills `topicScope` / `focus` template inputs on create and insert.
 - **Math tools (D-028 / D-033 / D-042):** additional Math modules may be created from the palette and
   deleted; each may `data_feed`-attach to allowed consumer types. Dedicated Math tools render as
   compact nodes with **data handles on top** (owner connection) and **fund handles left→right**.

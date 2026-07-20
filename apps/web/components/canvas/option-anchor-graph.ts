@@ -131,8 +131,10 @@ function pushDecisionNode(
     id: anchor.id,
     type: 'decisionNode',
     parentId: engine.id,
-    expandParent: false,
-    draggable: false,
+    /** Grow engine chrome when the operator drags a decision past the edge. */
+    expandParent: true,
+    /** D-220: not pinned — operator may rearrange; defaults still dock after parent. */
+    draggable: true,
     selectable: true,
     position: { x, y },
     zIndex: 2,
@@ -156,12 +158,11 @@ function pushDecisionNode(
 }
 
 /**
- * Place canvas-visible decision nodes (D-192 / D-219):
+ * Place canvas-visible decision nodes (D-192 / D-219 / D-220):
  * - One card per choice point (options are config, not child cards)
- * - Owned decisions dock **immediately after** their parent module
- *   (owner.x + moduleWidth + decisionOwnerGap), stacked vertically per dock X
- * - Falls back to the reserved right column when the dock would overflow chrome
- * - Unowned roots stack in the engine right column
+ * - Default: dock **immediately after** the parent module, stack by kind priority
+ * - Operator canvas XY in `setupSnapshot.decisionNodeCanvasPositions` wins (unpinned)
+ * - Overflow clamps into the reserved right column, still aligned to parent Y
  */
 export function placeOptionAnchorNodes(
   engine: CanvasEngineGroup,
@@ -173,7 +174,10 @@ export function placeOptionAnchorNodes(
   const visible = canvasVisibleOptionAnchors(allAnchors);
   if (visible.length === 0) return [];
 
-  const positions = positionsMap(engine);
+  const bandPositions = positionsMap(engine);
+  const savedCanvas =
+    engine.setupSnapshot?.decisionNodeCanvasPositions ??
+    ({} as Record<string, { x: number; y: number }>);
   const memberPos = relativeMemberPositions(engine, modules, relativeFromNodes);
   const nodes: DecisionFlowNode[] = [];
   const placed = new Set<string>();
@@ -189,8 +193,20 @@ export function placeOptionAnchorNodes(
   const ownedRoots = roots.filter((anchor) => anchor.ownerModuleId);
   const freeRoots = roots.filter((anchor) => !anchor.ownerModuleId);
 
+  // Operator-saved canvas positions first (unpinned rearrangements).
+  for (const root of roots) {
+    const saved = savedCanvas[root.id];
+    if (!saved) continue;
+    if (placed.has(root.id)) continue;
+    placed.add(root.id);
+    const band = bandPositions[root.id] ?? root.defaultPosition ?? 'typical';
+    pushDecisionNode(nodes, engine, root, saved.x, saved.y, band, false);
+    columnY = Math.max(columnY, saved.y + nodeHeightFor(root) + OPTION_ANCHOR_GAP);
+  }
+
   const byOwner = new Map<string, OptionAnchorSpec[]>();
   for (const root of ownedRoots) {
+    if (placed.has(root.id)) continue;
     const ownerId = root.ownerModuleId!;
     const list = byOwner.get(ownerId) ?? [];
     list.push(root);
@@ -224,12 +240,12 @@ export function placeOptionAnchorNodes(
     for (const root of orderedRoots) {
       if (placed.has(root.id)) continue;
       placed.add(root.id);
-      // Align primary decisions to the parent card Y when the dock column is clear.
-      if (rootKindPriority(root.kind) === 0 && owner) {
-        dockY = Math.max(owner.y, stackTop);
+      // Align stack to parent Y (screenshot: Decision branch / recovery after desk).
+      if (owner) {
+        dockY = Math.max(owner.y, dockY === stackTop ? owner.y : dockY, stackTop);
       }
-      const position = positions[root.id] ?? root.defaultPosition ?? 'typical';
-      pushDecisionNode(nodes, engine, root, dockX, dockY, position, clampedToColumn);
+      const band = bandPositions[root.id] ?? root.defaultPosition ?? 'typical';
+      pushDecisionNode(nodes, engine, root, dockX, dockY, band, clampedToColumn);
       dockY += nodeHeightFor(root) + OPTION_ANCHOR_GAP;
     }
     dockXCursor.set(dockX, dockY);
@@ -239,15 +255,15 @@ export function placeOptionAnchorNodes(
   for (const root of freeRoots) {
     if (placed.has(root.id)) continue;
     placed.add(root.id);
-    const position = positions[root.id] ?? root.defaultPosition ?? 'typical';
-    pushDecisionNode(nodes, engine, root, columnX, columnY, position);
+    const band = bandPositions[root.id] ?? root.defaultPosition ?? 'typical';
+    pushDecisionNode(nodes, engine, root, columnX, columnY, band);
     columnY += nodeHeightFor(root) + OPTION_ANCHOR_GAP;
   }
 
   for (const anchor of visible) {
     if (placed.has(anchor.id)) continue;
-    const position = positions[anchor.id] ?? anchor.defaultPosition ?? 'typical';
-    pushDecisionNode(nodes, engine, anchor, columnX, columnY, position);
+    const band = bandPositions[anchor.id] ?? anchor.defaultPosition ?? 'typical';
+    pushDecisionNode(nodes, engine, anchor, columnX, columnY, band);
     columnY += nodeHeightFor(anchor) + OPTION_ANCHOR_GAP;
     placed.add(anchor.id);
   }

@@ -40,7 +40,9 @@ import {
   applyStripPlacementOverride,
   layoutStepsByMatrix,
   resolveStripLayoutMode,
+  staggerStripCell,
   stripLaneKey,
+  STRIP_STAGGER,
 } from './market-posture-strip-placement';
 
 export { resolveStageScreenId };
@@ -48,9 +50,11 @@ export type { MarketPostureStageScreenId };
 export {
   STRIP_NODE_PLACEMENT_OVERRIDES,
   STRIP_ROUTE_LAYOUT,
+  STRIP_STAGGER,
   applyStripPlacementOverride,
   layoutStepsByMatrix,
   resolveStripLayoutMode,
+  staggerStripCell,
   stripLaneKey,
 } from './market-posture-strip-placement';
 
@@ -1849,7 +1853,9 @@ export const STRIP_NODE_W = 118;
 const STRIP_PAD = 12;
 const STRIP_HEADER = 26;
 /** Default pitch between sibling nodes in the same transfer hop column. */
-const STRIP_INNER_GAP = 22;
+const STRIP_INNER_GAP = 28;
+/** Vertical gap between stacked siblings — room for ortho elbows. */
+const STRIP_STACK_GAP = 10;
 /** Max role lanes inside a screen group (src → adapt → process → stage → emit). */
 const STRIP_INNER_LANES = 5;
 const STRIP_INNER_LANE_W = STRIP_NODE_W + STRIP_INNER_GAP;
@@ -1904,8 +1910,6 @@ const PROCESS_FN_ORDER: Record<string, number> = {
 /** Vertical rhythm between route rows. */
 const STRIP_CLUSTER_GAP = 16;
 const STRIP_CLUSTER_HEADER = 20;
-/** Gap between stacked nodes in the same band/column. */
-const STRIP_STACK_GAP = 6;
 
 /**
  * Function bands for natural L→R placement (not equal-width edge levels).
@@ -2154,9 +2158,16 @@ export function layoutStepsByTransfer(
   const sortedLevels = [...byLevel.keys()].sort((a, b) => a - b);
   for (const L of sortedLevels) {
     const members = byLevel.get(L) ?? [];
-    const x = columnOrigins[L] ?? L * (STRIP_NODE_W + STRIP_INNER_GAP);
+    const baseX = columnOrigins[L] ?? L * (STRIP_NODE_W + STRIP_INNER_GAP);
     members.forEach((m, stackIdx) => {
-      const y = stackIdx * (STRIP_NODE_H + STRIP_STACK_GAP);
+      const baseY = stackIdx * (STRIP_NODE_H + STRIP_STACK_GAP);
+      const { x, y } = staggerStripCell({
+        col: L,
+        row: stackIdx,
+        stackIdx,
+        baseX,
+        baseY,
+      });
       positions.set(m.id, { x, y });
       hops.set(m.id, L + 1);
       maxX = Math.max(maxX, x + STRIP_NODE_W);
@@ -2303,9 +2314,16 @@ export function layoutStepsByFunction(
     let localCol = 0;
     for (const L of sortedLevels) {
       const colMembers = (levelCols.get(L) ?? []).sort(sortProcessStepsInCluster);
-      const x = originX + localCol * (STRIP_NODE_W + STRIP_INNER_GAP);
+      const baseX = originX + localCol * (STRIP_NODE_W + STRIP_INNER_GAP);
       colMembers.forEach((m, stackIdx) => {
-        const y = stackIdx * (STRIP_NODE_H + STRIP_STACK_GAP);
+        const baseY = stackIdx * (STRIP_NODE_H + STRIP_STACK_GAP);
+        const { x, y } = staggerStripCell({
+          col: localCol,
+          row: stackIdx,
+          stackIdx,
+          baseX,
+          baseY,
+        });
         positions.set(m.id, { x, y });
         maxX = Math.max(maxX, x + STRIP_NODE_W);
         maxY = Math.max(maxY, y + STRIP_NODE_H);
@@ -2894,12 +2912,12 @@ function packProcessScreenColumn(opts: {
             nodeW: STRIP_NODE_W,
             nodeH: STRIP_NODE_H,
             gapX: STRIP_INNER_GAP,
-            gapY: STRIP_STACK_GAP + 8,
+            gapY: STRIP_STACK_GAP + 10,
           })
         : layoutStepsByTransfer(steps, edges, transferOrigins);
-    const clusterW = STRIP_PAD * 2 + layout.width;
+    const clusterW = STRIP_PAD * 2 + layout.width + STRIP_STAGGER.x;
     const clusterH =
-      STRIP_CLUSTER_HEADER + STRIP_PAD * 2 + layout.height;
+      STRIP_CLUSTER_HEADER + STRIP_PAD * 2 + layout.height + STRIP_STAGGER.y;
     maxClusterW = Math.max(maxClusterW, clusterW);
 
     const orderedSteps = [...steps].sort((a, b) => {
@@ -2937,12 +2955,14 @@ function packProcessScreenColumn(opts: {
       (fnSummary ||
         (roleBits.length > 1 ? roleBits.join(' → ') : 'process chain'));
 
+    // Alternate cluster frames so rail↔rail vertical bridges clear channels.
+    const clusterStaggerX = (routeIdx % 2) * STRIP_STAGGER.x * 2;
     out.push({
       id: clusterId,
       type: 'postureGroup',
       parentId: groupId,
       extent: 'parent',
-      position: { x: STRIP_PAD, y: cursorY },
+      position: { x: STRIP_PAD + clusterStaggerX, y: cursorY },
       style: { width: clusterW, height: clusterH },
       draggable: false,
       selectable: true,
@@ -3328,9 +3348,16 @@ export function applyStripScreenGroups(
           const colMembers = (byTier.get(tier) ?? []).sort((a, b) =>
             a.data.label.localeCompare(b.data.label),
           );
-          const x = originX + colIdx * (STRIP_NODE_W + STRIP_INNER_GAP);
+          const baseX = originX + colIdx * (STRIP_NODE_W + STRIP_INNER_GAP);
           colMembers.forEach((m, stackIdx) => {
-            const y = stackIdx * (STRIP_NODE_H + STRIP_STACK_GAP);
+            const baseY = stackIdx * (STRIP_NODE_H + STRIP_STACK_GAP);
+            const { x, y } = staggerStripCell({
+              col: colIdx,
+              row: stackIdx,
+              stackIdx,
+              baseX,
+              baseY,
+            });
             positions.set(m.id, { x, y });
             maxX = Math.max(maxX, x + STRIP_NODE_W);
             maxY = Math.max(maxY, y + STRIP_NODE_H);
@@ -3414,7 +3441,8 @@ export function applyStripScreenGroups(
       STRIP_HEADER +
       STRIP_PAD * 2 +
       maxRows * STRIP_NODE_H +
-      Math.max(0, maxRows - 1) * STRIP_STACK_GAP;
+      Math.max(0, maxRows - 1) * STRIP_STACK_GAP +
+      STRIP_STAGGER.y;
     const groupId = `group:${screen.id}`;
     const width = Math.max(STRIP_COL_W - 12, groupInnerW);
 
@@ -3444,17 +3472,21 @@ export function applyStripScreenGroups(
 
     alignedLanes.forEach((lane, laneIdx) => {
       lane.forEach((child, rowIdx) => {
+        const baseX = STRIP_PAD + laneIdx * innerLaneW;
+        const baseY =
+          STRIP_HEADER + STRIP_PAD + rowIdx * (STRIP_NODE_H + STRIP_STACK_GAP);
+        const { x, y } = staggerStripCell({
+          col: laneIdx,
+          row: rowIdx,
+          stackIdx: 0,
+          baseX,
+          baseY,
+        });
         out.push({
           ...child,
           parentId: groupId,
           extent: 'parent',
-          position: {
-            x: STRIP_PAD + laneIdx * innerLaneW,
-            y:
-              STRIP_HEADER +
-              STRIP_PAD +
-              rowIdx * (STRIP_NODE_H + STRIP_STACK_GAP),
-          },
+          position: { x, y },
           draggable: false,
           data: {
             ...child.data,

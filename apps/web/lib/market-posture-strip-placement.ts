@@ -2,6 +2,7 @@
  * Flexible, bespoke Model-strip placement recipes (D-186).
  * Linear hop chains for single-lane routes; matrix (lane × function) for
  * multi-provider routes like news_headline — plus optional per-node nudges.
+ * Brick stagger opens ortho copper channels between hops/lanes.
  */
 
 import type { PostureAlgoGraphNode } from './market-posture-algorithm-graph';
@@ -26,6 +27,39 @@ export const STRIP_NODE_PLACEMENT_OVERRIDES: Record<
   // Keep capital emit cards from sitting on narrative seal.
   'panel:positions': { dx: 140, dy: 0 },
 };
+
+/**
+ * PCB-aligned brick stagger (multiples of channel pitch 6).
+ * Odd columns drop; odd rows shift right; stack siblings fan out —
+ * keeps H-V-H / V-H-V traces off shared rails.
+ */
+export const STRIP_STAGGER = {
+  x: 6,
+  y: 12,
+} as const;
+
+/**
+ * Offset a grid cell so adjacent hops/lanes do not share the same copper channel.
+ */
+export function staggerStripCell(opts: {
+  col: number;
+  row: number;
+  stackIdx?: number;
+  baseX: number;
+  baseY: number;
+}): { x: number; y: number } {
+  const stack = opts.stackIdx ?? 0;
+  return {
+    x:
+      opts.baseX +
+      (opts.row % 2) * STRIP_STAGGER.x +
+      stack * STRIP_STAGGER.x,
+    y:
+      opts.baseY +
+      (opts.col % 2) * STRIP_STAGGER.y +
+      Math.floor(stack / 2) * (STRIP_STAGGER.y / 2),
+  };
+}
 
 const MATRIX_FN_ORDER: Record<string, number> = {
   fetch: 0,
@@ -163,9 +197,16 @@ export function layoutStepsByMatrix(
     const stackKey = `${row}:${col}`;
     const stack = cellStack.get(stackKey) ?? 0;
     cellStack.set(stackKey, stack + 1);
-    const x = col * (cell.nodeW + cell.gapX);
-    const y =
+    const baseX = col * (cell.nodeW + cell.gapX);
+    const baseY =
       row * (cell.nodeH + cell.gapY) + stack * Math.floor(cell.nodeH * 0.35);
+    const { x, y } = staggerStripCell({
+      col,
+      row,
+      stackIdx: stack,
+      baseX,
+      baseY,
+    });
     positions.set(step.id, { x, y });
     hops.set(step.id, col + 1);
     maxX = Math.max(maxX, x + cell.nodeW);

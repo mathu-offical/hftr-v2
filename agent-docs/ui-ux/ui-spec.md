@@ -386,7 +386,9 @@ are ignored. Shortcuts are suppressed in editable fields.
   stack in pipeline order; steps within a route use **transfer hops** (L→R connection
   order / semantic source→adapter→process when edges are incomplete) with handoff-sized
   gaps — no empty mid-band holes; multi-provider routes (`news_headline`, web_search,
-  filings) use a **lane × function matrix** (not a long hop mash); hop badges + short
+  multi-provider routes (`news_headline`, web_search, filings) use a **lane × function matrix**
+  (not a long hop mash) with **brick stagger** (odd columns drop / odd rows shift) so
+  ortho copper channels stay clear; hop badges + short
   edge transfer labels on the strip;
   wires are **circuit-board copper traces** (`postureOrtho` / PCB doglegs with
   channel-snapped vias + pads) — not freeform spaghetti; cross-route / inter-cluster

@@ -4,7 +4,9 @@ import {
   resolveStripLayoutMode,
   stripLaneKey,
   applyStripPlacementOverride,
+  staggerStripCell,
   STRIP_NODE_PLACEMENT_OVERRIDES,
+  STRIP_STAGGER,
 } from './market-posture-strip-placement';
 import type { PostureAlgoGraphNode } from './market-posture-algorithm-graph';
 
@@ -67,13 +69,26 @@ describe('market-posture-strip-placement', () => {
       gapX: 22,
       gapY: 14,
     });
-    const xs = [...new Set([...layout.positions.values()].map((p) => p.x))];
-    const ys = [...new Set([...layout.positions.values()].map((p) => p.y))];
-    expect(xs).toHaveLength(4); // fetch → normalize → extract → corroborate
-    expect(ys).toHaveLength(3); // alpaca / finnhub / gdelt
+    const fetch = layout.positions.get('process:alpaca_news:fetch')!;
+    const norm = layout.positions.get('process:alpaca_news:normalize')!;
+    const finFetch = layout.positions.get('process:finnhub_news:fetch')!;
+    // 4 function columns L→R; brick stagger opens ortho channels.
+    expect(norm.x).toBeGreaterThan(fetch.x);
+    expect(norm.y).not.toBe(fetch.y);
+    expect(finFetch.y).toBeGreaterThan(fetch.y);
+    expect(finFetch.x).not.toBe(fetch.x);
     expect(layout.hops.get('process:alpaca_news:fetch')).toBe(1);
     expect(layout.hops.get('process:alpaca_news:corroborate')).toBe(4);
     expect(stripLaneKey(steps[0]!)).toBe('alpaca_news');
+  });
+
+  it('staggerStripCell bricks odd columns and rows', () => {
+    const a = staggerStripCell({ col: 0, row: 0, baseX: 0, baseY: 0 });
+    const b = staggerStripCell({ col: 1, row: 0, baseX: 100, baseY: 0 });
+    const c = staggerStripCell({ col: 0, row: 1, baseX: 0, baseY: 50 });
+    expect(a).toEqual({ x: 0, y: 0 });
+    expect(b.y).toBe(STRIP_STAGGER.y);
+    expect(c.x).toBe(STRIP_STAGGER.x);
   });
 
   it('applies placement overrides', () => {

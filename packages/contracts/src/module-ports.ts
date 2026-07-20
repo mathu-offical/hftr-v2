@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import { ModuleType } from './modules';
+import { ModuleType, type LinkKind } from './modules';
 
 export const ArtifactKind = z.enum([
   'live_quote_stream',
@@ -177,4 +177,61 @@ export function assertLegalArtifactWire(opts: {
     return { ok: false, reason: `illegal_artifact_flow_${opts.fromKind}_to_${opts.toKind}` };
   }
   return { ok: true };
+}
+
+/**
+ * Canonical artifact kinds for a canvas link (D-240).
+ * When ambiguous (generic data_feed), prefer first matching producer→consumer pair.
+ */
+export function resolveArtifactKindsForLink(opts: {
+  fromType: ModuleType;
+  toType: ModuleType;
+  linkKind: LinkKind;
+}): { fromKind: ArtifactKind; toKind: ArtifactKind } | null {
+  const { fromType, toType, linkKind } = opts;
+
+  if (linkKind === 'directive' && fromType === 'trend' && toType === 'trading') {
+    return { fromKind: 'lead_package', toKind: 'lead_package' };
+  }
+  if (linkKind === 'verification' && fromType === 'trading' && toType === 'analyzer') {
+    // Analyzer consumes action_instruction (same-kind handoff); verify_out is separate.
+    return { fromKind: 'action_instruction', toKind: 'action_instruction' };
+  }
+  if (linkKind === 'fund_route') {
+    return { fromKind: 'fund_route_intent', toKind: 'fund_route_intent' };
+  }
+
+  // data_feed / default: pick first legal same-kind or flow between declared ports.
+  const outs = portsForModuleType(fromType).filter((p) => p.direction === 'out');
+  const ins = portsForModuleType(toType).filter((p) => p.direction === 'in');
+  for (const out of outs) {
+    for (const inn of ins) {
+      if (out.artifactKind === inn.artifactKind) {
+        return { fromKind: out.artifactKind, toKind: inn.artifactKind };
+      }
+      if (isLegalArtifactFlow(out.artifactKind, inn.artifactKind)) {
+        return { fromKind: out.artifactKind, toKind: inn.artifactKind };
+      }
+    }
+  }
+
+  // Types with empty port tables (clock/time) — no artifact gate.
+  if (outs.length === 0 || ins.length === 0) return null;
+  return null;
+}
+
+/** Validate topology link against artifact ports when a pairing can be resolved. */
+export function assertLinkArtifactKinds(opts: {
+  fromType: ModuleType;
+  toType: ModuleType;
+  linkKind: LinkKind;
+}): { ok: true } | { ok: false; reason: string } {
+  const resolved = resolveArtifactKindsForLink(opts);
+  if (!resolved) return { ok: true }; // no semantic gate when unresolved
+  return assertLegalArtifactWire({
+    fromType: opts.fromType,
+    toType: opts.toType,
+    fromKind: resolved.fromKind,
+    toKind: resolved.toKind,
+  });
 }

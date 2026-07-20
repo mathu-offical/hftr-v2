@@ -57,6 +57,7 @@ import {
   humanizeResearchSourceKind,
   LiveApiModuleConfig,
   LibraryModuleConfig,
+  MathModuleConfig,
   isEngineDataHubConfig,
   resolveLiveApiSourceKind,
   resolveLiveApiQuery,
@@ -164,6 +165,30 @@ describe('HandoffEnvelope', () => {
       expiresAt: null,
     };
     expect(HandoffEnvelope.parse(envelope)).toMatchObject(envelope);
+  });
+
+  it('accepts optional composition lineage fields (D-244)', () => {
+    const envelope = HandoffEnvelope.parse({
+      contractVersion: '1.0.0',
+      producerRunId: null,
+      companyId: '00000000-0000-4000-8000-000000000001',
+      moduleId: '00000000-0000-4000-8000-000000000002',
+      authorityClass: 'DETERMINISTIC',
+      mutationClass: 'IMMUTABLE',
+      queueClass: 'DISPATCH',
+      priorityBand: 'HIGH',
+      timeoutClass: 'SHORT',
+      idempotencyKey: 'compose-lineage',
+      replayHash: null,
+      controlSnapshotRef: null,
+      causationRefs: [],
+      expiresAt: null,
+      compositionPlanId: '00000000-0000-4000-8000-000000000003',
+      decisionTreeRef: '00000000-0000-4000-8000-000000000004',
+      legRole: 'primary_entry',
+    });
+    expect(envelope.compositionPlanId).toBe('00000000-0000-4000-8000-000000000003');
+    expect(envelope.legRole).toBe('primary_entry');
   });
 });
 
@@ -2141,6 +2166,18 @@ describe('canvas layout (D-033)', () => {
     // D-245: +1 engine_math_hub per engine (+3 here vs D-227 baseline).
     expect(slots).toBe(39);
     expect(slots).toBeLessThanOrEqual(MAX_MODULES_PER_COMPANY);
+  });
+
+  it('adds one engine_math_hub slot per engine and defaults Math to engine hub (D-245)', () => {
+    expect(MathModuleConfig.parse({}).mathType).toBe('engine_math_hub');
+    for (const engine of ENGINE_TEMPLATES) {
+      const types = engine.modules.map((module) => module.type);
+      const slots = projectedModuleSlotsForCreate({ engineModuleTypes: [types] });
+      const dedicated = types.filter((type) => moduleProvisionsDedicatedMath(type)).length;
+      // Master Clock + members + dedicated Math + one engine_math_hub (no company Math).
+      expect(slots).toBe(1 + types.length + dedicated + 1);
+      expect(types.filter((type) => type === 'math')).toHaveLength(0);
+    }
   });
 
   it('docks fund_path Math under fund_router after funds shelf (D-227)', () => {

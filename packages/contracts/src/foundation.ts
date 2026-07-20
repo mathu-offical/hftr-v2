@@ -101,5 +101,9 @@ export const HandoffEnvelope = z.object({
   controlSnapshotRef: z.string().uuid().nullable(),
   causationRefs: z.array(z.string()).default([]),
   expiresAt: z.string().datetime().nullable(),
+  /** D-244 optional composition lineage (jsonb-friendly; no DB column). */
+  compositionPlanId: z.string().uuid().optional(),
+  decisionTreeRef: z.string().uuid().optional(),
+  legRole: z.string().min(1).max(64).optional(),
 });
 export type HandoffEnvelope = z.infer<typeof HandoffEnvelope>;

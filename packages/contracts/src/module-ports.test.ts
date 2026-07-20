@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   assertLegalArtifactWire,
+  assertLinkArtifactKinds,
   isLegalArtifactFlow,
   moduleConsumesArtifact,
   moduleProducesArtifact,
   portsForModuleType,
+  resolveArtifactKindsForLink,
 } from './module-ports';
 
 describe('module-ports (D-240)', () => {
@@ -35,5 +37,42 @@ describe('module-ports (D-240)', () => {
       toKind: 'lead_package',
     });
     expect(good.ok).toBe(true);
+  });
+
+  it('resolves directive trend→trading to lead_package', () => {
+    expect(
+      resolveArtifactKindsForLink({
+        fromType: 'trend',
+        toType: 'trading',
+        linkKind: 'directive',
+      }),
+    ).toEqual({ fromKind: 'lead_package', toKind: 'lead_package' });
+    expect(
+      assertLinkArtifactKinds({
+        fromType: 'trend',
+        toType: 'trading',
+        linkKind: 'directive',
+      }).ok,
+    ).toBe(true);
+  });
+
+  it('allows holding_fund→fund_router fund_route (D-229)', () => {
+    expect(
+      assertLinkArtifactKinds({
+        fromType: 'holding_fund',
+        toType: 'fund_router',
+        linkKind: 'fund_route',
+      }).ok,
+    ).toBe(true);
+  });
+
+  it('allows verification trading→analyzer via action_instruction', () => {
+    expect(
+      assertLinkArtifactKinds({
+        fromType: 'trading',
+        toType: 'analyzer',
+        linkKind: 'verification',
+      }).ok,
+    ).toBe(true);
   });
 });

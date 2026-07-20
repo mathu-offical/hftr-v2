@@ -2304,6 +2304,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   same-screen links become exit elbows. Extends D-186. Docs: ui-spec §4.
   **Status: implemented.**
 
+- **D-226 (Model strip shared-send fan-out taps, 2026-07-20):** Multiple targets from
+  one logical output share a single **send trunk** with **`send_tap`** pads along its
+  length and short branch spurs (`fanRole: trunk|branch`). Channel key =
+  `edgeType::verb::sourceHandle` (rail/exit bridges use class channels
+  `rail_bridge` / `section_exit`) so bundling follows output logic, not arbitrary
+  visual collapse. Applied after `finalizeStripEdges` via `bundleSendFanOut`.
+  Extends D-225. Docs: ui-spec §4.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

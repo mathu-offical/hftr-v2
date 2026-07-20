@@ -395,7 +395,11 @@ are ignored. Shortcuts are suppressed in editable fields.
   sections** use ortho **elbows** from rail **end** (Right `section-out`) to the
   next rail **start** (Left `section-in`) — never mid-rail Top/Bottom. Process
   rails are **horizontally staggered** (`stripRailStaggerX`) so end→start elbows
-  clear (D-225). Inter-route content collapses to **rail↔rail bridges** (`e-rail:…`) and
+  clear (D-225). **Shared sends** (`edgeType` + send verb + source handle) that
+  fan to multiple targets collapse to **one trunk** with **`send_tap` pads** along
+  its length and short branch spurs (`fanRole: trunk|branch`, D-226) — fewer
+  visible wires, keyed by output logic rather than per-target spaghetti.
+  Inter-route content collapses to **rail↔rail bridges** (`e-rail:…`) and
   **section-exit bridges** (`e-exit:…`, cluster/column Right → next section Left) so
   process-rail ends show how they feed the next stage column; plus adjacent
   screen-group backbones (`e-group:…`); strip uses FR4-tint

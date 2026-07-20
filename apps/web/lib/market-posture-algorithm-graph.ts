@@ -36,6 +36,7 @@ import {
   resolveStageScreenId,
   type MarketPostureStageScreenId,
 } from './market-posture-stage-screens';
+import { bundleSendFanOut } from './market-posture-send-fanout';
 import {
   applyStripPlacementOverride,
   layoutStepsByMatrix,
@@ -81,7 +82,9 @@ export type PostureAlgoNodeRole =
   /** Canvas research ENGINE that turns live feeds into library articles (D-214). */
   | 'research_engine'
   /** Article yield from a research ENGINE (D-214). */
-  | 'research_articles';
+  | 'research_articles'
+  /** Fan-out tap on a shared send trunk (D-226). */
+  | 'send_tap';
 
 export type PostureAlgoNodeData = {
   label: string;
@@ -143,6 +146,13 @@ export type PostureAlgoEdgeData = {
    * - elbow = ortho end→start between rails / sections
    */
   traceStyle?: 'flow' | 'elbow';
+  /**
+   * Shared-send fan-out (D-226): trunk follows the send path; branch is a
+   * tap spur to one target along that path.
+   */
+  fanRole?: 'trunk' | 'branch';
+  /** Output-logic channel key (`edgeType::verb::handle`). */
+  outputChannel?: string;
 };
 
 export type PostureAlgoTrackBand = {
@@ -1895,9 +1905,11 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
 
   if (layoutMode === 'stripExpanded') {
     const packed = applyStripScreenGroups(nodes, edges);
+    const finalized = finalizeStripEdges(edges, packed);
+    const bundled = bundleSendFanOut({ nodes: packed, edges: finalized });
     return {
-      nodes: packed,
-      edges: finalizeStripEdges(edges, packed),
+      nodes: bundled.nodes,
+      edges: bundled.edges,
       tracks,
       trackBands,
       asOfIso,
@@ -1939,6 +1951,8 @@ const STRIP_ROLE_ORDER: Record<PostureAlgoNodeRole, number> = {
   research_articles: 3,
   stage: 3,
   panel_surface: 4,
+  /** Taps sit on the send path — not packed into transfer lanes. */
+  send_tap: 8,
   lane_label: 9,
 };
 
@@ -3603,7 +3617,8 @@ export function finalizeStripEdges(
         (n) =>
           n.data.nodeRole !== 'screen_group' &&
           n.data.nodeRole !== 'process_cluster' &&
-          n.data.nodeRole !== 'lane_label',
+          n.data.nodeRole !== 'lane_label' &&
+          n.data.nodeRole !== 'send_tap',
       )
       .map((n) => n.id),
   );

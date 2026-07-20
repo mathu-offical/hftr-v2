@@ -118,6 +118,8 @@ function roleChrome(role: PostureAlgoNodeData['nodeRole']): string {
       return 'border-[var(--color-ok)] bg-[color-mix(in_srgb,var(--color-ok)_6%,var(--color-surface-1))]';
     case 'lane_label':
       return 'border-transparent bg-transparent shadow-none';
+    case 'send_tap':
+      return 'border-[color-mix(in_srgb,#c48a3a_70%,var(--color-line))] bg-[color-mix(in_srgb,#c48a3a_45%,var(--color-surface-0))]';
     case 'screen_group':
       return 'border-[var(--color-line)] bg-[var(--color-surface-1)]/80';
     default: {
@@ -247,6 +249,8 @@ function roleLabel(role: PostureAlgoNodeData['nodeRole']): string {
       return 'PANEL';
     case 'lane_label':
       return 'LANE';
+    case 'send_tap':
+      return 'SEND';
     case 'screen_group':
       return 'GROUP';
     default: {
@@ -594,6 +598,35 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
         <p className="mt-0.5 font-mono text-[7px] leading-tight text-[var(--color-ink-faint)]">
           {data.detail}
         </p>
+      </div>
+    );
+  }
+
+  if (data.nodeRole === 'send_tap') {
+    return (
+      <div
+        className="relative h-3 w-3 rounded-full border border-[color-mix(in_srgb,#c48a3a_80%,white)] bg-[color-mix(in_srgb,#c48a3a_55%,var(--color-surface-0))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,#0f2a1c_40%,transparent)]"
+        data-testid="market-posture-model-node-send_tap"
+        data-track={data.track}
+        title={`${data.label} · ${data.detail}`}
+        aria-label={`Send tap ${data.label} (${data.amount})`}
+      >
+        <Handle
+          type="target"
+          position={Position.Left}
+          className="!h-1 !w-1 !border-[var(--color-surface-0)] !bg-[#c48a3a]"
+        />
+        <Handle
+          type="source"
+          position={Position.Right}
+          className="!h-1 !w-1 !border-[var(--color-surface-0)] !bg-[#c48a3a]"
+        />
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          id="tap-out"
+          className="!h-1 !w-1 !border-[var(--color-surface-0)] !bg-[#e0b060]"
+        />
       </div>
     );
   }
@@ -1061,7 +1094,8 @@ function InnerCanvas(props: {
             ? ('pulsing' as const)
             : n.data.activation,
         },
-        selectable: n.data.nodeRole !== 'lane_label',
+        selectable:
+          n.data.nodeRole !== 'lane_label' && n.data.nodeRole !== 'send_tap',
       })),
     [graph.nodes, byStage, props.selectedNodeId, props.pulsedEdgeIds],
   );
@@ -1088,6 +1122,7 @@ function InnerCanvas(props: {
     for (const n of graph.nodes) {
       if (n.data.stageScreenId) screenById.set(n.id, n.data.stageScreenId);
       if (n.data.nodeRole === 'lane_label') continue;
+      if (n.data.nodeRole === 'send_tap') continue;
       metaById.set(n.id, {
         label: n.data.label,
         role: n.data.nodeRole,
@@ -1183,6 +1218,7 @@ function InnerCanvas(props: {
       onNodeClick={(_e, node) => {
         const data = node.data as LiveNodeData;
         if (data.nodeRole === 'lane_label') return;
+        if (data.nodeRole === 'send_tap') return;
         props.onSelectNode(node.id);
         if (data.nodeRole === 'screen_group' && data.stageScreenId) {
           props.onNavigate?.(

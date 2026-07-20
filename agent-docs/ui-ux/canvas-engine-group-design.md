@@ -206,8 +206,9 @@ Contracts: `packages/contracts/src/engines.ts`.
 Execution/sim engines with a trading desk seed `setup_snapshot.processStages` (fail-closed
 spine). Job handlers patch stage `status` (`idle`/`active`/`blocked`/`done`) via
 `patchProcessStagesForModule` — promote (lead/admission), tactical (tree/exec/compose),
-compile, dispatch, loop_refine. Canvas `processStageNode` reads the snapshot; UI does not
-drive status.
+compile, dispatch, loop_refine. Canvas `processStageNode` reads the snapshot; the 5s canvas
+poll refreshes statuses from `GET …/engines` (also runs D-245 math-hub backfill). RF node
+ids are `${engineId}:${stage.id}` so multiple engines do not collide.
 
 ## Non-goals
 

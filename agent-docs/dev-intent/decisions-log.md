@@ -2357,6 +2357,8 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Handlers patch `setup_snapshot.processStages[].status` via `patchProcessStagesForModule`
   (promote / tactical / compile / dispatch / loop_refine). Seeded on company create for
   execution/sim templates with a trading desk.
+  **Refine (2026-07-20):** canvas 5s poll merges engine `processStages` into RF nodes;
+  RF node ids are `${engineId}:${stage.id}` to avoid multi-engine collisions.
   **Status: verified** (contracts process-stages tests; API create day_trading → 8 stages;
   IronBee UI deferred — MCP not connected).
 
@@ -2384,6 +2386,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   slices ≠ composition legs. MVP `entry_only`. Jobs owned by trading module after ingest.
   `HandoffEnvelope` may carry `compositionPlanId` / `decisionTreeRef` / `legRole` (jsonb on
   instruction envelope; also compile_events.lineage).
+  **Refine (2026-07-20):** `enqueueLoopRefineFromInstruction` shared helper — reconcile
+  `no_fill` after N missing polls + terminal reject/cancel/expire; paper submit reject
+  enqueues refine; unsupported composition modes fail closed; refine merges lead
+  `controlSnapshot`.
   **Status: verified** (engine tests; envelope schema + compile.select persist).
 
 - **D-245 (Math hubs PER engine — no company Math hub, 2026-07-20):** Removes unowned

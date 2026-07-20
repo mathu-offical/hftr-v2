@@ -78,16 +78,16 @@ Layout uses measured React Flow node dimensions when available and conservative 
 | Module card floor | 220 × 168 px (D-088 density) |
 | Math tool | 180 × 40 px |
 | Owner → Math attachment gap | 12 px |
-| Horizontal / vertical gutters | 152 / 104 px (edge clearance between columns / stacked envelopes) |
+| Horizontal / vertical gutters | 248 / 120 px (clears right-column decisions + stacked envelopes; D-217) |
 | Engine chip process zones | research → data → trend → execution → verification (unused compress) |
 | Funds shelf gap under process | 48 px (`engineFundsShelfGap`) |
 | Time hub gap under envelope | 40 px (`engineTimeHubGap`; Time pinned bottom-left under funds when present) |
-| Group left/right padding | 88 px (utility ports + side handles) |
+| Group left/right padding | 88 / 232 px (utility ports; right reserves decision column — D-217 / D-218) |
 | Group header/top padding | 92 px (D-089 inline bounded header fields) |
 | Group bottom padding | 132 px (Math docks + funds + Time rail) |
-| Top-level engine gutter | 140 px — create/insert/reflow/drag-stop via `placeNextEngineOrigin` (D-176) |
-| Research → exec gap | 340 px (`researchToExecGap`) — Data Hub sits in this band (D-159 / D-176) |
-| Engine group right padding | 168 px — utility chrome + option-anchor column (D-173 / D-176) |
+| Top-level engine gutter | 160 px — create/insert/reflow/drag-stop via `placeNextEngineOrigin` (D-176 / D-217) |
+| Research → exec gap | 360 px (`researchToExecGap`) — Data Hub sits in this band (D-159 / D-176 / D-217) |
+| Decision column | All canvas decisions stack in reserved right column; bounds inflate via `inflateBoundsForEngineDecisions` (D-218) |
 | Canvas family stack | Research deps left → hub gap → execution right; families stack **vertically** (D-159) |
 | Math attachment | Single **Calc ref** (`math → owner` `data_feed`); info-type port labels (D-088) |
 

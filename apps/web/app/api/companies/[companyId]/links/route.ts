@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   allowedLinkKinds,
+  assertLinkArtifactKinds,
   CreateLinkInput,
   isLegalFundRoute,
   isLegalStreamPortPair,
@@ -59,6 +60,15 @@ export async function POST(req: Request, ctx: Ctx) {
       })
     ) {
       throw new ApiError(422, 'port_slot_not_allowed');
+    }
+    // D-240: artifact-kind allowlist when resolvable for this pair.
+    const artifactGate = assertLinkArtifactKinds({
+      fromType,
+      toType,
+      linkKind: input.linkKind,
+    });
+    if (!artifactGate.ok) {
+      throw new ApiError(422, artifactGate.reason);
     }
 
     const inserted = await db

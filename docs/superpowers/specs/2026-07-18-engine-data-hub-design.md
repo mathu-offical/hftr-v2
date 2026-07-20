@@ -36,3 +36,9 @@ Every **execution** engine instance owns a first-class **Engine Data Hub**: a sh
 ## Safety
 
 Fund routes remain Math-only. Returns carry qualitative text + ValueRef ids only — no raw financial numbers in model-facing payloads. No live-trading enablement.
+
+## Extension — compound shelves + live topic feed (D-216)
+
+See `docs/superpowers/specs/2026-07-20-engine-data-hub-compound-shelves-design.md`.
+Hub config seeds origin×stream shelves, optional per-shelf outs, and auto topic feed.
+Default sim ENGINEs use dual terminal analyzers (`hubFeedClass` direct + analyzed).

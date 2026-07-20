@@ -128,6 +128,10 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
 - **libraries** — company_id, optional module_id, name, topic_scope text, master_library flag,
   **D-140** `is_engine_data_hub`, `owner_engine_instance_id` (execution owner),
   `parent_hub_library_id` (nest under Engine Data Hub). Status active/archived + archived_at.
+  **D-216:** hub module config carries compound `shelves` (origin × stream), optional
+  `shelfOutputs` (per-shelf `data_out` + `shelf:{origin}:{stream}` streamId), and
+  `topicFeed.enabled` (live topic auto-feed, default true). Numeric/capital shelf content
+  is ValueRef-only; semantic topics may be auto-created from analyzed analyzer concat.
   Implemented (migration `0012` + `0046`).
   **library_concepts** join (library_id, concept_id, curation_status
   `proposed|accepted|auto_admitted|rejected|archived`). **D-040:** primary library membership

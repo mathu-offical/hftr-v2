@@ -2,14 +2,21 @@ import { and, eq, inArray } from 'drizzle-orm';
 import type { Db } from '@hftr/db';
 import {
   concepts,
+  engineInstances,
   engineUtilityLinks,
   libraries,
   libraryConcepts,
   moduleLinks,
   modules,
 } from '@hftr/db/schema';
-import { AnalyzerModuleConfig, type AnalyzerEmitMode } from '@hftr/contracts';
+import {
+  AnalyzerModuleConfig,
+  type AnalyzerEmitMode,
+  isEngineDataHubConfig,
+  SimulationEngineBinding,
+} from '@hftr/contracts';
 import { registerHandler } from './registry';
+import { ingestHubTopicCandidate } from '../engines/data-hub-topic-feed';
 import { z } from 'zod';
 
 const ConcatPayload = z.object({
@@ -188,6 +195,61 @@ registerHandler('analyzer.concat', async ({ db, clock, job }) => {
           })
           .onConflictDoNothing();
       }
+    }
+  }
+
+  // D-216: analyzed hub feeds auto-push topic candidates onto the Engine Data Hub.
+  if (config.hubFeedClass === 'analyzed') {
+    let hubModuleId: string | null = config.targetLibraryModuleId ?? null;
+    if (hubModuleId) {
+      const [hubMod] = await db
+        .select({ id: modules.id, config: modules.config })
+        .from(modules)
+        .where(and(eq(modules.id, hubModuleId), eq(modules.companyId, payload.companyId)))
+        .limit(1);
+      if (!hubMod || !isEngineDataHubConfig((hubMod.config ?? {}) as Record<string, unknown>)) {
+        hubModuleId = null;
+      }
+    }
+    if (!hubModuleId && engineId) {
+      let ownerEngineId = engineId;
+      const [eng] = await db
+        .select({ setupSnapshot: engineInstances.setupSnapshot })
+        .from(engineInstances)
+        .where(
+          and(eq(engineInstances.id, engineId), eq(engineInstances.companyId, payload.companyId)),
+        )
+        .limit(1);
+      const snap = (eng?.setupSnapshot ?? {}) as Record<string, unknown>;
+      const binding = SimulationEngineBinding.safeParse(snap.simulationBinding);
+      if (binding.success && binding.data.parentExecutionEngineId) {
+        ownerEngineId = binding.data.parentExecutionEngineId;
+      }
+      const [hubLib] = await db
+        .select({ moduleId: libraries.moduleId })
+        .from(libraries)
+        .where(
+          and(
+            eq(libraries.companyId, payload.companyId),
+            eq(libraries.isEngineDataHub, true),
+            eq(libraries.ownerEngineInstanceId, ownerEngineId),
+          ),
+        )
+        .limit(1);
+      if (hubLib?.moduleId) hubModuleId = hubLib.moduleId;
+    }
+    if (hubModuleId) {
+      await ingestHubTopicCandidate(
+        db,
+        {
+          companyId: payload.companyId,
+          hubModuleId,
+          title: packageDescriptor.slice(0, 200),
+          provenance: `analyzer.concat:${config.hubShelfOrigin ?? 'sim_training'}`,
+          feedClass: 'analyzed',
+        },
+        now,
+      );
     }
   }
 

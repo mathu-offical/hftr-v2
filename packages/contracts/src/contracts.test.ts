@@ -3050,4 +3050,45 @@ describe('CreateCompanyInput (D-043)', () => {
     expect(moduleFunctionLabel('library', parsed)).toBe('DataHub');
     expect(isEngineDataHubConfig(parsed)).toBe(true);
   });
+
+  it('default sim templates ship dual hub feed analyzers (D-216)', () => {
+    for (const id of [
+      'sim_gate_strategy_spread',
+      'sim_train_policy_replay',
+      'sim_adhoc_paper_desk',
+    ] as const) {
+      const tpl = ENGINE_TEMPLATES.find((engine) => engine.id === id);
+      expect(tpl).toBeDefined();
+      const analyzers = (tpl?.modules ?? []).filter((mod) => mod.type === 'analyzer');
+      expect(analyzers.length).toBeGreaterThanOrEqual(2);
+      const classes = new Set(
+        analyzers.map(
+          (mod) => (mod.config as { hubFeedClass?: string }).hubFeedClass,
+        ),
+      );
+      expect(classes.has('direct')).toBe(true);
+      expect(classes.has('analyzed')).toBe(true);
+    }
+  });
+
+  it('parses LibraryModuleConfig compound shelf fields (D-216)', () => {
+    const parsed = LibraryModuleConfig.parse({
+      topicScope: 'engine:data_hub',
+      libraryClass: 'engine_data_hub',
+      engineDataHub: true,
+      shelves: [{ origin: 'research_in', stream: 'semantic' }],
+      shelfOutputs: [
+        {
+          origin: 'research_in',
+          stream: 'semantic',
+          bus: 'data_out',
+          enabled: true,
+        },
+      ],
+      topicFeed: { enabled: true },
+    });
+    expect(parsed.shelves).toHaveLength(1);
+    expect(parsed.shelfOutputs?.[0]?.enabled).toBe(true);
+    expect(parsed.topicFeed?.enabled).toBe(true);
+  });
 });

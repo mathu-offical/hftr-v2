@@ -247,7 +247,7 @@ export {
   deleteEngineUtilityLink,
 } from './engines/utility-links';
 
-// D-140 Engine Data Hub
+// D-140 / D-216 Engine Data Hub
 export {
   ensureEngineDataHub,
   syncDataHubNests,
@@ -255,6 +255,12 @@ export {
   cleanupEngineDataHub,
   type EnsureEngineDataHubResult,
 } from './engines/data-hub';
+
+export {
+  ingestHubTopicCandidate,
+  type IngestHubTopicCandidateInput,
+  type IngestHubTopicCandidateResult,
+} from './engines/data-hub-topic-feed';
 
 export {
   bindResearchPackToHub,

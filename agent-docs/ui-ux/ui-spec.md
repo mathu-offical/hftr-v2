@@ -193,9 +193,10 @@
   `trend` / `trading` / `analyzer`, **Vault** / fund (`holding_fund`, `fund_router` — vault door,
   rivets, dial chrome; double border), **Tool** (Math, Clock, Time — Math tools share
   `MODULE_VISUALS.math` tokens with hub Math; Calc-ref / Fund port labels), **Control** (`policy`
-  shield silhouette).   **Engine Data Hub** (D-140 / D-159): first-class `libraryClass: engine_data_hub`
-  per execution engine — canvas node in the research→exec gap; Library/Data views nest
-  in-family libraries under the hub via `parent_hub_library_id`; hub→exec and research→exec
+  shield silhouette).   **Engine Data Hub** (D-140 / D-159 / D-216): first-class `libraryClass: engine_data_hub`
+  per execution engine — compound resource surface in the research→exec gap; Library/Data views nest
+  in-family libraries under the hub via `parent_hub_library_id`; shelves organize by origin×stream;
+  optional per-shelf `data_out`; live topic feed; hub→exec and research→exec
   I/O are **ENGINE utility** edges only (no hub `module_links`). Families stack vertically.
   Engine motherboard utility handles use **nature-colored** outward labels
   (data / time / fund / system). Subtype chips cover library class, venue, trend posture,

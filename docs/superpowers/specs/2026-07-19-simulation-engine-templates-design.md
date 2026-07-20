@@ -83,6 +83,8 @@ set count to `0` to skip.
 - Gate influence: optimized band/weight proposals applied to parent via training path
   (operator-visible; fail-closed)
 - Hub: post sims emit qualitative feedback into parent Engine Data Hub (`targetLibraryIds`)
+- **D-216:** gate, training, and adhoc sim templates terminate with **dual analyzers**
+  (`hubFeedClass` direct + analyzed) into parent hub shelves + live topic feed
 
 ## Out of scope (this slice)
 

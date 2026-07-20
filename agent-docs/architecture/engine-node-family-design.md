@@ -72,6 +72,11 @@ separate family deps (left column) whose analyzer emit hydrates the parent **Eng
 Subtype overlap between inline and child packs is intentional — do not strip inline research
 when refining packs or hub binding (extends D-153 / D-157 / D-184).
 
+**Engine Data Hub compound shelves (D-216):** one hub per execution engine is the full resource
+surface (source = owning execution). Shelves: origin × stream; optional per-shelf `data_out`;
+live topic feed. Child sim ENGINEs terminate with dual direct + analyzed analyzers into
+`sim_training` shelves.
+
 **Auto-hydration:** engine insert provisions utility binds, dedicated Math docks, terminal
 analyzer (research), and source-derived library names — idempotent with template insert.
 

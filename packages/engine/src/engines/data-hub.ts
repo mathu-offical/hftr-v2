@@ -12,8 +12,10 @@ import {
   engineCreateSection,
   getEngineTemplateById,
   isEngineDataHubConfig,
+  mergeEngineDataHubCompoundConfig,
   placeDataHubOrigin,
   researchDependenciesForExecutionEngine,
+  type EngineDataHubCompoundConfig,
 } from '@hftr/contracts';
 
 export type EnsureEngineDataHubResult = {
@@ -101,6 +103,7 @@ export async function ensureEngineDataHub(
         ? placeDataHubOrigin(researchBounds, execBounds)
         : placeDataHubOrigin([], execBounds);
 
+    const compound = mergeEngineDataHubCompoundConfig(null);
     const hubConfig = {
       topicScope: ENGINE_DATA_HUB_TOPIC_SCOPE,
       masterLibrary: false,
@@ -108,6 +111,9 @@ export async function ensureEngineDataHub(
       engineDataHub: true,
       ownerEngineInstanceId: engineId,
       nestedModuleIds: [] as string[],
+      shelves: compound.shelves,
+      shelfOutputs: compound.shelfOutputs,
+      topicFeed: compound.topicFeed,
     };
 
     const [hubModule] = await db
@@ -249,6 +255,24 @@ export async function syncDataHubNests(
 
   const nestedModuleIds = nestModules.map((m) => m.id).filter((id) => id !== hubModuleId);
 
+  const [hubMod] = await db
+    .select({ config: modules.config })
+    .from(modules)
+    .where(eq(modules.id, hubModuleId))
+    .limit(1);
+  const priorCfg = (hubMod?.config ?? {}) as Record<string, unknown>;
+  const priorPartial: Parameters<typeof mergeEngineDataHubCompoundConfig>[0] = {};
+  if (Array.isArray(priorCfg.shelves)) {
+    priorPartial.shelves = priorCfg.shelves as EngineDataHubCompoundConfig['shelves'];
+  }
+  if (Array.isArray(priorCfg.shelfOutputs)) {
+    priorPartial.shelfOutputs = priorCfg.shelfOutputs as EngineDataHubCompoundConfig['shelfOutputs'];
+  }
+  if (priorCfg.topicFeed && typeof priorCfg.topicFeed === 'object') {
+    priorPartial.topicFeed = priorCfg.topicFeed as EngineDataHubCompoundConfig['topicFeed'];
+  }
+  const compound = mergeEngineDataHubCompoundConfig(priorPartial);
+
   if (nestedModuleIds.length > 0) {
     await db
       .update(libraries)
@@ -271,6 +295,9 @@ export async function syncDataHubNests(
         engineDataHub: true,
         ownerEngineInstanceId: engineId,
         nestedModuleIds,
+        shelves: compound.shelves,
+        shelfOutputs: compound.shelfOutputs,
+        topicFeed: compound.topicFeed,
       },
       updatedAt: now,
     })

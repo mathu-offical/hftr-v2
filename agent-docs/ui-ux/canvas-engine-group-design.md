@@ -90,9 +90,13 @@ ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles
   terminal analyzer render attached to the group border (not counted as extra member grid cells).
 - **Engine↔engine edges:** optional operator binds only (D-168) — **not** auto-meshed.
   Default data path is Data Hub → execution `data_in`. Intra-engine member links unchanged.
-- **Engine Data Hub (D-140 / D-159 / D-168):** free library node in the research→exec gap,
+- **Engine Data Hub (D-140 / D-159 / D-168 / D-216):** free library node in the research→exec gap,
   biased toward exec `data_in`; binds via motherboard utility (`fromModuleId=hub`). Nest
-  libraries use `parent_hub_library_id` only — **no** hub `module_links`.
+  libraries use `parent_hub_library_id` only — **no** hub `module_links`. Hub is the
+  execution engine’s **compound resource surface**: virtual shelves by origin
+  (`research_in` / `exec_runtime` / `sim_training` / `policy_returns`) × stream
+  (`semantic` / `numeric_capital` / `system_normalized`); optional per-shelf `data_out`
+  outs; live topic feed defaults on. All hub contents stamp the owning execution as source.
 - **Family layout (D-159 / D-176):** research deps left → hub gap (340px) → execution right;
   families stack vertically with 140px top-level gutter. Engine right padding 168px reserves
   the option-anchor column so server collision math matches client chrome.
@@ -123,11 +127,13 @@ ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles
   `topicScope` / `focus` template inputs on create-form seeds, palette insert, and
   auto research/sim deps (`seedTemplateInputsFromSectorFocus`). Engine chrome always
   shows all `template.inputs` fields (Topic scope / Focus) even when empty.
-- **Simulation ENGINEs (D-189 / D-191):** create section alongside Research / Execution. Linked
+- **Simulation ENGINEs (D-189 / D-191 / D-216):** create section alongside Research / Execution. Linked
   children of an execution use `setup_snapshot.simulationBinding` (`pre`=gate /
   `post`=training + parentExecutionEngineId); adhoc sims are standalone paper desks.
   Execution create defaults to two child sims (overridable). **Family placement** (pre gate
   left of exec, post training after exec) is target layout under D-189/D-191 refinement.
+  Default sim templates terminate with **dual analyzers** (`hubFeedClass` direct + analyzed)
+  feeding the parent Engine Data Hub (write-through + live topic candidates).
 - **Child dependency validation (D-210 / D-213):** execution ENGINE chrome and inspector surface
   required research packs + default sim children from `EXECUTION_ENGINE_*_DEPENDENCIES`.
   Missing children show text-first **Required** warn chips (not a hard create block when

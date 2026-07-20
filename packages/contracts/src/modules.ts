@@ -18,6 +18,14 @@ import {
 } from './port-channels';
 import { EngineExecutionBinding } from './paper-engine';
 import { LiveDataSourceWidgetKind } from './live-data-sources';
+import {
+  AnalyzerHubFeedClass,
+  HubShelfOrigin,
+  HubShelfOutput,
+  HubShelfSlot,
+  HubShelfStream,
+  HubTopicFeedConfig,
+} from './engine-data-hub';
 
 /**
  * Company + module domain contracts (agent-docs/product/product-spec.md,
@@ -1082,6 +1090,15 @@ export const LibraryModuleConfig = z.object({
   ownerEngineInstanceId: z.string().uuid().optional(),
   /** D-140: nested library module ids registered under this hub. */
   nestedModuleIds: z.array(z.string().uuid()).max(64).default([]),
+  /**
+   * D-216: compound hub shelves (origin × stream). Present on engine_data_hub modules;
+   * ignored for ordinary libraries. Defaults applied by ensureEngineDataHub merge.
+   */
+  shelves: z.array(HubShelfSlot).max(24).optional(),
+  /** D-216: optional per-shelf motherboard outs (bus data_out + shelf streamId). */
+  shelfOutputs: z.array(HubShelfOutput).max(24).optional(),
+  /** D-216: live topic auto-feed from qualifying hub ingest. */
+  topicFeed: HubTopicFeedConfig.optional(),
 });
 
 export function isEngineDataHubConfig(config: Record<string, unknown> | null | undefined): boolean {
@@ -1661,6 +1678,15 @@ export const AnalyzerModuleConfig = z.object({
   targetLibraryModuleId: z.string().uuid().optional(),
   /** Unlocked delivery channel ids visible on the canvas (D-108). */
   exposedOutputChannels: z.array(z.string().min(1).max(64)).max(32).optional(),
+  /**
+   * D-216: when emitting toward an Engine Data Hub — direct write-through vs analyzed
+   * (topic-feed candidates). Omit for non-hub analyzers.
+   */
+  hubFeedClass: AnalyzerHubFeedClass.optional(),
+  /** D-216: hub shelf origin for this analyzer emit. */
+  hubShelfOrigin: HubShelfOrigin.optional(),
+  /** D-216: hub shelf stream for this analyzer emit. */
+  hubShelfStream: HubShelfStream.optional(),
 });
 export type AnalyzerModuleConfig = z.infer<typeof AnalyzerModuleConfig>;
 

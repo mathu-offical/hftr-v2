@@ -2140,6 +2140,21 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   indented like D-211; ungrouped modules (e.g. Master Clock) sit under **Company**.
   Extends D-204 / D-211. Docs: ui-spec §3. **Status: implemented.**
 
+- **D-216 (Engine Data Hub compound shelves + live topic feed, 2026-07-20):** The
+  execution Engine Data Hub is the engine’s full resource surface (one compound node).
+  All contents stamp the owning execution as **source**. Virtual shelves organize by
+  **origin** (`research_in` | `exec_runtime` | `sim_training` | `policy_returns`) then
+  **stream** (`semantic` | `numeric_capital` | `system_normalized`). Config
+  `shelfOutputs` may expose individual shelves on motherboard `data_out` buses
+  (streamId `shelf:{origin}:{stream}`); default remains combined hub→exec `data_in`.
+  Topic list is a **live feed** (`topicFeed.enabled` default true): analyzed ingest
+  auto-creates/refreshes hub `research_topics`; direct path write-through without
+  topics. Default sim ENGINEs (`sim_gate_*`, `sim_train_*`, `sim_adhoc_*`) terminate
+  with dual analyzers (`hubFeedClass` direct + analyzed) optimized for both feeds.
+  Numeric shelf = ValueRefs only (D-008). Extends D-140 / D-159 / D-168 / D-189 / D-191.
+  Spec: `docs/superpowers/specs/2026-07-20-engine-data-hub-compound-shelves-design.md`.
+  **Status: implementing.**
+
 - **D-212 (engine member lane-row hard bands, 2026-07-19):** `rankEngineMembers`
   treats `MODULE_LANE_ROW` as a hard vertical ordering constraint within a column
   (research above librarian, library above live_api, analyzer above policy).

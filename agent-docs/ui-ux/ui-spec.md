@@ -390,9 +390,12 @@ are ignored. Shortcuts are suppressed in editable fields.
   (not a long hop mash) with **brick stagger** (odd columns drop / odd rows shift) so
   ortho copper channels stay clear; hop badges + short
   edge transfer labels on the strip;
-  wires are **circuit-board copper traces** (`postureOrtho` / PCB doglegs with
-  channel-snapped vias + pads) — not freeform spaghetti; cross-route / inter-cluster
-  content collapses to **rail↔rail bridges** (`e-rail:…`, cluster Top/Bottom) and
+  wires are **circuit-board copper traces** (`postureOrtho`): **within a rail**
+  hops use **flowing rounded** curves (`traceStyle: flow`); **between rails /
+  sections** use ortho **elbows** from rail **end** (Right `section-out`) to the
+  next rail **start** (Left `section-in`) — never mid-rail Top/Bottom. Process
+  rails are **horizontally staggered** (`stripRailStaggerX`) so end→start elbows
+  clear (D-225). Inter-route content collapses to **rail↔rail bridges** (`e-rail:…`) and
   **section-exit bridges** (`e-exit:…`, cluster/column Right → next section Left) so
   process-rail ends show how they feed the next stage column; plus adjacent
   screen-group backbones (`e-group:…`); strip uses FR4-tint

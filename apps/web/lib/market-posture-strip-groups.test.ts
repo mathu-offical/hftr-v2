@@ -294,8 +294,14 @@ describe('applyStripScreenGroups', () => {
     expect(bridge).toBeTruthy();
     expect(bridge?.source.startsWith('cluster:process:')).toBe(true);
     expect(bridge?.target.startsWith('cluster:process:')).toBe(true);
+    // Rail end (Right) → rail start (Left) elbows — not mid-rail Top/Bottom.
+    expect(bridge?.sourceHandle).toBe('section-out');
+    expect(bridge?.targetHandle).toBe('section-in');
+    expect(bridge?.data.traceStyle).toBe('elbow');
     // System route ids on the silkscreen (not only human labels).
     expect(bridge?.label).toMatch(/news_headline\s*→\s*bars_ohlc/);
+    const hop = final.find((e) => e.id === 'e-news');
+    expect(hop?.data.traceStyle).toBe('flow');
   });
 
   it('drops skip-hop wires inside a route cluster', () => {

@@ -1,15 +1,15 @@
 'use client';
 
 /**
- * Circuit-board traces for the Market Posture Model strip.
- * Orthogonal copper runs, vias at elbows, pads at terminals — not freeform spaghetti.
+ * Model strip traces (D-186 / D-225):
+ * - Within-rail hops → flowing rounded curves
+ * - Between rails / sections → ortho elbows (rail end → rail start)
  */
 
 import { memo, useMemo } from 'react';
 import {
   BaseEdge,
   EdgeLabelRenderer,
-  Position,
   type EdgeProps,
 } from '@xyflow/react';
 import type { PostureAlgoEdgeData } from '@/lib/market-posture-algorithm-graph';
@@ -28,7 +28,7 @@ export type PostureOrthoEdgeData = PostureAlgoEdgeData & {
   sectionExit?: boolean;
 };
 
-/** PCB channel pitch — traces snap to this grid like autorouted copper. */
+/** PCB channel pitch — elbow traces snap to this grid. */
 const PCB_CHANNEL = 6;
 
 function hashLane(id: string): number {
@@ -46,7 +46,6 @@ function pcbCopper(stroke: string | undefined, bridge: boolean): {
   body: string;
   shine: string;
 } {
-  // Prefer track stroke when it's a CSS var; else copper alloy.
   const body = stroke && stroke.startsWith('var(') ? stroke : '#c48a3a';
   return {
     mask: bridge
@@ -68,8 +67,60 @@ type TraceGeom = {
 };
 
 /**
- * Build a right-angle PCB trace with channel-snapped bus and elbow vias.
- * H-V-H for hop rails; V-H-V for vertical rail↔rail bridges.
+ * Flowing / rounded within-rail hop (cubic bezier).
+ * Horizontal-biased when Δx dominates; vertical-biased otherwise.
+ */
+export function buildFlowTrace(opts: {
+  sourceX: number;
+  sourceY: number;
+  targetX: number;
+  targetY: number;
+  lane?: number;
+}): TraceGeom {
+  const lane = opts.lane ?? 0;
+  const sx = opts.sourceX;
+  const sy = opts.sourceY + lane * 0.15;
+  const tx = opts.targetX;
+  const ty = opts.targetY + lane * 0.15;
+  const dx = tx - sx;
+  const dy = ty - sy;
+  const absDx = Math.abs(dx);
+  const absDy = Math.abs(dy);
+  const pads = [
+    { x: sx, y: sy },
+    { x: tx, y: ty },
+  ];
+
+  let c1x: number;
+  let c1y: number;
+  let c2x: number;
+  let c2y: number;
+  if (absDx >= absDy * 0.55) {
+    const pull = Math.min(96, Math.max(28, absDx * 0.42));
+    c1x = sx + (dx >= 0 ? pull : -pull);
+    c1y = sy;
+    c2x = tx - (dx >= 0 ? pull : -pull);
+    c2y = ty;
+  } else {
+    const pull = Math.min(72, Math.max(24, absDy * 0.42));
+    c1x = sx;
+    c1y = sy + (dy >= 0 ? pull : -pull);
+    c2x = tx;
+    c2y = ty - (dy >= 0 ? pull : -pull);
+  }
+
+  const d = `M ${sx} ${sy} C ${c1x} ${c1y} ${c2x} ${c2y} ${tx} ${ty}`;
+  return {
+    d,
+    vias: [],
+    pads,
+    labelX: (sx + tx) / 2,
+    labelY: (sy + ty) / 2,
+  };
+}
+
+/**
+ * Ortho elbow for rail end→start / section bridges (H-V-H or V-H-V).
  */
 export function buildPcbTrace(opts: {
   sourceX: number;
@@ -114,11 +165,10 @@ export function buildPcbTrace(opts: {
     };
   }
 
-  // Hop rail: exit stub → vertical channel → entry stub (classic PCB dogleg).
+  // Rail end → rail start: exit stub → vertical channel → entry stub.
   const x1 = snap(sx + stub);
   const x2 = snap(tx - stub);
   let busX = snap((x1 + x2) / 2 + opts.lane * 2);
-  // Keep bus between terminals when space is tight.
   if (x2 > x1) {
     busX = Math.min(Math.max(busX, x1), x2);
   } else {
@@ -166,13 +216,16 @@ function Pad({
   y,
   size,
   copper,
+  rounded,
 }: {
   x: number;
   y: number;
   size: number;
   copper: { body: string; shine: string; mask: string };
+  rounded?: boolean;
 }) {
   const half = size / 2;
+  const rx = rounded ? size / 2 : 0.4;
   return (
     <g transform={`translate(${x} ${y})`}>
       <rect
@@ -183,7 +236,7 @@ function Pad({
         fill={copper.mask}
         stroke={copper.body}
         strokeWidth={0.9}
-        rx={0.5}
+        rx={rounded ? (size + 1.6) / 2 : 0.5}
       />
       <rect
         x={-half}
@@ -192,7 +245,7 @@ function Pad({
         height={size}
         fill={copper.body}
         opacity={0.95}
-        rx={0.4}
+        rx={rx}
       />
       <rect
         x={-half * 0.35}
@@ -201,6 +254,7 @@ function Pad({
         height={size * 0.35}
         fill={copper.shine}
         opacity={0.7}
+        rx={rounded ? (size * 0.35) / 2 : 0}
       />
     </g>
   );
@@ -222,31 +276,39 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
   data,
   selected,
 }: EdgeProps) {
-  // Stable across remounts — avoid useId() churn on edge style ticks.
   const gradientId = `pcb-shine-${hashLane(id).toString(36)}`;
   const edgeData = data as PostureOrthoEdgeData | undefined;
   const strip = edgeData?.stripMode === true;
   const railBridge = edgeData?.railBridge === true || id.startsWith('e-rail:');
   const sectionExit =
     edgeData?.sectionExit === true || id.startsWith('e-exit:') || id.startsWith('e-group:');
+  const explicitStyle = edgeData?.traceStyle;
+  const isFlow =
+    explicitStyle === 'flow' ||
+    (!explicitStyle && strip && !railBridge && !sectionExit);
+  const isElbow =
+    explicitStyle === 'elbow' ||
+    (!explicitStyle && (railBridge || sectionExit));
+
   const explicit = edgeData?.laneOffset;
   const lane =
     explicit ??
-    (strip && !railBridge && !sectionExit ? ((hashLane(id) % 5) - 2) * PCB_CHANNEL : 0);
+    (strip && isElbow ? ((hashLane(id) % 5) - 2) * PCB_CHANNEL : 0);
 
+  // End→start elbows use Left/Right section handles — never mid-rail Top/Bottom.
   const verticalBridge =
-    railBridge &&
+    isElbow &&
     !sectionExit &&
+    !railBridge &&
     (sourceHandleId === 'rail-out' ||
       sourceHandleId === 'rail-in' ||
       targetHandleId === 'rail-in' ||
       targetHandleId === 'rail-out');
 
-  // Non-strip fallback: still orthogonal but simpler (keep RF positions).
   const usePcb = strip;
   const stroke =
     typeof style?.stroke === 'string' ? style.stroke : 'var(--color-accent)';
-  const copper = pcbCopper(stroke, railBridge || sectionExit);
+  const copper = pcbCopper(stroke, isElbow);
   const baseW =
     typeof style?.strokeWidth === 'number'
       ? style.strokeWidth
@@ -254,13 +316,16 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
         ? 2.8
         : railBridge
           ? 2.6
-          : 2.1;
+          : isFlow
+            ? 2.0
+            : 2.1;
   const opacity =
     typeof style?.opacity === 'number' ? style.opacity : selected ? 1 : 0.92;
+  const cap = isFlow ? 'round' : 'square';
+  const join = isFlow ? 'round' : 'miter';
 
   const geom = useMemo(() => {
     if (!usePcb) {
-      // Minimal ortho dogleg when not in strip mode.
       const midX = snap((sourceX + targetX) / 2);
       const d = `M ${sourceX} ${sourceY} L ${midX} ${sourceY} L ${midX} ${targetY} L ${targetX} ${targetY}`;
       return {
@@ -277,6 +342,15 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
         labelY: (sourceY + targetY) / 2,
       } satisfies TraceGeom;
     }
+    if (isFlow) {
+      return buildFlowTrace({
+        sourceX,
+        sourceY,
+        targetX,
+        targetY,
+        lane: typeof explicit === 'number' ? explicit : ((hashLane(id) % 5) - 2) * 2,
+      });
+    }
     return buildPcbTrace({
       sourceX,
       sourceY,
@@ -284,10 +358,11 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
       targetY,
       verticalBridge,
       lane,
-      stub: railBridge ? 14 : 10,
+      stub: railBridge || sectionExit ? 16 : 10,
     });
   }, [
     usePcb,
+    isFlow,
     sourceX,
     sourceY,
     targetX,
@@ -295,6 +370,9 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
     verticalBridge,
     lane,
     railBridge,
+    sectionExit,
+    explicit,
+    id,
   ]);
 
   const railTitle = edgeData?.railTitle?.trim() || null;
@@ -304,7 +382,6 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
   const fallback = typeof label === 'string' ? label.trim() : '';
   const showLabel = strip && Boolean(railTitle || fallback);
 
-  // Silence unused RF handle positions in PCB mode (geometry is explicit).
   void sourcePosition;
   void targetPosition;
   void markerEnd;
@@ -330,6 +407,7 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
       <g
         className="react-flow__edge-path"
         data-testid="market-posture-pcb-trace"
+        data-trace-style={isFlow ? 'flow' : 'elbow'}
         data-rail-bridge={railBridge ? 'true' : undefined}
         opacity={opacity}
       >
@@ -340,35 +418,32 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
             <stop offset="100%" stopColor={copper.body} stopOpacity={0.9} />
           </linearGradient>
         </defs>
-        {/* Soldermask / clearance under the copper run */}
         <path
           d={geom.d}
           fill="none"
           stroke={copper.mask}
-          strokeWidth={baseW + 3.2}
-          strokeLinecap="square"
-          strokeLinejoin="miter"
+          strokeWidth={baseW + (isFlow ? 2.4 : 3.2)}
+          strokeLinecap={cap}
+          strokeLinejoin={join}
         />
-        {/* Copper body */}
         <path
           d={geom.d}
           fill="none"
           stroke={copper.body}
           strokeWidth={baseW}
-          strokeLinecap="square"
-          strokeLinejoin="miter"
+          strokeLinecap={cap}
+          strokeLinejoin={join}
           strokeDasharray={
             sectionExit ? '6 2' : railBridge ? '5 3 1 3' : undefined
           }
         />
-        {/* Highlight filament (thin inner shine) */}
         <path
           d={geom.d}
           fill="none"
           stroke={`url(#${gradientId})`}
           strokeWidth={Math.max(0.7, baseW * 0.28)}
-          strokeLinecap="square"
-          strokeLinejoin="miter"
+          strokeLinecap={cap}
+          strokeLinejoin={join}
           opacity={0.75}
         />
         {geom.vias.map((v, i) => (
@@ -379,12 +454,12 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
             key={`p-${i}`}
             x={p.x}
             y={p.y}
-            size={railBridge ? 7 : 5.5}
+            size={railBridge ? 7 : isFlow ? 5 : 5.5}
             copper={copper}
+            rounded={isFlow}
           />
         ))}
       </g>
-      {/* Invisible hit target */}
       <BaseEdge
         id={id}
         path={geom.d}
@@ -407,7 +482,7 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
                 background:
                   'color-mix(in srgb, #0a1a12 88%, var(--color-surface-0))',
                 boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${copper.shine} 25%, transparent)`,
-                borderRadius: 1,
+                borderRadius: isFlow ? 4 : 1,
               }}
               data-testid="market-posture-model-edge-label"
               title={[railRole, railTitle || fallback, railHuman, railVerb]

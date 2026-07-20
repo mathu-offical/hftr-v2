@@ -977,17 +977,18 @@ const PostureGroupNode = memo(function PostureGroupNode({
       ) : null}
       {isCluster ? (
         <>
+          {/* Legacy top/bottom docks kept muted — rail bridges use end→start (L/R). */}
           <Handle
             id="rail-in"
             type="target"
             position={Position.Top}
-            className="!h-2 !w-2 !border-[var(--color-surface-0)] !bg-[var(--color-accent)]"
+            className="!h-1.5 !w-1.5 !border-[var(--color-surface-0)] !bg-[var(--color-ink-faint)] !opacity-40"
           />
           <Handle
             id="rail-out"
             type="source"
             position={Position.Bottom}
-            className="!h-2 !w-2 !border-[var(--color-surface-0)] !bg-[var(--color-accent)]"
+            className="!h-1.5 !w-1.5 !border-[var(--color-surface-0)] !bg-[var(--color-ink-faint)] !opacity-40"
           />
         </>
       ) : null}
@@ -995,13 +996,15 @@ const PostureGroupNode = memo(function PostureGroupNode({
         id="section-in"
         type="target"
         position={Position.Left}
-        className="!h-2 !w-2 !border-[var(--color-surface-0)] !bg-[var(--color-accent)]"
+        className="!h-2.5 !w-2.5 !border-[var(--color-surface-0)] !bg-[var(--color-accent)]"
+        title="Rail start"
       />
       <Handle
         id="section-out"
         type="source"
         position={Position.Right}
-        className="!h-2 !w-2 !border-[var(--color-surface-0)] !bg-[var(--color-accent)]"
+        className="!h-2.5 !w-2.5 !border-[var(--color-surface-0)] !bg-[var(--color-accent)]"
+        title="Rail end"
       />
     </div>
   );

@@ -39,6 +39,25 @@ export const STRIP_STAGGER = {
 } as const;
 
 /**
+ * Horizontal stagger for stacked process rails (D-225).
+ * Alternate inset + progressive step so rail end→start elbows clear.
+ */
+export const STRIP_RAIL_STAGGER = {
+  /** Primary zig-zag inset for odd rails. */
+  alternateX: 56,
+  /** Extra inset per rail index for flexible viewing. */
+  stepX: 18,
+} as const;
+
+/** Absolute X offset for a stacked rail (process cluster) within its screen. */
+export function stripRailStaggerX(routeIdx: number): number {
+  return (
+    (routeIdx % 2) * STRIP_RAIL_STAGGER.alternateX +
+    routeIdx * STRIP_RAIL_STAGGER.stepX
+  );
+}
+
+/**
  * Offset a grid cell so adjacent hops/lanes do not share the same copper channel.
  */
 export function staggerStripCell(opts: {

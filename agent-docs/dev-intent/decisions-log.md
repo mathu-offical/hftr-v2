@@ -2294,6 +2294,16 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Docs: engine-node-family-design, canvas-engine-group-design.
   **Status: implemented.**
 
+- **D-225 (Model strip flow hops + rail-end elbows, 2026-07-20):** Within a process
+  rail, hop wires use **flowing rounded** cubic traces (`traceStyle: flow`). Between
+  rails (and section exits), wires are **ortho elbows** from rail **end**
+  (`section-out` / Right) to the next rail **start** (`section-in` / Left) — not
+  mid-rail Top/Bottom. Stacked rails are **horizontally staggered**
+  (`stripRailStaggerX`: alternate inset + progressive step) so end→start elbows
+  clear. Every inter-rail content pair surfaces as an `e-rail:` bridge; cluster↔side
+  same-screen links become exit elbows. Extends D-186. Docs: ui-spec §4.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

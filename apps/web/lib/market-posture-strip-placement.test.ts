@@ -3,9 +3,11 @@ import {
   layoutStepsByMatrix,
   resolveStripLayoutMode,
   stripLaneKey,
+  stripRailStaggerX,
   applyStripPlacementOverride,
   staggerStripCell,
   STRIP_NODE_PLACEMENT_OVERRIDES,
+  STRIP_RAIL_STAGGER,
   STRIP_STAGGER,
 } from './market-posture-strip-placement';
 import type { PostureAlgoGraphNode } from './market-posture-algorithm-graph';
@@ -101,5 +103,14 @@ describe('market-posture-strip-placement', () => {
       x: 10,
       y: 20,
     });
+  });
+
+  it('staggers rails horizontally for end→start elbow clearance (D-225)', () => {
+    expect(stripRailStaggerX(0)).toBe(0);
+    expect(stripRailStaggerX(1)).toBe(
+      STRIP_RAIL_STAGGER.alternateX + STRIP_RAIL_STAGGER.stepX,
+    );
+    expect(stripRailStaggerX(2)).toBe(2 * STRIP_RAIL_STAGGER.stepX);
+    expect(stripRailStaggerX(3)).toBeGreaterThan(stripRailStaggerX(2));
   });
 });

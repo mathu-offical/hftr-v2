@@ -42,6 +42,7 @@ import {
   resolveStripLayoutMode,
   staggerStripCell,
   stripLaneKey,
+  stripRailStaggerX,
   STRIP_STAGGER,
 } from './market-posture-strip-placement';
 
@@ -49,6 +50,7 @@ export { resolveStageScreenId };
 export type { MarketPostureStageScreenId };
 export {
   STRIP_NODE_PLACEMENT_OVERRIDES,
+  STRIP_RAIL_STAGGER,
   STRIP_ROUTE_LAYOUT,
   STRIP_STAGGER,
   applyStripPlacementOverride,
@@ -56,6 +58,7 @@ export {
   resolveStripLayoutMode,
   staggerStripCell,
   stripLaneKey,
+  stripRailStaggerX,
 } from './market-posture-strip-placement';
 
 export type PostureAlgoNodeRole =
@@ -134,6 +137,12 @@ export type PostureAlgoEdgeData = {
   status: MarketHubModelEdgeStatus;
   track: MarketHubModelTrack;
   label?: string | undefined;
+  /**
+   * Strip wire geometry (D-225):
+   * - flow = rounded/smooth within a rail
+   * - elbow = ortho end→start between rails / sections
+   */
+  traceStyle?: 'flow' | 'elbow';
 };
 
 export type PostureAlgoTrackBand = {
@@ -3007,8 +3016,8 @@ function packProcessScreenColumn(opts: {
       (fnSummary ||
         (roleBits.length > 1 ? roleBits.join(' → ') : 'process chain'));
 
-    // Alternate cluster frames so rail↔rail vertical bridges clear channels.
-    const clusterStaggerX = (routeIdx % 2) * STRIP_STAGGER.x * 2;
+    // Alternate + progressive horizontal stagger so rail end→start elbows clear (D-225).
+    const clusterStaggerX = stripRailStaggerX(routeIdx);
     out.push({
       id: clusterId,
       type: 'postureGroup',
@@ -3063,6 +3072,7 @@ function packProcessScreenColumn(opts: {
       );
     }
 
+    maxClusterW = Math.max(maxClusterW, clusterW + clusterStaggerX);
     cursorY += clusterH + STRIP_CLUSTER_GAP;
   });
 
@@ -3575,12 +3585,12 @@ export function applyStripScreenGroups(
 }
 
 /**
- * Keep readable strip wires only (D-186):
- * - Intra-cluster / same-route adjacent transfer hops (no skip chords)
+ * Keep readable strip wires only (D-186 / D-225):
+ * - Intra-rail adjacent transfer hops as **flowing** curves (no skip chords)
  * - Same-lane only inside matrix routes (no cross-provider vertical mash)
- * - Inter-cluster content wires collapse to **rail↔rail bridges** on cluster frames
- * - Cross-screen content → **section-exit bridges** from rail/column ends
- *   (cluster or screen-group Right → next Left) plus adjacent group backbone summary
+ * - Inter-rail content → **elbow** bridges from rail **end** (Right) → next rail
+ *   **start** (Left) on horizontally staggered clusters
+ * - Cross-screen content → section-exit elbows + adjacent group backbone
  */
 export function finalizeStripEdges(
   edges: PostureAlgoGraph['edges'],
@@ -3699,14 +3709,25 @@ export function finalizeStripEdges(
     const cs = clusterOf(e.source);
     const ct = clusterOf(e.target);
 
-    // Distinct clusters (same screen) → one rail↔rail bridge (not every node diagonal).
+    // Distinct clusters (same screen) → rail end→start elbow (show all pairs).
     if (cs && ct && cs !== ct) {
       bumpRail(cs, ct, e.data.track);
       return false;
     }
 
-    // Cluster ↔ side (stages / panels) on same screen: no content diagonal.
-    if (cs !== ct) return false;
+    // Cluster ↔ free node on same screen: bridge via rail end/start + keep none diagonal.
+    if (cs && !ct) {
+      const toEp = sectionEndpoint(e.target, st);
+      if (toEp) bumpExit(cs, toEp, e.data.track);
+      else bumpExit(cs, `group:${st ?? 'process'}`, e.data.track);
+      return false;
+    }
+    if (!cs && ct) {
+      const fromEp = sectionEndpoint(e.source, ss);
+      if (fromEp) bumpExit(fromEp, ct, e.data.track);
+      else bumpExit(`group:${ss ?? 'process'}`, ct, e.data.track);
+      return false;
+    }
 
     const ra = a?.data.processRoute;
     const rb = b?.data.processRoute;
@@ -3773,6 +3794,7 @@ export function finalizeStripEdges(
         status: 'ready',
         track,
         label: `${n} flows`,
+        traceStyle: 'elbow',
       },
     });
   }
@@ -3785,7 +3807,7 @@ export function finalizeStripEdges(
     return n.data.label || endpointId;
   };
 
-  // Direct rail↔rail bridges between process-route clusters (same column).
+  // Rail end (Right) → rail start (Left) elbows — show every inter-rail pair (D-225).
   const railBridges: PostureAlgoGraph['edges'] = [];
   for (const { from, to, n, track } of railPairs.values()) {
     const fromNode = byId.get(from);
@@ -3796,15 +3818,14 @@ export function finalizeStripEdges(
       from.replace(/^cluster:process:/, '');
     const toSys =
       toNode.data.processRoute?.trim() || to.replace(/^cluster:process:/, '');
-    const dy = toNode.position.y - fromNode.position.y;
-    const dx = toNode.position.x - fromNode.position.x;
-    const vertical = Math.abs(dy) >= Math.abs(dx) * 0.6;
     const label =
       n > 1 ? `${fromSys} → ${toSys} · ${n}` : `${fromSys} → ${toSys}`;
-    const bridge: PostureAlgoGraph['edges'][number] = {
+    railBridges.push({
       id: `e-rail:${from}->${to}`,
       source: from,
       target: to,
+      sourceHandle: 'section-out',
+      targetHandle: 'section-in',
       label,
       data: {
         edgeType: 'parallel',
@@ -3812,18 +3833,9 @@ export function finalizeStripEdges(
         status: 'ready',
         track,
         label,
+        traceStyle: 'elbow',
       },
-    };
-    if (vertical) {
-      if (dy >= 0) {
-        bridge.sourceHandle = 'rail-out';
-        bridge.targetHandle = 'rail-in';
-      } else {
-        bridge.sourceHandle = 'rail-in';
-        bridge.targetHandle = 'rail-out';
-      }
-    }
-    railBridges.push(bridge);
+    });
   }
 
   // Section exits: process-rail / column Right → next section Left (between screens).
@@ -3847,11 +3859,21 @@ export function finalizeStripEdges(
         status: 'ready',
         track,
         label,
+        traceStyle: 'elbow',
       },
     });
   }
 
-  return [...kept, ...backbone, ...railBridges, ...exitBridges];
+  // Within-rail hops: flowing/rounded traces.
+  const flowingKept = kept.map((e) => ({
+    ...e,
+    data: {
+      ...e.data,
+      traceStyle: 'flow' as const,
+    },
+  }));
+
+  return [...flowingKept, ...backbone, ...railBridges, ...exitBridges];
 }
 
 /**

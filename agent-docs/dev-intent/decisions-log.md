@@ -2189,6 +2189,18 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   present child research/sim engines alongside **Missing:** warn chips.
   Docs: canvas-engine-group-design, ui-spec §3. **Status: implemented.**
 
+- **D-217 (output-routing decisions + typed intakes + gutter clearance, 2026-07-20):**
+  Canvas decision cards show only **output-routing** kinds (`strategy_family`,
+  `branch_role`, `recovery_phase`, `emit_mode`, `feed_class`). Module identity
+  (`research_subtype`, `librarian_subtype`, `library_class`, `trend_posture`) moves
+  inspector-only with other tuning. Intake ports derive from **info type** via
+  `intakesForDecisionKind` (data vs system vs clock — not every port on every card).
+  Analyzer emit options filter by `hubFeedClass` / seeded emit path
+  (`emitModesForAnalyzerOutput`). Layout: `horizontalGutter` clears docked decision
+  width; right padding / column width match decision card size; family stack gutters
+  widened. Extends D-208 / D-213 / D-216. Docs: canvas-engine-group-design, ui-spec §3.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

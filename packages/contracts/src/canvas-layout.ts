@@ -27,10 +27,14 @@ export const CANVAS_LAYOUT = {
   moduleWidth: 220,
   /** D-088: denser cards — floor matches compact ModuleNode chrome (~160–180). */
   moduleHeight: 168,
-  /** Port/edge clearance between adjacent pipeline columns. */
-  horizontalGutter: 152,
+  /**
+   * Port/edge clearance between adjacent pipeline columns.
+   * Must clear docked decision cards: decisionOwnerGap + decisionNodeWidth (+ margin).
+   * D-217: was 152 — decisions (200px) overlapped the next column.
+   */
+  horizontalGutter: 248,
   /** Clearance between stacked owner/tool envelopes in the same rank. */
-  verticalGutter: 104,
+  verticalGutter: 120,
   mathAttachmentGap: 12,
   mathToolWidth: 180,
   mathToolHeight: 40,
@@ -39,12 +43,12 @@ export const CANVAS_LAYOUT = {
   /** Gap above the engine Time hub rail (below member/Math/funds envelopes). */
   engineTimeHubGap: 40,
   /** Clearance between engine families / free modules / cadence rail (D-176). */
-  topLevelGutter: 140,
+  topLevelGutter: 160,
   /**
    * Gap between research deps column and execution (hub sits in this band).
    * D-176: widened from 280 so hub + option-anchor chrome stay connection-safe.
    */
-  researchToExecGap: 340,
+  researchToExecGap: 360,
   /**
    * Compact Data Hub footprint used for gap placement (hubs are free library
    * nodes, not full member cards).
@@ -62,9 +66,16 @@ export const CANVAS_LAYOUT = {
    */
   dataHubGapBiasTowardExec: 0.72,
   /**
-   * Right-column reserve for D-173 option anchors (must stay ≤ ENGINE_GROUP_PADDING.right).
+   * Right-column reserve for decision nodes (must stay ≤ ENGINE_GROUP_PADDING.right).
+   * Matches DecisionNode card width (D-217).
    */
-  optionAnchorColumnWidth: 156,
+  optionAnchorColumnWidth: 208,
+  /** Decision card body width (React Flow decisionNode). */
+  decisionNodeWidth: 200,
+  /** Gap between owner module card and its docked decision stack. */
+  decisionOwnerGap: 16,
+  /** Vertical gap between stacked decision cards on the same dock column. */
+  decisionStackGap: 14,
   /** Minimum clearance when the research→exec gap is too narrow for the hub (D-176). */
   dataHubTightGapClearance: 48,
   originX: 40,

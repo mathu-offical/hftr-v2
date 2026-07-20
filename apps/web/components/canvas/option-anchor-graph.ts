@@ -4,6 +4,7 @@ import {
   canvasVisibleOptionAnchors,
   CANVAS_LAYOUT,
   DECISION_HANDLE_DATA_IN,
+  DECISION_HANDLE_SYSTEM_IN,
   ENGINE_GROUP_PADDING,
   handleIdForStream,
   type OptionAnchorPosition,
@@ -12,33 +13,33 @@ import {
 import type { DecisionFlowNode, OptionAnchorFlowNode } from './DecisionNode';
 import type { CanvasEngineGroup, CanvasModule } from './types';
 
-export const OPTION_ANCHOR_NODE_WIDTH = 200;
+export const OPTION_ANCHOR_NODE_WIDTH = CANVAS_LAYOUT.decisionNodeWidth;
 /** Base height; placement grows with max(intake, option) port rows. */
 export const OPTION_ANCHOR_NODE_HEIGHT = 64;
-export const OPTION_ANCHOR_GAP = 10;
+export const OPTION_ANCHOR_GAP = CANVAS_LAYOUT.decisionStackGap;
 /** Matches CANVAS_LAYOUT / ENGINE_GROUP_PADDING.right reserve (D-176). */
 export const OPTION_ANCHOR_COLUMN_WIDTH = CANVAS_LAYOUT.optionAnchorColumnWidth;
 /** Gap between owner module card and its docked decision stack (D-180 / D-192). */
-export const OPTION_ANCHOR_OWNER_GAP = 16;
+export const OPTION_ANCHOR_OWNER_GAP = CANVAS_LAYOUT.decisionOwnerGap;
 
 /** Prefer process-decision roots at the owner card Y; secondary roots stack below. */
 const ROOT_KIND_PRIORITY: Record<string, number> = {
-  research_subtype: 0,
-  librarian_subtype: 0,
-  library_class: 0,
   strategy_family: 0,
-  trend_posture: 0,
-  emit_mode: 0,
+  branch_role: 0,
   feed_class: 0,
+  emit_mode: 0,
   recovery_phase: 1,
-  curiosity_band: 1,
-  admission_mode: 1,
-  cadence_band: 1,
-  query_policy: 1,
-  schedule_policy: 1,
-  branch_role: 1,
-  template_input: 2,
-  philosophy_axis: 3,
+  research_subtype: 2,
+  librarian_subtype: 2,
+  library_class: 2,
+  trend_posture: 2,
+  curiosity_band: 3,
+  admission_mode: 3,
+  cadence_band: 3,
+  query_policy: 3,
+  schedule_policy: 3,
+  template_input: 4,
+  philosophy_axis: 5,
 };
 
 function rootKindPriority(kind: string): number {
@@ -46,7 +47,7 @@ function rootKindPriority(kind: string): number {
 }
 
 function nodeHeightFor(anchor: OptionAnchorSpec): number {
-  const intakes = anchor.intakes ?? { data: true, systemControl: true, clock: false };
+  const intakes = anchor.intakes ?? { data: true, systemControl: false, clock: false };
   const intakeCount =
     (intakes.data ? 1 : 0) + (intakes.systemControl ? 1 : 0) + (intakes.clock ? 1 : 0);
   const optionCount = Math.max(anchor.options?.length ?? 0, 1);
@@ -146,7 +147,7 @@ function pushDecisionNode(
       ownerEngineId: anchor.ownerEngineId,
       options: anchor.options ?? [],
       selectedOptionId: anchor.selectedOptionId ?? null,
-      intakes: anchor.intakes ?? { data: true, systemControl: true, clock: false },
+      intakes: anchor.intakes ?? { data: true, systemControl: false, clock: false },
       position,
       parentId: engine.id,
       ...(suppressOwnerBind ? { suppressOwnerBind: true } : {}),
@@ -257,7 +258,7 @@ export function measurePlacedAnchorBottom(
 ): number {
   let bottom = 0;
   for (const node of nodes) {
-    const intakes = node.data.intakes ?? { data: true, systemControl: true, clock: false };
+    const intakes = node.data.intakes ?? { data: true, systemControl: false, clock: false };
     const intakeCount =
       (intakes.data ? 1 : 0) + (intakes.systemControl ? 1 : 0) + (intakes.clock ? 1 : 0);
     const optionCount = Math.max(node.data.options?.length ?? 0, 1);
@@ -270,8 +271,8 @@ export function measurePlacedAnchorBottom(
 
 /**
  * React Flow-only decision binds (not persisted as module_links).
- * One data intake edge per decision — system/clock ports exist on the node for
- * wiring but are not auto-fanned (keeps the graph a set of single units, D-208).
+ * Bind by **info type**: data → data_feed out; system → directive out; clock
+ * ports exist for wiring but are not auto-fanned (D-208 / D-217).
  */
 export function optionBindEdgesForEngine(
   allAnchors: readonly OptionAnchorSpec[],
@@ -281,29 +282,52 @@ export function optionBindEdgesForEngine(
   const suppressOwnerBindIds = options?.suppressOwnerBindIds ?? new Set<string>();
   const edges: Edge[] = [];
   const moduleDataOut = handleIdForStream('data_feed', 'out');
+  const moduleSystemOut = handleIdForStream('directive', 'out');
 
   for (const anchor of visible) {
     if (!anchor.ownerModuleId || suppressOwnerBindIds.has(anchor.id)) continue;
-    const intakes = anchor.intakes ?? { data: true, systemControl: true, clock: false };
-    if (!intakes.data) continue;
+    const intakes = anchor.intakes ?? { data: true, systemControl: false, clock: false };
 
-    edges.push({
-      id: `decision-bind:data:${anchor.ownerModuleId}:${anchor.id}`,
-      source: anchor.ownerModuleId,
-      target: anchor.id,
-      sourceHandle: moduleDataOut,
-      targetHandle: DECISION_HANDLE_DATA_IN,
-      type: 'smoothstep',
-      selectable: false,
-      focusable: false,
-      style: {
-        stroke: 'var(--color-ink-faint)',
-        strokeWidth: 1,
-        strokeDasharray: '3 4',
-      },
-      className: 'hftr-edge hftr-edge-option-bind',
-      data: { linkKind: 'option_bind', nature: 'data', decisionId: anchor.id },
-    });
+    if (intakes.data) {
+      edges.push({
+        id: `decision-bind:data:${anchor.ownerModuleId}:${anchor.id}`,
+        source: anchor.ownerModuleId,
+        target: anchor.id,
+        sourceHandle: moduleDataOut,
+        targetHandle: DECISION_HANDLE_DATA_IN,
+        type: 'smoothstep',
+        selectable: false,
+        focusable: false,
+        style: {
+          stroke: 'var(--color-ink-faint)',
+          strokeWidth: 1,
+          strokeDasharray: '3 4',
+        },
+        className: 'hftr-edge hftr-edge-option-bind',
+        data: { linkKind: 'option_bind', nature: 'data', decisionId: anchor.id },
+      });
+      continue;
+    }
+
+    if (intakes.systemControl) {
+      edges.push({
+        id: `decision-bind:system:${anchor.ownerModuleId}:${anchor.id}`,
+        source: anchor.ownerModuleId,
+        target: anchor.id,
+        sourceHandle: moduleSystemOut,
+        targetHandle: DECISION_HANDLE_SYSTEM_IN,
+        type: 'smoothstep',
+        selectable: false,
+        focusable: false,
+        style: {
+          stroke: 'var(--color-ink-faint)',
+          strokeWidth: 1,
+          strokeDasharray: '3 4',
+        },
+        className: 'hftr-edge hftr-edge-option-bind',
+        data: { linkKind: 'option_bind', nature: 'system', decisionId: anchor.id },
+      });
+    }
   }
 
   return edges;

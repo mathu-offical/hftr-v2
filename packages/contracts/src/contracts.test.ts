@@ -917,12 +917,15 @@ describe('module inline setup', () => {
     expect(off.capitalAllocation).toEqual({ mode: 'percentage', value: '100' });
   });
 
-  it('reserves option-anchor column in engine right padding (D-176)', () => {
+  it('reserves option-anchor column in engine right padding (D-176 / D-217)', () => {
     expect(ENGINE_GROUP_PADDING.right).toBeGreaterThanOrEqual(
       CANVAS_LAYOUT.optionAnchorColumnWidth,
     );
-    expect(CANVAS_LAYOUT.researchToExecGap).toBe(340);
-    expect(CANVAS_LAYOUT.topLevelGutter).toBe(140);
+    expect(CANVAS_LAYOUT.horizontalGutter).toBeGreaterThanOrEqual(
+      CANVAS_LAYOUT.decisionOwnerGap + CANVAS_LAYOUT.decisionNodeWidth,
+    );
+    expect(CANVAS_LAYOUT.researchToExecGap).toBe(360);
+    expect(CANVAS_LAYOUT.topLevelGutter).toBe(160);
   });
 
   it('derives missing setup fields without raw numeric values', () => {
@@ -3007,13 +3010,17 @@ describe('CreateCompanyInput (D-043)', () => {
     }
   });
 
-  it('gates engine_prediction until prediction strategy families seed (D-191)', () => {
+  it('gates engine_prediction until dedicated prediction strategy families seed (D-191)', () => {
     const prediction = ENGINE_TEMPLATES.find((engine) => engine.id === 'engine_prediction');
     expect(prediction?.available).toBe(false);
     expect(prediction?.unavailableReason).toMatch(/prediction/i);
     expect(prediction?.unavailableReason).toMatch(/strategy famil/i);
     const trading = prediction?.modules.find((mod) => mod.type === 'trading');
-    expect((trading?.config as { strategyFamilies?: string[] }).strategyFamilies).toEqual([]);
+    // Interim reversion+RV palette (D-207) — still gated until dedicated prediction families.
+    expect((trading?.config as { strategyFamilies?: string[] }).strategyFamilies).toEqual([
+      'strat-005',
+      'strat-008',
+    ]);
   });
 
   it('every research to_desk_stream analyzer has a distinct streamDescriptor (D-191)', () => {

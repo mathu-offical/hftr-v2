@@ -180,9 +180,60 @@ const PHILOSOPHY_POSITION_OPTIONS: DecisionOption[] = [
 
 const DEFAULT_DECISION_INTAKES: DecisionIntakes = {
   data: true,
-  systemControl: true,
+  systemControl: false,
   clock: false,
 };
+
+/**
+ * Intake ports by **info type** (D-208 / D-217) — not “show every port.”
+ * Data = payload / path routing; system = policy / control; clock = cadence / schedule.
+ */
+export function intakesForDecisionKind(kind: OptionAnchorKind): DecisionIntakes {
+  switch (kind) {
+    case 'strategy_family':
+    case 'branch_role':
+    case 'emit_mode':
+    case 'feed_class':
+    case 'research_subtype':
+    case 'librarian_subtype':
+    case 'library_class':
+    case 'trend_posture':
+    case 'template_input':
+    case 'lever_band':
+    case 'philosophy_axis':
+      return { data: true, systemControl: false, clock: false };
+    case 'recovery_phase':
+    case 'curiosity_band':
+    case 'admission_mode':
+    case 'query_policy':
+      return { data: false, systemControl: true, clock: false };
+    case 'cadence_band':
+    case 'schedule_policy':
+      return { data: false, systemControl: false, clock: true };
+    default: {
+      const _exhaustive: never = kind;
+      void _exhaustive;
+      return DEFAULT_DECISION_INTAKES;
+    }
+  }
+}
+
+/**
+ * Emit modes relevant to this analyzer’s **output path** (D-216 / D-217).
+ * Dual hub feeds stamp `hubFeedClass`; canvas shows only the matching route.
+ */
+export function emitModesForAnalyzerOutput(
+  config: Record<string, unknown> | undefined,
+): readonly AnalyzerEmitMode[] {
+  const feed = readStringConfig(config, 'hubFeedClass');
+  if (feed === 'direct') return ['to_library'] as const;
+  if (feed === 'analyzed') return ['to_desk_stream'] as const;
+  const mode = readStringConfig(config, 'emitMode');
+  if (mode === 'to_library' || mode === 'to_desk_stream' || mode === 'verify_loopback') {
+    return [mode] as const;
+  }
+  return AnalyzerEmitMode.options;
+}
 
 /** Slug catalog references for stable anchor ids (no positional indices). */
 export function slugCatalogRef(ref: string): string {
@@ -366,7 +417,8 @@ export function buildOptionAnchorsForEngine(
       OptionAnchorSpec.parse({
         ...anchor,
         options: anchor.options ?? [],
-        intakes: anchor.intakes ?? DEFAULT_DECISION_INTAKES,
+        // Always derive intakes from kind (info type) — ignore caller overrides (D-217).
+        intakes: intakesForDecisionKind(anchor.kind),
       }),
     );
   };
@@ -799,9 +851,14 @@ export function buildOptionAnchorsForEngine(
     });
   }
 
-  // ── Analyzer emit mode ───────────────────────────────────────────────────
+  // ── Analyzer emit mode (output-path options only — D-217) ────────────────
   for (const analyzer of analyzers) {
-    const mode = readStringConfig(analyzer.config, 'emitMode') ?? 'verify_loopback';
+    const emitModes = emitModesForAnalyzerOutput(analyzer.config);
+    const mode =
+      readStringConfig(analyzer.config, 'emitMode') ?? emitModes[0] ?? 'verify_loopback';
+    const selected = emitModes.includes(mode as AnalyzerEmitMode)
+      ? mode
+      : (emitModes[0] ?? mode);
     pushAnchor({
       id: buildOptionAnchorId(parsed.engineId, 'emit_mode', `${analyzer.id}/emit_mode`),
       kind: 'emit_mode',
@@ -811,9 +868,9 @@ export function buildOptionAnchorsForEngine(
       parentAnchorId: null,
       ownerModuleId: analyzer.id,
       ownerEngineId: parsed.engineId,
-      options: enumDecisionOptions(analyzer.id, 'emit_mode', AnalyzerEmitMode.options),
-      selectedOptionId: mode,
-      intakes: DEFAULT_DECISION_INTAKES,
+      options: enumDecisionOptions(analyzer.id, 'emit_mode', emitModes),
+      selectedOptionId: selected,
+      intakes: intakesForDecisionKind('emit_mode'),
     });
   }
 
@@ -979,12 +1036,13 @@ export function buildOptionAnchorsForEngine(
 /** D-202 alias: unified decision nodes share the option-anchor builder. */
 export const buildDecisionNodesForEngine = buildOptionAnchorsForEngine;
 
-/** Kinds shown as canvas decision cards. Other built kinds stay inspector/lever-tree only (D-213). */
+/**
+ * Kinds shown as canvas decision cards (D-213 / D-217).
+ * Only **output-routing** choices: strategy/branch/recovery path, analyzer emit,
+ * live feed class. Module identity (subtype / library class / trend posture) stays
+ * inspector-only — those classify the node, they do not route outs.
+ */
 export const CANVAS_PRIMARY_DECISION_KINDS = new Set<string>([
-  'research_subtype',
-  'librarian_subtype',
-  'library_class',
-  'trend_posture',
   'strategy_family',
   'branch_role',
   'recovery_phase',
@@ -993,8 +1051,8 @@ export const CANVAS_PRIMARY_DECISION_KINDS = new Set<string>([
 ]);
 
 /**
- * Canvas-visible decision nodes. Lever bands, template inputs, philosophy axes,
- * and secondary module tuning kinds stay inspector-only (D-208, D-213).
+ * Canvas-visible decision nodes. Identity/tuning kinds (subtype, library class,
+ * posture, curiosity, cadence, query/schedule) stay inspector-only (D-208, D-213, D-217).
  */
 export function canvasVisibleOptionAnchors(
   anchors: readonly OptionAnchorSpec[],

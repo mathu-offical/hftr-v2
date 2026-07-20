@@ -112,14 +112,16 @@ ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles
     `EXECUTION_ENGINE_RESEARCH_DEPENDENCIES` in the left column; analyzer terminus emits enriched
     articles into the parent **Engine Data Hub** (not a second hub on the pack). Subtype overlap
     between inline and child packs is intentional.
-- **Option anchors (D-173 / D-180 / D-191 / D-202 / D-207 / D-208 / D-213):** unified **decision nodes**
+- **Option anchors (D-173 / D-180 / D-191 / D-202 / D-207 / D-208 / D-213 / D-217):** unified **decision nodes**
   parented under the engine group. Each node is one deterministic choice point —
-  a **single multi-port unit** (data/system intakes; one out per option), never a
-  compound tree of option cards. Strategy families and branch roles are sibling
-  decision nodes with options-as-ports. Template inputs stay in engine chrome /
-  inspector. Canvas cards are limited to `CANVAS_PRIMARY_DECISION_KINDS` (desk-level
-  subtype/strategy/branch/recovery/emit/feed); curiosity, admission, cadence,
-  query/schedule policy, philosophy, and lever bands stay inspector-only.
+  a **single multi-port unit** (intakes by **info type**: data / system / clock; one out per
+  **output-relevant** option), never a compound tree of option cards. Strategy families and
+  branch roles are sibling decision nodes with options-as-ports. Template inputs stay in engine
+  chrome / inspector. Canvas cards are limited to `CANVAS_PRIMARY_DECISION_KINDS` (output
+  routing: strategy / branch / recovery / emit / feed class). Module identity (subtype, library
+  class, trend posture) and tuning (curiosity, admission, cadence, query/schedule, philosophy,
+  levers) stay inspector-only. Analyzer `emit_mode` options filter by `hubFeedClass` / seeded
+  emit path. Column gutters clear docked decision width so cards do not overlap the next lane.
   Every engine template seeds `decisionNodes` with desk-specific strategy palettes
   (day ORB/gap/VWAP, HFT market-making, crypto trend/reversion/pairs, long-term
   trend/compression/lead-lag, prediction interim RV). Lever bands remain inspector-only.

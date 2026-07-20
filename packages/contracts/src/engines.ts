@@ -342,10 +342,10 @@ export const ENGINE_GROUP_PADDING = {
   /** Clears motherboard utility ports + labeled side handles. */
   left: 88,
   /**
-   * Clears right utility chrome + D-173 option-anchor column (D-176).
-   * Must be ≥ CANVAS_LAYOUT.optionAnchorColumnWidth.
+   * Clears right utility chrome + decision column (D-176 / D-217).
+   * Must be ≥ CANVAS_LAYOUT.optionAnchorColumnWidth (+ small centering margin).
    */
-  right: 168,
+  right: 232,
   /** Badge + title + one wrap row of bordered setup fields (D-089). */
   top: 92,
   /** Clears Math docks + bottom-left Time hub rail (D-091). */

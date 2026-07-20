@@ -67,7 +67,8 @@ describe('engine decision seeds (D-202 refine)', () => {
     const visible = canvasVisibleOptionAnchors(anchors);
     expect(visible.some((a) => a.kind === 'strategy_family')).toBe(true);
     expect(visible.some((a) => a.kind === 'recovery_phase')).toBe(true);
-    expect(visible.some((a) => a.kind === 'research_subtype')).toBe(true);
+    expect(visible.some((a) => a.kind === 'research_subtype')).toBe(false);
+    expect(anchors.some((a) => a.kind === 'research_subtype')).toBe(true);
     const families = visible.filter((a) => a.kind === 'strategy_family');
     expect(families.length).toBe(1);
     expect(families[0]!.options.map((o) => o.id).sort()).toEqual([

@@ -55,7 +55,7 @@ export const DecisionNode = memo(function DecisionNode({
   data,
   selected,
 }: NodeProps<DecisionFlowNode>) {
-  const intakes = data.intakes ?? { data: true, systemControl: true, clock: false };
+  const intakes = data.intakes ?? { data: true, systemControl: false, clock: false };
   const options: DecisionOption[] = data.options ?? [];
   const borderColor = selected
     ? 'var(--color-accent)'

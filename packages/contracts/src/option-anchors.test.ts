@@ -4,6 +4,8 @@ import {
   buildOptionAnchorsForEngine,
   canvasVisibleOptionAnchors,
   decisionOptionOutHandle,
+  emitModesForAnalyzerOutput,
+  intakesForDecisionKind,
   optionAnchorCatalogSlice,
   OptionAnchorKind,
   slugCatalogRef,
@@ -67,7 +69,7 @@ describe('option-anchors', () => {
     expect(family.ownerModuleId).toBe('mod-trading-1');
     expect(family.options.map((opt) => opt.id).sort()).toEqual(['strat-001', 'strat-002']);
     expect(family.parentAnchorId).toBeNull();
-    expect(family.intakes).toEqual({ data: true, systemControl: true, clock: false });
+    expect(family.intakes).toEqual({ data: true, systemControl: false, clock: false });
 
     const branch = anchors.find(
       (anchor) =>
@@ -136,6 +138,7 @@ describe('option-anchors', () => {
     expect(visible.some((anchor) => anchor.kind === 'template_input')).toBe(false);
     expect(visible.some((anchor) => anchor.kind === 'philosophy_axis')).toBe(false);
     expect(visible.some((anchor) => anchor.kind === 'strategy_family')).toBe(true);
+    expect(visible.some((anchor) => anchor.kind === 'research_subtype')).toBe(false);
     expect(
       visible.some(
         (anchor) =>
@@ -143,6 +146,29 @@ describe('option-anchors', () => {
           anchor.parentAnchorId !== null,
       ),
     ).toBe(false);
+  });
+
+  it('intakes and emit options follow info type / output path (D-217)', () => {
+    expect(intakesForDecisionKind('strategy_family')).toEqual({
+      data: true,
+      systemControl: false,
+      clock: false,
+    });
+    expect(intakesForDecisionKind('recovery_phase')).toEqual({
+      data: false,
+      systemControl: true,
+      clock: false,
+    });
+    expect(intakesForDecisionKind('cadence_band')).toEqual({
+      data: false,
+      systemControl: false,
+      clock: true,
+    });
+    expect(emitModesForAnalyzerOutput({ hubFeedClass: 'direct' })).toEqual(['to_library']);
+    expect(emitModesForAnalyzerOutput({ hubFeedClass: 'analyzed' })).toEqual(['to_desk_stream']);
+    expect(emitModesForAnalyzerOutput({ emitMode: 'verify_loopback' })).toEqual([
+      'verify_loopback',
+    ]);
   });
 
   it('research engines yield sibling decision roots with option sets (D-192)', () => {
@@ -218,7 +244,9 @@ describe('option-anchors', () => {
     expect(pipeline?.options.map((option) => option.id)).toEqual(['discover', 'verify_sanity']);
 
     const visible = canvasVisibleOptionAnchors(anchors);
-    expect(visible.some((anchor) => anchor.kind === 'research_subtype')).toBe(true);
+    expect(visible.some((anchor) => anchor.kind === 'research_subtype')).toBe(false);
+    expect(visible.some((anchor) => anchor.kind === 'library_class')).toBe(false);
+    expect(visible.some((anchor) => anchor.kind === 'librarian_subtype')).toBe(false);
     expect(visible.some((anchor) => anchor.kind === 'lever_band')).toBe(false);
     expect(visible.some((anchor) => anchor.kind === 'curiosity_band')).toBe(false);
     expect(visible.some((anchor) => anchor.kind === 'admission_mode')).toBe(false);
@@ -229,6 +257,10 @@ describe('option-anchors', () => {
     expect(anchors.some((anchor) => anchor.kind === 'cadence_band')).toBe(true);
     expect(anchors.some((anchor) => anchor.kind === 'philosophy_axis')).toBe(true);
     expect(visible.some((anchor) => anchor.kind === 'branch_role')).toBe(true);
+    expect(visible.some((anchor) => anchor.kind === 'emit_mode')).toBe(true);
+    const emit = anchors.find((a) => a.kind === 'emit_mode');
+    expect(emit?.options.map((o) => o.id)).toEqual(['to_desk_stream']);
+    expect(emit?.intakes).toEqual({ data: true, systemControl: false, clock: false });
   });
 
   it('trend research engine attaches trend_posture under the trend member', () => {

@@ -2,7 +2,7 @@
 
 /**
  * Bespoke orthogonal (right-angle) edges for the Market Posture Model strip.
- * Sharp elbows, L→R handle bias, lane offsets — labeled with source / data-source names.
+ * Sharp elbows, L→R hop rails, vertical rail↔rail bridges — labeled with sources.
  */
 
 import { memo } from 'react';
@@ -26,6 +26,8 @@ export type PostureOrthoEdgeData = PostureAlgoEdgeData & {
   railVerb?: string;
   /** Short role tag (SRC / ADAPT / …). */
   railRole?: string;
+  /** Cluster↔cluster rail bridge. */
+  railBridge?: boolean;
 };
 
 function hashLane(id: string): number {
@@ -42,6 +44,8 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
   targetY,
   sourcePosition,
   targetPosition,
+  sourceHandleId,
+  targetHandleId,
   style,
   markerEnd,
   label,
@@ -50,18 +54,31 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
 }: EdgeProps) {
   const edgeData = data as PostureOrthoEdgeData | undefined;
   const strip = edgeData?.stripMode === true;
+  const railBridge = edgeData?.railBridge === true || id.startsWith('e-rail:');
   const explicit = edgeData?.laneOffset;
-  // Stable small jog so parallel same-row transfers read as distinct rails.
   const lane =
-    explicit ?? (strip ? ((hashLane(id) % 5) - 2) * 3 : 0);
+    explicit ?? (strip && !railBridge ? ((hashLane(id) % 5) - 2) * 3 : 0);
 
-  // Model strip is L→R transfer flow — bias handles even if RF guesses Top/Bottom.
-  const fromPos = strip ? Position.Right : sourcePosition;
-  const toPos = strip ? Position.Left : targetPosition;
+  const verticalBridge =
+    railBridge &&
+    (sourceHandleId === 'rail-out' ||
+      sourceHandleId === 'rail-in' ||
+      targetHandleId === 'rail-in' ||
+      targetHandleId === 'rail-out');
+  const fromPos = verticalBridge
+    ? sourcePosition
+    : strip
+      ? Position.Right
+      : sourcePosition;
+  const toPos = verticalBridge
+    ? targetPosition
+    : strip
+      ? Position.Left
+      : targetPosition;
   const sy = sourceY + lane;
   const ty = targetY + lane;
-  // Mid-channel elbow so stacked routes share a clean horizontal bus, not diagonals.
   const midX = sourceX + (targetX - sourceX) * 0.5;
+  const midY = sourceY + (targetY - sourceY) * 0.5;
   const aligned = Math.abs(sy - ty) < 2;
 
   const [path, labelX, labelY] = getSmoothStepPath({
@@ -72,8 +89,9 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
     sourcePosition: fromPos,
     targetPosition: toPos,
     borderRadius: 0,
-    offset: strip ? (aligned ? 6 : 12) : 16,
-    ...(strip && !aligned ? { centerX: midX } : {}),
+    offset: strip ? (railBridge ? 18 : aligned ? 6 : 12) : 16,
+    ...(strip && !aligned && !verticalBridge ? { centerX: midX } : {}),
+    ...(strip && verticalBridge ? { centerY: midY } : {}),
   });
 
   const railTitle = edgeData?.railTitle?.trim() || null;
@@ -91,6 +109,15 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
       ...style,
       strokeLinecap: 'square' as const,
       strokeLinejoin: 'miter' as const,
+      ...(railBridge
+        ? {
+            strokeDasharray: '7 5',
+            strokeWidth:
+              typeof style?.strokeWidth === 'number'
+                ? Math.max(style.strokeWidth, 2.8)
+                : 2.8,
+          }
+        : {}),
     },
     interactionWidth: strip ? 18 : 10,
     ...(markerEnd != null ? { markerEnd } : {}),
@@ -98,7 +125,6 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
 
   return (
     <>
-      {/* Halo under the rail so stacked transfers stay visible on dark chrome. */}
       {strip ? (
         <BaseEdge
           id={`${id}__halo`}
@@ -107,8 +133,10 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
             stroke: 'var(--color-surface-0)',
             strokeWidth:
               typeof style?.strokeWidth === 'number'
-                ? style.strokeWidth + 3.5
-                : 5.5,
+                ? style.strokeWidth + (railBridge ? 4.5 : 3.5)
+                : railBridge
+                  ? 7
+                  : 5.5,
             opacity: 0.88,
             strokeLinecap: 'square',
             strokeLinejoin: 'miter',
@@ -123,12 +151,12 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
           <div
             className="nodrag nopan pointer-events-none absolute origin-center"
             style={{
-              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY - (railTitle ? 2 : 0)}px)`,
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY - (railTitle || railBridge ? 2 : 0)}px)`,
               opacity: selected ? 1 : 0.98,
             }}
           >
             <div
-              className="max-w-[9.5rem] rounded border px-1.5 py-0.5 shadow-sm"
+              className="max-w-[11rem] rounded border px-1.5 py-0.5 shadow-sm"
               style={{
                 borderColor: stroke,
                 background:
@@ -136,9 +164,23 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
                 boxShadow: `0 0 0 1px color-mix(in srgb, ${stroke} 35%, transparent)`,
               }}
               data-testid="market-posture-model-edge-label"
-              title={[railRole, railTitle, railVerb].filter(Boolean).join(' · ')}
+              title={[railRole, railTitle || fallback, railVerb]
+                .filter(Boolean)
+                .join(' · ')}
             >
-              {railTitle ? (
+              {railBridge || (fallback.includes('→') && !railTitle) ? (
+                <div className="flex min-w-0 items-center gap-1">
+                  <span
+                    className="shrink-0 font-mono text-[7px] font-bold uppercase tracking-wider"
+                    style={{ color: stroke }}
+                  >
+                    RAIL
+                  </span>
+                  <span className="truncate font-mono text-[8px] font-semibold leading-tight text-[var(--color-ink)]">
+                    {fallback || railTitle}
+                  </span>
+                </div>
+              ) : railTitle ? (
                 <>
                   <div className="flex min-w-0 items-center gap-1">
                     {railRole ? (

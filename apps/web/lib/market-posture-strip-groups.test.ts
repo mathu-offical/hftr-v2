@@ -205,7 +205,7 @@ describe('applyStripScreenGroups', () => {
     const final = finalizeStripEdges(edges, packed);
     // Same-screen ingest rail stays.
     expect(final.some((e) => e.id === 'e-live-adapt')).toBe(true);
-    // Cluster↔cluster / live→process content wires become screen backbone.
+    // Cluster↔cluster / live→process content wires become rail or screen bridges.
     expect(final.some((e) => e.id === 'e-adapt-proc')).toBe(false);
     expect(final.some((e) => e.id === 'e-proc-seal')).toBe(false);
     expect(final.some((e) => e.id === 'e-group:live->library')).toBe(true);
@@ -215,7 +215,7 @@ describe('applyStripScreenGroups', () => {
     expect(final.some((e) => e.id === 'e-group:live->outlook')).toBe(false);
   });
 
-  it('drops cross-route spaghetti on the same screen', () => {
+  it('builds direct rail↔rail bridges between route clusters', () => {
     const stamped = [
       {
         ...node('process:news:fetch', 'process', 'Fetch'),
@@ -250,6 +250,11 @@ describe('applyStripScreenGroups', () => {
     const final = finalizeStripEdges(edges, packed);
     expect(final.some((e) => e.id === 'e-news')).toBe(true);
     expect(final.some((e) => e.id === 'e-cross')).toBe(false);
+    const bridge = final.find((e) => e.id.startsWith('e-rail:'));
+    expect(bridge).toBeTruthy();
+    expect(bridge?.source.startsWith('cluster:process:')).toBe(true);
+    expect(bridge?.target.startsWith('cluster:process:')).toBe(true);
+    expect(bridge?.label).toMatch(/→/);
   });
 
   it('drops skip-hop wires inside a route cluster', () => {

@@ -386,9 +386,11 @@ are ignored. Shortcuts are suppressed in editable fields.
   filings) use a **lane × function matrix** (not a long hop mash); hop badges + short
   edge transfer labels on the strip;
   wires are **bespoke orthogonal rails** (`postureOrtho`, sharp right angles) with
-  cross-route / inter-cluster / diagonal content edges pruned to adjacent screen
-  backbones; rail labels show **role · source node name** (e.g. `SRC · Alpaca bars`)
-  plus transfer verb; halo stroke under each rail for contrast; per-node nudges via
+  cross-route / inter-cluster content collapsed to **rail↔rail bridges**
+  (`e-rail:…`, cluster frame Top/Bottom handles) and cross-screen diagonals to
+  adjacent screen-group backbones; rail labels show **role · source node name**
+  (e.g. `SRC · Alpaca bars`) or `RAIL · route A → route B`; halo stroke under each
+  rail for contrast; per-node nudges via
   `STRIP_NODE_PLACEMENT_OVERRIDES`; unused screen
   space stays loose between columns; strip nodes use **compact chrome**
   sized to the packing grid (no clipped cards); side nodes

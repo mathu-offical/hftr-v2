@@ -1898,6 +1898,8 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   diagonal content wires in favor of adjacent screen-group backbones so the diagram
   stays readable; multi-provider routes use a **lane × function matrix**
   (`market-posture-strip-placement.ts`) with optional `STRIP_NODE_PLACEMENT_OVERRIDES`;
+  inter-cluster content collapses to labeled **rail↔rail bridges** (`e-rail:…`) on
+  cluster Top/Bottom handles so route-to-route links stay visible without node mash;
   **research ENGINEs** appear on Library as gather→validate→synthesize→admit→articles→shelf
   (D-214). Strip chrome is **compact** (`stripCompact`): packing cell sizes match dense
   node cards; track legend omitted so the diagram fills the band.

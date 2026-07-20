@@ -151,6 +151,9 @@ export type PostureAlgoGraph = {
     source: string;
     target: string;
     label?: string | undefined;
+    /** Optional RF handle ids for vertical rail↔rail bridges. */
+    sourceHandle?: string | undefined;
+    targetHandle?: string | undefined;
     data: PostureAlgoEdgeData;
   }>;
   tracks: Array<{ id: MarketHubModelTrack; label: string; summary: string }>;
@@ -3478,9 +3481,8 @@ export function applyStripScreenGroups(
  * Keep readable strip wires only (D-186):
  * - Intra-cluster / same-route adjacent transfer hops (no skip chords)
  * - Same-lane only inside matrix routes (no cross-provider vertical mash)
- * - No cluster↔side or inter-cluster wires (adjacent screen-group backbone instead)
- * - Same-screen transfer rails (hydrate/process) unless they jump distinct routes
- * - Adjacent screen-group backbone only (path-aggregated), not every diagonal
+ * - Inter-cluster content wires collapse to **rail↔rail bridges** on cluster frames
+ * - Cross-screen content → adjacent screen-group backbone
  */
 export function finalizeStripEdges(
   edges: PostureAlgoGraph['edges'],
@@ -3513,6 +3515,25 @@ export function finalizeStripEdges(
     return null;
   };
 
+  type RailPair = {
+    from: string;
+    to: string;
+    n: number;
+    track: MarketHubModelTrack;
+  };
+  const railPairs = new Map<string, RailPair>();
+  const bumpRail = (
+    fromCluster: string,
+    toCluster: string,
+    track: MarketHubModelTrack,
+  ): void => {
+    if (fromCluster === toCluster) return;
+    const key = `${fromCluster}->${toCluster}`;
+    const prev = railPairs.get(key);
+    if (prev) prev.n += 1;
+    else railPairs.set(key, { from: fromCluster, to: toCluster, n: 1, track });
+  };
+
   const kept = edges.filter((e) => {
     if (!contentIds.has(e.source) || !contentIds.has(e.target)) return false;
     const ss = screenByNode.get(e.source);
@@ -3522,17 +3543,20 @@ export function finalizeStripEdges(
 
     const a = byId.get(e.source);
     const b = byId.get(e.target);
-    const ra = a?.data.processRoute;
-    const rb = b?.data.processRoute;
-    // Distinct named routes on the same screen → no cross-route spaghetti.
-    if (ra && rb && ra !== rb) return false;
-
     const cs = clusterOf(e.source);
     const ct = clusterOf(e.target);
-    // Cluster isolation: no wires between clusters or cluster↔stage/side.
-    // Cross-flow is the adjacent screen-group backbone only.
+
+    // Distinct clusters → one rail↔rail bridge (not every node diagonal).
+    if (cs && ct && cs !== ct) {
+      bumpRail(cs, ct, e.data.track);
+      return false;
+    }
+
+    // Cluster ↔ side (stages / panels): no content diagonal.
     if (cs !== ct) return false;
 
+    const ra = a?.data.processRoute;
+    const rb = b?.data.processRoute;
     // Same named route: only adjacent transfer hops (no skip chords).
     if (ra && rb && ra === rb) {
       const ha = a?.data.transferHop;
@@ -3598,7 +3622,46 @@ export function finalizeStripEdges(
     });
   }
 
-  return [...kept, ...backbone];
+  // Direct rail↔rail bridges between process-route clusters.
+  const railBridges: PostureAlgoGraph['edges'] = [];
+  for (const { from, to, n, track } of railPairs.values()) {
+    const fromNode = byId.get(from);
+    const toNode = byId.get(to);
+    if (!fromNode || !toNode) continue;
+    const fromLabel =
+      fromNode.data.label || from.replace(/^cluster:process:/, '');
+    const toLabel = toNode.data.label || to.replace(/^cluster:process:/, '');
+    const dy = toNode.position.y - fromNode.position.y;
+    const dx = toNode.position.x - fromNode.position.x;
+    const vertical = Math.abs(dy) >= Math.abs(dx) * 0.6;
+    const label =
+      n > 1 ? `${fromLabel} → ${toLabel} · ${n}` : `${fromLabel} → ${toLabel}`;
+    const bridge: PostureAlgoGraph['edges'][number] = {
+      id: `e-rail:${from}->${to}`,
+      source: from,
+      target: to,
+      label,
+      data: {
+        edgeType: 'parallel',
+        activation: 'armed',
+        status: 'ready',
+        track,
+        label,
+      },
+    };
+    if (vertical) {
+      if (dy >= 0) {
+        bridge.sourceHandle = 'rail-out';
+        bridge.targetHandle = 'rail-in';
+      } else {
+        bridge.sourceHandle = 'rail-in';
+        bridge.targetHandle = 'rail-out';
+      }
+    }
+    railBridges.push(bridge);
+  }
+
+  return [...kept, ...backbone, ...railBridges];
 }
 
 /**

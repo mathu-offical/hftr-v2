@@ -53,6 +53,7 @@ type LiveEdge = Edge<
     railTitle?: string;
     railVerb?: string;
     railRole?: string;
+    railBridge?: boolean;
   }
 >;
 
@@ -325,6 +326,8 @@ function styleModelEdge(
     source: string;
     target: string;
     label?: string | undefined;
+    sourceHandle?: string | undefined;
+    targetHandle?: string | undefined;
     data: PostureAlgoEdgeData;
   },
   opts?: {
@@ -344,7 +347,11 @@ function styleModelEdge(
   const { edgeType, activation, status, track } = edge.data;
   const stroke = trackStroke(track);
   const animated = activation === 'active' || activation === 'pulsing';
-  const cross = opts?.crossScreen === true || edge.id.startsWith('e-group:');
+  const railBridge = edge.id.startsWith('e-rail:');
+  const cross =
+    opts?.crossScreen === true ||
+    edge.id.startsWith('e-group:') ||
+    railBridge;
   const strip = Boolean(opts?.stripTransferLabels || opts?.orthoStrip);
   const width =
     edgeType === 'emit'
@@ -424,8 +431,8 @@ function styleModelEdge(
   const stripLabel = (() => {
     if (opts?.hideLabels) return undefined;
     if (!opts?.stripTransferLabels) return undefined;
-    // Backbone: keep flow count from edge.label ("N flows").
-    if (cross && edge.label?.trim()) return edge.label.trim();
+    // Backbone / rail bridges: keep explicit route→route labels.
+    if ((cross || railBridge) && edge.label?.trim()) return edge.label.trim();
     if (railTitle && roleTag) return `${roleTag} · ${railTitle}`;
     if (railTitle) return railTitle;
     return transferWord;
@@ -443,22 +450,26 @@ function styleModelEdge(
     source: edge.source,
     target: edge.target,
     label,
+    ...(edge.sourceHandle ? { sourceHandle: edge.sourceHandle } : {}),
+    ...(edge.targetHandle ? { targetHandle: edge.targetHandle } : {}),
     data: {
       ...edge.data,
       stripMode: strip,
       ...(opts?.laneOffset != null ? { laneOffset: opts.laneOffset } : {}),
       ...(railTitle ? { railTitle } : {}),
+      ...(railBridge ? { railBridge: true } : {}),
       ...(opts?.stripTransferLabels
         ? {
-            railVerb: transferWord,
-            ...(roleTag ? { railRole: roleTag } : {}),
+            railVerb: railBridge ? 'rail link' : transferWord,
+            ...(roleTag && !railBridge ? { railRole: roleTag } : {}),
+            ...(railBridge ? { railRole: 'RAIL' } : {}),
           }
         : {}),
     },
     // Bespoke Model orthogonal rails (strip + default).
     type: 'postureOrtho',
     animated: animated || cross,
-    zIndex: cross ? 8 : edgeType === 'emit' ? 2 : 5,
+    zIndex: railBridge ? 9 : cross ? 8 : edgeType === 'emit' ? 2 : 5,
     markerEnd: {
       type: MarkerType.ArrowClosed,
       width: strip ? 12 : 10,
@@ -743,6 +754,22 @@ const PostureGroupNode = memo(function PostureGroupNode({
           {data.detail}
         </p>
       ) : null}
+      {isCluster ? (
+        <>
+          <Handle
+            id="rail-in"
+            type="target"
+            position={Position.Top}
+            className="!h-2 !w-2 !border-[var(--color-surface-0)] !bg-[var(--color-accent)]"
+          />
+          <Handle
+            id="rail-out"
+            type="source"
+            position={Position.Bottom}
+            className="!h-2 !w-2 !border-[var(--color-surface-0)] !bg-[var(--color-accent)]"
+          />
+        </>
+      ) : null}
       <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !bg-[var(--color-line)]" />
       <Handle type="source" position={Position.Right} className="!h-1.5 !w-1.5 !bg-[var(--color-line)]" />
     </div>
@@ -814,6 +841,7 @@ function InnerCanvas(props: {
       const b = screenById.get(e.target);
       const crossScreen =
         e.id.startsWith('e-group:') ||
+        e.id.startsWith('e-rail:') ||
         (a != null && b != null && a !== b);
       const srcMeta = labelById.get(e.source);
       const opts: {

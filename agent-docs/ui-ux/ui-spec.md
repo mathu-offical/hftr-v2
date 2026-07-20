@@ -382,9 +382,12 @@ are ignored. Shortcuts are suppressed in editable fields.
   track lanes, Capital root vs execution, Outlook/Day sequential stage columns. Routes
   stack in pipeline order; steps within a route use **transfer hops** (L→R connection
   order / semantic source→adapter→process when edges are incomplete) with handoff-sized
-  gaps — no empty mid-band holes; hop badges + short edge transfer labels on the strip;
+  gaps — no empty mid-band holes; multi-provider routes (`news_headline`, web_search,
+  filings) use a **lane × function matrix** (not a long hop mash); hop badges + short
+  edge transfer labels on the strip;
   wires are **bespoke orthogonal rails** (`postureOrtho`, sharp right angles) with
-  cross-route / diagonal content edges pruned to adjacent screen backbones; unused screen
+  cross-route / inter-cluster / diagonal content edges pruned to adjacent screen
+  backbones; per-node nudges via `STRIP_NODE_PLACEMENT_OVERRIDES`; unused screen
   space stays loose between columns; strip nodes use **compact chrome**
   sized to the packing grid (no clipped cards); side nodes
   sit below the route stack. Draws all within- and

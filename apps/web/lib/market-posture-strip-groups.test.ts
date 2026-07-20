@@ -180,7 +180,7 @@ describe('applyStripScreenGroups', () => {
     );
   });
 
-  it('finalizeStripEdges keeps child edges and adds forward-only group backbone', () => {
+  it('finalizeStripEdges keeps local rails and adjacent group backbone', () => {
     const nodes = [
       node('live:bars', 'live_source', 'Bars'),
       node('adapter:1', 'adapter', 'Adapt'),
@@ -198,18 +198,116 @@ describe('applyStripScreenGroups', () => {
       edge('e-live-adapt', 'live:bars', 'adapter:1'),
       edge('e-adapt-proc', 'adapter:1', 'process:step'),
       edge('e-proc-seal', 'process:step', 'seal_movers'),
-      // Backward edge must not create day→capital style backbone.
+      // Backward edge must not create reverse backbone.
       edge('e-back', 'seal_movers', 'live:bars'),
     ];
     const packed = applyStripScreenGroups(nodes, edges);
     const final = finalizeStripEdges(edges, packed);
+    // Same-screen ingest rail stays.
     expect(final.some((e) => e.id === 'e-live-adapt')).toBe(true);
-    expect(final.some((e) => e.id === 'e-adapt-proc')).toBe(true);
-    expect(final.some((e) => e.id === 'e-proc-seal')).toBe(true);
-    // Kind-specific process sits on Live → Outlook is the forward hop.
-    expect(final.some((e) => e.id === 'e-group:live->outlook')).toBe(true);
+    // Cluster↔cluster / live→process content wires become screen backbone.
+    expect(final.some((e) => e.id === 'e-adapt-proc')).toBe(false);
+    expect(final.some((e) => e.id === 'e-proc-seal')).toBe(false);
+    expect(final.some((e) => e.id === 'e-group:live->library')).toBe(true);
+    expect(final.some((e) => e.id === 'e-group:library->process')).toBe(true);
+    expect(final.some((e) => e.id === 'e-group:process->outlook')).toBe(true);
     expect(final.some((e) => e.id === 'e-group:outlook->live')).toBe(false);
-    expect(final.some((e) => e.id === 'e-group:process->live')).toBe(false);
+    expect(final.some((e) => e.id === 'e-group:live->outlook')).toBe(false);
+  });
+
+  it('drops cross-route spaghetti on the same screen', () => {
+    const stamped = [
+      {
+        ...node('process:news:fetch', 'process', 'Fetch'),
+        data: {
+          ...node('process:news:fetch', 'process', 'Fetch').data,
+          processRoute: 'news_headline',
+          processFunction: 'fetch',
+        },
+      },
+      {
+        ...node('process:news:norm', 'process', 'Norm'),
+        data: {
+          ...node('process:news:norm', 'process', 'Norm').data,
+          processRoute: 'news_headline',
+          processFunction: 'normalize',
+        },
+      },
+      {
+        ...node('process:bars:fetch', 'process', 'Bars'),
+        data: {
+          ...node('process:bars:fetch', 'process', 'Bars').data,
+          processRoute: 'bars_ohlc',
+          processFunction: 'fetch',
+        },
+      },
+    ];
+    const edges = [
+      edge('e-news', 'process:news:fetch', 'process:news:norm'),
+      edge('e-cross', 'process:news:fetch', 'process:bars:fetch'),
+    ];
+    const packed = applyStripScreenGroups(stamped, edges);
+    const final = finalizeStripEdges(edges, packed);
+    expect(final.some((e) => e.id === 'e-news')).toBe(true);
+    expect(final.some((e) => e.id === 'e-cross')).toBe(false);
+  });
+
+  it('drops skip-hop wires inside a route cluster', () => {
+    const stamped = [
+      {
+        ...node('process:alpaca_news:fetch', 'process', 'Fetch'),
+        data: {
+          ...node('process:alpaca_news:fetch', 'process', 'Fetch').data,
+          processRoute: 'news_headline',
+          processFunction: 'fetch',
+          transferHop: 1,
+        },
+      },
+      {
+        ...node('process:alpaca_news:normalize', 'process', 'Norm'),
+        data: {
+          ...node('process:alpaca_news:normalize', 'process', 'Norm').data,
+          processRoute: 'news_headline',
+          processFunction: 'normalize',
+          transferHop: 2,
+        },
+      },
+      {
+        ...node('process:alpaca_news:corroborate', 'process', 'Corr'),
+        data: {
+          ...node('process:alpaca_news:corroborate', 'process', 'Corr').data,
+          processRoute: 'news_headline',
+          processFunction: 'corroborate',
+          transferHop: 3,
+        },
+      },
+    ];
+    const edges = [
+      edge('adj-1', 'process:alpaca_news:fetch', 'process:alpaca_news:normalize'),
+      edge(
+        'adj-2',
+        'process:alpaca_news:normalize',
+        'process:alpaca_news:corroborate',
+      ),
+      edge('skip', 'process:alpaca_news:fetch', 'process:alpaca_news:corroborate'),
+    ];
+    const packed = applyStripScreenGroups(stamped, edges);
+    const withHops = packed.map((n) => {
+      if (n.id === 'process:alpaca_news:fetch') {
+        return { ...n, data: { ...n.data, transferHop: 1 } };
+      }
+      if (n.id === 'process:alpaca_news:normalize') {
+        return { ...n, data: { ...n.data, transferHop: 2 } };
+      }
+      if (n.id === 'process:alpaca_news:corroborate') {
+        return { ...n, data: { ...n.data, transferHop: 3 } };
+      }
+      return n;
+    });
+    const final = finalizeStripEdges(edges, withHops);
+    expect(final.some((e) => e.id === 'adj-1')).toBe(true);
+    expect(final.some((e) => e.id === 'adj-2')).toBe(true);
+    expect(final.some((e) => e.id === 'skip')).toBe(false);
   });
 
   it('packs library adapters under library, not live', () => {
@@ -468,10 +566,10 @@ describe('applyStripScreenGroups', () => {
     expect(barsFetch.data.transferHop).toBe(1);
     expect(newsNorm.data.transferHop).toBe(2);
     expect(barsScore.data.transferHop).toBe(2);
-    // Continuous transfer — hop 2 sits just past hop 1 (no empty mid-band).
+    // Continuous transfer — hop 2 sits just past hop 1 (room for ortho elbows).
     const hopGap = newsNorm.position.x - newsFetch.position.x;
     expect(hopGap).toBeGreaterThan(110);
-    expect(hopGap).toBeLessThan(200);
+    expect(hopGap).toBeLessThan(220);
     expect(barsScore.position.x).toBe(newsNorm.position.x);
   });
 

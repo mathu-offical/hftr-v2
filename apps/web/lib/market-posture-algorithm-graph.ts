@@ -36,9 +36,23 @@ import {
   resolveStageScreenId,
   type MarketPostureStageScreenId,
 } from './market-posture-stage-screens';
+import {
+  applyStripPlacementOverride,
+  layoutStepsByMatrix,
+  resolveStripLayoutMode,
+  stripLaneKey,
+} from './market-posture-strip-placement';
 
 export { resolveStageScreenId };
 export type { MarketPostureStageScreenId };
+export {
+  STRIP_NODE_PLACEMENT_OVERRIDES,
+  STRIP_ROUTE_LAYOUT,
+  applyStripPlacementOverride,
+  layoutStepsByMatrix,
+  resolveStripLayoutMode,
+  stripLaneKey,
+} from './market-posture-strip-placement';
 
 export type PostureAlgoNodeRole =
   | 'live_source'
@@ -1832,14 +1846,14 @@ export const STRIP_NODE_W = 118;
 const STRIP_PAD = 12;
 const STRIP_HEADER = 26;
 /** Default pitch between sibling nodes in the same transfer hop column. */
-const STRIP_INNER_GAP = 18;
+const STRIP_INNER_GAP = 22;
 /** Max role lanes inside a screen group (src → adapt → process → stage → emit). */
 const STRIP_INNER_LANES = 5;
 const STRIP_INNER_LANE_W = STRIP_NODE_W + STRIP_INNER_GAP;
 const STRIP_COL_W =
   STRIP_PAD * 2 + STRIP_INNER_LANES * STRIP_INNER_LANE_W + 20;
 /** Gap between screen-group columns on the strip. */
-const STRIP_SCREEN_GAP = 28;
+const STRIP_SCREEN_GAP = 36;
 
 const STRIP_ROLE_ORDER: Record<PostureAlgoNodeRole, number> = {
   screen_group: -1,
@@ -1913,11 +1927,11 @@ const STRIP_FUNCTION_BANDS: readonly StripFunctionBand[] = [
 
 /** Space after each band before the next — wider at semantic boundaries. */
 const STRIP_BAND_GAP_AFTER: Record<StripFunctionBand, number> = {
-  source: 28,
-  adapter: 24,
-  ingest: 16,
-  refine: 22,
-  decide: 26,
+  source: 32,
+  adapter: 28,
+  ingest: 20,
+  refine: 26,
+  decide: 30,
   emit: 0,
 };
 
@@ -2870,7 +2884,16 @@ function packProcessScreenColumn(opts: {
   pendingClusters.forEach((cluster, routeIdx) => {
     const { route, steps } = cluster;
     const clusterId = `cluster:process:${route}`;
-    const layout = layoutStepsByTransfer(steps, edges, transferOrigins);
+    const layoutMode = resolveStripLayoutMode(route, steps);
+    const layout =
+      layoutMode === 'matrix'
+        ? layoutStepsByMatrix(steps, {
+            nodeW: STRIP_NODE_W,
+            nodeH: STRIP_NODE_H,
+            gapX: STRIP_INNER_GAP,
+            gapY: STRIP_STACK_GAP + 8,
+          })
+        : layoutStepsByTransfer(steps, edges, transferOrigins);
     const clusterW = STRIP_PAD * 2 + layout.width;
     const clusterH =
       STRIP_CLUSTER_HEADER + STRIP_PAD * 2 + layout.height;
@@ -2907,8 +2930,9 @@ function packProcessScreenColumn(opts: {
       ...new Set(steps.map((s) => s.data.nodeRole).filter(Boolean)),
     ];
     const detail =
-      fnSummary ||
-      (roleBits.length > 1 ? roleBits.join(' → ') : 'process chain');
+      (layoutMode === 'matrix' ? 'matrix · ' : '') +
+      (fnSummary ||
+        (roleBits.length > 1 ? roleBits.join(' → ') : 'process chain'));
 
     out.push({
       id: clusterId,
@@ -2937,27 +2961,32 @@ function packProcessScreenColumn(opts: {
       },
     });
 
-    steps.forEach((step) => {
+    for (const step of steps) {
       const pos = layout.positions.get(step.id) ?? { x: 0, y: 0 };
+      const nudged = applyStripPlacementOverride(step.id, pos);
       const hop = layout.hops.get(step.id);
       out.push({
         ...step,
         parentId: clusterId,
         extent: 'parent',
         position: {
-          x: STRIP_PAD + pos.x,
-          y: STRIP_CLUSTER_HEADER + STRIP_PAD + pos.y,
+          x: STRIP_PAD + nudged.x,
+          y: STRIP_CLUSTER_HEADER + STRIP_PAD + nudged.y,
         },
         draggable: false,
         data: {
           ...step.data,
           stageScreenId: screenId,
+          processRoute: route,
           stripCompact: true,
           ...(hop != null ? { transferHop: hop } : {}),
         },
       });
-      globalRank.set(step.id, routeIdx * 100 + (hop ?? 0) * 10 + pos.y / 10);
-    });
+      globalRank.set(
+        step.id,
+        routeIdx * 100 + (hop ?? 0) * 10 + nudged.y / 10,
+      );
+    }
 
     cursorY += clusterH + STRIP_CLUSTER_GAP;
   });
@@ -3001,14 +3030,15 @@ function packProcessScreenColumn(opts: {
       : STRIP_HEADER + STRIP_PAD;
   refinedOther.forEach((child) => {
     const pos = otherLayout.positions.get(child.id) ?? { x: 0, y: 0 };
+    const nudged = applyStripPlacementOverride(child.id, pos);
     const hop = otherLayout.hops.get(child.id);
     out.push({
       ...child,
       parentId: groupId,
       extent: 'parent',
       position: {
-        x: STRIP_PAD + pos.x,
-        y: otherBlockY + pos.y,
+        x: STRIP_PAD + nudged.x,
+        y: otherBlockY + nudged.y,
       },
       draggable: false,
       data: {
@@ -3445,13 +3475,18 @@ export function applyStripScreenGroups(
 }
 
 /**
- * Keep every edge whose endpoints survived packing, and add screen-group
- * backbone edges for between-screen flows (D-186).
+ * Keep readable strip wires only (D-186):
+ * - Intra-cluster / same-route adjacent transfer hops (no skip chords)
+ * - Same-lane only inside matrix routes (no cross-provider vertical mash)
+ * - No cluster↔side or inter-cluster wires (adjacent screen-group backbone instead)
+ * - Same-screen transfer rails (hydrate/process) unless they jump distinct routes
+ * - Adjacent screen-group backbone only (path-aggregated), not every diagonal
  */
 export function finalizeStripEdges(
   edges: PostureAlgoGraph['edges'],
   packed: PostureAlgoGraphNode[],
 ): PostureAlgoGraph['edges'] {
+  const byId = new Map(packed.map((n) => [n.id, n]));
   const contentIds = new Set(
     packed
       .filter(
@@ -3464,38 +3499,86 @@ export function finalizeStripEdges(
   );
   const screenByNode = new Map<string, MarketPostureStageScreenId>();
   for (const n of packed) {
-    if (n.data.nodeRole === 'screen_group' && n.data.stageScreenId) {
-      continue;
-    }
+    if (n.data.nodeRole === 'screen_group') continue;
     if (n.data.stageScreenId) {
       screenByNode.set(n.id, n.data.stageScreenId as MarketPostureStageScreenId);
     }
   }
 
-  const kept = edges.filter(
-    (e) => contentIds.has(e.source) && contentIds.has(e.target),
-  );
+  const clusterOf = (id: string): string | null => {
+    const n = byId.get(id);
+    if (!n?.parentId) return null;
+    const parent = byId.get(n.parentId);
+    if (parent?.data.nodeRole === 'process_cluster') return parent.id;
+    return null;
+  };
 
+  const kept = edges.filter((e) => {
+    if (!contentIds.has(e.source) || !contentIds.has(e.target)) return false;
+    const ss = screenByNode.get(e.source);
+    const st = screenByNode.get(e.target);
+    // Cross-screen content edges become group backbone — drop the diagonal wire.
+    if (ss && st && ss !== st) return false;
+
+    const a = byId.get(e.source);
+    const b = byId.get(e.target);
+    const ra = a?.data.processRoute;
+    const rb = b?.data.processRoute;
+    // Distinct named routes on the same screen → no cross-route spaghetti.
+    if (ra && rb && ra !== rb) return false;
+
+    const cs = clusterOf(e.source);
+    const ct = clusterOf(e.target);
+    // Cluster isolation: no wires between clusters or cluster↔stage/side.
+    // Cross-flow is the adjacent screen-group backbone only.
+    if (cs !== ct) return false;
+
+    // Same named route: only adjacent transfer hops (no skip chords).
+    if (ra && rb && ra === rb) {
+      const ha = a?.data.transferHop;
+      const hb = b?.data.transferHop;
+      if (ha != null && hb != null && Math.abs(hb - ha) > 1) return false;
+      // Matrix lanes: no vertical mash between parallel providers.
+      if (a && b) {
+        const la = stripLaneKey(a);
+        const lb = stripLaneKey(b);
+        if (la !== lb) return false;
+      }
+    }
+
+    return true;
+  });
+
+  // Path-aggregate cross-screen flows onto adjacent backbone segments only.
   const pairCounts = new Map<
     string,
     { from: MarketPostureStageScreenId; to: MarketPostureStageScreenId; n: number; track: MarketHubModelTrack }
   >();
-  for (const e of kept) {
+  const bumpAdjacent = (
+    from: MarketPostureStageScreenId,
+    to: MarketPostureStageScreenId,
+    track: MarketHubModelTrack,
+  ): void => {
+    const ia = screenFlowIndex(from);
+    const ib = screenFlowIndex(to);
+    if (ia < 0 || ib < 0 || ia >= ib) return;
+    for (let i = ia; i < ib; i++) {
+      const a = SCREEN_FLOW_ORDER[i];
+      const b = SCREEN_FLOW_ORDER[i + 1];
+      if (!a || !b) continue;
+      const key = `${a}->${b}`;
+      const prev = pairCounts.get(key);
+      if (prev) prev.n += 1;
+      else pairCounts.set(key, { from: a, to: b, n: 1, track });
+    }
+  };
+
+  for (const e of edges) {
+    if (!contentIds.has(e.source) || !contentIds.has(e.target)) continue;
     const from = screenByNode.get(e.source);
     const to = screenByNode.get(e.target);
     if (!from || !to || from === to) continue;
-    // Backbone only for forward L→R flow (capital→…→day).
-    if (screenFlowIndex(from) >= screenFlowIndex(to)) continue;
-    const key = `${from}->${to}`;
-    const prev = pairCounts.get(key);
-    if (prev) prev.n += 1;
-    else
-      pairCounts.set(key, {
-        from,
-        to,
-        n: 1,
-        track: e.data.track,
-      });
+    bumpAdjacent(from, to, e.data.track);
   }
 
   const backbone: PostureAlgoGraph['edges'] = [];

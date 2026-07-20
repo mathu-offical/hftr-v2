@@ -1894,8 +1894,10 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   hop 0) with natural handoff gaps — continuous L→R chains without empty mid-band holes;
   hop index stamped on strip nodes; short transfer edge labels + arrowheads in the strip;
   cluster frames size to content; strip edges use **bespoke orthogonal connectors**
-  (`postureOrtho` / sharp right-angle rails) and drop cross-route + diagonal content
-  wires in favor of adjacent screen-group backbones so the diagram stays readable;
+  (`postureOrtho` / sharp right-angle rails) and drop cross-route + inter-cluster +
+  diagonal content wires in favor of adjacent screen-group backbones so the diagram
+  stays readable; multi-provider routes use a **lane × function matrix**
+  (`market-posture-strip-placement.ts`) with optional `STRIP_NODE_PLACEMENT_OVERRIDES`;
   **research ENGINEs** appear on Library as gather→validate→synthesize→admit→articles→shelf
   (D-214). Strip chrome is **compact** (`stripCompact`): packing cell sizes match dense
   node cards; track legend omitted so the diagram fills the band.

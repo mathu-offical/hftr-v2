@@ -13,6 +13,7 @@ import {
   useNodesState,
   useReactFlow,
   type Edge,
+  type EdgeTypes,
   type Node,
   type NodeProps,
   type NodeTypes,
@@ -28,6 +29,7 @@ import type {
   MarketHubSynthesisStageStatus,
 } from '@hftr/contracts';
 import { Justification } from '@/components/panels/Justification';
+import { MarketPostureOrthoEdge } from '@/components/panels/MarketPostureOrthoEdge';
 import {
   buildMarketPostureAlgorithmGraph,
   collectModelPulseIds,
@@ -44,7 +46,11 @@ type LiveNodeData = PostureAlgoNodeData & {
   selected?: boolean;
 };
 
-type LiveEdge = Edge<PostureAlgoEdgeData>;
+type LiveEdge = Edge<PostureAlgoEdgeData & { stripMode?: boolean; laneOffset?: number }>;
+
+const edgeTypes: EdgeTypes = {
+  postureOrtho: MarketPostureOrthoEdge,
+};
 
 function kindBorder(kind: PostureAlgoNodeData['kind']): string {
   switch (kind) {
@@ -318,6 +324,9 @@ function styleModelEdge(
     /** Strip: short transfer labels (no activation spam). */
     stripTransferLabels?: boolean;
     hideLabels?: boolean;
+    /** Force Model orthogonal chrome (right-angle rails). */
+    orthoStrip?: boolean;
+    laneOffset?: number;
   },
 ): LiveEdge {
   const { edgeType, activation, status, track } = edge.data;
@@ -390,14 +399,19 @@ function styleModelEdge(
     source: edge.source,
     target: edge.target,
     label,
-    data: edge.data,
-    ...(opts?.stripTransferLabels && !cross ? { type: 'smoothstep' as const } : {}),
+    data: {
+      ...edge.data,
+      stripMode: Boolean(opts?.stripTransferLabels || opts?.orthoStrip),
+      ...(opts?.laneOffset != null ? { laneOffset: opts.laneOffset } : {}),
+    },
+    // Bespoke Model orthogonal rails (strip + default).
+    type: 'postureOrtho',
     animated: animated || cross,
     zIndex: cross ? 8 : edgeType === 'emit' ? 2 : 5,
     markerEnd: {
       type: MarkerType.ArrowClosed,
-      width: opts?.stripTransferLabels ? 12 : 10,
-      height: opts?.stripTransferLabels ? 12 : 10,
+      width: opts?.stripTransferLabels || opts?.orthoStrip ? 11 : 10,
+      height: opts?.stripTransferLabels || opts?.orthoStrip ? 11 : 10,
       color: stroke,
     },
     style: {
@@ -723,18 +737,29 @@ function InnerCanvas(props: {
       if (n.data.stageScreenId) screenById.set(n.id, n.data.stageScreenId);
     }
     const stripTransferLabels = props.layoutMode === 'stripExpanded';
-    return graph.edges.map((e) => {
+    return graph.edges.map((e, i) => {
       const a = screenById.get(e.source);
       const b = screenById.get(e.target);
       const crossScreen =
         e.id.startsWith('e-group:') ||
         (a != null && b != null && a !== b);
-      return styleModelEdge(e, {
+      const opts: {
+        crossScreen: boolean;
+        stripTransferLabels: boolean;
+        orthoStrip: true;
+        hideLabels: boolean;
+        laneOffset?: number;
+      } = {
         crossScreen,
         stripTransferLabels,
+        orthoStrip: true,
         // Cross-screen backbone stays unlabeled to reduce clutter.
         hideLabels: stripTransferLabels && crossScreen,
-      });
+      };
+      if (stripTransferLabels) {
+        opts.laneOffset = ((i % 5) - 2) * 3;
+      }
+      return styleModelEdge(e, opts);
     });
   }, [graph.edges, graph.nodes, props.layoutMode]);
 
@@ -793,6 +818,8 @@ function InnerCanvas(props: {
         props.onNavigate?.(node.id, screenId);
       }}
       nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      defaultEdgeOptions={{ type: 'postureOrtho' }}
       nodesDraggable={false}
       nodesConnectable={false}
       elementsSelectable

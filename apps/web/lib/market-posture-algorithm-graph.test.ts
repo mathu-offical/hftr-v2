@@ -24,6 +24,8 @@ const liveSources: MarketHubModelHydration['liveSources'] = [
     contributed: true,
     operation: 'hydrate · on board',
     amount: '1 canvas · contrib',
+    moduleType: 'live_api',
+    subtypeChip: 'Alpaca Bars',
   },
   {
     kind: 'gdelt_news',
@@ -36,6 +38,8 @@ const liveSources: MarketHubModelHydration['liveSources'] = [
     contributed: false,
     operation: 'need key',
     amount: '0 canvas',
+    moduleType: 'live_api',
+    subtypeChip: 'Gdelt News',
   },
 ];
 
@@ -49,6 +53,8 @@ const librarySources: MarketHubModelHydration['librarySources'] = [
     admittedCount: 8,
     operation: 'system corpus',
     amount: '8 adm / 10 concepts',
+    moduleType: 'library',
+    subtypeChip: 'System',
   },
 ];
 
@@ -83,6 +89,7 @@ const hydration: MarketHubModelHydration = {
   liveSources,
   librarySources,
   researchEngines: [],
+  scopedModules: [],
   capitalSources: [
     {
       id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
@@ -407,6 +414,59 @@ describe('buildMarketPostureAlgorithmGraph (D-147 / D-156 / D-160 / D-162 / D-16
     });
     const gather = graph.nodes.find((n) => n.id === 'gather');
     expect(gather?.data.amount).toBe('12 usable');
+  });
+
+  it('renders desk research + scoped modules with canvas-parity chrome fields (D-223)', () => {
+    const deskId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+    const librarianId = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+    const graph = buildMarketPostureAlgorithmGraph({
+      hydration: {
+        ...hydration,
+        researchEngines: [
+          {
+            id: deskId,
+            label: 'Desk specialty research (internal)',
+            status: 'active',
+            moduleType: 'research',
+            researchSubtype: 'specialty_desk',
+            subtypeChip: 'Specialty Desk',
+            engineInstanceId: null,
+            boundLibraryIds: [librarySources[0]!.id],
+            liveSourceKinds: ['alpaca_bars'],
+            topicCount: 2,
+            articleCount: 2,
+            operation: 'specialty desk → articles',
+            amount: '2 articles · 1 libs',
+          },
+        ],
+        scopedModules: [
+          {
+            id: librarianId,
+            name: 'Session Evidence Librarian',
+            moduleType: 'librarian',
+            subtypeChip: 'Librarian Relevance',
+            engineInstanceId: null,
+            stageScreenId: 'library',
+            operation: 'curate evidence',
+            amount: 'active',
+            status: 'active',
+          },
+        ],
+      },
+      layoutMode: 'stripExpanded',
+    });
+    const desk = graph.nodes.find((n) => n.id === `engine:research:${deskId}`);
+    expect(desk?.data.moduleType).toBe('research');
+    expect(desk?.data.subtypeChip).toBe('Specialty Desk');
+    expect(desk?.data.label).toContain('Desk specialty');
+    const librarian = graph.nodes.find(
+      (n) => n.id === `scoped:librarian:${librarianId}`,
+    );
+    expect(librarian?.data.moduleType).toBe('librarian');
+    expect(librarian?.data.subtypeChip).toBe('Librarian Relevance');
+    expect(librarian?.data.stageScreenId).toBe('library');
+    const live = graph.nodes.find((n) => n.id === 'live:alpaca_bars');
+    expect(live?.data.moduleType).toBe('live_api');
   });
 });
 

@@ -165,8 +165,11 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   the shared MarketModel quote path used by paper dispatch / exits, plus `news` (sector
   bulletin board) and `capitalSources` as **company root funds + trading execution splits** (D-144;
   fund_router hops and research engine envelopes omitted). Hub also projects `modelHydration`
-  (D-147): full live-source registry + library shelves with per-node operation/amount for the
-  synthesis Model graph, plus `processingFlows` (D-156) — per-API adapter labels, analysis roles,
+  (D-147 / **D-223**): full live-source registry + library shelves with per-node operation/amount for the
+  synthesis Model graph, plus `researchEngines` as **one row per research module** with
+  `researchSubtype` / subtype chips (desk specialty vs filings vs niche — same module, different
+  config) and `scopedModules` (librarian / trend / trading / analyzer / …) for section chrome,
+  plus `processingFlows` (D-156) — per-API adapter labels, analysis roles,
   target stages, and movers/sector pipelines — and `processSteps` (D-162) — route-granular
   fetch→normalize→analyze nodes per live kind plus shared compound bridges (universe/rank/verify/
   sector/daily/narrative) — and `capitalSources` + capital-bearing `panelSurfaces` amounts (D-163)

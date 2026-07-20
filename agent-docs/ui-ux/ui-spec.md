@@ -408,7 +408,12 @@ are ignored. Shortcuts are suppressed in editable fields.
   node to its owning stage screen (cluster click uses that screen). Data-flow
   assignment: library adapters use `lib-adapter:` under Library; `providers` stage sits
   on Process; positions panel on Outlook; live analysis seeds library after score;
-  research ENGINEs publish articles onto bound shelves (D-214).
+  research modules publish articles onto bound shelves (D-214 / **D-223**).
+  **D-223 module chrome:** strip nodes with a canvas `moduleType` render
+  PreviewModule-parity cards (family chip, type label, **subtype config chip**) —
+  e.g. Desk specialty research vs External filings share `research` with different
+  `researchSubtype`; librarian / trend / trading / analyzer / policy appear as
+  `scopedModules` in their stage columns.
   **Capital** shows root user-controlled funds only (company pool + holding funds),
   engine allocation splits, master equity, and open position mark/uPnL values.
   **Live ingest** shows active **market/news stream** APIs (bars, headlines, FX,
@@ -466,7 +471,7 @@ are ignored. Shortcuts are suppressed in editable fields.
   (`library.market_hub_analyze`). Diversified movement triggers can also auto-Analyze.
   Overlay shows the resolved phase label after Analyze.
   Overlay **Model** is a **fixed bottom strip** (D-186) — the live synthesis hydration hub
-  (D-147 / D-156 / D-160 / D-161 / D-162 / D-163 / D-165 / D-169) —
+  (D-147 / D-156 / D-160 / D-161 / D-162 / D-163 / D-165 / D-169 / **D-223**) —
   React Flow with **screen-column grouped nodes** (capital→day frames) nesting live /
   library / capital sources, adapters, process steps, stages, and panel surfaces so the
   strip aligns with the stage screens above. Strip mode drops lane labels and caps density

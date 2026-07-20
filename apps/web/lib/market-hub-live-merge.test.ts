@@ -159,6 +159,7 @@ describe('mergeMarketHubLive', () => {
       liveSources: [],
       librarySources: [],
       researchEngines: [],
+      scopedModules: [],
       capitalSources: [],
       processingFlows: [],
       processSteps: [],

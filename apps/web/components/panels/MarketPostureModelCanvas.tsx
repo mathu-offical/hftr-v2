@@ -32,6 +32,11 @@ import type {
 import { Justification } from '@/components/panels/Justification';
 import { MarketPostureOrthoEdge } from '@/components/panels/MarketPostureOrthoEdge';
 import {
+  FAMILY_LABELS,
+  MODULE_VISUALS,
+  type ModuleFamily,
+} from '@/components/canvas/canvas-visuals';
+import {
   buildMarketPostureAlgorithmGraph,
   collectModelPulseIds,
   resolveStageScreenId,
@@ -39,6 +44,7 @@ import {
   type PostureAlgoNodeData,
 } from '@/lib/market-posture-algorithm-graph';
 import type { MarketPostureStageScreenId } from '@/lib/market-posture-stage-screens';
+import type { ModuleType } from '@hftr/contracts';
 
 const PULSE_MS = 2_200;
 
@@ -201,6 +207,16 @@ function processFunctionLabel(fn: string | undefined): string {
   if (fn === 'route') return 'ROUTE';
   if (fn === 'analyze') return 'ANALYZE';
   return fn.slice(0, 8).toUpperCase();
+}
+
+function moduleVisualFor(type: string | undefined) {
+  if (!type) return null;
+  const key = type as ModuleType;
+  return MODULE_VISUALS[key] ?? null;
+}
+
+function familyLabelFor(family: ModuleFamily): string {
+  return FAMILY_LABELS[family];
 }
 
 function roleLabel(role: PostureAlgoNodeData['nodeRole']): string {
@@ -585,14 +601,102 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
   const ring = data.selected
     ? 'ring-1 ring-[var(--color-accent)]'
     : activationRing(data.activation);
+  const moduleVisual = moduleVisualFor(data.moduleType);
   const chrome =
-    data.nodeRole === 'process' || data.nodeRole === 'analysis'
-      ? processFunctionChrome(data.processFunction)
-      : data.nodeRole === 'query_source'
-        ? roleChrome(data.nodeRole)
-        : data.nodeRole === 'live_source'
-          ? sourceDomainChrome(data.sourceDomain)
-          : roleChrome(data.nodeRole);
+    moduleVisual != null
+      ? ''
+      : data.nodeRole === 'process' || data.nodeRole === 'analysis'
+        ? processFunctionChrome(data.processFunction)
+        : data.nodeRole === 'query_source'
+          ? roleChrome(data.nodeRole)
+          : data.nodeRole === 'live_source'
+            ? sourceDomainChrome(data.sourceDomain)
+            : roleChrome(data.nodeRole);
+
+  // Canvas-parity module chrome (D-223) — desk research + peers share one design.
+  if (moduleVisual && data.stripCompact) {
+    const family = familyLabelFor(moduleVisual.family);
+    const sysKey = data.systemKey ?? null;
+    return (
+      <div
+        className={`relative w-[112px] overflow-hidden border border-t-2 px-1 py-0.5 ${moduleVisual.radiusClass ?? 'rounded-[1px]'} ${ring}`}
+        style={{
+          borderStyle: moduleVisual.borderStyle ?? 'solid',
+          borderColor: 'var(--color-line)',
+          borderLeftWidth: 3,
+          borderLeftColor: moduleVisual.hue,
+          borderTopColor: trackStroke(data.track),
+          backgroundImage: moduleVisual.wash
+            ? `linear-gradient(${moduleVisual.wash}, ${moduleVisual.wash}), linear-gradient(var(--color-surface-1), var(--color-surface-1))`
+            : undefined,
+          boxShadow:
+            'inset 0 0 0 1px color-mix(in srgb, var(--color-line) 40%, transparent)',
+        }}
+        data-testid={`market-posture-model-node-${data.nodeRole}`}
+        data-module-type={data.moduleType}
+        data-subtype-chip={data.subtypeChip ?? undefined}
+        data-activation={data.activation}
+        data-track={data.track}
+        data-strip-compact="true"
+        data-system-key={sysKey ?? undefined}
+        title={`${sysKey ? `${sysKey} · ` : ''}${data.label} · ${data.operation} · ${data.amount}`}
+      >
+        <Handle
+          type="target"
+          position={Position.Left}
+          className="!h-1.5 !w-1.5 !border-[var(--color-surface-0)] !bg-[var(--color-accent)]"
+        />
+        <div className="flex items-center gap-0.5">
+          <span
+            className="shrink-0 rounded px-0.5 text-[6px] uppercase tracking-wide"
+            style={{
+              color: moduleVisual.hue,
+              border: `1px solid ${moduleVisual.hue}55`,
+              background: `${moduleVisual.hue}12`,
+            }}
+          >
+            {family.slice(0, 6)}
+          </span>
+          <span
+            className="max-w-[3rem] truncate font-mono text-[7px] tabular-nums text-[var(--color-ink-dim)]"
+            title={data.amount}
+          >
+            {data.amount}
+          </span>
+        </div>
+        <p
+          className="truncate text-[10px] font-semibold leading-tight text-[var(--color-ink)]"
+          title={data.label}
+        >
+          {data.label}
+        </p>
+        <div className="mt-px flex items-center gap-0.5">
+          <span className="truncate text-[7px] uppercase tracking-wide text-[var(--color-ink-faint)]">
+            {moduleVisual.label}
+          </span>
+          {data.subtypeChip ? (
+            <span
+              className="max-w-[4.5rem] truncate rounded border border-[var(--color-line)] px-0.5 text-[6px] text-[var(--color-ink-dim)]"
+              title={data.subtypeChip}
+            >
+              {data.subtypeChip}
+            </span>
+          ) : null}
+        </div>
+        <p
+          className="truncate font-mono text-[7px] uppercase tracking-wide text-[var(--color-accent)]"
+          title={data.operation}
+        >
+          {data.operation}
+        </p>
+        <Handle
+          type="source"
+          position={Position.Right}
+          className="!h-1.5 !w-1.5 !border-[var(--color-surface-0)] !bg-[var(--color-accent)]"
+        />
+      </div>
+    );
+  }
 
   // Dense strip cells — packing grid assumes ~40×118 chrome (D-214).
   if (data.stripCompact) {
@@ -689,9 +793,28 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
 
   return (
     <div
-      className={`min-w-[140px] max-w-[240px] rounded border border-t-[3px] px-1.5 py-1 shadow-sm ${kindBorder(data.kind)} ${chrome} ${ring}`}
-      style={{ borderTopColor: trackStroke(data.track) }}
+      className={`min-w-[140px] max-w-[240px] border border-t-[3px] px-1.5 py-1 shadow-sm ${
+        moduleVisual
+          ? moduleVisual.radiusClass ?? 'rounded'
+          : `rounded ${kindBorder(data.kind)} ${chrome}`
+      } ${ring}`}
+      style={
+        moduleVisual
+          ? {
+              borderStyle: moduleVisual.borderStyle ?? 'solid',
+              borderColor: 'var(--color-line)',
+              borderLeftWidth: 3,
+              borderLeftColor: moduleVisual.hue,
+              borderTopColor: trackStroke(data.track),
+              backgroundImage: moduleVisual.wash
+                ? `linear-gradient(${moduleVisual.wash}, ${moduleVisual.wash}), linear-gradient(var(--color-surface-1), var(--color-surface-1))`
+                : undefined,
+            }
+          : { borderTopColor: trackStroke(data.track) }
+      }
       data-testid={`market-posture-model-node-${data.nodeRole}`}
+      data-module-type={data.moduleType}
+      data-subtype-chip={data.subtypeChip ?? undefined}
       data-activation={data.activation}
       data-track={data.track}
       data-layer={data.layer}
@@ -700,10 +823,12 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
       <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !bg-[var(--color-ink-faint)]" />
       <div className="flex items-baseline justify-between gap-1">
         <p className="font-mono text-[8px] uppercase tracking-widest text-[var(--color-ink-faint)]">
-          {data.nodeRole === 'process' || data.nodeRole === 'analysis'
-            ? processFunctionLabel(data.processFunction)
-            : roleLabel(data.nodeRole)}{' '}
-          · {data.layer}
+          {moduleVisual
+            ? `${familyLabelFor(moduleVisual.family)} · ${moduleVisual.label}`
+            : data.nodeRole === 'process' || data.nodeRole === 'analysis'
+              ? processFunctionLabel(data.processFunction)
+              : roleLabel(data.nodeRole)}{' '}
+          {!moduleVisual ? `· ${data.layer}` : null}
         </p>
         <p
           className="font-mono text-[8px] uppercase tracking-wider"
@@ -716,6 +841,14 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
       <p className="truncate text-[11px] font-medium text-[var(--color-ink)]" title={data.label}>
         {data.label}
       </p>
+      {data.subtypeChip ? (
+        <p
+          className="mt-0.5 truncate rounded border border-[var(--color-line)] px-0.5 font-mono text-[8px] text-[var(--color-ink-dim)]"
+          title={data.subtypeChip}
+        >
+          {data.subtypeChip}
+        </p>
+      ) : null}
       <p
         className={
           data.capitalBearing
@@ -748,7 +881,8 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
         </p>
       ) : null}
       {((data.nodeRole === 'process' || data.nodeRole === 'analysis') &&
-        data.processRoute) ? (
+        data.processRoute &&
+        !moduleVisual) ? (
         <p
           className="mt-0.5 truncate font-mono text-[8px] text-[var(--color-ink-dim)]"
           title={`${data.processFunction ?? ''} · ${data.processRoute}`}
@@ -761,7 +895,8 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
         data.nodeRole === 'query_source' ||
         data.nodeRole === 'library_source' ||
         data.nodeRole === 'capital_source') &&
-      data.detail ? (
+      data.detail &&
+      !moduleVisual ? (
         <p
           className="mt-0.5 truncate font-mono text-[8px] text-[var(--color-ink-faint)]"
           title={data.detail}
@@ -1299,6 +1434,10 @@ function hydrationStamp(h: MarketHubModelHydration | null): string {
     h.totals.admittedConcepts,
     h.liveSources.map((s) => `${s.kind}:${s.status}:${s.contributed ? 1 : 0}`).join(','),
     h.librarySources.map((l) => `${l.id}:${l.admittedCount}`).join(','),
+    (h.researchEngines ?? [])
+      .map((e) => `${e.id}:${e.researchSubtype ?? ''}:${e.articleCount}`)
+      .join(','),
+    (h.scopedModules ?? []).map((m) => `${m.id}:${m.moduleType}`).join(','),
     String(h.processingFlows.length),
     String(h.processSteps?.length ?? 0),
     String(h.panelSurfaces?.length ?? 0),

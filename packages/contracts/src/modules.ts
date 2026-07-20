@@ -146,8 +146,27 @@ export const ResearchSubtype = z.enum([
 ]);
 export type ResearchSubtype = z.infer<typeof ResearchSubtype>;
 
-/** D-042: librarian agent kinds (`config.librarianSubtype`). */
-export const LibrarianSubtype = z.enum(['librarian_relevance', 'librarian_seed_keeper']);
+/** D-042 / D-223: librarian agent kinds (`config.librarianSubtype`). */
+export const LibrarianSubtype = z.enum([
+  'librarian_relevance',
+  'librarian_seed_keeper',
+  /** Web fabric topic hygiene. */
+  'librarian_web_fabric',
+  /** SEC/filings fundamentals hygiene. */
+  'librarian_filings_hygiene',
+  /** Event/catalyst triage. */
+  'librarian_event_triage',
+  /** Regime / session macro context. */
+  'librarian_regime_context',
+  /** Crypto narrative / on-chain context. */
+  'librarian_crypto_narrative',
+  /** Prediction niche odds hygiene. */
+  'librarian_prediction_odds',
+  /** Intraday desk session evidence. */
+  'librarian_desk_session',
+  /** Microstructure / quote-quality evidence. */
+  'librarian_microstructure',
+]);
 export type LibrarianSubtype = z.infer<typeof LibrarianSubtype>;
 
 /** D-042: library content class (`config.libraryClass`). */
@@ -1311,6 +1330,22 @@ export function moduleFunctionLabel(type: ModuleType, config?: unknown): string 
           return 'Librarian';
         case 'librarian_seed_keeper':
           return 'SeedKeeper';
+        case 'librarian_web_fabric':
+          return 'WebLibn';
+        case 'librarian_filings_hygiene':
+          return 'FilingsLibn';
+        case 'librarian_event_triage':
+          return 'EventLibn';
+        case 'librarian_regime_context':
+          return 'RegimeLibn';
+        case 'librarian_crypto_narrative':
+          return 'CryptoLibn';
+        case 'librarian_prediction_odds':
+          return 'PredLibn';
+        case 'librarian_desk_session':
+          return 'DeskLibn';
+        case 'librarian_microstructure':
+          return 'MicroLibn';
       }
     }
     case 'library': {

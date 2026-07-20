@@ -2271,6 +2271,17 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   ui-spec §3, DecisionNode.
   **Status: implemented.**
 
+- **D-223 (Model strip canvas-parity module chrome, 2026-07-20):** Market Posture
+  bottom Model graph uses **custom designed nodes** aligned with canvas
+  `PreviewModuleNode` / `MODULE_VISUALS` when a node carries `moduleType` +
+  `subtypeChip`. Research is projected **one module per row** (not collapsed by
+  ENGINE): desk specialty (`specialty_desk`), filings, niche, microstructure, etc.
+  share the research module chrome with different config chips. Hydration also
+  projects `scopedModules[]` (librarian, trend, trading, analyzer, policy,
+  fund_router, sim/math/clock/…) onto the owning stage screen. Live + library +
+  capital sources stamp the same family chrome fields. Extends D-214 / D-186.
+  Docs: ui-spec §4. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

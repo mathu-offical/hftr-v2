@@ -369,6 +369,12 @@ export const MarketHubModelLiveSource = z.object({
   operation: z.string().max(80),
   /** e.g. "3 canvas · sealed" or "0 bound" */
   amount: z.string().max(40),
+  /**
+   * Canvas-parity module chrome (D-223) — live sources render as live_api family.
+   */
+  moduleType: z.literal('live_api').optional(),
+  /** Operator subtype chip (kind / venue / feed class). */
+  subtypeChip: z.string().max(60).nullable().optional(),
 });
 export type MarketHubModelLiveSource = z.infer<typeof MarketHubModelLiveSource>;
 
@@ -383,6 +389,11 @@ export const MarketHubModelLibrarySource = z.object({
   operation: z.string().max(80),
   /** e.g. "12 admitted / 40 concepts" */
   amount: z.string().max(40),
+  /** Canvas-parity library module chrome (D-223). */
+  moduleType: z.literal('library').optional(),
+  /** Shelf / libraryClass chip. */
+  subtypeChip: z.string().max(60).nullable().optional(),
+  libraryClass: z.string().max(40).nullable().optional(),
 });
 export type MarketHubModelLibrarySource = z.infer<typeof MarketHubModelLibrarySource>;
 
@@ -493,13 +504,23 @@ export const MarketHubModelProcessFunction = z.enum([
 export type MarketHubModelProcessFunction = z.infer<typeof MarketHubModelProcessFunction>;
 
 /**
- * Canvas research ENGINE projected onto the synthesis Model (D-214).
- * Live APIs feed gather→validate→synthesize→admit → library articles.
+ * Canvas research module projected onto the synthesis Model (D-214 / D-223).
+ * One row per research module (desk specialty, filings, regime lab, …) — same
+ * module type, different config (`researchSubtype`). Live APIs feed
+ * gather→validate→synthesize→admit → library articles.
  */
 export const MarketHubModelResearchEngine = z.object({
   id: z.string().uuid(),
   label: z.string().max(120),
   status: z.enum(['active', 'paused', 'error', 'draft']),
+  /** Always research — Model chrome uses MODULE_VISUALS.research (D-223). */
+  moduleType: z.literal('research').default('research'),
+  /** Config subtype (specialty_desk, external_filings, microstructure_context, …). */
+  researchSubtype: z.string().max(40).nullable().optional(),
+  /** Operator-visible chip (humanized subtype). */
+  subtypeChip: z.string().max(60).nullable().optional(),
+  /** Owning ENGINE instance when this module is an engine member. */
+  engineInstanceId: z.string().uuid().nullable().optional(),
   /** Bound corpus shelves (hub / company libraries). */
   boundLibraryIds: z.array(z.string().uuid()).max(16).default([]),
   /** Live source kinds that feed this engine (same ENGINE or company contrib). */
@@ -510,6 +531,23 @@ export const MarketHubModelResearchEngine = z.object({
   amount: z.string().max(40),
 });
 export type MarketHubModelResearchEngine = z.infer<typeof MarketHubModelResearchEngine>;
+
+/**
+ * Non-research canvas modules on the Model strip (D-223).
+ * Same PreviewModule-style chrome as desk research — type + config chip.
+ */
+export const MarketHubModelScopedModule = z.object({
+  id: z.string().uuid(),
+  name: z.string().max(120),
+  moduleType: z.string().max(40),
+  subtypeChip: z.string().max(60).nullable(),
+  engineInstanceId: z.string().uuid().nullable().optional(),
+  stageScreenId: z.enum(['capital', 'live', 'library', 'process', 'outlook', 'day']),
+  operation: z.string().max(80),
+  amount: z.string().max(40),
+  status: z.enum(['active', 'paused', 'error', 'draft']),
+});
+export type MarketHubModelScopedModule = z.infer<typeof MarketHubModelScopedModule>;
 
 export const MarketHubModelProcessStep = z.object({
   /** Stable id (e.g. gdelt_news:tickers, compound:rank_sort). */
@@ -647,6 +685,9 @@ export const MarketHubModelCapitalSource = z.object({
   /** Formatted allocation / ledger readout for inline Model display. */
   amount: z.string().max(40),
   status: z.enum(['configured', 'draft', 'unavailable']),
+  /** Canvas module type for Model chrome (holding_fund / trading / null pool). */
+  moduleType: z.string().max(40).nullable().optional(),
+  subtypeChip: z.string().max(60).nullable().optional(),
 });
 export type MarketHubModelCapitalSource = z.infer<typeof MarketHubModelCapitalSource>;
 
@@ -654,10 +695,16 @@ export const MarketHubModelHydration = z.object({
   liveSources: z.array(MarketHubModelLiveSource).max(64).default([]),
   librarySources: z.array(MarketHubModelLibrarySource).max(64).default([]),
   /**
-   * Research ENGINEs that turn live API evidence into library articles (D-214).
-   * Baseline Model strip shows gather→validate→synthesize→admit beside shelves.
+   * Research modules that turn live API evidence into library articles (D-214 / D-223).
+   * One entry per research module (desk specialty vs filings vs niche — same type,
+   * different config). Strip shows gather→validate→synthesize→admit beside shelves.
    */
   researchEngines: z.array(MarketHubModelResearchEngine).max(32).default([]),
+  /**
+   * Other canvas-scoped modules (librarian, trend, trading, analyzer, …) for
+   * section chrome (D-223). Same module node design; config drives subtype chip.
+   */
+  scopedModules: z.array(MarketHubModelScopedModule).max(64).default([]),
   /**
    * Capital-bearing fund rows shown as Model data sources (D-163).
    * Filtered to configured / draft with resolvable amounts when present.

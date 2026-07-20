@@ -41,7 +41,7 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
     id: 'capital',
     label: 'Capital',
     summary: 'Root user funds, engine allocations, equity & position values',
-    nodeIdPrefixes: ['capital:'],
+    nodeIdPrefixes: ['capital:', 'scoped:holding_fund:', 'scoped:fund_router:'],
     nodeRoles: ['capital_source'],
     stageIds: [],
     panelSurfaceIds: ['capital', 'equity'],
@@ -51,7 +51,7 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
     label: 'Live ingest',
     summary:
       'Market/news stream APIs → adapters → analysis → library seed (not search queries)',
-    nodeIdPrefixes: ['live:', 'adapter:', 'analyze:'],
+    nodeIdPrefixes: ['live:', 'adapter:', 'analyze:', 'scoped:live_api:'],
     nodeRoles: ['live_source', 'adapter', 'analysis'],
     stageIds: [],
     panelSurfaceIds: [],
@@ -59,7 +59,7 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
   {
     id: 'library',
     label: 'Library',
-    summary: 'Scored seed + research ENGINEs → articles → shelf constants',
+    summary: 'Scored seed + research modules → articles → shelf constants',
     nodeIdPrefixes: [
       'lib:',
       'lib-adapter:',
@@ -67,6 +67,8 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
       'engine:research:',
       'process:engine:',
       'articles:engine:',
+      'scoped:librarian:',
+      'scoped:library:',
     ],
     nodeRoles: ['library_source', 'research_engine', 'research_articles'],
     stageIds: [],
@@ -77,7 +79,16 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
     label: 'Process',
     summary:
       'Link streams + library; query/search APIs (Brave, EDGAR) as research extensions → trends',
-    nodeIdPrefixes: ['process:shared:', 'cluster:'],
+    nodeIdPrefixes: [
+      'process:shared:',
+      'cluster:',
+      'scoped:analyzer:',
+      'scoped:simulator:',
+      'scoped:generator:',
+      'scoped:math:',
+      'scoped:clock:',
+      'scoped:time:',
+    ],
     nodeRoles: ['process_cluster', 'query_source'],
     stageIds: [
       'providers',
@@ -100,7 +111,12 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
     id: 'outlook',
     label: 'Outlook',
     summary: 'Watched symbols, open positions, and recommendation-linked growth outlook',
-    nodeIdPrefixes: [],
+    nodeIdPrefixes: [
+      'scoped:trend:',
+      'scoped:trading:',
+      'scoped:policy:',
+      'scoped:display:',
+    ],
     nodeRoles: ['stage'],
     stageIds: ['seal_movers', 'sector', 'daily', 'narrative'],
     panelSurfaceIds: ['movers', 'news', 'reports', 'watchlists', 'positions'],

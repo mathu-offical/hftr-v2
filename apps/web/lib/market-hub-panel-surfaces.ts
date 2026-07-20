@@ -43,6 +43,7 @@ export type PanelSurfaceHubSlice = {
     | 'allocationCents'
     | 'ledgerBalanceCents'
     | 'allocationStatus'
+    | 'moduleType'
   >[];
   reports: Pick<MarketHubReportLink, 'id'>[];
   charts: Pick<
@@ -120,6 +121,15 @@ export function buildMarketHubModelCapitalSources(
       operation: 'root fund',
       amount: capitalRowAmount(s).slice(0, 40),
       status: s.status,
+      moduleType: s.moduleType,
+      subtypeChip:
+        s.kind === 'holding_fund'
+          ? 'Holding fund'
+          : s.kind === 'company_pool'
+            ? 'Company pool'
+            : s.moduleType
+              ? s.moduleType.replace(/_/g, ' ')
+              : null,
     }));
 }
 

@@ -113,6 +113,13 @@ export type PostureAlgoNodeData = {
   stripCompact?: boolean;
   /** 1-based hop index along the route transfer chain (strip readability). */
   transferHop?: number;
+  /**
+   * Canvas module type for PreviewModule-parity chrome (D-223).
+   * When set, Model strip uses MODULE_VISUALS family + subtype chip.
+   */
+  moduleType?: string;
+  /** Operator subtype chip (specialty_desk, day, session_intraday, …). */
+  subtypeChip?: string | null;
   layer: MarketHubModelLayer;
   track: MarketHubModelTrack;
   activation: MarketHubModelEdgeActivation;
@@ -1017,6 +1024,8 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
         amount: src.amount,
         sourceDomain: src.domain,
         sourceClass,
+        moduleType: src.moduleType ?? 'live_api',
+        subtypeChip: src.subtypeChip ?? null,
         layer: 'sources',
         track: srcTrack,
         activation: liveActivation,
@@ -1118,6 +1127,8 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
         nodeRole: 'library_source',
         operation: lib.operation,
         amount: lib.amount,
+        moduleType: lib.moduleType ?? 'library',
+        subtypeChip: lib.subtypeChip ?? null,
         layer: 'sources',
         track: 'compound',
         activation: ready ? 'armed' : 'idle',
@@ -1370,6 +1381,8 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
           operation: eng.operation,
           amount: eng.amount,
           processRoute: route,
+          moduleType: eng.moduleType ?? 'research',
+          subtypeChip: eng.subtypeChip ?? null,
           layer: 'pipeline',
           track: 'compound',
           activation: ready ? 'armed' : 'idle',
@@ -1512,6 +1525,43 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
     }
   }
 
+  // Scoped canvas modules (librarian, trend, trading, …) — same chrome, config chip (D-223).
+  const scopedModules = hydration?.scopedModules ?? [];
+  for (const mod of scopedModules) {
+    const nodeId = `scoped:${mod.moduleType}:${mod.id}`;
+    if (nodes.some((n) => n.id === nodeId)) continue;
+    const ready = mod.status === 'active';
+    const y = nextLaneY(
+      mod.stageScreenId === 'capital' ? 'compose' : 'compound',
+      LANE_Y.compound + 80,
+    );
+    nodes.push({
+      id: nodeId,
+      type: 'postureAlgo',
+      position: { x: processCol0, y },
+      data: {
+        label: mod.name.slice(0, 28),
+        detail: mod.subtypeChip
+          ? `${mod.moduleType} · ${mod.subtypeChip}`
+          : mod.moduleType,
+        kind: 'deterministic',
+        nodeRole: 'process',
+        operation: mod.operation,
+        amount: mod.amount,
+        moduleType: mod.moduleType,
+        subtypeChip: mod.subtypeChip,
+        processRoute: `scoped_${mod.moduleType}`,
+        processFunction: 'context',
+        layer: 'pipeline',
+        track: 'compound',
+        activation: ready ? 'armed' : 'idle',
+        status: ready ? 'ready' : 'idle',
+        updatedAt: asOfIso,
+        stageScreenId: mod.stageScreenId,
+      },
+    });
+  }
+
   for (const s of activeStageLayout) {
     const meta = MARKET_HUB_SYNTHESIS_STAGE_META[s.id];
     const stageRow = byStage.get(s.id);
@@ -1621,6 +1671,8 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
         operation: cap.operation,
         amount: cap.amount,
         capitalBearing: true,
+        ...(cap.moduleType ? { moduleType: cap.moduleType } : {}),
+        subtypeChip: cap.subtypeChip ?? null,
         layer: 'sources',
         track: 'compose',
         activation: ready ? 'armed' : 'idle',
@@ -3115,6 +3167,19 @@ function packProcessScreenColumn(opts: {
 }
 
 function screenIdForNode(n: PostureAlgoGraphNode): MarketPostureStageScreenId {
+  if (n.data.stageScreenId) {
+    const id = n.data.stageScreenId as MarketPostureStageScreenId;
+    if (
+      id === 'capital' ||
+      id === 'live' ||
+      id === 'library' ||
+      id === 'process' ||
+      id === 'outlook' ||
+      id === 'day'
+    ) {
+      return id;
+    }
+  }
   return resolveStageScreenId({
     nodeId: n.id,
     nodeRole: n.data.nodeRole,

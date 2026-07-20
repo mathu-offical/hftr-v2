@@ -10,6 +10,7 @@ import {
   type MarketHubModelLibrarySource,
   type MarketHubModelLiveSource,
   type MarketHubModelResearchEngine,
+  type MarketHubModelScopedModule,
   type MarketHubModelStageOp,
   type ResearchSourceAvailability,
   type ResearchSourceDescriptor,
@@ -28,7 +29,15 @@ import {
   buildProcessStepsFromFlows,
   buildSharedCompoundProcessSteps,
 } from '@/lib/market-hub-processing-flows';
-import { classifyLiveApiSource } from '@/lib/market-hub-live-source-class';const INTERNAL_SOURCE_KINDS = new Set<string>(['catalog', 'library', 'operator']);
+import { classifyLiveApiSource } from '@/lib/market-hub-live-source-class';
+import {
+  humanizePostureToken,
+  scopedModuleOperation,
+  stageScreenForScopedModuleType,
+  subtypeChipForModuleConfig,
+} from '@/lib/market-posture-scoped-modules';
+
+const INTERNAL_SOURCE_KINDS = new Set<string>(['catalog', 'library', 'operator']);
 
 const SYSTEM_SCOPES = new Set<string>(Object.values(SystemTopicScope).map((s) => s.toLowerCase()));
 
@@ -185,6 +194,8 @@ export async function projectMarketHubModelHydration(opts: {
         contributed,
         operation,
         amount,
+        moduleType: 'live_api' as const,
+        subtypeChip: humanizePostureToken(kind).slice(0, 60),
       };
     });
 
@@ -237,6 +248,7 @@ export async function projectMarketHubModelHydration(opts: {
     const shelf = libraryShelf(row);
     const conceptCount = conceptTotals.get(row.id) ?? 0;
     const admittedCount = admittedTotals.get(row.id) ?? 0;
+    const shelfChip = humanizePostureToken(shelf);
     return {
       id: row.id,
       name: row.name.slice(0, 120),
@@ -246,6 +258,9 @@ export async function projectMarketHubModelHydration(opts: {
       admittedCount,
       operation: libraryOperation(shelf),
       amount: `${admittedCount} adm / ${conceptCount} concepts`,
+      moduleType: 'library' as const,
+      subtypeChip: shelfChip.slice(0, 60),
+      libraryClass: null,
     };
   });
 
@@ -349,7 +364,8 @@ export async function projectMarketHubModelHydration(opts: {
     }),
   ].slice(0, 128);
 
-  // Research ENGINEs → library articles (D-214). Group by engine instance when present.
+  // Research modules → library articles (D-214 / D-223). One row per research
+  // module (desk specialty vs filings vs niche) — same type, different config.
   const researchModRows = await db
     .select({
       id: modules.id,
@@ -440,9 +456,8 @@ export async function projectMarketHubModelHydration(opts: {
     }
   }
 
-  const researchEngineMap = new Map<string, MarketHubModelResearchEngine>();
+  const researchEngines: MarketHubModelResearchEngine[] = [];
   for (const mod of researchModRows) {
-    const engineKey = mod.engineInstanceId ?? mod.id;
     const cfg = (mod.config ?? {}) as Record<string, unknown>;
     const fromConfig = Array.isArray(cfg.targetLibraryIds)
       ? (cfg.targetLibraryIds as string[]).filter((id) => typeof id === 'string')
@@ -462,23 +477,13 @@ export async function projectMarketHubModelHydration(opts: {
         .map((s) => s.kind)
         .slice(0, 16);
     const topics = topicCounts.get(mod.id) ?? 0;
-    const existing = researchEngineMap.get(engineKey);
-    if (existing) {
-      existing.topicCount += topics;
-      existing.articleCount += topics;
-      existing.boundLibraryIds = [
-        ...new Set([...existing.boundLibraryIds, ...boundLibraryIds]),
-      ].slice(0, 16);
-      existing.liveSourceKinds = [
-        ...new Set([...existing.liveSourceKinds, ...liveKinds]),
-      ].slice(0, 32);
-      existing.amount = `${existing.articleCount} articles · ${existing.boundLibraryIds.length} libs`;
-      continue;
-    }
-    const label = (
-      (mod.engineInstanceId && engineLabelById.get(mod.engineInstanceId)) ||
-      mod.name
-    ).slice(0, 120);
+    const researchSubtype =
+      typeof cfg.researchSubtype === 'string' ? cfg.researchSubtype : null;
+    const subtypeChip = subtypeChipForModuleConfig('research', cfg);
+    const engLabel = mod.engineInstanceId
+      ? engineLabelById.get(mod.engineInstanceId)
+      : undefined;
+    const label = (mod.name || engLabel || 'Research').slice(0, 120);
     const status =
       mod.status === 'active' ||
       mod.status === 'paused' ||
@@ -486,24 +491,86 @@ export async function projectMarketHubModelHydration(opts: {
       mod.status === 'draft'
         ? mod.status
         : 'draft';
-    researchEngineMap.set(engineKey, {
-      id: engineKey,
+    researchEngines.push({
+      id: mod.id,
       label,
       status,
+      moduleType: 'research',
+      researchSubtype,
+      subtypeChip,
+      engineInstanceId: mod.engineInstanceId ?? null,
       boundLibraryIds,
       liveSourceKinds: liveKinds.slice(0, 32),
       topicCount: topics,
       articleCount: topics,
-      operation: 'live → articles',
+      operation: researchSubtype
+        ? `${researchSubtype.replace(/_/g, ' ')} → articles`
+        : 'live → articles',
       amount: `${topics} articles · ${boundLibraryIds.length} libs`,
     });
   }
-  const researchEngines = [...researchEngineMap.values()].slice(0, 32);
+
+  // Other canvas modules for section chrome (D-223) — librarian, trend, desks, …
+  const SCOPED_TYPES = [
+    'librarian',
+    'trend',
+    'trading',
+    'analyzer',
+    'policy',
+    'fund_router',
+    'simulator',
+    'generator',
+    'math',
+    'clock',
+    'time',
+    'display',
+  ] as const;
+  const scopedModRows = await db
+    .select({
+      id: modules.id,
+      name: modules.name,
+      type: modules.type,
+      status: modules.status,
+      config: modules.config,
+      engineInstanceId: modules.engineInstanceId,
+    })
+    .from(modules)
+    .where(and(eq(modules.companyId, companyId), inArray(modules.type, [...SCOPED_TYPES])))
+    .limit(64);
+
+  const scopedModules: MarketHubModelScopedModule[] = [];
+  for (const mod of scopedModRows) {
+    const screen = stageScreenForScopedModuleType(mod.type);
+    if (!screen) continue;
+    const cfg =
+      mod.config && typeof mod.config === 'object' && !Array.isArray(mod.config)
+        ? (mod.config as Record<string, unknown>)
+        : {};
+    const status =
+      mod.status === 'active' ||
+      mod.status === 'paused' ||
+      mod.status === 'error' ||
+      mod.status === 'draft'
+        ? mod.status
+        : 'draft';
+    scopedModules.push({
+      id: mod.id,
+      name: mod.name.slice(0, 120),
+      moduleType: mod.type,
+      subtypeChip: subtypeChipForModuleConfig(mod.type, cfg),
+      engineInstanceId: mod.engineInstanceId ?? null,
+      stageScreenId: screen,
+      operation: scopedModuleOperation(mod.type),
+      amount: status,
+      status,
+    });
+  }
 
   return {
     liveSources,
     librarySources,
-    researchEngines,
+    researchEngines: researchEngines.slice(0, 32),
+    scopedModules: scopedModules.slice(0, 64),
     capitalSources: [],
     processingFlows,
     processSteps,

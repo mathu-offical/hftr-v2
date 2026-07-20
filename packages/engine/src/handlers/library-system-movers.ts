@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   analyzePhaseQueryText,
   EvidencePackage,
@@ -24,6 +25,7 @@ import {
 import { and, desc, eq, ne } from 'drizzle-orm';
 import { ensureSystemLibrary } from '../libraries/ensure-system-library';
 import { ensureSectorKnowledge } from '../libraries/ensure-sector-knowledge';
+import { resolveCompanyMathModuleId } from '../libraries/resolve-company-math';
 import { getSystemLibraryEntry } from '../libraries/system-library-registry';
 import {
   buildAwarenessLinks,
@@ -64,6 +66,7 @@ import { corroborateAndNormalize } from '../research/verified-normalize';
 import { persistVerifiedBundle } from '../research/seal-persist';
 import { loadLatestValidSeal } from '../research/seal-load';
 import { recordSynthesisStage } from '../research/market-hub-synthesis';
+import { invalidateCompanyHubCaches } from '../engines/hub-corpus-cache';
 import { registerHandler } from './registry';
 
 const SystemMoversPayload = z.object({
@@ -287,6 +290,8 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
       type: modules.type,
       topicSectors: modules.topicSectors,
       config: modules.config,
+      engineInstanceId: modules.engineInstanceId,
+      toolOwnerModuleId: modules.toolOwnerModuleId,
     })
     .from(modules)
     .where(eq(modules.companyId, payload.companyId));
@@ -295,7 +300,7 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     companyModules.find((m) => m.type === 'research')?.id ??
     companyModules.find((m) => m.type === 'librarian')?.id ??
     companyModules.find((m) => m.type === 'library')?.id ??
-    companyModules.find((m) => m.type === 'math')?.id;
+    resolveCompanyMathModuleId(companyModules);
   if (!ownerModuleId) {
     await stage('gather', 'failed', 'No research/library module to own seals');
     return;
@@ -799,6 +804,41 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     .filter((h) => h.length > 0)
     .slice(0, 8);
 
+  // D-243: persist compound rank + indexes for engine feed / hub cache revision.
+  const compoundCap = ranked.slice(0, Math.min(24, thresholds.suggestionCap));
+  bundle.compoundRank = compoundCap;
+  const symbolIndex: Record<string, number> = {};
+  bundle.view.items.forEach((item, i) => {
+    const sym = item.symbolOrSector?.trim().toUpperCase();
+    if (sym && symbolIndex[sym] === undefined) symbolIndex[sym] = i;
+  });
+  bundle.symbolIndex = symbolIndex;
+  const linksBySymbol: Record<string, string[]> = {};
+  for (const link of awarenessFinal.links) {
+    if (link.toKind !== 'symbol') continue;
+    const sym = link.toId.trim().toUpperCase();
+    if (!sym) continue;
+    const list = linksBySymbol[sym] ?? (linksBySymbol[sym] = []);
+    if (!list.includes(link.id)) list.push(link.id);
+  }
+  bundle.linksBySymbol = linksBySymbol;
+  bundle.hubRevision = createHash('sha256')
+    .update(
+      JSON.stringify({
+        sealSeed: bundle.sealId,
+        symbols: compoundCap.map((s) => s.symbol),
+        corroboration: bundle.corroborationBand,
+        phase: analyzePhase ?? null,
+      }),
+    )
+    .digest('hex')
+    .slice(0, 32);
+  bundle.sourceDigestSummaries = (bundle.sourceDigests ?? []).slice(0, 24).map((digest, i) => ({
+    digest,
+    ...(contributed[i] ? { sourceKind: contributed[i] } : {}),
+    ...(itemHeadlines[i] ? { title: itemHeadlines[i] } : {}),
+  }));
+
   const feedClass =
     usable.find((p) => p.sourceKind === 'alpaca_bars')?.feedClass ?? 'system_movers_rank';
 
@@ -828,6 +868,7 @@ registerHandler('library.system_movers', async ({ db, clock, job, modelGateway }
     tags: entry.kindTags,
     now,
   });
+  await invalidateCompanyHubCaches(db, payload.companyId, now);
   await stage('seal_movers', 'succeeded', `Movers board committed (${bundle.corroborationBand})`, [
     'Verified normalize · report concept dual-persist',
   ]);

@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import type {
-  BranchNode,
-  CompileSelectionOutput,
-  HandoffEnvelope,
-  LeverState,
+import {
+  OrderCompositionPlan,
+  type HandoffEnvelope,
+  type LeverState,
+  type BranchNode,
+  type CompileSelectionOutput,
 } from '@hftr/contracts';
 import {
   actionInstructions,
@@ -55,6 +56,8 @@ const SelectPayload = z.object({
   targetModuleId: z.string().uuid().optional(),
   controlSnapshot: z.record(z.unknown()),
   tacticalProvider: z.enum(['model', 'deterministic_placeholder']).optional(),
+  /** D-244: entry_only composition plan from tactical.expand. */
+  compositionPlan: OrderCompositionPlan.optional(),
 });
 
 const VERIFICATION_SCHEMA_VERSION = 'trade_verify_v1';
@@ -495,6 +498,10 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
       atrSource,
       controlSnapshotId,
       controlSnapshotHash,
+      compositionPlanId: payload.compositionPlan?.planId ?? null,
+      compositionMode: payload.compositionPlan?.compositionMode ?? null,
+      legRole: payload.compositionPlan?.legs[0]?.role ?? 'primary_entry',
+      decisionTreeRef: payload.treeId,
     },
   });
 

@@ -5,6 +5,7 @@ import { getSyntheticQuote } from '../dispatch/quotes';
 import { venueDate } from '../calendar/calendar';
 import { buildDecisionTree } from '../pipeline/tree';
 import { treeFromModelOutput, type ModelBuiltDecisionTree } from '../pipeline/tree-expand';
+import { buildEntryOnlyCompositionPlan } from '../pipeline/order-composition';
 import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
 import { estimateLlmJobCost } from '../queue/llm-cost-estimate';
@@ -150,6 +151,24 @@ registerHandler('tactical.expand', async ({ db, clock, job, modelGateway }) => {
     .returning({ id: decisionTrees.id });
   const treeId = treeRows[0]!.id;
 
+  const tradingModuleId =
+    typeof payload.targetModuleId === 'string' ? payload.targetModuleId : payload.moduleId;
+  const controlSnap = payload.controlSnapshot as {
+    policyEnvelopeVersion?: string;
+    persistedControlSnapshotId?: string;
+    postureOrientationRef?: string | null;
+  };
+  const compositionPlan = buildEntryOnlyCompositionPlan({
+    leadRef: payload.leadId,
+    decisionTreeRef: treeId,
+    tradingModuleId,
+    policyEnvelopeRef: controlSnap.policyEnvelopeVersion ?? null,
+    controlSnapshotRef: controlSnap.persistedControlSnapshotId ?? null,
+    postureOrientationRef: controlSnap.postureOrientationRef ?? null,
+    compositionMode: 'entry_only',
+    nowIso: now.toISOString(),
+  });
+
   await enqueue(db, clock, {
     queueClass: 'COMPILE',
     kind: 'compile.select',
@@ -163,6 +182,7 @@ registerHandler('tactical.expand', async ({ db, clock, job, modelGateway }) => {
       ...(payload.targetModuleId !== undefined ? { targetModuleId: payload.targetModuleId } : {}),
       controlSnapshot: payload.controlSnapshot,
       tacticalProvider: provider,
+      compositionPlan,
     },
     idempotencyKey: `compile-select-${treeId}`,
     priority: 'HIGH',

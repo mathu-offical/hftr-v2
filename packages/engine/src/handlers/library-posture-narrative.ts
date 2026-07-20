@@ -20,6 +20,7 @@ import {
   leadPackages,
 } from '@hftr/db/schema';
 import { ensureSystemLibrary } from '../libraries/ensure-system-library';
+import { invalidateCompanyHubCaches } from '../engines/hub-corpus-cache';
 import { loadLatestValidSeal } from '../research/seal-load';
 import { buildPostureContextRollup } from '../research/posture-context-rollup';
 import {
@@ -27,6 +28,10 @@ import {
   recordSynthesisStage,
   waitForSealStages,
 } from '../research/market-hub-synthesis';
+import {
+  buildCompanyPostureOrientation,
+  persistOrientation,
+} from '../posture/build-orientation';
 import { registerHandler } from './registry';
 
 const Payload = z.object({
@@ -239,10 +244,34 @@ registerHandler('library.posture_narrative', async ({ db, clock, job }) => {
     now: new Date(clock.nowMs()),
   });
 
+  if (ownerModuleId) {
+    const orientation = buildCompanyPostureOrientation({
+      companyId: payload.companyId,
+      analyzeRunId: runId,
+      seals: { movers, sector, daily },
+      sealSubjectKeys: {
+        movers: 'daily',
+        sector: 'sector_daily',
+        daily: `phase_${phase}`,
+      },
+      heldSymbols,
+      capturedAtMs: clock.nowMs(),
+    });
+    await persistOrientation({
+      db,
+      companyId: payload.companyId,
+      ownerModuleId,
+      orientation,
+      now: new Date(clock.nowMs()),
+    });
+  }
+
   await completeSynthesisRunAfterNarrative(db, {
     runId,
     companyId: payload.companyId,
     now: new Date(clock.nowMs()),
     partial,
   });
+
+  await invalidateCompanyHubCaches(db, payload.companyId, new Date(clock.nowMs()));
 });

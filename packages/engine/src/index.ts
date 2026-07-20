@@ -253,9 +253,19 @@ export {
   syncDataHubNests,
   wireDataHubLinks,
   wireShelfOutputs,
+  wireHubPostureSymlinks,
   cleanupEngineDataHub,
   type EnsureEngineDataHubResult,
 } from './engines/data-hub';
+
+export {
+  refreshHubCorpusCache,
+  loadHubCorpus,
+  invalidateCompanyHubCaches,
+  isHubCorpusCacheFresh,
+  assembleHubModuleConfig,
+  HUB_CORPUS_TTL_MS,
+} from './engines/hub-corpus-cache';
 
 export {
   ingestHubTopicCandidate,
@@ -569,6 +579,20 @@ export {
 export {
   evaluateMovementTrigger,
 } from './posture/movement-trigger';
+export {
+  buildCompanyPostureOrientation,
+  loadLatestOrientation,
+  mergeOrientationLeverDeltas,
+  orientationContentHash,
+  orientationFreshAt,
+  parseOrientationConceptBody,
+  persistOrientation,
+  type BuildOrientationInput,
+  type BuildOrientationSealInput,
+  type PersistOrientationOpts,
+} from './posture/build-orientation';
+export { loadPostureFeedForEngine } from './posture/engine-feed';
+export { buildEntryOnlyCompositionPlan } from './pipeline/order-composition';
 export {
   sectorPeersForFocuses,
   DIVERSIFIED_MARKET_ANCHORS,

@@ -1,5 +1,8 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import { collectSectorSeedTargets, sectorFolderTag } from '@hftr/contracts';
+import {
+  collectSectorSeedTargets,
+  sectorFolderTag,
+} from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import {
   catalogEntries,
@@ -9,6 +12,7 @@ import {
   libraryConcepts,
   modules,
 } from '@hftr/db/schema';
+import { resolveCompanyMathModuleId } from './resolve-company-math';
 const MECHANISMS_LIBRARY_NAME = 'Seeded trading mechanisms';
 
 /** Lazy import avoids circular dependency with bootstrap → ensureSectorKnowledge. */
@@ -30,8 +34,7 @@ function resolveOwnerModuleId(companyModules: Array<{ id: string; type: string }
   if (librarian) return librarian.id;
   const library = companyModules.find((m) => m.type === 'library');
   if (library) return library.id;
-  const math = companyModules.find((m) => m.type === 'math');
-  return math?.id ?? null;
+  return resolveCompanyMathModuleId(companyModules);
 }
 
 type SubsectorProfile = {
@@ -83,7 +86,13 @@ export async function ensureSectorKnowledge(
   }
 
   const companyModules = await db
-    .select({ id: modules.id, type: modules.type })
+    .select({
+      id: modules.id,
+      type: modules.type,
+      engineInstanceId: modules.engineInstanceId,
+      toolOwnerModuleId: modules.toolOwnerModuleId,
+      config: modules.config,
+    })
     .from(modules)
     .where(eq(modules.companyId, companyId));
   const ownerModuleId = resolveOwnerModuleId(companyModules);

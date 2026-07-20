@@ -16,6 +16,11 @@ import {
 } from '../graph/module-links';
 import { DEFAULT_FRESHNESS_WINDOW_MS, countGateAgreement, evaluateGates, gatesPass } from '../pipeline/gates';
 import { persistControlSnapshot } from '../control-snapshot/persist';
+import {
+  loadLatestOrientation,
+  mergeOrientationLeverDeltas,
+  orientationFreshAt,
+} from '../posture/build-orientation';
 import { resolvePhilosophyControl } from '../pipeline/philosophy-control';
 import { resolvePromoteRegime } from '../pipeline/resolve-promote-regime';
 import { enqueue } from '../queue/queue';
@@ -71,10 +76,15 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
 
   const graph = await loadCompanyLinkGraph(db, payload.companyId);
   const linkedTrading = resolveDirectiveTradingTarget(graph, payload.moduleId);
-  const resolvedTargetId = payload.targetModuleId ?? linkedTrading?.id ?? null;
+  // D-077: per-trend trading_module_id before canvas directive fallback.
+  const resolvedTargetId =
+    payload.targetModuleId ?? trend.tradingModuleId ?? linkedTrading?.id ?? null;
   const dispatchModuleId = resolvedTargetId ?? payload.moduleId;
   const tradingModule =
     companyModules.find((m) => m.id === dispatchModuleId && m.type === 'trading') ??
+    (trend.tradingModuleId
+      ? companyModules.find((m) => m.id === trend.tradingModuleId && m.type === 'trading')
+      : undefined) ??
     (linkedTrading ? companyModules.find((m) => m.id === linkedTrading.id) : undefined) ??
     companyModules.find((m) => m.type === 'trading');
   const tradingConfig = (tradingModule?.config ?? {}) as { strategyFamilies?: string[] };
@@ -92,6 +102,16 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     policyEnvelopeRef: policyConfig.policyEnvelopeRef ?? null,
     strategyFamily,
   });
+
+  const orientation = await loadLatestOrientation(db, payload.companyId, clock.nowMs());
+  const orientationFresh =
+    orientation != null && orientationFreshAt(orientation, clock.nowMs());
+  const leverState = orientationFresh
+    ? mergeOrientationLeverDeltas(
+        control.leverState,
+        orientation.orientationLeverDeltas,
+      )
+    : control.leverState;
 
   const session = await getSession(db, 'XNYS', venueDate(clock.nowMs(), 'America/New_York'));
   const freshnessWindowMs =
@@ -185,7 +205,7 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     sizingBasisBps: control.sizingBasisBps,
     freshnessWindow: control.freshnessWindow,
     philosophyAxes: control.philosophyProfile.axes,
-    leverState: control.leverState,
+    leverState,
     strategyFamily: control.strategyFamily,
     philosophyPromptPresent: company.philosophyPrompt.length > 0,
     sourceClass: control.sourceClass,
@@ -193,6 +213,9 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     gatePassCount,
     gateTotal,
     directionAligned,
+    postureOrientationRef: orientation?.orientationId ?? null,
+    postureOrientationFreshness:
+      orientation == null ? 'unknown' : orientationFresh ? 'fresh' : 'stale',
   };
 
   const controlSnapshot = admitted
@@ -203,7 +226,7 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
             companyId: payload.companyId,
             moduleId: dispatchModuleId,
             philosophyProfile: control.philosophyProfile,
-            leverState: control.leverState,
+            leverState,
             policyEnvelopeVersion: control.policyEnvelopeVersion,
           })
         ).id,

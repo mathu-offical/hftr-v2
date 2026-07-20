@@ -3,6 +3,7 @@ import type { SystemTopicScope } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
 import { concepts, libraries, libraryConcepts, modules } from '@hftr/db/schema';
 import { leakLint } from '../calc/leak-lint';
+import { resolveCompanyMathModuleId } from './resolve-company-math';
 import {
   getSystemLibraryEntry,
   SYSTEM_LIBRARY_REGISTRY,
@@ -30,8 +31,7 @@ function resolveOwnerModuleId(companyModules: Array<{ id: string; type: string }
   if (librarian) return librarian.id;
   const library = companyModules.find((m) => m.type === 'library');
   if (library) return library.id;
-  const math = companyModules.find((m) => m.type === 'math');
-  return math?.id ?? null;
+  return resolveCompanyMathModuleId(companyModules);
 }
 
 async function ensureLibraryRow(
@@ -158,7 +158,13 @@ export async function ensureSystemLibrary(
   }
 
   const companyModules = await db
-    .select({ id: modules.id, type: modules.type })
+    .select({
+      id: modules.id,
+      type: modules.type,
+      engineInstanceId: modules.engineInstanceId,
+      toolOwnerModuleId: modules.toolOwnerModuleId,
+      config: modules.config,
+    })
     .from(modules)
     .where(eq(modules.companyId, companyId));
 

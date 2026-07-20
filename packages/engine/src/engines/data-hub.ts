@@ -9,6 +9,7 @@ import {
 } from '@hftr/db/schema';
 import {
   ENGINE_DATA_HUB_TOPIC_SCOPE,
+  SystemTopicScope,
   engineCreateSection,
   getEngineTemplateById,
   hubShelfStreamId,
@@ -17,8 +18,15 @@ import {
   placeDataHubOrigin,
   researchDependenciesForExecutionEngine,
   type EngineDataHubCompoundConfig,
+  type HubEngineLocal,
+  type HubSymlink,
 } from '@hftr/contracts';
+import { ensureSystemLibrary } from '../libraries/ensure-system-library';
 import { bindSimAnalyzersToHub } from './sim-hub-bind';
+import {
+  assembleHubModuleConfig,
+  refreshHubCorpusCache,
+} from './hub-corpus-cache';
 
 export type EnsureEngineDataHubResult = {
   created: boolean;
@@ -26,6 +34,28 @@ export type EnsureEngineDataHubResult = {
   hubLibraryId: string | null;
   nestedModuleIds: string[];
   linkCount: number;
+};
+
+const BASELINE_MECHANISMS_LIBRARY_NAME = 'Seeded trading mechanisms';
+const BASELINE_MECHANISMS_TOPIC_SCOPE = 'compile_time_mechanisms';
+
+const POSTURE_SYMLINK_SPECS: Array<{
+  topicScope: (typeof SystemTopicScope)[keyof typeof SystemTopicScope];
+  sourceRef: string;
+}> = [
+  { topicScope: SystemTopicScope.MOVERS, sourceRef: 'system:movers' },
+  { topicScope: SystemTopicScope.SECTOR_NEWS, sourceRef: 'system:sector_news' },
+  { topicScope: SystemTopicScope.DAILY_SUMMARIES, sourceRef: 'system:daily_summaries' },
+];
+
+const POSTURE_SHELF = {
+  origin: 'policy_returns' as const,
+  stream: 'system_normalized' as const,
+};
+
+const BASELINE_SHELF = {
+  origin: 'research_in' as const,
+  stream: 'semantic' as const,
 };
 
 function hubNameForLabel(label: string, engineId: string): string {
@@ -194,6 +224,16 @@ export async function ensureEngineDataHub(
   await mirrorResearchTargetsToHub(db, companyId, engineId, hubLibraryId, now);
   await bindSimAnalyzersToHub(db, companyId, engineId, hubModuleId, now);
   await wireShelfOutputs(db, companyId, engineId, hubModuleId, now);
+  await wireHubPostureSymlinks(
+    db,
+    companyId,
+    engineId,
+    hubLibraryId,
+    hubModuleId,
+    nestedModuleIds,
+    now,
+  );
+  await refreshHubCorpusCache(db, companyId, hubLibraryId, now);
 
   return { created, hubModuleId, hubLibraryId, nestedModuleIds, linkCount };
 }
@@ -265,17 +305,6 @@ export async function syncDataHubNests(
     .where(eq(modules.id, hubModuleId))
     .limit(1);
   const priorCfg = (hubMod?.config ?? {}) as Record<string, unknown>;
-  const priorPartial: Parameters<typeof mergeEngineDataHubCompoundConfig>[0] = {};
-  if (Array.isArray(priorCfg.shelves)) {
-    priorPartial.shelves = priorCfg.shelves as EngineDataHubCompoundConfig['shelves'];
-  }
-  if (Array.isArray(priorCfg.shelfOutputs)) {
-    priorPartial.shelfOutputs = priorCfg.shelfOutputs as EngineDataHubCompoundConfig['shelfOutputs'];
-  }
-  if (priorCfg.topicFeed && typeof priorCfg.topicFeed === 'object') {
-    priorPartial.topicFeed = priorCfg.topicFeed as EngineDataHubCompoundConfig['topicFeed'];
-  }
-  const compound = mergeEngineDataHubCompoundConfig(priorPartial);
 
   if (nestedModuleIds.length > 0) {
     await db
@@ -292,22 +321,129 @@ export async function syncDataHubNests(
   await db
     .update(modules)
     .set({
-      config: {
-        topicScope: ENGINE_DATA_HUB_TOPIC_SCOPE,
-        masterLibrary: false,
-        libraryClass: 'engine_data_hub',
-        engineDataHub: true,
+      config: assembleHubModuleConfig(priorCfg, {
         ownerEngineInstanceId: engineId,
         nestedModuleIds,
-        shelves: compound.shelves,
-        shelfOutputs: compound.shelfOutputs,
-        topicFeed: compound.topicFeed,
-      },
+      }),
       updatedAt: now,
     })
     .where(eq(modules.id, hubModuleId));
 
   return nestedModuleIds;
+}
+
+/**
+ * D-239: ensure posture/baseline read-through symlinks + engineLocal nest bindings
+ * on execution hubs. Never writes library_concepts into symlink targets.
+ */
+export async function wireHubPostureSymlinks(
+  db: Db,
+  companyId: string,
+  engineId: string,
+  hubLibraryId: string,
+  hubModuleId: string,
+  nestedModuleIds: string[],
+  now = new Date(),
+): Promise<{ symlinkCount: number; engineLocalCount: number }> {
+  const symlinks: HubSymlink[] = [];
+
+  for (const spec of POSTURE_SYMLINK_SPECS) {
+    const refLibraryId = await ensureSystemLibrary(db, companyId, spec.topicScope, now, {
+      refreshPlaceholders: false,
+    });
+    symlinks.push({
+      refLibraryId,
+      role: 'posture_system',
+      topicScope: spec.sourceRef,
+      shelf: POSTURE_SHELF,
+      access: 'read_through',
+    });
+  }
+
+  const [baselineLib] = await db
+    .select({ id: libraries.id })
+    .from(libraries)
+    .where(
+      and(
+        eq(libraries.companyId, companyId),
+        or(
+          eq(libraries.name, BASELINE_MECHANISMS_LIBRARY_NAME),
+          eq(libraries.topicScope, BASELINE_MECHANISMS_TOPIC_SCOPE),
+        ),
+      ),
+    )
+    .limit(1);
+  if (baselineLib) {
+    symlinks.push({
+      refLibraryId: baselineLib.id,
+      role: 'baseline_mechanisms',
+      topicScope: BASELINE_MECHANISMS_TOPIC_SCOPE,
+      shelf: BASELINE_SHELF,
+      access: 'read_through',
+    });
+  }
+
+  const familyEngineIds = await resolveFamilyEngineIds(db, companyId, engineId);
+  const childResearchIds = new Set(familyEngineIds.filter((id) => id !== engineId));
+
+  const engineLocal: HubEngineLocal[] = [];
+  if (nestedModuleIds.length > 0) {
+    const nestRows = await db
+      .select({
+        libraryId: libraries.id,
+        moduleId: libraries.moduleId,
+        engineInstanceId: modules.engineInstanceId,
+      })
+      .from(libraries)
+      .innerJoin(modules, eq(libraries.moduleId, modules.id))
+      .where(
+        and(
+          eq(libraries.companyId, companyId),
+          inArray(libraries.moduleId, nestedModuleIds),
+        ),
+      );
+
+    for (const row of nestRows) {
+      if (!row.moduleId || !row.libraryId) continue;
+      const owner =
+        row.engineInstanceId && childResearchIds.has(row.engineInstanceId)
+          ? 'child_research'
+          : row.engineInstanceId === engineId
+            ? 'engine_owned'
+            : 'engine_owned';
+      engineLocal.push({
+        libraryId: row.libraryId,
+        moduleId: row.moduleId,
+        origin: 'research_in',
+        stream: 'semantic',
+        binding: 'nest',
+        owner,
+      });
+    }
+  }
+
+  const [hubMod] = await db
+    .select({ config: modules.config })
+    .from(modules)
+    .where(eq(modules.id, hubModuleId))
+    .limit(1);
+  const priorCfg = (hubMod?.config ?? {}) as Record<string, unknown>;
+
+  await db
+    .update(modules)
+    .set({
+      config: assembleHubModuleConfig(priorCfg, {
+        ownerEngineInstanceId: engineId,
+        nestedModuleIds,
+        symlinks,
+        engineLocal,
+      }),
+      updatedAt: now,
+    })
+    .where(eq(modules.id, hubModuleId));
+
+  void hubLibraryId;
+  return { symlinkCount: symlinks.length, engineLocalCount: engineLocal.length };
 }
 
 async function resolveFamilyEngineIds(

@@ -23,6 +23,7 @@ import {
 import { ensureSystemLibrarySchedule } from '../schedules/materialize';
 import { ensureAllSystemLibraries } from './ensure-system-library';
 import { ensureSectorKnowledge } from './ensure-sector-knowledge';
+import { resolveCompanyMathModuleId } from './resolve-company-math';
 import { SYSTEM_LIBRARY_REGISTRY } from './system-library-registry';
 import {
   buildSeededConceptBody,
@@ -218,7 +219,14 @@ async function rematerializeCatalogSeedBodies(
   let mechanismsLibraryId = opts?.mechanismsLibraryId ?? null;
   if (!ownerModuleId || !mechanismsLibraryId) {
     const companyModules = await db
-      .select({ id: modules.id, type: modules.type, name: modules.name, config: modules.config })
+      .select({
+        id: modules.id,
+        type: modules.type,
+        name: modules.name,
+        config: modules.config,
+        engineInstanceId: modules.engineInstanceId,
+        toolOwnerModuleId: modules.toolOwnerModuleId,
+      })
       .from(modules)
       .where(eq(modules.companyId, companyId));
     ownerModuleId = ownerModuleId ?? resolveOwnerModuleId(companyModules);
@@ -546,15 +554,22 @@ async function ensureMasterLibrary(
     .where(eq(libraries.id, mechanismsLibraryId));
 }
 
-function resolveOwnerModuleId(companyModules: Array<{ id: string; type: string }>): string | null {
+function resolveOwnerModuleId(
+  companyModules: Array<{
+    id: string;
+    type: string;
+    engineInstanceId?: string | null;
+    toolOwnerModuleId?: string | null;
+    config?: unknown;
+  }>,
+): string | null {
   const research = companyModules.find((m) => m.type === 'research');
   if (research) return research.id;
   const librarian = companyModules.find((m) => m.type === 'librarian');
   if (librarian) return librarian.id;
   const library = companyModules.find((m) => m.type === 'library');
   if (library) return library.id;
-  const math = companyModules.find((m) => m.type === 'math');
-  return math?.id ?? null;
+  return resolveCompanyMathModuleId(companyModules);
 }
 
 /**
@@ -731,7 +746,14 @@ export async function bootstrapCompanyKnowledge(opts: {
   }
 
   const companyModules = await opts.db
-    .select({ id: modules.id, type: modules.type, name: modules.name, config: modules.config })
+    .select({
+      id: modules.id,
+      type: modules.type,
+      name: modules.name,
+      config: modules.config,
+      engineInstanceId: modules.engineInstanceId,
+      toolOwnerModuleId: modules.toolOwnerModuleId,
+    })
     .from(modules)
     .where(eq(modules.companyId, opts.companyId));
 

@@ -95,7 +95,7 @@ describe('proposeFundRouteTransfers', () => {
     expect(outcome.error.code).toBe('no_paths');
   });
 
-  it('skips illegal fund_route hops', () => {
+  it('prefers direct holding→fund_router hop when legal (D-229)', () => {
     const { modules, links } = dayTradingTopology([
       { fromModuleId: IDS.holdingFund, toModuleId: IDS.fundRouter, linkKind: 'fund_route' },
       { fromModuleId: IDS.holdingFund, toModuleId: IDS.hubMath, linkKind: 'fund_route' },
@@ -115,10 +115,9 @@ describe('proposeFundRouteTransfers', () => {
     const hopPairs = outcome.result.paths[0]!.hops.map(
       (hop) => `${hop.fromModuleId}->${hop.toModuleId}`,
     );
-    expect(hopPairs).not.toContain(`${IDS.holdingFund}->${IDS.fundRouter}`);
+    // Direct capital bus is preferred over legacy Math middleman path.
     expect(hopPairs).toEqual([
-      `${IDS.holdingFund}->${IDS.hubMath}`,
-      `${IDS.hubMath}->${IDS.fundRouter}`,
+      `${IDS.holdingFund}->${IDS.fundRouter}`,
       `${IDS.fundRouter}->${IDS.deskMath}`,
     ]);
   });

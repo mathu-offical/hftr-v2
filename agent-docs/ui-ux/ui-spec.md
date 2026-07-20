@@ -387,7 +387,9 @@ are ignored. Shortcuts are suppressed in editable fields.
   edge transfer labels on the strip;
   wires are **bespoke orthogonal rails** (`postureOrtho`, sharp right angles) with
   cross-route / inter-cluster / diagonal content edges pruned to adjacent screen
-  backbones; per-node nudges via `STRIP_NODE_PLACEMENT_OVERRIDES`; unused screen
+  backbones; rail labels show **role · source node name** (e.g. `SRC · Alpaca bars`)
+  plus transfer verb; halo stroke under each rail for contrast; per-node nudges via
+  `STRIP_NODE_PLACEMENT_OVERRIDES`; unused screen
   space stays loose between columns; strip nodes use **compact chrome**
   sized to the packing grid (no clipped cards); side nodes
   sit below the route stack. Draws all within- and

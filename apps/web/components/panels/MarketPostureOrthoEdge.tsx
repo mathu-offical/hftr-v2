@@ -2,7 +2,7 @@
 
 /**
  * Bespoke orthogonal (right-angle) edges for the Market Posture Model strip.
- * Sharp elbows, L→R handle bias, lane offsets — not freeform bezier spaghetti.
+ * Sharp elbows, L→R handle bias, lane offsets — labeled with source / data-source names.
  */
 
 import { memo } from 'react';
@@ -20,6 +20,12 @@ export type PostureOrthoEdgeData = PostureAlgoEdgeData & {
   laneOffset?: number;
   /** Strip vs full-canvas chrome. */
   stripMode?: boolean;
+  /** Source node / data-source display name. */
+  railTitle?: string;
+  /** Transfer verb (hydrate / adapt / …). */
+  railVerb?: string;
+  /** Short role tag (SRC / ADAPT / …). */
+  railRole?: string;
 };
 
 function hashLane(id: string): number {
@@ -70,7 +76,14 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
     ...(strip && !aligned ? { centerX: midX } : {}),
   });
 
-  const showLabel = Boolean(label) && strip;
+  const railTitle = edgeData?.railTitle?.trim() || null;
+  const railVerb = edgeData?.railVerb?.trim() || null;
+  const railRole = edgeData?.railRole?.trim() || null;
+  const fallback = typeof label === 'string' ? label.trim() : '';
+  const showLabel = strip && Boolean(railTitle || fallback);
+  const stroke =
+    typeof style?.stroke === 'string' ? style.stroke : 'var(--color-accent)';
+
   const baseEdgeProps = {
     id,
     path,
@@ -79,28 +92,79 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
       strokeLinecap: 'square' as const,
       strokeLinejoin: 'miter' as const,
     },
-    interactionWidth: strip ? 14 : 10,
+    interactionWidth: strip ? 18 : 10,
     ...(markerEnd != null ? { markerEnd } : {}),
   };
 
   return (
     <>
+      {/* Halo under the rail so stacked transfers stay visible on dark chrome. */}
+      {strip ? (
+        <BaseEdge
+          id={`${id}__halo`}
+          path={path}
+          style={{
+            stroke: 'var(--color-surface-0)',
+            strokeWidth:
+              typeof style?.strokeWidth === 'number'
+                ? style.strokeWidth + 3.5
+                : 5.5,
+            opacity: 0.88,
+            strokeLinecap: 'square',
+            strokeLinejoin: 'miter',
+            fill: 'none',
+          }}
+          interactionWidth={0}
+        />
+      ) : null}
       <BaseEdge {...baseEdgeProps} />
       {showLabel ? (
         <EdgeLabelRenderer>
           <div
             className="nodrag nopan pointer-events-none absolute origin-center"
             style={{
-              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-              opacity: selected ? 1 : 0.92,
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY - (railTitle ? 2 : 0)}px)`,
+              opacity: selected ? 1 : 0.98,
             }}
           >
-            <span
-              className="rounded-sm border border-[var(--color-line)] bg-[var(--color-surface-0)] px-1 py-px font-mono text-[7px] font-semibold uppercase tracking-wider text-[var(--color-ink-dim)]"
+            <div
+              className="max-w-[9.5rem] rounded border px-1.5 py-0.5 shadow-sm"
+              style={{
+                borderColor: stroke,
+                background:
+                  'color-mix(in srgb, var(--color-surface-0) 92%, transparent)',
+                boxShadow: `0 0 0 1px color-mix(in srgb, ${stroke} 35%, transparent)`,
+              }}
               data-testid="market-posture-model-edge-label"
+              title={[railRole, railTitle, railVerb].filter(Boolean).join(' · ')}
             >
-              {label}
-            </span>
+              {railTitle ? (
+                <>
+                  <div className="flex min-w-0 items-center gap-1">
+                    {railRole ? (
+                      <span
+                        className="shrink-0 font-mono text-[7px] font-bold uppercase tracking-wider"
+                        style={{ color: stroke }}
+                      >
+                        {railRole}
+                      </span>
+                    ) : null}
+                    <span className="truncate font-mono text-[8px] font-semibold leading-tight text-[var(--color-ink)]">
+                      {railTitle}
+                    </span>
+                  </div>
+                  {railVerb ? (
+                    <div className="mt-px truncate font-mono text-[7px] uppercase tracking-wider text-[var(--color-ink-dim)]">
+                      {railVerb}
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <span className="font-mono text-[8px] font-semibold uppercase tracking-wider text-[var(--color-ink)]">
+                  {fallback}
+                </span>
+              )}
+            </div>
           </div>
         </EdgeLabelRenderer>
       ) : null}

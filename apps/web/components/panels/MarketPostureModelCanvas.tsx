@@ -46,7 +46,15 @@ type LiveNodeData = PostureAlgoNodeData & {
   selected?: boolean;
 };
 
-type LiveEdge = Edge<PostureAlgoEdgeData & { stripMode?: boolean; laneOffset?: number }>;
+type LiveEdge = Edge<
+  PostureAlgoEdgeData & {
+    stripMode?: boolean;
+    laneOffset?: number;
+    railTitle?: string;
+    railVerb?: string;
+    railRole?: string;
+  }
+>;
 
 const edgeTypes: EdgeTypes = {
   postureOrtho: MarketPostureOrthoEdge,
@@ -327,39 +335,58 @@ function styleModelEdge(
     /** Force Model orthogonal chrome (right-angle rails). */
     orthoStrip?: boolean;
     laneOffset?: number;
+    /** Source node display name for strip rail labels. */
+    sourceLabel?: string;
+    sourceRole?: PostureAlgoNodeData['nodeRole'];
+    targetLabel?: string;
   },
 ): LiveEdge {
   const { edgeType, activation, status, track } = edge.data;
   const stroke = trackStroke(track);
   const animated = activation === 'active' || activation === 'pulsing';
   const cross = opts?.crossScreen === true || edge.id.startsWith('e-group:');
+  const strip = Boolean(opts?.stripTransferLabels || opts?.orthoStrip);
   const width =
     edgeType === 'emit'
       ? cross
-        ? 1.6
-        : 1.15
-      : activation === 'active' || activation === 'pulsing'
-        ? 2.4
-        : cross
+        ? strip
+          ? 2.2
+          : 1.6
+        : strip
           ? 1.8
+          : 1.15
+      : activation === 'active' || activation === 'pulsing'
+        ? strip
+          ? 3
+          : 2.4
+        : cross
+          ? strip
+            ? 2.4
+            : 1.8
           : opts?.stripTransferLabels
-            ? 1.85
+            ? 2.6
             : 1.2;
   const opacity =
     activation === 'blocked' || activation === 'stale'
-      ? 0.35
+      ? 0.4
       : edgeType === 'emit'
         ? activation === 'idle'
-          ? 0.4
+          ? strip
+            ? 0.65
+            : 0.4
           : cross
-            ? 0.85
-            : 0.7
+            ? 0.95
+            : 0.8
         : activation === 'idle'
           ? cross
-            ? 0.55
-            : 0.5
+            ? 0.7
+            : strip
+              ? 0.82
+              : 0.5
           : activation === 'armed'
-            ? 0.8
+            ? strip
+              ? 0.95
+              : 0.8
             : 1;
   const transferWord = (() => {
     if (edge.label?.trim()) return edge.label.trim();
@@ -386,10 +413,27 @@ function styleModelEdge(
       }
     }
   })();
+  const sourceName = (opts?.sourceLabel ?? '').trim();
+  const roleTag =
+    opts?.sourceRole != null ? roleLabel(opts.sourceRole) : null;
+  const railTitle = sourceName
+    ? sourceName.length > 22
+      ? `${sourceName.slice(0, 20)}…`
+      : sourceName
+    : null;
+  const stripLabel = (() => {
+    if (opts?.hideLabels) return undefined;
+    if (!opts?.stripTransferLabels) return undefined;
+    // Backbone: keep flow count from edge.label ("N flows").
+    if (cross && edge.label?.trim()) return edge.label.trim();
+    if (railTitle && roleTag) return `${roleTag} · ${railTitle}`;
+    if (railTitle) return railTitle;
+    return transferWord;
+  })();
   const label = opts?.hideLabels
     ? undefined
     : opts?.stripTransferLabels
-      ? transferWord
+      ? stripLabel
       : edge.label != null
         ? `${edge.label} · ${activation}/${status}`
         : `${edgeType} · ${activation}`;
@@ -401,8 +445,15 @@ function styleModelEdge(
     label,
     data: {
       ...edge.data,
-      stripMode: Boolean(opts?.stripTransferLabels || opts?.orthoStrip),
+      stripMode: strip,
       ...(opts?.laneOffset != null ? { laneOffset: opts.laneOffset } : {}),
+      ...(railTitle ? { railTitle } : {}),
+      ...(opts?.stripTransferLabels
+        ? {
+            railVerb: transferWord,
+            ...(roleTag ? { railRole: roleTag } : {}),
+          }
+        : {}),
     },
     // Bespoke Model orthogonal rails (strip + default).
     type: 'postureOrtho',
@@ -410,8 +461,8 @@ function styleModelEdge(
     zIndex: cross ? 8 : edgeType === 'emit' ? 2 : 5,
     markerEnd: {
       type: MarkerType.ArrowClosed,
-      width: opts?.stripTransferLabels || opts?.orthoStrip ? 11 : 10,
-      height: opts?.stripTransferLabels || opts?.orthoStrip ? 11 : 10,
+      width: strip ? 12 : 10,
+      height: strip ? 12 : 10,
       color: stroke,
     },
     style: {
@@ -421,17 +472,17 @@ function styleModelEdge(
       strokeDasharray: edgeTypeDash(edgeType),
     },
     labelStyle: {
-      fill: 'var(--color-ink-dim)',
-      fontSize: opts?.stripTransferLabels ? 7 : 8,
+      fill: 'var(--color-ink)',
+      fontSize: opts?.stripTransferLabels ? 8 : 8,
       fontFamily: 'ui-monospace, monospace',
-      fontWeight: 600,
+      fontWeight: 700,
     },
     labelBgStyle: {
       fill: 'var(--color-surface-0)',
-      fillOpacity: opts?.stripTransferLabels ? 0.92 : 0.85,
+      fillOpacity: opts?.stripTransferLabels ? 0.96 : 0.85,
     },
     ...(opts?.stripTransferLabels
-      ? { labelBgPadding: [2, 3] as [number, number] }
+      ? { labelBgPadding: [3, 5] as [number, number] }
       : {}),
   };
 }
@@ -482,6 +533,11 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
       data.nodeRole === 'process' || data.nodeRole === 'analysis'
         ? processFunctionLabel(data.processFunction)
         : roleLabel(data.nodeRole);
+    const isSource =
+      data.nodeRole === 'live_source' ||
+      data.nodeRole === 'query_source' ||
+      data.nodeRole === 'library_source' ||
+      data.nodeRole === 'capital_source';
     return (
       <div
         className={`w-[112px] rounded border border-t-2 px-1 py-0.5 ${kindBorder(data.kind)} ${chrome} ${ring}`}
@@ -510,7 +566,11 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
                 {data.transferHop}
               </span>
             ) : null}
-            <span className="truncate">{badge}</span>
+            <span
+              className={`truncate ${isSource ? 'font-bold text-[var(--color-accent)]' : ''}`}
+            >
+              {badge}
+            </span>
           </span>
           <span
             className="max-w-[3.5rem] truncate font-mono text-[7px] tabular-nums text-[var(--color-ink-dim)]"
@@ -520,7 +580,9 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
           </span>
         </div>
         <p
-          className="truncate text-[10px] font-medium leading-tight text-[var(--color-ink)]"
+          className={`truncate leading-tight text-[var(--color-ink)] ${
+            isSource ? 'text-[11px] font-semibold' : 'text-[10px] font-medium'
+          }`}
           title={data.label}
         >
           {data.label}
@@ -636,7 +698,7 @@ const PostureGroupNode = memo(function PostureGroupNode({
     <div
       className={`h-full w-full rounded border ${
         isCluster
-          ? 'border-dashed border-[var(--color-line)] bg-[color-mix(in_srgb,var(--color-accent)_5%,var(--color-surface-0))]'
+          ? 'border-[var(--color-accent)]/35 border-l-[3px] border-l-[var(--color-accent)] bg-[color-mix(in_srgb,var(--color-accent)_8%,var(--color-surface-0))]'
           : 'border-[var(--color-line)] bg-[color-mix(in_srgb,var(--color-surface-0)_70%,transparent)]'
       } ${data.selected ? 'ring-1 ring-[var(--color-accent)]' : ''}`}
       data-testid={
@@ -733,8 +795,18 @@ function InnerCanvas(props: {
 
   const styledEdges = useMemo(() => {
     const screenById = new Map<string, string>();
+    const labelById = new Map<string, { label: string; role: PostureAlgoNodeData['nodeRole'] }>();
     for (const n of graph.nodes) {
       if (n.data.stageScreenId) screenById.set(n.id, n.data.stageScreenId);
+      if (
+        n.data.nodeRole !== 'screen_group' &&
+        n.data.nodeRole !== 'process_cluster' &&
+        n.data.nodeRole !== 'lane_label'
+      ) {
+        labelById.set(n.id, { label: n.data.label, role: n.data.nodeRole });
+      } else if (n.data.nodeRole === 'screen_group' || n.data.nodeRole === 'process_cluster') {
+        labelById.set(n.id, { label: n.data.label, role: n.data.nodeRole });
+      }
     }
     const stripTransferLabels = props.layoutMode === 'stripExpanded';
     return graph.edges.map((e, i) => {
@@ -743,22 +815,32 @@ function InnerCanvas(props: {
       const crossScreen =
         e.id.startsWith('e-group:') ||
         (a != null && b != null && a !== b);
+      const srcMeta = labelById.get(e.source);
       const opts: {
         crossScreen: boolean;
         stripTransferLabels: boolean;
         orthoStrip: true;
         hideLabels: boolean;
         laneOffset?: number;
+        sourceLabel?: string;
+        sourceRole?: PostureAlgoNodeData['nodeRole'];
+        targetLabel?: string;
       } = {
         crossScreen,
         stripTransferLabels,
         orthoStrip: true,
-        // Cross-screen backbone stays unlabeled to reduce clutter.
-        hideLabels: stripTransferLabels && crossScreen,
+        // Keep backbone labels (flow counts); only hide empty ones.
+        hideLabels: false,
       };
       if (stripTransferLabels) {
         opts.laneOffset = ((i % 5) - 2) * 3;
       }
+      if (srcMeta) {
+        opts.sourceLabel = srcMeta.label;
+        opts.sourceRole = srcMeta.role;
+      }
+      const tgt = labelById.get(e.target);
+      if (tgt) opts.targetLabel = tgt.label;
       return styleModelEdge(e, opts);
     });
   }, [graph.edges, graph.nodes, props.layoutMode]);

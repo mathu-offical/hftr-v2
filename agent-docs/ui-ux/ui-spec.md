@@ -399,6 +399,9 @@ are ignored. Shortcuts are suppressed in editable fields.
   fan to multiple targets collapse to **one trunk** with **`send_tap` pads** along
   its length and short branch spurs (`fanRole: trunk|branch`, D-226) — fewer
   visible wires, keyed by output logic rather than per-target spaghetti.
+  **Dedicated Math** docks under its canvas owner (`toolOwnerModuleId`) on the owner’s
+  section with a vertical **calc-ref** elbow (`ref-out` → `ref-in`); content nodes expose
+  Top/Bottom reference handles for attach / reference wires while L→R stay flow (D-228).
   Inter-route content collapses to **rail↔rail bridges** (`e-rail:…`) and
   **section-exit bridges** (`e-exit:…`, cluster/column Right → next section Left) so
   process-rail ends show how they feed the next stage column; plus adjacent

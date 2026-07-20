@@ -2321,6 +2321,16 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   D-221. Docs: canvas-layout-and-dedicated-math-design.
   **Status: implemented.**
 
+- **D-228 (Model strip Math dock + reference handles, 2026-07-20):** Dedicated Math
+  modules follow their `toolOwnerModuleId` onto the **owner’s stage screen** and dock
+  **under the parent node** (same parent frame) with a vertical **calc-ref** wire
+  (`ref-out` Top on Math → `ref-in` Bottom on owner). Content nodes expose Top/Bottom
+  reference handles for attach / cross-lane refs; L→R remain flow. Owned Math is
+  excluded from free `scoped_math` rails so operators read real ownership. Outlook /
+  capital / day columns also barycenter-sort by connections for clearer adjacency.
+  Extends D-223 / D-226 / D-227. Docs: ui-spec §4.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

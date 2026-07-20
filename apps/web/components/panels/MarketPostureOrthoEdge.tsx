@@ -296,14 +296,19 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
     (strip && isElbow ? ((hashLane(id) % 5) - 2) * PCB_CHANNEL : 0);
 
   // End→start elbows use Left/Right section handles — never mid-rail Top/Bottom.
+  // Calc-ref / attach docks use Top/Bottom `ref-*` (D-228).
   const verticalBridge =
     isElbow &&
     !sectionExit &&
     !railBridge &&
     (sourceHandleId === 'rail-out' ||
       sourceHandleId === 'rail-in' ||
+      sourceHandleId === 'ref-out' ||
+      sourceHandleId === 'ref-in' ||
       targetHandleId === 'rail-in' ||
-      targetHandleId === 'rail-out');
+      targetHandleId === 'rail-out' ||
+      targetHandleId === 'ref-in' ||
+      targetHandleId === 'ref-out');
 
   const usePcb = strip;
   const stroke =

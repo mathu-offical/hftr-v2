@@ -542,6 +542,13 @@ export const MarketHubModelScopedModule = z.object({
   moduleType: z.string().max(40),
   subtypeChip: z.string().max(60).nullable(),
   engineInstanceId: z.string().uuid().nullable().optional(),
+  /**
+   * Dedicated Math (and similar tools): owning consumer module id
+   * (`modules.tool_owner_module_id`). Null when unattached.
+   */
+  toolOwnerModuleId: z.string().uuid().nullable().optional(),
+  /** Owner module type when `toolOwnerModuleId` is set — for strip screen docking. */
+  toolOwnerModuleType: z.string().max(40).nullable().optional(),
   stageScreenId: z.enum(['capital', 'live', 'library', 'process', 'outlook', 'day']),
   operation: z.string().max(80),
   amount: z.string().max(40),

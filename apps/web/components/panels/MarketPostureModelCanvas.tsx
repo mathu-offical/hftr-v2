@@ -574,6 +574,29 @@ function styleModelEdge(
   };
 }
 
+/** Top/Bottom docks for calc-ref / attach / cross-lane reference wires (D-228).
+ * Top = outgoing ref (Math → owner above); Bottom = incoming ref. */
+function PostureRefHandles() {
+  return (
+    <>
+      <Handle
+        id="ref-out"
+        type="source"
+        position={Position.Top}
+        className="!h-1.5 !w-1.5 !border-[var(--color-surface-0)] !bg-[color-mix(in_srgb,#c48a3a_80%,var(--color-accent))]"
+        title="Reference out"
+      />
+      <Handle
+        id="ref-in"
+        type="target"
+        position={Position.Bottom}
+        className="!h-1.5 !w-1.5 !border-[var(--color-surface-0)] !bg-[color-mix(in_srgb,#c48a3a_80%,var(--color-accent))]"
+        title="Reference in"
+      />
+    </>
+  );
+}
+
 const PostureAlgoNode = memo(function PostureAlgoNode({
   data,
 }: NodeProps<Node<LiveNodeData>>) {
@@ -727,6 +750,7 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
           position={Position.Right}
           className="!h-1.5 !w-1.5 !border-[var(--color-surface-0)] !bg-[var(--color-accent)]"
         />
+        <PostureRefHandles />
       </div>
     );
   }
@@ -820,6 +844,7 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
           position={Position.Right}
           className="!h-1.5 !w-1.5 !border-[var(--color-surface-0)] !bg-[var(--color-accent)]"
         />
+        <PostureRefHandles />
       </div>
     );
   }
@@ -938,6 +963,7 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
         </p>
       ) : null}
       <Handle type="source" position={Position.Right} className="!h-1.5 !w-1.5 !bg-[var(--color-ink-faint)]" />
+      <PostureRefHandles />
     </div>
   );
 });

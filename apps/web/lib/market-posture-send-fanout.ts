@@ -47,6 +47,10 @@ export function stripOutputChannel(e: {
   if (e.id?.startsWith('e-group:')) {
     return `${e.data.edgeType}::screen_backbone::${handle}`;
   }
+  // Calc-ref docks stay 1:1 — never fan-out (D-228).
+  if (e.id?.startsWith('e-attach:') || handle === 'ref-out' || handle === 'ref-in') {
+    return `${e.data.edgeType}::calc_ref::${handle}::${e.id ?? 'edge'}`;
+  }
   const raw = (e.label ?? e.data.label ?? '').trim().toLowerCase();
   // Drop count suffixes ("flows · 3") — same send, many targets.
   const verb =

@@ -533,15 +533,33 @@ export async function projectMarketHubModelHydration(opts: {
       status: modules.status,
       config: modules.config,
       engineInstanceId: modules.engineInstanceId,
+      toolOwnerModuleId: modules.toolOwnerModuleId,
     })
     .from(modules)
     .where(and(eq(modules.companyId, companyId), inArray(modules.type, [...SCOPED_TYPES])))
     .limit(64);
 
+  const ownerIds = [
+    ...new Set(
+      scopedModRows
+        .map((m) => m.toolOwnerModuleId)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    ),
+  ];
+  const ownerTypeById = new Map<string, string>();
+  if (ownerIds.length > 0) {
+    const ownerRows = await db
+      .select({ id: modules.id, type: modules.type })
+      .from(modules)
+      .where(and(eq(modules.companyId, companyId), inArray(modules.id, ownerIds)))
+      .limit(64);
+    for (const row of ownerRows) {
+      ownerTypeById.set(row.id, row.type);
+    }
+  }
+
   const scopedModules: MarketHubModelScopedModule[] = [];
   for (const mod of scopedModRows) {
-    const screen = stageScreenForScopedModuleType(mod.type);
-    if (!screen) continue;
     const cfg =
       mod.config && typeof mod.config === 'object' && !Array.isArray(mod.config)
         ? (mod.config as Record<string, unknown>)
@@ -553,12 +571,26 @@ export async function projectMarketHubModelHydration(opts: {
       mod.status === 'draft'
         ? mod.status
         : 'draft';
+    const toolOwnerModuleId = mod.toolOwnerModuleId ?? null;
+    const toolOwnerModuleType = toolOwnerModuleId
+      ? (ownerTypeById.get(toolOwnerModuleId) ?? null)
+      : null;
+    // Owned Math docks on the owner's strip screen (D-228) — not a free Process island.
+    let screen = stageScreenForScopedModuleType(mod.type);
+    if (mod.type === 'math' && toolOwnerModuleType) {
+      screen =
+        stageScreenForScopedModuleType(toolOwnerModuleType) ??
+        screen;
+    }
+    if (!screen) continue;
     scopedModules.push({
       id: mod.id,
       name: mod.name.slice(0, 120),
       moduleType: mod.type,
       subtypeChip: subtypeChipForModuleConfig(mod.type, cfg),
       engineInstanceId: mod.engineInstanceId ?? null,
+      toolOwnerModuleId,
+      toolOwnerModuleType,
       stageScreenId: screen,
       operation: scopedModuleOperation(mod.type),
       amount: status,

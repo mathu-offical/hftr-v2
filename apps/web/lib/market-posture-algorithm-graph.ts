@@ -37,6 +37,7 @@ import {
   type MarketPostureStageScreenId,
 } from './market-posture-stage-screens';
 import { bundleSendFanOut } from './market-posture-send-fanout';
+import { attachOwnedMathToParents, STRIP_MATH_ATTACH_GAP } from './market-posture-attach-tools';
 import {
   applyStripPlacementOverride,
   layoutStepsByMatrix,
@@ -126,6 +127,11 @@ export type PostureAlgoNodeData = {
   moduleType?: string;
   /** Operator subtype chip (specialty_desk, day, session_intraday, …). */
   subtypeChip?: string | null;
+  /**
+   * Dedicated tool dock target (D-228) — canvas `toolOwnerModuleId` when this
+   * node is Math (or similar) attached under a parent consumer.
+   */
+  attachedToModuleId?: string;
   layer: MarketHubModelLayer;
   track: MarketHubModelTrack;
   activation: MarketHubModelEdgeActivation;
@@ -1554,23 +1560,31 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
       mod.stageScreenId === 'capital' ? 'compose' : 'compound',
       LANE_Y.compound + 80,
     );
+    const attachedToModuleId = mod.toolOwnerModuleId ?? undefined;
     nodes.push({
       id: nodeId,
       type: 'postureAlgo',
       position: { x: processCol0, y },
       data: {
         label: mod.name.slice(0, 28),
-        detail: mod.subtypeChip
-          ? `${mod.moduleType} · ${mod.subtypeChip}`
-          : mod.moduleType,
+        detail: attachedToModuleId
+          ? `attached tool · ${mod.moduleType}`
+          : mod.subtypeChip
+            ? `${mod.moduleType} · ${mod.subtypeChip}`
+            : mod.moduleType,
         kind: 'deterministic',
         nodeRole: 'process',
         operation: mod.operation,
         amount: mod.amount,
         moduleType: mod.moduleType,
         subtypeChip: mod.subtypeChip,
-        processRoute: `scoped_${mod.moduleType}`,
-        processFunction: 'context',
+        ...(attachedToModuleId ? { attachedToModuleId } : {}),
+        // Owned Math docks with parent (D-228) — avoid a lone scoped_math rail.
+        processRoute:
+          mod.moduleType === 'math' && attachedToModuleId
+            ? `dock_math_${attachedToModuleId.slice(0, 8)}`
+            : `scoped_${mod.moduleType}`,
+        processFunction: mod.moduleType === 'math' ? 'analyze' : 'context',
         layer: 'pipeline',
         track: 'compound',
         activation: ready ? 'armed' : 'idle',
@@ -1907,9 +1921,13 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
     const packed = applyStripScreenGroups(nodes, edges);
     const finalized = finalizeStripEdges(edges, packed);
     const bundled = bundleSendFanOut({ nodes: packed, edges: finalized });
-    return {
+    const docked = attachOwnedMathToParents({
       nodes: bundled.nodes,
       edges: bundled.edges,
+    });
+    return {
+      nodes: docked.nodes,
+      edges: docked.edges,
       tracks,
       trackBands,
       asOfIso,
@@ -2787,15 +2805,21 @@ function packProcessScreenColumn(opts: {
     screenId = 'process',
     screenLabel = 'Process',
   } = opts;
+  const isDockedMath = (n: PostureAlgoGraphNode): boolean =>
+    n.data.moduleType === 'math' && Boolean(n.data.attachedToModuleId);
+
+  const dockedMath = children.filter(isDockedMath);
   const processNodes = children.filter(
     (n) =>
-      n.data.nodeRole === 'process' ||
-      n.data.nodeRole === 'analysis' ||
-      n.data.nodeRole === 'research_engine' ||
-      n.data.nodeRole === 'research_articles',
+      !isDockedMath(n) &&
+      (n.data.nodeRole === 'process' ||
+        n.data.nodeRole === 'analysis' ||
+        n.data.nodeRole === 'research_engine' ||
+        n.data.nodeRole === 'research_articles'),
   );
   const otherNodes = children.filter(
     (n) =>
+      !isDockedMath(n) &&
       n.data.nodeRole !== 'process' &&
       n.data.nodeRole !== 'analysis' &&
       n.data.nodeRole !== 'research_engine' &&
@@ -3163,11 +3187,30 @@ function packProcessScreenColumn(opts: {
   );
   const width = contentW;
 
+  // Owned Math placeholders — `attachOwnedMathToParents` docks under owners (D-228).
+  for (const m of dockedMath) {
+    out.push({
+      ...m,
+      parentId: groupId,
+      extent: 'parent',
+      position: { x: STRIP_PAD, y: STRIP_HEADER + STRIP_PAD },
+      draggable: false,
+      data: {
+        ...m.data,
+        stageScreenId: screenId,
+        stripCompact: true,
+      },
+    });
+  }
+
   out.unshift({
     id: groupId,
     type: 'postureGroup',
     position: { x: colIdx * STRIP_COL_W, y: 0 },
-    style: { width, height },
+    style: {
+      width,
+      height: height + (dockedMath.length > 0 ? STRIP_NODE_H + STRIP_MATH_ATTACH_GAP + 8 : 0),
+    },
     draggable: false,
     selectable: true,
     data: {
@@ -3375,7 +3418,14 @@ export function applyStripScreenGroups(
       screen.id === 'capital' ||
       screen.id === 'day'
     ) {
-      const sorted = [...children].sort((a, b) => {
+      const layoutChildren = children.filter(
+        (n) => !(n.data.moduleType === 'math' && n.data.attachedToModuleId),
+      );
+      const dockedMathSide = children.filter(
+        (n) => n.data.moduleType === 'math' && Boolean(n.data.attachedToModuleId),
+      );
+      const sorted = orderLaneByConnections(
+        [...layoutChildren].sort((a, b) => {
         const la =
           screen.id === 'capital'
             ? capitalTierLane(a)
@@ -3393,7 +3443,10 @@ export function applyStripScreenGroups(
         const bb = STRIP_FUNCTION_BANDS.indexOf(functionBandForStep(b));
         if (ba !== bb) return ba - bb;
         return a.data.label.localeCompare(b.data.label);
-      });
+      }),
+        edges,
+        globalRank,
+      );
       const usedBands = new Set(sorted.map((n) => functionBandForStep(n)));
       // Prefer semantic tier as "column count" within each band so related
       // capital/outlook/day steps stack naturally without a rigid grid.
@@ -3502,6 +3555,33 @@ export function applyStripScreenGroups(
           },
         });
       });
+      for (const m of dockedMathSide) {
+        out.push({
+          ...m,
+          parentId: groupId,
+          extent: 'parent',
+          position: { x: STRIP_PAD, y: STRIP_HEADER + STRIP_PAD },
+          draggable: false,
+          data: {
+            ...m.data,
+            stageScreenId: screen.id,
+            stripCompact: true,
+          },
+        });
+      }
+      if (dockedMathSide.length > 0) {
+        const group = out.find((n) => n.id === groupId);
+        if (group?.style) {
+          group.style = {
+            ...group.style,
+            height:
+              (group.style.height ?? height) +
+              STRIP_NODE_H +
+              STRIP_MATH_ATTACH_GAP +
+              8,
+          };
+        }
+      }
       cursorX += width + STRIP_SCREEN_GAP;
       void colIdx;
       return;

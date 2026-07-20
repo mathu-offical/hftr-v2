@@ -2262,8 +2262,13 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   - **`route_data`** — one out handle per option; incoming data/system is forked to
     resolved destinations (e.g. `strategy_family`, `branch_role`, `recovery_phase`,
     `emit_mode` → library/trading). Canvas edges are React Flow-only binds
-    (`decision_emit` / `decision_route`); selected route is accented. Extends D-208 /
-    D-217 / D-218. Docs: canvas-engine-group-design, ui-spec §3, DecisionNode.
+    (`decision_emit` / `decision_route`); selected route is accented.
+  Defaults from `connectionModeForDecisionKind`; operators may override in the
+  decision inspector. Overrides + selections persist in `setup_snapshot.decisionNodes`
+  / `decisionOptionSelections` and merge via `mergeDecisionOperatorState` on canvas
+  rebuild. Template seeds may set `connectionMode`. Height uses emit=1 out row vs
+  route=option count. Extends D-208 / D-217 / D-218. Docs: canvas-engine-group-design,
+  ui-spec §3, DecisionNode.
   **Status: implemented.**
 
 ## Open questions

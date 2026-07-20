@@ -7,8 +7,10 @@ import {
   DECISION_HANDLE_DATA_IN,
   DECISION_HANDLE_SYSTEM_IN,
   ENGINE_GROUP_PADDING,
+  estimateDecisionNodeHeight,
   handleIdForLink,
   handleIdForStream,
+  mergeDecisionOperatorState,
   resolveDecisionOutboundTargets,
   type OptionAnchorPosition,
   type OptionAnchorSpec,
@@ -50,16 +52,13 @@ function rootKindPriority(kind: string): number {
 }
 
 function nodeHeightFor(anchor: OptionAnchorSpec): number {
-  const intakes = anchor.intakes ?? { data: true, systemControl: false, clock: false };
-  const intakeCount =
-    (intakes.data ? 1 : 0) + (intakes.systemControl ? 1 : 0) + (intakes.clock ? 1 : 0);
-  const optionCount = Math.max(anchor.options?.length ?? 0, 1);
-  const rows = Math.max(intakeCount, optionCount, 1);
-  return Math.max(OPTION_ANCHOR_NODE_HEIGHT, 28 + rows * 18);
+  return estimateDecisionNodeHeight(anchor);
 }
 
 export function anchorsForEngine(
-  engine: Pick<CanvasEngineGroup, 'id' | 'templateId'>,
+  engine: Pick<CanvasEngineGroup, 'id' | 'templateId'> & {
+    setupSnapshot?: CanvasEngineGroup['setupSnapshot'];
+  },
   modules: readonly CanvasModule[],
 ): OptionAnchorSpec[] {
   const members = modules
@@ -69,10 +68,28 @@ export function anchorsForEngine(
       type: module.type,
       ...(module.config ? { config: module.config as Record<string, unknown> } : {}),
     }));
-  return buildOptionAnchorsForEngine({
+  const built = buildOptionAnchorsForEngine({
     engineId: engine.id,
     templateId: engine.templateId,
     members,
+  });
+  const snap = engine.setupSnapshot;
+  if (!snap) return mergeDecisionOperatorState(built, null);
+  return mergeDecisionOperatorState(built, {
+    ...(snap.decisionOptionSelections
+      ? { decisionOptionSelections: snap.decisionOptionSelections }
+      : {}),
+    ...(snap.decisionNodes
+      ? {
+          decisionNodes: snap.decisionNodes.map((node) => ({
+            id: node.id,
+            ...(node.connectionMode ? { connectionMode: node.connectionMode } : {}),
+            ...(node.selectedOptionId !== undefined
+              ? { selectedOptionId: node.selectedOptionId }
+              : {}),
+          })),
+        }
+      : {}),
   });
 }
 
@@ -282,12 +299,14 @@ export function measurePlacedAnchorBottom(
 ): number {
   let bottom = 0;
   for (const node of nodes) {
-    const intakes = node.data.intakes ?? { data: true, systemControl: false, clock: false };
-    const intakeCount =
-      (intakes.data ? 1 : 0) + (intakes.systemControl ? 1 : 0) + (intakes.clock ? 1 : 0);
-    const optionCount = Math.max(node.data.options?.length ?? 0, 1);
-    const rows = Math.max(intakeCount, optionCount, 1);
-    const height = Math.max(OPTION_ANCHOR_NODE_HEIGHT, 28 + rows * 18);
+    const height = estimateDecisionNodeHeight({
+      kind: node.data.kind,
+      intakes: node.data.intakes,
+      options: node.data.options,
+      ...(node.data.connectionMode
+        ? { connectionMode: node.data.connectionMode }
+        : {}),
+    });
     bottom = Math.max(bottom, node.position.y + height);
   }
   return bottom;

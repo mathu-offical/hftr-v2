@@ -182,6 +182,9 @@ export function applyDecisionSeedConstraints(
           next = { ...next, selectedOptionId: selected };
         }
       }
+      if (seed.connectionMode) {
+        next = { ...next, connectionMode: seed.connectionMode };
+      }
     }
     return next;
   });

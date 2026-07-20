@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   canvasVisibleOptionAnchors,
+  connectionModeForDecisionKind,
   getEngineTemplateById,
   type EngineSetupSnapshot,
   type MissingEngineChildDependency,
@@ -105,6 +106,18 @@ export function EngineInspectorPanel(props: {
           : {}),
         ...(engine.setupSnapshot?.optionAnchorPositions
           ? { optionAnchorPositions: engine.setupSnapshot.optionAnchorPositions }
+          : {}),
+        ...(engine.setupSnapshot?.decisionNodes
+          ? { decisionNodes: engine.setupSnapshot.decisionNodes }
+          : {}),
+        ...(engine.setupSnapshot?.decisionOptionSelections
+          ? { decisionOptionSelections: engine.setupSnapshot.decisionOptionSelections }
+          : {}),
+        ...(engine.setupSnapshot?.decisionNodeCanvasPositions
+          ? {
+              decisionNodeCanvasPositions:
+                engine.setupSnapshot.decisionNodeCanvasPositions,
+            }
           : {}),
         ...(props.anchors.length > 0 ? { optionAnchors: props.anchors } : {}),
         ...(props.anchorPositions
@@ -312,7 +325,11 @@ export function EngineInspectorPanel(props: {
         <div className="space-y-2 border-t border-[var(--color-line)] pt-3">
           <span className="text-xs text-[var(--color-ink-dim)]">Decision nodes</span>
           <ul className="max-h-40 space-y-1 overflow-y-auto">
-            {canvasAnchors.map((anchor) => (
+            {canvasAnchors.map((anchor) => {
+              const mode =
+                anchor.connectionMode ??
+                connectionModeForDecisionKind(anchor.kind);
+              return (
               <li key={anchor.id}>
                 <button
                   type="button"
@@ -321,11 +338,13 @@ export function EngineInspectorPanel(props: {
                 >
                   <span className="truncate">{anchor.label}</span>
                   <span className="shrink-0 uppercase text-[var(--color-ink-faint)]">
+                    {mode === 'emit_decision' ? 'emit' : 'route'} ·{' '}
                     {anchor.kind.replace(/_/g, ' ')}
                   </span>
                 </button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </div>
       )}

@@ -141,6 +141,7 @@ export function seedEngineDecisionSnapshot(input: {
     options: node.options ?? [],
     selectedOptionId: node.selectedOptionId ?? null,
     ...(node.intakes ? { intakes: node.intakes } : {}),
+    ...(node.connectionMode ? { connectionMode: node.connectionMode } : {}),
   }));
   return { decisionNodes, decisionOptionSelections };
 }

@@ -117,7 +117,8 @@ ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles
   a **single multi-port unit** (intakes by **info type**: data / system / clock).
   Outbound **connectionMode** (D-222): `emit_decision` = one data out carrying the
   choice; `route_data` = per-option outs that fork payload to destinations (emit_mode
-  → library/trading, strategy/branch/recovery → owner path). Options stamped with
+  → library/trading, strategy/branch/recovery → owner path). Kind defaults apply;
+  inspector can override and persist on `setup_snapshot.decisionNodes`. Options stamped with
   `routeNature` / `routeLabel`. Owned decisions dock **immediately after** their parent
   module by default (D-219); they are **not pinned** — operators may drag them
   (`decisionNodeCanvasPositions`); Reflow restores defaults (D-220). Overflow clamps

@@ -3,9 +3,13 @@ import {
   buildOptionAnchorId,
   buildOptionAnchorsForEngine,
   canvasVisibleOptionAnchors,
+  connectionModeForDecisionKind,
   decisionOptionOutHandle,
+  describeDecisionConnectionMode,
   emitModesForAnalyzerOutput,
+  estimateDecisionNodeHeight,
   intakesForDecisionKind,
+  mergeDecisionOperatorState,
   optionAnchorCatalogSlice,
   OptionAnchorKind,
   resolveDecisionOutboundTargets,
@@ -228,6 +232,50 @@ describe('option-anchors', () => {
     expect(routeTargets.every((t) => t.optionId != null)).toBe(true);
     const desk = routeTargets.find((t) => t.optionId === 'to_desk_stream');
     expect(desk?.targetModuleId).toBe('mod-trading-1');
+  });
+
+  it('merges operator connectionMode + selection overrides (D-222)', () => {
+    const anchors = anchorsFor('engine_day_trading', [
+      { id: 'mod-live-1', type: 'live_api', config: { feedClass: 'iex_free' } },
+      {
+        id: 'mod-an-1',
+        type: 'analyzer',
+        config: { emitMode: 'to_desk_stream', hubFeedClass: 'analyzed' },
+      },
+    ]);
+    const feed = anchors.find((a) => a.kind === 'feed_class')!;
+    expect(feed.connectionMode).toBe('emit_decision');
+
+    const flipped = mergeDecisionOperatorState(anchors, {
+      decisionOptionSelections: { [feed.id]: 'alpaca_iex' },
+      decisionNodes: [{ id: feed.id, connectionMode: 'route_data' }],
+    });
+    const mergedFeed = flipped.find((a) => a.id === feed.id)!;
+    expect(mergedFeed.connectionMode).toBe('route_data');
+    expect(mergedFeed.selectedOptionId).toBe('alpaca_iex');
+    expect(connectionModeForDecisionKind('feed_class')).toBe('emit_decision');
+    expect(describeDecisionConnectionMode('route_data').label).toBe('Route data');
+  });
+
+  it('sizes emit shorter than multi-option route (D-222)', () => {
+    const routeAnchor = {
+      kind: 'emit_mode' as const,
+      connectionMode: 'route_data' as const,
+      intakes: { data: true, systemControl: false, clock: false },
+      options: [
+        { id: 'a', label: 'A', catalogRef: 'a' },
+        { id: 'b', label: 'B', catalogRef: 'b' },
+        { id: 'c', label: 'C', catalogRef: 'c' },
+      ],
+    };
+    const emitAnchor = {
+      ...routeAnchor,
+      kind: 'feed_class' as const,
+      connectionMode: 'emit_decision' as const,
+    };
+    expect(estimateDecisionNodeHeight(emitAnchor)).toBeLessThan(
+      estimateDecisionNodeHeight(routeAnchor),
+    );
   });
 
   it('stamps routeNature / routeLabel on options (D-218)', () => {

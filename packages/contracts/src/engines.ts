@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  DecisionConnectionMode,
   DecisionIntakes,
   DecisionOption,
   OptionAnchorPosition,
@@ -197,6 +198,8 @@ export const EngineSetupSnapshot = z.object({
         options: z.array(DecisionOption).default([]),
         selectedOptionId: z.string().nullable().optional(),
         intakes: DecisionIntakes.optional(),
+        /** D-222: emit_decision | route_data */
+        connectionMode: DecisionConnectionMode.optional(),
       }),
     )
     .optional(),

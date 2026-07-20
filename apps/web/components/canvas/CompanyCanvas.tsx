@@ -66,6 +66,8 @@ import {
   type ModuleType,
   type OptionAnchorPosition,
   type OptionAnchorSpec,
+  type DecisionConnectionMode,
+  connectionModeForDecisionKind,
 } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import { canvasEnginesToOutlineItems } from '@/lib/canvas-engine-outline';
@@ -414,7 +416,11 @@ function withSyncedOptionAnchors(nodes: readonly CanvasFlowNode[]): {
       modules,
     );
     const allAnchors = anchorsForEngine(
-      { id: node.id, templateId: node.data.templateId },
+      {
+        id: node.id,
+        templateId: node.data.templateId,
+        setupSnapshot: node.data.setupSnapshot ?? null,
+      },
       modules,
     );
     const provisional: CanvasEngineGroup = {
@@ -485,11 +491,18 @@ function withSyncedOptionAnchors(nodes: readonly CanvasFlowNode[]): {
   };
 }
 
-function mergeDecorativeEdges(current: Edge[], nodes: CanvasFlowNode[]): Edge[] {
-  const core = current.filter(
-    (edge) =>
-      !String(edge.id).startsWith('util-') && !String(edge.id).startsWith('option-bind:'),
+function isDecisionDecorativeEdgeId(id: string): boolean {
+  return (
+    id.startsWith('util-') ||
+    id.startsWith('option-bind:') ||
+    id.startsWith('decision-bind:') ||
+    id.startsWith('decision-emit:') ||
+    id.startsWith('decision-route:')
   );
+}
+
+function mergeDecorativeEdges(current: Edge[], nodes: CanvasFlowNode[]): Edge[] {
+  const core = current.filter((edge) => !isDecisionDecorativeEdgeId(String(edge.id)));
   const engines = canvasEnginesFromNodes(nodes);
   const modules = canvasModulesFromNodes(nodes);
   const relativeFromNodes = new Map<string, { x: number; y: number }>();
@@ -3833,6 +3846,174 @@ export function CompanyCanvas(props: {
     [nodes, props.companyId, setNodes],
   );
 
+  const persistDecisionOperatorPatch = useCallback(
+    (
+      decisionId: string,
+      patch: {
+        selectedOptionId?: string;
+        connectionMode?: DecisionConnectionMode;
+      },
+    ) => {
+      const anchorNode = nodes.find(
+        (node): node is OptionAnchorFlowNode =>
+          isOptionAnchorNode(node) && node.id === decisionId,
+      );
+      const engineId = anchorNode?.data.ownerEngineId;
+      if (!engineId) return;
+
+      setNodes((current) => {
+        const next = current.map((node) => {
+          if (isOptionAnchorNode(node) && node.id === decisionId) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                ...(patch.selectedOptionId !== undefined
+                  ? { selectedOptionId: patch.selectedOptionId }
+                  : {}),
+                ...(patch.connectionMode !== undefined
+                  ? { connectionMode: patch.connectionMode }
+                  : {}),
+              },
+            };
+          }
+          if (!isEngineGroupNode(node) || node.id !== engineId) return node;
+          const prevSnap = node.data.setupSnapshot ?? {
+            topicSectors: node.data.masterTopicSectors,
+            allocationMode: 'amount' as const,
+            allocationValue: '',
+            targetExitLocal: '',
+          };
+          const decisionOptionSelections = {
+            ...(prevSnap.decisionOptionSelections ?? {}),
+            ...(patch.selectedOptionId !== undefined
+              ? { [decisionId]: patch.selectedOptionId }
+              : {}),
+          };
+          const decisionNodes = (prevSnap.decisionNodes ?? []).map((entry) =>
+            entry.id === decisionId
+              ? {
+                  ...entry,
+                  ...(patch.selectedOptionId !== undefined
+                    ? { selectedOptionId: patch.selectedOptionId }
+                    : {}),
+                  ...(patch.connectionMode !== undefined
+                    ? { connectionMode: patch.connectionMode }
+                    : {}),
+                }
+              : entry,
+          );
+          const hasNode = decisionNodes.some((entry) => entry.id === decisionId);
+          const nextDecisionNodes = hasNode
+            ? decisionNodes
+            : [
+                ...decisionNodes,
+                {
+                  id: decisionId,
+                  kind: anchorNode.data.kind,
+                  catalogRef: anchorNode.data.catalogRef,
+                  label: anchorNode.data.label,
+                  ownerEngineId: engineId,
+                  ownerModuleId: anchorNode.data.ownerModuleId ?? null,
+                  options: anchorNode.data.options ?? [],
+                  selectedOptionId:
+                    patch.selectedOptionId ??
+                    anchorNode.data.selectedOptionId ??
+                    null,
+                  ...(patch.connectionMode !== undefined
+                    ? { connectionMode: patch.connectionMode }
+                    : anchorNode.data.connectionMode
+                      ? { connectionMode: anchorNode.data.connectionMode }
+                      : {}),
+                },
+              ];
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              setupSnapshot: {
+                ...prevSnap,
+                decisionOptionSelections,
+                decisionNodes: nextDecisionNodes,
+              },
+            },
+          };
+        });
+        const synced = withSyncedOptionAnchors(next);
+        setEdges((edges) => mergeDecorativeEdges(edges, synced.nodes));
+        return synced.nodes;
+      });
+
+      void api(`/api/companies/${props.companyId}/engines/${engineId}`, {
+        method: 'PATCH',
+        body: {
+          setupSnapshot: (() => {
+            const eng = nodes.find(
+              (n): n is EngineGroupFlowNode => isEngineGroupNode(n) && n.id === engineId,
+            );
+            const prev = eng?.data.setupSnapshot ?? {
+              topicSectors: eng?.data.masterTopicSectors ?? [],
+              allocationMode: 'amount' as const,
+              allocationValue: '',
+              targetExitLocal: '',
+            };
+            const decisionOptionSelections = {
+              ...(prev.decisionOptionSelections ?? {}),
+              ...(patch.selectedOptionId !== undefined
+                ? { [decisionId]: patch.selectedOptionId }
+                : {}),
+            };
+            const decisionNodes = (prev.decisionNodes ?? []).map((entry) =>
+              entry.id === decisionId
+                ? {
+                    ...entry,
+                    ...(patch.selectedOptionId !== undefined
+                      ? { selectedOptionId: patch.selectedOptionId }
+                      : {}),
+                    ...(patch.connectionMode !== undefined
+                      ? { connectionMode: patch.connectionMode }
+                      : {}),
+                  }
+                : entry,
+            );
+            const hasNode = decisionNodes.some((entry) => entry.id === decisionId);
+            const nextDecisionNodes = hasNode
+              ? decisionNodes
+              : [
+                  ...decisionNodes,
+                  {
+                    id: decisionId,
+                    kind: anchorNode.data.kind,
+                    catalogRef: anchorNode.data.catalogRef,
+                    label: anchorNode.data.label,
+                    ownerEngineId: engineId,
+                    ownerModuleId: anchorNode.data.ownerModuleId ?? null,
+                    options: anchorNode.data.options ?? [],
+                    selectedOptionId:
+                      patch.selectedOptionId ??
+                      anchorNode.data.selectedOptionId ??
+                      null,
+                    ...(patch.connectionMode !== undefined
+                      ? { connectionMode: patch.connectionMode }
+                      : anchorNode.data.connectionMode
+                        ? { connectionMode: anchorNode.data.connectionMode }
+                        : {}),
+                  },
+                ];
+            return {
+              ...prev,
+              decisionOptionSelections,
+              decisionNodes: nextDecisionNodes,
+            };
+          })(),
+        },
+      }).catch(() => {
+        flash('Could not save decision settings.');
+      });
+    },
+    [nodes, props.companyId, setNodes, setEdges],
+  );
+
   const removeModule = useCallback(
     (id: string, renamedModules?: readonly ModuleNameUpdate[]) => {
       const toolIds = new Set(
@@ -3900,7 +4081,14 @@ export function CompanyCanvas(props: {
     for (const eng of nodes.filter(isEngineGroupNode)) {
       map.set(
         eng.id,
-        anchorsForEngine({ id: eng.id, templateId: eng.data.templateId }, modules),
+        anchorsForEngine(
+          {
+            id: eng.id,
+            templateId: eng.data.templateId,
+            setupSnapshot: eng.data.setupSnapshot ?? null,
+          },
+          modules,
+        ),
       );
     }
     return map;
@@ -4113,13 +4301,29 @@ export function CompanyCanvas(props: {
             options: selectedAnchor.data.options ?? [],
             selectedOptionId: selectedAnchor.data.selectedOptionId ?? null,
             ...(selectedAnchor.data.intakes ? { intakes: selectedAnchor.data.intakes } : {}),
+            connectionMode:
+              selectedAnchor.data.connectionMode ??
+              connectionModeForDecisionKind(selectedAnchor.data.kind),
           }}
           position={selectedAnchor.data.position ?? 'typical'}
           siblings={anchorsByEngine.get(selectedAnchor.data.ownerEngineId) ?? []}
+          members={canvasModulesFromNodes(nodes)
+            .filter((module) => module.engineInstanceId === selectedAnchor.data.ownerEngineId)
+            .map((module) => ({
+              id: module.id,
+              type: module.type,
+              name: module.name,
+            }))}
           onClose={() => setSelectedId(null)}
           onFocusEngine={(engineId) => setSelectedId(engineId)}
           onFocusModule={(moduleId) => setSelectedId(moduleId)}
           onPositionChange={handleAnchorPositionChange}
+          onSelectOption={(decisionId, optionId) =>
+            persistDecisionOperatorPatch(decisionId, { selectedOptionId: optionId })
+          }
+          onConnectionModeChange={(decisionId, mode) =>
+            persistDecisionOperatorPatch(decisionId, { connectionMode: mode })
+          }
         />
       )}
 

@@ -96,6 +96,8 @@ export interface EngineTemplateDecisionSeed {
   ownerModuleIndex: number | null;
   optionRefs?: string[];
   defaultSelectedRef?: string;
+  /** Optional override; default from {@link connectionModeForDecisionKind} (D-222). */
+  connectionMode?: 'emit_decision' | 'route_data';
 }
 
 /** Primary + alsoTargets for template input application. */

@@ -1,6 +1,8 @@
 'use client';
 
 import {
+  connectionModeForDecisionKind,
+  describeDecisionConnectionMode,
   optionAnchorCatalogSlice,
   type OptionAnchorKind,
   type OptionAnchorPosition,
@@ -134,9 +136,10 @@ export function LeverTreeSection(props: {
   return (
     <div className="space-y-3 border-t border-[var(--color-line)] pt-4">
       <div className="space-y-0.5">
-        <span className="text-xs text-[var(--color-ink-dim)]">Option anchors</span>
+        <span className="text-xs text-[var(--color-ink-dim)]">Decision nodes</span>
         <p className="text-[10px] leading-snug text-[var(--color-ink-faint)]">
-          Text-first lever positions inside bounded envelopes. No raw financial numbers.
+          Emit decision (single out) or route data (per-option forks). Band positions stay
+          inside envelopes — no raw financial numbers.
         </p>
       </div>
 
@@ -164,6 +167,10 @@ export function LeverTreeSection(props: {
                     'typical';
                   const hint = anchorCatalogHint(anchor);
                   const showToggle = supportsPositionToggle(anchor.kind);
+                  const mode =
+                    anchor.connectionMode ??
+                    connectionModeForDecisionKind(anchor.kind);
+                  const modeCopy = describeDecisionConnectionMode(mode);
 
                   return (
                     <li
@@ -175,6 +182,12 @@ export function LeverTreeSection(props: {
                           <div className="flex flex-wrap items-center gap-1">
                             <span className="rounded border border-[var(--color-line)] px-1 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-ink-faint)]">
                               {humanizeKindChip(anchor.kind)}
+                            </span>
+                            <span
+                              className="rounded border border-[var(--color-line)] px-1 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-ink-dim)]"
+                              title={modeCopy.summary}
+                            >
+                              {mode === 'emit_decision' ? 'emit' : 'route'}
                             </span>
                             {!showToggle && (
                               <span className="rounded border border-[var(--color-line)] px-1 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-ink-dim)]">

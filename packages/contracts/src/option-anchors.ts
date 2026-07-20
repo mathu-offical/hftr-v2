@@ -361,15 +361,17 @@ export function emitModesForAnalyzerOutput(
   return AnalyzerEmitMode.options;
 }
 
-/** Estimated decision card height from intakes + option rows (parent-relative). */
+/** Estimated decision card height from intakes + outbound rows (D-222). */
 export function estimateDecisionNodeHeight(
-  anchor: Pick<OptionAnchorSpec, 'intakes' | 'options'>,
+  anchor: Pick<OptionAnchorSpec, 'intakes' | 'options' | 'connectionMode' | 'kind'>,
 ): number {
   const intakes = anchor.intakes ?? { data: true, systemControl: false, clock: false };
   const intakeCount =
     (intakes.data ? 1 : 0) + (intakes.systemControl ? 1 : 0) + (intakes.clock ? 1 : 0);
-  const optionCount = Math.max(anchor.options?.length ?? 0, 1);
-  const rows = Math.max(intakeCount, optionCount, 1);
+  const mode = anchor.connectionMode ?? connectionModeForDecisionKind(anchor.kind);
+  const outCount =
+    mode === 'emit_decision' ? 1 : Math.max(anchor.options?.length ?? 0, 1);
+  const rows = Math.max(intakeCount, outCount, 1);
   return Math.max(64, 28 + rows * 18);
 }
 
@@ -1283,4 +1285,83 @@ export function resolveDecisionOutboundTargets(
       targetLinkKind,
     };
   });
+}
+
+/**
+ * Apply operator snapshot selections / connectionMode overrides onto built
+ * decision nodes (D-192 / D-222). Builder catalogs remain the source of options.
+ */
+export function mergeDecisionOperatorState(
+  anchors: readonly OptionAnchorSpec[],
+  state?: {
+    decisionOptionSelections?: Record<string, string>;
+    decisionNodes?: ReadonlyArray<{
+      id: string;
+      connectionMode?: DecisionConnectionMode;
+      selectedOptionId?: string | null;
+    }>;
+  } | null,
+): OptionAnchorSpec[] {
+  if (!state) {
+    return anchors.map((anchor) => ({
+      ...anchor,
+      connectionMode:
+        anchor.connectionMode ?? connectionModeForDecisionKind(anchor.kind),
+    }));
+  }
+  const modeById = new Map<string, DecisionConnectionMode>();
+  for (const node of state.decisionNodes ?? []) {
+    if (node.connectionMode) modeById.set(node.id, node.connectionMode);
+  }
+  const selections = state.decisionOptionSelections ?? {};
+  return anchors.map((anchor) => {
+    let next: OptionAnchorSpec = { ...anchor };
+    const selected = selections[anchor.id];
+    if (selected && (anchor.options ?? []).some((opt) => opt.id === selected)) {
+      next = { ...next, selectedOptionId: selected };
+    } else {
+      const snapNode = state.decisionNodes?.find((node) => node.id === anchor.id);
+      if (
+        snapNode?.selectedOptionId &&
+        (anchor.options ?? []).some((opt) => opt.id === snapNode.selectedOptionId)
+      ) {
+        next = { ...next, selectedOptionId: snapNode.selectedOptionId };
+      }
+    }
+    const mode = modeById.get(anchor.id);
+    if (mode) {
+      next = { ...next, connectionMode: mode };
+    } else if (!next.connectionMode) {
+      next = {
+        ...next,
+        connectionMode: connectionModeForDecisionKind(anchor.kind),
+      };
+    }
+    return next;
+  });
+}
+
+/** Operator-facing copy for connection mode (inspector / chrome). */
+export function describeDecisionConnectionMode(mode: DecisionConnectionMode): {
+  label: string;
+  summary: string;
+} {
+  switch (mode) {
+    case 'emit_decision':
+      return {
+        label: 'Emit decision',
+        summary:
+          'Single data out carries the selected catalog choice to the owner module.',
+      };
+    case 'route_data':
+      return {
+        label: 'Route data',
+        summary:
+          'Incoming data/system forks through separate per-option outs to destinations.',
+      };
+    default: {
+      const _exhaustive: never = mode;
+      return _exhaustive;
+    }
+  }
 }

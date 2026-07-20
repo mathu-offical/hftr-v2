@@ -5,6 +5,7 @@ import {
   buildOptionAnchorsForEngine,
   canvasVisibleOptionAnchors,
   DECISION_HANDLE_DATA_IN,
+  DECISION_HANDLE_EMIT_OUT,
 } from '@hftr/contracts';
 import {
   optionAnchorColumnX,
@@ -321,6 +322,52 @@ describe('decision-node graph placement (D-192 / D-180 / D-219)', () => {
     // No trading member in this research pack — desk stream falls back to owner analyzer.
     expect(routeOut?.target).toBe(analyzerId);
     expect(routeOut?.sourceHandle).toBe('option-out:to_desk_stream');
+  });
+
+  it('wires feed_class as decision_emit (D-222)', () => {
+    const liveId = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+    const liveModules: CanvasModule[] = [
+      {
+        id: liveId,
+        type: 'live_api',
+        name: 'Live feed',
+        generatedNameBase: 'Live feed',
+        nameCustomized: false,
+        status: 'draft',
+        position: { x: 80, y: 200 },
+        topicSectors: [],
+        capitalAllocationRef: null,
+        targetExitRef: null,
+        missingSetupFields: [],
+        engineInstanceId: engine.id,
+        toolOwnerModuleId: null,
+        topicSectorsOverridden: false,
+        config: { feedClass: 'iex_free' },
+      },
+    ];
+    const all = buildOptionAnchorsForEngine({
+      engineId: engine.id,
+      templateId: engine.templateId,
+      members: liveModules.map((m) => ({
+        id: m.id,
+        type: m.type,
+        ...(m.config ? { config: m.config } : {}),
+      })),
+    });
+    const feed = all.find((a) => a.kind === 'feed_class');
+    expect(feed?.connectionMode).toBe('emit_decision');
+    const edges = optionBindEdgesForEngine(all, {
+      members: liveModules.map((m) => ({ id: m.id, type: m.type })),
+    });
+    const emitEdge = edges.find(
+      (e) => e.source === feed!.id && e.data?.linkKind === 'decision_emit',
+    );
+    expect(emitEdge).toBeTruthy();
+    expect(emitEdge?.target).toBe(liveId);
+    expect(emitEdge?.sourceHandle).toBe(DECISION_HANDLE_EMIT_OUT);
+    expect(edges.some((e) => e.source === feed!.id && e.data?.linkKind === 'decision_route')).toBe(
+      false,
+    );
   });
 
   it('horizontal gutter clears parent-docked decision width (D-219)', () => {

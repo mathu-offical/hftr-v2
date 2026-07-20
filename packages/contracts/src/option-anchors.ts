@@ -15,6 +15,7 @@ import {
   resolveStrategyFamiliesForTrader,
 } from './engine-decision-seeds';
 import { PHILOSOPHY_AXIS_CATALOG } from './philosophy';
+import { PortNature } from './port-channels';
 import { getEngineTemplateById } from './templates';
 
 export const OptionAnchorKind = z.enum([
@@ -60,6 +61,10 @@ export const DecisionOption = z.object({
   catalogRef: z.string(),
   label: z.string(),
   defaultPosition: OptionAnchorPosition.optional(),
+  /** Info-type nature this option routes (D-217 / D-218) — matches PortNature. */
+  routeNature: PortNature.optional(),
+  /** Operator-facing stream role label (Findings, Trade path, …) — not peer names. */
+  routeLabel: z.string().optional(),
 });
 export type DecisionOption = z.infer<typeof DecisionOption>;
 
@@ -219,6 +224,81 @@ export function intakesForDecisionKind(kind: OptionAnchorKind): DecisionIntakes 
 }
 
 /**
+ * Default route nature + stream label for a decision kind (info type, not peer name).
+ */
+export function routeMetaForDecisionKind(kind: OptionAnchorKind): {
+  nature: PortNature;
+  label: string;
+} {
+  switch (kind) {
+    case 'strategy_family':
+      return { nature: 'data', label: 'Trade path' };
+    case 'branch_role':
+      return { nature: 'data', label: 'Branch' };
+    case 'recovery_phase':
+      return { nature: 'system', label: 'Recovery' };
+    case 'emit_mode':
+      return { nature: 'data', label: 'Analysis' };
+    case 'feed_class':
+      return { nature: 'data', label: 'Market feed' };
+    case 'research_subtype':
+      return { nature: 'data', label: 'Findings' };
+    case 'librarian_subtype':
+      return { nature: 'system', label: 'Curation' };
+    case 'library_class':
+      return { nature: 'data', label: 'Library class' };
+    case 'trend_posture':
+      return { nature: 'data', label: 'Signals' };
+    case 'curiosity_band':
+    case 'admission_mode':
+    case 'query_policy':
+      return { nature: 'system', label: 'Policy' };
+    case 'cadence_band':
+    case 'schedule_policy':
+      return { nature: 'time', label: 'Cadence' };
+    case 'lever_band':
+    case 'template_input':
+    case 'philosophy_axis':
+      return { nature: 'data', label: 'Tuning' };
+    default: {
+      const _exhaustive: never = kind;
+      void _exhaustive;
+      return { nature: 'data', label: 'Out' };
+    }
+  }
+}
+
+/** Per-option route label when the option id itself is an info-type fork. */
+function routeLabelForOptionId(kind: OptionAnchorKind, optionId: string): string | null {
+  if (kind === 'emit_mode') {
+    switch (optionId) {
+      case 'to_library':
+        return 'Library';
+      case 'to_desk_stream':
+        return 'Desk stream';
+      case 'verify_loopback':
+        return 'Verify';
+      default:
+        return null;
+    }
+  }
+  return null;
+}
+
+/** Stamp routeNature / routeLabel onto options (idempotent). */
+export function withDecisionOptionRouteMeta(
+  kind: OptionAnchorKind,
+  options: readonly DecisionOption[],
+): DecisionOption[] {
+  const base = routeMetaForDecisionKind(kind);
+  return options.map((option) => ({
+    ...option,
+    routeNature: option.routeNature ?? base.nature,
+    routeLabel: option.routeLabel ?? routeLabelForOptionId(kind, option.id) ?? base.label,
+  }));
+}
+
+/**
  * Emit modes relevant to this analyzer’s **output path** (D-216 / D-217).
  * Dual hub feeds stamp `hubFeedClass`; canvas shows only the matching route.
  */
@@ -233,6 +313,18 @@ export function emitModesForAnalyzerOutput(
     return [mode] as const;
   }
   return AnalyzerEmitMode.options;
+}
+
+/** Estimated decision card height from intakes + option rows (parent-relative). */
+export function estimateDecisionNodeHeight(
+  anchor: Pick<OptionAnchorSpec, 'intakes' | 'options'>,
+): number {
+  const intakes = anchor.intakes ?? { data: true, systemControl: false, clock: false };
+  const intakeCount =
+    (intakes.data ? 1 : 0) + (intakes.systemControl ? 1 : 0) + (intakes.clock ? 1 : 0);
+  const optionCount = Math.max(anchor.options?.length ?? 0, 1);
+  const rows = Math.max(intakeCount, optionCount, 1);
+  return Math.max(64, 28 + rows * 18);
 }
 
 /** Slug catalog references for stable anchor ids (no positional indices). */
@@ -416,7 +508,7 @@ export function buildOptionAnchorsForEngine(
     anchors.push(
       OptionAnchorSpec.parse({
         ...anchor,
-        options: anchor.options ?? [],
+        options: withDecisionOptionRouteMeta(anchor.kind, anchor.options ?? []),
         // Always derive intakes from kind (info type) — ignore caller overrides (D-217).
         intakes: intakesForDecisionKind(anchor.kind),
       }),

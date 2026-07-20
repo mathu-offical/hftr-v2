@@ -2201,6 +2201,15 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   widened. Extends D-208 / D-213 / D-216. Docs: canvas-engine-group-design, ui-spec §3.
   **Status: implemented.**
 
+- **D-218 (right-column decisions + routeNature + bounds inflation, 2026-07-20):**
+  Owned decisions always stack in the reserved engine **right column** (never mid-lane
+  beside owners). `DecisionOption` carries `routeNature` / `routeLabel` (info type —
+  Findings / Trade path / Desk stream — not peer names); DecisionNode groups outs by
+  route. `measureDecisionColumnBottom` + `inflateBoundsForEngineDecisions` fold decision
+  extent into `layoutEngineTemplateAtOrigin` / `reflowEngineAtOrigin` / create API so
+  `placeNextEngineOrigin` collision rects include the column. Extends D-217.
+  Docs: canvas-engine-group-design, ui-spec §3. **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

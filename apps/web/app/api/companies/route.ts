@@ -239,6 +239,7 @@ export async function POST(req: Request) {
         engine.links,
         origin,
         ENGINE_GROUP_PADDING,
+        { templateId: engine.id },
       );
       const canvasBounds = laid.canvasBounds;
       occupiedEngineBounds.push(canvasBounds);

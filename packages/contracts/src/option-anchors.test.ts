@@ -171,6 +171,27 @@ describe('option-anchors', () => {
     ]);
   });
 
+  it('stamps routeNature / routeLabel on options (D-218)', () => {
+    const anchors = anchorsFor('engine_day_trading', [
+      {
+        id: 'mod-trading-1',
+        type: 'trading',
+        config: { strategyFamilies: ['strat-001'] },
+      },
+      {
+        id: 'mod-an-1',
+        type: 'analyzer',
+        config: { emitMode: 'to_desk_stream', hubFeedClass: 'analyzed' },
+      },
+    ]);
+    const strategy = anchors.find((a) => a.kind === 'strategy_family');
+    expect(strategy?.options[0]?.routeNature).toBe('data');
+    expect(strategy?.options[0]?.routeLabel).toBe('Trade path');
+    const emit = anchors.find((a) => a.kind === 'emit_mode');
+    expect(emit?.options[0]?.routeNature).toBe('data');
+    expect(emit?.options[0]?.routeLabel).toBe('Desk stream');
+  });
+
   it('research engines yield sibling decision roots with option sets (D-192)', () => {
     const anchors = anchorsFor('research_web_fabric', [
       {

@@ -197,6 +197,7 @@ export async function POST(req: Request, ctx: Ctx) {
       engine.links,
       origin,
       ENGINE_GROUP_PADDING,
+      { templateId: engine.id },
     );
     const canvasBounds = laid.canvasBounds;
     const absolutePositions = laid.modulePositions;

@@ -7,13 +7,19 @@ import {
   MODULE_COLUMN,
   MODULE_LANE_ROW,
 } from './modules';
-import { isMathToolAttachment } from './engines';
+import { isMathToolAttachment, ENGINE_GROUP_PADDING } from './engines';
 import type { SimulationEngineBinding } from './paper-engine';
 import {
   engineCreateSection,
   getEngineTemplateById,
   researchDependenciesForExecutionEngine,
 } from './templates';
+import {
+  buildOptionAnchorsForEngine,
+  canvasVisibleOptionAnchors,
+  estimateDecisionNodeHeight,
+  type OptionAnchorSpec,
+} from './option-anchors';
 
 /**
  * Connection-safe canvas layout constants and pure reflow helpers (D-033 / D-064 / D-159).
@@ -92,6 +98,67 @@ export const LAYOUT_COLUMN_STEP = CANVAS_LAYOUT.moduleWidth + CANVAS_LAYOUT.hori
 
 /** Vertical step between stacked owner envelopes in the same rank. */
 export const LAYOUT_ROW_STEP = layoutOwnerEnvelopeHeight() + CANVAS_LAYOUT.verticalGutter;
+
+/**
+ * Parent-relative bottom of a single right-column decision stack (D-218).
+ * Matches `placeOptionAnchorNodes` when all owned decisions share the reserved column.
+ */
+export function measureDecisionColumnBottom(
+  anchors: readonly OptionAnchorSpec[],
+  options?: { top?: number; gap?: number },
+): number {
+  const visible = canvasVisibleOptionAnchors(anchors).filter(
+    (anchor) => !anchor.parentAnchorId,
+  );
+  if (visible.length === 0) return 0;
+  const top = options?.top ?? ENGINE_GROUP_PADDING.top;
+  const gap = options?.gap ?? CANVAS_LAYOUT.decisionStackGap;
+  let y = top;
+  for (const anchor of visible) {
+    y += estimateDecisionNodeHeight(anchor) + gap;
+  }
+  return y - gap;
+}
+
+/** Grow engine chrome height so the reserved decision column fits (D-218). */
+export function inflateEngineBoundsForDecisionColumn(
+  bounds: { x: number; y: number; width: number; height: number },
+  decisionBottom: number,
+  bottomPad: number = ENGINE_GROUP_PADDING.bottom,
+): { x: number; y: number; width: number; height: number } {
+  if (decisionBottom <= 0) return bounds;
+  const anchorsHeight = decisionBottom + bottomPad;
+  return {
+    ...bounds,
+    height: Math.max(bounds.height, anchorsHeight),
+  };
+}
+
+/**
+ * Build canvas-visible decisions for a template member set and inflate bounds.
+ */
+export function inflateBoundsForEngineDecisions(
+  bounds: { x: number; y: number; width: number; height: number },
+  input: {
+    engineId?: string;
+    templateId: string;
+    members: ReadonlyArray<{
+      id: string;
+      type: string;
+      config?: Record<string, unknown>;
+    }>;
+  },
+): { x: number; y: number; width: number; height: number } {
+  const anchors = buildOptionAnchorsForEngine({
+    engineId: input.engineId ?? '00000000-0000-4000-8000-00000000d000',
+    templateId: input.templateId,
+    members: [...input.members],
+  });
+  return inflateEngineBoundsForDecisionColumn(
+    bounds,
+    measureDecisionColumnBottom(anchors),
+  );
+}
 
 export const BatchCanvasLayoutInput = z.object({
   modules: z
@@ -1011,9 +1078,25 @@ export function reflowEngineAtOrigin(
     origin,
     padding,
   );
+  let canvasBounds = laid.canvasBounds;
+  if (engine.templateId) {
+    const members = engine.memberModuleIds
+      .map((id) => modulesById.get(id))
+      .filter((m): m is LayoutModule => !!m)
+      .map((m) => ({
+        id: m.id,
+        type: m.type,
+        ...(m.hubFeedClass ? { config: { hubFeedClass: m.hubFeedClass } } : {}),
+      }));
+    canvasBounds = inflateBoundsForEngineDecisions(canvasBounds, {
+      engineId: engine.id,
+      templateId: engine.templateId,
+      members,
+    });
+  }
   return {
     modules: laid.modules,
-    engines: [{ id: engine.id, canvasBounds: laid.canvasBounds }],
+    engines: [{ id: engine.id, canvasBounds }],
   };
 }
 
@@ -1187,6 +1270,7 @@ export function translateLayoutResultToOrigin(
 
 export interface TemplateLayoutModule {
   type: ModuleType;
+  config?: Record<string, unknown>;
 }
 
 export interface TemplateLayoutLink {
@@ -1204,6 +1288,7 @@ export function layoutEngineTemplateAtOrigin(
   links: readonly TemplateLayoutLink[],
   origin: { x: number; y: number },
   padding: { left: number; right: number; top: number; bottom: number },
+  options?: { templateId?: string; engineId?: string },
 ): {
   modulePositions: Array<{ x: number; y: number }>;
   canvasBounds: { x: number; y: number; width: number; height: number };
@@ -1214,6 +1299,9 @@ export function layoutEngineTemplateAtOrigin(
     engineInstanceId: '00000000-0000-4000-8000-00000000e000',
     toolOwnerModuleId: null,
     position: { x: 0, y: 0 },
+    ...(typeof module.config?.hubFeedClass === 'string'
+      ? { hubFeedClass: module.config.hubFeedClass as 'direct' | 'analyzed' }
+      : {}),
   }));
 
   const modulesById = new Map(layoutModules.map((m) => [m.id, m]));
@@ -1237,11 +1325,24 @@ export function layoutEngineTemplateAtOrigin(
   );
 
   const positionById = new Map(laid.modules.map((m) => [m.id, m.canvasPosition]));
+  let canvasBounds = laid.canvasBounds;
+  if (options?.templateId) {
+    canvasBounds = inflateBoundsForEngineDecisions(canvasBounds, {
+      engineId: options.engineId,
+      templateId: options.templateId,
+      members: modules.map((module, index) => ({
+        id: templateSyntheticModuleId(index),
+        type: module.type,
+        ...(module.config ? { config: module.config } : {}),
+      })),
+    });
+  }
+
   return {
     modulePositions: modules.map((_, index) => {
       const pos = positionById.get(templateSyntheticModuleId(index));
       return pos ?? { x: origin.x + padding.left, y: origin.y + padding.top };
     }),
-    canvasBounds: laid.canvasBounds,
+    canvasBounds,
   };
 }

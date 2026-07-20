@@ -928,6 +928,24 @@ describe('module inline setup', () => {
     expect(CANVAS_LAYOUT.topLevelGutter).toBe(160);
   });
 
+  it('inflates template layout bounds for decision column (D-218)', () => {
+    const day = ENGINE_TEMPLATES.find((engine) => engine.id === 'engine_day_trading')!;
+    const laid = layoutEngineTemplateAtOrigin(
+      day.modules,
+      day.links,
+      { x: 40, y: 40 },
+      ENGINE_GROUP_PADDING,
+      { templateId: day.id },
+    );
+    const without = layoutEngineTemplateAtOrigin(
+      day.modules,
+      day.links,
+      { x: 40, y: 40 },
+      ENGINE_GROUP_PADDING,
+    );
+    expect(laid.canvasBounds.height).toBeGreaterThanOrEqual(without.canvasBounds.height);
+  });
+
   it('derives missing setup fields without raw numeric values', () => {
     expect(
       missingModuleSetupFields('trading', {

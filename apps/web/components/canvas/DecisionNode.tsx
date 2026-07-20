@@ -11,6 +11,7 @@ import {
   type OptionAnchorKind,
   type OptionAnchorPosition,
   type OptionAnchorSpec,
+  type PortNature,
 } from '@hftr/contracts';
 
 /** @deprecated Use DECISION_HANDLE_DATA_IN — kept for transitional edge reads. */
@@ -47,9 +48,34 @@ function kindChipLabel(kind: OptionAnchorKind): string {
   return kind.replace(/_/g, ' ');
 }
 
+const NATURE_ORDER: PortNature[] = ['data', 'system', 'fund', 'time'];
+
+function groupOptionsByRouteNature(
+  options: readonly DecisionOption[],
+): Array<{ nature: PortNature | 'out'; routeLabel: string; options: DecisionOption[] }> {
+  if (options.length === 0) {
+    return [{ nature: 'out', routeLabel: 'Out', options: [] }];
+  }
+  const buckets = new Map<string, { nature: PortNature; routeLabel: string; options: DecisionOption[] }>();
+  for (const opt of options) {
+    const nature = opt.routeNature ?? 'data';
+    const routeLabel = opt.routeLabel ?? nature;
+    const key = `${nature}:${routeLabel}`;
+    const bucket = buckets.get(key) ?? { nature, routeLabel, options: [] };
+    bucket.options.push(opt);
+    buckets.set(key, bucket);
+  }
+  return [...buckets.values()].sort((a, b) => {
+    const ai = NATURE_ORDER.indexOf(a.nature);
+    const bi = NATURE_ORDER.indexOf(b.nature);
+    if (ai !== bi) return ai - bi;
+    return a.routeLabel.localeCompare(b.routeLabel);
+  });
+}
+
 /**
- * Single decision unit (D-208): one React Flow node with multiple intake ports
- * and one source port per option. Options are config/ports — never child nodes.
+ * Single decision unit (D-208 / D-218): one React Flow node with typed intake
+ * ports and option outs grouped by info type (routeNature), never child nodes.
  */
 export const DecisionNode = memo(function DecisionNode({
   data,
@@ -67,14 +93,17 @@ export const DecisionNode = memo(function DecisionNode({
     { id: 'decision-clock-in', label: 'clock', show: intakes.clock },
   ].filter((row) => row.show);
 
+  const groups = groupOptionsByRouteNature(options);
   const outRows =
     options.length > 0
       ? options.map((opt) => ({
           id: decisionOptionOutHandle(opt.id),
           label: opt.label,
+          routeLabel: opt.routeLabel,
+          nature: opt.routeNature ?? 'data',
           selected: opt.id === data.selectedOptionId,
         }))
-      : [{ id: OPTION_ANCHOR_HANDLE_OUT, label: 'out', selected: false }];
+      : [{ id: OPTION_ANCHOR_HANDLE_OUT, label: 'out', routeLabel: undefined, nature: 'data' as const, selected: false }];
 
   const rowCount = Math.max(intakeRows.length, outRows.length, 1);
   const cardMinHeight = Math.max(56, 28 + rowCount * 18);
@@ -149,20 +178,37 @@ export const DecisionNode = memo(function DecisionNode({
             </li>
           ))}
         </ul>
-        <ul className="space-y-0.5 text-right">
-          {outRows.map((row) => (
-            <li
-              key={row.id}
-              className="truncate text-[8px]"
-              style={{
-                color: row.selected ? 'var(--color-accent)' : 'var(--color-ink-dim)',
-              }}
-              title={row.label}
-            >
-              {row.label}
-            </li>
+        <div className="space-y-1 text-right">
+          {groups.map((group) => (
+            <div key={`${group.nature}:${group.routeLabel}`}>
+              <p
+                className="truncate text-[7px] uppercase tracking-wide text-[var(--color-ink-faint)]"
+                title={`${group.nature} · ${group.routeLabel}`}
+              >
+                {group.routeLabel}
+              </p>
+              <ul className="space-y-0.5">
+                {(group.options.length > 0 ? group.options : [{ id: 'out', label: 'out' } as DecisionOption]).map(
+                  (opt) => {
+                    const selected = opt.id === data.selectedOptionId;
+                    return (
+                      <li
+                        key={opt.id}
+                        className="truncate text-[8px]"
+                        style={{
+                          color: selected ? 'var(--color-accent)' : 'var(--color-ink-dim)',
+                        }}
+                        title={opt.label}
+                      >
+                        {opt.label}
+                      </li>
+                    );
+                  },
+                )}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
       </div>
     </div>
   );

@@ -133,8 +133,9 @@
   Engine setup Save is not blocked when children are missing (topic/capital remain required).
   Present attached children show muted **Attached:** chips (D-213). Canvas decision cards
   are limited to output-routing `CANVAS_PRIMARY_DECISION_KINDS` (D-217: strategy / branch /
-  recovery / emit / feed); intakes are typed by info nature (data / system / clock). Sector
-  focus prefills `topicScope` / `focus` template inputs on create and insert.
+  recovery / emit / feed); intakes and option outs are typed by info nature (data / system /
+  clock; `routeNature` / `routeLabel` — D-218). Decisions stack in the engine right column.
+  Sector focus prefills `topicScope` / `focus` template inputs on create and insert.
 - **Math tools (D-028 / D-033 / D-042):** additional Math modules may be created from the palette and
   deleted; each may `data_feed`-attach to allowed consumer types. Dedicated Math tools render as
   compact nodes with **data handles on top** (owner connection) and **fund handles left→right**.

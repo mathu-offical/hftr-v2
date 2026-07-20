@@ -28,6 +28,7 @@ import {
   getEngineTemplateById,
   handleIdForStream,
   handleIdForTrendCandidate,
+  inflateEngineBoundsForDecisionColumn,
   isEngineDataHubConfig,
   isLegalStreamPortPair,
   isMathToolAttachment,
@@ -381,17 +382,7 @@ function engineBoundsWithOptionColumn(
   memberBounds: { x: number; y: number; width: number; height: number },
   placedAnchorBottom: number,
 ): { x: number; y: number; width: number; height: number } {
-  // D-176/D-180: padding.right reserves the column; grow height to fit docked trees.
-  const anchorsHeight =
-    placedAnchorBottom > 0
-      ? placedAnchorBottom + ENGINE_GROUP_PADDING.bottom
-      : memberBounds.height;
-  return {
-    x: memberBounds.x,
-    y: memberBounds.y,
-    width: memberBounds.width,
-    height: Math.max(memberBounds.height, anchorsHeight),
-  };
+  return inflateEngineBoundsForDecisionColumn(memberBounds, placedAnchorBottom);
 }
 
 /** Strip + rebuild option-anchor nodes; expand engine chrome for the right column. */

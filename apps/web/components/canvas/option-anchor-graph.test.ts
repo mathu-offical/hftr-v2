@@ -11,7 +11,6 @@ import {
   optionBindEdgesForEngine,
   placeOptionAnchorNodes,
   OPTION_ANCHOR_NODE_HEIGHT,
-  OPTION_ANCHOR_OWNER_GAP,
   OPTION_ANCHOR_COLUMN_WIDTH,
 } from './option-anchor-graph';
 import type { CanvasEngineGroup, CanvasModule } from './types';
@@ -113,7 +112,7 @@ describe('decision-node graph placement (D-192 / D-180 / D-217)', () => {
     },
   ];
 
-  it('docks owned roots beside owner modules with parent-relative coords', () => {
+  it('docks owned roots in the reserved right column (D-218)', () => {
     const all = buildOptionAnchorsForEngine({
       engineId: engine.id,
       templateId: engine.templateId,
@@ -128,13 +127,11 @@ describe('decision-node graph placement (D-192 / D-180 / D-217)', () => {
       (n) => n.data.kind === 'branch_role' && n.data.ownerModuleId === researcherId,
     );
     expect(pipelineRoot).toBeTruthy();
-    const expectedX =
-      ENGINE_GROUP_PADDING.left + CANVAS_LAYOUT.moduleWidth + OPTION_ANCHOR_OWNER_GAP;
-    expect(pipelineRoot!.position.x).toBe(expectedX);
+    expect(pipelineRoot!.position.x).toBe(optionAnchorColumnX(engine.canvasBounds!.width));
     expect(pipelineRoot!.position.y).toBe(120);
   });
 
-  it('docks owners in different columns independently (per dockX cursor)', () => {
+  it('stacks owners in one right column without mid-lane overlap (D-218)', () => {
     const all = buildOptionAnchorsForEngine({
       engineId: engine.id,
       templateId: engine.templateId,
@@ -153,9 +150,11 @@ describe('decision-node graph placement (D-192 / D-180 / D-217)', () => {
     );
     expect(pipelineRoot).toBeTruthy();
     expect(emitRoot).toBeTruthy();
-    // Analyzer is in a different column — its primary root aligns to owner.y.
-    expect(emitRoot!.position.y).toBe(120);
-    expect(pipelineRoot!.position.y).toBe(120);
+    const colX = optionAnchorColumnX(engine.canvasBounds!.width);
+    expect(pipelineRoot!.position.x).toBe(colX);
+    expect(emitRoot!.position.x).toBe(colX);
+    // Shared column stacks — later owners clear prior decision bottoms.
+    expect(emitRoot!.position.y).toBeGreaterThanOrEqual(pipelineRoot!.position.y);
   });
 
   it('avoids vertical overlap between owner decision stacks', () => {
@@ -278,7 +277,7 @@ describe('decision-node graph placement (D-192 / D-180 / D-217)', () => {
     );
   });
 
-  it('docks strategy_family beside trading on day-trading-shaped engine (D-217)', () => {
+  it('docks strategy_family in right column on day-trading-shaped engine (D-218)', () => {
     const execEngine: CanvasEngineGroup = {
       ...engine,
       id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
@@ -405,12 +404,8 @@ describe('decision-node graph placement (D-192 / D-180 / D-217)', () => {
     const strategyNode = placed.find((n) => n.id === strategy!.id);
     expect(strategyNode).toBeTruthy();
     expect(strategyNode!.type).toBe('decisionNode');
-    const tradeRelX = ENGINE_GROUP_PADDING.left + 800;
-    const tradeRelY = 200;
-    expect(strategyNode!.position.x).toBe(
-      tradeRelX + CANVAS_LAYOUT.moduleWidth + OPTION_ANCHOR_OWNER_GAP,
-    );
-    expect(strategyNode!.position.y).toBeGreaterThanOrEqual(tradeRelY);
+    expect(strategyNode!.position.x).toBe(optionAnchorColumnX(execEngine.canvasBounds!.width));
+    expect(strategyNode!.position.y).toBeGreaterThanOrEqual(ENGINE_GROUP_PADDING.top);
     const edges = optionBindEdgesForEngine(all);
     const ownerEdge = edges.find((e) => e.target === strategy!.id);
     expect(ownerEdge?.source).toBe(tradeId);

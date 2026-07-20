@@ -24,6 +24,8 @@ export type PostureOrthoEdgeData = PostureAlgoEdgeData & {
   railVerb?: string;
   railRole?: string;
   railBridge?: boolean;
+  /** Cross-section exit from rail/column end (Right → Left). */
+  sectionExit?: boolean;
 };
 
 /** PCB channel pitch — traces snap to this grid like autorouted copper. */
@@ -225,12 +227,16 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
   const edgeData = data as PostureOrthoEdgeData | undefined;
   const strip = edgeData?.stripMode === true;
   const railBridge = edgeData?.railBridge === true || id.startsWith('e-rail:');
+  const sectionExit =
+    edgeData?.sectionExit === true || id.startsWith('e-exit:') || id.startsWith('e-group:');
   const explicit = edgeData?.laneOffset;
   const lane =
-    explicit ?? (strip && !railBridge ? ((hashLane(id) % 5) - 2) * PCB_CHANNEL : 0);
+    explicit ??
+    (strip && !railBridge && !sectionExit ? ((hashLane(id) % 5) - 2) * PCB_CHANNEL : 0);
 
   const verticalBridge =
     railBridge &&
+    !sectionExit &&
     (sourceHandleId === 'rail-out' ||
       sourceHandleId === 'rail-in' ||
       targetHandleId === 'rail-in' ||
@@ -240,13 +246,15 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
   const usePcb = strip;
   const stroke =
     typeof style?.stroke === 'string' ? style.stroke : 'var(--color-accent)';
-  const copper = pcbCopper(stroke, railBridge);
+  const copper = pcbCopper(stroke, railBridge || sectionExit);
   const baseW =
     typeof style?.strokeWidth === 'number'
       ? style.strokeWidth
-      : railBridge
-        ? 2.6
-        : 2.1;
+      : sectionExit
+        ? 2.8
+        : railBridge
+          ? 2.6
+          : 2.1;
   const opacity =
     typeof style?.opacity === 'number' ? style.opacity : selected ? 1 : 0.92;
 
@@ -349,7 +357,9 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
           strokeWidth={baseW}
           strokeLinecap="square"
           strokeLinejoin="miter"
-          strokeDasharray={railBridge ? '5 3 1 3' : undefined}
+          strokeDasharray={
+            sectionExit ? '6 2' : railBridge ? '5 3 1 3' : undefined
+          }
         />
         {/* Highlight filament (thin inner shine) */}
         <path
@@ -404,14 +414,16 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
                 .filter(Boolean)
                 .join(' · ')}
             >
-              {railBridge || (fallback.includes('→') && !railTitle) ? (
+              {railBridge ||
+              sectionExit ||
+              (fallback.includes('→') && !railTitle) ? (
                 <>
                   <div className="flex min-w-0 items-center gap-1">
                     <span
                       className="shrink-0 font-mono text-[6px] font-bold uppercase tracking-[0.14em]"
                       style={{ color: copper.shine }}
                     >
-                      NET
+                      {railRole || (sectionExit ? 'EXIT' : railBridge ? 'NET' : 'NET')}
                     </span>
                     <span className="truncate font-mono text-[8px] font-bold leading-tight text-[var(--color-accent)]">
                       {railTitle || fallback}

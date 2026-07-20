@@ -205,7 +205,7 @@ describe('applyStripScreenGroups', () => {
     const final = finalizeStripEdges(edges, packed);
     // Same-screen ingest rail stays.
     expect(final.some((e) => e.id === 'e-live-adapt')).toBe(true);
-    // Cluster↔cluster / live→process content wires become rail or screen bridges.
+    // Cluster↔cluster / live→process content wires become rail or section-exit bridges.
     expect(final.some((e) => e.id === 'e-adapt-proc')).toBe(false);
     expect(final.some((e) => e.id === 'e-proc-seal')).toBe(false);
     expect(final.some((e) => e.id === 'e-group:live->library')).toBe(true);
@@ -213,6 +213,46 @@ describe('applyStripScreenGroups', () => {
     expect(final.some((e) => e.id === 'e-group:process->outlook')).toBe(true);
     expect(final.some((e) => e.id === 'e-group:outlook->live')).toBe(false);
     expect(final.some((e) => e.id === 'e-group:live->outlook')).toBe(false);
+    // Rail/column ends connect between sections (Right → Left), not only group summary.
+    const exits = final.filter((e) => e.id.startsWith('e-exit:'));
+    expect(exits.length).toBeGreaterThan(0);
+    expect(exits.every((e) => e.sourceHandle === 'section-out')).toBe(true);
+    expect(exits.every((e) => e.targetHandle === 'section-in')).toBe(true);
+    expect(
+      exits.some(
+        (e) =>
+          e.source === 'cluster:process:web_search' && e.target === 'group:outlook',
+      ),
+    ).toBe(true);
+    // No reverse section exits.
+    expect(exits.some((e) => e.target === 'group:live' && e.source === 'group:outlook')).toBe(
+      false,
+    );
+  });
+
+  it('builds section-exit bridges from process rail ends across screens', () => {
+    const stamped = [
+      {
+        ...node('process:news:extract', 'process', 'Extract'),
+        data: {
+          ...node('process:news:extract', 'process', 'Extract').data,
+          processRoute: 'news_headline',
+          processFunction: 'extract',
+        },
+      },
+      node('lib:sector', 'library_source', 'Sector'),
+    ];
+    const edges = [edge('e-seed', 'process:news:extract', 'lib:sector')];
+    const packed = applyStripScreenGroups(stamped, edges);
+    const final = finalizeStripEdges(edges, packed);
+    expect(final.some((e) => e.id === 'e-seed')).toBe(false);
+    const exit = final.find((e) => e.id.startsWith('e-exit:'));
+    expect(exit).toBeTruthy();
+    expect(exit?.source).toBe('cluster:process:news_headline');
+    expect(exit?.target).toMatch(/^(group:library|cluster:process:)/);
+    expect(exit?.sourceHandle).toBe('section-out');
+    expect(exit?.targetHandle).toBe('section-in');
+    expect(exit?.label).toMatch(/news_headline\s*→/);
   });
 
   it('builds direct rail↔rail bridges between route clusters', () => {

@@ -3482,7 +3482,8 @@ export function applyStripScreenGroups(
  * - Intra-cluster / same-route adjacent transfer hops (no skip chords)
  * - Same-lane only inside matrix routes (no cross-provider vertical mash)
  * - Inter-cluster content wires collapse to **rail↔rail bridges** on cluster frames
- * - Cross-screen content → adjacent screen-group backbone
+ * - Cross-screen content → **section-exit bridges** from rail/column ends
+ *   (cluster or screen-group Right → next Left) plus adjacent group backbone summary
  */
 export function finalizeStripEdges(
   edges: PostureAlgoGraph['edges'],
@@ -3515,6 +3516,17 @@ export function finalizeStripEdges(
     return null;
   };
 
+  /** Prefer cluster frame; else owning screen group — the visible rail/column end. */
+  const sectionEndpoint = (
+    nodeId: string,
+    screen: MarketPostureStageScreenId | undefined,
+  ): string | null => {
+    const cluster = clusterOf(nodeId);
+    if (cluster) return cluster;
+    if (screen) return `group:${screen}`;
+    return null;
+  };
+
   type RailPair = {
     from: string;
     to: string;
@@ -3534,25 +3546,69 @@ export function finalizeStripEdges(
     else railPairs.set(key, { from: fromCluster, to: toCluster, n: 1, track });
   };
 
+  type ExitPair = {
+    from: string;
+    to: string;
+    n: number;
+    track: MarketHubModelTrack;
+  };
+  const exitPairs = new Map<string, ExitPair>();
+  const bumpExit = (from: string, to: string, track: MarketHubModelTrack): void => {
+    if (from === to) return;
+    const fromScreen = (() => {
+      const n = byId.get(from);
+      if (n?.data.stageScreenId) return n.data.stageScreenId as MarketPostureStageScreenId;
+      if (from.startsWith('group:')) {
+        return from.slice('group:'.length) as MarketPostureStageScreenId;
+      }
+      return null;
+    })();
+    const toScreen = (() => {
+      const n = byId.get(to);
+      if (n?.data.stageScreenId) return n.data.stageScreenId as MarketPostureStageScreenId;
+      if (to.startsWith('group:')) {
+        return to.slice('group:'.length) as MarketPostureStageScreenId;
+      }
+      return null;
+    })();
+    // Forward section flow only (no reverse exits).
+    if (
+      fromScreen &&
+      toScreen &&
+      screenFlowIndex(fromScreen) >= screenFlowIndex(toScreen)
+    ) {
+      return;
+    }
+    const key = `${from}->${to}`;
+    const prev = exitPairs.get(key);
+    if (prev) prev.n += 1;
+    else exitPairs.set(key, { from, to, n: 1, track });
+  };
+
   const kept = edges.filter((e) => {
     if (!contentIds.has(e.source) || !contentIds.has(e.target)) return false;
     const ss = screenByNode.get(e.source);
     const st = screenByNode.get(e.target);
-    // Cross-screen content edges become group backbone — drop the diagonal wire.
-    if (ss && st && ss !== st) return false;
+    // Cross-screen: collapse to section-exit (rail end → next section) + backbone.
+    if (ss && st && ss !== st) {
+      const fromEp = sectionEndpoint(e.source, ss);
+      const toEp = sectionEndpoint(e.target, st);
+      if (fromEp && toEp) bumpExit(fromEp, toEp, e.data.track);
+      return false;
+    }
 
     const a = byId.get(e.source);
     const b = byId.get(e.target);
     const cs = clusterOf(e.source);
     const ct = clusterOf(e.target);
 
-    // Distinct clusters → one rail↔rail bridge (not every node diagonal).
+    // Distinct clusters (same screen) → one rail↔rail bridge (not every node diagonal).
     if (cs && ct && cs !== ct) {
       bumpRail(cs, ct, e.data.track);
       return false;
     }
 
-    // Cluster ↔ side (stages / panels): no content diagonal.
+    // Cluster ↔ side (stages / panels) on same screen: no content diagonal.
     if (cs !== ct) return false;
 
     const ra = a?.data.processRoute;
@@ -3611,6 +3667,8 @@ export function finalizeStripEdges(
       id: `e-group:${from}->${to}`,
       source: `group:${from}`,
       target: `group:${to}`,
+      sourceHandle: 'section-out',
+      targetHandle: 'section-in',
       label: `${n} flows`,
       data: {
         edgeType: 'emit',
@@ -3622,7 +3680,15 @@ export function finalizeStripEdges(
     });
   }
 
-  // Direct rail↔rail bridges between process-route clusters.
+  const endpointSysKey = (endpointId: string): string => {
+    const n = byId.get(endpointId);
+    if (!n) return endpointId.replace(/^cluster:process:/, '').replace(/^group:/, '');
+    if (n.data.processRoute) return n.data.processRoute;
+    if (n.data.stageScreenId) return n.data.stageScreenId;
+    return n.data.label || endpointId;
+  };
+
+  // Direct rail↔rail bridges between process-route clusters (same column).
   const railBridges: PostureAlgoGraph['edges'] = [];
   for (const { from, to, n, track } of railPairs.values()) {
     const fromNode = byId.get(from);
@@ -3636,7 +3702,6 @@ export function finalizeStripEdges(
     const dy = toNode.position.y - fromNode.position.y;
     const dx = toNode.position.x - fromNode.position.x;
     const vertical = Math.abs(dy) >= Math.abs(dx) * 0.6;
-    // System route ids on the bridge (silkscreen); hop count when multiple flows collapse.
     const label =
       n > 1 ? `${fromSys} → ${toSys} · ${n}` : `${fromSys} → ${toSys}`;
     const bridge: PostureAlgoGraph['edges'][number] = {
@@ -3664,7 +3729,32 @@ export function finalizeStripEdges(
     railBridges.push(bridge);
   }
 
-  return [...kept, ...backbone, ...railBridges];
+  // Section exits: process-rail / column Right → next section Left (between screens).
+  const exitBridges: PostureAlgoGraph['edges'] = [];
+  for (const { from, to, n, track } of exitPairs.values()) {
+    if (!byId.has(from) || !byId.has(to)) continue;
+    const fromSys = endpointSysKey(from);
+    const toSys = endpointSysKey(to);
+    const label =
+      n > 1 ? `${fromSys} → ${toSys} · ${n}` : `${fromSys} → ${toSys}`;
+    exitBridges.push({
+      id: `e-exit:${from}->${to}`,
+      source: from,
+      target: to,
+      sourceHandle: 'section-out',
+      targetHandle: 'section-in',
+      label,
+      data: {
+        edgeType: 'emit',
+        activation: 'armed',
+        status: 'ready',
+        track,
+        label,
+      },
+    });
+  }
+
+  return [...kept, ...backbone, ...railBridges, ...exitBridges];
 }
 
 /**

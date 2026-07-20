@@ -58,6 +58,7 @@ type LiveEdge = Edge<
     railVerb?: string;
     railRole?: string;
     railBridge?: boolean;
+    sectionExit?: boolean;
   }
 >;
 
@@ -358,10 +359,13 @@ function styleModelEdge(
   const stroke = trackStroke(track);
   const animated = activation === 'active' || activation === 'pulsing';
   const railBridge = edge.id.startsWith('e-rail:');
+  const sectionExit = edge.id.startsWith('e-exit:');
+  const groupBackbone = edge.id.startsWith('e-group:');
   const cross =
     opts?.crossScreen === true ||
-    edge.id.startsWith('e-group:') ||
-    railBridge;
+    groupBackbone ||
+    railBridge ||
+    sectionExit;
   const strip = Boolean(opts?.stripTransferLabels || opts?.orthoStrip);
   const width =
     edgeType === 'emit'
@@ -439,10 +443,10 @@ function styleModelEdge(
   const op = (opts?.operation ?? '').trim();
   // Prefer system keys on copper silkscreen; human names ride as secondary.
   const railTitle = (() => {
-    if (railBridge && sysKey && tgtSys) {
+    if ((railBridge || sectionExit) && sysKey && tgtSys) {
       return truncateSys(`${sysKey} → ${tgtSys}`, 36);
     }
-    if (railBridge && edge.label?.trim()) {
+    if ((railBridge || sectionExit) && edge.label?.trim()) {
       return truncateSys(edge.label.trim(), 36);
     }
     if (sysKey) return truncateSys(sysKey, 28);
@@ -450,7 +454,7 @@ function styleModelEdge(
     return null;
   })();
   const railHuman = (() => {
-    if (railBridge && sourceName && targetName) {
+    if ((railBridge || sectionExit) && sourceName && targetName) {
       const h = `${sourceName} → ${targetName}`;
       if (railTitle && h !== railTitle) return truncateSys(h, 32);
       return null;
@@ -461,7 +465,9 @@ function styleModelEdge(
     return null;
   })();
   const railVerb = (() => {
+    if (sectionExit) return 'section exit';
     if (railBridge) return 'rail↔rail';
+    if (groupBackbone) return 'column flow';
     if (op) return truncateSys(op, 24);
     return transferWord;
   })();
@@ -469,7 +475,9 @@ function styleModelEdge(
     if (opts?.hideLabels) return undefined;
     if (!opts?.stripTransferLabels) return undefined;
     if (railTitle) return railTitle;
-    if ((cross || railBridge) && edge.label?.trim()) return edge.label.trim();
+    if ((cross || railBridge || sectionExit) && edge.label?.trim()) {
+      return edge.label.trim();
+    }
     if (roleTag) return `${roleTag} · ${transferWord}`;
     return transferWord;
   })();
@@ -501,18 +509,23 @@ function styleModelEdge(
       ...(railTitle ? { railTitle } : {}),
       ...(railHuman ? { railHuman } : {}),
       ...(railBridge ? { railBridge: true } : {}),
+      ...(sectionExit ? { sectionExit: true } : {}),
       ...(opts?.stripTransferLabels
         ? {
             railVerb,
-            ...(roleTag && !railBridge ? { railRole: roleTag } : {}),
+            ...(roleTag && !railBridge && !sectionExit && !groupBackbone
+              ? { railRole: roleTag }
+              : {}),
             ...(railBridge ? { railRole: 'NET' } : {}),
+            ...(sectionExit ? { railRole: 'EXIT' } : {}),
+            ...(groupBackbone ? { railRole: 'FLOW' } : {}),
           }
         : {}),
     },
     // Bespoke Model orthogonal rails (strip + default).
     type: 'postureOrtho',
     animated: edgeAnimated || cross,
-    zIndex: railBridge ? 9 : cross ? 8 : edgeType === 'emit' ? 2 : 5,
+    zIndex: sectionExit ? 10 : railBridge ? 9 : cross ? 8 : edgeType === 'emit' ? 2 : 5,
     markerEnd: {
       type: MarkerType.ArrowClosed,
       width: strip ? 12 : 10,
@@ -843,8 +856,18 @@ const PostureGroupNode = memo(function PostureGroupNode({
           />
         </>
       ) : null}
-      <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !bg-[var(--color-line)]" />
-      <Handle type="source" position={Position.Right} className="!h-1.5 !w-1.5 !bg-[var(--color-line)]" />
+      <Handle
+        id="section-in"
+        type="target"
+        position={Position.Left}
+        className="!h-2 !w-2 !border-[var(--color-surface-0)] !bg-[var(--color-accent)]"
+      />
+      <Handle
+        id="section-out"
+        type="source"
+        position={Position.Right}
+        className="!h-2 !w-2 !border-[var(--color-surface-0)] !bg-[var(--color-accent)]"
+      />
     </div>
   );
 });
@@ -941,6 +964,7 @@ function InnerCanvas(props: {
       const crossScreen =
         e.id.startsWith('e-group:') ||
         e.id.startsWith('e-rail:') ||
+        e.id.startsWith('e-exit:') ||
         (a != null && b != null && a !== b);
       const srcMeta = metaById.get(e.source);
       const opts: {

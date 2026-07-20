@@ -390,12 +390,14 @@ are ignored. Shortcuts are suppressed in editable fields.
   wires are **circuit-board copper traces** (`postureOrtho` / PCB doglegs with
   channel-snapped vias + pads) — not freeform spaghetti; cross-route / inter-cluster
   content collapses to **rail↔rail bridges** (`e-rail:…`, cluster Top/Bottom) and
-  cross-screen diagonals to adjacent screen-group backbones; strip uses FR4-tint
+  **section-exit bridges** (`e-exit:…`, cluster/column Right → next section Left) so
+  process-rail ends show how they feed the next stage column; plus adjacent
+  screen-group backbones (`e-group:…`); strip uses FR4-tint
   substrate + line grid; silkscreen + compact chrome lead with **system keys**
-  (route / step / kind / panel id) and human labels secondary — `NET · route→route`
-  for rail bridges; layout stamps stabilize polls so pulse/style ticks do not
-  rebuild the graph or `fitView`; per-node nudges via
-  `STRIP_NODE_PLACEMENT_OVERRIDES`; unused screen
+  (route / step / kind / panel id) and human labels secondary — `EXIT · route→section`
+  for cross-column rail ends, `NET · route→route` for same-column rail bridges;
+  layout stamps stabilize polls so pulse/style ticks do not rebuild the graph or
+  `fitView`; per-node nudges via `STRIP_NODE_PLACEMENT_OVERRIDES`; unused screen
   space stays loose between columns; strip nodes use **compact chrome**
   sized to the packing grid (no clipped cards); side nodes
   sit below the route stack. Draws all within- and

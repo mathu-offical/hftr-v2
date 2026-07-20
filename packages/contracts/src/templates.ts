@@ -27,7 +27,9 @@ export interface TemplateLink {
 /**
  * Stable template link order (D-073): non-math graph edges keep author order;
  * Math fund_route edges are contiguous as into-Math then out-of-Math so capital
- * flow reads holding → Math → router in every engine template.
+ * flow reads holding → fund_path Math → router in every engine template.
+ * Template `'math'` resolves at insert to the fund_router-owned fund_path helper
+ * (not the company Math hub) — D-221.
  */
 export function orderTemplateLinks(links: readonly TemplateLink[]): TemplateLink[] {
   const mathFund: TemplateLink[] = [];

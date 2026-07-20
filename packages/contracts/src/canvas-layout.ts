@@ -1299,7 +1299,8 @@ export interface TemplateLayoutLink {
 
 /**
  * Lay out an engine template graph at `origin` using synthetic module ids.
- * Skips `math` link endpoints (company Math is provisioned separately).
+ * Skips template `'math'` link endpoints (fund_path Math is provisioned at
+ * insert and docked under fund_router — D-221).
  */
 export function layoutEngineTemplateAtOrigin(
   modules: readonly TemplateLayoutModule[],
@@ -1346,7 +1347,7 @@ export function layoutEngineTemplateAtOrigin(
   let canvasBounds = laid.canvasBounds;
   if (options?.templateId) {
     canvasBounds = inflateBoundsForEngineDecisions(canvasBounds, {
-      engineId: options.engineId,
+      ...(options.engineId ? { engineId: options.engineId } : {}),
       templateId: options.templateId,
       members: modules.map((module, index) => ({
         id: templateSyntheticModuleId(index),

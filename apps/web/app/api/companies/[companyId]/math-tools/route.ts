@@ -1,8 +1,11 @@
 import { z } from 'zod';
-import { moduleRequiresMath } from '@hftr/contracts';
+import { eq } from 'drizzle-orm';
+import { moduleProvisionsDedicatedMath } from '@hftr/contracts';
+import { moduleLinks } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
 import { parseBody, withAuth } from '@/lib/api';
 import { provisionDedicatedMathTools } from '@/lib/math-provision';
+import { planFundPathMathLinkRewires } from '@/lib/fund-route-links';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +16,7 @@ type Ctx = { params: Promise<{ companyId: string }> };
 /**
  * Explicit operator repair/provision boundary for legacy graphs. Reflow calls
  * this endpoint; migration itself never guesses Math ownership.
+ * Also rewires capital fund_route hops onto fund_path Math (D-221).
  */
 export async function POST(req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
@@ -31,7 +35,7 @@ export async function POST(req: Request, ctx: Ctx) {
     );
     const owners = companyModules.filter(
       (module) =>
-        moduleRequiresMath(module.type) &&
+        moduleProvisionsDedicatedMath(module.type) &&
         !ownedIds.has(module.id) &&
         (!input.engineId || module.engineInstanceId === input.engineId),
     );
@@ -46,6 +50,32 @@ export async function POST(req: Request, ctx: Ctx) {
       })),
     );
 
-    return { tools };
+    const refreshed = await scoping.listModules(db, clerkUserId, companyId);
+    const links = await scoping.listLinks(db, clerkUserId, companyId);
+    const rewires = planFundPathMathLinkRewires({
+      modules: refreshed.map((module) => ({
+        id: module.id,
+        type: module.type,
+        toolOwnerModuleId: module.toolOwnerModuleId ?? null,
+      })),
+      links: links.map((link) => ({
+        id: link.id,
+        fromModuleId: link.fromModuleId,
+        toModuleId: link.toModuleId,
+        linkKind: link.linkKind,
+      })),
+    });
+    for (const rewire of rewires) {
+      await db
+        .update(moduleLinks)
+        .set({
+          fromModuleId: rewire.fromModuleId,
+          toModuleId: rewire.toModuleId,
+          updatedAt: new Date(),
+        })
+        .where(eq(moduleLinks.id, rewire.linkId));
+    }
+
+    return { tools, rewiredFundRoutes: rewires.length };
   });
 }

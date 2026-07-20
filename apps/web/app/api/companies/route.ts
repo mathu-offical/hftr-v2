@@ -37,7 +37,10 @@ import {
 import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
 import { recordModuleSetup } from '@/lib/module-setup';
 import { provisionDedicatedMathTools } from '@/lib/math-provision';
-import { fundRouterToTradingMathLinks } from '@/lib/fund-route-links';
+import {
+  fundRouterToTradingMathLinks,
+  resolveFundPathMathId,
+} from '@/lib/fund-route-links';
 
 export const dynamic = 'force-dynamic';
 
@@ -402,10 +405,23 @@ export async function POST(req: Request) {
       );
 
       if (engine.links.length > 0) {
+        const members = created.map((row, index) => ({
+          id: row.id,
+          type: engine.modules[index]!.type,
+        }));
+        const fundPathMathId = resolveFundPathMathId(members, dedicatedMathByOwner);
+        if (
+          engine.links.some((l) => l.fromIndex === 'math' || l.toIndex === 'math') &&
+          !fundPathMathId
+        ) {
+          throw new ApiError(500, 'fund_path_math_unresolved');
+        }
         await db.insert(moduleLinks).values(
           engine.links.map((l) => {
-            const fromModuleId = l.fromIndex === 'math' ? mathModule.id : created[l.fromIndex]?.id;
-            const toModuleId = l.toIndex === 'math' ? mathModule.id : created[l.toIndex]?.id;
+            const fromModuleId =
+              l.fromIndex === 'math' ? fundPathMathId! : created[l.fromIndex]?.id;
+            const toModuleId =
+              l.toIndex === 'math' ? fundPathMathId! : created[l.toIndex]?.id;
             if (!fromModuleId || !toModuleId) {
               throw new ApiError(500, 'engine_link_unresolved');
             }

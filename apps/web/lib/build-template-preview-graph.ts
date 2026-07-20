@@ -244,12 +244,50 @@ function appendEngineNodes(
   });
 
   template.links.forEach((link, linkIndex) => {
-    if (link.fromIndex === 'math' || link.toIndex === 'math') return;
     const kind = link.linkKind as LinkKind;
+    const routerIndex = template.modules.findIndex((module) => module.type === 'fund_router');
+    const usesFundPathMath =
+      link.fromIndex === 'math' || link.toIndex === 'math';
+    if (usesFundPathMath && routerIndex < 0) return;
+
+    let sourceId: string;
+    let targetId: string;
+    if (usesFundPathMath) {
+      const fundMathId = `mod:${seed.key}:fundMath`;
+      if (!nodes.some((node) => node.id === fundMathId)) {
+        const routerAbs = absPositions[routerIndex]!;
+        nodes.push({
+          id: fundMathId,
+          type: 'previewModule',
+          parentId: `eng:${seed.key}`,
+          extent: 'parent',
+          position: {
+            x: routerAbs.x - bounds.x + 12,
+            y: routerAbs.y - bounds.y + PREVIEW_MODULE_HEIGHT + 10,
+          },
+          data: {
+            name: 'FundMath',
+            moduleType: 'math',
+            engineKey: seed.key,
+            config: { mathType: 'fund_path' },
+          },
+          style: { width: PREVIEW_MODULE_WIDTH * 0.85, height: 36 },
+          selectable: false,
+          draggable: false,
+        });
+      }
+      sourceId =
+        link.fromIndex === 'math' ? fundMathId : `mod:${seed.key}:${link.fromIndex}`;
+      targetId = link.toIndex === 'math' ? fundMathId : `mod:${seed.key}:${link.toIndex}`;
+    } else {
+      sourceId = `mod:${seed.key}:${link.fromIndex}`;
+      targetId = `mod:${seed.key}:${link.toIndex}`;
+    }
+
     edges.push({
       id: `link:${seed.key}:${linkIndex}`,
-      source: `mod:${seed.key}:${link.fromIndex}`,
-      target: `mod:${seed.key}:${link.toIndex}`,
+      source: sourceId,
+      target: targetId,
       type: 'smoothstep',
       sourceHandle: handleIdForLink(kind, 'out'),
       targetHandle: handleIdForLink(kind, 'in'),

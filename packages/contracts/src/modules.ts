@@ -70,6 +70,15 @@ export function moduleRequiresMath(type: ModuleType): boolean {
 }
 
 /**
+ * Owners that get a dedicated Math dock (Calc-ref and/or capital fund_path).
+ * `fund_router` gets fund_path Math for holding→Math→router capital hops (D-221);
+ * model-bearing owners get Calc-ref Math via {@link moduleRequiresMath}.
+ */
+export function moduleProvisionsDedicatedMath(type: ModuleType): boolean {
+  return moduleRequiresMath(type) || type === 'fund_router';
+}
+
+/**
  * D-192: decision kinds each module type must expose when present on an engine.
  * Builder merges template seeds ∪ these required kinds for member modules.
  */
@@ -100,7 +109,7 @@ export const MAX_ENGINES_PER_COMPANY = 16;
 
 /**
  * Projected module rows for company create: Math hub + Master Clock + each
- * engine member + one dedicated Math per math-required member + extras.
+ * engine member + one dedicated Math per math-required / fund_router member + extras.
  */
 export function projectedModuleSlotsForCreate(input: {
   engineModuleTypes: ReadonlyArray<ReadonlyArray<ModuleType>>;
@@ -110,12 +119,12 @@ export function projectedModuleSlotsForCreate(input: {
   for (const types of input.engineModuleTypes) {
     count += types.length;
     for (const type of types) {
-      if (moduleRequiresMath(type)) count += 1;
+      if (moduleProvisionsDedicatedMath(type)) count += 1;
     }
   }
   for (const type of input.extraModuleTypes ?? []) {
     count += 1;
-    if (moduleRequiresMath(type)) count += 1;
+    if (moduleProvisionsDedicatedMath(type)) count += 1;
   }
   return count;
 }
@@ -187,11 +196,12 @@ export function preferredMathTypeForOwner(owner: ModuleType): MathType {
       return 'simulator_sandbox';
     case 'generator':
       return 'research_metric';
+    case 'fund_router':
+      return 'fund_path';
     case 'library':
     case 'live_api':
     case 'policy':
     case 'holding_fund':
-    case 'fund_router':
     case 'math':
     case 'display':
     case 'clock':

@@ -146,7 +146,7 @@ never share the same default function identity. Libraries use `libraryClass` →
 | Type | Purpose | Typical attach |
 |------|---------|----------------|
 | `company_hub` | Shared company calculator | Always seeded |
-| `fund_path` | Capital topology | holding_fund ↔ fund_router |
+| `fund_path` | Capital topology | owned by fund_router; holding ↔ router fund_route (D-221) |
 | `desk_execution` | Desk sizing / compile inputs | trading |
 | `trend_signal` | Live→signal morphs (refs) | trend |
 | `research_metric` | Research scores/ranking refs | research / librarian |

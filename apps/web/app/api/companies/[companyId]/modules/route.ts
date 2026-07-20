@@ -6,7 +6,7 @@ import {
   MAX_MODULES_PER_COMPANY,
   MODULE_CONFIG_SCHEMAS,
   moduleFunctionLabel,
-  moduleRequiresMath,
+  moduleProvisionsDedicatedMath,
 } from '@hftr/contracts';
 import { libraries, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
@@ -42,7 +42,7 @@ export async function POST(req: Request, ctx: Ctx) {
     if (input.type === 'clock' && existing.some((row) => row.type === 'clock')) {
       throw new ApiError(422, 'clock_singleton');
     }
-    const requiredSlots = moduleRequiresMath(input.type) ? 2 : 1;
+    const requiredSlots = moduleProvisionsDedicatedMath(input.type) ? 2 : 1;
     if (existing.length + requiredSlots > MAX_MODULES_PER_COMPANY) {
       throw new ApiError(422, 'module_limit_reached');
     }

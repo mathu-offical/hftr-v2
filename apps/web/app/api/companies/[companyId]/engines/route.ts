@@ -10,7 +10,7 @@ import {
   MAX_MODULES_PER_COMPANY,
   MODULE_CONFIG_SCHEMAS,
   moduleFunctionLabel,
-  moduleRequiresMath,
+  moduleProvisionsDedicatedMath,
   placeNextEngineOrigin,
   resolveEngineSetupFromCompany,
   templateInputTargets,
@@ -44,7 +44,10 @@ import {
 } from '@/lib/engine-setup-cascade';
 import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
 import { provisionDedicatedMathTools } from '@/lib/math-provision';
-import { fundRouterToTradingMathLinks } from '@/lib/fund-route-links';
+import {
+  fundRouterToTradingMathLinks,
+  resolveFundPathMathId,
+} from '@/lib/fund-route-links';
 
 export const dynamic = 'force-dynamic';
 
@@ -108,15 +111,10 @@ export async function POST(req: Request, ctx: Ctx) {
 
     const existing = await scoping.listModules(db, clerkUserId, companyId);
     const dedicatedMathCount = engine.modules.filter((module) =>
-      moduleRequiresMath(module.type),
+      moduleProvisionsDedicatedMath(module.type),
     ).length;
     if (existing.length + engine.modules.length + dedicatedMathCount > MAX_MODULES_PER_COMPANY) {
       throw new ApiError(422, 'module_limit_reached');
-    }
-
-    const mathModule = existing.find((m) => m.type === 'math');
-    if (engine.links.some((l) => l.fromIndex === 'math' || l.toIndex === 'math') && !mathModule) {
-      throw new ApiError(422, 'math_module_required');
     }
 
     const configs = engine.modules.map((m) => ({ ...m.config }));
@@ -346,9 +344,18 @@ export async function POST(req: Request, ctx: Ctx) {
     const createdLinks = [];
     createdLinks.push(...dedicatedMath.flatMap((tool) => tool.links));
     if (engine.links.length > 0) {
+      const members = created.map((row) => ({ id: row.id, type: row.type }));
+      const fundPathMathId = resolveFundPathMathId(members, dedicatedMathByOwner);
+      if (
+        engine.links.some((l) => l.fromIndex === 'math' || l.toIndex === 'math') &&
+        !fundPathMathId
+      ) {
+        throw new ApiError(500, 'fund_path_math_unresolved');
+      }
       const linkValues = engine.links.map((l) => {
-        const fromModuleId = l.fromIndex === 'math' ? mathModule!.id : created[l.fromIndex]?.id;
-        const toModuleId = l.toIndex === 'math' ? mathModule!.id : created[l.toIndex]?.id;
+        const fromModuleId =
+          l.fromIndex === 'math' ? fundPathMathId! : created[l.fromIndex]?.id;
+        const toModuleId = l.toIndex === 'math' ? fundPathMathId! : created[l.toIndex]?.id;
         if (!fromModuleId || !toModuleId) {
           throw new ApiError(500, 'engine_link_unresolved');
         }
@@ -378,7 +385,6 @@ export async function POST(req: Request, ctx: Ctx) {
     }
 
     await refreshGeneratedModuleNames(db, companyId, [
-      ...(mathModule ? [mathModule.id] : []),
       ...created.map((row) => row.id),
       ...dedicatedMath.map((tool) => tool.id),
     ]);

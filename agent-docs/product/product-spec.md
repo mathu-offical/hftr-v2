@@ -231,7 +231,9 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   the transparency window into the numeric reference architecture — live k/v value browser, value
   lineage graph (every number traceable to its live source), calculator operation log with sanity
   results, static formula catalog. Exists so users can audit exactly which numbers drive fund
-  pipelines and executions. Seeded engines wire `holding_fund → math → fund_router` fund routes.
+  pipelines and executions. Seeded engines wire
+  `holding_fund → fund_path Math → fund_router → trading desk Math` fund routes (D-221);
+  the company hub Math is audit-only and is not the capital middleman.
   D-028: additional Math modules may be created and deleted; each may `data_feed`-attach to
   multiple consumer modules (never joins an ENGINE group).
   **Math types (D-042):** `company_hub`, `fund_path`, `desk_execution`, `trend_signal`,

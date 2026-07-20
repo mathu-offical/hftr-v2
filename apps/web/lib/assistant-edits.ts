@@ -6,7 +6,7 @@ import {
   isLegalFundRoute,
   MAX_MODULES_PER_COMPANY,
   MODULE_CONFIG_SCHEMAS,
-  moduleRequiresMath,
+  moduleProvisionsDedicatedMath,
   ModuleType,
   PolicyModuleConfig,
   type ModuleType as ModuleTypeT,
@@ -55,7 +55,7 @@ export async function applyAssistantEdit(
   switch (proposal.tool) {
     case 'create_module': {
       const existing = await scoping.listModules(db, clerkUserId, companyId);
-      const requiredSlots = moduleRequiresMath(proposal.type) ? 2 : 1;
+      const requiredSlots = moduleProvisionsDedicatedMath(proposal.type) ? 2 : 1;
       if (existing.length + requiredSlots > MAX_MODULES_PER_COMPANY) {
         throw new ApiError(422, 'module_limit_reached');
       }

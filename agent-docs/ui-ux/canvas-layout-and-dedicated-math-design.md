@@ -49,13 +49,13 @@ The first edge carries the owner’s calculation inputs/context into the determi
 
 **Fund ports on Math:** left = fund in, right = fund out. Data ports sit on the **top** edge so owner cards connect downward into the tool lane. Parent (owner) cards expose matching `data_feed` Math streams on the **bottom** edge (D-075) — owner → Math then Math → owner, L→R. Peer stream order (D-073): capital-flow / pipeline lane, not UUID; template Math `fund_route` links normalize into-Math then out-of-Math.
 
-For capital routing, funds only flow through Math / holding_fund / fund_router — never into LLM or model-bearing nodes:
+For capital routing, funds only flow through Math / holding_fund / fund_router — never into LLM or model-bearing nodes. Seed capital hops use a **dedicated fund_path Math** owned by `fund_router` (D-221), not the company Math hub:
 
 ```text
-holding_fund --fund_route--> Math --fund_route--> fund_router --fund_route--> trading owner Math
+holding_fund --fund_route--> fund_path Math (under fund_router) --fund_route--> fund_router --fund_route--> trading owner Math
 ```
 
-Trading receives calculated capital via `data_feed` from its dedicated Math. No `fund_route` handle exists on trading, research, trend, or other model-bearing modules.
+Trading receives calculated capital via `data_feed` from its dedicated Math. No `fund_route` handle exists on trading, research, trend, or other model-bearing modules. The company Math hub remains an audit singleton outside capital seed wiring.
 
 ## Math tool presentation
 
@@ -147,13 +147,16 @@ Ordinary drag remains freeform. This feature does not enable always-on grid snap
 ## Contracts and API
 
 - `MATH_REQUIRED_MODULE_TYPES`
-- `moduleRequiresMath(type)`
+- `moduleRequiresMath(type)` — Calc-ref owners (research/trend/trading/…)
+- `moduleProvisionsDedicatedMath(type)` — includes `fund_router` fund_path helpers (D-221)
 - deterministic layout constants and pure rank/envelope helpers
 - `modules.tool_owner_module_id` nullable self-FK with index
 - engine insertion/company creation provisions required Math modules and links in the same batch
-- module creation provisions its Math tool when `moduleRequiresMath(type)` unless explicitly disabled by an internal migration/admin path
+- module creation provisions its Math tool when `moduleProvisionsDedicatedMath(type)` unless explicitly disabled by an internal migration/admin path
+- template `'math'` fund_route endpoints resolve to fund_path Math owned by fund_router
 - a batch layout endpoint persists module positions and engine bounds with ownership validation
 - engine and canvas Reflow buttons call the same pure layout helpers and batch persistence boundary
+- Reflow `/math-tools` also rewires legacy company-hub capital hops onto fund_path Math
 
 ## Error handling
 

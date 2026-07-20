@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, or } from 'drizzle-orm';
 import {
+  moduleProvisionsDedicatedMath,
   moduleRequiresMath,
   preferredMathTypeForOwner,
   type ModuleType,
@@ -44,70 +45,84 @@ function mathPositionForOwner(owner: MathOwnerSeed): { x: number; y: number } {
 }
 
 /**
- * Provision one explicitly owned deterministic Math tool and a single Calc-ref
- * data_feed (math → owner) per required owner (D-088 one reference connection).
+ * Provision dedicated Math tools:
+ * - Model-bearing owners: Calc-ref data_feed (math → owner) — D-088.
+ * - fund_router: fund_path Math ownership only (capital hops use fund_route) — D-221.
  */
 export async function provisionDedicatedMathTools(
   db: Db,
   companyId: string,
   owners: readonly MathOwnerSeed[],
 ): Promise<ProvisionedMathTool[]> {
-  const requiredOwners = owners.filter((owner) => moduleRequiresMath(owner.type));
+  const requiredOwners = owners.filter((owner) => moduleProvisionsDedicatedMath(owner.type));
   if (requiredOwners.length === 0) return [];
 
   const tools = requiredOwners.map((owner) => {
     const ownerFn =
       moduleFunctionLabel(owner.type, owner.config) || owner.name.split(' · ')[0] || owner.name;
-    const name = composeModulePrimaryLabel('Math', ownerFn);
+    const mathType = preferredMathTypeForOwner(owner.type);
+    const mathFn = moduleFunctionLabel('math', { mathType });
+    const name = composeModulePrimaryLabel(mathFn, ownerFn);
+    const withCalcRef = moduleRequiresMath(owner.type);
     return {
       id: randomUUID(),
       ownerModuleId: owner.id,
       ownerType: owner.type,
       position: mathPositionForOwner(owner),
       name,
-      mathToOwnerLinkId: randomUUID(),
+      mathType,
+      withCalcRef,
+      mathToOwnerLinkId: withCalcRef ? randomUUID() : null,
     };
   });
 
-  await db.batch([
-    db.insert(modules).values(
-      tools.map((tool) => ({
-        id: tool.id,
-        companyId,
-        type: 'math' as const,
-        name: tool.name,
-        generatedNameBase: 'Math',
-        nameCustomized: false,
-        config: { mathType: preferredMathTypeForOwner(tool.ownerType) },
-        status: 'active' as const,
-        canvasPosition: tool.position,
-        engineInstanceId: null,
-        toolOwnerModuleId: tool.ownerModuleId,
-      })),
-    ),
-    db.insert(moduleLinks).values(
-      tools.map((tool) => ({
+  await db.insert(modules).values(
+    tools.map((tool) => ({
+      id: tool.id,
+      companyId,
+      type: 'math' as const,
+      name: tool.name,
+      generatedNameBase: moduleFunctionLabel('math', { mathType: tool.mathType }),
+      nameCustomized: false,
+      config: { mathType: tool.mathType },
+      status: 'active' as const,
+      canvasPosition: tool.position,
+      engineInstanceId: null,
+      toolOwnerModuleId: tool.ownerModuleId,
+    })),
+  );
+
+  const calcRefTools = tools.filter(
+    (tool): tool is (typeof tools)[number] & { mathToOwnerLinkId: string } =>
+      tool.mathToOwnerLinkId != null,
+  );
+  if (calcRefTools.length > 0) {
+    await db.insert(moduleLinks).values(
+      calcRefTools.map((tool) => ({
         id: tool.mathToOwnerLinkId,
         companyId,
         fromModuleId: tool.id,
         toModuleId: tool.ownerModuleId,
         linkKind: 'data_feed' as const,
       })),
-    ),
-  ]);
+    );
+  }
 
   return tools.map(({ id, ownerModuleId, position, mathToOwnerLinkId }) => ({
     id,
     ownerModuleId,
     position,
-    links: [
-      {
-        id: mathToOwnerLinkId,
-        fromModuleId: id,
-        toModuleId: ownerModuleId,
-        linkKind: 'data_feed' as const,
-      },
-    ],
+    links:
+      mathToOwnerLinkId != null
+        ? [
+            {
+              id: mathToOwnerLinkId,
+              fromModuleId: id,
+              toModuleId: ownerModuleId,
+              linkKind: 'data_feed' as const,
+            },
+          ]
+        : [],
   }));
 }
 

@@ -39,6 +39,8 @@ import {
   moduleFocusToken,
   moduleFunctionLabel,
   moduleRequiresMath,
+  moduleProvisionsDedicatedMath,
+  preferredMathTypeForOwner,
   MODULE_CONFIG_SCHEMAS,
   moduleLinkPorts,
   moduleStreamPorts,
@@ -1113,7 +1115,7 @@ describe('company templates', () => {
           `${template.id}: ${from!.type}->${to!.type}`,
         ).toContain(l.linkKind);
         if (l.linkKind === 'fund_route') {
-          // Seed fund path must traverse shared Math (holding → math → router).
+          // Seed fund path must traverse Math (holding → fund_path Math → router).
           expect(
             l.fromIndex === 'math' || l.toIndex === 'math',
             `${template.id} fund must involve math`,
@@ -1147,7 +1149,7 @@ describe('engine templates', () => {
           allowedLinkKinds(from!.type, to!.type),
           `${engine.id}: ${from!.type}->${to!.type}`,
         ).toContain(l.linkKind);
-        // Holding → shared Math → fund_router; trading owner Math is wired at insert.
+        // Holding → fund_path Math → fund_router; trading owner Math is wired at insert.
         if (l.linkKind === 'fund_route') {
           expect(
             l.fromIndex === 'math' || l.toIndex === 'math',
@@ -2113,6 +2115,15 @@ describe('canvas layout (D-033)', () => {
     expect(moduleRequiresMath('generator')).toBe(true);
     expect(moduleRequiresMath('library')).toBe(false);
     expect(moduleRequiresMath('math')).toBe(false);
+    expect(moduleRequiresMath('fund_router')).toBe(false);
+  });
+
+  it('provisions fund_path Math for fund_router capital hops (D-221)', () => {
+    expect(moduleProvisionsDedicatedMath('fund_router')).toBe(true);
+    expect(moduleProvisionsDedicatedMath('trading')).toBe(true);
+    expect(moduleProvisionsDedicatedMath('holding_fund')).toBe(false);
+    expect(preferredMathTypeForOwner('fund_router')).toBe('fund_path');
+    expect(preferredMathTypeForOwner('trading')).toBe('desk_execution');
   });
 
   it('projects create module slots under the company cap for day trading + deps', () => {
@@ -2125,7 +2136,7 @@ describe('canvas layout (D-033)', () => {
         engine.modules.map((module) => module.type),
       ),
     });
-    expect(slots).toBe(39);
+    expect(slots).toBe(40);
     expect(slots).toBeLessThanOrEqual(MAX_MODULES_PER_COMPANY);
   });
 

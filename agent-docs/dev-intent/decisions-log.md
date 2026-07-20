@@ -2234,6 +2234,18 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Extends D-219. Docs: canvas-engine-group-design, ui-spec §3.
   **Status: implemented.**
 
+- **D-221 (fund_path Math helpers on capital lines, 2026-07-20):**
+  Template `'math'` fund_route endpoints no longer resolve to the company Math hub.
+  Each engine `fund_router` provisions a dedicated **fund_path** Math helper (ownership
+  only — no Calc-ref data_feed) docked under the router. Seed capital path:
+  `holding_fund → fund_path Math → fund_router → trading desk Math` (trading still
+  receives capital ValueRefs via data_feed). Company hub Math remains the audit
+  singleton and is not a capital middleman. Reflow `/math-tools` provisions missing
+  fund_path tools and rewires legacy hub hops. Preview shows FundMath on capital
+  edges. Resolves D-033 vs D-038 seed-path drift. Docs: canvas-layout-and-dedicated-math-design,
+  product-spec, engine-node-family-design.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

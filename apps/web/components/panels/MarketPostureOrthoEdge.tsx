@@ -5,7 +5,7 @@
  * Orthogonal copper runs, vias at elbows, pads at terminals — not freeform spaghetti.
  */
 
-import { memo, useId, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -17,7 +17,10 @@ import type { PostureAlgoEdgeData } from '@/lib/market-posture-algorithm-graph';
 export type PostureOrthoEdgeData = PostureAlgoEdgeData & {
   laneOffset?: number;
   stripMode?: boolean;
+  /** System id (kind / step / route) — primary silkscreen. */
   railTitle?: string;
+  /** Human display name — secondary line under system key. */
+  railHuman?: string;
   railVerb?: string;
   railRole?: string;
   railBridge?: boolean;
@@ -217,7 +220,8 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
   data,
   selected,
 }: EdgeProps) {
-  const uid = useId().replace(/:/g, '');
+  // Stable across remounts — avoid useId() churn on edge style ticks.
+  const gradientId = `pcb-shine-${hashLane(id).toString(36)}`;
   const edgeData = data as PostureOrthoEdgeData | undefined;
   const strip = edgeData?.stripMode === true;
   const railBridge = edgeData?.railBridge === true || id.startsWith('e-rail:');
@@ -286,11 +290,11 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
   ]);
 
   const railTitle = edgeData?.railTitle?.trim() || null;
+  const railHuman = edgeData?.railHuman?.trim() || null;
   const railVerb = edgeData?.railVerb?.trim() || null;
   const railRole = edgeData?.railRole?.trim() || null;
   const fallback = typeof label === 'string' ? label.trim() : '';
   const showLabel = strip && Boolean(railTitle || fallback);
-  const maskId = `pcb-mask-${uid}`;
 
   // Silence unused RF handle positions in PCB mode (geometry is explicit).
   void sourcePosition;
@@ -322,7 +326,7 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
         opacity={opacity}
       >
         <defs>
-          <linearGradient id={`${maskId}-shine`} x1="0%" y1="0%" x2="100%" y2="0%">
+          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor={copper.body} stopOpacity={0.85} />
             <stop offset="45%" stopColor={copper.shine} stopOpacity={0.95} />
             <stop offset="100%" stopColor={copper.body} stopOpacity={0.9} />
@@ -351,7 +355,7 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
         <path
           d={geom.d}
           fill="none"
-          stroke={`url(#${maskId}-shine)`}
+          stroke={`url(#${gradientId})`}
           strokeWidth={Math.max(0.7, baseW * 0.28)}
           strokeLinecap="square"
           strokeLinejoin="miter"
@@ -396,22 +400,37 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
                 borderRadius: 1,
               }}
               data-testid="market-posture-model-edge-label"
-              title={[railRole, railTitle || fallback, railVerb]
+              title={[railRole, railTitle || fallback, railHuman, railVerb]
                 .filter(Boolean)
                 .join(' · ')}
             >
               {railBridge || (fallback.includes('→') && !railTitle) ? (
-                <div className="flex min-w-0 items-center gap-1">
-                  <span
-                    className="shrink-0 font-mono text-[6px] font-bold uppercase tracking-[0.14em]"
-                    style={{ color: copper.shine }}
-                  >
-                    NET
-                  </span>
-                  <span className="truncate font-mono text-[8px] font-semibold leading-tight text-[var(--color-ink)]">
-                    {fallback || railTitle}
-                  </span>
-                </div>
+                <>
+                  <div className="flex min-w-0 items-center gap-1">
+                    <span
+                      className="shrink-0 font-mono text-[6px] font-bold uppercase tracking-[0.14em]"
+                      style={{ color: copper.shine }}
+                    >
+                      NET
+                    </span>
+                    <span className="truncate font-mono text-[8px] font-bold leading-tight text-[var(--color-accent)]">
+                      {railTitle || fallback}
+                    </span>
+                  </div>
+                  {railHuman ? (
+                    <div className="mt-px truncate font-mono text-[6px] leading-tight text-[var(--color-ink-dim)]">
+                      {railHuman}
+                    </div>
+                  ) : null}
+                  {railVerb ? (
+                    <div
+                      className="mt-px truncate font-mono text-[6px] uppercase tracking-[0.12em]"
+                      style={{ color: 'color-mix(in srgb, #9fb5a4 80%, transparent)' }}
+                    >
+                      {railVerb}
+                    </div>
+                  ) : null}
+                </>
               ) : railTitle ? (
                 <>
                   <div className="flex min-w-0 items-center gap-1">
@@ -423,10 +442,15 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
                         {railRole}
                       </span>
                     ) : null}
-                    <span className="truncate font-mono text-[8px] font-semibold leading-tight text-[var(--color-ink)]">
+                    <span className="truncate font-mono text-[8px] font-bold leading-tight text-[var(--color-accent)]">
                       {railTitle}
                     </span>
                   </div>
+                  {railHuman ? (
+                    <div className="mt-px truncate text-[7px] leading-tight text-[var(--color-ink-dim)]">
+                      {railHuman}
+                    </div>
+                  ) : null}
                   {railVerb ? (
                     <div
                       className="mt-px truncate font-mono text-[6px] uppercase tracking-[0.12em]"

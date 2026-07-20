@@ -3628,14 +3628,17 @@ export function finalizeStripEdges(
     const fromNode = byId.get(from);
     const toNode = byId.get(to);
     if (!fromNode || !toNode) continue;
-    const fromLabel =
-      fromNode.data.label || from.replace(/^cluster:process:/, '');
-    const toLabel = toNode.data.label || to.replace(/^cluster:process:/, '');
+    const fromSys =
+      fromNode.data.processRoute?.trim() ||
+      from.replace(/^cluster:process:/, '');
+    const toSys =
+      toNode.data.processRoute?.trim() || to.replace(/^cluster:process:/, '');
     const dy = toNode.position.y - fromNode.position.y;
     const dx = toNode.position.x - fromNode.position.x;
     const vertical = Math.abs(dy) >= Math.abs(dx) * 0.6;
+    // System route ids on the bridge (silkscreen); hop count when multiple flows collapse.
     const label =
-      n > 1 ? `${fromLabel} → ${toLabel} · ${n}` : `${fromLabel} → ${toLabel}`;
+      n > 1 ? `${fromSys} → ${toSys} · ${n}` : `${fromSys} → ${toSys}`;
     const bridge: PostureAlgoGraph['edges'][number] = {
       id: `e-rail:${from}->${to}`,
       source: from,

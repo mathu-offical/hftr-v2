@@ -45,6 +45,8 @@ const PULSE_MS = 2_200;
 type LiveNodeData = PostureAlgoNodeData & {
   stageStatus?: MarketHubSynthesisStageStatus;
   selected?: boolean;
+  /** System id for strip chrome (kind / step / route). */
+  systemKey?: string;
 };
 
 type LiveEdge = Edge<
@@ -52,6 +54,7 @@ type LiveEdge = Edge<
     stripMode?: boolean;
     laneOffset?: number;
     railTitle?: string;
+    railHuman?: string;
     railVerb?: string;
     railRole?: string;
     railBridge?: boolean;
@@ -343,6 +346,12 @@ function styleModelEdge(
     sourceLabel?: string;
     sourceRole?: PostureAlgoNodeData['nodeRole'];
     targetLabel?: string;
+    /** System id (kind / step / route) for silkscreen. */
+    systemKey?: string;
+    operation?: string;
+    targetSystemKey?: string;
+    /** Pulse overlay without rebuilding graph layout. */
+    pulsed?: boolean;
   },
 ): LiveEdge {
   const { edgeType, activation, status, track } = edge.data;
@@ -422,20 +431,46 @@ function styleModelEdge(
     }
   })();
   const sourceName = (opts?.sourceLabel ?? '').trim();
+  const targetName = (opts?.targetLabel ?? '').trim();
   const roleTag =
     opts?.sourceRole != null ? roleLabel(opts.sourceRole) : null;
-  const railTitle = sourceName
-    ? sourceName.length > 22
-      ? `${sourceName.slice(0, 20)}…`
-      : sourceName
-    : null;
+  const sysKey = (opts?.systemKey ?? '').trim();
+  const tgtSys = (opts?.targetSystemKey ?? '').trim();
+  const op = (opts?.operation ?? '').trim();
+  // Prefer system keys on copper silkscreen; human names ride as secondary.
+  const railTitle = (() => {
+    if (railBridge && sysKey && tgtSys) {
+      return truncateSys(`${sysKey} → ${tgtSys}`, 36);
+    }
+    if (railBridge && edge.label?.trim()) {
+      return truncateSys(edge.label.trim(), 36);
+    }
+    if (sysKey) return truncateSys(sysKey, 28);
+    if (sourceName) return truncateSys(sourceName, 22);
+    return null;
+  })();
+  const railHuman = (() => {
+    if (railBridge && sourceName && targetName) {
+      const h = `${sourceName} → ${targetName}`;
+      if (railTitle && h !== railTitle) return truncateSys(h, 32);
+      return null;
+    }
+    if (sourceName && railTitle && sourceName !== railTitle) {
+      return truncateSys(sourceName, 22);
+    }
+    return null;
+  })();
+  const railVerb = (() => {
+    if (railBridge) return 'rail↔rail';
+    if (op) return truncateSys(op, 24);
+    return transferWord;
+  })();
   const stripLabel = (() => {
     if (opts?.hideLabels) return undefined;
     if (!opts?.stripTransferLabels) return undefined;
-    // Backbone / rail bridges: keep explicit route→route labels.
-    if ((cross || railBridge) && edge.label?.trim()) return edge.label.trim();
-    if (railTitle && roleTag) return `${roleTag} · ${railTitle}`;
     if (railTitle) return railTitle;
+    if ((cross || railBridge) && edge.label?.trim()) return edge.label.trim();
+    if (roleTag) return `${roleTag} · ${transferWord}`;
     return transferWord;
   })();
   const label = opts?.hideLabels
@@ -446,6 +481,11 @@ function styleModelEdge(
         ? `${edge.label} · ${activation}/${status}`
         : `${edgeType} · ${activation}`;
 
+  const pulsed = opts?.pulsed === true;
+  const edgeActivation = pulsed ? 'pulsing' : activation;
+  const edgeAnimated =
+    edgeActivation === 'active' || edgeActivation === 'pulsing' || animated;
+
   return {
     id: edge.id,
     source: edge.source,
@@ -455,21 +495,23 @@ function styleModelEdge(
     ...(edge.targetHandle ? { targetHandle: edge.targetHandle } : {}),
     data: {
       ...edge.data,
+      activation: edgeActivation,
       stripMode: strip,
       ...(opts?.laneOffset != null ? { laneOffset: opts.laneOffset } : {}),
       ...(railTitle ? { railTitle } : {}),
+      ...(railHuman ? { railHuman } : {}),
       ...(railBridge ? { railBridge: true } : {}),
       ...(opts?.stripTransferLabels
         ? {
-            railVerb: railBridge ? 'rail link' : transferWord,
+            railVerb,
             ...(roleTag && !railBridge ? { railRole: roleTag } : {}),
-            ...(railBridge ? { railRole: 'RAIL' } : {}),
+            ...(railBridge ? { railRole: 'NET' } : {}),
           }
         : {}),
     },
     // Bespoke Model orthogonal rails (strip + default).
     type: 'postureOrtho',
-    animated: animated || cross,
+    animated: edgeAnimated || cross,
     zIndex: railBridge ? 9 : cross ? 8 : edgeType === 'emit' ? 2 : 5,
     markerEnd: {
       type: MarkerType.ArrowClosed,
@@ -550,6 +592,7 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
       data.nodeRole === 'query_source' ||
       data.nodeRole === 'library_source' ||
       data.nodeRole === 'capital_source';
+    const sysKey = data.systemKey ?? null;
     return (
       <div
         className={`w-[112px] rounded-[1px] border border-t-2 px-1 py-0.5 ${kindBorder(data.kind)} ${chrome} ${ring}`}
@@ -562,10 +605,11 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
         data-activation={data.activation}
         data-track={data.track}
         data-strip-compact="true"
+        data-system-key={sysKey ?? undefined}
         data-transfer-hop={
           data.transferHop != null ? String(data.transferHop) : undefined
         }
-        title={`${data.label} · ${data.operation} · ${data.amount}`}
+        title={`${sysKey ? `${sysKey} · ` : ''}${data.label} · ${data.operation} · ${data.amount}`}
       >
         <Handle
           type="target"
@@ -595,9 +639,21 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
             {data.amount}
           </span>
         </div>
+        {sysKey ? (
+          <p
+            className="truncate font-mono text-[8px] font-bold leading-tight tracking-tight text-[var(--color-accent)]"
+            title={sysKey}
+          >
+            {sysKey}
+          </p>
+        ) : null}
         <p
           className={`truncate leading-tight text-[var(--color-ink)] ${
-            isSource ? 'text-[11px] font-semibold' : 'text-[10px] font-medium'
+            sysKey
+              ? 'text-[9px] font-medium text-[var(--color-ink-dim)]'
+              : isSource
+                ? 'text-[11px] font-semibold'
+                : 'text-[10px] font-medium'
           }`}
           title={data.label}
         >
@@ -731,20 +787,32 @@ const PostureGroupNode = memo(function PostureGroupNode({
           compact ? 'px-1 py-px' : 'px-1.5 py-0.5'
         }`}
       >
-        <p
-          className={`truncate font-mono uppercase tracking-[0.12em] text-[var(--color-ink)] ${
-            isCluster
-              ? compact
-                ? 'text-[7px] font-medium'
-                : 'text-[8px] font-medium'
-              : compact
-                ? 'text-[8px] font-semibold'
-                : 'text-[9px] font-semibold'
-          }`}
-          title={data.label}
-        >
-          {isCluster ? data.label : data.label}
-        </p>
+        <div className="min-w-0">
+          {isCluster && (data.systemKey || data.processRoute) ? (
+            <p
+              className={`truncate font-mono font-bold tracking-tight text-[var(--color-accent)] ${
+                compact ? 'text-[7px]' : 'text-[8px]'
+              }`}
+              title={data.systemKey ?? data.processRoute}
+            >
+              {data.systemKey ?? data.processRoute}
+            </p>
+          ) : null}
+          <p
+            className={`truncate font-mono uppercase tracking-[0.12em] text-[var(--color-ink)] ${
+              isCluster
+                ? compact
+                  ? 'text-[7px] font-medium text-[var(--color-ink-dim)]'
+                  : 'text-[8px] font-medium text-[var(--color-ink-dim)]'
+                : compact
+                  ? 'text-[8px] font-semibold'
+                  : 'text-[9px] font-semibold'
+            }`}
+            title={data.label}
+          >
+            {data.label}
+          </p>
+        </div>
         <span className="shrink-0 font-mono text-[7px] tabular-nums text-[var(--color-ink-faint)]">
           {data.amount}
         </span>
@@ -795,21 +863,29 @@ function InnerCanvas(props: {
   layoutMode: 'default' | 'stripExpanded';
   onNavigate?: ((nodeId: string, screenId: MarketPostureStageScreenId) => void) | undefined;
 }) {
+  const hydrationKey = useMemo(
+    () => hydrationStamp(props.hydration),
+    [props.hydration],
+  );
+  const runKey = useMemo(() => stageSignature(props.run), [props.run]);
+
+  // Layout graph is stable across pulse ticks — pulse is applied at style time only.
   const graph = useMemo(
     () =>
       buildMarketPostureAlgorithmGraph({
         hydration: props.hydration,
         stages: props.run?.stages ?? null,
-        pulsedEdgeIds: props.pulsedEdgeIds,
         layoutMode: props.layoutMode,
       }),
-    [props.hydration, props.run, props.pulsedEdgeIds, props.layoutMode],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by stamps, not object identity
+    [hydrationKey, runKey, props.layoutMode],
   );
   const byStage = useMemo(() => {
     const m = new Map<string, MarketHubSynthesisStage>();
     for (const s of props.run?.stages ?? []) m.set(s.stageId, s);
     return m;
-  }, [props.run]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runKey stamps stage content
+  }, [runKey]);
 
   const liveNodes = useMemo(
     () =>
@@ -819,26 +895,44 @@ function InnerCanvas(props: {
           ...n.data,
           stageStatus: n.data.stageId ? byStage.get(n.data.stageId)?.status : undefined,
           selected: props.selectedNodeId === n.id,
+          systemKey: systemKeyForNode(n),
+          activation: props.pulsedEdgeIds.has(n.id)
+            ? ('pulsing' as const)
+            : n.data.activation,
         },
         selectable: n.data.nodeRole !== 'lane_label',
       })),
-    [graph.nodes, byStage, props.selectedNodeId],
+    [graph.nodes, byStage, props.selectedNodeId, props.pulsedEdgeIds],
+  );
+
+  const layoutKey = useMemo(
+    () =>
+      graph.nodes
+        .map((n) => `${n.id}@${Math.round(n.position.x)},${Math.round(n.position.y)}`)
+        .join('|'),
+    [graph.nodes],
   );
 
   const styledEdges = useMemo(() => {
+    const metaById = new Map<
+      string,
+      {
+        label: string;
+        role: PostureAlgoNodeData['nodeRole'];
+        systemKey: string;
+        operation: string;
+      }
+    >();
     const screenById = new Map<string, string>();
-    const labelById = new Map<string, { label: string; role: PostureAlgoNodeData['nodeRole'] }>();
     for (const n of graph.nodes) {
       if (n.data.stageScreenId) screenById.set(n.id, n.data.stageScreenId);
-      if (
-        n.data.nodeRole !== 'screen_group' &&
-        n.data.nodeRole !== 'process_cluster' &&
-        n.data.nodeRole !== 'lane_label'
-      ) {
-        labelById.set(n.id, { label: n.data.label, role: n.data.nodeRole });
-      } else if (n.data.nodeRole === 'screen_group' || n.data.nodeRole === 'process_cluster') {
-        labelById.set(n.id, { label: n.data.label, role: n.data.nodeRole });
-      }
+      if (n.data.nodeRole === 'lane_label') continue;
+      metaById.set(n.id, {
+        label: n.data.label,
+        role: n.data.nodeRole,
+        systemKey: systemKeyForNode(n),
+        operation: n.data.operation,
+      });
     }
     const stripTransferLabels = props.layoutMode === 'stripExpanded';
     return graph.edges.map((e, i) => {
@@ -848,7 +942,7 @@ function InnerCanvas(props: {
         e.id.startsWith('e-group:') ||
         e.id.startsWith('e-rail:') ||
         (a != null && b != null && a !== b);
-      const srcMeta = labelById.get(e.source);
+      const srcMeta = metaById.get(e.source);
       const opts: {
         crossScreen: boolean;
         stripTransferLabels: boolean;
@@ -858,12 +952,19 @@ function InnerCanvas(props: {
         sourceLabel?: string;
         sourceRole?: PostureAlgoNodeData['nodeRole'];
         targetLabel?: string;
+        systemKey?: string;
+        operation?: string;
+        targetSystemKey?: string;
+        pulsed?: boolean;
       } = {
         crossScreen,
         stripTransferLabels,
         orthoStrip: true,
-        // Keep backbone labels (flow counts); only hide empty ones.
         hideLabels: false,
+        pulsed:
+          props.pulsedEdgeIds.has(e.id) ||
+          props.pulsedEdgeIds.has(e.source) ||
+          props.pulsedEdgeIds.has(e.target),
       };
       if (stripTransferLabels) {
         opts.laneOffset = ((i % 5) - 2) * 3;
@@ -871,16 +972,22 @@ function InnerCanvas(props: {
       if (srcMeta) {
         opts.sourceLabel = srcMeta.label;
         opts.sourceRole = srcMeta.role;
+        opts.systemKey = srcMeta.systemKey;
+        opts.operation = srcMeta.operation;
       }
-      const tgt = labelById.get(e.target);
-      if (tgt) opts.targetLabel = tgt.label;
+      const tgt = metaById.get(e.target);
+      if (tgt) {
+        opts.targetLabel = tgt.label;
+        opts.targetSystemKey = tgt.systemKey;
+      }
       return styleModelEdge(e, opts);
     });
-  }, [graph.edges, graph.nodes, props.layoutMode]);
+  }, [graph.edges, graph.nodes, props.layoutMode, props.pulsedEdgeIds]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(liveNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(styledEdges);
   const { fitView } = useReactFlow();
+  const didFit = useRef(false);
 
   useEffect(() => {
     setNodes(liveNodes);
@@ -888,17 +995,22 @@ function InnerCanvas(props: {
 
   useEffect(() => {
     setEdges(styledEdges);
+  }, [styledEdges, setEdges]);
+
+  // Fit once per layout structure — never on pulse / selection / style ticks.
+  useEffect(() => {
+    const strip = props.layoutMode === 'stripExpanded';
     const frame = requestAnimationFrame(() => {
-      const strip = props.layoutMode === 'stripExpanded';
       void fitView({
         padding: strip ? 0.05 : 0.18,
         maxZoom: strip ? 1.05 : 0.75,
         minZoom: strip ? 0.28 : 0.12,
-        duration: 220,
+        duration: didFit.current ? 180 : 0,
       });
+      didFit.current = true;
     });
     return () => cancelAnimationFrame(frame);
-  }, [styledEdges, setEdges, fitView, props.layoutMode]);
+  }, [layoutKey, props.layoutMode, fitView]);
 
   return (
     <ReactFlow
@@ -982,7 +1094,8 @@ function InnerCanvas(props: {
 }
 
 function NodeInspector(props: {
-  node: PostureAlgoNodeData | null;
+  nodeId?: string | null;
+  node: (PostureAlgoNodeData & { systemKey?: string }) | null;
   stage: MarketHubSynthesisStage | null;
 }) {
   if (!props.node) {
@@ -994,8 +1107,14 @@ function NodeInspector(props: {
   }
   const n = props.node;
   const s = props.stage;
+  const sysKey =
+    n.systemKey?.trim() ||
+    systemKeyForNode({ id: props.nodeId ?? n.stageId ?? n.label, data: n });
   return (
     <div className="space-y-1 rounded border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5">
+      <p className="font-mono text-[9px] font-bold tracking-tight text-[var(--color-accent)]">
+        {sysKey}
+      </p>
       <p className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-ink-dim)]">
         {roleLabel(n.nodeRole)} · {n.label}
       </p>
@@ -1146,6 +1265,51 @@ function stageSignature(run: MarketHubSynthesisRun | null): string {
   return run.stages.map((s) => `${s.stageId}:${s.status}:${s.finishedAt ?? ''}`).join('|');
 }
 
+/** Stable stamp so new object identity from polling does not rebuild the Model. */
+function hydrationStamp(h: MarketHubModelHydration | null): string {
+  if (!h) return '';
+  return [
+    h.asOfIso ?? '',
+    h.livePatchedAt ?? '',
+    h.totals.liveReady,
+    h.totals.admittedConcepts,
+    h.liveSources.map((s) => `${s.kind}:${s.status}:${s.contributed ? 1 : 0}`).join(','),
+    h.librarySources.map((l) => `${l.id}:${l.admittedCount}`).join(','),
+    String(h.processingFlows.length),
+    String(h.processSteps?.length ?? 0),
+    String(h.panelSurfaces?.length ?? 0),
+  ].join('|');
+}
+
+/** System-facing id for silkscreen / node chrome (kind, step, route). */
+function systemKeyForNode(n: { id: string; data: PostureAlgoNodeData }): string {
+  const d = n.data;
+  if (d.processStepId) return d.processStepId;
+  if (d.panelSurfaceId) return d.panelSurfaceId;
+  if (d.stageId) return d.stageId;
+  if (d.processRoute && d.processFunction) {
+    return `${d.processRoute}/${d.processFunction}`;
+  }
+  if (d.processRoute) return d.processRoute;
+  if (n.id.startsWith('live:')) return n.id.slice('live:'.length);
+  if (n.id.startsWith('lib:')) return n.id.slice('lib:'.length);
+  if (n.id.startsWith('adapter:')) return n.id.slice('adapter:'.length);
+  if (n.id.startsWith('analyze:')) return n.id.slice('analyze:'.length);
+  if (n.id.startsWith('process:')) return n.id.slice('process:'.length);
+  if (n.id.startsWith('cluster:process:')) {
+    return d.processRoute ?? n.id.slice('cluster:process:'.length);
+  }
+  if (n.id.startsWith('group:')) return n.id.slice('group:'.length);
+  if (d.sourceDomain) return d.sourceDomain;
+  return n.id;
+}
+
+function truncateSys(s: string, max = 28): string {
+  const t = s.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
 /**
  * Live synthesis hub canvas (D-120 / D-147 / D-156 / D-160 / D-165 / D-169 / D-186).
  * Track-banded layout; typed edges; pulses on Sync/Analyze refresh.
@@ -1173,6 +1337,8 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
   const prevLivePatched = useRef<string | null>(null);
   const hydration = props.hydration ?? null;
   const run = props.run ?? null;
+  const hydrationKey = useMemo(() => hydrationStamp(hydration), [hydration]);
+  const runKey = useMemo(() => stageSignature(run), [run]);
 
   const baselineGraph = useMemo(
     () =>
@@ -1181,12 +1347,30 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
         stages: run?.stages ?? null,
         layoutMode,
       }),
-    [hydration, run, layoutMode],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrationKey/runKey stabilize polls
+    [hydrationKey, runKey, layoutMode],
+  );
+
+  const pulseEdgeIds = useMemo(
+    () => baselineGraph.edges.map((e) => e.id),
+    [baselineGraph.edges],
+  );
+  const pulseStageIds = useMemo(
+    () =>
+      baselineGraph.nodes.filter((n) => n.data.nodeRole === 'stage').map((n) => n.id),
+    [baselineGraph.nodes],
+  );
+  const pulsePanelIds = useMemo(
+    () =>
+      baselineGraph.nodes
+        .filter((n) => n.data.nodeRole === 'panel_surface')
+        .map((n) => n.id),
+    [baselineGraph.nodes],
   );
 
   useEffect(() => {
     const nextAsOf = hydration?.asOfIso ?? null;
-    const nextSig = stageSignature(run);
+    const nextSig = runKey;
     const nextLive = hydration?.livePatchedAt ?? null;
     const pulse = collectModelPulseIds({
       prevAsOf: prevAsOf.current,
@@ -1195,11 +1379,9 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
       nextStageSig: nextSig,
       prevLivePatchedAt: prevLivePatched.current,
       nextLivePatchedAt: nextLive,
-      edgeIds: baselineGraph.edges.map((e) => e.id),
-      stageIds: baselineGraph.nodes.filter((n) => n.data.nodeRole === 'stage').map((n) => n.id),
-      panelNodeIds: baselineGraph.nodes
-        .filter((n) => n.data.nodeRole === 'panel_surface')
-        .map((n) => n.id),
+      edgeIds: pulseEdgeIds,
+      stageIds: pulseStageIds,
+      panelNodeIds: pulsePanelIds,
     });
     prevAsOf.current = nextAsOf;
     prevStageSig.current = nextSig;
@@ -1208,7 +1390,14 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
     setPulsedEdgeIds(pulse);
     const t = window.setTimeout(() => setPulsedEdgeIds(new Set()), PULSE_MS);
     return () => window.clearTimeout(t);
-  }, [hydration?.asOfIso, hydration?.livePatchedAt, run, baselineGraph]);
+  }, [
+    hydration?.asOfIso,
+    hydration?.livePatchedAt,
+    runKey,
+    pulseEdgeIds,
+    pulseStageIds,
+    pulsePanelIds,
+  ]);
 
   const selectedNode = baselineGraph.nodes.find((n) => n.id === selectedNodeId)?.data ?? null;
   const selectedStage =
@@ -1294,7 +1483,21 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
       </div>
       {selectedNode ? (
         <div className={isStrip ? 'max-h-24 shrink-0 overflow-y-auto' : undefined}>
-          <NodeInspector node={selectedNode} stage={selectedStage} />
+          <NodeInspector
+            nodeId={selectedNodeId}
+            node={
+              selectedNodeId
+                ? {
+                    ...selectedNode,
+                    systemKey: systemKeyForNode({
+                      id: selectedNodeId,
+                      data: selectedNode,
+                    }),
+                  }
+                : selectedNode
+            }
+            stage={selectedStage}
+          />
         </div>
       ) : null}
     </div>

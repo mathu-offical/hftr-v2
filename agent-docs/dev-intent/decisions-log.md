@@ -1900,6 +1900,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   (`market-posture-strip-placement.ts`) with optional `STRIP_NODE_PLACEMENT_OVERRIDES`;
   inter-cluster content collapses to labeled **rail↔rail bridges** (`e-rail:…`) on
   cluster Top/Bottom handles so route-to-route links stay visible without node mash;
+  bridge + node silkscreen lead with **system keys** (route / step / kind / panel id),
+  human names secondary; hydration/run **content stamps** keep polls from rebuilding
+  layout or calling `fitView` on pulse/style ticks;
   **research ENGINEs** appear on Library as gather→validate→synthesize→admit→articles→shelf
   (D-214). Strip chrome is **compact** (`stripCompact`): packing cell sizes match dense
   node cards; track legend omitted so the diagram fills the band.

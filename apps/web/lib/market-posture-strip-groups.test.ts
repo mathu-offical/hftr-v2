@@ -254,7 +254,8 @@ describe('applyStripScreenGroups', () => {
     expect(bridge).toBeTruthy();
     expect(bridge?.source.startsWith('cluster:process:')).toBe(true);
     expect(bridge?.target.startsWith('cluster:process:')).toBe(true);
-    expect(bridge?.label).toMatch(/→/);
+    // System route ids on the silkscreen (not only human labels).
+    expect(bridge?.label).toMatch(/news_headline\s*→\s*bars_ohlc/);
   });
 
   it('drops skip-hop wires inside a route cluster', () => {

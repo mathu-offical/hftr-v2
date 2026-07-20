@@ -1,11 +1,16 @@
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { companies, decisionTrees, leadPackages, trendCandidates } from '@hftr/db/schema';
+import { companies, decisionTrees, leadPackages, modules, trendCandidates } from '@hftr/db/schema';
+import { TradingModuleConfig } from '@hftr/contracts';
 import { getSyntheticQuote } from '../dispatch/quotes';
 import { venueDate } from '../calendar/calendar';
 import { buildDecisionTree } from '../pipeline/tree';
 import { treeFromModelOutput, type ModelBuiltDecisionTree } from '../pipeline/tree-expand';
 import { buildEntryOnlyCompositionPlan } from '../pipeline/order-composition';
+import {
+  evaluateTradingPathExecutableState,
+  executableStateAllowsCompose,
+} from '../pipeline/executable-state';
 import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
 import { estimateLlmJobCost } from '../queue/llm-cost-estimate';
@@ -153,6 +158,41 @@ registerHandler('tactical.expand', async ({ db, clock, job, modelGateway }) => {
 
   const tradingModuleId =
     typeof payload.targetModuleId === 'string' ? payload.targetModuleId : payload.moduleId;
+  const [tradingMod] = await db
+    .select({ config: modules.config })
+    .from(modules)
+    .where(and(eq(modules.id, tradingModuleId), eq(modules.companyId, payload.companyId)))
+    .limit(1);
+  const tradingCfg = TradingModuleConfig.safeParse(tradingMod?.config ?? {});
+  const compositionMode = tradingCfg.success ? tradingCfg.data.compositionMode : 'entry_only';
+
+  const branches = Array.isArray(built.branches) ? built.branches : [];
+  const executableState = evaluateTradingPathExecutableState({
+    leadRef: payload.leadId,
+    decisionTreeRef: treeId,
+    tradingModuleId,
+    hasBranches: branches.length > 0,
+    sessionAllowsOrder: true, // session gate already ran at promote; refine re-checks later
+    nowIso: now.toISOString(),
+  });
+
+  if (!executableStateAllowsCompose(executableState)) {
+    await db
+      .update(decisionTrees)
+      .set({
+        status: 'compile_blocked',
+        leverState: {
+          ...(typeof leverState === 'object' && leverState !== null
+            ? (leverState as Record<string, unknown>)
+            : {}),
+          executableState,
+        },
+        updatedAt: now,
+      })
+      .where(eq(decisionTrees.id, treeId));
+    return;
+  }
+
   const controlSnap = payload.controlSnapshot as {
     policyEnvelopeVersion?: string;
     persistedControlSnapshotId?: string;
@@ -165,7 +205,7 @@ registerHandler('tactical.expand', async ({ db, clock, job, modelGateway }) => {
     policyEnvelopeRef: controlSnap.policyEnvelopeVersion ?? null,
     controlSnapshotRef: controlSnap.persistedControlSnapshotId ?? null,
     postureOrientationRef: controlSnap.postureOrientationRef ?? null,
-    compositionMode: 'entry_only',
+    compositionMode,
     nowIso: now.toISOString(),
   });
 
@@ -180,7 +220,10 @@ registerHandler('tactical.expand', async ({ db, clock, job, modelGateway }) => {
       treeId,
       trendId: payload.trendId,
       ...(payload.targetModuleId !== undefined ? { targetModuleId: payload.targetModuleId } : {}),
-      controlSnapshot: payload.controlSnapshot,
+      controlSnapshot: {
+        ...payload.controlSnapshot,
+        executableState,
+      },
       tacticalProvider: provider,
       compositionPlan,
     },

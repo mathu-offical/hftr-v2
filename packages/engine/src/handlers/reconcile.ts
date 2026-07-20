@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { DeterministicActionTask } from '@hftr/contracts';
 import {
   actionInstructions,
+  compileEvents,
   deterministicTasks,
   dispatchReconciliationEvents,
 } from '@hftr/db/schema';
@@ -10,6 +11,7 @@ import { getSession, sessionPhase, venueDate } from '../calendar/calendar';
 import { record } from '../calc/store';
 import { finalizeRecoveredVenueFill } from '../dispatch/paper-trade';
 import { resolveExecutionContext } from '../dispatch/execution-context';
+import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
 
 const ReconcilePayload = z.object({
@@ -169,5 +171,53 @@ registerHandler('verify.reconcile_order', async ({ db, clock, job }) => {
       payload: { rawStatus: orderSnap.rawStatus, taskId: payload.taskId },
       requestId: null,
     });
+
+    // D-244: loop_refine — retune same tree and re-enter compile (model-free).
+    const reason =
+      orderSnap.status === 'expired'
+        ? ('expired' as const)
+        : orderSnap.status === 'canceled'
+          ? ('canceled' as const)
+          : ('rejected' as const);
+    const [instr] = await db
+      .select({ id: actionInstructions.id, envelope: actionInstructions.envelope })
+      .from(actionInstructions)
+      .where(eq(actionInstructions.id, taskRow.instructionId))
+      .limit(1);
+    const env = (instr?.envelope ?? {}) as {
+      causationRefs?: string[];
+      moduleId?: string;
+    };
+    const causation = Array.isArray(env.causationRefs) ? env.causationRefs : [];
+    // Envelope causation: [trendId, leadId, treeId] from compile.select
+    const leadId = causation[1];
+    const treeId = causation[2];
+    if (leadId && treeId) {
+      const [compileRow] = await db
+        .select({ lineage: compileEvents.lineage })
+        .from(compileEvents)
+        .where(eq(compileEvents.instructionId, taskRow.instructionId))
+        .limit(1);
+      const lineage = (compileRow?.lineage ?? {}) as { loopRefineAttempt?: number };
+      const attempt =
+        typeof lineage.loopRefineAttempt === 'number' ? lineage.loopRefineAttempt : 0;
+      await enqueue(db, clock, {
+        queueClass: 'TACTICAL',
+        kind: 'trading.loop_refine',
+        payload: {
+          companyId: payload.companyId,
+          moduleId: payload.moduleId,
+          leadId,
+          treeId,
+          trendId: causation[0],
+          reason,
+          attempt,
+        },
+        idempotencyKey: `loop-refine-${treeId}-${reason}-${attempt + 1}`,
+        priority: 'HIGH',
+        companyId: payload.companyId,
+        moduleId: payload.moduleId,
+      });
+    }
   }
 });

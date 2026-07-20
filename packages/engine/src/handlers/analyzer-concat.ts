@@ -17,6 +17,7 @@ import {
 } from '@hftr/contracts';
 import { registerHandler } from './registry';
 import { ingestHubTopicCandidate } from '../engines/data-hub-topic-feed';
+import { invalidateCompanyHubCaches } from '../engines/hub-corpus-cache';
 import { z } from 'zod';
 
 const ConcatPayload = z.object({
@@ -250,6 +251,7 @@ registerHandler('analyzer.concat', async ({ db, clock, job }) => {
         },
         now,
       );
+      await invalidateCompanyHubCaches(db, payload.companyId, now);
     }
   }
 

@@ -323,6 +323,7 @@ import './handlers/trend';
 import './handlers/promote';
 import './handlers/tactical';
 import './handlers/compile-select';
+import './handlers/loop-refine';
 import './handlers/research';
 import './handlers/research-gather';
 import './handlers/research-validate';
@@ -593,6 +594,11 @@ export {
 } from './posture/build-orientation';
 export { loadPostureFeedForEngine } from './posture/engine-feed';
 export { buildEntryOnlyCompositionPlan } from './pipeline/order-composition';
+export {
+  evaluateTradingPathExecutableState,
+  executableStateAllowsCompose,
+} from './pipeline/executable-state';
+export { loadHubCorpusConceptEvidence } from './engines/hub-corpus-evidence';
 export {
   sectorPeersForFocuses,
   DIVERSIFIED_MARKET_ANCHORS,

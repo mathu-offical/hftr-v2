@@ -9,6 +9,7 @@ import {
   upsertResearchResult,
   upsertResearchRun,
 } from '../research/run-state';
+import { invalidateCompanyHubCaches } from '../engines/hub-corpus-cache';
 import { registerHandler } from './registry';
 
 const AdmitPayload = z.object({
@@ -88,4 +89,8 @@ registerHandler('research.admit', async ({ db, clock, job }) => {
     .update(researchRequests)
     .set({ status: 'completed', updatedAt: now })
     .where(eq(researchRequests.id, payload.requestId));
+
+  if (conceptIds.length > 0) {
+    await invalidateCompanyHubCaches(db, payload.companyId, now);
+  }
 });

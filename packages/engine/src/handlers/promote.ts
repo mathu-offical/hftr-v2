@@ -1,9 +1,14 @@
-import { and, eq } from 'drizzle-orm';
+import { and, count, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
+import {
+  TradingModuleConfig,
+  TrendModuleConfig,
+} from '@hftr/contracts';
 import {
   companies,
   brokerConnections,
   leadPackages,
+  libraries,
   modules,
   trendCandidates,
 } from '@hftr/db/schema';
@@ -87,11 +92,17 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
       : undefined) ??
     (linkedTrading ? companyModules.find((m) => m.id === linkedTrading.id) : undefined) ??
     companyModules.find((m) => m.type === 'trading');
-  const tradingConfig = (tradingModule?.config ?? {}) as { strategyFamilies?: string[] };
+  const tradingConfig = TradingModuleConfig.safeParse(tradingModule?.config ?? {});
+  const tradingCfg = tradingConfig.success ? tradingConfig.data : null;
   const strategyFamily =
-    Array.isArray(tradingConfig.strategyFamilies) && tradingConfig.strategyFamilies[0]
-      ? tradingConfig.strategyFamilies[0]
-      : null;
+    tradingCfg?.defaultStrategyFamily ??
+    (Array.isArray(tradingCfg?.strategyFamilies) && tradingCfg.strategyFamilies[0]
+      ? tradingCfg.strategyFamilies[0]
+      : null);
+
+  const trendCfg = TrendModuleConfig.safeParse(trendModule.config ?? {});
+  const leadFanoutCap = trendCfg.success ? trendCfg.data.leadFanoutCap : 6;
+  const maxConcurrentLeads = tradingCfg?.maxConcurrentLeads ?? leadFanoutCap;
 
   const policyModule = resolvePolicyModuleForTrading(graph, tradingModule?.id ?? null);
   const policyConfig = (policyModule?.config ?? {}) as { policyEnvelopeRef?: string };
@@ -141,6 +152,23 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
   }
 
   const linkedLibraryModuleIds = linkedLibraryMods.map((m) => m.id);
+  // D-242: include engine Data Hub module when trend is engine-scoped.
+  if (trendModule.engineInstanceId) {
+    const [hubLib] = await db
+      .select({ moduleId: libraries.moduleId })
+      .from(libraries)
+      .where(
+        and(
+          eq(libraries.companyId, payload.companyId),
+          eq(libraries.isEngineDataHub, true),
+          eq(libraries.ownerEngineInstanceId, trendModule.engineInstanceId),
+        ),
+      )
+      .limit(1);
+    if (hubLib?.moduleId && !linkedLibraryModuleIds.includes(hubLib.moduleId)) {
+      linkedLibraryModuleIds.push(hubLib.moduleId);
+    }
+  }
   const { refs: admittedArtifactRefs } = await loadAdmittedArtifactRefs(
     db,
     payload.companyId,
@@ -250,6 +278,28 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     .returning({ id: leadPackages.id });
   const leadId = leadRows[0]!.id;
   if (!admitted) return;
+
+  // D-244: enforce maxConcurrentLeads / leadFanoutCap before expanding a new path.
+  if (tradingModule) {
+    const [active] = await db
+      .select({ n: count() })
+      .from(leadPackages)
+      .where(
+        and(
+          eq(leadPackages.companyId, payload.companyId),
+          eq(leadPackages.status, 'admitted'),
+          inArray(leadPackages.targetModuleId, [tradingModule.id]),
+        ),
+      );
+    // Count includes the lead we just inserted — allow up to maxConcurrentLeads.
+    if ((active?.n ?? 0) > maxConcurrentLeads) {
+      await db
+        .update(leadPackages)
+        .set({ status: 'rejected', updatedAt: new Date(clock.nowMs()) })
+        .where(eq(leadPackages.id, leadId));
+      return;
+    }
+  }
 
   await enqueueLinkedResearchCurate(db, clock, {
     companyId: payload.companyId,

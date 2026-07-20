@@ -38,6 +38,7 @@ import { enqueue } from '../queue/queue';
 import { continueResearchLane } from '../research/lanes';
 import { registerHandler } from './registry';
 import { loadCatalogHints } from './research-deterministic';
+import { loadHubCorpusConceptEvidence } from '../engines/hub-corpus-evidence';
 
 /** Identity + intent only — credentials resolved server-side (D-074). */
 const GatherPayload = z.object({
@@ -89,9 +90,20 @@ registerHandler('research.gather', async ({ db, clock, job }) => {
   const wantsCatalog = requestedKinds.includes('catalog') || requestedKinds.length === 0;
   const wantsLibrary = requestedKinds.includes('library') || requestedKinds.length === 0;
 
-  const libraryConceptsForGather = wantsLibrary
+  const linkedLibrary = wantsLibrary
     ? await loadLinkedLibraryConceptEvidence(db, payload.companyId, payload.moduleId)
     : [];
+  const hubLibrary = wantsLibrary
+    ? await loadHubCorpusConceptEvidence(db, payload.companyId, payload.moduleId, now)
+    : [];
+  // D-242: hub corpus first, then canvas-linked libs (dedupe by conceptId).
+  const seenConcept = new Set<string>();
+  const libraryConceptsForGather: LibraryConceptEvidenceInput[] = [];
+  for (const row of [...hubLibrary, ...linkedLibrary]) {
+    if (seenConcept.has(row.conceptId)) continue;
+    seenConcept.add(row.conceptId);
+    libraryConceptsForGather.push(row);
+  }
 
   const gatherCredentials = await resolveResearchGatherCredentials(db, payload.companyId);
 

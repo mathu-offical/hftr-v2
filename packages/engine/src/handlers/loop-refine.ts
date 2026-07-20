@@ -76,7 +76,23 @@ registerHandler('trading.loop_refine', async ({ db, clock, job }) => {
   const tradingCfg = TradingModuleConfig.safeParse(tradingMod?.config ?? {});
   const compositionMode = tradingCfg.success ? tradingCfg.data.compositionMode : 'entry_only';
 
-  const controlSnap = (payload.controlSnapshot ?? {}) as {
+  if (compositionMode !== 'entry_only') {
+    await patchProcessStagesForModule(db, payload.companyId, tradingModuleId, [
+      { kind: 'loop_refine', status: 'blocked' },
+      { kind: 'instruction_compose', status: 'blocked' },
+    ]);
+    return;
+  }
+
+  const leadControl =
+    lead.controlSnapshot && typeof lead.controlSnapshot === 'object'
+      ? (lead.controlSnapshot as Record<string, unknown>)
+      : {};
+  const mergedControl = {
+    ...leadControl,
+    ...(payload.controlSnapshot ?? {}),
+  };
+  const controlSnap = mergedControl as {
     policyEnvelopeVersion?: string;
     persistedControlSnapshotId?: string;
     postureOrientationRef?: string | null;
@@ -125,7 +141,7 @@ registerHandler('trading.loop_refine', async ({ db, clock, job }) => {
       treeId: payload.treeId,
       trendId,
       ...(payload.targetModuleId ? { targetModuleId: payload.targetModuleId } : {}),
-      controlSnapshot: payload.controlSnapshot ?? {},
+      controlSnapshot: mergedControl,
       tacticalProvider: 'deterministic_placeholder',
       compositionPlan,
       loopRefineAttempt: attempt,
@@ -143,6 +159,7 @@ registerHandler('trading.loop_refine', async ({ db, clock, job }) => {
 
   await patchProcessStagesForModule(db, payload.companyId, tradingModuleId, [
     { kind: 'loop_refine', status: 'done' },
+    { kind: 'instruction_compose', status: 'done' },
     { kind: 'instruction_compile', status: 'active' },
   ]);
 });

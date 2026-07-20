@@ -488,6 +488,52 @@ async function resolveFamilyEngineIds(
 }
 
 /**
+ * Resolve the Engine Data Hub library for a module (D-242).
+ * Prefers the module's own engine hub; otherwise the hub of an execution
+ * engine that lists this module's engine as a research/family dependency.
+ */
+export async function resolveHubLibraryIdForModule(
+  db: Db,
+  companyId: string,
+  moduleId: string,
+): Promise<string | null> {
+  const [mod] = await db
+    .select({ engineInstanceId: modules.engineInstanceId })
+    .from(modules)
+    .where(and(eq(modules.id, moduleId), eq(modules.companyId, companyId)))
+    .limit(1);
+  if (!mod?.engineInstanceId) return null;
+
+  const [ownHub] = await db
+    .select({ id: libraries.id })
+    .from(libraries)
+    .where(
+      and(
+        eq(libraries.companyId, companyId),
+        eq(libraries.isEngineDataHub, true),
+        eq(libraries.ownerEngineInstanceId, mod.engineInstanceId),
+      ),
+    )
+    .limit(1);
+  if (ownHub) return ownHub.id;
+
+  const hubs = await db
+    .select({
+      id: libraries.id,
+      ownerEngineInstanceId: libraries.ownerEngineInstanceId,
+    })
+    .from(libraries)
+    .where(and(eq(libraries.companyId, companyId), eq(libraries.isEngineDataHub, true)));
+
+  for (const hub of hubs) {
+    if (!hub.ownerEngineInstanceId) continue;
+    const family = await resolveFamilyEngineIds(db, companyId, hub.ownerEngineInstanceId);
+    if (family.includes(mod.engineInstanceId)) return hub.id;
+  }
+  return null;
+}
+
+/**
  * D-159: Bind Data Hub to owning execution engine via motherboard `data_in`.
  * Nest membership stays `parent_hub_library_id` only (no nest→hub module_links).
  * Query/returns use hub library targets + config — no hub↔trading module_links.

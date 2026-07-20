@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { hubShelfStreamId, mergeEngineDataHubCompoundConfig } from '@hftr/contracts';
-import { wireShelfOutputs, ensureEngineDataHub } from './data-hub';
+import { wireShelfOutputs, ensureEngineDataHub, resolveHubLibraryIdForModule } from './data-hub';
 import { bindSimAnalyzersToHub } from './sim-hub-bind';
 
 describe('data-hub D-216 exports + merge contract', () => {
@@ -8,6 +8,7 @@ describe('data-hub D-216 exports + merge contract', () => {
     expect(typeof ensureEngineDataHub).toBe('function');
     expect(typeof wireShelfOutputs).toBe('function');
     expect(typeof bindSimAnalyzersToHub).toBe('function');
+    expect(typeof resolveHubLibraryIdForModule).toBe('function');
   });
 
   it('preserves operator-enabled shelf outs through merge used by ensure', () => {

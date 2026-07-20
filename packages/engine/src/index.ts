@@ -255,6 +255,7 @@ export {
   wireShelfOutputs,
   wireHubPostureSymlinks,
   cleanupEngineDataHub,
+  resolveHubLibraryIdForModule,
   type EnsureEngineDataHubResult,
 } from './engines/data-hub';
 
@@ -594,6 +595,7 @@ export {
 } from './posture/build-orientation';
 export { loadPostureFeedForEngine } from './posture/engine-feed';
 export { buildEntryOnlyCompositionPlan } from './pipeline/order-composition';
+export { enqueueLoopRefineFromInstruction } from './pipeline/enqueue-loop-refine';
 export {
   evaluateTradingPathExecutableState,
   executableStateAllowsCompose,

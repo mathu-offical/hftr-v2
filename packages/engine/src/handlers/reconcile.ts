@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm';
+import { count, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { DeterministicActionTask } from '@hftr/contracts';
 import {
   actionInstructions,
-  compileEvents,
   deterministicTasks,
   dispatchReconciliationEvents,
 } from '@hftr/db/schema';
@@ -11,7 +10,7 @@ import { getSession, sessionPhase, venueDate } from '../calendar/calendar';
 import { record } from '../calc/store';
 import { finalizeRecoveredVenueFill } from '../dispatch/paper-trade';
 import { resolveExecutionContext } from '../dispatch/execution-context';
-import { enqueue } from '../queue/queue';
+import { enqueueLoopRefineFromInstruction } from '../pipeline/enqueue-loop-refine';
 import { registerHandler } from './registry';
 
 const ReconcilePayload = z.object({
@@ -23,6 +22,8 @@ const ReconcilePayload = z.object({
 });
 
 const QUOTE_TTL_MS = 90_000;
+/** After this many missing-order polls, treat as no_fill and loop_refine (D-244). */
+const MISSING_ORDER_POLLS_BEFORE_NO_FILL = 3;
 
 /**
  * VERIFY handler: poll venue order state after ambiguous submit, finalize fills
@@ -67,6 +68,25 @@ registerHandler('verify.reconcile_order', async ({ db, clock, job }) => {
   });
 
   if (!orderSnap) {
+    const [pollCount] = await db
+      .select({ n: count() })
+      .from(dispatchReconciliationEvents)
+      .where(eq(dispatchReconciliationEvents.clientOrderId, payload.clientOrderId));
+    if ((pollCount?.n ?? 0) < MISSING_ORDER_POLLS_BEFORE_NO_FILL) {
+      return;
+    }
+    if (taskRow.status === 'pending' || taskRow.status === 'submitted') {
+      await db
+        .update(deterministicTasks)
+        .set({ status: 'rejected', updatedAt: new Date(clock.nowMs()) })
+        .where(eq(deterministicTasks.id, payload.taskId));
+      await enqueueLoopRefineFromInstruction(db, clock, {
+        companyId: payload.companyId,
+        moduleId: payload.moduleId,
+        instructionId: taskRow.instructionId,
+        reason: 'no_fill',
+      });
+    }
     return;
   }
 
@@ -172,52 +192,17 @@ registerHandler('verify.reconcile_order', async ({ db, clock, job }) => {
       requestId: null,
     });
 
-    // D-244: loop_refine — retune same tree and re-enter compile (model-free).
     const reason =
       orderSnap.status === 'expired'
         ? ('expired' as const)
         : orderSnap.status === 'canceled'
           ? ('canceled' as const)
           : ('rejected' as const);
-    const [instr] = await db
-      .select({ id: actionInstructions.id, envelope: actionInstructions.envelope })
-      .from(actionInstructions)
-      .where(eq(actionInstructions.id, taskRow.instructionId))
-      .limit(1);
-    const env = (instr?.envelope ?? {}) as {
-      causationRefs?: string[];
-      moduleId?: string;
-    };
-    const causation = Array.isArray(env.causationRefs) ? env.causationRefs : [];
-    // Envelope causation: [trendId, leadId, treeId] from compile.select
-    const leadId = causation[1];
-    const treeId = causation[2];
-    if (leadId && treeId) {
-      const [compileRow] = await db
-        .select({ lineage: compileEvents.lineage })
-        .from(compileEvents)
-        .where(eq(compileEvents.instructionId, taskRow.instructionId))
-        .limit(1);
-      const lineage = (compileRow?.lineage ?? {}) as { loopRefineAttempt?: number };
-      const attempt =
-        typeof lineage.loopRefineAttempt === 'number' ? lineage.loopRefineAttempt : 0;
-      await enqueue(db, clock, {
-        queueClass: 'TACTICAL',
-        kind: 'trading.loop_refine',
-        payload: {
-          companyId: payload.companyId,
-          moduleId: payload.moduleId,
-          leadId,
-          treeId,
-          trendId: causation[0],
-          reason,
-          attempt,
-        },
-        idempotencyKey: `loop-refine-${treeId}-${reason}-${attempt + 1}`,
-        priority: 'HIGH',
-        companyId: payload.companyId,
-        moduleId: payload.moduleId,
-      });
-    }
+    await enqueueLoopRefineFromInstruction(db, clock, {
+      companyId: payload.companyId,
+      moduleId: payload.moduleId,
+      instructionId: taskRow.instructionId,
+      reason,
+    });
   }
 });

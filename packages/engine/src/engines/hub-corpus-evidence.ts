@@ -1,13 +1,15 @@
 /**
- * Prefer Engine Data Hub corpus cache when the module sits in an execution engine
- * with an ensured hub (D-242). Falls back to empty — callers merge with link scans.
+ * Prefer Engine Data Hub corpus cache when the module sits in an execution
+ * engine family with an ensured hub (D-242). Child research engines resolve
+ * via the parent execution hub. Falls back to empty — callers merge with link scans.
  */
 
-import { and, eq, inArray } from 'drizzle-orm';
+import { inArray, eq } from 'drizzle-orm';
 import type { LibraryConceptEvidenceInput } from '@hftr/adapters';
 import type { Db } from '@hftr/db';
-import { concepts, libraries, libraryConcepts, modules } from '@hftr/db/schema';
+import { concepts, libraryConcepts } from '@hftr/db/schema';
 import { loadHubCorpus } from './hub-corpus-cache';
+import { resolveHubLibraryIdForModule } from './data-hub';
 
 export async function loadHubCorpusConceptEvidence(
   db: Db,
@@ -15,27 +17,10 @@ export async function loadHubCorpusConceptEvidence(
   moduleId: string,
   now = new Date(),
 ): Promise<LibraryConceptEvidenceInput[]> {
-  const [mod] = await db
-    .select({ engineInstanceId: modules.engineInstanceId })
-    .from(modules)
-    .where(and(eq(modules.id, moduleId), eq(modules.companyId, companyId)))
-    .limit(1);
-  if (!mod?.engineInstanceId) return [];
+  const hubLibraryId = await resolveHubLibraryIdForModule(db, companyId, moduleId);
+  if (!hubLibraryId) return [];
 
-  const [hubLib] = await db
-    .select({ id: libraries.id })
-    .from(libraries)
-    .where(
-      and(
-        eq(libraries.companyId, companyId),
-        eq(libraries.isEngineDataHub, true),
-        eq(libraries.ownerEngineInstanceId, mod.engineInstanceId),
-      ),
-    )
-    .limit(1);
-  if (!hubLib) return [];
-
-  const cache = await loadHubCorpus(db, hubLib.id, now);
+  const cache = await loadHubCorpus(db, hubLibraryId, now);
   if (!cache) return [];
 
   const conceptIds = [

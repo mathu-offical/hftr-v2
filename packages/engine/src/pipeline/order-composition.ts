@@ -20,6 +20,10 @@ export function buildEntryOnlyCompositionPlan(input: {
   nowIso?: string;
 }): Plan {
   const mode = input.compositionMode ?? 'entry_only';
+  // MVP (D-244): only entry_only ships; multi-leg modes fail closed until builders exist.
+  if (mode !== 'entry_only') {
+    throw new Error(`composition_mode_${mode}_not_supported`);
+  }
   const plan = OrderCompositionPlan.parse({
     schemaVersion: 1,
     planId: randomUUID(),

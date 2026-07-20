@@ -61,6 +61,7 @@ import { shadowVerifyAndPersistBookDelta } from '../paper/book-delta';
 import { computeInternalPaperCoreFill } from '../paper/internal-paper-core';
 import { resolveDispatchMarketQuote, hydrateOperatorQuoteValueRefs } from '../paper/market-model';
 import { resolvePaperFillSlippage } from '../paper/resolve-slippage-bps';
+import { enqueueLoopRefineFromInstruction } from '../pipeline/enqueue-loop-refine';
 
 /**
  * The deterministic paper-trade path (broker-integration.md, dispatch README):
@@ -915,6 +916,13 @@ async function executeVenueTrade(
         { field: 'submit', pass: false, detail: submitResult.rejectReason ?? 'rejected' },
       ],
       failureCode: 'broker_policy_block',
+    });
+    // D-244: immediate venue reject → loop_refine (same path as reconcile terminal).
+    await enqueueLoopRefineFromInstruction(db, clock, {
+      companyId: req.companyId,
+      moduleId: req.moduleId,
+      instructionId,
+      reason: 'rejected',
     });
     return {
       outcome: 'rejected',

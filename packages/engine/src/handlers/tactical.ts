@@ -167,6 +167,27 @@ registerHandler('tactical.expand', async ({ db, clock, job, modelGateway }) => {
   const tradingCfg = TradingModuleConfig.safeParse(tradingMod?.config ?? {});
   const compositionMode = tradingCfg.success ? tradingCfg.data.compositionMode : 'entry_only';
 
+  if (compositionMode !== 'entry_only') {
+    await db
+      .update(decisionTrees)
+      .set({
+        status: 'compile_blocked',
+        leverState: {
+          ...(typeof leverState === 'object' && leverState !== null
+            ? (leverState as Record<string, unknown>)
+            : {}),
+          compositionModeBlocked: compositionMode,
+        },
+        updatedAt: now,
+      })
+      .where(eq(decisionTrees.id, treeId));
+    await patchProcessStagesForModule(db, payload.companyId, tradingModuleId, [
+      { kind: 'decision_tree', status: 'done' },
+      { kind: 'instruction_compose', status: 'blocked' },
+    ]);
+    return;
+  }
+
   const branches = Array.isArray(built.branches) ? built.branches : [];
   const executableState = evaluateTradingPathExecutableState({
     leadRef: payload.leadId,

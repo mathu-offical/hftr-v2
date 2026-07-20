@@ -259,6 +259,7 @@ export {
 
 export {
   ingestHubTopicCandidate,
+  mirrorHubTopicToAttachedResearch,
   type IngestHubTopicCandidateInput,
   type IngestHubTopicCandidateResult,
 } from './engines/data-hub-topic-feed';

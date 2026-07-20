@@ -1,6 +1,7 @@
 import {
   ENGINE_TEMPLATES,
   CANVAS_LAYOUT,
+  defaultEngineDataHubCompoundConfig,
   engineCreateSection,
   engineUtilityTargetHandleId,
   handleIdForLink,
@@ -277,6 +278,7 @@ function appendFamilyDataHub(
   const origin = placeDataHubOrigin(researchBounds, execution.bounds, hubSize);
   const hubId = `hub:${familyKey}`;
 
+  const compound = defaultEngineDataHubCompoundConfig();
   nodes.push({
     id: hubId,
     type: 'previewModule',
@@ -285,7 +287,13 @@ function appendFamilyDataHub(
       name: 'Data Hub',
       moduleType: 'library',
       engineKey: familyKey,
-      config: { libraryClass: 'engine_data_hub', engineDataHub: true },
+      config: {
+        libraryClass: 'engine_data_hub',
+        engineDataHub: true,
+        shelves: compound.shelves,
+        shelfOutputs: compound.shelfOutputs,
+        topicFeed: compound.topicFeed,
+      },
     },
     style: { width: HUB_WIDTH, height: HUB_HEIGHT, zIndex: 1 },
     selectable: false,

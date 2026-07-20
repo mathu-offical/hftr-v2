@@ -1919,38 +1919,97 @@ export function CompanyCanvas(props: {
     };
   }, [setNodes]);
 
-  // T1.4 / D-077: poll status + type-context projections.
+  // T1.4 / D-077 / D-237: poll module status + process-stage statuses.
   useEffect(() => {
     let stopped = false;
     async function poll() {
       try {
-        const { modules: projections } = await api<{
-          modules: {
-            moduleId: string;
-            statusText: string;
-            activeJobs: number;
-            budgetQueuedJobs: number;
-            typeContext?: ModuleTypeContextProjection;
-          }[];
-        }>(`/api/companies/${props.companyId}/canvas`);
+        const [{ modules: projections }, enginesPayload] = await Promise.all([
+          api<{
+            modules: {
+              moduleId: string;
+              statusText: string;
+              activeJobs: number;
+              budgetQueuedJobs: number;
+              typeContext?: ModuleTypeContextProjection;
+            }[];
+          }>(`/api/companies/${props.companyId}/canvas`),
+          api<{
+            engines: {
+              id: string;
+              setupSnapshot?: {
+                processStages?: Array<{
+                  id: string;
+                  kind: string;
+                  status: string;
+                  label?: string;
+                }>;
+              } | null;
+            }[];
+          }>(`/api/companies/${props.companyId}/engines`),
+        ]);
         if (stopped) return;
         const byId = new Map(projections.map((p) => [p.moduleId, p]));
+        const stagesByEngine = new Map(
+          (enginesPayload.engines ?? []).map((engine) => [
+            engine.id,
+            engine.setupSnapshot?.processStages ?? [],
+          ]),
+        );
         setNodes((current) => {
           const next = current.map((n) => {
-            if (!isModuleNode(n)) return n;
-            const p = byId.get(n.id);
-            return p
-              ? {
-                  ...n,
-                  data: {
-                    ...n.data,
-                    statusText: p.statusText,
-                    activeJobs: p.activeJobs,
-                    budgetQueuedJobs: p.budgetQueuedJobs,
-                    ...(p.typeContext != null ? { typeContext: p.typeContext } : {}),
+            if (isModuleNode(n)) {
+              const p = byId.get(n.id);
+              return p
+                ? {
+                    ...n,
+                    data: {
+                      ...n.data,
+                      statusText: p.statusText,
+                      activeJobs: p.activeJobs,
+                      budgetQueuedJobs: p.budgetQueuedJobs,
+                      ...(p.typeContext != null ? { typeContext: p.typeContext } : {}),
+                    },
+                  }
+                : n;
+            }
+            if (isProcessStageNode(n) && n.parentId) {
+              const stages = stagesByEngine.get(n.parentId);
+              const match = stages?.find(
+                (stage) => stage.kind === n.data.kind || stage.id === n.data.id,
+              );
+              if (!match || match.status === n.data.status) return n;
+              return {
+                ...n,
+                data: {
+                  ...n.data,
+                  status: match.status as typeof n.data.status,
+                },
+              };
+            }
+            if (isEngineGroupNode(n)) {
+              const stages = stagesByEngine.get(n.id);
+              if (!stages || stages.length === 0) return n;
+              const prev = n.data.setupSnapshot;
+              return {
+                ...n,
+                data: {
+                  ...n.data,
+                  setupSnapshot: {
+                    ...(prev ?? {
+                      topicSectors: [],
+                      allocationMode: 'amount' as const,
+                      allocationValue: '',
+                      targetExitLocal: '',
+                    }),
+                    processStages: stages as NonNullable<
+                      typeof prev
+                    >['processStages'],
                   },
-                }
-              : n;
+                },
+              };
+            }
+            return n;
           });
           setEdges((edges) => {
             const withBindings = mergeTrendBindingEdges(edges, next);
@@ -2139,7 +2198,7 @@ export function CompanyCanvas(props: {
                   ...prevSnap,
                   processStageCanvasPositions: {
                     ...(prevSnap.processStageCanvasPositions ?? {}),
-                    [node.id]: { x, y },
+                    [node.data.id]: { x, y },
                   },
                 },
               },
@@ -2164,7 +2223,7 @@ export function CompanyCanvas(props: {
                 ...prev,
                 processStageCanvasPositions: {
                   ...(prev.processStageCanvasPositions ?? {}),
-                  [node.id]: { x, y },
+                  [node.data.id]: { x, y },
                 },
               },
             },

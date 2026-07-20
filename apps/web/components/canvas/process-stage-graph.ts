@@ -45,8 +45,10 @@ function pushProcessStageNode(
   x: number,
   y: number,
 ): void {
+  // RF node ids must be unique across engines (snapshot stage.id is spine-local).
+  const nodeId = `${engine.id}:${stage.id}`;
   nodes.push({
-    id: stage.id,
+    id: nodeId,
     type: 'processStageNode',
     parentId: engine.id,
     expandParent: true,
@@ -95,7 +97,8 @@ export function placeProcessStageNodes(
   const nodes: ProcessStageFlowNode[] = [];
 
   for (const stage of placedStages) {
-    const saved = savedCanvas[stage.id];
+    const saved =
+      savedCanvas[stage.id] ?? savedCanvas[`${engine.id}:${stage.id}`];
     const x = saved?.x ?? stage.position?.x ?? 0;
     const y = saved?.y ?? stage.position?.y ?? 0;
     pushProcessStageNode(nodes, engine, stage, x, y);
@@ -119,7 +122,9 @@ export function processSpineEdgesForEngine(
   engineId: string,
   stages: readonly ProcessStageSpec[],
 ): Edge[] {
-  const byKind = new Map(stages.map((stage) => [stage.kind, stage.id]));
+  const byKind = new Map(
+    stages.map((stage) => [stage.kind, `${engineId}:${stage.id}`] as const),
+  );
   const edges: Edge[] = [];
   for (let i = 0; i < PROCESS_STAGE_SPINE.length - 1; i += 1) {
     const fromId = byKind.get(PROCESS_STAGE_SPINE[i]!);

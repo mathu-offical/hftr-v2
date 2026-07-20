@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { MarketAwarenessLink } from './market-awareness-links';
 import { ResearchSourceKind, ValidationGateResult } from './research-bus';
 import { QualitativeBand } from './system-libraries';
+import { CompoundSymbolScore } from './watchlist-suggestions';
 
 /**
  * Verified multi-source normalize seals (D-072).
@@ -56,6 +57,29 @@ export const VerifiedNormalizedBundle = z.object({
    * Optional for seals persisted before D-175.
    */
   awarenessLinks: z.array(MarketAwarenessLink).max(128).optional(),
+  /** D-243: stable revision for hub cache invalidation / engine feed ETag. */
+  hubRevision: z.string().min(1).max(128).optional(),
+  /** D-243: symbol → view.items index for O(1) engine lookup. */
+  symbolIndex: z.record(z.string(), z.number().int().nonnegative()).optional(),
+  /** D-243: symbol → awareness link ids. */
+  linksBySymbol: z.record(z.string(), z.array(z.string())).optional(),
+  /** D-243: qualitative digest summaries for synthesize (no raw numbers). */
+  sourceDigestSummaries: z
+    .array(
+      z.object({
+        digest: z.string().min(8).max(128),
+        sourceKind: ResearchSourceKind.optional(),
+        title: z.string().max(200).optional(),
+        expiresAt: z.string().datetime().optional(),
+      }),
+    )
+    .max(24)
+    .optional(),
+  /**
+   * D-243: capped compound rank for engines (bands + flags).
+   * `relStrengthAbsBps` stays internal to ranking — never LLM-facing (D-008).
+   */
+  compoundRank: z.array(CompoundSymbolScore).max(24).optional(),
 });
 export type VerifiedNormalizedBundle = z.infer<typeof VerifiedNormalizedBundle>;
 

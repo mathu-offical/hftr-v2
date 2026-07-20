@@ -206,11 +206,12 @@ describe('canvas link port helpers', () => {
     expect(moduleLinkPorts('research').inbound).not.toContain('fund_route');
   });
 
-  it('requires fund routes to traverse Math', () => {
+  it('allows fund routes through Math or holding→router direct (D-229)', () => {
     expect(isLegalFundRoute('holding_fund', 'math')).toBe(true);
     expect(isLegalFundRoute('math', 'fund_router')).toBe(true);
     expect(isLegalFundRoute('fund_router', 'math')).toBe(true);
-    expect(isLegalFundRoute('holding_fund', 'fund_router')).toBe(false);
+    expect(isLegalFundRoute('holding_fund', 'fund_router')).toBe(true);
+    expect(isLegalFundRoute('fund_router', 'holding_fund')).toBe(true);
     expect(isLegalFundRoute('fund_router', 'trading')).toBe(false);
     expect(isLegalFundRoute('math', 'trading')).toBe(false);
     expect(allowedLinkKinds('math', 'trading')).toEqual(['data_feed']);
@@ -1121,11 +1122,7 @@ describe('company templates', () => {
           `${template.id}: ${from!.type}->${to!.type}`,
         ).toContain(l.linkKind);
         if (l.linkKind === 'fund_route') {
-          // Seed fund path must traverse Math (holding → fund_path Math → router).
-          expect(
-            l.fromIndex === 'math' || l.toIndex === 'math',
-            `${template.id} fund must involve math`,
-          ).toBe(true);
+          // D-229: holding_fund → fund_router direct (legacy math stubs still legal).
           expect(isLegalFundRoute(from!.type, to!.type)).toBe(true);
         }
       }
@@ -1155,12 +1152,8 @@ describe('engine templates', () => {
           allowedLinkKinds(from!.type, to!.type),
           `${engine.id}: ${from!.type}->${to!.type}`,
         ).toContain(l.linkKind);
-        // Holding → fund_path Math → fund_router; trading owner Math is wired at insert.
+        // D-229: holding_fund → fund_router direct; desk_execution Math wired at insert.
         if (l.linkKind === 'fund_route') {
-          expect(
-            l.fromIndex === 'math' || l.toIndex === 'math',
-            `${engine.id} fund must involve math`,
-          ).toBe(true);
           expect(isLegalFundRoute(from!.type, to!.type)).toBe(true);
         }
       }
@@ -2145,7 +2138,8 @@ describe('canvas layout (D-033)', () => {
       ),
     });
     // D-227: librarians no longer auto-provision dedicated Math (−3 vs prior 40).
-    expect(slots).toBe(37);
+    // D-245: +1 engine_math_hub per engine (+3 here vs D-227 baseline).
+    expect(slots).toBe(39);
     expect(slots).toBeLessThanOrEqual(MAX_MODULES_PER_COMPANY);
   });
 
@@ -2185,15 +2179,16 @@ describe('canvas layout (D-033)', () => {
     expect(pos(fundMath).y).toBeGreaterThan(pos(trading).y + CANVAS_LAYOUT.moduleHeight);
   });
 
-  it('pins company hub Math to cadence rail, not far-right free column (D-227)', () => {
+  it('places engine_math_hub inside engine bounds near time hub (D-245)', () => {
     const research = '00000000-0000-4000-8000-0000000000b1';
     const trading = '00000000-0000-4000-8000-0000000000b2';
     const hubMath = '00000000-0000-4000-8000-0000000000b3';
+    const timeHub = '00000000-0000-4000-8000-0000000000b5';
     const clock = '00000000-0000-4000-8000-0000000000b4';
     const engines = [
       {
         id: engineId,
-        memberModuleIds: [research, trading],
+        memberModuleIds: [research, trading, timeHub, hubMath],
         templateId: 'engine_day_trading',
         dataHubModuleId: null,
       },
@@ -2202,9 +2197,16 @@ describe('canvas layout (D-033)', () => {
       { ...mkModule(research, 'research'), engineInstanceId: engineId },
       { ...mkModule(trading, 'trading'), engineInstanceId: engineId },
       {
+        id: timeHub,
+        type: 'time' as const,
+        engineInstanceId: engineId,
+        toolOwnerModuleId: null,
+        position: { x: 0, y: 0 },
+      },
+      {
         id: hubMath,
         type: 'math' as const,
-        engineInstanceId: null,
+        engineInstanceId: engineId,
         toolOwnerModuleId: null,
         position: { x: 0, y: 0 },
       },
@@ -2218,11 +2220,15 @@ describe('canvas layout (D-033)', () => {
     ];
     const result = layoutCanvas(engines, modules, [], ENGINE_GROUP_PADDING);
     const pos = (id: string) => result.modules.find((m) => m.id === id)!.canvasPosition;
-    const engineRight = result.engines[0]!.canvasBounds.x + result.engines[0]!.canvasBounds.width;
-    // Must not dump into the free column to the right of engines.
-    expect(pos(hubMath).x).toBeLessThan(engineRight);
-    expect(pos(hubMath).y).toBe(pos(clock).y);
-    expect(pos(hubMath).x).toBeGreaterThan(pos(clock).x);
+    const engineBounds = result.engines[0]!.canvasBounds;
+    expect(pos(hubMath).x).toBeGreaterThanOrEqual(engineBounds.x);
+    expect(pos(hubMath).x + CANVAS_LAYOUT.mathToolWidth).toBeLessThanOrEqual(
+      engineBounds.x + engineBounds.width,
+    );
+    expect(pos(hubMath).y).toBeGreaterThanOrEqual(engineBounds.y);
+    expect(pos(hubMath).x).toBeGreaterThan(pos(timeHub).x);
+    expect(pos(hubMath).y).toBe(pos(timeHub).y);
+    expect(pos(hubMath).y).not.toBe(pos(clock).y);
   });
 
   it('docks explicit dedicated Math below its measured owner without link inference', () => {
@@ -3033,9 +3039,11 @@ describe('CreateCompanyInput (D-043)', () => {
     ]);
     expect(expanded[2]?.inputs).toEqual({ focus: 'tech' });
     // D-213: auto research deps inherit sector focus into topicScope/focus inputs
-    expect(expanded[0]?.inputs?.topicScope).toBe('tech');
-    expect(expanded[0]?.inputs?.focus).toBe('tech');
-    expect(expanded[1]?.inputs?.topicScope).toBe('tech');
+    const dep0 = expanded[0]?.inputs as Record<string, string> | undefined;
+    const dep1 = expanded[1]?.inputs as Record<string, string> | undefined;
+    expect(dep0?.topicScope).toBe('tech');
+    expect(dep0?.focus).toBe('tech');
+    expect(dep1?.topicScope).toBe('tech');
     // Idempotent when deps already present
     const again = expandEngineSeedsWithResearchDeps(expanded);
     expect(again.map((s) => s.templateId)).toEqual(expanded.map((s) => s.templateId));
@@ -3223,5 +3231,43 @@ describe('CreateCompanyInput (D-043)', () => {
     expect(parsed.shelves).toHaveLength(1);
     expect(parsed.shelfOutputs?.[0]?.enabled).toBe(true);
     expect(parsed.topicFeed?.enabled).toBe(true);
+  });
+
+  it('parses LibraryModuleConfig hub symlink + corpus cache fields (D-239 / D-242)', () => {
+    const parsed = LibraryModuleConfig.parse({
+      topicScope: 'engine:data_hub',
+      libraryClass: 'engine_data_hub',
+      engineDataHub: true,
+      symlinks: [
+        {
+          refLibraryId: '11111111-1111-4111-8111-111111111111',
+          role: 'posture_system',
+          topicScope: 'system:movers',
+          access: 'read_through',
+        },
+      ],
+      engineLocal: [
+        {
+          libraryId: '22222222-2222-4222-8222-222222222222',
+          moduleId: '33333333-3333-4333-8333-333333333333',
+          origin: 'research_in',
+          stream: 'semantic',
+          binding: 'nest',
+          owner: 'child_research',
+        },
+      ],
+      corpusCache: {
+        schemaVersion: 1,
+        hubLibraryId: '44444444-4444-4444-8444-444444444444',
+        hubRevision: 'rev-1',
+        refreshedAt: '2026-07-20T12:00:00.000Z',
+        expiresAt: '2026-07-20T18:00:00.000Z',
+        slices: [],
+        digestIndex: {},
+      },
+    });
+    expect(parsed.symlinks).toHaveLength(1);
+    expect(parsed.engineLocal).toHaveLength(1);
+    expect(parsed.corpusCache?.hubRevision).toBe('rev-1');
   });
 });

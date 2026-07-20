@@ -134,6 +134,11 @@ export const ActionInstruction = z.object({
   verificationSchemaVersion: z.string(),
   clientOrderId: z.string().min(8),
   envelope: HandoffEnvelope,
+  /** D-244: tree / composition lineage (optional for legacy rows). */
+  decisionTreeRef: z.string().uuid().optional(),
+  compositionPlanId: z.string().uuid().optional(),
+  legRole: z.string().min(1).max(64).optional(),
+  blockReasons: z.array(z.string().min(1).max(120)).max(16).optional(),
 });
 export type ActionInstruction = z.infer<typeof ActionInstruction>;
 

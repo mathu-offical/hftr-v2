@@ -91,11 +91,27 @@ export const PROCESS_LAYERS_BY_MODULE: Record<ModuleType, readonly ProcessLayerD
   ],
   trading: [
     {
+      id: 'ingest',
+      label: 'Ingest & bind',
+      v1Refs: ['lead', 'nominate_leads', 'bind_routing_pattern_shape'],
+      tunable: true,
+      description:
+        'D-244: Trading desk ingests one admitted Lead, binds strategy family + policy envelope.',
+    },
+    {
       id: 'tree',
       label: 'Tactical tree',
       v1Refs: ['tree', 'expand_tree'],
       tunable: true,
       description: 'Decision-tree shape and strategic/tactical lever positions.',
+    },
+    {
+      id: 'compose',
+      label: 'Compose orders',
+      v1Refs: ['OrderCompositionPlan', 'compile_instruction'],
+      tunable: true,
+      description:
+        'D-244: OrderCompositionPlan legs from tree roles + policy (distinct from POV child slices).',
     },
     {
       id: 'compile',

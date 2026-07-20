@@ -14,6 +14,7 @@ import {
   type ModuleSetupField,
 } from './modules';
 import { SimulationEngineBinding } from './paper-engine';
+import { ProcessStageSpec } from './process-stages';
 import {
   ResearchLibraryBinding,
 } from './research-library-binding';
@@ -214,6 +215,15 @@ export const EngineSetupSnapshot = z.object({
    * (persisted so parent-scoped child dependency validation can resolve presence).
    */
   researchLibraryBinding: ResearchLibraryBinding.optional(),
+  /**
+   * D-232 / D-237: viewable execution/sim process spine (Lead → loop_refine).
+   * Positions are parent-relative; hydrated as RF-only processStageNode children.
+   */
+  processStages: z.array(ProcessStageSpec).optional(),
+  /** Operator-dragged canvas XY for process stage nodes (parent-relative). */
+  processStageCanvasPositions: z
+    .record(z.string(), z.object({ x: z.number(), y: z.number() }))
+    .optional(),
 });
 export type EngineSetupSnapshot = z.infer<typeof EngineSetupSnapshot>;
 

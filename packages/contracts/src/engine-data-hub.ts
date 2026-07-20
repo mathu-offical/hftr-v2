@@ -123,6 +123,113 @@ export function defaultEngineDataHubCompoundConfig(): EngineDataHubCompoundConfi
   };
 }
 
+/** D-239: Read-through symlink into posture/baseline libraries (no concept duplication). */
+export const HubSymlinkRole = z.enum([
+  'posture_system',
+  'baseline_mechanisms',
+  'company_master',
+]);
+export type HubSymlinkRole = z.infer<typeof HubSymlinkRole>;
+
+export const HubSymlink = z.object({
+  refLibraryId: z.string().uuid(),
+  role: HubSymlinkRole,
+  topicScope: z.string().max(80).optional(),
+  shelf: HubShelfKey.optional(),
+  access: z.literal('read_through').default('read_through'),
+});
+export type HubSymlink = z.infer<typeof HubSymlink>;
+
+export const HubEngineLocalBinding = z.enum(['nest', 'hydrate_target']);
+export type HubEngineLocalBinding = z.infer<typeof HubEngineLocalBinding>;
+
+export const HubEngineLocalOwner = z.enum([
+  'inline_spine',
+  'child_research',
+  'sim_feedback',
+  'engine_owned',
+]);
+export type HubEngineLocalOwner = z.infer<typeof HubEngineLocalOwner>;
+
+export const HubEngineLocal = z.object({
+  libraryId: z.string().uuid(),
+  moduleId: z.string().uuid(),
+  origin: HubShelfOrigin.default('research_in'),
+  stream: HubShelfStream.default('semantic'),
+  binding: HubEngineLocalBinding.default('nest'),
+  owner: HubEngineLocalOwner.default('engine_owned'),
+});
+export type HubEngineLocal = z.infer<typeof HubEngineLocal>;
+
+/** D-242: Hub-local corpus cache — refs/digests/slices, not duplicate concepts. */
+export const HubCorpusConceptRef = z.object({
+  conceptId: z.string().uuid(),
+  title: z.string().max(200).optional(),
+  curationStatus: z.string().max(40).optional(),
+  bodySlice: z.string().max(400).optional(),
+  digest: z.string().max(128).optional(),
+});
+export type HubCorpusConceptRef = z.infer<typeof HubCorpusConceptRef>;
+
+export const HubCorpusSealRef = z.object({
+  sealId: z.string().min(1),
+  kind: z.string().min(1),
+  subjectKey: z.string().min(1),
+  expiresAt: z.string().datetime().optional(),
+});
+export type HubCorpusSealRef = z.infer<typeof HubCorpusSealRef>;
+
+export const HubCorpusSlice = z.object({
+  shelf: HubShelfKey,
+  source: z.enum(['symlink', 'engine_local']),
+  refLibraryId: z.string().uuid(),
+  conceptRefs: z.array(HubCorpusConceptRef).max(48).default([]),
+  sealRefs: z.array(HubCorpusSealRef).max(16).default([]),
+});
+export type HubCorpusSlice = z.infer<typeof HubCorpusSlice>;
+
+export const HubCorpusCache = z.object({
+  schemaVersion: z.literal(1),
+  hubLibraryId: z.string().uuid(),
+  hubRevision: z.string().min(1),
+  postureRevision: z.string().min(1).optional(),
+  refreshedAt: z.string().datetime(),
+  expiresAt: z.string().datetime(),
+  slices: z.array(HubCorpusSlice).max(48).default([]),
+  digestIndex: z.record(z.string(), z.object({
+    conceptId: z.string().uuid().optional(),
+    sealId: z.string().optional(),
+    sourceKind: z.string().optional(),
+  })).default({}),
+});
+export type HubCorpusCache = z.infer<typeof HubCorpusCache>;
+
+/** D-239: Full Engine Data Hub group config (compound shelves + membership). */
+export const EngineDataHubGroup = z.object({
+  hubLibraryId: z.string().uuid().optional(),
+  hubModuleId: z.string().uuid().optional(),
+  ownerEngineInstanceId: z.string().uuid().optional(),
+  compound: EngineDataHubCompoundConfig.default(defaultEngineDataHubCompoundConfig()),
+  symlinks: z.array(HubSymlink).max(32).default([]),
+  engineLocal: z.array(HubEngineLocal).max(64).default([]),
+  hydrateTargetLibraryIds: z.array(z.string().uuid()).max(32).default([]),
+  corpusCache: HubCorpusCache.nullable().optional(),
+});
+export type EngineDataHubGroup = z.infer<typeof EngineDataHubGroup>;
+
+export function emptyEngineDataHubGroup(
+  ownerEngineInstanceId?: string,
+): EngineDataHubGroup {
+  return {
+    ownerEngineInstanceId,
+    compound: defaultEngineDataHubCompoundConfig(),
+    symlinks: [],
+    engineLocal: [],
+    hydrateTargetLibraryIds: [],
+    corpusCache: null,
+  };
+}
+
 /**
  * Idempotent merge: keep operator-enabled outs and custom labels; fill missing slots.
  */
@@ -166,5 +273,5 @@ export function mergeEngineDataHubCompoundConfig(
     enabled: existing.topicFeed?.enabled ?? defaults.topicFeed.enabled,
   };
 
-  return EngineDataHubCompoundConfig.parse({ shelves, shelfOutputs, topicFeed });
+  return { shelves, shelfOutputs, topicFeed };
 }

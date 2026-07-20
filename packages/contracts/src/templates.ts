@@ -3,7 +3,7 @@ import { ModuleType, type CreateCompanyEngine } from './modules';
 
 /**
  * Company templates: preset module graphs created with a new company.
- * The Math module is always auto-provisioned separately and is not listed.
+ * Dedicated Math tools are auto-provisioned per owner at insert — not listed in templates (D-229 / D-245).
  * Positions follow the canvas column model (MODULE_COLUMN).
  */
 
@@ -18,18 +18,17 @@ export interface TemplateModule {
 }
 
 export interface TemplateLink {
-  /** Numeric indices address template modules; `math` addresses the company built-in. */
+  /** Numeric indices address template modules; `math` is a legacy fund_path stub (D-221), unused under D-229. */
   fromIndex: number | 'math';
   toIndex: number | 'math';
   linkKind: 'data_feed' | 'directive' | 'verification' | 'fund_route';
 }
 
 /**
- * Stable template link order (D-073): non-math graph edges keep author order;
- * Math fund_route edges are contiguous as into-Math then out-of-Math so capital
- * flow reads holding → fund_path Math → router in every engine template.
- * Template `'math'` resolves at insert to the fund_router-owned fund_path helper
- * (not the company Math hub) — D-221.
+ * Stable template link order (D-073): non-math graph edges keep author order.
+ * Capital fund_route is holding_fund → fund_router direct (D-229); desk_execution Math
+ * is provisioned at insert for Calc-ref, not as a template fund_route middleman.
+ * Legacy template `'math'` stubs (D-221) resolve to fund_router-owned fund_path Math when present.
  */
 export function orderTemplateLinks(links: readonly TemplateLink[]): TemplateLink[] {
   const mathFund: TemplateLink[] = [];
@@ -404,6 +403,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           focus: 'pending_operator_scope',
           trendPosture: 'session_intraday',
           maxActiveTrends: 10,
+          leadFanoutCap: 6,
           cadenceMinutes: 30,
         },
         position: { x: 920, y: 276 },
@@ -416,6 +416,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           strategyFamilies: ['strat-001', 'strat-002', 'strat-005'],
           exitTimelineDays: 1,
           cadenceMinutes: 5,
+          compositionMode: 'entry_only',
+          maxConcurrentLeads: 6,
           executionBinding: { routingMode: 'funds_only' },
         },
         position: { x: 1380, y: 276 },
@@ -467,8 +469,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 5, toIndex: 8, linkKind: 'verification' },
       { fromIndex: 8, toIndex: 9, linkKind: 'verification' },
       { fromIndex: 5, toIndex: 9, linkKind: 'directive' },
-      { fromIndex: 6, toIndex: 'math', linkKind: 'fund_route' },
-      { fromIndex: 'math', toIndex: 7, linkKind: 'fund_route' },
+      { fromIndex: 6, toIndex: 7, linkKind: 'fund_route' },
     ],
     inputs: [
       {
@@ -548,6 +549,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           focus: 'pending_operator_scope',
           trendPosture: 'research_only',
           maxActiveTrends: 10,
+          leadFanoutCap: 6,
           cadenceMinutes: 120,
         },
         position: { x: 920, y: 0 },
@@ -659,6 +661,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           focus: 'pending_operator_scope',
           trendPosture: 'crypto_cross_cap',
           maxActiveTrends: 8,
+          leadFanoutCap: 6,
           cadenceMinutes: 15,
         },
         position: { x: 560, y: 500 },
@@ -672,6 +675,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           strategyFamilies: ['strat-003', 'strat-005', 'strat-008'],
           exitTimelineDays: 3,
           cadenceMinutes: 5,
+          compositionMode: 'entry_only',
+          maxConcurrentLeads: 6,
           executionBinding: { routingMode: 'funds_only' },
         },
         position: { x: 820, y: 500 },
@@ -720,9 +725,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 4, toIndex: 5, linkKind: 'directive' },
-      { fromIndex: 6, toIndex: 'math', linkKind: 'fund_route' },
-      { fromIndex: 'math', toIndex: 7, linkKind: 'fund_route' },
-      // fund_router → trading owner Math is provisioned at insert (not stubbed here).
+      { fromIndex: 6, toIndex: 7, linkKind: 'fund_route' },
       { fromIndex: 5, toIndex: 8, linkKind: 'verification' },
       { fromIndex: 8, toIndex: 9, linkKind: 'verification' },
       { fromIndex: 5, toIndex: 9, linkKind: 'directive' },
@@ -817,6 +820,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           focus: 'pending_operator_scope',
           trendPosture: 'event_probability',
           maxActiveTrends: 10,
+          leadFanoutCap: 6,
           cadenceMinutes: 60,
         },
         position: { x: 560, y: 500 },
@@ -831,6 +835,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           strategyFamilies: ['strat-005', 'strat-008'],
           exitTimelineDays: 7,
           cadenceMinutes: 15,
+          compositionMode: 'entry_only',
+          maxConcurrentLeads: 6,
           executionBinding: { routingMode: 'funds_only' },
         },
         position: { x: 820, y: 500 },
@@ -879,9 +885,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 4, toIndex: 5, linkKind: 'directive' },
-      { fromIndex: 6, toIndex: 'math', linkKind: 'fund_route' },
-      { fromIndex: 'math', toIndex: 7, linkKind: 'fund_route' },
-      // fund_router → trading owner Math is provisioned at insert (not stubbed here).
+      { fromIndex: 6, toIndex: 7, linkKind: 'fund_route' },
       { fromIndex: 5, toIndex: 8, linkKind: 'verification' },
       { fromIndex: 8, toIndex: 9, linkKind: 'verification' },
       { fromIndex: 5, toIndex: 9, linkKind: 'directive' },
@@ -975,6 +979,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           focus: 'pending_operator_scope',
           trendPosture: 'position_horizon',
           maxActiveTrends: 8,
+          leadFanoutCap: 6,
           cadenceMinutes: 240,
         },
         position: { x: 920, y: 276 },
@@ -988,6 +993,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           strategyFamilies: ['strat-003', 'strat-004', 'strat-009'],
           exitTimelineDays: 180,
           cadenceMinutes: 60,
+          compositionMode: 'entry_only',
+          maxConcurrentLeads: 4,
           executionBinding: { routingMode: 'funds_only' },
         },
         position: { x: 1380, y: 276 },
@@ -1034,8 +1041,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 3, toIndex: 5, linkKind: 'data_feed' },
       { fromIndex: 4, toIndex: 5, linkKind: 'data_feed' },
       { fromIndex: 5, toIndex: 6, linkKind: 'directive' },
-      { fromIndex: 7, toIndex: 'math', linkKind: 'fund_route' },
-      { fromIndex: 'math', toIndex: 8, linkKind: 'fund_route' },
+      { fromIndex: 7, toIndex: 8, linkKind: 'fund_route' },
       { fromIndex: 6, toIndex: 9, linkKind: 'verification' },
       { fromIndex: 9, toIndex: 10, linkKind: 'verification' },
       { fromIndex: 6, toIndex: 10, linkKind: 'directive' },
@@ -1505,6 +1511,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           focus: 'pending_operator_scope',
           trendPosture: 'research_only',
           maxActiveTrends: 10,
+          leadFanoutCap: 6,
           cadenceMinutes: 60,
         },
         position: { x: 920, y: 276 },
@@ -1627,6 +1634,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           focus: 'pending_operator_scope',
           trendPosture: 'crypto_cross_cap',
           maxActiveTrends: 8,
+          leadFanoutCap: 6,
           cadenceMinutes: 30,
         },
         position: { x: 920, y: 276 },
@@ -1749,6 +1757,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           focus: 'pending_operator_scope',
           trendPosture: 'event_probability',
           maxActiveTrends: 10,
+          leadFanoutCap: 6,
           cadenceMinutes: 60,
         },
         position: { x: 920, y: 276 },
@@ -1861,6 +1870,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           focus: 'pending_operator_scope',
           trendPosture: 'session_intraday',
           maxActiveTrends: 10,
+          leadFanoutCap: 6,
           cadenceMinutes: 15,
         },
         position: { x: 920, y: 276 },
@@ -2179,6 +2189,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           focus: 'pending_operator_scope',
           trendPosture: 'research_only',
           maxActiveTrends: 16,
+          leadFanoutCap: 6,
           cadenceMinutes: 5,
         },
         position: { x: 920, y: 276 },
@@ -2289,6 +2300,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           focus: 'pending_operator_scope',
           trendPosture: 'microstructure_swarm',
           maxActiveTrends: 24,
+          leadFanoutCap: 6,
           cadenceMinutes: 5,
         },
         position: { x: 920, y: 276 },
@@ -2301,6 +2313,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           strategyFamilies: ['strat-007'],
           exitTimelineDays: 0,
           cadenceMinutes: 1,
+          compositionMode: 'entry_only',
+          maxConcurrentLeads: 6,
           executionBinding: { routingMode: 'funds_only' },
         },
         position: { x: 1380, y: 276 },
@@ -2353,8 +2367,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 5, toIndex: 8, linkKind: 'verification' },
       { fromIndex: 8, toIndex: 9, linkKind: 'verification' },
       { fromIndex: 5, toIndex: 9, linkKind: 'directive' },
-      { fromIndex: 6, toIndex: 'math', linkKind: 'fund_route' },
-      { fromIndex: 'math', toIndex: 7, linkKind: 'fund_route' },
+      { fromIndex: 6, toIndex: 7, linkKind: 'fund_route' },
     ],
     inputs: [
       {
@@ -2412,6 +2425,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           focus: 'pending_operator_scope',
           trendPosture: 'session_intraday',
           maxActiveTrends: 12,
+          leadFanoutCap: 6,
           cadenceMinutes: 15,
         },
         position: { x: 460, y: 0 },
@@ -2425,6 +2439,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           strategyFamilies: ['strat-001', 'strat-002', 'strat-005'],
           exitTimelineDays: 1,
           cadenceMinutes: 5,
+          compositionMode: 'entry_only',
+          maxConcurrentLeads: 6,
           executionBinding: { routingMode: 'funds_only' },
         },
         position: { x: 920, y: 0 },
@@ -2490,8 +2506,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 5, toIndex: 7, linkKind: 'verification' },
       { fromIndex: 6, toIndex: 7, linkKind: 'verification' },
       { fromIndex: 2, toIndex: 7, linkKind: 'directive' },
-      { fromIndex: 3, toIndex: 'math', linkKind: 'fund_route' },
-      { fromIndex: 'math', toIndex: 4, linkKind: 'fund_route' },
+      { fromIndex: 3, toIndex: 4, linkKind: 'fund_route' },
     ],
     inputs: [
       {
@@ -2530,6 +2545,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           focus: 'pending_operator_scope',
           trendPosture: 'session_intraday',
           maxActiveTrends: 8,
+          leadFanoutCap: 6,
           cadenceMinutes: 30,
         },
         position: { x: 460, y: 0 },
@@ -2542,6 +2558,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           strategyFamilies: ['strat-001'],
           exitTimelineDays: 1,
           cadenceMinutes: 10,
+          compositionMode: 'entry_only',
+          maxConcurrentLeads: 6,
           executionBinding: { routingMode: 'funds_only' },
         },
         position: { x: 920, y: 0 },
@@ -2607,8 +2625,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 5, toIndex: 7, linkKind: 'verification' },
       { fromIndex: 6, toIndex: 7, linkKind: 'verification' },
       { fromIndex: 2, toIndex: 7, linkKind: 'directive' },
-      { fromIndex: 3, toIndex: 'math', linkKind: 'fund_route' },
-      { fromIndex: 'math', toIndex: 4, linkKind: 'fund_route' },
+      { fromIndex: 3, toIndex: 4, linkKind: 'fund_route' },
     ],
     inputs: [
       {
@@ -2657,6 +2674,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           focus: 'pending_operator_scope',
           trendPosture: 'session_intraday',
           maxActiveTrends: 10,
+          leadFanoutCap: 6,
           cadenceMinutes: 20,
         },
         position: { x: 460, y: 0 },
@@ -2669,6 +2687,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
           strategyFamilies: ['strat-001', 'strat-002'],
           exitTimelineDays: 2,
           cadenceMinutes: 10,
+          compositionMode: 'entry_only',
+          maxConcurrentLeads: 6,
           executionBinding: { routingMode: 'funds_only' },
         },
         position: { x: 920, y: 0 },
@@ -2735,8 +2755,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { fromIndex: 6, toIndex: 8, linkKind: 'verification' },
       { fromIndex: 7, toIndex: 8, linkKind: 'verification' },
       { fromIndex: 3, toIndex: 8, linkKind: 'directive' },
-      { fromIndex: 4, toIndex: 'math', linkKind: 'fund_route' },
-      { fromIndex: 'math', toIndex: 5, linkKind: 'fund_route' },
+      { fromIndex: 4, toIndex: 5, linkKind: 'fund_route' },
     ],
     inputs: [
       {
@@ -3057,7 +3076,7 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
   blank: {
     id: 'blank',
     label: 'Blank',
-    description: 'Just the company and its Math module. Build the graph yourself.',
+    description: 'Empty canvas — no seeded modules. Build the graph yourself (D-245: no company Math hub).',
     modules: [],
     links: [],
   },
@@ -3066,7 +3085,6 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
     label: 'Day trading starter',
     description:
       'Full paper engine: research, evidence, market/runtime data, trend, execution, deterministic funds, and policy verification.',
-    mathPosition: { x: 920, y: 1104 },
     modules: [
       {
         type: 'research',
@@ -3115,6 +3133,7 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
           focus: 'pending_operator_scope',
           trendPosture: 'session_intraday',
           maxActiveTrends: 10,
+          leadFanoutCap: 6,
           cadenceMinutes: 30,
         },
         position: { x: 960, y: 576 },
@@ -3128,6 +3147,8 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
           strategyFamilies: ['strat-001', 'strat-002', 'strat-005'],
           exitTimelineDays: 1,
           cadenceMinutes: 5,
+          compositionMode: 'entry_only',
+          maxConcurrentLeads: 6,
         },
         position: { x: 1420, y: 576 },
       },
@@ -3175,9 +3196,7 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
       { fromIndex: 2, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 3, toIndex: 4, linkKind: 'data_feed' },
       { fromIndex: 4, toIndex: 5, linkKind: 'directive' },
-      { fromIndex: 6, toIndex: 'math', linkKind: 'fund_route' },
-      { fromIndex: 'math', toIndex: 7, linkKind: 'fund_route' },
-      // fund_router → trading owner Math is provisioned at insert (not stubbed here).
+      { fromIndex: 6, toIndex: 7, linkKind: 'fund_route' },
       { fromIndex: 5, toIndex: 8, linkKind: 'verification' },
       { fromIndex: 8, toIndex: 9, linkKind: 'verification' },
       { fromIndex: 5, toIndex: 9, linkKind: 'directive' },
@@ -3225,6 +3244,7 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
           focus: 'pending_operator_scope',
           trendPosture: 'research_only',
           maxActiveTrends: 10,
+          leadFanoutCap: 6,
           cadenceMinutes: 120,
         },
         position: { x: 540, y: 240 },

@@ -20,10 +20,13 @@ import { EngineExecutionBinding } from './paper-engine';
 import { LiveDataSourceWidgetKind } from './live-data-sources';
 import {
   AnalyzerHubFeedClass,
+  HubCorpusCache,
+  HubEngineLocal,
   HubShelfOrigin,
   HubShelfOutput,
   HubShelfSlot,
   HubShelfStream,
+  HubSymlink,
   HubTopicFeedConfig,
 } from './engine-data-hub';
 
@@ -109,16 +112,18 @@ export const MAX_MODULES_PER_COMPANY = 200;
 export const MAX_ENGINES_PER_COMPANY = 16;
 
 /**
- * Projected module rows for company create: Math hub + Master Clock + each
- * engine member + one dedicated Math per math-required / fund_router member + extras.
+ * Projected module rows for company create: Master Clock + each engine member +
+ * dedicated Math per owner + one engine_math_hub per engine (D-245) + extras.
+ * No company-wide Math hub.
  */
 export function projectedModuleSlotsForCreate(input: {
   engineModuleTypes: ReadonlyArray<ReadonlyArray<ModuleType>>;
   extraModuleTypes?: ReadonlyArray<ModuleType>;
 }): number {
-  let count = 2; // company Math hub + Master Clock (D-008 / D-088)
+  let count = 1; // Master Clock only (D-088); Math hubs are per-engine (D-245)
   for (const types of input.engineModuleTypes) {
     count += types.length;
+    count += 1; // engine_math_hub
     for (const type of types) {
       if (moduleProvisionsDedicatedMath(type)) count += 1;
     }
@@ -187,9 +192,10 @@ export type LibraryClass = z.infer<typeof LibraryClass>;
 /** Topic scope marker for Engine Data Hub library rows (D-140). */
 export const ENGINE_DATA_HUB_TOPIC_SCOPE = 'engine:data_hub' as const;
 
-/** D-042: typed Math tools (`config.mathType`). */
+/** D-042 / D-245: typed Math tools (`config.mathType`). */
 export const MathType = z.enum([
-  'company_hub',
+  'company_hub', // legacy — migrate to engine_math_hub (D-245)
+  'engine_math_hub',
   'fund_path',
   'desk_execution',
   'trend_signal',
@@ -199,6 +205,39 @@ export const MathType = z.enum([
   'session_calendar',
 ]);
 export type MathType = z.infer<typeof MathType>;
+
+/** Parse `config.mathType` when present and valid. */
+export function parseMathTypeFromConfig(config: unknown): MathType | null {
+  if (!config || typeof config !== 'object') return null;
+  const raw = (config as { mathType?: unknown }).mathType;
+  const parsed = MathType.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+
+/** Unowned engine-scoped Math hub (`engine_math_hub`; legacy `company_hub` when engine-bound). */
+export function isEngineMathHubModule(mod: {
+  type: string;
+  config?: unknown;
+  toolOwnerModuleId?: string | null;
+  engineInstanceId?: string | null;
+}): boolean {
+  if (mod.type !== 'math' || mod.toolOwnerModuleId) return false;
+  const mathType = parseMathTypeFromConfig(mod.config);
+  if (mathType === 'engine_math_hub') return true;
+  return mathType === 'company_hub' && Boolean(mod.engineInstanceId);
+}
+
+/** Non-deletable Math hubs: per-engine `engine_math_hub` and legacy `company_hub`. */
+export function isProtectedMathHubModule(mod: {
+  type: string;
+  config?: unknown;
+  toolOwnerModuleId?: string | null;
+  engineInstanceId?: string | null;
+}): boolean {
+  if (mod.type !== 'math' || mod.toolOwnerModuleId) return false;
+  const mathType = parseMathTypeFromConfig(mod.config);
+  return mathType === 'engine_math_hub' || mathType === 'company_hub';
+}
 
 /** Preferred dedicated Math type when auto-provisioning for an owner module. */
 export function preferredMathTypeForOwner(owner: ModuleType): MathType {
@@ -226,7 +265,7 @@ export function preferredMathTypeForOwner(owner: ModuleType): MathType {
     case 'display':
     case 'clock':
     case 'time':
-      return 'company_hub';
+      return 'engine_math_hub';
     default: {
       const _exhaustive: never = owner;
       return _exhaustive;
@@ -257,11 +296,13 @@ export const LINK_RULES: Readonly<Record<string, readonly LinkKind[]>> = {
   'trend->trading': ['directive'],
   'trend->simulator': ['directive'],
   'trading->policy': ['directive'],
-  // Funds only flow through Math (never into LLM / model-bearing nodes).
+  // Funds: D-229 holding→router direct; Math still legal as optional hop (D-221 legacy).
   'holding_fund->math': ['fund_route'],
   'math->fund_router': ['fund_route'],
   'fund_router->math': ['fund_route'],
   'math->holding_fund': ['fund_route'],
+  'holding_fund->fund_router': ['fund_route'],
+  'fund_router->holding_fund': ['fund_route'],
   'simulator->trend': ['verification'],
   'simulator->research': ['verification'],
   'analyzer->trend': ['verification', 'data_feed'],
@@ -343,14 +384,19 @@ export const FUND_ROUTE_MODULE_TYPES: ReadonlySet<ModuleType> = new Set([
 ]);
 
 /**
- * Fund routes must traverse Math: both ends are fund participants and at
- * least one end is Math. LLM / model-bearing nodes never carry fund_route.
+ * Fund routes: D-229 allows holding↔router directly (implicit Math hop).
+ * Math remains a legal participant. LLM / model-bearing nodes never carry fund_route.
  */
 export function isLegalFundRoute(from: ModuleType, to: ModuleType): boolean {
   if (!FUND_ROUTE_MODULE_TYPES.has(from) || !FUND_ROUTE_MODULE_TYPES.has(to)) {
     return false;
   }
-  return from === 'math' || to === 'math';
+  if (from === 'math' || to === 'math') return true;
+  // Direct holding ↔ router (D-229).
+  return (
+    (from === 'holding_fund' && to === 'fund_router') ||
+    (from === 'fund_router' && to === 'holding_fund')
+  );
 }
 
 export function allowedLinkKinds(from: ModuleType, to: ModuleType): readonly LinkKind[] {
@@ -1129,6 +1175,12 @@ export const LibraryModuleConfig = z.object({
   shelfOutputs: z.array(HubShelfOutput).max(24).optional(),
   /** D-216: live topic auto-feed from qualifying hub ingest. */
   topicFeed: HubTopicFeedConfig.optional(),
+  /** D-239: read-through symlinks into posture/baseline libraries. */
+  symlinks: z.array(HubSymlink).max(32).optional(),
+  /** D-239: engine-local nest libraries under this hub. */
+  engineLocal: z.array(HubEngineLocal).max(64).optional(),
+  /** D-242: hub-local corpus cache (refs/digests/slices — no concept duplication). */
+  corpusCache: HubCorpusCache.nullable().optional(),
 });
 
 export function isEngineDataHubConfig(config: Record<string, unknown> | null | undefined): boolean {
@@ -1241,16 +1293,24 @@ export const TrendModuleConfig = z.object({
   focus: z.string().min(1),
   trendPosture: TrendPosture.default('session_intraday'),
   maxActiveTrends: z.number().int().min(1).max(50).default(10),
+  /** Concurrent Lead paths bound to a Trading desk (D-228 / D-244). */
+  leadFanoutCap: z.number().int().min(1).max(6).default(6),
   cadenceMinutes: z.number().int().min(5).max(1440).default(30),
   manualControl: z.boolean().default(false),
 });
 
+export const CompositionModeConfig = z.enum(['entry_only', 'entry_plus_exits', 'bracket']);
+
 export const TradingModuleConfig = z.object({
   subtype: TradingSubtype,
   strategyFamilies: z.array(z.string()).default([]),
+  /** Preferred family when multiple listed (D-244 bind). */
+  defaultStrategyFamily: z.string().min(1).optional(),
   exitTimelineDays: z.number().int().min(0).max(3650).default(1),
   cadenceMinutes: z.number().int().min(1).max(60).default(5),
   manualControl: z.boolean().default(false),
+  compositionMode: CompositionModeConfig.default('entry_only'),
+  maxConcurrentLeads: z.number().int().min(1).max(6).default(6),
   /** D-122: per-engine service binding + routing (default funds_only when omitted). */
   executionBinding: EngineExecutionBinding.optional(),
 });
@@ -1463,6 +1523,7 @@ export function moduleFunctionLabel(type: ModuleType, config?: unknown): string 
       if (!mathType.success) return 'Math';
       switch (mathType.data) {
         case 'company_hub':
+        case 'engine_math_hub':
           return 'Math';
         case 'fund_path':
           return 'FundMath';
@@ -1690,7 +1751,7 @@ export const FundRouterModuleConfig = z.object({
 export const GenericModuleConfig = z.object({}).passthrough();
 
 export const MathModuleConfig = z.object({
-  mathType: MathType.default('company_hub'),
+  mathType: MathType.default('engine_math_hub'),
 });
 export type MathModuleConfig = z.infer<typeof MathModuleConfig>;
 

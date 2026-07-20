@@ -529,6 +529,22 @@ export function placeEngineTimeHubPosition(
   };
 }
 
+/**
+ * Dock an engine Math hub to the right of the engine Time hub rail (D-245).
+ * When no Time hub exists, `timeHubPosition` is the bottom-left envelope anchor.
+ */
+export function placeEngineMathHubPosition(
+  timeHubPosition: { x: number; y: number },
+  slot = 0,
+): { x: number; y: number } {
+  return {
+    x:
+      timeHubPosition.x +
+      (slot + 1) * (CANVAS_LAYOUT.moduleWidth + CANVAS_LAYOUT.horizontalGutter),
+    y: timeHubPosition.y,
+  };
+}
+
 /** Y for the funds shelf under the process/Math envelope (absolute). */
 export function placeEngineFundsShelfY(
   processPositions: readonly {
@@ -718,7 +734,25 @@ export function layoutEngineGroup(
     });
   });
 
-  // Include dedicated Math docks + funds + Time rail so group chrome covers the full envelope.
+  const timeRailAnchor =
+    timeMembers.length > 0
+      ? {
+          x: timeHubPos.x,
+          y:
+            timeHubPos.y +
+            (timeMembers.length - 1) *
+              (CANVAS_LAYOUT.moduleHeight + CANVAS_LAYOUT.mathAttachmentGap),
+        }
+      : timeHubPos;
+  const engineMathHubs = memberIds
+    .map((id) => modulesById.get(id))
+    .filter((m): m is LayoutModule => !!m && m.type === 'math' && !m.toolOwnerModuleId)
+    .sort((a, b) => a.id.localeCompare(b.id));
+  engineMathHubs.forEach((mathMod, index) => {
+    positions.set(mathMod.id, placeEngineMathHubPosition(timeRailAnchor, index));
+  });
+
+  // Include dedicated Math docks + funds + Time/Math hub rail so group chrome covers the envelope.
   const allLayoutPositions = [...positions.values()];
   const bounds = computePaddedBounds(allLayoutPositions, padding);
 
@@ -1035,12 +1069,12 @@ export function layoutCanvas(
   }
 
   // Owned Math that somehow missed engine docking follows its owner.
-  // Company hub Math stays off the free column — pin with the cadence rail below.
+  // Unowned hub Math is engine-scoped via layoutEngineGroup (D-245); legacy orphans → free column.
   const placedIds = new Set(resultModules.keys());
   const leftoverMath = modules
     .filter((m) => m.type === 'math' && !placedIds.has(m.id))
     .sort((a, b) => a.id.localeCompare(b.id));
-  const companyHubMath: LayoutModule[] = [];
+  const orphanHubMath: LayoutModule[] = [];
   for (const m of leftoverMath) {
     const ownerId = m.toolOwnerModuleId;
     if (ownerId && resultModules.has(ownerId)) {
@@ -1060,7 +1094,7 @@ export function layoutCanvas(
       });
       continue;
     }
-    companyHubMath.push(m);
+    orphanHubMath.push(m);
   }
 
   // D-091: Master Clock pins to a bottom company cadence rail under all engines.
@@ -1093,15 +1127,11 @@ export function layoutCanvas(
       y: cadenceY,
     });
   });
-  // D-221 / D-227: company hub Math sits on the cadence rail (audit singleton),
-  // not a far-right FundMath column.
-  companyHubMath.forEach((m, index) => {
+  // D-245: cadence rail = Clock + company Time only; orphan hub Math uses the free column.
+  orphanHubMath.forEach((m, index) => {
     resultModules.set(m.id, {
-      x:
-        CANVAS_LAYOUT.originX +
-        (clocks.length + times.length + index) *
-          (CANVAS_LAYOUT.moduleWidth + CANVAS_LAYOUT.horizontalGutter),
-      y: cadenceY,
+      x: freeOriginX + index * LAYOUT_COLUMN_STEP,
+      y: freeOriginY,
     });
   });
 

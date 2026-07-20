@@ -356,6 +356,11 @@ export const MarketHubModelLiveSource = z.object({
   kind: z.string().max(40),
   label: z.string().max(120),
   domain: z.string().max(40),
+  /**
+   * stream = continuous market/news feed (Live ingest).
+   * query = on-demand search / research API (Process research extension).
+   */
+  sourceClass: z.enum(['stream', 'query']).default('stream'),
   status: z.enum(['ready', 'missing_key', 'stub', 'researched', 'public']),
   authMode: z.enum(['none', 'research_key', 'broker_paper']),
   canvasBoundCount: z.number().int().nonnegative(),

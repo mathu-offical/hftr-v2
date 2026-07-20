@@ -574,42 +574,48 @@ export function layoutEngineGroup(
     });
   }
 
-  // Dock dedicated Math tools under their explicit owner. Legacy unowned Math
-  // may still use link inference until an operator provisions ownership.
-  const consumers = new Set(ranked.map((r) => r.id));
-  const mathModules = [...modulesById.values()].filter((m) => m.type === 'math');
-  for (const math of mathModules) {
-    const explicitOwnerId =
-      math.toolOwnerModuleId && consumers.has(math.toolOwnerModuleId)
-        ? math.toolOwnerModuleId
-        : null;
-    const attachments = explicitOwnerId
-      ? []
-      : links.filter(
-          (link) =>
-            link.fromModuleId === math.id &&
-            consumers.has(link.toModuleId) &&
-            isMathToolAttachment('math', modulesById.get(link.toModuleId)!.type, link.linkKind),
-        );
-    const ownerId =
-      explicitOwnerId ?? attachments.map((attachment) => attachment.toModuleId).sort()[0];
-    if (!ownerId) continue;
-    const ownerPos = positions.get(ownerId);
-    if (!ownerPos) continue;
-    const owner = modulesById.get(ownerId);
-    const ownerWidth = Math.max(
-      owner?.width ?? CANVAS_LAYOUT.moduleWidth,
-      CANVAS_LAYOUT.moduleWidth,
-    );
-    const ownerHeight = Math.max(
-      owner?.height ?? CANVAS_LAYOUT.moduleHeight,
-      CANVAS_LAYOUT.moduleHeight,
-    );
-    positions.set(math.id, {
-      x: ownerPos.x + (ownerWidth - CANVAS_LAYOUT.mathToolWidth) / 2,
-      y: ownerPos.y + ownerHeight + CANVAS_LAYOUT.mathAttachmentGap,
-    });
-  }
+  // Include funds/clock members — fund_router owns fund_path Math but is not process-ranked (D-227).
+  const engineMemberIds = new Set(memberIds);
+
+  /** Dock dedicated Math under owners currently present in `positions` (D-033 / D-221). */
+  const dockMathUnderOwners = () => {
+    const mathModules = [...modulesById.values()].filter((m) => m.type === 'math');
+    for (const math of mathModules) {
+      const explicitOwnerId =
+        math.toolOwnerModuleId && engineMemberIds.has(math.toolOwnerModuleId)
+          ? math.toolOwnerModuleId
+          : null;
+      const attachments = explicitOwnerId
+        ? []
+        : links.filter(
+            (link) =>
+              link.fromModuleId === math.id &&
+              engineMemberIds.has(link.toModuleId) &&
+              isMathToolAttachment('math', modulesById.get(link.toModuleId)!.type, link.linkKind),
+          );
+      const ownerId =
+        explicitOwnerId ?? attachments.map((attachment) => attachment.toModuleId).sort()[0];
+      if (!ownerId) continue;
+      const ownerPos = positions.get(ownerId);
+      if (!ownerPos) continue;
+      const owner = modulesById.get(ownerId);
+      const ownerWidth = Math.max(
+        owner?.width ?? CANVAS_LAYOUT.moduleWidth,
+        CANVAS_LAYOUT.moduleWidth,
+      );
+      const ownerHeight = Math.max(
+        owner?.height ?? CANVAS_LAYOUT.moduleHeight,
+        CANVAS_LAYOUT.moduleHeight,
+      );
+      positions.set(math.id, {
+        x: ownerPos.x + (ownerWidth - CANVAS_LAYOUT.mathToolWidth) / 2,
+        y: ownerPos.y + ownerHeight + CANVAS_LAYOUT.mathAttachmentGap,
+      });
+    }
+  };
+
+  // Initial dock under process-lane owners.
+  dockMathUnderOwners();
 
   // Funds shelf: holding → router under the process/Math envelope (not mid-lane).
   const processBoxes = [...positions.entries()].map(([id, pos]) => {
@@ -674,6 +680,9 @@ export function layoutEngineGroup(
         y: shelfY,
       });
     });
+    // D-221 / D-227: fund_path Math follows fund_router onto the funds shelf —
+    // do not leave FundMath stranded in the process lane or company free column.
+    dockMathUnderOwners();
   }
 
   // D-091: pin engine Time hub(s) to bottom-left under the full member envelope.
@@ -1025,18 +1034,33 @@ export function layoutCanvas(
     });
   }
 
-  // Unattached Math left after free column.
+  // Owned Math that somehow missed engine docking follows its owner.
+  // Company hub Math stays off the free column — pin with the cadence rail below.
   const placedIds = new Set(resultModules.keys());
   const leftoverMath = modules
     .filter((m) => m.type === 'math' && !placedIds.has(m.id))
     .sort((a, b) => a.id.localeCompare(b.id));
-  let mathY = freeOriginY;
+  const companyHubMath: LayoutModule[] = [];
   for (const m of leftoverMath) {
-    resultModules.set(m.id, {
-      x: freeOriginX + LAYOUT_COLUMN_STEP,
-      y: mathY,
-    });
-    mathY += CANVAS_LAYOUT.mathToolHeight + CANVAS_LAYOUT.verticalGutter;
+    const ownerId = m.toolOwnerModuleId;
+    if (ownerId && resultModules.has(ownerId)) {
+      const ownerPos = resultModules.get(ownerId)!;
+      const owner = modulesById.get(ownerId);
+      const ownerWidth = Math.max(
+        owner?.width ?? CANVAS_LAYOUT.moduleWidth,
+        CANVAS_LAYOUT.moduleWidth,
+      );
+      const ownerHeight = Math.max(
+        owner?.height ?? CANVAS_LAYOUT.moduleHeight,
+        CANVAS_LAYOUT.moduleHeight,
+      );
+      resultModules.set(m.id, {
+        x: ownerPos.x + (ownerWidth - CANVAS_LAYOUT.mathToolWidth) / 2,
+        y: ownerPos.y + ownerHeight + CANVAS_LAYOUT.mathAttachmentGap,
+      });
+      continue;
+    }
+    companyHubMath.push(m);
   }
 
   // D-091: Master Clock pins to a bottom company cadence rail under all engines.
@@ -1066,6 +1090,17 @@ export function layoutCanvas(
       x:
         CANVAS_LAYOUT.originX +
         (clocks.length + index) * (CANVAS_LAYOUT.moduleWidth + CANVAS_LAYOUT.horizontalGutter),
+      y: cadenceY,
+    });
+  });
+  // D-221 / D-227: company hub Math sits on the cadence rail (audit singleton),
+  // not a far-right FundMath column.
+  companyHubMath.forEach((m, index) => {
+    resultModules.set(m.id, {
+      x:
+        CANVAS_LAYOUT.originX +
+        (clocks.length + times.length + index) *
+          (CANVAS_LAYOUT.moduleWidth + CANVAS_LAYOUT.horizontalGutter),
       y: cadenceY,
     });
   });

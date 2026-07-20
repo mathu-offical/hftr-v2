@@ -54,10 +54,11 @@ export const ModuleType = z.enum([
 ]);
 export type ModuleType = z.infer<typeof ModuleType>;
 
-/** D-033: module types that receive one dedicated deterministic Math tool. */
+/** D-033: module types that receive one dedicated deterministic Math tool.
+ * Librarian shares the research owner's Calc-ref path — no separate dock (D-227).
+ */
 export const MATH_REQUIRED_MODULE_TYPES: ReadonlySet<ModuleType> = new Set([
   'research',
-  'librarian',
   'trend',
   'trading',
   'simulator',

@@ -2119,6 +2119,7 @@ describe('canvas layout (D-033)', () => {
     expect(moduleRequiresMath('simulator')).toBe(true);
     expect(moduleRequiresMath('analyzer')).toBe(true);
     expect(moduleRequiresMath('generator')).toBe(true);
+    expect(moduleRequiresMath('librarian')).toBe(false);
     expect(moduleRequiresMath('library')).toBe(false);
     expect(moduleRequiresMath('math')).toBe(false);
     expect(moduleRequiresMath('fund_router')).toBe(false);
@@ -2127,6 +2128,7 @@ describe('canvas layout (D-033)', () => {
   it('provisions fund_path Math for fund_router capital hops (D-221)', () => {
     expect(moduleProvisionsDedicatedMath('fund_router')).toBe(true);
     expect(moduleProvisionsDedicatedMath('trading')).toBe(true);
+    expect(moduleProvisionsDedicatedMath('librarian')).toBe(false);
     expect(moduleProvisionsDedicatedMath('holding_fund')).toBe(false);
     expect(preferredMathTypeForOwner('fund_router')).toBe('fund_path');
     expect(preferredMathTypeForOwner('trading')).toBe('desk_execution');
@@ -2142,8 +2144,85 @@ describe('canvas layout (D-033)', () => {
         engine.modules.map((module) => module.type),
       ),
     });
-    expect(slots).toBe(40);
+    // D-227: librarians no longer auto-provision dedicated Math (−3 vs prior 40).
+    expect(slots).toBe(37);
     expect(slots).toBeLessThanOrEqual(MAX_MODULES_PER_COMPANY);
+  });
+
+  it('docks fund_path Math under fund_router after funds shelf (D-227)', () => {
+    const research = '00000000-0000-4000-8000-0000000000a1';
+    const trading = '00000000-0000-4000-8000-0000000000a2';
+    const fund = '00000000-0000-4000-8000-0000000000a3';
+    const router = '00000000-0000-4000-8000-0000000000a4';
+    const fundMath = '00000000-0000-4000-8000-0000000000a5';
+    const modules = [
+      mkModule(research, 'research'),
+      mkModule(trading, 'trading'),
+      mkModule(fund, 'holding_fund'),
+      mkModule(router, 'fund_router'),
+      {
+        ...mkModule(fundMath, 'math'),
+        engineInstanceId: null,
+        toolOwnerModuleId: router,
+      },
+    ];
+    const laid = layoutEngineGroup(
+      engineId,
+      [research, trading, fund, router],
+      new Map(modules.map((m) => [m.id, m])),
+      [],
+      { x: 40, y: 40 },
+      ENGINE_GROUP_PADDING,
+    );
+    const pos = (id: string) => laid.modules.find((m) => m.id === id)!.canvasPosition;
+    expect(pos(fundMath).y).toBe(
+      pos(router).y + CANVAS_LAYOUT.moduleHeight + CANVAS_LAYOUT.mathAttachmentGap,
+    );
+    expect(pos(fundMath).x).toBe(
+      pos(router).x + (CANVAS_LAYOUT.moduleWidth - CANVAS_LAYOUT.mathToolWidth) / 2,
+    );
+    // Still on the funds shelf lane — not stranded above with process owners.
+    expect(pos(fundMath).y).toBeGreaterThan(pos(trading).y + CANVAS_LAYOUT.moduleHeight);
+  });
+
+  it('pins company hub Math to cadence rail, not far-right free column (D-227)', () => {
+    const research = '00000000-0000-4000-8000-0000000000b1';
+    const trading = '00000000-0000-4000-8000-0000000000b2';
+    const hubMath = '00000000-0000-4000-8000-0000000000b3';
+    const clock = '00000000-0000-4000-8000-0000000000b4';
+    const engines = [
+      {
+        id: engineId,
+        memberModuleIds: [research, trading],
+        templateId: 'engine_day_trading',
+        dataHubModuleId: null,
+      },
+    ];
+    const modules = [
+      { ...mkModule(research, 'research'), engineInstanceId: engineId },
+      { ...mkModule(trading, 'trading'), engineInstanceId: engineId },
+      {
+        id: hubMath,
+        type: 'math' as const,
+        engineInstanceId: null,
+        toolOwnerModuleId: null,
+        position: { x: 0, y: 0 },
+      },
+      {
+        id: clock,
+        type: 'clock' as const,
+        engineInstanceId: null,
+        toolOwnerModuleId: null,
+        position: { x: 0, y: 0 },
+      },
+    ];
+    const result = layoutCanvas(engines, modules, [], ENGINE_GROUP_PADDING);
+    const pos = (id: string) => result.modules.find((m) => m.id === id)!.canvasPosition;
+    const engineRight = result.engines[0]!.canvasBounds.x + result.engines[0]!.canvasBounds.width;
+    // Must not dump into the free column to the right of engines.
+    expect(pos(hubMath).x).toBeLessThan(engineRight);
+    expect(pos(hubMath).y).toBe(pos(clock).y);
+    expect(pos(hubMath).x).toBeGreaterThan(pos(clock).x);
   });
 
   it('docks explicit dedicated Math below its measured owner without link inference', () => {

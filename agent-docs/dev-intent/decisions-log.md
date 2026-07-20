@@ -2313,6 +2313,14 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   Extends D-225. Docs: ui-spec §4.
   **Status: implemented.**
 
+- **D-227 (engine-internal fund bus + no far-right FundMath spine, 2026-07-20):**
+  Capital Math stays on each engine’s funds shelf under its `fund_router` (re-dock after
+  shelf placement). Company hub Math pins to the cadence rail with Clock/Time — layout
+  must not dump unowned/stranded Math into a far-right free column. Librarians no longer
+  auto-provision a dedicated Math; they share the research Calc-ref path. Extends D-033 /
+  D-221. Docs: canvas-layout-and-dedicated-math-design.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

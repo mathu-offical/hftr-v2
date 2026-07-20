@@ -1,7 +1,7 @@
 # Canvas spacing, reflow, and dedicated Math tools (2026-07-17)
 
 **Status:** Implemented and runtime-verified (2026-07-17); Math tools independently movable; default seeds do not double shared + dedicated Math on fund paths  
-**Decision:** D-033; type-lane placement D-066 (`dev-intent/decisions-log.md`)  
+**Decision:** D-033; type-lane placement D-066; fund bus placement D-221 / D-227 (`dev-intent/decisions-log.md`)  
 **Related:** D-028 (`canvas-engine-group-design.md`); D-026 (`canvas-node-dashboard-design.md`)
 
 ## Goal
@@ -22,7 +22,12 @@
 - `analyzer`
 - `generator`
 
-Other module types may attach Math tools manually, but they do not receive a dedicated tool automatically.
+Librarian shares the research owner's Calc-ref Math — it does **not** auto-provision a
+second dedicated tool (D-227). Other module types may attach Math manually.
+
+`fund_router` provisions a **fund_path** Math (via `moduleProvisionsDedicatedMath`) for
+capital hops; that tool docks on the engine **funds shelf under the router**, not in a
+company-wide free column.
 
 ## Math ownership and sharing
 
@@ -55,7 +60,19 @@ For capital routing, funds only flow through Math / holding_fund / fund_router �
 holding_fund --fund_route--> fund_path Math (under fund_router) --fund_route--> fund_router --fund_route--> trading owner Math
 ```
 
-Trading receives calculated capital via `data_feed` from its dedicated Math. No `fund_route` handle exists on trading, research, trend, or other model-bearing modules. The company Math hub remains an audit singleton outside capital seed wiring.
+Trading receives calculated capital via `data_feed` from its dedicated Math. No `fund_route` handle exists on trading, research, trend, or other model-bearing modules. The company Math hub remains an audit singleton outside capital seed wiring and pins to the **company cadence rail** (with Clock / Time), never a far-right FundMath spine (D-227).
+
+## Internal fund bus (D-227)
+
+Each capital-bearing engine owns its fund bus:
+
+```text
+holding_fund ──► FundMath (docked under fund_router) ──► fund_router ──► trading Math
+```
+
+Layout must re-dock `fund_path` Math **after** the funds shelf moves the router so tools stay
+inside the engine chrome. Leftover owned Math follows its placed owner; unowned company hub
+Math joins the cadence rail. Reflow must not invent a free-column stack of FundMath nodes.
 
 ## Math tool presentation
 

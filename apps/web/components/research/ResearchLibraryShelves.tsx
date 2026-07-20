@@ -807,6 +807,39 @@ function ResearchLibraryShelvesInner(props: ResearchLibraryShelvesProps) {
                     <FolderOpen size={11} aria-hidden className="shrink-0 opacity-70" />
                     <span className="truncate">{hub.name}</span>
                   </button>
+                  {(() => {
+                    const cfg = (hub.moduleConfig ?? {}) as {
+                      shelves?: Array<{ origin: string; stream: string; label?: string }>;
+                      shelfOutputs?: Array<{
+                        origin: string;
+                        stream: string;
+                        enabled?: boolean;
+                      }>;
+                      topicFeed?: { enabled?: boolean };
+                    };
+                    const shelves = cfg.shelves ?? [];
+                    const enabledOuts = (cfg.shelfOutputs ?? []).filter((o) => o.enabled).length;
+                    const topicOn = cfg.topicFeed?.enabled !== false;
+                    if (shelves.length === 0 && !hub.isEngineDataHub) return null;
+                    return (
+                      <div className="ml-3 mt-0.5 space-y-0.5 text-[9px] text-[var(--color-ink-faint)]">
+                        <p>
+                          {shelves.length || 12} compound shelves · topic feed{' '}
+                          {topicOn ? 'on' : 'off'}
+                          {enabledOuts > 0 ? ` · ${enabledOuts} shelf outs` : ''}
+                        </p>
+                        {shelves.length > 0 ? (
+                          <ul className="max-h-24 space-y-0.5 overflow-y-auto border-l border-[var(--color-line)] pl-2">
+                            {shelves.map((slot) => (
+                              <li key={`${slot.origin}|${slot.stream}`} className="truncate">
+                                {slot.label ?? `${slot.origin} · ${slot.stream}`}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    );
+                  })()}
                   {nests.length > 0 ? (
                     <ul className="ml-3 mt-0.5 space-y-0.5 border-l border-[var(--color-line)] pl-2">
                       {nests.map((nest) => (

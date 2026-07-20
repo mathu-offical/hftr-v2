@@ -116,19 +116,34 @@ export async function reflowCompanyFamilyLayout(
     };
   });
 
-  const layoutModules = moduleRows.map((m) => ({
-    id: m.id,
-    type: m.type as ModuleType,
-    engineInstanceId: m.engineInstanceId,
-    toolOwnerModuleId: m.toolOwnerModuleId,
-    position: (m.canvasPosition as { x: number; y: number } | null) ?? { x: 0, y: 0 },
-  }));
+  const layoutModules = moduleRows.map((m) => {
+    const cfg = (m.config ?? {}) as Record<string, unknown>;
+    const hubFeedClass =
+      m.type === 'analyzer' && (cfg.hubFeedClass === 'direct' || cfg.hubFeedClass === 'analyzed')
+        ? (cfg.hubFeedClass as 'direct' | 'analyzed')
+        : undefined;
+    return {
+      id: m.id,
+      type: m.type as ModuleType,
+      engineInstanceId: m.engineInstanceId,
+      toolOwnerModuleId: m.toolOwnerModuleId,
+      position: (m.canvasPosition as { x: number; y: number } | null) ?? { x: 0, y: 0 },
+      ...(hubFeedClass !== undefined ? { hubFeedClass } : {}),
+    };
+  });
 
-  const layoutLinks = linkRows.map((l) => ({
-    fromModuleId: l.fromModuleId,
-    toModuleId: l.toModuleId,
-    linkKind: l.linkKind as LinkKind,
-  }));
+  const hubModuleIds = new Set(
+    moduleRows
+      .filter((m) => isEngineDataHubConfig((m.config ?? {}) as Record<string, unknown>))
+      .map((m) => m.id),
+  );
+  const layoutLinks = linkRows
+    .filter((l) => !hubModuleIds.has(l.fromModuleId) && !hubModuleIds.has(l.toModuleId))
+    .map((l) => ({
+      fromModuleId: l.fromModuleId,
+      toModuleId: l.toModuleId,
+      linkKind: l.linkKind as LinkKind,
+    }));
 
   const layout = layoutCanvas(
     layoutEngines,

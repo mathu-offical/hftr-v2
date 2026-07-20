@@ -39,6 +39,11 @@ export const Library = z.object({
   /** D-140: parent hub library when this row is a nest. */
   parentHubLibraryId: z.string().uuid().nullable().default(null),
   status: z.enum(['active', 'archived']).default('active'),
+  /**
+   * D-216: optional hub module config (shelves / shelfOutputs / topicFeed) attached by
+   * libraries GET for engine data hubs — not a DB column.
+   */
+  moduleConfig: z.record(z.unknown()).nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

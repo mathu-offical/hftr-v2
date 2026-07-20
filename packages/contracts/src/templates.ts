@@ -178,21 +178,37 @@ const RESEARCH_PACK_DECISION_SEEDS: EngineTemplateDecisionSeed[] = [
 /** Simulation desk seeds (feed → trend → trade spread). */
 const SIM_DESK_DECISION_SEEDS = (
   strategyRefs: readonly string[],
-): EngineTemplateDecisionSeed[] => [
-  { kind: 'feed_class', ownerModuleIndex: 0 },
-  { kind: 'query_policy', ownerModuleIndex: 0 },
-  { kind: 'schedule_policy', ownerModuleIndex: 0 },
-  { kind: 'trend_posture', ownerModuleIndex: 1 },
-  { kind: 'cadence_band', ownerModuleIndex: 1 },
-  {
-    kind: 'strategy_family',
-    ownerModuleIndex: 2,
-    optionRefs: [...strategyRefs],
+  opts?: {
+    feedIndex?: number;
+    trendIndex?: number;
+    tradingIndex?: number;
+    /** Dual hub-feed analyzers (D-216): analyzed then direct. */
+    analyzerIndices?: readonly number[];
   },
-  { kind: 'branch_role', ownerModuleIndex: 2 },
-  { kind: 'recovery_phase', ownerModuleIndex: 2 },
-  { kind: 'emit_mode', ownerModuleIndex: 5 },
-];
+): EngineTemplateDecisionSeed[] => {
+  const feedIndex = opts?.feedIndex ?? 0;
+  const trendIndex = opts?.trendIndex ?? 1;
+  const tradingIndex = opts?.tradingIndex ?? 2;
+  const analyzerIndices = opts?.analyzerIndices ?? [5, 6];
+  return [
+    { kind: 'feed_class', ownerModuleIndex: feedIndex },
+    { kind: 'query_policy', ownerModuleIndex: feedIndex },
+    { kind: 'schedule_policy', ownerModuleIndex: feedIndex },
+    { kind: 'trend_posture', ownerModuleIndex: trendIndex },
+    { kind: 'cadence_band', ownerModuleIndex: trendIndex },
+    {
+      kind: 'strategy_family',
+      ownerModuleIndex: tradingIndex,
+      optionRefs: [...strategyRefs],
+    },
+    { kind: 'branch_role', ownerModuleIndex: tradingIndex },
+    { kind: 'recovery_phase', ownerModuleIndex: tradingIndex },
+    ...analyzerIndices.map((ownerModuleIndex) => ({
+      kind: 'emit_mode' as const,
+      ownerModuleIndex,
+    })),
+  ];
+};
 
 export const ENGINE_TEMPLATES: EngineTemplate[] = [
   {
@@ -2555,6 +2571,7 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
       { kind: 'branch_role', ownerModuleIndex: 3 },
       { kind: 'recovery_phase', ownerModuleIndex: 3 },
       { kind: 'emit_mode', ownerModuleIndex: 6 },
+      { kind: 'emit_mode', ownerModuleIndex: 7 },
     ],
   },
 ];

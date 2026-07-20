@@ -1295,6 +1295,32 @@ function dedupeMathCalcRefLinks(
   });
 }
 
+/**
+ * D-159 / D-216: hub I/O is motherboard-only — drop legacy hub module_links so they
+ * never flash as canvas edges before family-layout heal.
+ */
+function stripHubModuleLinks(
+  links: readonly CanvasLink[],
+  modules: readonly CanvasModule[],
+): CanvasLink[] {
+  const hubIds = new Set(
+    modules
+      .filter((m) => isEngineDataHubConfig((m.config ?? {}) as Record<string, unknown>))
+      .map((m) => m.id),
+  );
+  if (hubIds.size === 0) return [...links];
+  return links.filter(
+    (link) => !hubIds.has(link.fromModuleId) && !hubIds.has(link.toModuleId),
+  );
+}
+
+function hydrateModuleLinksForCanvas(
+  links: readonly CanvasLink[],
+  modules: readonly CanvasModule[],
+): CanvasLink[] {
+  return stripHubModuleLinks(dedupeMathCalcRefLinks(links, modules), modules);
+}
+
 function moduleRowToCanvas(row: {
   id: string;
   type: ModuleType;
@@ -1437,7 +1463,7 @@ export function CompanyCanvas(props: {
     [props.initialModules],
   );
   const [edges, setEdges] = useEdgesState<Edge>([
-    ...dedupeMathCalcRefLinks(props.initialLinks, props.initialModules).map((l) =>
+    ...hydrateModuleLinksForCanvas(props.initialLinks, props.initialModules).map((l) =>
       toEdge(l, initialTypeById),
     ),
     ...utilityEdgesFromEngines(props.initialEngines),
@@ -1496,7 +1522,7 @@ export function CompanyCanvas(props: {
       ),
     );
     setEdges([
-      ...dedupeMathCalcRefLinks(props.initialLinks, props.initialModules).map((l) =>
+      ...hydrateModuleLinksForCanvas(props.initialLinks, props.initialModules).map((l) =>
         toEdge(l, typeById),
       ),
       ...utilityEdgesFromEngines(props.initialEngines),

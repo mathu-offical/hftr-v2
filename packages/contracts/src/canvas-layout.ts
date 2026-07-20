@@ -118,6 +118,8 @@ export interface LayoutModule {
   position: { x: number; y: number };
   width?: number;
   height?: number;
+  /** D-216: analyzer hub feed class for same-lane dual-analyzer tie-break. */
+  hubFeedClass?: 'direct' | 'analyzed' | null;
 }
 
 export interface LayoutLink {
@@ -253,6 +255,15 @@ export function rankEngineMembers(
   const compareWithinLane = (a: LayoutModule, b: LayoutModule): number => {
     const rowDiff = MODULE_LANE_ROW[a.type] - MODULE_LANE_ROW[b.type];
     if (rowDiff !== 0) return rowDiff;
+    if (a.type === 'analyzer' && b.type === 'analyzer') {
+      const feedRank = (feed: LayoutModule['hubFeedClass']): number => {
+        if (feed === 'analyzed') return 0;
+        if (feed === 'direct') return 1;
+        return 2;
+      };
+      const feedDiff = feedRank(a.hubFeedClass) - feedRank(b.hubFeedClass);
+      if (feedDiff !== 0) return feedDiff;
+    }
     const topoDiff = (topoOrder.get(a.id) ?? 0) - (topoOrder.get(b.id) ?? 0);
     if (topoDiff !== 0) return topoDiff;
     return a.id.localeCompare(b.id);

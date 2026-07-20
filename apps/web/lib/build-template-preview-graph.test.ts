@@ -98,6 +98,11 @@ describe('buildTemplatePreviewGraph', () => {
     // Hub biased toward execution (D-168 strategic placement).
     expect(hubNode.position.x).toBeGreaterThan(regime.position.x);
     expect(hubNode.position.x).toBeLessThan(exec.position.x);
+    const hubConfig = (hubNode.data as { config?: Record<string, unknown> }).config ?? {};
+    expect(Array.isArray(hubConfig.shelves)).toBe(true);
+    expect((hubConfig.shelves as unknown[]).length).toBe(12);
+    expect(Array.isArray(hubConfig.shelfOutputs)).toBe(true);
+    expect(hubConfig.topicFeed).toEqual({ enabled: true });
     expect(edges.some((edge) => String(edge.id).startsWith('cascade:'))).toBe(false);
     expect(
       edges.every(

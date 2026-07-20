@@ -2305,6 +2305,18 @@ describe('canvas layout (D-033)', () => {
     expect(orderOf(library)).toBeLessThan(orderOf(live));
   });
 
+  it('orders dual hub-feed analyzers analyzed above direct (D-216)', () => {
+    const analyzed = '00000000-0000-4000-8000-0000000000f1';
+    const direct = '00000000-0000-4000-8000-0000000000f2';
+    const modulesById = new Map([
+      [analyzed, { ...mkModule(analyzed, 'analyzer'), hubFeedClass: 'analyzed' as const }],
+      [direct, { ...mkModule(direct, 'analyzer'), hubFeedClass: 'direct' as const }],
+    ]);
+    const ranked = rankEngineMembers([direct, analyzed], modulesById, []);
+    const orderOf = (id: string) => ranked.find((r) => r.id === id)!.order;
+    expect(orderOf(analyzed)).toBeLessThan(orderOf(direct));
+  });
+
   it('layoutEngineGroup places research above librarian for standard desk spine', () => {
     const research = '00000000-0000-4000-8000-0000000000e1';
     const librarian = '00000000-0000-4000-8000-0000000000e2';

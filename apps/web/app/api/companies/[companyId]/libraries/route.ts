@@ -1,8 +1,8 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { CreateLibraryInput } from '@hftr/contracts';
 import { scoping } from '@hftr/db';
-import { libraries } from '@hftr/db/schema';
+import { libraries, modules } from '@hftr/db/schema';
 import { bootstrapCompanyKnowledge } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 
@@ -35,7 +35,32 @@ export async function GET(_req: Request, ctx: Ctx) {
       .where(and(eq(libraries.companyId, companyId), eq(libraries.status, 'active')))
       .orderBy(desc(libraries.createdAt))
       .limit(200);
-    return { libraries: rows };
+
+    // D-216: attach hub module config so Library shelves can show compound shelves.
+    const hubModuleIds = rows
+      .filter((row) => row.isEngineDataHub && row.moduleId)
+      .map((row) => row.moduleId!)
+      .filter((id, i, arr) => arr.indexOf(id) === i);
+    const hubConfigByModule = new Map<string, Record<string, unknown>>();
+    if (hubModuleIds.length > 0) {
+      const hubMods = await db
+        .select({ id: modules.id, config: modules.config })
+        .from(modules)
+        .where(and(eq(modules.companyId, companyId), inArray(modules.id, hubModuleIds)));
+      for (const mod of hubMods) {
+        hubConfigByModule.set(mod.id, (mod.config ?? {}) as Record<string, unknown>);
+      }
+    }
+
+    return {
+      libraries: rows.map((row) => ({
+        ...row,
+        moduleConfig:
+          row.isEngineDataHub && row.moduleId
+            ? (hubConfigByModule.get(row.moduleId) ?? null)
+            : null,
+      })),
+    };
   });
 }
 

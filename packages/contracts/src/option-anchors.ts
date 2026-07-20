@@ -75,6 +75,14 @@ export const DecisionIntakes = z.object({
 });
 export type DecisionIntakes = z.infer<typeof DecisionIntakes>;
 
+/**
+ * How a decision node connects outbound (D-222):
+ * - `emit_decision` — single data out carrying the chosen catalog ref
+ * - `route_data` — one out per option; incoming data/system forks by choice
+ */
+export const DecisionConnectionMode = z.enum(['emit_decision', 'route_data']);
+export type DecisionConnectionMode = z.infer<typeof DecisionConnectionMode>;
+
 export const OptionAnchorSpec = z.object({
   id: z.string(),
   kind: OptionAnchorKind,
@@ -88,6 +96,8 @@ export const OptionAnchorSpec = z.object({
   options: z.array(DecisionOption).default([]),
   selectedOptionId: z.string().nullable().optional(),
   intakes: DecisionIntakes.optional(),
+  /** Outbound wiring mode (D-222). Defaults from {@link connectionModeForDecisionKind}. */
+  connectionMode: DecisionConnectionMode.optional(),
 });
 export type OptionAnchorSpec = z.infer<typeof OptionAnchorSpec>;
 
@@ -96,9 +106,45 @@ export type DecisionNodeSpec = OptionAnchorSpec;
 
 export const DECISION_HANDLE_DATA_IN = 'decision-data-in';
 export const DECISION_HANDLE_SYSTEM_IN = 'decision-system-in';
+/** Single outbound when {@link DecisionConnectionMode} is `emit_decision`. */
+export const DECISION_HANDLE_EMIT_OUT = 'decision-emit-out';
 
 export function decisionOptionOutHandle(optionId: string): string {
   return `option-out:${optionId}`;
+}
+
+/**
+ * Default outbound mode by kind (D-222).
+ * Path forks (strategy / branch / recovery / emit) → route_data.
+ * Config/selection signals (feed class, identity, cadence, …) → emit_decision.
+ */
+export function connectionModeForDecisionKind(kind: OptionAnchorKind): DecisionConnectionMode {
+  switch (kind) {
+    case 'strategy_family':
+    case 'branch_role':
+    case 'recovery_phase':
+    case 'emit_mode':
+      return 'route_data';
+    case 'feed_class':
+    case 'research_subtype':
+    case 'librarian_subtype':
+    case 'library_class':
+    case 'trend_posture':
+    case 'curiosity_band':
+    case 'admission_mode':
+    case 'query_policy':
+    case 'cadence_band':
+    case 'schedule_policy':
+    case 'lever_band':
+    case 'template_input':
+    case 'philosophy_axis':
+      return 'emit_decision';
+    default: {
+      const _exhaustive: never = kind;
+      void _exhaustive;
+      return 'emit_decision';
+    }
+  }
 }
 
 export const BuildOptionAnchorsInput = z.object({
@@ -511,6 +557,8 @@ export function buildOptionAnchorsForEngine(
         options: withDecisionOptionRouteMeta(anchor.kind, anchor.options ?? []),
         // Always derive intakes from kind (info type) — ignore caller overrides (D-217).
         intakes: intakesForDecisionKind(anchor.kind),
+        connectionMode:
+          anchor.connectionMode ?? connectionModeForDecisionKind(anchor.kind),
       }),
     );
   };
@@ -1133,6 +1181,7 @@ export const buildDecisionNodesForEngine = buildOptionAnchorsForEngine;
  * Only **output-routing** choices: strategy/branch/recovery path, analyzer emit,
  * live feed class. Module identity (subtype / library class / trend posture) stays
  * inspector-only — those classify the node, they do not route outs.
+ * Outbound mode (D-222): path forks use `route_data`; feed_class uses `emit_decision`.
  */
 export const CANVAS_PRIMARY_DECISION_KINDS = new Set<string>([
   'strategy_family',
@@ -1160,3 +1209,78 @@ export function canvasVisibleOptionAnchors(
 
 /** D-202 alias for canvas-visible unified decision nodes. */
 export const canvasVisibleDecisionNodes = canvasVisibleOptionAnchors;
+
+export type DecisionOutboundTarget = {
+  /** Option id for route_data; null for emit_decision single out. */
+  optionId: string | null;
+  sourceHandle: string;
+  targetModuleId: string;
+  /** LinkKind for handle resolution on the target. */
+  targetLinkKind: 'data_feed' | 'directive';
+};
+
+/**
+ * Resolve outbound canvas binds for a decision (D-222).
+ * `emit_decision` → one target (owner). `route_data` → one target per option.
+ */
+export function resolveDecisionOutboundTargets(
+  anchor: OptionAnchorSpec,
+  members: ReadonlyArray<{ id: string; type: string }>,
+): DecisionOutboundTarget[] {
+  const mode = anchor.connectionMode ?? connectionModeForDecisionKind(anchor.kind);
+  const ownerId = anchor.ownerModuleId;
+  if (!ownerId) return [];
+
+  const routeMeta = routeMetaForDecisionKind(anchor.kind);
+  const ownerLinkKind: DecisionOutboundTarget['targetLinkKind'] =
+    routeMeta.nature === 'system' ? 'directive' : 'data_feed';
+
+  if (mode === 'emit_decision') {
+    return [
+      {
+        optionId: null,
+        sourceHandle: DECISION_HANDLE_EMIT_OUT,
+        targetModuleId: ownerId,
+        targetLinkKind: ownerLinkKind,
+      },
+    ];
+  }
+
+  const trading = members.find((m) => m.type === 'trading');
+  const library = members.find(
+    (m) => m.type === 'library' && m.id !== ownerId,
+  );
+
+  return (anchor.options ?? []).map((option) => {
+    let targetModuleId = ownerId;
+    let targetLinkKind: DecisionOutboundTarget['targetLinkKind'] = ownerLinkKind;
+
+    if (anchor.kind === 'emit_mode') {
+      switch (option.id) {
+        case 'to_library':
+          targetModuleId = library?.id ?? ownerId;
+          targetLinkKind = 'data_feed';
+          break;
+        case 'to_desk_stream':
+          targetModuleId = trading?.id ?? ownerId;
+          targetLinkKind = 'data_feed';
+          break;
+        case 'verify_loopback':
+          targetModuleId = trading?.id ?? ownerId;
+          targetLinkKind = 'data_feed';
+          break;
+        default:
+          targetModuleId = ownerId;
+          targetLinkKind = 'data_feed';
+          break;
+      }
+    }
+
+    return {
+      optionId: option.id,
+      sourceHandle: decisionOptionOutHandle(option.id),
+      targetModuleId,
+      targetLinkKind,
+    };
+  });
+}

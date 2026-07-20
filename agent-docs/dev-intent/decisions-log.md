@@ -2251,6 +2251,17 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   product-spec, engine-node-family-design.
   **Status: implemented.**
 
+- **D-222 (decision emit vs route_data outs, 2026-07-20):**
+  Each decision node has a `connectionMode`:
+  - **`emit_decision`** — single `decision-emit-out` data connection carrying the
+    selected catalog ref back to the owner (e.g. `feed_class`).
+  - **`route_data`** — one out handle per option; incoming data/system is forked to
+    resolved destinations (e.g. `strategy_family`, `branch_role`, `recovery_phase`,
+    `emit_mode` → library/trading). Canvas edges are React Flow-only binds
+    (`decision_emit` / `decision_route`); selected route is accented. Extends D-208 /
+    D-217 / D-218. Docs: canvas-engine-group-design, ui-spec §3, DecisionNode.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

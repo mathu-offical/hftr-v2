@@ -3,10 +3,13 @@ import {
   buildOptionAnchorsForEngine,
   canvasVisibleOptionAnchors,
   CANVAS_LAYOUT,
+  connectionModeForDecisionKind,
   DECISION_HANDLE_DATA_IN,
   DECISION_HANDLE_SYSTEM_IN,
   ENGINE_GROUP_PADDING,
+  handleIdForLink,
   handleIdForStream,
+  resolveDecisionOutboundTargets,
   type OptionAnchorPosition,
   type OptionAnchorSpec,
 } from '@hftr/contracts';
@@ -150,6 +153,8 @@ function pushDecisionNode(
       options: anchor.options ?? [],
       selectedOptionId: anchor.selectedOptionId ?? null,
       intakes: anchor.intakes ?? { data: true, systemControl: false, clock: false },
+      connectionMode:
+        anchor.connectionMode ?? connectionModeForDecisionKind(anchor.kind),
       position,
       parentId: engine.id,
       ...(suppressOwnerBind ? { suppressOwnerBind: true } : {}),
@@ -289,16 +294,23 @@ export function measurePlacedAnchorBottom(
 }
 
 /**
- * React Flow-only decision binds (not persisted as module_links).
- * Bind by **info type**: data → data_feed out; system → directive out; clock
- * ports exist for wiring but are not auto-fanned (D-208 / D-217).
+ * React Flow-only decision binds (not persisted as module_links) — D-208 / D-217 / D-222.
+ * 1. Owner → decision intakes by info type.
+ * 2. Decision outs:
+ *    - emit_decision → single data connection to owner (carries the choice)
+ *    - route_data → one edge per option to resolved destinations (split points)
  */
 export function optionBindEdgesForEngine(
   allAnchors: readonly OptionAnchorSpec[],
-  options?: { suppressOwnerBindIds?: ReadonlySet<string> },
+  options?: {
+    suppressOwnerBindIds?: ReadonlySet<string>;
+    /** Engine members used to resolve route destinations (emit_mode → library/trading). */
+    members?: ReadonlyArray<{ id: string; type: string }>;
+  },
 ): Edge[] {
   const visible = canvasVisibleOptionAnchors(allAnchors);
   const suppressOwnerBindIds = options?.suppressOwnerBindIds ?? new Set<string>();
+  const members = options?.members ?? [];
   const edges: Edge[] = [];
   const moduleDataOut = handleIdForStream('data_feed', 'out');
   const moduleSystemOut = handleIdForStream('directive', 'out');
@@ -325,10 +337,7 @@ export function optionBindEdgesForEngine(
         className: 'hftr-edge hftr-edge-option-bind',
         data: { linkKind: 'option_bind', nature: 'data', decisionId: anchor.id },
       });
-      continue;
-    }
-
-    if (intakes.systemControl) {
+    } else if (intakes.systemControl) {
       edges.push({
         id: `decision-bind:system:${anchor.ownerModuleId}:${anchor.id}`,
         source: anchor.ownerModuleId,
@@ -345,6 +354,41 @@ export function optionBindEdgesForEngine(
         },
         className: 'hftr-edge hftr-edge-option-bind',
         data: { linkKind: 'option_bind', nature: 'system', decisionId: anchor.id },
+      });
+    }
+
+    const mode = anchor.connectionMode ?? connectionModeForDecisionKind(anchor.kind);
+    const outbound = resolveDecisionOutboundTargets(anchor, members);
+    for (const target of outbound) {
+      const isEmit = mode === 'emit_decision';
+      const selected =
+        target.optionId != null && target.optionId === anchor.selectedOptionId;
+      edges.push({
+        id: isEmit
+          ? `decision-emit:${anchor.id}`
+          : `decision-route:${anchor.id}:${target.optionId}`,
+        source: anchor.id,
+        target: target.targetModuleId,
+        sourceHandle: target.sourceHandle,
+        targetHandle: handleIdForLink(target.targetLinkKind, 'in'),
+        type: 'smoothstep',
+        selectable: false,
+        focusable: false,
+        style: {
+          stroke: selected || isEmit ? 'var(--color-accent)' : 'var(--color-ink-faint)',
+          strokeWidth: selected || isEmit ? 1.5 : 1,
+          strokeDasharray: isEmit ? '4 3' : selected ? undefined : '2 4',
+          opacity: isEmit || selected ? 1 : 0.55,
+        },
+        className: isEmit
+          ? 'hftr-edge hftr-edge-decision-emit'
+          : 'hftr-edge hftr-edge-decision-route',
+        data: {
+          linkKind: isEmit ? 'decision_emit' : 'decision_route',
+          decisionId: anchor.id,
+          optionId: target.optionId,
+          connectionMode: mode,
+        },
       });
     }
   }
@@ -381,7 +425,12 @@ export function buildOptionAnchorArtifacts(
     const suppressOwnerBindIds = new Set(
       placed.filter((node) => node.data.suppressOwnerBind).map((node) => node.id),
     );
-    edges.push(...optionBindEdgesForEngine(allAnchors, { suppressOwnerBindIds }));
+    const members = modules
+      .filter((module) => module.engineInstanceId === engine.id)
+      .map((module) => ({ id: module.id, type: module.type }));
+    edges.push(
+      ...optionBindEdgesForEngine(allAnchors, { suppressOwnerBindIds, members }),
+    );
   }
 
   return { nodes, edges, anchorsByEngine };

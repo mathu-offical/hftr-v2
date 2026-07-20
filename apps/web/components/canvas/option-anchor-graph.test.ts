@@ -297,12 +297,15 @@ describe('decision-node graph placement (D-192 / D-180 / D-219)', () => {
       })),
     });
     const visible = canvasVisibleOptionAnchors(all);
-    const edges = optionBindEdgesForEngine(all);
+    const edges = optionBindEdgesForEngine(all, {
+      members: modules.map((m) => ({ id: m.id, type: m.type })),
+    });
     const root = visible.find(
       (a) => a.kind === 'emit_mode' && a.ownerModuleId === analyzerId,
     );
     expect(root).toBeTruthy();
     expect(root!.options.map((o) => o.id)).toEqual(['to_desk_stream']);
+    expect(root!.connectionMode).toBe('route_data');
     const dataEdge = edges.find(
       (e) =>
         e.target === root!.id &&
@@ -311,7 +314,13 @@ describe('decision-node graph placement (D-192 / D-180 / D-219)', () => {
     );
     expect(dataEdge).toBeTruthy();
     expect(visible.some((a) => a.parentAnchorId === root!.id)).toBe(false);
-    expect(edges.some((e) => e.source === root!.id && e.target !== root!.id)).toBe(false);
+    const routeOut = edges.find(
+      (e) => e.source === root!.id && e.data?.linkKind === 'decision_route',
+    );
+    expect(routeOut).toBeTruthy();
+    // No trading member in this research pack — desk stream falls back to owner analyzer.
+    expect(routeOut?.target).toBe(analyzerId);
+    expect(routeOut?.sourceHandle).toBe('option-out:to_desk_stream');
   });
 
   it('horizontal gutter clears parent-docked decision width (D-219)', () => {
@@ -456,9 +465,19 @@ describe('decision-node graph placement (D-192 / D-180 / D-219)', () => {
       tradeRelX + CANVAS_LAYOUT.moduleWidth + OPTION_ANCHOR_OWNER_GAP,
     );
     expect(strategyNode!.position.y).toBeGreaterThanOrEqual(tradeRelY);
-    const edges = optionBindEdgesForEngine(all);
+    const edges = optionBindEdgesForEngine(all, {
+      members: [
+        { id: tradeId, type: 'trading' },
+        { id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', type: 'analyzer' },
+      ],
+    });
     const ownerEdge = edges.find((e) => e.target === strategy!.id);
     expect(ownerEdge?.source).toBe(tradeId);
     expect(ownerEdge?.targetHandle).toBe(DECISION_HANDLE_DATA_IN);
+    const routeEdges = edges.filter(
+      (e) => e.source === strategy!.id && e.data?.linkKind === 'decision_route',
+    );
+    expect(routeEdges.length).toBeGreaterThan(0);
+    expect(routeEdges.every((e) => e.target === tradeId)).toBe(true);
   });
 });

@@ -4,8 +4,11 @@ import { memo } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import {
   DECISION_HANDLE_DATA_IN,
+  DECISION_HANDLE_EMIT_OUT,
   DECISION_HANDLE_SYSTEM_IN,
+  connectionModeForDecisionKind,
   decisionOptionOutHandle,
+  type DecisionConnectionMode,
   type DecisionIntakes,
   type DecisionOption,
   type OptionAnchorKind,
@@ -16,7 +19,7 @@ import {
 
 /** @deprecated Use DECISION_HANDLE_DATA_IN — kept for transitional edge reads. */
 export const OPTION_ANCHOR_HANDLE_IN = DECISION_HANDLE_DATA_IN;
-/** @deprecated Per-option outs replace the single option-out. */
+/** @deprecated Per-option outs replace the single option-out for route_data. */
 export const OPTION_ANCHOR_HANDLE_OUT = 'option-out';
 
 export type DecisionNodeData = Pick<
@@ -31,6 +34,7 @@ export type DecisionNodeData = Pick<
   | 'ownerEngineId'
   | 'options'
   | 'selectedOptionId'
+  | 'connectionMode'
 > & {
   position?: OptionAnchorPosition;
   intakes?: DecisionIntakes;
@@ -73,9 +77,13 @@ function groupOptionsByRouteNature(
   });
 }
 
+function resolveConnectionMode(data: DecisionNodeData): DecisionConnectionMode {
+  return data.connectionMode ?? connectionModeForDecisionKind(data.kind);
+}
+
 /**
- * Single decision unit (D-208 / D-218): one React Flow node with typed intake
- * ports and option outs grouped by info type (routeNature), never child nodes.
+ * Single decision unit (D-208 / D-218 / D-222): typed intakes + either one emit-out
+ * (decision itself) or per-option route outs (data fork).
  */
 export const DecisionNode = memo(function DecisionNode({
   data,
@@ -83,6 +91,7 @@ export const DecisionNode = memo(function DecisionNode({
 }: NodeProps<DecisionFlowNode>) {
   const intakes = data.intakes ?? { data: true, systemControl: false, clock: false };
   const options: DecisionOption[] = data.options ?? [];
+  const mode = resolveConnectionMode(data);
   const borderColor = selected
     ? 'var(--color-accent)'
     : 'color-mix(in srgb, var(--color-line) 85%, transparent)';
@@ -95,15 +104,33 @@ export const DecisionNode = memo(function DecisionNode({
 
   const groups = groupOptionsByRouteNature(options);
   const outRows =
-    options.length > 0
-      ? options.map((opt) => ({
-          id: decisionOptionOutHandle(opt.id),
-          label: opt.label,
-          routeLabel: opt.routeLabel,
-          nature: opt.routeNature ?? 'data',
-          selected: opt.id === data.selectedOptionId,
-        }))
-      : [{ id: OPTION_ANCHOR_HANDLE_OUT, label: 'out', routeLabel: undefined, nature: 'data' as const, selected: false }];
+    mode === 'emit_decision'
+      ? [
+          {
+            id: DECISION_HANDLE_EMIT_OUT,
+            label: 'decision',
+            routeLabel: 'Decision',
+            nature: 'data' as const,
+            selected: Boolean(data.selectedOptionId),
+          },
+        ]
+      : options.length > 0
+        ? options.map((opt) => ({
+            id: decisionOptionOutHandle(opt.id),
+            label: opt.label,
+            routeLabel: opt.routeLabel,
+            nature: opt.routeNature ?? 'data',
+            selected: opt.id === data.selectedOptionId,
+          }))
+        : [
+            {
+              id: OPTION_ANCHOR_HANDLE_OUT,
+              label: 'out',
+              routeLabel: undefined as string | undefined,
+              nature: 'data' as const,
+              selected: false,
+            },
+          ];
 
   const rowCount = Math.max(intakeRows.length, outRows.length, 1);
   const cardMinHeight = Math.max(56, 28 + rowCount * 18);
@@ -112,6 +139,7 @@ export const DecisionNode = memo(function DecisionNode({
     <div
       role="group"
       aria-label={`${data.label} decision`}
+      data-connection-mode={mode}
       className="relative flex w-[200px] flex-col rounded-md border shadow-md"
       style={{
         minHeight: cardMinHeight,
@@ -145,7 +173,11 @@ export const DecisionNode = memo(function DecisionNode({
           type="source"
           position={Position.Right}
           className="hftr-handle"
-          aria-label={`Decision ${row.label} out`}
+          aria-label={
+            mode === 'emit_decision'
+              ? 'Decision emit out'
+              : `Decision route ${row.label} out`
+          }
           style={{
             top: `${((index + 1) / (outRows.length + 1)) * 100}%`,
             width: 7,
@@ -162,6 +194,8 @@ export const DecisionNode = memo(function DecisionNode({
       >
         <p className="truncate text-[8px] uppercase tracking-wide text-[var(--color-ink-faint)]">
           {kindChipLabel(data.kind)}
+          {' · '}
+          {mode === 'emit_decision' ? 'emit' : 'route'}
         </p>
         <p className="truncate text-[11px] font-medium text-[var(--color-ink)]">{data.label}</p>
       </div>
@@ -179,35 +213,57 @@ export const DecisionNode = memo(function DecisionNode({
           ))}
         </ul>
         <div className="space-y-1 text-right">
-          {groups.map((group) => (
-            <div key={`${group.nature}:${group.routeLabel}`}>
-              <p
-                className="truncate text-[7px] uppercase tracking-wide text-[var(--color-ink-faint)]"
-                title={`${group.nature} · ${group.routeLabel}`}
-              >
-                {group.routeLabel}
+          {mode === 'emit_decision' ? (
+            <div>
+              <p className="truncate text-[7px] uppercase tracking-wide text-[var(--color-ink-faint)]">
+                Decision
               </p>
-              <ul className="space-y-0.5">
-                {(group.options.length > 0 ? group.options : [{ id: 'out', label: 'out' } as DecisionOption]).map(
-                  (opt) => {
-                    const selected = opt.id === data.selectedOptionId;
+              <p
+                className="truncate text-[8px]"
+                style={{
+                  color: data.selectedOptionId
+                    ? 'var(--color-accent)'
+                    : 'var(--color-ink-dim)',
+                }}
+                title={
+                  options.find((o) => o.id === data.selectedOptionId)?.label ?? 'unset'
+                }
+              >
+                {options.find((o) => o.id === data.selectedOptionId)?.label ?? 'unset'}
+              </p>
+            </div>
+          ) : (
+            groups.map((group) => (
+              <div key={`${group.nature}:${group.routeLabel}`}>
+                <p
+                  className="truncate text-[7px] uppercase tracking-wide text-[var(--color-ink-faint)]"
+                  title={`${group.nature} · ${group.routeLabel}`}
+                >
+                  {group.routeLabel}
+                </p>
+                <ul className="space-y-0.5">
+                  {(group.options.length > 0
+                    ? group.options
+                    : [{ id: 'out', label: 'out' } as DecisionOption]
+                  ).map((opt) => {
+                    const selectedOpt = opt.id === data.selectedOptionId;
                     return (
                       <li
                         key={opt.id}
                         className="truncate text-[8px]"
                         style={{
-                          color: selected ? 'var(--color-accent)' : 'var(--color-ink-dim)',
+                          color: selectedOpt ? 'var(--color-accent)' : 'var(--color-ink-dim)',
                         }}
                         title={opt.label}
                       >
                         {opt.label}
                       </li>
                     );
-                  },
-                )}
-              </ul>
-            </div>
-          ))}
+                  })}
+                </ul>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

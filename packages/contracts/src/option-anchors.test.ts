@@ -8,6 +8,7 @@ import {
   intakesForDecisionKind,
   optionAnchorCatalogSlice,
   OptionAnchorKind,
+  resolveDecisionOutboundTargets,
   slugCatalogRef,
 } from './option-anchors';
 
@@ -169,6 +170,64 @@ describe('option-anchors', () => {
     expect(emitModesForAnalyzerOutput({ emitMode: 'verify_loopback' })).toEqual([
       'verify_loopback',
     ]);
+  });
+
+  it('stamps connectionMode emit vs route (D-222)', () => {
+    const anchors = anchorsFor('engine_day_trading', [
+      {
+        id: 'mod-trading-1',
+        type: 'trading',
+        config: { strategyFamilies: ['strat-001'] },
+      },
+      {
+        id: 'mod-live-1',
+        type: 'live_api',
+        config: { feedClass: 'iex_free' },
+      },
+      {
+        id: 'mod-an-1',
+        type: 'analyzer',
+        config: { emitMode: 'to_desk_stream', hubFeedClass: 'analyzed' },
+      },
+    ]);
+    expect(anchors.find((a) => a.kind === 'strategy_family')?.connectionMode).toBe(
+      'route_data',
+    );
+    expect(anchors.find((a) => a.kind === 'emit_mode')?.connectionMode).toBe('route_data');
+    expect(anchors.find((a) => a.kind === 'feed_class')?.connectionMode).toBe(
+      'emit_decision',
+    );
+  });
+
+  it('resolves emit vs route outbound targets (D-222)', () => {
+    const anchors = anchorsFor('engine_day_trading', [
+      { id: 'mod-trading-1', type: 'trading', config: { strategyFamilies: ['strat-001'] } },
+      { id: 'mod-lib-1', type: 'library', config: {} },
+      {
+        id: 'mod-an-1',
+        type: 'analyzer',
+        config: { emitMode: 'to_desk_stream', hubFeedClass: 'analyzed' },
+      },
+      { id: 'mod-live-1', type: 'live_api', config: { feedClass: 'iex_free' } },
+    ]);
+    const feed = anchors.find((a) => a.kind === 'feed_class')!;
+    const emitTargets = resolveDecisionOutboundTargets(feed, [
+      { id: 'mod-live-1', type: 'live_api' },
+    ]);
+    expect(emitTargets).toHaveLength(1);
+    expect(emitTargets[0]?.sourceHandle).toBe('decision-emit-out');
+    expect(emitTargets[0]?.targetModuleId).toBe('mod-live-1');
+
+    const emitMode = anchors.find((a) => a.kind === 'emit_mode')!;
+    const routeTargets = resolveDecisionOutboundTargets(emitMode, [
+      { id: 'mod-an-1', type: 'analyzer' },
+      { id: 'mod-trading-1', type: 'trading' },
+      { id: 'mod-lib-1', type: 'library' },
+    ]);
+    expect(routeTargets.length).toBeGreaterThan(0);
+    expect(routeTargets.every((t) => t.optionId != null)).toBe(true);
+    const desk = routeTargets.find((t) => t.optionId === 'to_desk_stream');
+    expect(desk?.targetModuleId).toBe('mod-trading-1');
   });
 
   it('stamps routeNature / routeLabel on options (D-218)', () => {

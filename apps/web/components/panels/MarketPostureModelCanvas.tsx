@@ -3,6 +3,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Background,
+  BackgroundVariant,
   Controls,
   Handle,
   MarkerType,
@@ -551,8 +552,12 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
       data.nodeRole === 'capital_source';
     return (
       <div
-        className={`w-[112px] rounded border border-t-2 px-1 py-0.5 ${kindBorder(data.kind)} ${chrome} ${ring}`}
-        style={{ borderTopColor: trackStroke(data.track) }}
+        className={`w-[112px] rounded-[1px] border border-t-2 px-1 py-0.5 ${kindBorder(data.kind)} ${chrome} ${ring}`}
+        style={{
+          borderTopColor: trackStroke(data.track),
+          boxShadow:
+            'inset 0 0 0 1px color-mix(in srgb, var(--color-line) 40%, transparent)',
+        }}
         data-testid={`market-posture-model-node-${data.nodeRole}`}
         data-activation={data.activation}
         data-track={data.track}
@@ -707,10 +712,10 @@ const PostureGroupNode = memo(function PostureGroupNode({
   const compact = Boolean(data.stripCompact);
   return (
     <div
-      className={`h-full w-full rounded border ${
+      className={`h-full w-full rounded-[1px] border ${
         isCluster
-          ? 'border-[var(--color-accent)]/35 border-l-[3px] border-l-[var(--color-accent)] bg-[color-mix(in_srgb,var(--color-accent)_8%,var(--color-surface-0))]'
-          : 'border-[var(--color-line)] bg-[color-mix(in_srgb,var(--color-surface-0)_70%,transparent)]'
+          ? 'border-[color-mix(in_srgb,#c48a3a_45%,var(--color-line))] border-l-[3px] border-l-[#c48a3a] bg-[color-mix(in_srgb,#0d1f17_55%,var(--color-surface-0))]'
+          : 'border-[color-mix(in_srgb,#2a4a38_50%,var(--color-line))] bg-[color-mix(in_srgb,#0a1812_45%,var(--color-surface-0))]'
       } ${data.selected ? 'ring-1 ring-[var(--color-accent)]' : ''}`}
       data-testid={
         isCluster
@@ -938,13 +943,39 @@ function InnerCanvas(props: {
       minZoom={props.layoutMode === 'stripExpanded' ? 0.28 : 0.12}
       maxZoom={props.layoutMode === 'stripExpanded' ? 1.25 : 1.2}
       proOptions={{ hideAttribution: true }}
-      className="bg-[var(--color-surface-0)]"
+      className={
+        props.layoutMode === 'stripExpanded'
+          ? 'market-posture-pcb bg-[color-mix(in_srgb,#0a1610_70%,var(--color-surface-0))]'
+          : 'bg-[var(--color-surface-0)]'
+      }
+      data-pcb={props.layoutMode === 'stripExpanded' ? 'true' : undefined}
     >
       <Background
-        gap={props.layoutMode === 'stripExpanded' ? 18 : 14}
-        size={1}
-        color="var(--color-line)"
+        id="pcb-grid"
+        variant={
+          props.layoutMode === 'stripExpanded'
+            ? BackgroundVariant.Lines
+            : BackgroundVariant.Dots
+        }
+        gap={props.layoutMode === 'stripExpanded' ? 8 : 14}
+        size={props.layoutMode === 'stripExpanded' ? 0.6 : 1}
+        {...(props.layoutMode === 'stripExpanded' ? { lineWidth: 0.4 } : {})}
+        color={
+          props.layoutMode === 'stripExpanded'
+            ? 'color-mix(in srgb, #2f5a44 55%, transparent)'
+            : 'var(--color-line)'
+        }
       />
+      {props.layoutMode === 'stripExpanded' ? (
+        <Background
+          id="pcb-fine"
+          variant={BackgroundVariant.Lines}
+          gap={24}
+          size={0.5}
+          lineWidth={0.55}
+          color="color-mix(in srgb, #3d7a58 35%, transparent)"
+        />
+      ) : null}
       <Controls showInteractive={false} position="bottom-right" />
     </ReactFlow>
   );
@@ -1243,7 +1274,7 @@ export const MarketPostureModelCanvas = memo(function MarketPostureModelCanvas(p
         data-testid="market-posture-model-canvas"
         className={
           isStrip
-            ? 'min-h-0 flex-1 overflow-hidden border border-[var(--color-line)] bg-[var(--color-surface-0)]'
+            ? 'min-h-0 flex-1 overflow-hidden border border-[color-mix(in_srgb,#2f5a44_50%,var(--color-line))] bg-[color-mix(in_srgb,#0a1610_65%,var(--color-surface-0))]'
             : 'h-[min(40rem,62vh)] min-h-[320px] overflow-hidden rounded border border-[var(--color-line)]'
         }
         role="img"

@@ -385,12 +385,12 @@ are ignored. Shortcuts are suppressed in editable fields.
   gaps — no empty mid-band holes; multi-provider routes (`news_headline`, web_search,
   filings) use a **lane × function matrix** (not a long hop mash); hop badges + short
   edge transfer labels on the strip;
-  wires are **bespoke orthogonal rails** (`postureOrtho`, sharp right angles) with
-  cross-route / inter-cluster content collapsed to **rail↔rail bridges**
-  (`e-rail:…`, cluster frame Top/Bottom handles) and cross-screen diagonals to
-  adjacent screen-group backbones; rail labels show **role · source node name**
-  (e.g. `SRC · Alpaca bars`) or `RAIL · route A → route B`; halo stroke under each
-  rail for contrast; per-node nudges via
+  wires are **circuit-board copper traces** (`postureOrtho` / PCB doglegs with
+  channel-snapped vias + pads) — not freeform spaghetti; cross-route / inter-cluster
+  content collapses to **rail↔rail bridges** (`e-rail:…`, cluster Top/Bottom) and
+  cross-screen diagonals to adjacent screen-group backbones; strip uses FR4-tint
+  substrate + line grid; silkscreen labels show **role · source** or `NET · A → B`;
+  per-node nudges via
   `STRIP_NODE_PLACEMENT_OVERRIDES`; unused screen
   space stays loose between columns; strip nodes use **compact chrome**
   sized to the packing grid (no clipped cards); side nodes

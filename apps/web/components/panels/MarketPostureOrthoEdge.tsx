@@ -1,39 +1,204 @@
 'use client';
 
 /**
- * Bespoke orthogonal (right-angle) edges for the Market Posture Model strip.
- * Sharp elbows, L→R hop rails, vertical rail↔rail bridges — labeled with sources.
+ * Circuit-board traces for the Market Posture Model strip.
+ * Orthogonal copper runs, vias at elbows, pads at terminals — not freeform spaghetti.
  */
 
-import { memo } from 'react';
+import { memo, useId, useMemo } from 'react';
 import {
   BaseEdge,
   EdgeLabelRenderer,
   Position,
-  getSmoothStepPath,
   type EdgeProps,
 } from '@xyflow/react';
 import type { PostureAlgoEdgeData } from '@/lib/market-posture-algorithm-graph';
 
 export type PostureOrthoEdgeData = PostureAlgoEdgeData & {
-  /** Parallel-lane vertical offset so stacked transfers do not share one wire. */
   laneOffset?: number;
-  /** Strip vs full-canvas chrome. */
   stripMode?: boolean;
-  /** Source node / data-source display name. */
   railTitle?: string;
-  /** Transfer verb (hydrate / adapt / …). */
   railVerb?: string;
-  /** Short role tag (SRC / ADAPT / …). */
   railRole?: string;
-  /** Cluster↔cluster rail bridge. */
   railBridge?: boolean;
 };
+
+/** PCB channel pitch — traces snap to this grid like autorouted copper. */
+const PCB_CHANNEL = 6;
 
 function hashLane(id: string): number {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
   return Math.abs(h);
+}
+
+function snap(v: number): number {
+  return Math.round(v / PCB_CHANNEL) * PCB_CHANNEL;
+}
+
+function pcbCopper(stroke: string | undefined, bridge: boolean): {
+  mask: string;
+  body: string;
+  shine: string;
+} {
+  // Prefer track stroke when it's a CSS var; else copper alloy.
+  const body = stroke && stroke.startsWith('var(') ? stroke : '#c48a3a';
+  return {
+    mask: bridge
+      ? 'color-mix(in srgb, #1a3d2e 70%, var(--color-surface-0))'
+      : 'color-mix(in srgb, #0f2a1c 55%, var(--color-surface-0))',
+    body,
+    shine: bridge
+      ? 'color-mix(in srgb, #e8c078 55%, white)'
+      : 'color-mix(in srgb, #e0b060 40%, white)',
+  };
+}
+
+type TraceGeom = {
+  d: string;
+  vias: Array<{ x: number; y: number }>;
+  pads: Array<{ x: number; y: number }>;
+  labelX: number;
+  labelY: number;
+};
+
+/**
+ * Build a right-angle PCB trace with channel-snapped bus and elbow vias.
+ * H-V-H for hop rails; V-H-V for vertical rail↔rail bridges.
+ */
+export function buildPcbTrace(opts: {
+  sourceX: number;
+  sourceY: number;
+  targetX: number;
+  targetY: number;
+  verticalBridge: boolean;
+  lane: number;
+  stub?: number;
+}): TraceGeom {
+  const stub = opts.stub ?? 10;
+  const sx = opts.sourceX;
+  const sy = snap(opts.sourceY + opts.lane);
+  const tx = opts.targetX;
+  const ty = snap(opts.targetY + opts.lane);
+  const vias: Array<{ x: number; y: number }> = [];
+  const pads = [
+    { x: sx, y: sy },
+    { x: tx, y: ty },
+  ];
+
+  if (opts.verticalBridge) {
+    const dir = ty >= sy ? 1 : -1;
+    const y1 = snap(sy + dir * stub);
+    const y2 = snap(ty - dir * stub);
+    const busX = snap((sx + tx) / 2 + opts.lane * 2);
+    vias.push({ x: sx, y: y1 }, { x: busX, y: y1 }, { x: busX, y: y2 }, { x: tx, y: y2 });
+    const d = [
+      `M ${sx} ${sy}`,
+      `L ${sx} ${y1}`,
+      `L ${busX} ${y1}`,
+      `L ${busX} ${y2}`,
+      `L ${tx} ${y2}`,
+      `L ${tx} ${ty}`,
+    ].join(' ');
+    return {
+      d,
+      vias,
+      pads,
+      labelX: busX,
+      labelY: snap((y1 + y2) / 2),
+    };
+  }
+
+  // Hop rail: exit stub → vertical channel → entry stub (classic PCB dogleg).
+  const x1 = snap(sx + stub);
+  const x2 = snap(tx - stub);
+  let busX = snap((x1 + x2) / 2 + opts.lane * 2);
+  // Keep bus between terminals when space is tight.
+  if (x2 > x1) {
+    busX = Math.min(Math.max(busX, x1), x2);
+  } else {
+    busX = Math.min(Math.max(busX, x2), x1);
+  }
+  vias.push({ x: x1, y: sy }, { x: busX, y: sy }, { x: busX, y: ty }, { x: x2, y: ty });
+  const d = [
+    `M ${sx} ${sy}`,
+    `L ${x1} ${sy}`,
+    `L ${busX} ${sy}`,
+    `L ${busX} ${ty}`,
+    `L ${x2} ${ty}`,
+    `L ${tx} ${ty}`,
+  ].join(' ');
+  return {
+    d,
+    vias,
+    pads,
+    labelX: busX,
+    labelY: snap((sy + ty) / 2),
+  };
+}
+
+function Via({
+  x,
+  y,
+  r,
+  copper,
+}: {
+  x: number;
+  y: number;
+  r: number;
+  copper: { body: string; shine: string; mask: string };
+}) {
+  return (
+    <g transform={`translate(${x} ${y})`}>
+      <circle r={r + 1.2} fill={copper.mask} stroke={copper.body} strokeWidth={1.1} />
+      <circle r={r * 0.45} fill={copper.shine} opacity={0.85} />
+    </g>
+  );
+}
+
+function Pad({
+  x,
+  y,
+  size,
+  copper,
+}: {
+  x: number;
+  y: number;
+  size: number;
+  copper: { body: string; shine: string; mask: string };
+}) {
+  const half = size / 2;
+  return (
+    <g transform={`translate(${x} ${y})`}>
+      <rect
+        x={-half - 0.8}
+        y={-half - 0.8}
+        width={size + 1.6}
+        height={size + 1.6}
+        fill={copper.mask}
+        stroke={copper.body}
+        strokeWidth={0.9}
+        rx={0.5}
+      />
+      <rect
+        x={-half}
+        y={-half}
+        width={size}
+        height={size}
+        fill={copper.body}
+        opacity={0.95}
+        rx={0.4}
+      />
+      <rect
+        x={-half * 0.35}
+        y={-half * 0.35}
+        width={size * 0.35}
+        height={size * 0.35}
+        fill={copper.shine}
+        opacity={0.7}
+      />
+    </g>
+  );
 }
 
 export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
@@ -52,12 +217,13 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
   data,
   selected,
 }: EdgeProps) {
+  const uid = useId().replace(/:/g, '');
   const edgeData = data as PostureOrthoEdgeData | undefined;
   const strip = edgeData?.stripMode === true;
   const railBridge = edgeData?.railBridge === true || id.startsWith('e-rail:');
   const explicit = edgeData?.laneOffset;
   const lane =
-    explicit ?? (strip && !railBridge ? ((hashLane(id) % 5) - 2) * 3 : 0);
+    explicit ?? (strip && !railBridge ? ((hashLane(id) % 5) - 2) * PCB_CHANNEL : 0);
 
   const verticalBridge =
     railBridge &&
@@ -65,103 +231,169 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
       sourceHandleId === 'rail-in' ||
       targetHandleId === 'rail-in' ||
       targetHandleId === 'rail-out');
-  const fromPos = verticalBridge
-    ? sourcePosition
-    : strip
-      ? Position.Right
-      : sourcePosition;
-  const toPos = verticalBridge
-    ? targetPosition
-    : strip
-      ? Position.Left
-      : targetPosition;
-  const sy = sourceY + lane;
-  const ty = targetY + lane;
-  const midX = sourceX + (targetX - sourceX) * 0.5;
-  const midY = sourceY + (targetY - sourceY) * 0.5;
-  const aligned = Math.abs(sy - ty) < 2;
 
-  const [path, labelX, labelY] = getSmoothStepPath({
+  // Non-strip fallback: still orthogonal but simpler (keep RF positions).
+  const usePcb = strip;
+  const stroke =
+    typeof style?.stroke === 'string' ? style.stroke : 'var(--color-accent)';
+  const copper = pcbCopper(stroke, railBridge);
+  const baseW =
+    typeof style?.strokeWidth === 'number'
+      ? style.strokeWidth
+      : railBridge
+        ? 2.6
+        : 2.1;
+  const opacity =
+    typeof style?.opacity === 'number' ? style.opacity : selected ? 1 : 0.92;
+
+  const geom = useMemo(() => {
+    if (!usePcb) {
+      // Minimal ortho dogleg when not in strip mode.
+      const midX = snap((sourceX + targetX) / 2);
+      const d = `M ${sourceX} ${sourceY} L ${midX} ${sourceY} L ${midX} ${targetY} L ${targetX} ${targetY}`;
+      return {
+        d,
+        vias: [
+          { x: midX, y: sourceY },
+          { x: midX, y: targetY },
+        ],
+        pads: [
+          { x: sourceX, y: sourceY },
+          { x: targetX, y: targetY },
+        ],
+        labelX: midX,
+        labelY: (sourceY + targetY) / 2,
+      } satisfies TraceGeom;
+    }
+    return buildPcbTrace({
+      sourceX,
+      sourceY,
+      targetX,
+      targetY,
+      verticalBridge,
+      lane,
+      stub: railBridge ? 14 : 10,
+    });
+  }, [
+    usePcb,
     sourceX,
-    sourceY: sy,
+    sourceY,
     targetX,
-    targetY: ty,
-    sourcePosition: fromPos,
-    targetPosition: toPos,
-    borderRadius: 0,
-    offset: strip ? (railBridge ? 18 : aligned ? 6 : 12) : 16,
-    ...(strip && !aligned && !verticalBridge ? { centerX: midX } : {}),
-    ...(strip && verticalBridge ? { centerY: midY } : {}),
-  });
+    targetY,
+    verticalBridge,
+    lane,
+    railBridge,
+  ]);
 
   const railTitle = edgeData?.railTitle?.trim() || null;
   const railVerb = edgeData?.railVerb?.trim() || null;
   const railRole = edgeData?.railRole?.trim() || null;
   const fallback = typeof label === 'string' ? label.trim() : '';
   const showLabel = strip && Boolean(railTitle || fallback);
-  const stroke =
-    typeof style?.stroke === 'string' ? style.stroke : 'var(--color-accent)';
+  const maskId = `pcb-mask-${uid}`;
 
-  const baseEdgeProps = {
-    id,
-    path,
-    style: {
-      ...style,
-      strokeLinecap: 'square' as const,
-      strokeLinejoin: 'miter' as const,
-      ...(railBridge
-        ? {
-            strokeDasharray: '7 5',
-            strokeWidth:
-              typeof style?.strokeWidth === 'number'
-                ? Math.max(style.strokeWidth, 2.8)
-                : 2.8,
-          }
-        : {}),
-    },
-    interactionWidth: strip ? 18 : 10,
-    ...(markerEnd != null ? { markerEnd } : {}),
-  };
+  // Silence unused RF handle positions in PCB mode (geometry is explicit).
+  void sourcePosition;
+  void targetPosition;
+  void markerEnd;
+
+  if (!strip) {
+    return (
+      <BaseEdge
+        id={id}
+        path={geom.d}
+        style={{
+          ...style,
+          strokeLinecap: 'square',
+          strokeLinejoin: 'miter',
+        }}
+        interactionWidth={10}
+        {...(markerEnd != null ? { markerEnd } : {})}
+      />
+    );
+  }
 
   return (
     <>
-      {strip ? (
-        <BaseEdge
-          id={`${id}__halo`}
-          path={path}
-          style={{
-            stroke: 'var(--color-surface-0)',
-            strokeWidth:
-              typeof style?.strokeWidth === 'number'
-                ? style.strokeWidth + (railBridge ? 4.5 : 3.5)
-                : railBridge
-                  ? 7
-                  : 5.5,
-            opacity: 0.88,
-            strokeLinecap: 'square',
-            strokeLinejoin: 'miter',
-            fill: 'none',
-          }}
-          interactionWidth={0}
+      <g
+        className="react-flow__edge-path"
+        data-testid="market-posture-pcb-trace"
+        data-rail-bridge={railBridge ? 'true' : undefined}
+        opacity={opacity}
+      >
+        <defs>
+          <linearGradient id={`${maskId}-shine`} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={copper.body} stopOpacity={0.85} />
+            <stop offset="45%" stopColor={copper.shine} stopOpacity={0.95} />
+            <stop offset="100%" stopColor={copper.body} stopOpacity={0.9} />
+          </linearGradient>
+        </defs>
+        {/* Soldermask / clearance under the copper run */}
+        <path
+          d={geom.d}
+          fill="none"
+          stroke={copper.mask}
+          strokeWidth={baseW + 3.2}
+          strokeLinecap="square"
+          strokeLinejoin="miter"
         />
-      ) : null}
-      <BaseEdge {...baseEdgeProps} />
+        {/* Copper body */}
+        <path
+          d={geom.d}
+          fill="none"
+          stroke={copper.body}
+          strokeWidth={baseW}
+          strokeLinecap="square"
+          strokeLinejoin="miter"
+          strokeDasharray={railBridge ? '5 3 1 3' : undefined}
+        />
+        {/* Highlight filament (thin inner shine) */}
+        <path
+          d={geom.d}
+          fill="none"
+          stroke={`url(#${maskId}-shine)`}
+          strokeWidth={Math.max(0.7, baseW * 0.28)}
+          strokeLinecap="square"
+          strokeLinejoin="miter"
+          opacity={0.75}
+        />
+        {geom.vias.map((v, i) => (
+          <Via key={`v-${i}`} x={v.x} y={v.y} r={railBridge ? 3.2 : 2.6} copper={copper} />
+        ))}
+        {geom.pads.map((p, i) => (
+          <Pad
+            key={`p-${i}`}
+            x={p.x}
+            y={p.y}
+            size={railBridge ? 7 : 5.5}
+            copper={copper}
+          />
+        ))}
+      </g>
+      {/* Invisible hit target */}
+      <BaseEdge
+        id={id}
+        path={geom.d}
+        style={{ stroke: 'transparent', strokeWidth: 14 }}
+        interactionWidth={18}
+      />
       {showLabel ? (
         <EdgeLabelRenderer>
           <div
             className="nodrag nopan pointer-events-none absolute origin-center"
             style={{
-              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY - (railTitle || railBridge ? 2 : 0)}px)`,
-              opacity: selected ? 1 : 0.98,
+              transform: `translate(-50%, -50%) translate(${geom.labelX}px,${geom.labelY}px)`,
+              opacity: selected ? 1 : 0.96,
             }}
           >
             <div
-              className="max-w-[11rem] rounded border px-1.5 py-0.5 shadow-sm"
+              className="max-w-[11rem] border px-1.5 py-0.5"
               style={{
-                borderColor: stroke,
+                borderColor: copper.body,
                 background:
-                  'color-mix(in srgb, var(--color-surface-0) 92%, transparent)',
-                boxShadow: `0 0 0 1px color-mix(in srgb, ${stroke} 35%, transparent)`,
+                  'color-mix(in srgb, #0a1a12 88%, var(--color-surface-0))',
+                boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${copper.shine} 25%, transparent)`,
+                borderRadius: 1,
               }}
               data-testid="market-posture-model-edge-label"
               title={[railRole, railTitle || fallback, railVerb]
@@ -171,10 +403,10 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
               {railBridge || (fallback.includes('→') && !railTitle) ? (
                 <div className="flex min-w-0 items-center gap-1">
                   <span
-                    className="shrink-0 font-mono text-[7px] font-bold uppercase tracking-wider"
-                    style={{ color: stroke }}
+                    className="shrink-0 font-mono text-[6px] font-bold uppercase tracking-[0.14em]"
+                    style={{ color: copper.shine }}
                   >
-                    RAIL
+                    NET
                   </span>
                   <span className="truncate font-mono text-[8px] font-semibold leading-tight text-[var(--color-ink)]">
                     {fallback || railTitle}
@@ -185,8 +417,8 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
                   <div className="flex min-w-0 items-center gap-1">
                     {railRole ? (
                       <span
-                        className="shrink-0 font-mono text-[7px] font-bold uppercase tracking-wider"
-                        style={{ color: stroke }}
+                        className="shrink-0 font-mono text-[6px] font-bold uppercase tracking-[0.14em]"
+                        style={{ color: copper.shine }}
                       >
                         {railRole}
                       </span>
@@ -196,7 +428,10 @@ export const MarketPostureOrthoEdge = memo(function MarketPostureOrthoEdge({
                     </span>
                   </div>
                   {railVerb ? (
-                    <div className="mt-px truncate font-mono text-[7px] uppercase tracking-wider text-[var(--color-ink-dim)]">
+                    <div
+                      className="mt-px truncate font-mono text-[6px] uppercase tracking-[0.12em]"
+                      style={{ color: 'color-mix(in srgb, #9fb5a4 80%, transparent)' }}
+                    >
                       {railVerb}
                     </div>
                   ) : null}

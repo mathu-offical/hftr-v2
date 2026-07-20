@@ -1885,12 +1885,16 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   shared route clusters with **track lanes** for remaining stages; Capital lanes
   `company_root` left of `execution_split`; Outlook lanes by stage order; Day lanes by
   panel family. Routes stack **top→bottom in `ROUTE_PIPELINE_ORDER`** (ingest → analysis →
-  named process → research articles → library); steps sit on **shared edge-level columns**
-  (longest-path L→R from connection edges) so sequential hops align across routes;
+  named process → research articles → library); steps sit on **shared transfer hops**
+  (edge depth, or semantic source→adapter→process when the DAG collapses roles onto
+  hop 0) with natural handoff gaps — continuous L→R chains without empty mid-band holes;
+  hop index stamped on strip nodes; short transfer edge labels + arrowheads in the strip;
+  cluster frames size to content;
   **research ENGINEs** appear on Library as gather→validate→synthesize→admit→articles→shelf
   (D-214). Strip chrome is **compact** (`stripCompact`): packing cell sizes match dense
-  node cards; edge labels hidden; track legend omitted so the diagram fills the band.
+  node cards; track legend omitted so the diagram fills the band.
   Non-route nodes sit **below** the route stack.
+  Screen columns use a looser **STRIP_SCREEN_GAP** so page areas breathe.
   Cluster click navigates via `stageScreenId` (not hard-coded Process).
   Every strip content node is stamped with `stageScreenId` and mapped into that screen’s
   emission traces. Strip data-flow is left→right: library adapters use `lib-adapter:`

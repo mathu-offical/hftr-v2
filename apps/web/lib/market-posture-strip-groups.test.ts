@@ -411,7 +411,7 @@ describe('applyStripScreenGroups', () => {
     ]);
   });
 
-  it('aligns sequential routes on shared edge-level columns', () => {
+  it('aligns sequential routes on shared transfer hops without empty mid-band holes', () => {
     const stamped = [
       {
         ...node('process:news:fetch', 'process', 'Fetch'),
@@ -458,14 +458,21 @@ describe('applyStripScreenGroups', () => {
       'news_headline',
       'bars_ohlc',
     ]);
-    // Same width = shared edge-level grid.
-    expect(clusters[0]?.style?.width).toBe(clusters[1]?.style?.width);
     const newsFetch = packed.find((n) => n.id === 'process:news:fetch')!;
     const barsFetch = packed.find((n) => n.id === 'process:bars:fetch')!;
-    // First hop aligns across route rows.
-    expect(newsFetch.position.x).toBe(barsFetch.position.x);
+    const newsNorm = packed.find((n) => n.id === 'process:news:normalize')!;
     const barsScore = packed.find((n) => n.id === 'process:bars:score')!;
-    expect(barsScore.position.x).toBeGreaterThan(barsFetch.position.x);
+    // Hop 1 aligns across route rows.
+    expect(newsFetch.position.x).toBe(barsFetch.position.x);
+    expect(newsFetch.data.transferHop).toBe(1);
+    expect(barsFetch.data.transferHop).toBe(1);
+    expect(newsNorm.data.transferHop).toBe(2);
+    expect(barsScore.data.transferHop).toBe(2);
+    // Continuous transfer — hop 2 sits just past hop 1 (no empty mid-band).
+    const hopGap = newsNorm.position.x - newsFetch.position.x;
+    expect(hopGap).toBeGreaterThan(110);
+    expect(hopGap).toBeLessThan(200);
+    expect(barsScore.position.x).toBe(newsNorm.position.x);
   });
 
   it('places process stages below route rows in the same column grid', () => {

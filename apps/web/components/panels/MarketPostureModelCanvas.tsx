@@ -5,6 +5,7 @@ import {
   Background,
   Controls,
   Handle,
+  MarkerType,
   Position,
   ReactFlow,
   ReactFlowProvider,
@@ -308,7 +309,12 @@ function styleModelEdge(
     label?: string | undefined;
     data: PostureAlgoEdgeData;
   },
-  opts?: { crossScreen?: boolean; hideLabels?: boolean },
+  opts?: {
+    crossScreen?: boolean;
+    /** Strip: short transfer labels (no activation spam). */
+    stripTransferLabels?: boolean;
+    hideLabels?: boolean;
+  },
 ): LiveEdge {
   const { edgeType, activation, status, track } = edge.data;
   const stroke = trackStroke(track);
@@ -318,12 +324,14 @@ function styleModelEdge(
     edgeType === 'emit'
       ? cross
         ? 1.6
-        : 1
+        : 1.15
       : activation === 'active' || activation === 'pulsing'
-        ? 2.2
+        ? 2.4
         : cross
           ? 1.8
-          : 1.2;
+          : opts?.stripTransferLabels
+            ? 1.85
+            : 1.2;
   const opacity =
     activation === 'blocked' || activation === 'stale'
       ? 0.35
@@ -332,19 +340,46 @@ function styleModelEdge(
           ? 0.4
           : cross
             ? 0.85
-            : 0.65
+            : 0.7
         : activation === 'idle'
           ? cross
             ? 0.55
-            : 0.45
+            : 0.5
           : activation === 'armed'
-            ? 0.75
+            ? 0.8
             : 1;
+  const transferWord = (() => {
+    if (edge.label?.trim()) return edge.label.trim();
+    switch (edgeType) {
+      case 'hydrate':
+        return 'hydrate';
+      case 'adapt':
+        return 'adapt';
+      case 'pipeline':
+        return 'transfer';
+      case 'entitle':
+        return 'entitle';
+      case 'corpus':
+        return 'corpus';
+      case 'parallel':
+        return 'parallel';
+      case 'panel':
+        return 'panel';
+      case 'emit':
+        return 'emit';
+      default: {
+        const _exhaustive: never = edgeType;
+        return _exhaustive;
+      }
+    }
+  })();
   const label = opts?.hideLabels
     ? undefined
-    : edge.label != null
-      ? `${edge.label} · ${activation}/${status}`
-      : `${edgeType} · ${activation}`;
+    : opts?.stripTransferLabels
+      ? transferWord
+      : edge.label != null
+        ? `${edge.label} · ${activation}/${status}`
+        : `${edgeType} · ${activation}`;
 
   return {
     id: edge.id,
@@ -352,8 +387,15 @@ function styleModelEdge(
     target: edge.target,
     label,
     data: edge.data,
+    type: opts?.stripTransferLabels && !cross ? 'smoothstep' : undefined,
     animated: animated || cross,
-    zIndex: cross ? 8 : edgeType === 'emit' ? 2 : 4,
+    zIndex: cross ? 8 : edgeType === 'emit' ? 2 : 5,
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      width: opts?.stripTransferLabels ? 12 : 10,
+      height: opts?.stripTransferLabels ? 12 : 10,
+      color: stroke,
+    },
     style: {
       stroke,
       strokeWidth: width,
@@ -361,11 +403,18 @@ function styleModelEdge(
       strokeDasharray: edgeTypeDash(edgeType),
     },
     labelStyle: {
-      fill: 'var(--color-ink-faint)',
-      fontSize: 8,
+      fill: 'var(--color-ink-dim)',
+      fontSize: opts?.stripTransferLabels ? 7 : 8,
       fontFamily: 'ui-monospace, monospace',
+      fontWeight: 600,
     },
-    labelBgStyle: { fill: 'var(--color-surface-0)', fillOpacity: 0.85 },
+    labelBgStyle: {
+      fill: 'var(--color-surface-0)',
+      fillOpacity: opts?.stripTransferLabels ? 0.92 : 0.85,
+    },
+    labelBgPadding: opts?.stripTransferLabels
+      ? ([2, 3] as [number, number])
+      : undefined,
   };
 }
 
@@ -421,16 +470,27 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
         data-activation={data.activation}
         data-track={data.track}
         data-strip-compact="true"
+        data-transfer-hop={
+          data.transferHop != null ? String(data.transferHop) : undefined
+        }
         title={`${data.label} · ${data.operation} · ${data.amount}`}
       >
         <Handle
           type="target"
           position={Position.Left}
-          className="!h-1 !w-1 !bg-[var(--color-ink-faint)]"
+          className="!h-1.5 !w-1.5 !border-[var(--color-surface-0)] !bg-[var(--color-accent)]"
         />
         <div className="flex items-center justify-between gap-0.5">
-          <span className="font-mono text-[7px] uppercase tracking-wider text-[var(--color-ink-faint)]">
-            {badge}
+          <span className="flex min-w-0 items-center gap-0.5 font-mono text-[7px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+            {data.transferHop != null ? (
+              <span
+                className="inline-flex h-3 min-w-[0.75rem] shrink-0 items-center justify-center rounded-sm bg-[var(--color-accent)]/20 px-0.5 text-[7px] font-semibold tabular-nums text-[var(--color-accent)]"
+                aria-label={`Transfer hop ${data.transferHop}`}
+              >
+                {data.transferHop}
+              </span>
+            ) : null}
+            <span className="truncate">{badge}</span>
           </span>
           <span
             className="max-w-[3.5rem] truncate font-mono text-[7px] tabular-nums text-[var(--color-ink-dim)]"
@@ -454,7 +514,7 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
         <Handle
           type="source"
           position={Position.Right}
-          className="!h-1 !w-1 !bg-[var(--color-ink-faint)]"
+          className="!h-1.5 !w-1.5 !border-[var(--color-surface-0)] !bg-[var(--color-accent)]"
         />
       </div>
     );
@@ -655,14 +715,19 @@ function InnerCanvas(props: {
     for (const n of graph.nodes) {
       if (n.data.stageScreenId) screenById.set(n.id, n.data.stageScreenId);
     }
-    const hideLabels = props.layoutMode === 'stripExpanded';
+    const stripTransferLabels = props.layoutMode === 'stripExpanded';
     return graph.edges.map((e) => {
       const a = screenById.get(e.source);
       const b = screenById.get(e.target);
       const crossScreen =
         e.id.startsWith('e-group:') ||
         (a != null && b != null && a !== b);
-      return styleModelEdge(e, { crossScreen, hideLabels });
+      return styleModelEdge(e, {
+        crossScreen,
+        stripTransferLabels,
+        // Cross-screen backbone stays unlabeled to reduce clutter.
+        hideLabels: stripTransferLabels && crossScreen,
+      });
     });
   }, [graph.edges, graph.nodes, props.layoutMode]);
 

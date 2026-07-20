@@ -88,6 +88,8 @@ export type PostureAlgoNodeData = {
    * when true so nodes fit their lane cells without clipping.
    */
   stripCompact?: boolean;
+  /** 1-based hop index along the route transfer chain (strip readability). */
+  transferHop?: number;
   layer: MarketHubModelLayer;
   track: MarketHubModelTrack;
   activation: MarketHubModelEdgeActivation;
@@ -1809,14 +1811,18 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
 /** Outer screen-column pitch — sized for stripCompact chrome (D-214). */
 export const STRIP_NODE_H = 40;
 export const STRIP_NODE_W = 118;
-const STRIP_PAD = 6;
-const STRIP_HEADER = 22;
-const STRIP_INNER_GAP = 8;
+/** Inner padding inside screen / cluster frames — looser = more natural. */
+const STRIP_PAD = 12;
+const STRIP_HEADER = 26;
+/** Default pitch between sibling nodes in the same transfer hop column. */
+const STRIP_INNER_GAP = 18;
 /** Max role lanes inside a screen group (src → adapt → process → stage → emit). */
 const STRIP_INNER_LANES = 5;
 const STRIP_INNER_LANE_W = STRIP_NODE_W + STRIP_INNER_GAP;
 const STRIP_COL_W =
-  STRIP_PAD * 2 + STRIP_INNER_LANES * STRIP_INNER_LANE_W + 12;
+  STRIP_PAD * 2 + STRIP_INNER_LANES * STRIP_INNER_LANE_W + 20;
+/** Gap between screen-group columns on the strip. */
+const STRIP_SCREEN_GAP = 28;
 
 const STRIP_ROLE_ORDER: Record<PostureAlgoNodeRole, number> = {
   screen_group: -1,
@@ -1860,12 +1866,96 @@ const PROCESS_FN_ORDER: Record<string, number> = {
   compose: 10,
 };
 
-const STRIP_CLUSTER_GAP = 8;
-const STRIP_CLUSTER_HEADER = 18;
+/** Vertical rhythm between route rows. */
+const STRIP_CLUSTER_GAP = 16;
+const STRIP_CLUSTER_HEADER = 20;
+/** Gap between stacked nodes in the same band/column. */
+const STRIP_STACK_GAP = 6;
 
 /**
- * Shared phase columns inside every route row (source → adapter → pipeline fns).
- * Empty cells stay so columns align across sequential routes.
+ * Function bands for natural L→R placement (not equal-width edge levels).
+ * Gaps widen at major handoffs: source→adapter, refine→decide, decide→emit.
+ */
+export type StripFunctionBand =
+  | 'source'
+  | 'adapter'
+  | 'ingest'
+  | 'refine'
+  | 'decide'
+  | 'emit';
+
+const STRIP_FUNCTION_BANDS: readonly StripFunctionBand[] = [
+  'source',
+  'adapter',
+  'ingest',
+  'refine',
+  'decide',
+  'emit',
+] as const;
+
+/** Space after each band before the next — wider at semantic boundaries. */
+const STRIP_BAND_GAP_AFTER: Record<StripFunctionBand, number> = {
+  source: 28,
+  adapter: 24,
+  ingest: 16,
+  refine: 22,
+  decide: 26,
+  emit: 0,
+};
+
+export function functionBandForStep(n: PostureAlgoGraphNode): StripFunctionBand {
+  switch (n.data.nodeRole) {
+    case 'live_source':
+    case 'library_source':
+    case 'capital_source':
+    case 'research_engine':
+      return 'source';
+    case 'adapter':
+      return 'adapter';
+    case 'research_articles':
+      return 'emit';
+    case 'panel_surface':
+      return 'emit';
+    case 'stage':
+      return 'decide';
+    default: {
+      const fn = (n.data.processFunction ?? '').toLowerCase();
+      switch (fn) {
+        case 'fetch':
+        case 'gather':
+        case 'entitle':
+        case 'load':
+        case 'announce':
+          return 'ingest';
+        case 'normalize':
+        case 'validate':
+        case 'extract':
+        case 'organize':
+        case 'context':
+        case 'route':
+        case 'corroborate':
+        case 'synthesize':
+          return 'refine';
+        case 'score':
+        case 'analyze':
+        case 'thresholds':
+        case 'defaults':
+        case 'rank':
+        case 'verify':
+        case 'admit':
+          return 'decide';
+        case 'seal':
+        case 'compose':
+          return 'emit';
+        default:
+          return 'refine';
+      }
+    }
+  }
+}
+
+/**
+ * Shared phase columns (legacy phase index) — still used for sort tie-breaks.
  */
 const STRIP_PHASE_COLUMNS = [
   'source',
@@ -1915,6 +2005,283 @@ function phaseColumnForStep(n: PostureAlgoGraphNode): number {
       return STRIP_PHASE_COLUMNS.indexOf('other');
     }
   }
+}
+
+/**
+ * How many edge-level columns a step set needs inside each function band.
+ */
+export function countBandColumns(
+  steps: PostureAlgoGraphNode[],
+  edges: Array<{ source: string; target: string }>,
+): Map<StripFunctionBand, number> {
+  const levels = assignEdgeLevels(steps, edges);
+  const byBand = new Map<StripFunctionBand, Set<number>>();
+  for (const step of steps) {
+    const band = functionBandForStep(step);
+    const set = byBand.get(band) ?? new Set<number>();
+    set.add(levels.get(step.id) ?? 0);
+    byBand.set(band, set);
+  }
+  const out = new Map<StripFunctionBand, number>();
+  for (const [band, set] of byBand) {
+    out.set(band, Math.max(1, set.size));
+  }
+  return out;
+}
+
+/**
+ * Build left-edge X for each function band from the set of bands in use.
+ * Empty bands are skipped so short routes stay compact; shared band starts
+ * keep the same function aligned across sequential route rows.
+ * `columnsPerBand` widens a band when any route needs multiple hops inside it.
+ */
+export function buildFunctionBandOrigins(
+  usedBands: ReadonlySet<StripFunctionBand>,
+  columnsPerBand?: ReadonlyMap<StripFunctionBand, number>,
+): Map<StripFunctionBand, number> {
+  const origins = new Map<StripFunctionBand, number>();
+  let x = 0;
+  for (const band of STRIP_FUNCTION_BANDS) {
+    if (!usedBands.has(band)) continue;
+    origins.set(band, x);
+    const cols = Math.max(1, columnsPerBand?.get(band) ?? 1);
+    x +=
+      cols * STRIP_NODE_W +
+      (cols - 1) * STRIP_INNER_GAP +
+      STRIP_BAND_GAP_AFTER[band];
+  }
+  return origins;
+}
+
+/**
+ * Place steps by transfer hop for a continuous L→R data path.
+ * Uses edge longest-path levels when the DAG depth matches the chain;
+ * when connectivity is incomplete (multiple roles collapsed at hop 0),
+ * falls back to sequential connection order so transfers stay readable.
+ */
+export function layoutStepsByTransfer(
+  steps: PostureAlgoGraphNode[],
+  edges: Array<{ source: string; target: string }>,
+  columnOrigins: readonly number[],
+): {
+  positions: Map<string, { x: number; y: number }>;
+  hops: Map<string, number>;
+  width: number;
+  height: number;
+} {
+  const levels = assignEdgeLevels(steps, edges);
+  const maxEdgeLevel = Math.max(0, ...[...levels.values()], 0);
+  // Incomplete graphs stack unrelated roles at level 0 — use semantic
+  // transfer order (source → adapter → process fn) so hops read L→R.
+  const roots = steps.filter((s) => (levels.get(s.id) ?? 0) === 0);
+  const rootRoles = new Set(roots.map((s) => s.data.nodeRole));
+  const useSemanticOrder =
+    steps.length > maxEdgeLevel + 1 || rootRoles.size > 1;
+
+  const transferSortKey = (n: PostureAlgoGraphNode): number => {
+    const role = STRIP_ROLE_ORDER[n.data.nodeRole] ?? 5;
+    const fn = PROCESS_FN_ORDER[(n.data.processFunction ?? '').toLowerCase()] ?? 40;
+    return role * 100 + fn;
+  };
+
+  const ordered = useSemanticOrder
+    ? [...steps].sort(
+        (a, b) =>
+          transferSortKey(a) - transferSortKey(b) ||
+          a.data.label.localeCompare(b.data.label),
+      )
+    : orderClusterStepsByEdges(steps, edges);
+
+  const colOf = (id: string): number => {
+    if (!useSemanticOrder) return levels.get(id) ?? 0;
+    const idx = ordered.findIndex((s) => s.id === id);
+    return idx >= 0 ? idx : levels.get(id) ?? 0;
+  };
+
+  const byLevel = new Map<number, PostureAlgoGraphNode[]>();
+  for (const step of steps) {
+    const L = colOf(step.id);
+    const list = byLevel.get(L) ?? [];
+    list.push(step);
+    byLevel.set(L, list);
+  }
+  for (const [, list] of byLevel) {
+    list.sort(sortProcessStepsInCluster);
+  }
+
+  const positions = new Map<string, { x: number; y: number }>();
+  const hops = new Map<string, number>();
+  let maxX = 0;
+  let maxY = 0;
+
+  const sortedLevels = [...byLevel.keys()].sort((a, b) => a - b);
+  for (const L of sortedLevels) {
+    const members = byLevel.get(L) ?? [];
+    const x = columnOrigins[L] ?? L * (STRIP_NODE_W + STRIP_INNER_GAP);
+    members.forEach((m, stackIdx) => {
+      const y = stackIdx * (STRIP_NODE_H + STRIP_STACK_GAP);
+      positions.set(m.id, { x, y });
+      hops.set(m.id, L + 1);
+      maxX = Math.max(maxX, x + STRIP_NODE_W);
+      maxY = Math.max(maxY, y + STRIP_NODE_H);
+    });
+  }
+
+  return {
+    positions,
+    hops,
+    width: Math.max(STRIP_NODE_W, maxX),
+    height: Math.max(STRIP_NODE_H, maxY),
+  };
+}
+
+/**
+ * Shared L→R origins for transfer hops across route rows in one screen.
+ * Gap after hop L uses the dominant function band of nodes at that hop.
+ */
+export function buildTransferColumnOrigins(
+  clusters: Array<{
+    steps: PostureAlgoGraphNode[];
+  }>,
+  edges: Array<{ source: string; target: string }>,
+): { origins: number[]; maxLevel: number } {
+  let maxLevel = 0;
+  const bandAtLevel = new Map<number, StripFunctionBand[]>();
+
+  for (const c of clusters) {
+    const levels = assignEdgeLevels(c.steps, edges);
+    const maxEdgeLevel = Math.max(0, ...[...levels.values()], 0);
+    const roots = c.steps.filter((s) => (levels.get(s.id) ?? 0) === 0);
+    const rootRoles = new Set(roots.map((s) => s.data.nodeRole));
+    const useSemanticOrder =
+      c.steps.length > maxEdgeLevel + 1 || rootRoles.size > 1;
+
+    const transferSortKey = (n: PostureAlgoGraphNode): number => {
+      const role = STRIP_ROLE_ORDER[n.data.nodeRole] ?? 5;
+      const fn =
+        PROCESS_FN_ORDER[(n.data.processFunction ?? '').toLowerCase()] ?? 40;
+      return role * 100 + fn;
+    };
+    const ordered = useSemanticOrder
+      ? [...c.steps].sort(
+          (a, b) =>
+            transferSortKey(a) - transferSortKey(b) ||
+            a.data.label.localeCompare(b.data.label),
+        )
+      : orderClusterStepsByEdges(c.steps, edges);
+
+    for (const step of c.steps) {
+      const L = useSemanticOrder
+        ? (() => {
+            const idx = ordered.findIndex((s) => s.id === step.id);
+            return idx >= 0 ? idx : (levels.get(step.id) ?? 0);
+          })()
+        : (levels.get(step.id) ?? 0);
+      maxLevel = Math.max(maxLevel, L);
+      const list = bandAtLevel.get(L) ?? [];
+      list.push(functionBandForStep(step));
+      bandAtLevel.set(L, list);
+    }
+  }
+
+  const dominantBand = (L: number): StripFunctionBand => {
+    const list = bandAtLevel.get(L) ?? [];
+    if (list.length === 0) return 'refine';
+    const counts = new Map<StripFunctionBand, number>();
+    for (const b of list) counts.set(b, (counts.get(b) ?? 0) + 1);
+    let best: StripFunctionBand = list[0]!;
+    let bestN = 0;
+    for (const [b, n] of counts) {
+      if (n > bestN) {
+        best = b;
+        bestN = n;
+      }
+    }
+    return best;
+  };
+
+  const origins: number[] = [];
+  let x = 0;
+  for (let L = 0; L <= maxLevel; L++) {
+    origins[L] = x;
+    const band = dominantBand(L);
+    const nextBand = L < maxLevel ? dominantBand(L + 1) : band;
+    const handoff = band !== nextBand;
+    const gap = handoff
+      ? Math.max(STRIP_INNER_GAP, STRIP_BAND_GAP_AFTER[band] || STRIP_INNER_GAP)
+      : STRIP_INNER_GAP;
+    x += STRIP_NODE_W + gap;
+  }
+  return { origins, maxLevel };
+}
+
+/**
+ * Place steps by function band + edge order within band.
+ * Returns positions relative to cluster content origin (0,0 = top-left of first cell).
+ * Prefer {@link layoutStepsByTransfer} for process/live/library route chains.
+ */
+export function layoutStepsByFunction(
+  steps: PostureAlgoGraphNode[],
+  edges: Array<{ source: string; target: string }>,
+  bandOrigins: Map<StripFunctionBand, number>,
+): {
+  positions: Map<string, { x: number; y: number }>;
+  width: number;
+  height: number;
+} {
+  const levels = assignEdgeLevels(steps, edges);
+  const byBand = new Map<StripFunctionBand, PostureAlgoGraphNode[]>();
+  for (const step of steps) {
+    const band = functionBandForStep(step);
+    const list = byBand.get(band) ?? [];
+    list.push(step);
+    byBand.set(band, list);
+  }
+  for (const [, list] of byBand) {
+    list.sort((a, b) => {
+      const la = levels.get(a.id) ?? 0;
+      const lb = levels.get(b.id) ?? 0;
+      if (la !== lb) return la - lb;
+      return sortProcessStepsInCluster(a, b);
+    });
+  }
+
+  const positions = new Map<string, { x: number; y: number }>();
+  let maxX = 0;
+  let maxY = 0;
+
+  for (const band of STRIP_FUNCTION_BANDS) {
+    const members = byBand.get(band);
+    if (!members || members.length === 0) continue;
+    const originX = bandOrigins.get(band) ?? 0;
+    // Within a band: walk edge levels as columns with modest pitch.
+    const levelCols = new Map<number, PostureAlgoGraphNode[]>();
+    for (const m of members) {
+      const L = levels.get(m.id) ?? 0;
+      const col = levelCols.get(L) ?? [];
+      col.push(m);
+      levelCols.set(L, col);
+    }
+    const sortedLevels = [...levelCols.keys()].sort((a, b) => a - b);
+    let localCol = 0;
+    for (const L of sortedLevels) {
+      const colMembers = (levelCols.get(L) ?? []).sort(sortProcessStepsInCluster);
+      const x = originX + localCol * (STRIP_NODE_W + STRIP_INNER_GAP);
+      colMembers.forEach((m, stackIdx) => {
+        const y = stackIdx * (STRIP_NODE_H + STRIP_STACK_GAP);
+        positions.set(m.id, { x, y });
+        maxX = Math.max(maxX, x + STRIP_NODE_W);
+        maxY = Math.max(maxY, y + STRIP_NODE_H);
+      });
+      localCol += 1;
+    }
+  }
+
+  return {
+    positions,
+    width: Math.max(STRIP_NODE_W, maxX),
+    height: Math.max(STRIP_NODE_H, maxY),
+  };
 }
 
 /** Map live/analysis kind tokens onto canonical ROUTE_PIPELINE_ORDER ids. */
@@ -2405,41 +2772,31 @@ function packProcessScreenColumn(opts: {
       a.route.localeCompare(b.route),
   );
 
-  // Shared edge-level column span so sequential routes align by connection depth.
-  let maxLevel = 0;
-  const levelsByCluster = new Map<string, Map<string, number>>();
-  for (const c of pendingClusters) {
-    const levels = assignEdgeLevels(c.steps, edges);
-    levelsByCluster.set(c.route, levels);
-    for (const L of levels.values()) maxLevel = Math.max(maxLevel, L);
-  }
-  const levelCount = Math.max(1, maxLevel + 1);
-  const clusterInnerW = levelCount * STRIP_INNER_LANE_W;
-  const clusterW = STRIP_PAD * 2 + clusterInnerW;
+  // Shared transfer-hop columns: align hop 0/1/… across routes without
+  // inserting empty function-band holes in the middle of a chain.
+  const { origins: transferOrigins } = buildTransferColumnOrigins(
+    pendingClusters,
+    edges,
+  );
 
   let cursorY = STRIP_HEADER + STRIP_PAD;
+  let maxClusterW = STRIP_PAD * 2 + STRIP_NODE_W;
+
   pendingClusters.forEach((cluster, routeIdx) => {
     const { route, steps } = cluster;
     const clusterId = `cluster:process:${route}`;
-    const levels = levelsByCluster.get(route) ?? assignEdgeLevels(steps, edges);
-    const byLevel = new Map<number, PostureAlgoGraphNode[]>();
-    for (const step of steps) {
-      const L = levels.get(step.id) ?? 0;
-      const list = byLevel.get(L) ?? [];
-      list.push(step);
-      byLevel.set(L, list);
-    }
-    for (const [, list] of byLevel) {
-      list.sort(sortProcessStepsInCluster);
-    }
-    const maxStack = Math.max(
-      1,
-      ...[...byLevel.values()].map((list) => list.length),
-    );
+    const layout = layoutStepsByTransfer(steps, edges, transferOrigins);
+    const clusterW = STRIP_PAD * 2 + layout.width;
     const clusterH =
-      STRIP_CLUSTER_HEADER + STRIP_PAD * 2 + maxStack * STRIP_NODE_H;
+      STRIP_CLUSTER_HEADER + STRIP_PAD * 2 + layout.height;
+    maxClusterW = Math.max(maxClusterW, clusterW);
 
-    const orderedSteps = orderClusterStepsByEdges(steps, edges);
+    const orderedSteps = [...steps].sort((a, b) => {
+      const ha = layout.hops.get(a.id) ?? 99;
+      const hb = layout.hops.get(b.id) ?? 99;
+      if (ha !== hb) return ha - hb;
+      return a.data.label.localeCompare(b.data.label);
+    });
     const fnSummary = [
       ...new Set(
         orderedSteps
@@ -2494,31 +2851,32 @@ function packProcessScreenColumn(opts: {
       },
     });
 
-    byLevel.forEach((levelSteps, levelIdx) => {
-      levelSteps.forEach((step, stackIdx) => {
-        out.push({
-          ...step,
-          parentId: clusterId,
-          extent: 'parent',
-          position: {
-            x: STRIP_PAD + levelIdx * STRIP_INNER_LANE_W,
-            y: STRIP_CLUSTER_HEADER + STRIP_PAD + stackIdx * STRIP_NODE_H,
-          },
-          draggable: false,
-          data: {
-            ...step.data,
-            stageScreenId: screenId,
-            stripCompact: true,
-          },
-        });
-        globalRank.set(step.id, routeIdx * 100 + levelIdx * 10 + stackIdx);
+    steps.forEach((step) => {
+      const pos = layout.positions.get(step.id) ?? { x: 0, y: 0 };
+      const hop = layout.hops.get(step.id);
+      out.push({
+        ...step,
+        parentId: clusterId,
+        extent: 'parent',
+        position: {
+          x: STRIP_PAD + pos.x,
+          y: STRIP_CLUSTER_HEADER + STRIP_PAD + pos.y,
+        },
+        draggable: false,
+        data: {
+          ...step.data,
+          stageScreenId: screenId,
+          stripCompact: true,
+          ...(hop != null ? { transferHop: hop } : {}),
+        },
       });
+      globalRank.set(step.id, routeIdx * 100 + (hop ?? 0) * 10 + pos.y / 10);
     });
 
     cursorY += clusterH + STRIP_CLUSTER_GAP;
   });
 
-  // Side content sits BELOW route rows (same column grid), not beside them.
+  // Side content sits BELOW route rows with the same function-band rhythm.
   const processStageOrder =
     MARKET_POSTURE_STAGE_SCREENS.find((s) => s.id === 'process')?.stageIds ?? [];
   const orderedOther = [...remainingOther].sort((a, b) => {
@@ -2539,57 +2897,56 @@ function packProcessScreenColumn(opts: {
   });
   const refinedOther = orderLaneByConnections(orderedOther, edges, globalRank);
 
-  const otherColCount = Math.max(levelCount, STRIP_INNER_LANES);
-  const otherLanes: PostureAlgoGraphNode[][] = Array.from(
-    { length: otherColCount },
-    () => [],
+  const otherTransfer = buildTransferColumnOrigins(
+    [
+      ...pendingClusters,
+      ...(refinedOther.length > 0 ? [{ steps: refinedOther }] : []),
+    ],
+    edges,
   );
-  for (const child of refinedOther) {
-    const lane =
-      screenId === 'process' && child.data.nodeRole === 'stage'
-        ? Math.min(otherColCount - 1, stageTrackLane(child))
-        : Math.min(
-            otherColCount - 1,
-            Math.max(0, STRIP_ROLE_ORDER[child.data.nodeRole] ?? 2),
-          );
-    otherLanes[lane]!.push(child);
-  }
+  const otherLayout = layoutStepsByTransfer(
+    refinedOther,
+    edges,
+    otherTransfer.origins,
+  );
   const otherBlockY =
     pendingClusters.length > 0
-      ? cursorY
+      ? cursorY + 4
       : STRIP_HEADER + STRIP_PAD;
-  const maxOtherRows = Math.max(0, ...otherLanes.map((l) => l.length));
-  otherLanes.forEach((lane, laneIdx) => {
-    lane.forEach((child, rowIdx) => {
-      out.push({
-        ...child,
-        parentId: groupId,
-        extent: 'parent',
-        position: {
-          x: STRIP_PAD + laneIdx * STRIP_INNER_LANE_W,
-          y: otherBlockY + rowIdx * STRIP_NODE_H,
-        },
-        draggable: false,
-        data: {
-          ...child.data,
-          stageScreenId: screenId,
-          stripCompact: true,
-        },
-      });
+  refinedOther.forEach((child) => {
+    const pos = otherLayout.positions.get(child.id) ?? { x: 0, y: 0 };
+    const hop = otherLayout.hops.get(child.id);
+    out.push({
+      ...child,
+      parentId: groupId,
+      extent: 'parent',
+      position: {
+        x: STRIP_PAD + pos.x,
+        y: otherBlockY + pos.y,
+      },
+      draggable: false,
+      data: {
+        ...child.data,
+        stageScreenId: screenId,
+        stripCompact: true,
+        ...(hop != null ? { transferHop: hop } : {}),
+      },
     });
   });
 
-  const otherBlockH = maxOtherRows > 0 ? maxOtherRows * STRIP_NODE_H + STRIP_PAD : 0;
+  const otherBlockH =
+    refinedOther.length > 0 ? otherLayout.height + STRIP_PAD : 0;
   const clustersH =
     pendingClusters.length > 0
       ? cursorY - STRIP_CLUSTER_GAP
       : STRIP_HEADER + STRIP_PAD;
   const height = Math.max(clustersH, otherBlockY) + otherBlockH + STRIP_PAD;
-  const width = Math.max(
-    STRIP_PAD * 2 + otherColCount * STRIP_INNER_LANE_W,
-    clusterW + STRIP_PAD,
+  const contentW = Math.max(
+    maxClusterW,
+    STRIP_PAD * 2 + otherLayout.width,
     STRIP_COL_W - 12,
   );
+  const width = contentW;
 
   out.unshift({
     id: groupId,
@@ -2768,9 +3125,10 @@ export function applyStripScreenGroups(
         const group = packed.find((n) => n.id === `group:${screen.id}`);
         if (group) {
           group.position = { x: cursorX, y: 0 };
-          cursorX += (group.style?.width ?? STRIP_COL_W) + 12;
+          cursorX +=
+            (group.style?.width ?? STRIP_COL_W) + STRIP_SCREEN_GAP;
         } else {
-          cursorX += STRIP_COL_W;
+          cursorX += STRIP_COL_W + STRIP_SCREEN_GAP;
         }
         out.push(...packed);
         return;
@@ -2782,7 +3140,7 @@ export function applyStripScreenGroups(
       () => [],
     );
 
-    // Outlook / capital / day: sequential columns (pipeline order), not sparse role lanes.
+    // Outlook / capital / day: function-band columns with looser handoff gaps.
     if (
       screen.id === 'outlook' ||
       screen.id === 'capital' ||
@@ -2802,21 +3160,68 @@ export function applyStripScreenGroups(
               ? outlookStageLane(b)
               : dayPanelLane(b);
         if (la !== lb) return la - lb;
+        const ba = STRIP_FUNCTION_BANDS.indexOf(functionBandForStep(a));
+        const bb = STRIP_FUNCTION_BANDS.indexOf(functionBandForStep(b));
+        if (ba !== bb) return ba - bb;
         return a.data.label.localeCompare(b.data.label);
       });
-      // Keep semantic column order stable — do not barycenter-reorder across tiers.
-      const refined = sorted;
-      const cols =
-        refined.length <= 8
-          ? Math.max(refined.length, 1)
-          : STRIP_INNER_LANES;
+      const usedBands = new Set(sorted.map((n) => functionBandForStep(n)));
+      // Prefer semantic tier as "column count" within each band so related
+      // capital/outlook/day steps stack naturally without a rigid grid.
+      const columnsPerBand = new Map<StripFunctionBand, number>();
+      for (const band of usedBands) {
+        const members = sorted.filter((n) => functionBandForStep(n) === band);
+        const tiers = new Set(
+          members.map((n) =>
+            screen.id === 'capital'
+              ? capitalTierLane(n)
+              : screen.id === 'outlook'
+                ? outlookStageLane(n)
+                : dayPanelLane(n),
+          ),
+        );
+        columnsPerBand.set(band, Math.max(1, Math.min(tiers.size, 3)));
+      }
+      const bandOrigins = buildFunctionBandOrigins(usedBands, columnsPerBand);
+      // Place by tier within each function band for capital/outlook/day semantics.
+      const positions = new Map<string, { x: number; y: number }>();
+      let maxX = 0;
+      let maxY = 0;
+      for (const band of STRIP_FUNCTION_BANDS) {
+        if (!usedBands.has(band)) continue;
+        const members = sorted.filter((n) => functionBandForStep(n) === band);
+        const originX = bandOrigins.get(band) ?? 0;
+        const byTier = new Map<number, PostureAlgoGraphNode[]>();
+        for (const m of members) {
+          const tier =
+            screen.id === 'capital'
+              ? capitalTierLane(m)
+              : screen.id === 'outlook'
+                ? outlookStageLane(m)
+                : dayPanelLane(m);
+          const list = byTier.get(tier) ?? [];
+          list.push(m);
+          byTier.set(tier, list);
+        }
+        const tierKeys = [...byTier.keys()].sort((a, b) => a - b);
+        tierKeys.forEach((tier, colIdx) => {
+          const colMembers = (byTier.get(tier) ?? []).sort((a, b) =>
+            a.data.label.localeCompare(b.data.label),
+          );
+          const x = originX + colIdx * (STRIP_NODE_W + STRIP_INNER_GAP);
+          colMembers.forEach((m, stackIdx) => {
+            const y = stackIdx * (STRIP_NODE_H + STRIP_STACK_GAP);
+            positions.set(m.id, { x, y });
+            maxX = Math.max(maxX, x + STRIP_NODE_W);
+            maxY = Math.max(maxY, y + STRIP_NODE_H);
+          });
+        });
+      }
       const height =
-        STRIP_HEADER +
-        STRIP_PAD * 2 +
-        Math.ceil(Math.max(refined.length, 1) / cols) * STRIP_NODE_H;
+        STRIP_HEADER + STRIP_PAD * 2 + Math.max(STRIP_NODE_H, maxY);
       const width = Math.max(
         STRIP_COL_W - 12,
-        STRIP_PAD * 2 + cols * innerLaneW,
+        STRIP_PAD * 2 + Math.max(STRIP_NODE_W, maxX),
       );
       const groupId = `group:${screen.id}`;
       out.push({
@@ -2839,28 +3244,29 @@ export function applyStripScreenGroups(
           activation: 'armed',
           status: 'ready',
           updatedAt: null,
+          stripCompact: true,
         },
       });
-      refined.forEach((child, i) => {
-        const col = i % cols;
-        const row = Math.floor(i / cols);
+      sorted.forEach((child, i) => {
+        const pos = positions.get(child.id) ?? { x: 0, y: 0 };
         globalRank.set(child.id, i);
         out.push({
           ...child,
           parentId: groupId,
           extent: 'parent',
           position: {
-            x: STRIP_PAD + col * innerLaneW,
-            y: STRIP_HEADER + STRIP_PAD + row * STRIP_NODE_H,
+            x: STRIP_PAD + pos.x,
+            y: STRIP_HEADER + STRIP_PAD + pos.y,
           },
           draggable: false,
           data: {
             ...child.data,
             stageScreenId: screen.id,
+            stripCompact: true,
           },
         });
       });
-      cursorX += width + 12;
+      cursorX += width + STRIP_SCREEN_GAP;
       void colIdx;
       return;
     }
@@ -2885,7 +3291,10 @@ export function applyStripScreenGroups(
 
     const maxRows = Math.max(1, ...alignedLanes.map((l) => l.length));
     const height =
-      STRIP_HEADER + STRIP_PAD * 2 + maxRows * STRIP_NODE_H;
+      STRIP_HEADER +
+      STRIP_PAD * 2 +
+      maxRows * STRIP_NODE_H +
+      Math.max(0, maxRows - 1) * STRIP_STACK_GAP;
     const groupId = `group:${screen.id}`;
     const width = Math.max(STRIP_COL_W - 12, groupInnerW);
 
@@ -2909,6 +3318,7 @@ export function applyStripScreenGroups(
         activation: 'armed',
         status: 'ready',
         updatedAt: null,
+        stripCompact: true,
       },
     });
 
@@ -2920,18 +3330,22 @@ export function applyStripScreenGroups(
           extent: 'parent',
           position: {
             x: STRIP_PAD + laneIdx * innerLaneW,
-            y: STRIP_HEADER + STRIP_PAD + rowIdx * STRIP_NODE_H,
+            y:
+              STRIP_HEADER +
+              STRIP_PAD +
+              rowIdx * (STRIP_NODE_H + STRIP_STACK_GAP),
           },
           draggable: false,
           data: {
             ...child.data,
             stageScreenId: screen.id,
+            stripCompact: true,
           },
         });
       });
     });
 
-    cursorX += width + 12;
+    cursorX += width + STRIP_SCREEN_GAP;
     void colIdx;
   });
   return out.map((n) => ({

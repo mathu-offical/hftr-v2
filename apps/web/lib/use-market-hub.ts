@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MarketHubAnalyzeResponse, MarketHubResponse } from '@hftr/contracts';
 import { api, RequestError } from '@/lib/client';
 import {
-  invalidateMarketHub,
   loadMarketHub,
+  markMarketHubStale,
   marketHubKeyString,
   peekMarketHub,
   subscribeMarketHubCache,
@@ -39,8 +39,9 @@ export type UseMarketHubResult = {
 
 /**
  * Market posture hub subscription (D-111 / D-112).
- * - Full hub: mount + Sync + after Analyze
+ * - Full hub: mount + Sync + after Analyze terminal (soft SWR — never wipe UI)
  * - Live slice poll: shared per company, equity/marks only, silent, never blocks Analyze
+ * - Analyze POST is short (enqueue + kick); reseals continue async server-side
  */
 export function useMarketHub(
   companyId: string | null,
@@ -68,6 +69,8 @@ export function useMarketHub(
   const [lastAnalyzePhaseLabel, setLastAnalyzePhaseLabel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const analyzeBusy = useRef(false);
+  const dataRef = useRef(data);
+  dataRef.current = data;
 
   const fetcher = useCallback(async () => {
     if (!companyId) throw new Error('companyId required');
@@ -77,8 +80,10 @@ export function useMarketHub(
   const refresh = useCallback(
     async (force = false) => {
       if (!key || !enabled) return;
-      const had = peekMarketHub(key) !== null;
-      if (!had) setLoading(true);
+      const hadCache = peekMarketHub(key) !== null;
+      const hadDisplay = hadCache || dataRef.current !== null;
+      // Never cold-load when we already have a hub snapshot in React or cache.
+      if (!hadDisplay) setLoading(true);
       else if (force) setRefreshing(true);
       try {
         const result = await loadMarketHub(key, fetcher, {
@@ -89,7 +94,7 @@ export function useMarketHub(
         setData(result.data);
         setError(null);
       } catch (err) {
-        if (!had) setData(null);
+        if (!hadDisplay) setData(null);
         setError(err instanceof RequestError ? err.message : 'Failed to load market posture');
       } finally {
         setLoading(false);
@@ -109,8 +114,8 @@ export function useMarketHub(
         { method: 'POST' },
       );
       if (res.analyzePhaseLabel) setLastAnalyzePhaseLabel(res.analyzePhaseLabel);
-      // Hub seals may still be finishing via poll — soft invalidate only.
-      invalidateMarketHub(key);
+      // Keep last hub on screen; revalidate when synthesis terminates (soft SWR).
+      markMarketHubStale(key);
       return res.runId;
     } catch (err) {
       setError(err instanceof RequestError ? err.message : 'Analyze failed');

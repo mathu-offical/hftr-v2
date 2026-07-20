@@ -426,9 +426,11 @@ are ignored. Shortcuts are suppressed in editable fields.
   **Live vs static (D-112):** one shared ~15s interval per company hits
   `GET …/market-hub/live` (equity + position marks/sparks only) and merges into the cached
   snapshot without replacing seals/reports/charts/sources/Model; Syncing… only on manual Sync.
-  Analyze pauses that live poll (shared across rail + overlay) only for the Analyze POST,
-  returns `runId`, and relies on synthesis poll + one full hub reload when the run is
-  terminal — UI cadence never enqueues or blocks posture jobs.
+  Analyze pauses that live poll (shared across rail + overlay) only for the Analyze POST
+  (enqueue + short kick; reseals continue via server `after()`),
+  returns `runId`, soft-stales the hub cache without wiping it, and relies on synthesis
+  poll + one soft full-hub revalidate when the run is terminal — never a company
+  cold-load / Loading… flash. UI cadence never enqueues or blocks posture jobs.
   Visible surfaces: live equity/marks refresh on the live cadence; seals/reports/charts
   stay stable until Sync or a terminal synthesis run; **Model** tracks synthesis stages live
   on the overlay.

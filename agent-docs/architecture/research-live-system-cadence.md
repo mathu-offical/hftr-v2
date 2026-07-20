@@ -25,7 +25,7 @@ the three reseal jobs.
 |--------|-----------|---------|-----|
 | **Live poll** | `GET …/market-hub/live` ~15s | Equity + position marks only | Silent merge; no Syncing…; **one interval per company** (rail+overlay share) |
 | **Sync** | `GET …/market-hub` force | Full projection | Syncing… |
-| **Analyze** | `POST …/market-hub/analyze` | Resolve **current-moment** `MarketHubAnalyzePhase` (clock + XNYS); create synthesis run; enqueue movers+sector+daily (`forceReseal` + phase + `synthesisRunId`) in parallel + narrative; short drain; return `runId` + `analyzePhase` | Analyzing… during POST; live poll paused only for POST; phase label on overlay |
+| **Analyze** | `POST …/market-hub/analyze` | Resolve **current-moment** `MarketHubAnalyzePhase` (clock + XNYS); create synthesis run; enqueue movers+sector+daily (`forceReseal` + phase + `synthesisRunId`) in parallel + narrative; **short kick drain** (~2.5s) then continue reseals via `after()`; return `runId` + `analyzePhase` | Analyzing… only for the short POST; live poll paused only for POST; hub cache soft-staled (no wipe / no company cold-load); phase label on overlay |
 | **Scheduled Analyze** | `library.market_hub_analyze` via `et:HH:MM` | Same enqueue path as manual (`reason=schedule`) | — |
 | **Movement Analyze** | Auto from movers scan | Diversified band/families gate + cooldown; `reason=movement` | — |
 | **Synthesis poll** | `GET …/market-hub/synthesis/{runId\|latest}` ~1.5s | Run + ordered stages | Model hub live status; overlay mini strip; full hub refresh on terminal |

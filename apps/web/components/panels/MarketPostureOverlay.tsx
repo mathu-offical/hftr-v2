@@ -55,10 +55,12 @@ export function MarketPostureOverlay() {
     if (!run || !SYNTHESIS_TERMINAL.has(run.status)) return;
     if (lastTerminalRunId.current === run.id) return;
     lastTerminalRunId.current = run.id;
+    // Soft force-revalidate: keep existing hub painted (no company cold-load).
     void refresh(true);
   }, [synthesis.run, refresh]);
 
   const onAnalyze = useCallback(async () => {
+    // Enqueue + short kick only; reseals continue server-side; Model polls runId.
     const runId = await analyze();
     if (runId) synthesis.setActiveRunId(runId);
   }, [analyze, synthesis.setActiveRunId]);

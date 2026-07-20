@@ -3,8 +3,10 @@ import type { MarketHubResponse } from '@hftr/contracts';
 import {
   invalidateMarketHub,
   loadMarketHub,
+  markMarketHubStale,
   marketHubAgeMs,
   peekMarketHub,
+  putMarketHubSnapshot,
 } from './market-hub-cache';
 
 function stubHub(partial?: Partial<MarketHubResponse>): MarketHubResponse {
@@ -126,5 +128,37 @@ describe('market-hub-cache', () => {
     resolve(stubHub());
     await Promise.all([p1, p2]);
     expect(peekMarketHub(key)).not.toBeNull();
+  });
+
+  it('markMarketHubStale keeps snapshot but ages past fresh', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(stubHub({ sectorFocuses: ['keep'] }))
+      .mockResolvedValueOnce(stubHub({ sectorFocuses: ['next'] }));
+
+    await loadMarketHub(key, fetcher, { force: true });
+    expect(peekMarketHub(key)?.sectorFocuses).toEqual(['keep']);
+
+    markMarketHubStale(key);
+    expect(peekMarketHub(key)?.sectorFocuses).toEqual(['keep']);
+    const age = marketHubAgeMs(key);
+    expect(age).toBeTypeOf('number');
+    expect(age!).toBeGreaterThanOrEqual(15_000);
+
+    const mid = await loadMarketHub(key, fetcher, { force: false, allowStale: true });
+    expect(mid.fromCache).toBe(true);
+    expect(mid.data.sectorFocuses).toEqual(['keep']);
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(peekMarketHub(key)?.sectorFocuses).toEqual(['next']);
+  });
+
+  it('putMarketHubSnapshot preserves display without wipe', () => {
+    putMarketHubSnapshot(key, stubHub({ sectorFocuses: ['snap'] }));
+    expect(peekMarketHub(key)?.sectorFocuses).toEqual(['snap']);
+    markMarketHubStale(key);
+    expect(peekMarketHub(key)?.sectorFocuses).toEqual(['snap']);
   });
 });

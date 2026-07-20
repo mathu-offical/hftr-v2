@@ -120,6 +120,23 @@ export function invalidateMarketHub(key: MarketHubCacheKey): void {
   notify(keyStr);
 }
 
+/**
+ * Mark cached hub past-fresh without wiping the snapshot.
+ * Ages just beyond `freshMs` so the next load returns cache immediately and
+ * revalidates in the background (Analyze must not cold-reload the company shell).
+ */
+export function markMarketHubStale(key: MarketHubCacheKey): void {
+  const keyStr = marketHubKeyString(key);
+  const entry = getEntry(key);
+  if (!entry) return;
+  const stale: CacheEntry = {
+    data: entry.data,
+    fetchedAt: Date.now() - POLICY.freshMs - 1,
+  };
+  memory.set(keyStr, stale);
+  if (POLICY.persistSession) writeSession(keyStr, stale);
+}
+
 /** Write a merged snapshot (e.g. after live slice) without refetch. */
 export function putMarketHubSnapshot(key: MarketHubCacheKey, data: MarketHubResponse): void {
   putEntry(key, data);

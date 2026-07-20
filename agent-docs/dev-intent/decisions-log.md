@@ -1155,7 +1155,11 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `…/market-hub/analyze` to force-reseal movers + sector + daily summary and run tactical
   LLM `suggestion_threshold_profile`. Nested **Model** category shows read-only React Flow
   of the baseline algorithm (providers → gather → LLM/defaults → compound → seal → hub).
-  Automatic background updates moved to live-slice policy in **D-112**. Docs: ui-spec §4.
+  Automatic background updates moved to live-slice policy in **D-112**.
+  **Async scope (2026-07-20):** Analyze POST enqueues + **short kick drain** (~2.5s), then
+  continues POSTURE_RESEARCH via Next `after()`; client `markMarketHubStale` (no cache wipe)
+  and refresh never cold-loads when a hub snapshot is already painted — company canvas/shell
+  stay mounted. Docs: research-live-system-cadence, ui-spec §4.
   **Status: implemented.**
 
 - **D-112 (Market posture live vs static refresh policy, 2026-07-18):** UI surfaces split by

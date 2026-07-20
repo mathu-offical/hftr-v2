@@ -227,21 +227,28 @@ M1 — deterministic fund movement is not implemented by this slice (D-023).
   calculator (percentages of live balances are calc ops over ledger ValueRefs — never
   model-emitted numbers). **M1:** node + `fund_route` links are seeded for paper engines; actual
   transfer execution remains M3+.
-- **Math module (auto-created per company, named `Deterministic Math Calculator`; D-028 tools):**
+- **Math module (auto-created per engine as `engine_math_hub`, D-245; plus dedicated docks):**
   the transparency window into the numeric reference architecture — live k/v value browser, value
   lineage graph (every number traceable to its live source), calculator operation log with sanity
   results, static formula catalog. Exists so users can audit exactly which numbers drive fund
   pipelines and executions. Seeded engines wire
-  `holding_fund → fund_path Math → fund_router → trading desk Math` fund routes (D-221);
-  the company hub Math is audit-only and is not the capital middleman.
+  `holding_fund → fund_router` direct fund routes (D-229) with optional `fund_path` Math owned by
+  the router; the per-engine Math hub is audit/lineage only and is **not** the capital middleman.
+  **No company-wide Math hub** is seeded on the cadence rail (D-245; cadence = Clock/Time only).
   D-028: additional Math modules may be created and deleted; each may `data_feed`-attach to
-  multiple consumer modules (never joins an ENGINE group).
-  **Math types (D-042):** `company_hub`, `fund_path`, `desk_execution`, `trend_signal`,
+  multiple consumer modules (never joins an ENGINE group as a peer process).
+  **Math types (D-042 / D-245):** `engine_math_hub` (per engine), legacy `company_hub` (migrate),
+  `fund_path`, `desk_execution`, `trend_signal`,
   `research_metric`, `analyzer_reconcile`, `simulator_sandbox`, `session_calendar` — stored in
   `config.mathType`; dedicated tools provision with the type matching the owner. See
   `architecture/number-handling.md` and `architecture/engine-node-family-design.md`.
 
-### Market posture hub (baseline awareness, D-081–D-131)
+### Market posture hub (baseline awareness, D-081–D-131 / D-233–D-243)
+
+Company **Market Posture** is the **baseline engine** (left panel + Analyze jobs + system libs +
+seals + orientation). Execution ENGINEs consume it via Data Hub **symlinks** + **HubCorpusCache**
+and slim `MarketPostureEngineFeed` — not the UI hub monolith. Orientation seeds promote bias
+in-band only (D-234–D-236).
 
 Operator-facing **Market posture** splits inventory vs day quant (**D-131** / **D-138**):
 the left tab lists company **funds** (resolved allocation amounts per fund / desk / router /

@@ -153,8 +153,9 @@ never share the same default function identity. Libraries use `libraryClass` →
 
 | Type | Purpose | Typical attach |
 |------|---------|----------------|
-| `company_hub` | Shared company calculator | Always seeded |
-| `fund_path` | Capital topology | owned by fund_router; holding ↔ router fund_route (D-221) |
+| `engine_math_hub` | Per-engine audit / lineage hub (D-245) | One per `engine_instance`; not capital middleman |
+| `company_hub` | Legacy company calculator | Migrate → `engine_math_hub`; do not seed |
+| `fund_path` | Capital topology | owned by fund_router; holding ↔ router fund_route (D-229) |
 | `desk_execution` | Desk sizing / compile inputs | trading |
 | `trend_signal` | Live→signal morphs (refs) | trend |
 | `research_metric` | Research scores/ranking refs | research / librarian |
@@ -163,6 +164,7 @@ never share the same default function identity. Libraries use `libraryClass` →
 | `session_calendar` | Clock/calendar session math | company / policy-adjacent |
 
 Dedicated Math ownership (D-033) maps owner → preferred `mathType` when provisioning tools.
+Company cadence rail hosts **Clock + Time only** — Math hubs dock inside engine bounds (D-245).
 
 ## Simulation ENGINE specializations (D-189)
 

@@ -214,8 +214,9 @@ Temporal authority is visible on the company canvas the same way Math surfaces D
 
 | Module | Role |
 |--------|------|
-| **`clock`** | Company singleton (auto-seeded with Math hub). Surfaces injectable clock “now”, session display mode, IANA zone. Emits temporal **authority** refs only — no LLM path. Cannot join ENGINE membership. **D-091:** new engines bind clock via motherboard `clock` utility (`engine_utility_links.from_module_id` → Master Clock) instead of direct `clock → member` edges; legacy graphs grandfathered until reflow. |
+| **`clock`** | Company singleton (auto-seeded). Surfaces injectable clock “now”, session display mode, IANA zone. Emits temporal **authority** refs only — no LLM path. Cannot join ENGINE membership. **D-091:** new engines bind clock via motherboard `clock` utility (`engine_utility_links.from_module_id` → Master Clock) instead of direct `clock → member` edges; legacy graphs grandfathered until reflow. **D-245:** cadence rail = Clock + company Time only — **no** company Math hub. |
 | **`time`** | Engine Time hub (and repeatable processors): `elapsed`, `add_duration`, `timezone_convert`, `session_window`, `schedule_ref`. **D-108 ports:** Authority in (left), Schedule (top), Time bus (right). Operator configures transform + descriptor; models may later nominate **op + input refs / bands**, never literal datetimes. |
+| **`math` `engine_math_hub`** | Per-engine numeric audit/lineage rollup (D-245), docked inside engine bounds near Time — never fund_route middleman. Dedicated owner docks (`fund_path`, `desk_execution`, …) remain. |
 
 **Company clock authority:** the singleton `clock` module is the sole source of injectable “now”
 and session orientation refs for the company. Engine members receive temporal context through the

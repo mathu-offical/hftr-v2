@@ -68,6 +68,8 @@ function roleChrome(role: PostureAlgoNodeData['nodeRole']): string {
   switch (role) {
     case 'live_source':
       return 'border-l-[3px] border-l-[var(--color-accent)] bg-[var(--color-surface-1)]';
+    case 'query_source':
+      return 'border-l-[3px] border-l-amber-400 border-dashed bg-[color-mix(in_srgb,rgb(251_191_36)_10%,var(--color-surface-1))]';
     case 'library_source':
       return 'border-l-[3px] border-l-[var(--color-ink-dim)] bg-[var(--color-surface-1)] border-dashed';
     case 'research_engine':
@@ -185,6 +187,8 @@ function roleLabel(role: PostureAlgoNodeData['nodeRole']): string {
   switch (role) {
     case 'live_source':
       return 'SRC';
+    case 'query_source':
+      return 'QUERY';
     case 'adapter':
       return 'ADAPT';
     case 'process':
@@ -387,7 +391,7 @@ function styleModelEdge(
     target: edge.target,
     label,
     data: edge.data,
-    type: opts?.stripTransferLabels && !cross ? 'smoothstep' : undefined,
+    ...(opts?.stripTransferLabels && !cross ? { type: 'smoothstep' as const } : {}),
     animated: animated || cross,
     zIndex: cross ? 8 : edgeType === 'emit' ? 2 : 5,
     markerEnd: {
@@ -412,9 +416,9 @@ function styleModelEdge(
       fill: 'var(--color-surface-0)',
       fillOpacity: opts?.stripTransferLabels ? 0.92 : 0.85,
     },
-    labelBgPadding: opts?.stripTransferLabels
-      ? ([2, 3] as [number, number])
-      : undefined,
+    ...(opts?.stripTransferLabels
+      ? { labelBgPadding: [2, 3] as [number, number] }
+      : {}),
   };
 }
 
@@ -452,9 +456,11 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
   const chrome =
     data.nodeRole === 'process' || data.nodeRole === 'analysis'
       ? processFunctionChrome(data.processFunction)
-      : data.nodeRole === 'live_source'
-        ? sourceDomainChrome(data.sourceDomain)
-        : roleChrome(data.nodeRole);
+      : data.nodeRole === 'query_source'
+        ? roleChrome(data.nodeRole)
+        : data.nodeRole === 'live_source'
+          ? sourceDomainChrome(data.sourceDomain)
+          : roleChrome(data.nodeRole);
 
   // Dense strip cells — packing grid assumes ~40×118 chrome (D-214).
   if (data.stripCompact) {
@@ -591,6 +597,7 @@ const PostureAlgoNode = memo(function PostureAlgoNode({
         </p>
       ) : null}
       {(data.nodeRole === 'live_source' ||
+        data.nodeRole === 'query_source' ||
         data.nodeRole === 'library_source' ||
         data.nodeRole === 'capital_source') &&
       data.detail ? (

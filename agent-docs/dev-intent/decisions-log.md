@@ -1854,17 +1854,21 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   workspace: horizontal **pipeline-column stage screens** (capital → **live** → **library** →
   process → **outlook** → day) snap-scroll above a fixed bottom **Model diagram strip**.
   **Live precedes library** so API normalize/hydrate feeds corpus constants and built-in
-  functions.   **Live ingest** shows active sources, search/filter orientation (route +
+  functions.   **Live ingest** shows active **stream** sources (market/news bars and headlines,
+  FX/crypto/macro context), search/filter orientation (route +
   operation + contribution), fetch→normalize→extract chains, an **analysis module**
   (organize → route → score) before library seed, and **system variables**
   (`analysisRoles`) for downstream nodes. Kind-specific adapter process nodes and
   `analyze:*` nodes sit on the Live strip column; Model edges are
   adapter/process → organize → route → score → `lib:*` (seed), not bare live→lib
-  hydrate. **Library** shows scored seed intake onto admitted shelves, then
+  hydrate. **Query/search APIs** (`brave_search` / `web_search`, `sec_edgar` /
+  `filings`) are **not** Live streams — they use `query_source` role, Process
+  screen placement, and research-extension clusters (specific query → normalize →
+  corroborate, or ENGINE-adjacent research sequencing). **Library** shows scored seed intake onto admitted shelves, then
   sector/company constants
   (numerical + semantic) from sectors, engines, shelves, and holdings — admission ranges
   and market-aware positioning context. **Process** links market + news + library evidence
-  and emits **tagged trend lists** with symbols. **Outlook** (operator name for the former
+  and emits **tagged trend lists** with symbols, plus query/search research chains. **Outlook** (operator name for the former
   seals column) shows all watched symbols/values, open positions, plus spark-path /
   heldVsCost **growth outlook** (orientation only; no invented forward dollars) alongside
   **committed stock/news boards**. Stage/model copy uses **board / commit** language

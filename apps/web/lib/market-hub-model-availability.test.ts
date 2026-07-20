@@ -13,6 +13,7 @@ function src(
   return {
     label: partial.kind,
     domain: 'market',
+    sourceClass: 'stream',
     authMode: 'research_key',
     canvasBoundCount: 0,
     contributed: false,
@@ -58,9 +59,12 @@ describe('market-hub-model-availability (D-163 / D-165 / D-169)', () => {
     expect(tracksFromCapabilities(caps)).toContain('sector');
   });
 
-  it('maps live kinds onto primary track lanes', () => {
-    expect(primaryTrackForLiveKind('alpaca_bars')).toBe('entitle');
-    expect(primaryTrackForLiveKind('gdelt_news')).toBe('sector');
-    expect(primaryTrackForLiveKind('fred_macro')).toBe('compound');
+  it('does not treat Brave query API as a live sector news stream', () => {
+    const caps = resolveModelTrackCapabilities({
+      liveSources: [src({ kind: 'brave_search', status: 'ready', domain: 'web_search' })],
+      librarySources: [],
+    });
+    expect(caps.hasSector).toBe(false);
+    expect(primaryTrackForLiveKind('brave_search')).toBe('compound');
   });
 });

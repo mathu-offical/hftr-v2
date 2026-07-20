@@ -12,6 +12,7 @@ function src(
   return {
     label: partial.kind,
     domain: 'market',
+    sourceClass: 'stream',
     authMode: 'research_key',
     canvasBoundCount: 0,
     contributed: false,

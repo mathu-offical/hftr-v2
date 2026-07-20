@@ -27,7 +27,8 @@ import {
   buildLiveProcessingFlows,
   buildProcessStepsFromFlows,
   buildSharedCompoundProcessSteps,
-} from '@/lib/market-hub-processing-flows';const INTERNAL_SOURCE_KINDS = new Set<string>(['catalog', 'library', 'operator']);
+} from '@/lib/market-hub-processing-flows';
+import { classifyLiveApiSource } from '@/lib/market-hub-live-source-class';const INTERNAL_SOURCE_KINDS = new Set<string>(['catalog', 'library', 'operator']);
 
 const SYSTEM_SCOPES = new Set<string>(Object.values(SystemTopicScope).map((s) => s.toLowerCase()));
 
@@ -174,6 +175,10 @@ export async function projectMarketHubModelHydration(opts: {
         kind,
         label: liveDataSourceLabel(kind),
         domain: descriptor.domain,
+        sourceClass: classifyLiveApiSource({
+          kind,
+          domain: descriptor.domain,
+        }),
         status,
         authMode: descriptor.authMode,
         canvasBoundCount,

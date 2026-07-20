@@ -21,6 +21,19 @@ describe('resolveStageScreenId (D-186)', () => {
     expect(resolveStageScreenId({ nodeId: 'process:library:abc:load' })).toBe('library');
   });
 
+  it('routes query/search APIs (Brave, EDGAR) to Process, not Live ingest', () => {
+    expect(resolveStageScreenId({ nodeId: 'live:brave_search' })).toBe('process');
+    expect(resolveStageScreenId({ nodeId: 'adapter:brave_search:web' })).toBe('process');
+    expect(resolveStageScreenId({ nodeId: 'process:brave_search:fetch' })).toBe('process');
+    expect(resolveStageScreenId({ nodeId: 'cluster:process:web_search' })).toBe('process');
+    expect(resolveStageScreenId({ nodeId: 'live:sec_edgar' })).toBe('process');
+    expect(resolveStageScreenId({ nodeId: 'cluster:process:filings' })).toBe('process');
+    expect(resolveStageScreenId({ nodeRole: 'query_source' })).toBe('process');
+    // Stream market/news stay on Live.
+    expect(resolveStageScreenId({ nodeId: 'live:alpaca_news' })).toBe('live');
+    expect(resolveStageScreenId({ nodeId: 'adapter:alpaca_bars:ohlc' })).toBe('live');
+  });
+
   it('maps stage milestones onto outlook / day / process', () => {
     expect(resolveStageScreenId({ stageId: 'seal_movers' })).toBe('outlook');
     expect(resolveStageScreenId({ nodeId: 'narrative' })).toBe('outlook');

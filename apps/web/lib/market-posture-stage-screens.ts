@@ -7,6 +7,10 @@
  */
 
 import type { MarketHubSynthesisStageId } from '@hftr/contracts';
+import {
+  classifyLiveApiSource,
+  isQueryProcessRoute,
+} from './market-hub-live-source-class';
 
 export const MarketPostureStageScreenId = [
   'capital',
@@ -46,7 +50,7 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
     id: 'live',
     label: 'Live ingest',
     summary:
-      'Active APIs → adapters → analysis (organize/route/score) → library seed vars',
+      'Market/news stream APIs → adapters → analysis → library seed (not search queries)',
     nodeIdPrefixes: ['live:', 'adapter:', 'analyze:'],
     nodeRoles: ['live_source', 'adapter', 'analysis'],
     stageIds: [],
@@ -71,9 +75,10 @@ export const MARKET_POSTURE_STAGE_SCREENS: readonly MarketPostureStageScreenMeta
   {
     id: 'process',
     label: 'Process',
-    summary: 'Link market + news + library → tagged trend lists',
+    summary:
+      'Link streams + library; query/search APIs (Brave, EDGAR) as research extensions → trends',
     nodeIdPrefixes: ['process:shared:', 'cluster:'],
-    nodeRoles: ['process_cluster'],
+    nodeRoles: ['process_cluster', 'query_source'],
     stageIds: [
       'providers',
       'gather',
@@ -143,23 +148,28 @@ export function resolveStageScreenId(input: {
   }
 
   const nodeId = input.nodeId?.trim() ?? '';
-  // Pre-library analysis module (organize → route → score).
+  // Pre-library analysis module (organize → route → score) — stream ingest only.
   if (nodeId.startsWith('analyze:') || nodeId.startsWith('cluster:analysis:')) {
-    return 'live';
+    const analyzeClass = classifyLiveApiSource({ nodeId });
+    return analyzeClass === 'query' ? 'process' : 'live';
   }
-  // Kind-specific adapter process chains live with Live ingest; shared compound on Process.
+  // Kind-specific adapter / process chains: query APIs → Process research lane.
   if (nodeId.startsWith('process:library:')) return 'library';
   if (nodeId.startsWith('process:engine:')) return 'library';
   if (nodeId.startsWith('engine:research:') || nodeId.startsWith('articles:engine:')) {
     return 'library';
   }
   if (nodeId.startsWith('process:shared:')) return 'process';
+  if (nodeId.startsWith('live:') || nodeId.startsWith('adapter:')) {
+    return classifyLiveApiSource({ nodeId }) === 'query' ? 'process' : 'live';
+  }
   if (nodeId.startsWith('process:') && !nodeId.startsWith('process:shared:')) {
-    return 'live';
+    return classifyLiveApiSource({ nodeId }) === 'query' ? 'process' : 'live';
   }
   if (nodeId.startsWith('cluster:process:')) {
     const route = nodeId.slice('cluster:process:'.length);
     if (route.startsWith('engine_') || route.startsWith('shelf_')) return 'library';
+    if (isQueryProcessRoute(route)) return 'process';
     if (
       route.startsWith('shared') ||
       route.includes('providers_entitle') ||
@@ -201,6 +211,7 @@ export function resolveStageScreenId(input: {
   }
 
   const role = input.nodeRole?.trim();
+  if (role === 'query_source') return 'process';
   if (role === 'analysis') return 'live';
   if (role === 'process') {
     // Fallback when id missing — prefer Live for adapter analysis chrome.

@@ -16,7 +16,7 @@ const SECTOR_SOURCE_KINDS = new Set([
   'alpaca_news',
   'finnhub_news',
   'polygon_news',
-  'brave_search',
+  // brave_search is a query/research API — not a live news stream (D-186).
 ]);
 
 const ENTITLE_SOURCE_KINDS = new Set(['alpaca_bars', 'twelve_data', 'marketstack']);

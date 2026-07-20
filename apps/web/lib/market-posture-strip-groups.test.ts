@@ -641,4 +641,60 @@ describe('applyStripScreenGroups', () => {
       expect(kid.position.y + STRIP_NODE_H).toBeLessThanOrEqual(ch + 1);
     }
   });
+
+  it('places Brave query API on Process, not Live ingest', () => {
+    const stamped = [
+      {
+        ...node('live:brave_search', 'query_source', 'Brave Search'),
+        data: {
+          ...node('live:brave_search', 'query_source', 'Brave Search').data,
+          sourceDomain: 'web_search',
+          sourceClass: 'query' as const,
+          operation: 'query · ready',
+        },
+      },
+      {
+        ...node('adapter:brave_search:web', 'adapter', 'Brave web adapter'),
+        data: {
+          ...node('adapter:brave_search:web', 'adapter', 'Brave web adapter').data,
+          processRoute: 'web_search',
+        },
+      },
+      {
+        ...node('process:brave_search:fetch', 'process', 'Web search fetch'),
+        data: {
+          ...node('process:brave_search:fetch', 'process', 'Web search fetch').data,
+          processRoute: 'web_search',
+          processFunction: 'fetch',
+        },
+      },
+      {
+        ...node('live:alpaca_news', 'live_source', 'Alpaca News'),
+        data: {
+          ...node('live:alpaca_news', 'live_source', 'Alpaca News').data,
+          sourceDomain: 'equity_news',
+          sourceClass: 'stream' as const,
+        },
+      },
+      {
+        ...node('adapter:alpaca_news:headline', 'adapter', 'Alpaca news adapter'),
+      },
+    ];
+    const packed = applyStripScreenGroups(stamped, [
+      edge('e-bq', 'live:brave_search', 'adapter:brave_search:web'),
+      edge('e-bf', 'adapter:brave_search:web', 'process:brave_search:fetch'),
+      edge('e-an', 'live:alpaca_news', 'adapter:alpaca_news:headline'),
+    ]);
+    const brave = packed.find((n) => n.id === 'live:brave_search')!;
+    const news = packed.find((n) => n.id === 'live:alpaca_news')!;
+    expect(brave.data.stageScreenId).toBe('process');
+    expect(brave.parentId === 'group:process' || brave.parentId?.startsWith('cluster:')).toBe(
+      true,
+    );
+    expect(news.data.stageScreenId).toBe('live');
+    expect(
+      news.parentId === 'group:live' || news.parentId?.startsWith('cluster:'),
+    ).toBe(true);
+    expect(packed.find((n) => n.id === 'group:process')).toBeTruthy();
+  });
 });

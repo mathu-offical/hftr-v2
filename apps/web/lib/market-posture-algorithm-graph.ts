@@ -29,6 +29,7 @@ import {
   resolveModelTrackCapabilities,
   tracksFromCapabilities,
 } from './market-hub-model-availability';
+import { classifyLiveApiSource } from './market-hub-live-source-class';
 import { primaryFeedStage } from './market-hub-process-routes';
 import {
   MARKET_POSTURE_STAGE_SCREENS,
@@ -41,6 +42,8 @@ export type { MarketPostureStageScreenId };
 
 export type PostureAlgoNodeRole =
   | 'live_source'
+  /** On-demand search / queryable API (Brave, EDGAR) — Process research lane. */
+  | 'query_source'
   | 'adapter'
   | 'process'
   | 'library_source'
@@ -76,6 +79,8 @@ export type PostureAlgoNodeData = {
   processFunction?: string;
   /** Live/library source domain for SRC chrome (D-169). */
   sourceDomain?: string;
+  /** stream = Live ingest; query = Process research extension (D-186). */
+  sourceClass?: 'stream' | 'query';
   /** Panel surface id when nodeRole is panel_surface (D-161). */
   panelSurfaceId?: string;
   panelKind?: 'rail' | 'overlay' | 'both';
@@ -343,12 +348,13 @@ export const ROUTE_PIPELINE_ORDER: readonly string[] = [
   'bars_entitle',
   'providers_entitle',
   'news_headline',
-  'web_search',
-  'filings',
   'macro_context',
   'fx_context',
   'crypto_context',
   'bars_ohlc',
+  // Query/search APIs sit after stream ingest — Process research extensions.
+  'web_search',
+  'filings',
   'research_articles',
   'library_jaccard',
   'thresholds_llm',
@@ -967,18 +973,29 @@ export function buildMarketPostureAlgorithmGraph(opts?: {
         ? 'ready'
         : 'idle';
 
+    const sourceClass =
+      src.sourceClass ??
+      classifyLiveApiSource({ kind: src.kind, domain: src.domain });
+    const isQuery = sourceClass === 'query';
     nodes.push({
       id: liveId,
       type: 'postureAlgo',
       position: { x: liveX, y },
       data: {
         label: src.label,
-        detail: `${src.domain} · ${src.status}`,
+        detail: isQuery
+          ? `query · ${src.domain} · ${src.status}`
+          : `stream · ${src.domain} · ${src.status}`,
         kind: 'data',
-        nodeRole: 'live_source',
-        operation: src.operation,
+        nodeRole: isQuery ? 'query_source' : 'live_source',
+        operation: isQuery
+          ? src.operation.includes('query')
+            ? src.operation
+            : `query · ${src.operation}`
+          : src.operation,
         amount: src.amount,
         sourceDomain: src.domain,
+        sourceClass,
         layer: 'sources',
         track: srcTrack,
         activation: liveActivation,
@@ -1830,6 +1847,7 @@ const STRIP_ROLE_ORDER: Record<PostureAlgoNodeRole, number> = {
   capital_source: 0,
   library_source: 0,
   live_source: 0,
+  query_source: 0,
   research_engine: 0,
   adapter: 1,
   analysis: 2,
@@ -1906,6 +1924,7 @@ const STRIP_BAND_GAP_AFTER: Record<StripFunctionBand, number> = {
 export function functionBandForStep(n: PostureAlgoGraphNode): StripFunctionBand {
   switch (n.data.nodeRole) {
     case 'live_source':
+    case 'query_source':
     case 'library_source':
     case 'capital_source':
     case 'research_engine':
@@ -1986,6 +2005,7 @@ const STRIP_PHASE_COLUMNS = [
 function phaseColumnForStep(n: PostureAlgoGraphNode): number {
   switch (n.data.nodeRole) {
     case 'live_source':
+    case 'query_source':
     case 'library_source':
     case 'capital_source':
     case 'research_engine':
@@ -2402,6 +2422,8 @@ function formatRouteLabel(route: string): string {
   if (route.startsWith('ingest_')) {
     return `Ingest · ${route.slice('ingest_'.length).replace(/_/g, ' ')}`;
   }
+  if (route === 'web_search') return 'Query · web search';
+  if (route === 'filings') return 'Query · filings';
   if (route.startsWith('engine_')) {
     return 'Research → articles';
   }
@@ -2415,6 +2437,7 @@ function sortProcessStepsInCluster(a: PostureAlgoGraphNode, b: PostureAlgoGraphN
   const roleRank = (n: PostureAlgoGraphNode): number => {
     switch (n.data.nodeRole) {
       case 'live_source':
+      case 'query_source':
       case 'library_source':
       case 'capital_source':
       case 'research_engine':
@@ -2519,6 +2542,23 @@ function pullClusterPeers(opts: {
     const remaining: PostureAlgoGraphNode[] = [];
     for (const n of otherNodes) {
       if (n.id === `live:${kind}` || n.id.startsWith(`adapter:${kind}`)) {
+        peers.push(n);
+      } else {
+        remaining.push(n);
+      }
+    }
+    return { steps: [...peers, ...steps], remaining };
+  }
+  if (screenId === 'process' && (route === 'web_search' || route === 'filings')) {
+    const kind = route === 'web_search' ? 'brave_search' : 'sec_edgar';
+    const peers: PostureAlgoGraphNode[] = [];
+    const remaining: PostureAlgoGraphNode[] = [];
+    for (const n of otherNodes) {
+      if (
+        n.id === `live:${kind}` ||
+        n.id.startsWith(`adapter:${kind}`) ||
+        (n.data.nodeRole === 'query_source' && n.id.includes(kind))
+      ) {
         peers.push(n);
       } else {
         remaining.push(n);
@@ -2699,7 +2739,7 @@ function packProcessScreenColumn(opts: {
     enqueueCluster(route, pulled.steps);
   }
 
-  // Orphan live ingest bundles (source + adapter without process/analysis).
+  // Orphan live ingest bundles (stream source + adapter without process/analysis).
   if (screenId === 'live') {
     const byKind = new Map<string, PostureAlgoGraphNode[]>();
     const leftover: PostureAlgoGraphNode[] = [];
@@ -2710,6 +2750,11 @@ function packProcessScreenColumn(opts: {
         kind = n.id.slice('adapter:'.length).split(':')[0] ?? null;
       }
       if (!kind) {
+        leftover.push(n);
+        continue;
+      }
+      // Query APIs never bundle on Live — they belong on Process.
+      if (classifyLiveApiSource({ kind, nodeId: n.id }) === 'query') {
         leftover.push(n);
         continue;
       }
@@ -2730,6 +2775,46 @@ function packProcessScreenColumn(opts: {
       const hasAdapter = members.some((m) => m.data.nodeRole === 'adapter');
       // Only bundle when source+adapter share a kind; lone sources stay in role lanes.
       if (hasSource && hasAdapter) enqueueCluster(`ingest_${kind}`, members);
+      else remainingOther.push(...members);
+    }
+  }
+
+  // Orphan query/search API bundles on Process (Brave, EDGAR, …).
+  if (screenId === 'process') {
+    const byKind = new Map<string, PostureAlgoGraphNode[]>();
+    const leftover: PostureAlgoGraphNode[] = [];
+    for (const n of remainingOther) {
+      let kind: string | null = null;
+      if (n.data.nodeRole === 'query_source' && n.id.startsWith('live:')) {
+        kind = n.id.slice('live:'.length);
+      } else if (n.id.startsWith('adapter:')) {
+        const k = n.id.slice('adapter:'.length).split(':')[0] ?? null;
+        if (k && classifyLiveApiSource({ kind: k, nodeId: n.id }) === 'query') {
+          kind = k;
+        }
+      }
+      if (!kind) {
+        leftover.push(n);
+        continue;
+      }
+      const list = byKind.get(kind) ?? [];
+      list.push(n);
+      byKind.set(kind, list);
+    }
+    remainingOther = leftover;
+    const kindKeys = [...byKind.keys()].sort((a, b) => a.localeCompare(b));
+    for (const kind of kindKeys) {
+      const members = (byKind.get(kind) ?? []).sort(sortProcessStepsInCluster);
+      if (members.length === 0) continue;
+      const hasQuery = members.some((m) => m.data.nodeRole === 'query_source');
+      const hasAdapter = members.some((m) => m.data.nodeRole === 'adapter');
+      const route =
+        kind === 'brave_search'
+          ? 'web_search'
+          : kind === 'sec_edgar'
+            ? 'filings'
+            : `query_${kind}`;
+      if (hasQuery && hasAdapter) enqueueCluster(route, members);
       else remainingOther.push(...members);
     }
   }
@@ -2805,9 +2890,10 @@ function packProcessScreenColumn(opts: {
             if (s.data.nodeRole === 'research_articles') return 'articles';
             if (
               s.data.nodeRole === 'live_source' ||
+              s.data.nodeRole === 'query_source' ||
               s.data.nodeRole === 'library_source'
             ) {
-              return 'src';
+              return s.data.nodeRole === 'query_source' ? 'query' : 'src';
             }
             if (s.data.nodeRole === 'adapter') return 'adapt';
             return s.data.processFunction ?? null;
@@ -3107,6 +3193,7 @@ export function applyStripScreenGroups(
             n.data.nodeRole === 'adapter' ||
             n.data.nodeRole === 'library_source' ||
             n.data.nodeRole === 'live_source' ||
+            n.data.nodeRole === 'query_source' ||
             n.data.nodeRole === 'research_engine' ||
             n.data.nodeRole === 'research_articles',
         );

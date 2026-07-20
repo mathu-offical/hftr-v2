@@ -388,12 +388,15 @@ are ignored. Shortcuts are suppressed in editable fields.
   research ENGINEs publish articles onto bound shelves (D-214).
   **Capital** shows root user-controlled funds only (company pool + holding funds),
   engine allocation splits, master equity, and open position mark/uPnL values.
-  **Live ingest** shows active APIs, query/filter orientation, normalize pipeline,
+  **Live ingest** shows active **market/news stream** APIs (bars, headlines, FX,
+  crypto, macro), query/filter orientation, normalize pipeline,
   **analysis module** (organize → route → score → library seed), and
-  system variables for downstream. **Library** shows scored seed intake, then
+  system variables for downstream. **Search / queryable APIs** (Brave web search,
+  SEC EDGAR filings) sit on **Process** as research extensions — not Live streams —
+  with QUERY chrome and `web_search` / `filings` route clusters. **Library** shows scored seed intake, then
   sector/company constants → discrete
   ranges + positioning context. **Process** links market + news + library and emits
-  tagged trend lists. **Outlook** shows watched symbols/values, open positions, spark-path
+  tagged trend lists, plus query/search research chains. **Outlook** shows watched symbols/values, open positions, spark-path
   growth orientation, and committed stock/news boards (operator “board/commit” language;
   internal seal ids unchanged). **Day plan** combines upstream into
   actionable movements, actions, research topics, and daily trends.

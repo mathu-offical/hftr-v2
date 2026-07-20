@@ -278,6 +278,40 @@ describe('option-anchors', () => {
     );
   });
 
+  it('stamps purpose research pipeline stages by subtype (D-224)', () => {
+    const anchors = anchorsFor('research_filings_fundamentals', [
+      {
+        id: 'mod-r-1',
+        type: 'research',
+        config: { researchSubtype: 'external_filings', curiosity: 'conservative' },
+      },
+      {
+        id: 'mod-l-1',
+        type: 'librarian',
+        config: { librarianSubtype: 'librarian_filings_hygiene' },
+      },
+      {
+        id: 'mod-lib-1',
+        type: 'library',
+        config: { libraryClass: 'topic_runtime' },
+      },
+      {
+        id: 'mod-an-1',
+        type: 'analyzer',
+        config: { emitMode: 'to_desk_stream' },
+      },
+    ]);
+    const pipeline = anchors.find(
+      (a) => a.kind === 'branch_role' && a.ownerModuleId === 'mod-r-1',
+    );
+    expect(pipeline?.options.map((o) => o.id)).toEqual([
+      'discover',
+      'extract_fundamentals',
+      'verify_sanity',
+    ]);
+    expect(pipeline?.connectionMode).toBe('route_data');
+  });
+
   it('stamps routeNature / routeLabel on options (D-218)', () => {
     const anchors = anchorsFor('engine_day_trading', [
       {
@@ -343,8 +377,10 @@ describe('option-anchors', () => {
     const subtype = anchors.find((anchor) => anchor.kind === 'research_subtype');
     expect(subtype?.ownerModuleId).toBe('mod-research-1');
     expect(subtype?.parentAnchorId).toBeNull();
-    expect(subtype?.options.length).toBeGreaterThan(1);
+    // D-224: research packs lock purpose subtype catalog to the pack specialty.
+    expect(subtype?.options.map((o) => o.id)).toEqual(['external_web']);
     expect(subtype?.selectedOptionId).toBe('external_web');
+    expect(subtype?.connectionMode).toBe('emit_decision');
 
     const curiosity = anchors.find((anchor) => anchor.kind === 'curiosity_band');
     expect(curiosity?.parentAnchorId).toBeNull();
@@ -362,6 +398,10 @@ describe('option-anchors', () => {
     expect(cadence?.parentAnchorId).toBeNull();
     expect(cadence?.options.length).toBeGreaterThanOrEqual(2);
     expect(cadence?.selectedOptionId).toBeTruthy();
+
+    const librarian = anchors.find((anchor) => anchor.kind === 'librarian_subtype');
+    expect(librarian?.options.map((o) => o.id)).toEqual(['librarian_web_fabric']);
+    expect(librarian?.connectionMode).toBe('emit_decision');
 
     const pipeline = anchors.find(
       (anchor) =>

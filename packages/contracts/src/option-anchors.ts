@@ -236,6 +236,65 @@ const DEFAULT_DECISION_INTAKES: DecisionIntakes = {
 };
 
 /**
+ * Purpose-specific research pipeline stages (D-224).
+ * Builder emits the full set for the curator subtype; seeds may further constrain.
+ */
+export function researchPipelineStagesForSubtype(
+  subtype: string,
+): ReadonlyArray<{ id: string; label: string }> {
+  switch (subtype) {
+    case 'external_filings':
+      return [
+        { id: 'discover', label: 'Discover' },
+        { id: 'extract_fundamentals', label: 'Extract fundamentals' },
+        { id: 'verify_sanity', label: 'Verify Sanity' },
+      ];
+    case 'event_catalyst':
+      return [
+        { id: 'discover', label: 'Discover' },
+        { id: 'window_catalyst', label: 'Window catalyst' },
+        { id: 'verify_sanity', label: 'Verify Sanity' },
+      ];
+    case 'external_market_news':
+      return [
+        { id: 'discover', label: 'Discover' },
+        { id: 'regime_frame', label: 'Frame regime' },
+        { id: 'verify_sanity', label: 'Verify Sanity' },
+      ];
+    case 'specialty_desk':
+      return [
+        { id: 'discover', label: 'Discover' },
+        { id: 'desk_filter', label: 'Desk filter' },
+        { id: 'verify_sanity', label: 'Verify Sanity' },
+      ];
+    case 'crypto_onchain_context':
+      return [
+        { id: 'discover', label: 'Discover' },
+        { id: 'onchain_context', label: 'On-chain context' },
+        { id: 'verify_sanity', label: 'Verify Sanity' },
+      ];
+    case 'prediction_niche':
+      return [
+        { id: 'discover', label: 'Discover' },
+        { id: 'niche_scan', label: 'Niche scan' },
+        { id: 'verify_sanity', label: 'Verify Sanity' },
+      ];
+    case 'microstructure_context':
+      return [
+        { id: 'discover', label: 'Discover' },
+        { id: 'quote_quality', label: 'Quote quality' },
+        { id: 'verify_sanity', label: 'Verify Sanity' },
+      ];
+    case 'external_web':
+    default:
+      return [
+        { id: 'discover', label: 'Discover' },
+        { id: 'verify_sanity', label: 'Verify Sanity' },
+      ];
+  }
+}
+
+/**
  * Intake ports by **info type** (D-208 / D-217) — not “show every port.”
  * Data = payload / path routing; system = policy / control; clock = cadence / schedule.
  */
@@ -813,18 +872,11 @@ export function buildOptionAnchorsForEngine(
       parentAnchorId: null,
       ownerModuleId: researcher.id,
       ownerEngineId: parsed.engineId,
-      options: [
-        {
-          id: 'discover',
-          catalogRef: `${researcher.id}/discover`,
-          label: 'Discover',
-        },
-        {
-          id: 'verify_sanity',
-          catalogRef: `${researcher.id}/verify_sanity`,
-          label: 'Verify Sanity',
-        },
-      ],
+      options: researchPipelineStagesForSubtype(subtype).map((stage) => ({
+        id: stage.id,
+        catalogRef: `${researcher.id}/${stage.id}`,
+        label: stage.label,
+      })),
       selectedOptionId: 'discover',
       intakes: DEFAULT_DECISION_INTAKES,
     });

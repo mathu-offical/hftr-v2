@@ -111,7 +111,9 @@ ENGINE chrome exposes a **bottom utility rail** with category-scoped bus handles
   - **Child research packs** — separate research ENGINEs from
     `EXECUTION_ENGINE_RESEARCH_DEPENDENCIES` in the left column; analyzer terminus emits enriched
     articles into the parent **Engine Data Hub** (not a second hub on the pack). Subtype overlap
-    between inline and child packs is intentional.
+    between inline and child packs is intentional. Child packs are **purpose-custom**
+    (D-224): distinct librarian subtypes, locked decision catalogs, purpose pipelines,
+    and emit/route `connectionMode` on seeds — not interchangeable shells.
 - **Option anchors (D-173 / D-180 / D-191 / D-202 / D-207 / D-208 / D-213 / D-217 / D-218 / D-219 / D-220 / D-222):** unified **decision nodes**
   parented under the engine group. Each node is one deterministic choice point —
   a **single multi-port unit** (intakes by **info type**: data / system / clock).

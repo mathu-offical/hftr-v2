@@ -134,8 +134,16 @@ never share the same default function identity. Libraries use `libraryClass` →
 
 | Subtype | Role |
 |---------|------|
-| `librarian_relevance` | Multi-metric relevance + topic hygiene |
+| `librarian_relevance` | Generic multi-metric relevance + topic hygiene |
 | `librarian_seed_keeper` | Protect/refresh compile-time seeded mechanism libraries |
+| `librarian_web_fabric` | Web fabric topic hygiene |
+| `librarian_filings_hygiene` | SEC/filings fundamentals hygiene |
+| `librarian_event_triage` | Event/catalyst triage |
+| `librarian_regime_context` | Regime / session macro context |
+| `librarian_crypto_narrative` | Crypto narrative / on-chain context |
+| `librarian_prediction_odds` | Prediction niche odds hygiene |
+| `librarian_desk_session` | Intraday desk session evidence |
+| `librarian_microstructure` | Microstructure / quote-quality evidence |
 
 ## Library classes (`library.config.libraryClass`)
 
@@ -189,17 +197,21 @@ packs that hydrate the parent Engine Data Hub (D-191 dual path).
 
 ## Research ENGINE specializations
 
-| Id | Mode | Default pack |
-|----|------|--------------|
-| `research_web_fabric` | pure_data | web + librarian → topic libs |
-| `research_filings_fundamentals` | pure_data | filings + librarian |
-| `research_seed_mechanisms` | pure_data | seed_keeper → seeded_mechanisms |
-| `research_event_catalyst` | pure_data | event_catalyst + librarian |
-| `research_market_regime_lab` | market_trend | market_news + specialty + live + trend |
-| `research_crypto_context` | market_trend | crypto pack + live + trend |
-| `research_prediction_niche` | market_trend | prediction + event + live + trend |
-| `research_desk_aligned` | market_trend | specialty_desk matched to trading specialty |
-| `research_multi_curator` | picker | 2–3 externals + librarian |
+| Id | Mode | Purpose modules (D-224) |
+|----|------|-------------------------|
+| `research_web_fabric` | pure_data | web curator + `librarian_web_fabric` → topic libs |
+| `research_filings_fundamentals` | pure_data | filings + `librarian_filings_hygiene` + extract pipeline |
+| `research_seed_mechanisms` | pure_data | `librarian_seed_keeper` → seeded_mechanisms |
+| `research_event_catalyst` | pure_data | catalyst + `librarian_event_triage` + window pipeline |
+| `research_market_regime_lab` | market_trend | market news + desk specialty + `librarian_regime_context` + live + trend |
+| `research_crypto_context` | market_trend | crypto + market news + `librarian_crypto_narrative` + live + trend |
+| `research_prediction_niche` | market_trend | prediction + event + `librarian_prediction_odds` + live + trend |
+| `research_desk_aligned` | market_trend | specialty_desk + `librarian_desk_session` + session trend |
+| `research_multi_curator` | picker | web/filings/news curators + fabric librarian + dual libraries |
+| `research_microstructure_lab` | market_trend | microstructure + news + `librarian_microstructure` + high-cadence bars |
+
+Each pack locks `research_subtype` / `librarian_subtype` / purpose pipeline stages and stamps
+`connectionMode` (D-222 emit vs route) on decision seeds.
 
 ## Detail modal (UX)
 

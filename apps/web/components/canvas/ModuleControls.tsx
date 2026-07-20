@@ -825,6 +825,14 @@ const DEFAULT_LIBRARIAN_CONFIG: Omit<LibrarianConfig, 'topicScope'> = {
 const LIBRARIAN_SUBTYPE_OPTIONS = [
   { value: 'librarian_relevance', label: 'Relevance & hygiene' },
   { value: 'librarian_seed_keeper', label: 'Seed keeper' },
+  { value: 'librarian_web_fabric', label: 'Web fabric hygiene' },
+  { value: 'librarian_filings_hygiene', label: 'Filings hygiene' },
+  { value: 'librarian_event_triage', label: 'Event triage' },
+  { value: 'librarian_regime_context', label: 'Regime context' },
+  { value: 'librarian_crypto_narrative', label: 'Crypto narrative' },
+  { value: 'librarian_prediction_odds', label: 'Prediction odds' },
+  { value: 'librarian_desk_session', label: 'Desk session' },
+  { value: 'librarian_microstructure', label: 'Microstructure' },
 ] as const;
 
 export function LibrarianConfigForm(props: { companyId: string; moduleId: string }) {

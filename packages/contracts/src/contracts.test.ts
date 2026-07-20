@@ -730,6 +730,12 @@ describe('generated module names', () => {
     expect(moduleFunctionLabel('analyzer', { emitMode: 'verify_loopback' })).toBe('ExecMon');
     expect(moduleFunctionLabel('time', { transform: 'elapsed' })).toBe('Elapsed');
     expect(moduleFunctionLabel('time', { transform: 'session_window' })).toBe('Session');
+    expect(moduleFunctionLabel('librarian', { librarianSubtype: 'librarian_filings_hygiene' })).toBe(
+      'FilingsLibn',
+    );
+    expect(moduleFunctionLabel('librarian', { librarianSubtype: 'librarian_microstructure' })).toBe(
+      'MicroLibn',
+    );
   });
 
   it('LiveApiModuleConfig accepts optional sourceKind and legacy venue-only configs', () => {

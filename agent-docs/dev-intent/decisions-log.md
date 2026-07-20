@@ -2282,6 +2282,18 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   capital sources stamp the same family chrome fields. Extends D-214 / D-186.
   Docs: ui-spec §4. **Status: implemented.**
 
+- **D-224 (purpose-custom research ENGINEs + decision seed modes, 2026-07-20):**
+  Research packs are no longer near-identical curator→librarian→library shells.
+  Each specialty ships purpose librarian subtypes (`librarian_web_fabric`,
+  `librarian_filings_hygiene`, `librarian_event_triage`, `librarian_regime_context`,
+  `librarian_crypto_narrative`, `librarian_prediction_odds`, `librarian_desk_session`,
+  `librarian_microstructure`), locked `research_subtype` / pipeline stage catalogs
+  (`researchPipelineStagesForSubtype`), cadence/sourceAllowlist defaults, and
+  `connectionMode` on every engine decision seed (D-222). Execution/sim seed helpers
+  stamp emit vs route explicitly; `resolveEngineDecisionSeeds` fills any omitted mode.
+  Docs: engine-node-family-design, canvas-engine-group-design.
+  **Status: implemented.**
+
 ## Open questions
 
 - **OQ-9 (resolved 2026-07-17, D-024):** Capital applies only to capital-bearing modules;

@@ -146,7 +146,7 @@ export const ResearchSubtype = z.enum([
 ]);
 export type ResearchSubtype = z.infer<typeof ResearchSubtype>;
 
-/** D-042 / D-223: librarian agent kinds (`config.librarianSubtype`). */
+/** D-042 / D-224: librarian agent kinds (`config.librarianSubtype`). */
 export const LibrarianSubtype = z.enum([
   'librarian_relevance',
   'librarian_seed_keeper',

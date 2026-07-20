@@ -3,13 +3,30 @@
  * Templates declare stable choice points; builder fills catalogs within bounds.
  * Category palettes map stock/crypto/event desks onto seeded-strategy-catalog families.
  */
-import { MODULE_REQUIRED_DECISION_KINDS, type ModuleType } from './modules';
-import type {
-  DecisionOption,
-  OptionAnchorKind,
-  OptionAnchorSpec,
+import {
+  connectionModeForDecisionKind,
+  type DecisionOption,
+  type OptionAnchorKind,
+  type OptionAnchorSpec,
 } from './option-anchors';
+import { MODULE_REQUIRED_DECISION_KINDS, type ModuleType } from './modules';
 import type { EngineTemplate, EngineTemplateDecisionSeed } from './templates';
+
+function isOptionAnchorKind(kind: string): kind is OptionAnchorKind {
+  return isDecisionKind(kind);
+}
+
+/** Stamp D-222 connectionMode when template seed omitted it. */
+export function stampDecisionSeedConnectionMode(
+  seed: EngineTemplateDecisionSeed,
+): EngineTemplateDecisionSeed {
+  if (seed.connectionMode) return seed;
+  if (!isOptionAnchorKind(seed.kind)) return seed;
+  return {
+    ...seed,
+    connectionMode: connectionModeForDecisionKind(seed.kind),
+  };
+}
 
 /**
  * Catalog strategy families preferred per engine category (D-174 / D-202).
@@ -63,6 +80,7 @@ export function deriveDecisionSeedsFromModules(
           ownerModuleIndex: index,
           optionRefs: [...RESEARCH_PIPELINE_OPTION_REFS],
           defaultSelectedRef: 'discover',
+          connectionMode: 'route_data',
         });
         continue;
       }
@@ -71,6 +89,7 @@ export function deriveDecisionSeedsFromModules(
           kind,
           ownerModuleIndex: index,
           optionRefs: [...palette],
+          connectionMode: 'route_data',
         });
         continue;
       }
@@ -80,24 +99,34 @@ export function deriveDecisionSeedsFromModules(
           ownerModuleIndex: index,
           optionRefs: ['relevance_curate'],
           defaultSelectedRef: 'relevance_curate',
+          connectionMode: 'route_data',
         });
         continue;
       }
-      seeds.push({ kind, ownerModuleIndex: index });
+      seeds.push(
+        isOptionAnchorKind(kind)
+          ? {
+              kind,
+              ownerModuleIndex: index,
+              connectionMode: connectionModeForDecisionKind(kind),
+            }
+          : { kind, ownerModuleIndex: index },
+      );
     }
   });
 
-  return seeds;
+  return seeds.map(stampDecisionSeedConnectionMode);
 }
 
 /** Explicit template seeds win; otherwise derive from modules. */
 export function resolveEngineDecisionSeeds(
   template: EngineTemplate,
 ): EngineTemplateDecisionSeed[] {
-  if (template.decisionNodes && template.decisionNodes.length > 0) {
-    return template.decisionNodes;
-  }
-  return deriveDecisionSeedsFromModules(template);
+  const seeds =
+    template.decisionNodes && template.decisionNodes.length > 0
+      ? template.decisionNodes
+      : deriveDecisionSeedsFromModules(template);
+  return seeds.map(stampDecisionSeedConnectionMode);
 }
 
 export function strategyPaletteForCategory(

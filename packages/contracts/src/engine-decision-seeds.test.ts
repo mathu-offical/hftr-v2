@@ -52,6 +52,42 @@ describe('engine decision seeds (D-202 refine)', () => {
     }
   });
 
+  it('stamps connectionMode on every resolved seed (D-222)', () => {
+    for (const template of ENGINE_TEMPLATES) {
+      const seeds = resolveEngineDecisionSeeds(template);
+      for (const seed of seeds) {
+        expect(seed.connectionMode, `${template.id}:${seed.kind}`).toBeTruthy();
+        if (
+          seed.kind === 'strategy_family' ||
+          seed.kind === 'branch_role' ||
+          seed.kind === 'recovery_phase' ||
+          seed.kind === 'emit_mode'
+        ) {
+          expect(seed.connectionMode).toBe('route_data');
+        } else {
+          expect(seed.connectionMode).toBe('emit_decision');
+        }
+      }
+    }
+  });
+
+  it('locks research pack purpose subtypes (D-224)', () => {
+    const filings = getEngineTemplateById('research_filings_fundamentals')!;
+    const seeds = resolveEngineDecisionSeeds(filings);
+    const subtype = seeds.find((s) => s.kind === 'research_subtype');
+    expect(subtype?.optionRefs).toEqual(['external_filings']);
+    expect(subtype?.connectionMode).toBe('emit_decision');
+    const librarian = seeds.find((s) => s.kind === 'librarian_subtype');
+    expect(librarian?.optionRefs).toEqual(['librarian_filings_hygiene']);
+    const pipeline = seeds.find((s) => s.kind === 'branch_role');
+    expect(pipeline?.optionRefs).toEqual([
+      'discover',
+      'extract_fundamentals',
+      'verify_sanity',
+    ]);
+    expect(pipeline?.connectionMode).toBe('route_data');
+  });
+
   it('day trading builds strategy + recovery + research pipeline decisions', () => {
     const template = getEngineTemplateById('engine_day_trading')!;
     const members = template.modules.map((mod, i) => ({

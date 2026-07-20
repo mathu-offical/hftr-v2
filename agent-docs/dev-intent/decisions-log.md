@@ -2354,7 +2354,11 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 
 - **D-237 / D-232 (process-stage nodes, 2026-07-20):** Execution/sim ENGINEs show viewable
   `processStageNode`s (Lead→…→Broker dispatch→loop_refine). Not free ModuleTypes.
-  **Status: verified.**
+  Handlers patch `setup_snapshot.processStages[].status` via `patchProcessStagesForModule`
+  (promote / tactical / compile / dispatch / loop_refine). Seeded on company create for
+  execution/sim templates with a trading desk.
+  **Status: verified** (contracts process-stages tests; API create day_trading → 8 stages;
+  IronBee UI deferred — MCP not connected).
 
 - **D-238 / D-243 (posture engine delivery, 2026-07-20):** Enrich seals with compoundRank /
   indexes / digests; slim `MarketPostureEngineFeed`; invalidate hub caches on Analyze.
@@ -2367,8 +2371,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   **Status: verified.**
 
 - **D-240 (ModulePortSchema / strict artifact kinds, 2026-07-20):** Flexible module adds;
-  fail-closed illegal wires via port artifact allowlist.
-  **Status: verified.**
+  fail-closed illegal wires via port artifact allowlist. Canvas `POST …/links` resolves
+  kinds via `assertLinkArtifactKinds` after stream-port checks.
+  **Status: verified** (module-ports + contracts tests; link create API wired).
 
 - **D-241 (integrate existing posture, 2026-07-20):** Do not rebuild left-panel posture as
   an ENGINE template; extend delivery + hub symlinks.
@@ -2377,7 +2382,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
 - **D-244 (Trading desk granular layers, 2026-07-20):** One Lead/path → tree tiers →
   executable_state → OrderCompositionPlan → compile → dispatch → loop_refine. POV child
   slices ≠ composition legs. MVP `entry_only`. Jobs owned by trading module after ingest.
-  **Status: verified.**
+  `HandoffEnvelope` may carry `compositionPlanId` / `decisionTreeRef` / `legRole` (jsonb on
+  instruction envelope; also compile_events.lineage).
+  **Status: verified** (engine tests; envelope schema + compile.select persist).
 
 - **D-245 (Math hubs PER engine — no company Math hub, 2026-07-20):** Removes unowned
   `company_hub` seed. Each ENGINE gets `engine_math_hub` (symmetry with Time hubs).

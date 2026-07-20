@@ -199,6 +199,15 @@ Contracts: `packages/contracts/src/engines.ts`.
 - [ ] Playwright ARCH-004 (multi-engine + cascade/override)
 - [ ] IronBee: grouped layout, master topic save, delete modes, Math multi-attach
 - [ ] IronBee: D-216 hub shelves / dual sim analyzers (DevTools)
+- [ ] IronBee: D-237 process-stage status rail updates along promote→dispatch (MCP reconnect)
+
+## Process-stage spine status (D-237)
+
+Execution/sim engines with a trading desk seed `setup_snapshot.processStages` (fail-closed
+spine). Job handlers patch stage `status` (`idle`/`active`/`blocked`/`done`) via
+`patchProcessStagesForModule` — promote (lead/admission), tactical (tree/exec/compose),
+compile, dispatch, loop_refine. Canvas `processStageNode` reads the snapshot; UI does not
+drive status.
 
 ## Non-goals
 

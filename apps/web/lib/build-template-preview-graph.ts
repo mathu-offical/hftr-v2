@@ -246,13 +246,14 @@ function appendEngineNodes(
   template.links.forEach((link, linkIndex) => {
     const kind = link.linkKind as LinkKind;
     const routerIndex = template.modules.findIndex((module) => module.type === 'fund_router');
-    const usesFundPathMath =
+    const usesLegacyFundPathMath =
       link.fromIndex === 'math' || link.toIndex === 'math';
-    if (usesFundPathMath && routerIndex < 0) return;
+    if (usesLegacyFundPathMath && routerIndex < 0) return;
 
     let sourceId: string;
     let targetId: string;
-    if (usesFundPathMath) {
+    if (usesLegacyFundPathMath) {
+      // D-221 legacy template stub — D-229 templates use holding_fund → fund_router direct.
       const fundMathId = `mod:${seed.key}:fundMath`;
       if (!nodes.some((node) => node.id === fundMathId)) {
         const routerAbs = absPositions[routerIndex]!;

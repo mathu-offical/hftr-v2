@@ -143,9 +143,11 @@
 - **Math tools (D-028 / D-033 / D-042):** additional Math modules may be created from the palette and
   deleted; each may `data_feed`-attach to allowed consumer types. Dedicated Math tools render as
   compact nodes with **data handles on top** (owner connection) and **fund handles left→right**.
-  **Typed Math** (`company_hub`, `fund_path`, `desk_execution`, `trend_signal`, `research_metric`,
+  **Typed Math** (`engine_math_hub` per engine — D-245; legacy `company_hub`; `fund_path`,
+  `desk_execution`, `trend_signal`, `research_metric`,
   `analyzer_reconcile`, `simulator_sandbox`, `session_calendar`) selects allowed op families via
-  `config.mathType`. Fund routes never attach to LLM / model-bearing nodes — capital terminates at Math.
+  `config.mathType`. Cadence rail = Clock/Time only (no company Math). Fund routes never attach to
+  LLM / model-bearing nodes — capital terminates at Math / fund_router (D-229).
 - **Node process detail (D-042):** module detail modal maps owned v1 process layers (observe +
   bounded tune). Stage adjacency is not rewirable; levers are shared with LLM analysis. Spec:
   `architecture/engine-node-family-design.md`. Execution ENGINE specialties share the full spine;

@@ -83,6 +83,12 @@ import {
   OptionAnchorNode,
   type OptionAnchorFlowNode,
 } from './OptionAnchorNode';
+import { ProcessStageNode, type ProcessStageFlowNode } from './ProcessStageNode';
+import {
+  buildProcessStageArtifacts,
+  expandEngineBoundsForProcessRailBottom,
+  measurePlacedProcessStageBottom,
+} from './process-stage-graph';
 import { OptionAnchorInspectorPanel } from './OptionAnchorInspectorPanel';
 import {
   anchorsForEngine,
@@ -111,13 +117,15 @@ const nodeTypes = {
   decisionNode: DecisionNode,
   /** @deprecated D-192 — prefer decisionNode */
   optionAnchor: OptionAnchorNode,
+  processStageNode: ProcessStageNode,
 };
 
 export type CanvasFlowNode =
   | ModuleFlowNode
   | MathToolFlowNode
   | EngineGroupFlowNode
-  | OptionAnchorFlowNode;
+  | OptionAnchorFlowNode
+  | ProcessStageFlowNode;
 
 function isModuleNode(node: CanvasFlowNode): node is ModuleFlowNode {
   return node.type === 'module';
@@ -133,6 +141,14 @@ function isMathToolNode(node: CanvasFlowNode): node is MathToolFlowNode {
 
 function isOptionAnchorNode(node: CanvasFlowNode): node is OptionAnchorFlowNode {
   return node.type === 'decisionNode' || node.type === 'optionAnchor';
+}
+
+function isProcessStageNode(node: CanvasFlowNode): node is ProcessStageFlowNode {
+  return node.type === 'processStageNode';
+}
+
+function isEngineDecorationNode(node: CanvasFlowNode): boolean {
+  return isOptionAnchorNode(node) || isProcessStageNode(node);
 }
 
 function isGraphModuleNode(node: CanvasFlowNode): node is ModuleFlowNode | MathToolFlowNode {
@@ -387,13 +403,13 @@ function engineBoundsWithOptionColumn(
   return inflateEngineBoundsForDecisionColumn(memberBounds, placedAnchorBottom);
 }
 
-/** Strip + rebuild option-anchor nodes; expand engine chrome for the right column. */
+/** Strip + rebuild decision + process-stage nodes; expand engine chrome. */
 function withSyncedOptionAnchors(nodes: readonly CanvasFlowNode[]): {
   nodes: CanvasFlowNode[];
   optionEdges: Edge[];
   anchorsByEngine: Map<string, OptionAnchorSpec[]>;
 } {
-  const withoutAnchors = nodes.filter((node) => !isOptionAnchorNode(node));
+  const withoutAnchors = nodes.filter((node) => !isEngineDecorationNode(node));
   const modules = canvasModulesFromNodes(withoutAnchors);
   const relativeFromNodes = new Map<string, { x: number; y: number }>();
   for (const node of withoutAnchors) {
@@ -439,19 +455,27 @@ function withSyncedOptionAnchors(nodes: readonly CanvasFlowNode[]): {
       memberModuleIds: node.data.memberModuleIds,
       ...(node.data.utilityLinks ? { utilityLinks: node.data.utilityLinks } : {}),
     };
-    const placed = buildOptionAnchorArtifacts(
+    const placedAnchors = buildOptionAnchorArtifacts(
       [provisional],
       modules,
       relativeFromNodes,
     ).nodes.filter((anchor) => anchor.parentId === node.id);
-    const expanded = engineBoundsWithOptionColumn(
-      {
-        x: node.position.x,
-        y: node.position.y,
-        width: memberBounds.width,
-        height: memberBounds.height,
-      },
-      measurePlacedAnchorBottom(placed),
+    const placedProcess = buildProcessStageArtifacts(
+      [provisional],
+      modules,
+      relativeFromNodes,
+    ).nodes.filter((stage) => stage.parentId === node.id);
+    const expanded = expandEngineBoundsForProcessRailBottom(
+      engineBoundsWithOptionColumn(
+        {
+          x: node.position.x,
+          y: node.position.y,
+          width: memberBounds.width,
+          height: memberBounds.height,
+        },
+        measurePlacedAnchorBottom(placedAnchors),
+      ),
+      measurePlacedProcessStageBottom(placedProcess),
     );
     return {
       id: node.id,
@@ -467,6 +491,7 @@ function withSyncedOptionAnchors(nodes: readonly CanvasFlowNode[]): {
   });
 
   const artifacts = buildOptionAnchorArtifacts(engines, modules, relativeFromNodes);
+  const processArtifacts = buildProcessStageArtifacts(engines, modules, relativeFromNodes);
   const engineById = new Map(engines.map((engine) => [engine.id, engine]));
 
   const syncedBase: CanvasFlowNode[] = withoutAnchors.map((node) => {
@@ -485,8 +510,8 @@ function withSyncedOptionAnchors(nodes: readonly CanvasFlowNode[]): {
   });
 
   return {
-    nodes: [...syncedBase, ...artifacts.nodes],
-    optionEdges: artifacts.edges,
+    nodes: [...syncedBase, ...artifacts.nodes, ...processArtifacts.nodes],
+    optionEdges: [...artifacts.edges, ...processArtifacts.edges],
     anchorsByEngine: artifacts.anchorsByEngine,
   };
 }
@@ -497,7 +522,8 @@ function isDecisionDecorativeEdgeId(id: string): boolean {
     id.startsWith('option-bind:') ||
     id.startsWith('decision-bind:') ||
     id.startsWith('decision-emit:') ||
-    id.startsWith('decision-route:')
+    id.startsWith('decision-route:') ||
+    id.startsWith('process-spine:')
   );
 }
 
@@ -515,7 +541,12 @@ function mergeDecorativeEdges(current: Edge[], nodes: CanvasFlowNode[]): Edge[] 
     modules,
     relativeFromNodes,
   );
-  return [...core, ...utilityEdgesFromEngines(engines), ...optionEdges];
+  const { edges: processEdges } = buildProcessStageArtifacts(
+    engines,
+    modules,
+    relativeFromNodes,
+  );
+  return [...core, ...utilityEdgesFromEngines(engines), ...optionEdges, ...processEdges];
 }
 
 /** True when the click landed on an editable control inside the node body. */
@@ -760,7 +791,7 @@ function applyLayoutToNodes(
   const engineBoundsById = new Map(layout.engines.map((e) => [e.id, e.canvasBounds]));
 
   const laidOut = current
-    .filter((node) => !isOptionAnchorNode(node))
+    .filter((node) => !isEngineDecorationNode(node))
     .map((node) => {
     if (isEngineGroupNode(node)) {
       const bounds = engineBoundsById.get(node.id);
@@ -1472,6 +1503,7 @@ export function CompanyCanvas(props: {
     ),
     ...utilityEdgesFromEngines(props.initialEngines),
     ...buildOptionAnchorArtifacts(props.initialEngines, props.initialModules).edges,
+    ...buildProcessStageArtifacts(props.initialEngines, props.initialModules).edges,
   ]);
   const ownerDragOriginRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
@@ -1531,6 +1563,7 @@ export function CompanyCanvas(props: {
       ),
       ...utilityEdgesFromEngines(props.initialEngines),
       ...buildOptionAnchorArtifacts(props.initialEngines, props.initialModules).edges,
+      ...buildProcessStageArtifacts(props.initialEngines, props.initialModules).edges,
     ]);
   }, [
     serverGraphSig,
@@ -2080,6 +2113,64 @@ export function CompanyCanvas(props: {
           });
         } catch {
           flash('Could not save decision position.');
+        }
+        return;
+      }
+
+      if (isProcessStageNode(node)) {
+        const engineId = typeof node.parentId === 'string' ? node.parentId : null;
+        if (!engineId) return;
+        const x = Math.round(node.position.x);
+        const y = Math.round(node.position.y);
+        setNodes((current) => {
+          const patched = current.map((n) => {
+            if (!isEngineGroupNode(n) || n.id !== engineId) return n;
+            const prevSnap = n.data.setupSnapshot ?? {
+              topicSectors: n.data.masterTopicSectors,
+              allocationMode: 'amount' as const,
+              allocationValue: '',
+              targetExitLocal: '',
+            };
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                setupSnapshot: {
+                  ...prevSnap,
+                  processStageCanvasPositions: {
+                    ...(prevSnap.processStageCanvasPositions ?? {}),
+                    [node.id]: { x, y },
+                  },
+                },
+              },
+            };
+          });
+          return withSyncedOptionAnchors(patched).nodes;
+        });
+        try {
+          const eng = nodes.find(
+            (n): n is EngineGroupFlowNode => isEngineGroupNode(n) && n.id === engineId,
+          );
+          const prev = eng?.data.setupSnapshot ?? {
+            topicSectors: eng?.data.masterTopicSectors ?? [],
+            allocationMode: 'amount' as const,
+            allocationValue: '',
+            targetExitLocal: '',
+          };
+          await api(`/api/companies/${props.companyId}/engines/${engineId}`, {
+            method: 'PATCH',
+            body: {
+              setupSnapshot: {
+                ...prev,
+                processStageCanvasPositions: {
+                  ...(prev.processStageCanvasPositions ?? {}),
+                  [node.id]: { x, y },
+                },
+              },
+            },
+          });
+        } catch {
+          flash('Could not save process stage position.');
         }
         return;
       }

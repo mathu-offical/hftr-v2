@@ -22,6 +22,7 @@ import {
 } from './WatchlistTierFilters';
 import { invalidateMarketHub } from '@/lib/market-hub-cache';
 import { InlineLoadingStrip } from '@/components/shell/LoadingChrome';
+import { PROCESS_STAGE_LABELS, PROCESS_STAGE_SPINE } from '@hftr/contracts';
 
 type Tab =
   | 'trends'
@@ -1420,7 +1421,22 @@ function ScenarioView(props: {
   }
 
   return (
-    <ul className="space-y-2.5">
+    <div className="space-y-2">
+      <div
+        className="flex flex-wrap gap-1 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5"
+        aria-label="Execution process spine"
+      >
+        {PROCESS_STAGE_SPINE.map((kind) => (
+          <span
+            key={kind}
+            className="rounded border border-[var(--color-line)] px-1.5 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-ink-faint)]"
+            title={`Canvas process stage: ${PROCESS_STAGE_LABELS[kind]}`}
+          >
+            {PROCESS_STAGE_LABELS[kind]}
+          </span>
+        ))}
+      </div>
+      <ul className="space-y-2.5">
       {sorted.map((lead) => {
         const tree = props.trees.find((t) => t.leadId === lead.id);
         const related = props.executions.filter(
@@ -1558,6 +1574,7 @@ function ScenarioView(props: {
         );
       })}
     </ul>
+    </div>
   );
 }
 

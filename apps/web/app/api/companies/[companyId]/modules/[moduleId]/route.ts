@@ -2,6 +2,7 @@ import { and, eq, or } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   isEngineDataHubConfig,
+  isProtectedMathHubModule,
   mergeEngineDataHubCompoundConfig,
   missingModuleSetupFields,
   MODULE_CONFIG_SCHEMAS,
@@ -259,7 +260,18 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
     const { companyId, moduleId } = Params.parse(await ctx.params);
     const existing = await scoping.getOwnedModule(db, clerkUserId, companyId, moduleId);
-    // D-028: Math tools are deletable (repeatable / multi-attach).
+    if (
+      existing.type === 'math' &&
+      isProtectedMathHubModule({
+        type: existing.type,
+        config: existing.config,
+        toolOwnerModuleId: existing.toolOwnerModuleId,
+        engineInstanceId: existing.engineInstanceId,
+      })
+    ) {
+      throw new ApiError(422, 'math_module_not_deletable');
+    }
+    // D-028: repeatable Math tools remain deletable.
 
     const incidentLinks = await db
       .select({

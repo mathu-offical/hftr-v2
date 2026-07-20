@@ -18,7 +18,7 @@
 |--------|------|
 | `engine_instances` | Persisted group: `template_id`, `label`, `master_topic_sectors`, `canvas_bounds` |
 | Member `modules` | `engine_instance_id` FK; `topic_sectors_overridden` when operator edits topic on the node |
-| `math` modules | **Never** `engine_instance_id`; may attach to many consumers as TOOL links |
+| `math` modules | Dedicated docks: **never** engine members as process peers. **D-245:** each engine also gets an `engine_math_hub` with `engine_instance_id` set (audit rollup inside engine bounds); company-wide `company_hub` is not seeded. |
 
 Company creation and `POST .../engines` both insert an engine row and stamp members. Migration `0014` backfills `day_trading_starter`-shaped graphs (nine non-Math modules) into one engine instance.
 

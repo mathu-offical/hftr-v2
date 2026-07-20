@@ -10,6 +10,8 @@ import {
   MAX_MODULES_PER_COMPANY,
   MODULE_CONFIG_SCHEMAS,
   moduleFunctionLabel,
+  placeEngineMathHubPosition,
+  placeEngineTimeHubPosition,
   placeNextEngineOrigin,
   projectedModuleSlotsForCreate,
   withDefaultEngineSetup,
@@ -27,16 +29,17 @@ import { companies, engineInstances, moduleLinks, modules } from '@hftr/db/schem
 import { scoping } from '@hftr/db';
 import { bootstrapCompanyKnowledge, createSystemClock, loadSessionConstraints, resolveCompanyServiceBindings, ensureEngineMotherboardUtilities, ensureEngineDataHub, applyResearchLibraryBindingOnInsert, reflowCompanyFamilyLayout } from '@hftr/engine';
 import { provisionEngineTimeHub } from '@/lib/time-provision';
+import { provisionDedicatedMathTools, provisionEngineMathHub } from '@/lib/math-provision';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import {
   cascadeEngineSetup,
   engineSetupSnapshotFromInput,
   persistEngineDecisionSeed,
+  persistEngineProcessStageSeed,
   recordEngineSetupRefs,
 } from '@/lib/engine-setup-cascade';
 import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
 import { recordModuleSetup } from '@/lib/module-setup';
-import { provisionDedicatedMathTools } from '@/lib/math-provision';
 import {
   fundRouterToTradingMathLinks,
   resolveFundPathMathId,
@@ -126,25 +129,7 @@ export async function POST(req: Request) {
     const createdModuleIds: string[] = [];
     const createdEngineIds: string[] = [];
 
-    // Every company gets its Math hub (D-008) and Master Clock (D-088).
-    const [mathModule] = await db
-      .insert(modules)
-      .values({
-        companyId: company.id,
-        type: 'math',
-        name: 'Math · —',
-        generatedNameBase: 'Math',
-        nameCustomized: false,
-        config: { mathType: 'company_hub' },
-        status: 'active',
-        canvasPosition: { x: 320, y: 40 },
-      })
-      .returning({ id: modules.id });
-    if (!mathModule) {
-      throw new ApiError(500, 'math_module_create_failed');
-    }
-    createdModuleIds.push(mathModule.id);
-
+    // Master Clock (D-088); per-engine Math hubs provisioned after engines (D-245).
     const [clockModule] = await db
       .insert(modules)
       .values({
@@ -403,6 +388,20 @@ export async function POST(req: Request) {
         })),
         setupSnapshot,
       );
+      setupSnapshot = await persistEngineProcessStageSeed(
+        db,
+        engineRow.id,
+        engine.id,
+        created.map((row, index) => ({
+          id: row.id,
+          type: engine.modules[index]!.type,
+          position: {
+            x: absolutePositions[index]!.x - canvasBounds.x,
+            y: absolutePositions[index]!.y - canvasBounds.y,
+          },
+        })),
+        setupSnapshot,
+      );
 
       if (engine.links.length > 0) {
         const members = created.map((row, index) => ({
@@ -520,17 +519,30 @@ export async function POST(req: Request) {
         })
         .from(modules)
         .where(and(eq(modules.companyId, company.id), eq(modules.engineInstanceId, engineId)));
-      await provisionEngineTimeHub(
-        db,
-        company.id,
-        engineId,
-        engineMembers.map((m) => ({
-          id: m.id,
-          type: m.type,
-          name: m.name,
-          position: (m.canvasPosition as { x: number; y: number }) ?? { x: 0, y: 0 },
-        })),
-      );
+      const memberSeeds = engineMembers.map((m) => ({
+        id: m.id,
+        type: m.type,
+        name: m.name,
+        position: (m.canvasPosition as { x: number; y: number }) ?? { x: 0, y: 0 },
+      }));
+      const timeHub = await provisionEngineTimeHub(db, company.id, engineId, memberSeeds);
+      const timeAnchor = timeHub
+        ? timeHub.position
+        : placeEngineTimeHubPosition(
+            memberSeeds.map((m) => ({
+              x: m.position.x,
+              y: m.position.y,
+              width: CANVAS_LAYOUT.moduleWidth,
+              height: CANVAS_LAYOUT.moduleHeight,
+            })),
+          );
+      const mathHub = await provisionEngineMathHub(db, {
+        companyId: company.id,
+        engineInstanceId: engineId,
+        origin: placeEngineMathHubPosition(timeAnchor, 0),
+      });
+      createdModuleIds.push(mathHub.id);
+      if (timeHub) createdModuleIds.push(timeHub.id);
       await ensureEngineMotherboardUtilities(db, company.id, engineId);
     }
 

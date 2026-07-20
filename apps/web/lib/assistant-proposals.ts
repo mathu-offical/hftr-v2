@@ -94,7 +94,7 @@ function heuristicCreateModule(message: string): AssistantEditProposal | null {
     },
     trading: { subtype: 'day', strategyFamilies: [], exitTimelineDays: 1, cadenceMinutes: 5 },
     policy: { policyEnvelopeRef: 'paper_balanced_general_v1', notes: '' },
-    math: { mathType: 'company_hub' },
+    math: { mathType: 'engine_math_hub' },
     analyzer: {},
     simulator: {},
   };

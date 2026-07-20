@@ -159,7 +159,7 @@ const ADDABLE: Array<{
   },
   {
     type: 'math',
-    defaultConfig: { mathType: 'company_hub' },
+    defaultConfig: { mathType: 'engine_math_hub' },
     hint: 'Repeatable calculator; attach to many nodes (D-028)',
   },
   {

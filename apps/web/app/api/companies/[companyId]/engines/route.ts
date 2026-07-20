@@ -11,6 +11,8 @@ import {
   MODULE_CONFIG_SCHEMAS,
   moduleFunctionLabel,
   moduleProvisionsDedicatedMath,
+  placeEngineMathHubPosition,
+  placeEngineTimeHubPosition,
   placeNextEngineOrigin,
   resolveEngineSetupFromCompany,
   templateInputTargets,
@@ -33,6 +35,7 @@ import {
   reflowCompanyFamilyLayout,
 } from '@hftr/engine';
 import { provisionEngineTimeHub } from '@/lib/time-provision';
+import { provisionDedicatedMathTools, provisionEngineMathHub, backfillCompanyEngineMathHubs } from '@/lib/math-provision';
 import { engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 import { scoping } from '@hftr/db';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
@@ -40,10 +43,10 @@ import {
   cascadeEngineSetup,
   engineSetupSnapshotFromInput,
   persistEngineDecisionSeed,
+  persistEngineProcessStageSeed,
   recordEngineSetupRefs,
 } from '@/lib/engine-setup-cascade';
 import { refreshGeneratedModuleNames } from '@/lib/module-generated-name';
-import { provisionDedicatedMathTools } from '@/lib/math-provision';
 import {
   fundRouterToTradingMathLinks,
   resolveFundPathMathId,
@@ -83,6 +86,20 @@ function serializeEngine(row: typeof engineInstances.$inferSelect, memberModuleI
 export async function GET(_req: Request, ctx: Ctx) {
   return withAuth(async ({ db, clerkUserId }) => {
     const { companyId } = Params.parse(await ctx.params);
+    // D-245 / D-239: idempotent backfill for legacy companies.
+    try {
+      await backfillCompanyEngineMathHubs(db, companyId);
+      const engineRows = await scoping.listEngineInstances(db, clerkUserId, companyId);
+      for (const row of engineRows) {
+        try {
+          await ensureEngineDataHub(db, companyId, row.id);
+        } catch (err) {
+          console.error('ensureEngineDataHub failed on engines GET backfill', row.id, err);
+        }
+      }
+    } catch (err) {
+      console.error('engine math/hub backfill failed on engines GET', err);
+    }
     const rows = await scoping.listEngineInstances(db, clerkUserId, companyId);
     const moduleRows = await scoping.listModules(db, clerkUserId, companyId);
     const engines = rows.map((row) =>
@@ -324,6 +341,20 @@ export async function POST(req: Request, ctx: Ctx) {
       })),
       setupSnapshot,
     );
+    setupSnapshot = await persistEngineProcessStageSeed(
+      db,
+      engineRow.id,
+      engine.id,
+      created.map((row, index) => ({
+        id: row.id,
+        type: row.type,
+        position: {
+          x: absolutePositions[index]!.x - canvasBounds.x,
+          y: absolutePositions[index]!.y - canvasBounds.y,
+        },
+      })),
+      setupSnapshot,
+    );
     persistedEngine = { ...persistedEngine, setupSnapshot };
 
     const dedicatedMath = await provisionDedicatedMathTools(
@@ -400,6 +431,27 @@ export async function POST(req: Request, ctx: Ctx) {
         position: (row.canvasPosition as { x: number; y: number }) ?? { x: 0, y: 0 },
       })),
     );
+    const memberSeeds = created.map((row) => ({
+      id: row.id,
+      type: row.type,
+      name: row.name,
+      position: (row.canvasPosition as { x: number; y: number }) ?? { x: 0, y: 0 },
+    }));
+    const timeAnchor = timeHub
+      ? timeHub.position
+      : placeEngineTimeHubPosition(
+          memberSeeds.map((m) => ({
+            x: m.position.x,
+            y: m.position.y,
+            width: CANVAS_LAYOUT.moduleWidth,
+            height: CANVAS_LAYOUT.moduleHeight,
+          })),
+        );
+    const mathHub = await provisionEngineMathHub(db, {
+      companyId,
+      engineInstanceId: engineRow.id,
+      origin: placeEngineMathHubPosition(timeAnchor, 0),
+    });
     if (timeHub) {
       createdLinks.push(
         ...timeHub.links.map((link) => ({
@@ -498,6 +550,7 @@ export async function POST(req: Request, ctx: Ctx) {
     const refreshedModules = await scoping.listModules(db, clerkUserId, companyId);
     const memberIds = new Set(created.map((m) => m.id));
     if (timeHub) memberIds.add(timeHub.id);
+    memberIds.add(mathHub.id);
     return {
       engine: serializeEngine(persistedEngine, [...memberIds]),
       modules: refreshedModules.filter(
@@ -505,6 +558,7 @@ export async function POST(req: Request, ctx: Ctx) {
           memberIds.has(m.id) ||
           dedicatedMath.some((tool) => tool.id === m.id) ||
           (timeHub != null && m.id === timeHub.id) ||
+          m.id === mathHub.id ||
           (dataHub.hubModuleId != null && m.id === dataHub.hubModuleId),
       ),
       links: createdLinks,

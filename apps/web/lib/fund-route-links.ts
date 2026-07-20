@@ -1,8 +1,8 @@
 /**
- * Fund routes never enter LLM / model-bearing nodes. Capital path:
- * holding_fund → fund_path Math (owned by fund_router) → fund_router →
- * trading owner Math; calculated ValueRefs return to trading via data_feed
- * (D-033 / D-038 / D-221 / number-handling).
+ * Fund routes never enter LLM / model-bearing nodes. Capital path (D-229):
+ * holding_fund → fund_router (optional implicit fund_path Math hop) →
+ * trading owner desk_execution Math; calculated ValueRefs return to trading via
+ * data_feed (D-033 / D-038 / number-handling).
  */
 
 /** Resolve template `'math'` endpoints to the engine's fund_path helper Math. */
@@ -22,7 +22,7 @@ export function resolveFundPathMathId(
 
 /**
  * Legacy heal: rewrite holding↔company-hub↔router fund_route hops onto each
- * fund_router's dedicated fund_path Math (D-221).
+ * fund_router's dedicated fund_path Math (D-221) or direct holding→router (D-229).
  */
 export function planFundPathMathLinkRewires(args: {
   modules: ReadonlyArray<{

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ModuleStatus, OptionAnchorPosition, OptionAnchorSpec } from '@hftr/contracts';
 import {
+  isProtectedMathHubModule,
   missingModuleSetupFields,
   requiredModuleSetupFields,
 } from '@hftr/contracts';
@@ -113,7 +114,15 @@ export function InspectorPanel(props: {
   const [setupError, setSetupError] = useState<string | null>(null);
   const [savingSetup, setSavingSetup] = useState(false);
   const visual = MODULE_VISUALS[mod.type];
-  const isProtectedSingleton = mod.type === 'math' || mod.type === 'clock';
+  const isProtectedMathHub =
+    mod.type === 'math' &&
+    isProtectedMathHubModule({
+      type: mod.type,
+      config: mod.config,
+      toolOwnerModuleId: mod.toolOwnerModuleId,
+      engineInstanceId: mod.engineInstanceId,
+    });
+  const isProtectedSingleton = isProtectedMathHub || mod.type === 'clock';
   const requiredSetupFields = requiredModuleSetupFields(mod.type);
   const missingSetup = missingModuleSetupFields(mod.type, setupState);
   const moduleConfig = mod.config ?? {};
@@ -520,7 +529,7 @@ export function InspectorPanel(props: {
         <p className="text-xs leading-relaxed text-[var(--color-ink-faint)]">
           {mod.type === 'clock'
             ? 'Master Clock is the company temporal authority (D-088). It is created with the company and cannot be deleted.'
-            : 'The company Math hub audits every number and timestamp. It is created with the company and cannot be deleted.'}
+            : 'The engine Math hub audits numbers and timestamps for this engine (D-245). It is provisioned with the engine and cannot be deleted.'}
         </p>
       ) : (
         <button

@@ -5,7 +5,7 @@ import {
   resolveFundPathMathId,
 } from './fund-route-links';
 
-describe('fund-route-links (D-221)', () => {
+describe('fund-route-links (D-229 / D-221 legacy)', () => {
   it('resolves template math to fund_router-owned fund_path Math', () => {
     const mathByOwner = new Map([
       ['router-1', 'fund-math-1'],

@@ -1003,6 +1003,30 @@ interface LibraryConfig {
     streamDescriptor?: string;
   }>;
   topicFeed?: { enabled: boolean };
+  /** D-239: read-through baseline / posture bindings. */
+  symlinks?: Array<{
+    refLibraryId: string;
+    role: string;
+    topicScope?: string;
+    access?: string;
+  }>;
+  /** D-239: engine-owned nest / hydrate libs. */
+  engineLocal?: Array<{
+    libraryId: string;
+    moduleId: string;
+    origin?: string;
+    stream?: string;
+    binding?: string;
+    owner?: string;
+  }>;
+  /** D-242: hub corpus cache snapshot (refs only). */
+  corpusCache?: {
+    hubRevision?: string;
+    postureRevision?: string;
+    refreshedAt?: string;
+    expiresAt?: string;
+    slices?: unknown[];
+  } | null;
 }
 
 const DEFAULT_LIBRARY_CONFIG: Omit<LibraryConfig, 'topicScope'> = {
@@ -1098,12 +1122,64 @@ export function LibraryConfigForm(props: { companyId: string; moduleId: string }
       </label>
       {(config.libraryClass === 'engine_data_hub' || config.engineDataHub) && (
         <div className="space-y-2 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-[10px] text-[var(--color-ink-dim)]">
-          <p className="font-medium uppercase tracking-wider">Engine Data Hub (D-216)</p>
+          <p className="font-medium uppercase tracking-wider">Engine Data Hub (D-216 / D-239)</p>
           <p className="truncate font-mono text-[9px] text-[var(--color-ink-faint)]">
             Owner: {config.ownerEngineInstanceId ?? '—'}
           </p>
           <p>Nested modules: {(config.nestedModuleIds ?? []).length}</p>
           <p>Shelves: {(config.shelves ?? []).length || 12} (origin × stream)</p>
+          <div className="space-y-1 border-t border-[var(--color-line)] pt-1.5">
+            <p className="text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+              Baseline (linked)
+            </p>
+            {(config.symlinks ?? []).length === 0 ? (
+              <p className="text-[var(--color-ink-faint)]">No posture/baseline symlinks yet</p>
+            ) : (
+              (config.symlinks ?? []).map((link) => (
+                <p key={`${link.role}:${link.refLibraryId}`} className="truncate font-mono text-[9px]">
+                  {link.role}
+                  {link.topicScope ? ` · ${link.topicScope}` : ''}
+                  <span className="text-[var(--color-ink-faint)]"> · read-through</span>
+                </p>
+              ))
+            )}
+          </div>
+          <div className="space-y-1 border-t border-[var(--color-line)] pt-1.5">
+            <p className="text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+              Engine-owned
+            </p>
+            {(config.engineLocal ?? []).length === 0 ? (
+              <p className="text-[var(--color-ink-faint)]">
+                Nested only ({(config.nestedModuleIds ?? []).length} modules)
+              </p>
+            ) : (
+              (config.engineLocal ?? []).slice(0, 8).map((local) => (
+                <p key={local.libraryId} className="truncate font-mono text-[9px]">
+                  {local.owner ?? 'engine_owned'} · {local.binding ?? 'nest'}
+                </p>
+              ))
+            )}
+          </div>
+          {config.corpusCache && (
+            <div className="space-y-0.5 border-t border-[var(--color-line)] pt-1.5 font-mono text-[9px]">
+              <p className="text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+                Corpus cache
+              </p>
+              <p className="truncate">hubRev: {config.corpusCache.hubRevision ?? '—'}</p>
+              <p className="truncate">
+                postureRev: {config.corpusCache.postureRevision ?? '—'}
+              </p>
+              <p>
+                refreshed:{' '}
+                {config.corpusCache.refreshedAt
+                  ? new Date(config.corpusCache.refreshedAt).toLocaleString()
+                  : '—'}
+              </p>
+              <p>
+                slices: {Array.isArray(config.corpusCache.slices) ? config.corpusCache.slices.length : 0}
+              </p>
+            </div>
+          )}
           <label className="flex items-center gap-2 text-[10px] text-[var(--color-ink)]">
             <input
               type="checkbox"
@@ -1166,10 +1242,11 @@ type MathConfig = {
   mathType: string;
 };
 
-const DEFAULT_MATH_CONFIG: MathConfig = { mathType: 'company_hub' };
+const DEFAULT_MATH_CONFIG: MathConfig = { mathType: 'engine_math_hub' };
 
 const MATH_TYPE_OPTIONS = [
-  { value: 'company_hub', label: 'Company hub' },
+  { value: 'engine_math_hub', label: 'Engine hub' },
+  { value: 'company_hub', label: 'Company hub (legacy)' },
   { value: 'fund_path', label: 'Fund path' },
   { value: 'desk_execution', label: 'Desk execution' },
   { value: 'trend_signal', label: 'Trend signal' },

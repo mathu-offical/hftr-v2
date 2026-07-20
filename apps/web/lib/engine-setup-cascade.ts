@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import {
   requiredModuleSetupFields,
   seedEngineDecisionSnapshot,
+  seedEngineProcessStageSnapshot,
   splitAllocationValues,
   type EngineSetupSnapshot,
   type ModuleSetupInput,
@@ -69,6 +70,10 @@ export function engineSetupSnapshotFromInput(
     ...(previous?.decisionNodes ? { decisionNodes: previous.decisionNodes } : {}),
     ...(previous?.decisionOptionSelections
       ? { decisionOptionSelections: previous.decisionOptionSelections }
+      : {}),
+    ...(previous?.processStages ? { processStages: previous.processStages } : {}),
+    ...(previous?.processStageCanvasPositions
+      ? { processStageCanvasPositions: previous.processStageCanvasPositions }
       : {}),
     ...(simulationBinding ? { simulationBinding } : {}),
     ...(researchLibraryBinding ? { researchLibraryBinding } : {}),
@@ -245,6 +250,27 @@ export async function persistEngineDecisionSeed(
     ...currentSnapshot,
     decisionNodes: seed.decisionNodes,
     decisionOptionSelections: seed.decisionOptionSelections,
+  };
+  await db
+    .update(engineInstances)
+    .set({ setupSnapshot: next, updatedAt: new Date() })
+    .where(eq(engineInstances.id, engineId));
+  return next;
+}
+
+/** Persist processStages after engine members exist (D-232 / D-237). */
+export async function persistEngineProcessStageSeed(
+  db: Db,
+  engineId: string,
+  templateId: string,
+  members: Array<{ id: string; type: string; position?: { x: number; y: number } }>,
+  currentSnapshot: EngineSetupSnapshot,
+): Promise<EngineSetupSnapshot> {
+  const processStages = seedEngineProcessStageSnapshot({ templateId, members });
+  if (!processStages) return currentSnapshot;
+  const next: EngineSetupSnapshot = {
+    ...currentSnapshot,
+    processStages,
   };
   await db
     .update(engineInstances)

@@ -1,15 +1,20 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq, or } from 'drizzle-orm';
+import { and, eq, isNull, or } from 'drizzle-orm';
 import {
+  isEngineMathHubModule,
   moduleProvisionsDedicatedMath,
   moduleRequiresMath,
+  parseMathTypeFromConfig,
   preferredMathTypeForOwner,
+  placeEngineMathHubPosition,
+  placeEngineTimeHubPosition,
+  CANVAS_LAYOUT,
   type ModuleType,
   composeModulePrimaryLabel,
   moduleFunctionLabel,
 } from '@hftr/contracts';
 import type { Db } from '@hftr/db';
-import { moduleLinks, modules } from '@hftr/db/schema';
+import { engineInstances, moduleLinks, modules } from '@hftr/db/schema';
 
 const OWNER_WIDTH = 280;
 const MATH_WIDTH = 220;
@@ -35,6 +40,81 @@ export interface ProvisionedMathTool {
     toModuleId: string;
     linkKind: 'data_feed';
   }>;
+}
+
+export interface ProvisionEngineMathHubInput {
+  companyId: string;
+  engineInstanceId: string;
+  origin: { x: number; y: number };
+}
+
+export interface ProvisionedEngineMathHub {
+  id: string;
+  engineInstanceId: string;
+  position: { x: number; y: number };
+}
+
+/**
+ * D-245: provision one engine Math hub per engine (symmetry with Time hubs).
+ * Idempotent — refreshes canvas position on every call.
+ */
+export async function provisionEngineMathHub(
+  db: Db,
+  input: ProvisionEngineMathHubInput,
+  now = new Date(),
+): Promise<ProvisionedEngineMathHub> {
+  const { companyId, engineInstanceId, origin } = input;
+
+  const candidates = await db
+    .select({
+      id: modules.id,
+      config: modules.config,
+      canvasPosition: modules.canvasPosition,
+    })
+    .from(modules)
+    .where(
+      and(
+        eq(modules.companyId, companyId),
+        eq(modules.engineInstanceId, engineInstanceId),
+        eq(modules.type, 'math'),
+        isNull(modules.toolOwnerModuleId),
+      ),
+    );
+
+  const existing = candidates.find((row) =>
+    isEngineMathHubModule({
+      type: 'math',
+      config: row.config,
+      toolOwnerModuleId: null,
+      engineInstanceId,
+    }),
+  );
+
+  if (existing) {
+    await db
+      .update(modules)
+      .set({ canvasPosition: origin, updatedAt: now })
+      .where(eq(modules.id, existing.id));
+    return { id: existing.id, engineInstanceId, position: origin };
+  }
+
+  const mathId = randomUUID();
+  const name = composeModulePrimaryLabel('Math', 'Engine hub');
+  await db.insert(modules).values({
+    id: mathId,
+    companyId,
+    type: 'math',
+    name,
+    generatedNameBase: 'Math',
+    nameCustomized: false,
+    config: { mathType: 'engine_math_hub' },
+    status: 'active',
+    canvasPosition: origin,
+    engineInstanceId,
+    toolOwnerModuleId: null,
+  });
+
+  return { id: mathId, engineInstanceId, position: origin };
 }
 
 function mathPositionForOwner(owner: MathOwnerSeed): { x: number; y: number } {
@@ -185,4 +265,123 @@ export async function cleanupDedicatedMathForOwner(
       ),
     db.delete(modules).where(and(eq(modules.companyId, companyId), eq(modules.id, tool.id))),
   ]);
+}
+
+export type BackfillEngineMathResult = {
+  provisionedEngineIds: string[];
+  retiredCompanyHubIds: string[];
+};
+
+/**
+ * D-245 backfill: ensure each engine has `engine_math_hub`; retire unowned
+ * company-rail `company_hub` Math when every engine is covered.
+ */
+export async function backfillCompanyEngineMathHubs(
+  db: Db,
+  companyId: string,
+  now = new Date(),
+): Promise<BackfillEngineMathResult> {
+  const engines = await db
+    .select({
+      id: engineInstances.id,
+      canvasBounds: engineInstances.canvasBounds,
+    })
+    .from(engineInstances)
+    .where(eq(engineInstances.companyId, companyId));
+
+  const provisionedEngineIds: string[] = [];
+  for (const engine of engines) {
+    const members = await db
+      .select({ canvasPosition: modules.canvasPosition })
+      .from(modules)
+      .where(
+        and(eq(modules.companyId, companyId), eq(modules.engineInstanceId, engine.id)),
+      );
+    const memberPositions = members.map((m) => {
+      const pos = (m.canvasPosition ?? { x: 0, y: 0 }) as { x: number; y: number };
+      return {
+        x: pos.x,
+        y: pos.y,
+        width: CANVAS_LAYOUT.moduleWidth,
+        height: CANVAS_LAYOUT.moduleHeight,
+      };
+    });
+    const timeAnchor = placeEngineTimeHubPosition(memberPositions);
+    const origin = placeEngineMathHubPosition(timeAnchor, 0);
+
+    const before = await db
+      .select({ id: modules.id, config: modules.config, engineInstanceId: modules.engineInstanceId })
+      .from(modules)
+      .where(
+        and(
+          eq(modules.companyId, companyId),
+          eq(modules.engineInstanceId, engine.id),
+          eq(modules.type, 'math'),
+          isNull(modules.toolOwnerModuleId),
+        ),
+      );
+    const hadHub = before.some((row) =>
+      isEngineMathHubModule({
+        type: 'math',
+        config: row.config,
+        toolOwnerModuleId: null,
+        engineInstanceId: engine.id,
+      }),
+    );
+    await provisionEngineMathHub(
+      db,
+      { companyId, engineInstanceId: engine.id, origin },
+      now,
+    );
+    if (!hadHub) provisionedEngineIds.push(engine.id);
+  }
+
+  const retiredCompanyHubIds: string[] = [];
+  if (engines.length === 0) {
+    return { provisionedEngineIds, retiredCompanyHubIds };
+  }
+
+  const companyHubs = await db
+    .select({
+      id: modules.id,
+      config: modules.config,
+      engineInstanceId: modules.engineInstanceId,
+    })
+    .from(modules)
+    .where(
+      and(
+        eq(modules.companyId, companyId),
+        eq(modules.type, 'math'),
+        isNull(modules.toolOwnerModuleId),
+      ),
+    );
+
+  for (const hub of companyHubs) {
+    const mathType = parseMathTypeFromConfig(hub.config);
+    if (mathType !== 'company_hub') continue;
+    if (hub.engineInstanceId) continue; // already engine-bound legacy
+
+    const incident = await db
+      .select({
+        fromModuleId: moduleLinks.fromModuleId,
+        toModuleId: moduleLinks.toModuleId,
+      })
+      .from(moduleLinks)
+      .where(
+        and(
+          eq(moduleLinks.companyId, companyId),
+          or(eq(moduleLinks.fromModuleId, hub.id), eq(moduleLinks.toModuleId, hub.id)),
+        ),
+      );
+
+    // Only retire when no canvas wires remain (safe delete).
+    if (incident.length > 0) continue;
+
+    await db
+      .delete(modules)
+      .where(and(eq(modules.companyId, companyId), eq(modules.id, hub.id)));
+    retiredCompanyHubIds.push(hub.id);
+  }
+
+  return { provisionedEngineIds, retiredCompanyHubIds };
 }

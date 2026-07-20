@@ -2335,55 +2335,55 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   `holding_fund → fund_router` (optional implicit Math hop). Template `'math'` fund_route
   stubs / FundMath middleman on capital are removed. Desk `desk_execution` Math stays for
   Calc-ref. Extends D-221. Docs: canvas-layout, templates.
-  **Status: implementing.**
+  **Status: verified.**
 
 - **D-233 (layered posture baseline → engines, 2026-07-20):** Market Posture is the
   company baseline awareness engine (async). Runtime ENGINEs consume orientation + posture
   libraries via Data Hub; they do not merge queues. Docs: product-spec.
-  **Status: implementing.**
+  **Status: verified.**
 
 - **D-234 (CompanyPostureOrientation seal, 2026-07-20):** Analyze seals a qualitative
   orientation artifact (regime, family nomination, lever band deltas, seal refs — no
   digits). Promote/ingest attaches `postureOrientationRef`. Docs: contracts.
-  **Status: implementing.**
+  **Status: verified.**
 
 - **D-235 / D-236 (bias seed + self-correct, 2026-07-20):** Orientation seeds lever/family
   nomination in-band via `enforceScopeStrict` at promote only. Neutral/stale/training
   envelopes self-correct; never override guardrails or model-free dispatch.
-  **Status: implementing.**
+  **Status: verified.**
 
 - **D-237 / D-232 (process-stage nodes, 2026-07-20):** Execution/sim ENGINEs show viewable
   `processStageNode`s (Lead→…→Broker dispatch→loop_refine). Not free ModuleTypes.
-  **Status: implementing.**
+  **Status: verified.**
 
 - **D-238 / D-243 (posture engine delivery, 2026-07-20):** Enrich seals with compoundRank /
   indexes / digests; slim `MarketPostureEngineFeed`; invalidate hub caches on Analyze.
   UI `MarketHubResponse` stays UI-only.
-  **Status: implementing.**
+  **Status: verified.**
 
 - **D-239 / D-242 (Data Hub library group + corpus cache, 2026-07-20):** Hub is a group of
   posture/baseline **symlinks** (read-through) + engineLocal libs, with hub-local corpus
   cache (refs/digests — no concept-row bloat). Exec engines only auto-symlink posture.
-  **Status: implementing.**
+  **Status: verified.**
 
 - **D-240 (ModulePortSchema / strict artifact kinds, 2026-07-20):** Flexible module adds;
   fail-closed illegal wires via port artifact allowlist.
-  **Status: implementing.**
+  **Status: verified.**
 
 - **D-241 (integrate existing posture, 2026-07-20):** Do not rebuild left-panel posture as
   an ENGINE template; extend delivery + hub symlinks.
-  **Status: implementing.**
+  **Status: verified.**
 
 - **D-244 (Trading desk granular layers, 2026-07-20):** One Lead/path → tree tiers →
   executable_state → OrderCompositionPlan → compile → dispatch → loop_refine. POV child
   slices ≠ composition legs. MVP `entry_only`. Jobs owned by trading module after ingest.
-  **Status: implementing.**
+  **Status: verified.**
 
 - **D-245 (Math hubs PER engine — no company Math hub, 2026-07-20):** Removes unowned
   `company_hub` seed. Each ENGINE gets `engine_math_hub` (symmetry with Time hubs).
   Company cadence rail = Clock + Time only. Amends D-008 / D-227 cadence pin. Dedicated
   owner Math docks unchanged. Engine hub is audit/lineage — never fund_route middleman.
-  **Status: implementing.**
+  **Status: verified.**
 
 ## Open questions
 

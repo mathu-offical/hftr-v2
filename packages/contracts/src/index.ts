@@ -3,6 +3,7 @@ export * from './numeric';
 export * from './operating-budget';
 export * from './modules';
 export * from './port-channels';
+export * from './module-ports';
 export * from './sector-focus';
 export * from './sector-focus-seed-map';
 export * from './pipeline';

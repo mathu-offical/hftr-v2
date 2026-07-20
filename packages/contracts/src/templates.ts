@@ -2299,6 +2299,8 @@ export const ENGINE_TEMPLATES: EngineTemplate[] = [
         config: {
           focus: 'pending_operator_scope',
           trendPosture: 'microstructure_swarm',
+          // Swarm may track many candidates (maxActiveTrends); concurrent Lead paths
+          // to the desk are capped by leadFanoutCap / maxConcurrentLeads (D-244).
           maxActiveTrends: 24,
           leadFanoutCap: 6,
           cadenceMinutes: 5,
@@ -3149,6 +3151,7 @@ export const COMPANY_TEMPLATES: Record<CompanyTemplateId, CompanyTemplate> = {
           cadenceMinutes: 5,
           compositionMode: 'entry_only',
           maxConcurrentLeads: 6,
+          executionBinding: { routingMode: 'funds_only' },
         },
         position: { x: 1420, y: 576 },
       },

@@ -14,6 +14,7 @@ import {
 import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
 import { estimateLlmJobCost } from '../queue/llm-cost-estimate';
+import { patchProcessStagesForModule } from '../engines/process-stage-status';
 
 const ExpandPayload = z.object({
   companyId: z.string().uuid(),
@@ -190,6 +191,10 @@ registerHandler('tactical.expand', async ({ db, clock, job, modelGateway }) => {
         updatedAt: now,
       })
       .where(eq(decisionTrees.id, treeId));
+    await patchProcessStagesForModule(db, payload.companyId, tradingModuleId, [
+      { kind: 'decision_tree', status: 'done' },
+      { kind: 'executable_state', status: 'blocked' },
+    ]);
     return;
   }
 
@@ -237,4 +242,11 @@ registerHandler('tactical.expand', async ({ db, clock, job, modelGateway }) => {
     .update(decisionTrees)
     .set({ status: 'compile_ready', updatedAt: now })
     .where(eq(decisionTrees.id, treeId));
+
+  await patchProcessStagesForModule(db, payload.companyId, tradingModuleId, [
+    { kind: 'decision_tree', status: 'done' },
+    { kind: 'executable_state', status: 'done' },
+    { kind: 'instruction_compose', status: 'done' },
+    { kind: 'instruction_compile', status: 'active' },
+  ]);
 });

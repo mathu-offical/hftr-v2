@@ -600,6 +600,11 @@ export {
 } from './pipeline/executable-state';
 export { loadHubCorpusConceptEvidence } from './engines/hub-corpus-evidence';
 export {
+  patchEngineProcessStageStatuses,
+  patchProcessStagesForModule,
+  resolveEngineIdForModule,
+} from './engines/process-stage-status';
+export {
   sectorPeersForFocuses,
   DIVERSIFIED_MARKET_ANCHORS,
 } from './libraries/market-state-peers';

@@ -46,6 +46,7 @@ import {
 import { resolvePhilosophyControl } from '../pipeline/philosophy-control';
 import { enqueue } from '../queue/queue';
 import { registerHandler } from './registry';
+import { patchProcessStagesForModule } from '../engines/process-stage-status';
 
 const SelectPayload = z.object({
   companyId: z.string().uuid(),
@@ -148,6 +149,20 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
   const riskPerTradePct = resolveRiskPerTradePct(leverState);
   const atrMultiplier = resolveAtrStopMultiplier(leverState);
 
+  const markCompileStage = async (status: 'done' | 'blocked' | 'active') => {
+    await patchProcessStagesForModule(
+      db,
+      payload.companyId,
+      dispatchModuleId,
+      status === 'done'
+        ? [
+            { kind: 'instruction_compile', status: 'done' },
+            { kind: 'broker_dispatch', status: 'active' },
+          ]
+        : [{ kind: 'instruction_compile', status }],
+    );
+  };
+
   const branchLabels = (tree.branches as Array<{ id?: string; condition?: string }>).map(
     (b) => b.id ?? b.condition ?? 'branch',
   );
@@ -199,6 +214,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
           .update(leadPackages)
           .set({ status: 'decomposed', updatedAt: now })
           .where(eq(leadPackages.id, payload.leadId));
+        await markCompileStage('blocked');
         return;
       }
     }
@@ -259,6 +275,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
       .update(leadPackages)
       .set({ status: 'decomposed', updatedAt: now })
       .where(eq(leadPackages.id, payload.leadId));
+    await markCompileStage('blocked');
     return;
   }
 
@@ -296,6 +313,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
       .update(leadPackages)
       .set({ status: 'decomposed', updatedAt: now })
       .where(eq(leadPackages.id, payload.leadId));
+    await markCompileStage('blocked');
     return;
   }
 
@@ -361,6 +379,7 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
       .update(leadPackages)
       .set({ status: 'decomposed', updatedAt: now })
       .where(eq(leadPackages.id, payload.leadId));
+    await markCompileStage('blocked');
     return;
   }
 
@@ -450,6 +469,13 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
     controlSnapshotRef: controlSnapshotId,
     causationRefs: [trend.id, payload.leadId, payload.treeId],
     expiresAt: null,
+    ...(payload.compositionPlan?.planId
+      ? { compositionPlanId: payload.compositionPlan.planId }
+      : {}),
+    decisionTreeRef: payload.treeId,
+    ...(payload.compositionPlan?.legs[0]?.role
+      ? { legRole: payload.compositionPlan.legs[0].role }
+      : { legRole: 'primary_entry' }),
   };
 
   const instructionRows = await db
@@ -532,4 +558,6 @@ registerHandler('compile.select', async ({ db, clock, job, modelGateway }) => {
     .update(trendCandidates)
     .set({ status: 'promoted' })
     .where(eq(trendCandidates.id, trend.id));
+
+  await markCompileStage('done');
 });

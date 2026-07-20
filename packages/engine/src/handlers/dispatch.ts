@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { executePaperTrade, executePaperTradeFromInstruction } from '../dispatch/paper-trade';
 import { executePaperTradeChildSlice } from '../dispatch/paper-trade-child-drain';
+import { patchProcessStagesForModule } from '../engines/process-stage-status';
 import { registerHandler } from './registry';
 
 const OperatorPaperTradePayload = z.object({
@@ -40,8 +41,15 @@ registerHandler('dispatch.paper_trade', async ({ db, clock, job }) => {
       jobId: job.id,
     });
     if (result.outcome === 'blocked' && result.failureCode === 'numeric_sanity_block') {
+      await patchProcessStagesForModule(db, payload.companyId, payload.moduleId, [
+        { kind: 'broker_dispatch', status: 'blocked' },
+      ]);
       return;
     }
+    await patchProcessStagesForModule(db, payload.companyId, payload.moduleId, [
+      { kind: 'broker_dispatch', status: 'done' },
+      { kind: 'loop_refine', status: 'idle' },
+    ]);
     return;
   }
 
@@ -53,8 +61,14 @@ registerHandler('dispatch.paper_trade', async ({ db, clock, job }) => {
   });
   if (result.outcome === 'blocked' && result.failureCode === 'numeric_sanity_block') {
     // Permanent input problem — failing the job would retry uselessly.
+    await patchProcessStagesForModule(db, payload.companyId, payload.moduleId, [
+      { kind: 'broker_dispatch', status: 'blocked' },
+    ]);
     return;
   }
+  await patchProcessStagesForModule(db, payload.companyId, payload.moduleId, [
+    { kind: 'broker_dispatch', status: 'done' },
+  ]);
 });
 
 const ChildSliceDrainPayload = z.object({

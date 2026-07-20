@@ -33,6 +33,7 @@ import { registerHandler } from './registry';
 import { estimateLlmJobCost } from '../queue/llm-cost-estimate';
 import { enqueueLinkedResearchCurate } from '../research/enqueue-linked';
 import { loadAdmittedArtifactRefs } from '../research/admitted-evidence';
+import { patchProcessStagesForModule } from '../engines/process-stage-status';
 
 const PromotePayload = z.object({
   companyId: z.string().uuid(),
@@ -277,7 +278,16 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
     })
     .returning({ id: leadPackages.id });
   const leadId = leadRows[0]!.id;
-  if (!admitted) return;
+  // D-237: process-stage spine lives on the trading desk ENGINE when present.
+  const stageModuleId = resolvedTargetId ?? tradingModule?.id ?? payload.moduleId;
+
+  if (!admitted) {
+    await patchProcessStagesForModule(db, payload.companyId, stageModuleId, [
+      { kind: 'lead', status: 'done' },
+      { kind: 'admission', status: 'blocked' },
+    ]);
+    return;
+  }
 
   // D-244: enforce maxConcurrentLeads / leadFanoutCap before expanding a new path.
   if (tradingModule) {
@@ -297,9 +307,19 @@ registerHandler('trend.promote', async ({ db, clock, job }) => {
         .update(leadPackages)
         .set({ status: 'rejected', updatedAt: new Date(clock.nowMs()) })
         .where(eq(leadPackages.id, leadId));
+      await patchProcessStagesForModule(db, payload.companyId, stageModuleId, [
+        { kind: 'lead', status: 'done' },
+        { kind: 'admission', status: 'blocked' },
+      ]);
       return;
     }
   }
+
+  await patchProcessStagesForModule(db, payload.companyId, stageModuleId, [
+    { kind: 'lead', status: 'done' },
+    { kind: 'admission', status: 'done' },
+    { kind: 'decision_tree', status: 'active' },
+  ]);
 
   await enqueueLinkedResearchCurate(db, clock, {
     companyId: payload.companyId,

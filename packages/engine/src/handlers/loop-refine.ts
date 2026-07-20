@@ -10,6 +10,7 @@ import { TradingModuleConfig } from '@hftr/contracts';
 import { enqueue } from '../queue/queue';
 import { estimateLlmJobCost } from '../queue/llm-cost-estimate';
 import { buildEntryOnlyCompositionPlan } from '../pipeline/order-composition';
+import { patchProcessStagesForModule } from '../engines/process-stage-status';
 import { registerHandler } from './registry';
 
 const MAX_REFINE_ATTEMPTS = 3;
@@ -31,6 +32,10 @@ registerHandler('trading.loop_refine', async ({ db, clock, job }) => {
   const now = new Date(clock.nowMs());
   const attempt = (payload.attempt ?? 0) + 1;
 
+  await patchProcessStagesForModule(db, payload.companyId, payload.moduleId, [
+    { kind: 'loop_refine', status: 'active' },
+  ]);
+
   if (attempt > MAX_REFINE_ATTEMPTS) {
     await db
       .update(decisionTrees)
@@ -38,6 +43,9 @@ registerHandler('trading.loop_refine', async ({ db, clock, job }) => {
       .where(
         and(eq(decisionTrees.id, payload.treeId), eq(decisionTrees.companyId, payload.companyId)),
       );
+    await patchProcessStagesForModule(db, payload.companyId, payload.moduleId, [
+      { kind: 'loop_refine', status: 'blocked' },
+    ]);
     return;
   }
 
@@ -132,4 +140,9 @@ registerHandler('trading.loop_refine', async ({ db, clock, job }) => {
     .update(leadPackages)
     .set({ updatedAt: now })
     .where(eq(leadPackages.id, payload.leadId));
+
+  await patchProcessStagesForModule(db, payload.companyId, tradingModuleId, [
+    { kind: 'loop_refine', status: 'done' },
+    { kind: 'instruction_compile', status: 'active' },
+  ]);
 });

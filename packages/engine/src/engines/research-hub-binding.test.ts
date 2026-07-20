@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeTargetLibraryIds } from './research-hub-binding';
+import { mergeTargetLibraryIds } from './research-hub-bind';
 
 describe('mergeTargetLibraryIds', () => {
   it('appends a library id when absent', () => {

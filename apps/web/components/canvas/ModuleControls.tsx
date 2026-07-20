@@ -981,6 +981,20 @@ interface LibraryConfig {
   ownerEngineInstanceId?: string | null;
   nestedModuleIds?: string[];
   engineDataHub?: boolean;
+  shelves?: Array<{
+    origin: string;
+    stream: string;
+    label?: string;
+  }>;
+  shelfOutputs?: Array<{
+    origin: string;
+    stream: string;
+    bus?: 'data_out';
+    enabled: boolean;
+    streamId?: string;
+    streamDescriptor?: string;
+  }>;
+  topicFeed?: { enabled: boolean };
 }
 
 const DEFAULT_LIBRARY_CONFIG: Omit<LibraryConfig, 'topicScope'> = {
@@ -1075,12 +1089,64 @@ export function LibraryConfigForm(props: { companyId: string; moduleId: string }
         </select>
       </label>
       {(config.libraryClass === 'engine_data_hub' || config.engineDataHub) && (
-        <div className="space-y-1 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-[10px] text-[var(--color-ink-dim)]">
-          <p className="font-medium uppercase tracking-wider">Engine Data Hub (D-140)</p>
+        <div className="space-y-2 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-[10px] text-[var(--color-ink-dim)]">
+          <p className="font-medium uppercase tracking-wider">Engine Data Hub (D-216)</p>
           <p className="truncate font-mono text-[9px] text-[var(--color-ink-faint)]">
             Owner: {config.ownerEngineInstanceId ?? '—'}
           </p>
           <p>Nested modules: {(config.nestedModuleIds ?? []).length}</p>
+          <p>Shelves: {(config.shelves ?? []).length || 12} (origin × stream)</p>
+          <label className="flex items-center gap-2 text-[10px] text-[var(--color-ink)]">
+            <input
+              type="checkbox"
+              checked={config.topicFeed?.enabled ?? true}
+              disabled={saving}
+              onChange={(e) =>
+                void saveConfig({
+                  ...config,
+                  topicFeed: { enabled: e.target.checked },
+                })
+              }
+            />
+            Live topic feed
+          </label>
+          {(config.shelfOutputs ?? []).length > 0 && (
+            <div className="max-h-40 space-y-1 overflow-y-auto border-t border-[var(--color-line)] pt-1.5">
+              <p className="text-[9px] uppercase tracking-wider text-[var(--color-ink-faint)]">
+                Shelf outs (data_out)
+              </p>
+              {(config.shelfOutputs ?? []).map((out) => {
+                const key = `${out.origin}|${out.stream}`;
+                return (
+                  <label
+                    key={key}
+                    className="flex items-start gap-2 text-[10px] text-[var(--color-ink)]"
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={out.enabled}
+                      disabled={saving}
+                      onChange={(e) => {
+                        const nextOuts = (config.shelfOutputs ?? []).map((row) =>
+                          row.origin === out.origin && row.stream === out.stream
+                            ? { ...row, enabled: e.target.checked }
+                            : row,
+                        );
+                        void saveConfig({ ...config, shelfOutputs: nextOuts });
+                      }}
+                    />
+                    <span>
+                      {out.streamDescriptor ?? `${out.origin} · ${out.stream}`}
+                      <span className="block font-mono text-[8px] text-[var(--color-ink-faint)]">
+                        {out.streamId ?? `shelf:${out.origin}:${out.stream}`}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
       {message && <p className="text-xs text-[var(--color-block)]">{message}</p>}
@@ -1274,6 +1340,10 @@ interface AnalyzerConfig {
   emitMode: 'to_library' | 'to_desk_stream' | 'verify_loopback';
   streamDescriptor?: string;
   exposedOutputChannels?: string[];
+  hubFeedClass?: 'direct' | 'analyzed';
+  hubShelfOrigin?: string;
+  hubShelfStream?: string;
+  targetLibraryModuleId?: string;
 }
 
 const DEFAULT_ANALYZER_CONFIG: AnalyzerConfig = {
@@ -1366,6 +1436,21 @@ export function AnalyzerConfigForm(props: { companyId: string; moduleId: string 
           <option value="verify_loopback">Verify loopback</option>
         </select>
       </label>
+      {config.hubFeedClass && (
+        <div className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface-0)] px-2 py-1.5 text-[10px] text-[var(--color-ink-dim)]">
+          <p className="font-medium uppercase tracking-wider">Hub feed (D-216)</p>
+          <p>
+            Class: <span className="text-[var(--color-ink)]">{config.hubFeedClass}</span>
+            {config.hubShelfOrigin ? ` · ${config.hubShelfOrigin}` : ''}
+            {config.hubShelfStream ? ` / ${config.hubShelfStream}` : ''}
+          </p>
+          {config.targetLibraryModuleId && (
+            <p className="truncate font-mono text-[8px] text-[var(--color-ink-faint)]">
+              Hub module: {config.targetLibraryModuleId}
+            </p>
+          )}
+        </div>
+      )}
       <label className="block space-y-1">
         <span className="text-[10px] text-[var(--color-ink-dim)]">Stream descriptor</span>
         <input

@@ -197,7 +197,8 @@
   per execution engine — compound resource surface in the research→exec gap; Library/Data views nest
   in-family libraries under the hub via `parent_hub_library_id`; shelves organize by origin×stream;
   optional per-shelf `data_out`; live topic feed; hub→exec and research→exec
-  I/O are **ENGINE utility** edges only (no hub `module_links`). Families stack vertically.
+  I/O are **ENGINE utility** edges only (no hub `module_links`). Inspector exposes
+  topic-feed toggle + per-shelf out enables (D-216). Families stack vertically.
   Engine motherboard utility handles use **nature-colored** outward labels
   (data / time / fund / system). Subtype chips cover library class, venue, trend posture,
   analyzer emitMode, policy envelope (fund_router prefers envelope over approval mode),

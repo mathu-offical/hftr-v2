@@ -198,11 +198,14 @@ export const engineUtilityLinks = pgTable(
   (t) => [
     index('engine_utility_links_company_idx').on(t.companyId),
     index('engine_utility_links_to_engine_idx').on(t.toEngineId),
-    uniqueIndex('engine_utility_links_bus_unique').on(
+    // D-216: include stream_id so one hub can publish multiple shelf outs on data_out.
+    // Expression uniqueness is enforced in migration 0047; Drizzle lists columns for docs.
+    uniqueIndex('engine_utility_links_bus_stream_unique').on(
       t.toEngineId,
       t.bus,
       t.fromEngineId,
       t.fromModuleId,
+      t.streamId,
     ),
   ],
 );

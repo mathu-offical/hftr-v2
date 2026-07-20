@@ -49,23 +49,13 @@ export async function bindResearchPackToHub(
       cfg.targetLibraryIds = next;
     } else if (row.type === 'analyzer') {
       const parsed = AnalyzerModuleConfig.safeParse(cfg);
-      if (!parsed.success) continue;
-      if (parsed.data.emitMode !== 'to_library' && parsed.data.emitMode !== 'to_desk_stream') {
-        continue;
-      }
-      const existing = Array.isArray(cfg.targetLibraryIds)
-        ? (cfg.targetLibraryIds as string[])
-        : [];
-      const next = mergeTargetLibraryIds(existing, hubLibraryId);
-      if (parsed.data.emitMode === 'to_library' && hubModuleId) {
-        if (parsed.data.targetLibraryModuleId === hubModuleId && next.length === existing.length) {
-          continue;
-        }
+      if (!parsed.success || parsed.data.emitMode !== 'to_library') continue;
+      if (hubModuleId && parsed.data.targetLibraryModuleId === hubModuleId) continue;
+      if (hubModuleId) {
         cfg.targetLibraryModuleId = hubModuleId;
-      } else if (next.length === existing.length) {
+      } else {
         continue;
       }
-      cfg.targetLibraryIds = next;
     } else {
       continue;
     }

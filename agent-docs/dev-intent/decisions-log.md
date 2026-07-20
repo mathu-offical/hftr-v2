@@ -2153,7 +2153,9 @@ Dated record of user decisions, clarifications, and open questions. IDs are stab
   with dual analyzers (`hubFeedClass` direct + analyzed) optimized for both feeds.
   Numeric shelf = ValueRefs only (D-008). Extends D-140 / D-159 / D-168 / D-189 / D-191.
   Spec: `docs/superpowers/specs/2026-07-20-engine-data-hub-compound-shelves-design.md`.
-  **Status: implementing.**
+  Follow-up: migration `0047` shelf stream unique index; `wireShelfOutputs`;
+  `bindSimAnalyzersToHub`; hub inspector shelf outs; sim-parent ensure on insert.
+  **Status: implemented (canvas IronBee pending).**
 
 - **D-212 (engine member lane-row hard bands, 2026-07-19):** `rankEngineMembers`
   treats `MODULE_LANE_ROW` as a hard vertical ordering constraint within a column

@@ -11,12 +11,14 @@ import {
   ENGINE_DATA_HUB_TOPIC_SCOPE,
   engineCreateSection,
   getEngineTemplateById,
+  hubShelfStreamId,
   isEngineDataHubConfig,
   mergeEngineDataHubCompoundConfig,
   placeDataHubOrigin,
   researchDependenciesForExecutionEngine,
   type EngineDataHubCompoundConfig,
 } from '@hftr/contracts';
+import { bindSimAnalyzersToHub } from './sim-hub-bind';
 
 export type EnsureEngineDataHubResult = {
   created: boolean;
@@ -190,6 +192,8 @@ export async function ensureEngineDataHub(
   const nestedModuleIds = await syncDataHubNests(db, companyId, engineId, hubLibraryId, hubModuleId, now);
   const linkCount = await wireDataHubLinks(db, companyId, engineId, hubModuleId, nestedModuleIds, now);
   await mirrorResearchTargetsToHub(db, companyId, engineId, hubLibraryId, now);
+  await bindSimAnalyzersToHub(db, companyId, engineId, hubModuleId, now);
+  await wireShelfOutputs(db, companyId, engineId, hubModuleId, now);
 
   return { created, hubModuleId, hubLibraryId, nestedModuleIds, linkCount };
 }
@@ -403,6 +407,97 @@ export async function wireDataHubLinks(
     .returning({ id: engineUtilityLinks.id });
 
   return row ? 1 : 0;
+}
+
+/**
+ * D-216: sync enabled hub shelfOutputs to motherboard data_out utility links
+ * (streamId = shelf:{origin}:{stream}). Disabled shelves remove matching links.
+ */
+export async function wireShelfOutputs(
+  db: Db,
+  companyId: string,
+  engineId: string,
+  hubModuleId: string,
+  now = new Date(),
+): Promise<number> {
+  const [hubMod] = await db
+    .select({ config: modules.config })
+    .from(modules)
+    .where(eq(modules.id, hubModuleId))
+    .limit(1);
+  if (!hubMod || !isEngineDataHubConfig((hubMod.config ?? {}) as Record<string, unknown>)) {
+    return 0;
+  }
+
+  const cfg = (hubMod.config ?? {}) as Record<string, unknown>;
+  const priorPartial: Parameters<typeof mergeEngineDataHubCompoundConfig>[0] = {};
+  if (Array.isArray(cfg.shelves)) {
+    priorPartial.shelves = cfg.shelves as EngineDataHubCompoundConfig['shelves'];
+  }
+  if (Array.isArray(cfg.shelfOutputs)) {
+    priorPartial.shelfOutputs = cfg.shelfOutputs as EngineDataHubCompoundConfig['shelfOutputs'];
+  }
+  if (cfg.topicFeed && typeof cfg.topicFeed === 'object') {
+    priorPartial.topicFeed = cfg.topicFeed as EngineDataHubCompoundConfig['topicFeed'];
+  }
+  const compound = mergeEngineDataHubCompoundConfig(priorPartial);
+  const enabled = compound.shelfOutputs.filter((out) => out.enabled);
+  const enabledIds = new Set(
+    enabled.map((out) => out.streamId?.trim() || hubShelfStreamId(out.origin, out.stream)),
+  );
+
+  const existingShelfLinks = await db
+    .select({
+      id: engineUtilityLinks.id,
+      streamId: engineUtilityLinks.streamId,
+    })
+    .from(engineUtilityLinks)
+    .where(
+      and(
+        eq(engineUtilityLinks.companyId, companyId),
+        eq(engineUtilityLinks.toEngineId, engineId),
+        eq(engineUtilityLinks.bus, 'data_out'),
+        eq(engineUtilityLinks.fromModuleId, hubModuleId),
+      ),
+    );
+
+  let touched = 0;
+  for (const link of existingShelfLinks) {
+    const sid = link.streamId ?? '';
+    if (!sid.startsWith('shelf:')) continue;
+    if (enabledIds.has(sid)) continue;
+    await db.delete(engineUtilityLinks).where(eq(engineUtilityLinks.id, link.id));
+    touched += 1;
+  }
+
+  for (const out of enabled) {
+    const streamId = out.streamId?.trim() || hubShelfStreamId(out.origin, out.stream);
+    const streamDescriptor =
+      out.streamDescriptor?.trim() ||
+      `${out.origin} · ${out.stream}`;
+    const match = existingShelfLinks.find((l) => l.streamId === streamId);
+    if (match) {
+      await db
+        .update(engineUtilityLinks)
+        .set({ streamDescriptor, updatedAt: now })
+        .where(eq(engineUtilityLinks.id, match.id));
+      touched += 1;
+      continue;
+    }
+    await db.insert(engineUtilityLinks).values({
+      companyId,
+      toEngineId: engineId,
+      bus: 'data_out',
+      fromEngineId: null,
+      fromModuleId: hubModuleId,
+      streamId,
+      streamDescriptor,
+      updatedAt: now,
+    });
+    touched += 1;
+  }
+
+  return touched;
 }
 
 /** Ensure research modules in the family list the hub in targetLibraryIds (hydration). */

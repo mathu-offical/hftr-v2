@@ -132,7 +132,10 @@ All JSONB payloads have a Zod schema in `packages/contracts` and a `schema_versi
   `shelfOutputs` (per-shelf `data_out` + `shelf:{origin}:{stream}` streamId), and
   `topicFeed.enabled` (live topic auto-feed, default true). Numeric/capital shelf content
   is ValueRef-only; semantic topics may be auto-created from analyzed analyzer concat.
-  Implemented (migration `0012` + `0046`).
+  Utility uniqueness includes `stream_id` (migration `0047`) so multiple shelf outs can
+  coexist from one hub module. Child sim analyzers with `hubFeedClass` bind to the parent
+  hub via `bindSimAnalyzersToHub`.
+  Implemented (migration `0012` + `0046` + `0047`).
   **library_concepts** join (library_id, concept_id, curation_status
   `proposed|accepted|auto_admitted|rejected|archived`). **D-040:** primary library membership
   drives hard nested galaxy nests; secondary memberships are badges, not duplicate nodes.

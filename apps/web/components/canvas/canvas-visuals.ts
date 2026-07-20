@@ -301,6 +301,9 @@ export function portRoleLabel(
       }
       if (type === 'analyzer') {
         if (direction === 'in') return 'Observe';
+        const feed = config?.hubFeedClass;
+        if (feed === 'direct') return 'Hub direct';
+        if (feed === 'analyzed') return 'Hub analyzed';
         const emit = config?.emitMode;
         if (emit === 'verify_loopback') return 'ExecMon';
         if (emit === 'to_desk_stream') return 'Desk out';
@@ -437,6 +440,9 @@ export function moduleSubtypeChip(
       break;
     }
     case 'analyzer': {
+      const hubFeed = cfg.hubFeedClass;
+      if (hubFeed === 'direct') return 'Hub direct';
+      if (hubFeed === 'analyzed') return 'Hub analyzed';
       const emitMode = cfg.emitMode;
       if (emitMode === 'verify_loopback') return 'Exec monitor';
       if (emitMode === 'to_desk_stream') return 'Desk stream';

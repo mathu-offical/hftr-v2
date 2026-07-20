@@ -252,6 +252,7 @@ export {
   ensureEngineDataHub,
   syncDataHubNests,
   wireDataHubLinks,
+  wireShelfOutputs,
   cleanupEngineDataHub,
   type EnsureEngineDataHubResult,
 } from './engines/data-hub';
@@ -261,6 +262,11 @@ export {
   type IngestHubTopicCandidateInput,
   type IngestHubTopicCandidateResult,
 } from './engines/data-hub-topic-feed';
+
+export {
+  bindSimAnalyzersToHub,
+  type BindSimAnalyzersToHubResult,
+} from './engines/sim-hub-bind';
 
 export {
   bindResearchPackToHub,

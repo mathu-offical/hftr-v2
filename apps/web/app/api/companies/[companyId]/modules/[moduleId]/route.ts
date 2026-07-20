@@ -1,6 +1,8 @@
 import { and, eq, or } from 'drizzle-orm';
 import { z } from 'zod';
 import {
+  isEngineDataHubConfig,
+  mergeEngineDataHubCompoundConfig,
   missingModuleSetupFields,
   MODULE_CONFIG_SCHEMAS,
   UpdateModuleInput,
@@ -13,6 +15,7 @@ import {
   activationGraphBlockers,
   createSystemClock,
   ensureResearchCadenceSchedule,
+  wireShelfOutputs,
 } from '@hftr/engine';
 import { ApiError, parseBody, withAuth } from '@/lib/api';
 import {
@@ -130,10 +133,34 @@ export async function PATCH(req: Request, ctx: Ctx) {
       patch.engineInstanceId = input.engineInstanceId;
     }
 
-    const config =
+    let config =
       input.config !== undefined
         ? MODULE_CONFIG_SCHEMAS[existing.type].parse(input.config)
         : (existing.config as Record<string, unknown>);
+    if (
+      existing.type === 'library' &&
+      input.config !== undefined &&
+      isEngineDataHubConfig(config as Record<string, unknown>)
+    ) {
+      const cfg = config as Record<string, unknown>;
+      const priorPartial: Parameters<typeof mergeEngineDataHubCompoundConfig>[0] = {};
+      if (Array.isArray(cfg.shelves)) {
+        priorPartial.shelves = cfg.shelves as never;
+      }
+      if (Array.isArray(cfg.shelfOutputs)) {
+        priorPartial.shelfOutputs = cfg.shelfOutputs as never;
+      }
+      if (cfg.topicFeed && typeof cfg.topicFeed === 'object') {
+        priorPartial.topicFeed = cfg.topicFeed as never;
+      }
+      const compound = mergeEngineDataHubCompoundConfig(priorPartial);
+      config = {
+        ...cfg,
+        shelves: compound.shelves,
+        shelfOutputs: compound.shelfOutputs,
+        topicFeed: compound.topicFeed,
+      };
+    }
     if (input.config !== undefined) patch.config = config;
 
     if (input.restoreEngineTopic === true) {
@@ -206,6 +233,22 @@ export async function PATCH(req: Request, ctx: Ctx) {
         cadenceMinutes,
         topicScope: cfg.topicScope ?? cfg.focus ?? '',
       });
+    }
+
+    // D-216: hub shelfOutputs toggles sync motherboard data_out streams.
+    if (
+      moduleRow.type === 'library' &&
+      input.config !== undefined &&
+      isEngineDataHubConfig((moduleRow.config ?? {}) as Record<string, unknown>)
+    ) {
+      const ownerId = (moduleRow.config as { ownerEngineInstanceId?: string }).ownerEngineInstanceId;
+      if (ownerId) {
+        try {
+          await wireShelfOutputs(db, companyId, ownerId, moduleId);
+        } catch (err) {
+          console.error('wireShelfOutputs failed on hub PATCH', moduleId, err);
+        }
+      }
     }
 
     return { module: moduleRow };

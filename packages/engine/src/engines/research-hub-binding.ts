@@ -40,7 +40,7 @@ export async function applyResearchLibraryBindingOnInsert(
   now = new Date(),
 ): Promise<BindResearchEngineResult> {
   const binding = resolveResearchLibraryBindingForInsert({
-    explicit: explicitBinding,
+    ...(explicitBinding !== undefined ? { explicit: explicitBinding } : {}),
     researchTemplateId,
     existingEngines,
   });
@@ -58,12 +58,13 @@ export async function applyResearchLibraryBindingOnInsert(
         now,
       );
     case 'attach_execution': {
+      const resolved = resolveResearchLibraryBindingForInsert({
+        researchTemplateId,
+        existingEngines,
+      });
       const parentId =
         binding.engineInstanceId ??
-        resolveResearchLibraryBindingForInsert({
-          researchTemplateId,
-          existingEngines,
-        }).engineInstanceId;
+        (resolved.mode === 'attach_execution' ? resolved.engineInstanceId : undefined);
       if (!parentId) return { updatedModuleIds: [] };
       const hub = await ensureEngineDataHub(db, companyId, parentId, now);
       if (!hub.hubLibraryId) return { updatedModuleIds: [] };

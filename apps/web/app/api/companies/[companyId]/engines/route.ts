@@ -432,6 +432,22 @@ export async function POST(req: Request, ctx: Ctx) {
 
     const dataHub = await ensureEngineDataHub(db, companyId, engineRow.id);
 
+    // D-216: linked sim insert rebinds dual analyzers onto the parent Engine Data Hub.
+    if (
+      engineCreateSection(engine) === 'simulation' &&
+      input.simulationBinding?.parentExecutionEngineId
+    ) {
+      try {
+        await ensureEngineDataHub(
+          db,
+          companyId,
+          input.simulationBinding.parentExecutionEngineId,
+        );
+      } catch (err) {
+        console.error('ensureEngineDataHub failed on sim-parent bind', err);
+      }
+    }
+
     // D-153: when a research pack lands, re-nest/wire Data Hubs on execution engines that declare it.
     if (engineCreateSection(engine) === 'research') {
       const peers = await scoping.listEngineInstances(db, clerkUserId, companyId);

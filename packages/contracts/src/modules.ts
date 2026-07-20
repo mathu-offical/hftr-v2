@@ -1388,6 +1388,15 @@ export function moduleFunctionLabel(type: ModuleType, config?: unknown): string 
     case 'simulator':
       return 'Sim';
     case 'analyzer': {
+      const feed = AnalyzerHubFeedClass.safeParse(cfg.hubFeedClass);
+      if (feed.success) {
+        switch (feed.data) {
+          case 'direct':
+            return 'HubDirect';
+          case 'analyzed':
+            return 'HubAnalyzed';
+        }
+      }
       const mode = AnalyzerEmitMode.safeParse(cfg.emitMode);
       if (!mode.success) return 'ExecMon';
       switch (mode.data) {
